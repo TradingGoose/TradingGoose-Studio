@@ -1,0 +1,982 @@
+---
+title: SFTP
+description: 通过 SFTP（SSH 文件传输协议）传输文件
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="sftp"
+  color=""
+/>
+
+## 配置
+
+### 上传文件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SFTP"
+    type="sftp"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "sftp_upload",
+            "options": [
+                {
+                    "id": "sftp_upload",
+                    "label": "上传文件"
+                },
+                {
+                    "id": "sftp_create",
+                    "label": "创建文件"
+                },
+                {
+                    "id": "sftp_download",
+                    "label": "下载文件"
+                },
+                {
+                    "id": "sftp_list",
+                    "label": "列出目录"
+                },
+                {
+                    "id": "sftp_delete",
+                    "label": "删除文件/目录"
+                },
+                {
+                    "id": "sftp_mkdir",
+                    "label": "创建目录"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "SFTP 主机",
+            "placeholder": "sftp.example.com 或 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "SFTP 端口",
+            "placeholder": "22",
+            "defaultValue": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "sftp-user",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "认证方式",
+            "defaultValue": "password",
+            "options": [
+                {
+                    "id": "password",
+                    "label": "密码"
+                },
+                {
+                    "id": "privateKey",
+                    "label": "私钥"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "你的 SFTP 密码",
+            "password": true,
+            "description": "当 authMethod 为 'password' 时显示。"
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "私钥",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
+            "language": "plaintext",
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "密码短语",
+            "placeholder": "加密密钥的密码短语（可选）",
+            "password": true,
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "remotePath",
+            "type": "short-input",
+            "title": "远程路径",
+            "placeholder": "/home/user/uploads",
+            "required": true
+        },
+        {
+            "id": "uploadFiles",
+            "type": "file-upload",
+            "title": "要上传的文件",
+            "placeholder": "选择要上传的文件",
+            "required": false
+        },
+        {
+            "id": "files",
+            "type": "short-input",
+            "title": "文件引用",
+            "placeholder": "引用上一个块中的文件（例如：{{block_name.file}}）",
+            "required": false
+        },
+        {
+            "id": "overwrite",
+            "type": "switch",
+            "title": "覆盖现有文件",
+            "defaultValue": true
+        },
+        {
+            "id": "permissions",
+            "type": "short-input",
+            "title": "文件权限",
+            "placeholder": "0644"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">上传文件（<code>sftp_upload</code>）</div>
+
+将文件上传到远程 SFTP 服务器
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | 是 | SFTP 服务器主机名或 IP 地址 |
+| `port` | number | 是 | SFTP 服务器端口 \(默认：22\) |
+| `username` | string | 是 | SFTP 用户名 |
+| `password` | string | 否 | 用于身份验证的密码 \(不使用私钥时\) |
+| `privateKey` | string | 否 | 用于身份验证的私钥 \(OpenSSH 格式\) |
+| `passphrase` | string | 否 | 加密私钥的密码短语 |
+| `remotePath` | string | 是 | 远程服务器上的目标目录 |
+| `files` | file[] | 否 | 要上传的文件 |
+| `fileContent` | string | 否 | 直接上传的文件内容 \(用于文本文件\) |
+| `fileName` | string | 否 | 使用直接内容时的文件名 |
+| `overwrite` | boolean | 否 | 是否覆盖已有文件 \(默认：true\) |
+| `permissions` | string | 否 | 文件权限 \(例如 0644\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 上传是否成功 |
+| `uploadedFiles` | json | 已上传文件详情数组 \(name、remotePath、size\) |
+| `message` | string | 操作状态消息 |
+
+</div>
+
+---
+
+### 创建文件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SFTP"
+    type="sftp"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "sftp_create",
+            "options": [
+                {
+                    "id": "sftp_upload",
+                    "label": "上传文件"
+                },
+                {
+                    "id": "sftp_create",
+                    "label": "创建文件"
+                },
+                {
+                    "id": "sftp_download",
+                    "label": "下载文件"
+                },
+                {
+                    "id": "sftp_list",
+                    "label": "列出目录"
+                },
+                {
+                    "id": "sftp_delete",
+                    "label": "删除文件/目录"
+                },
+                {
+                    "id": "sftp_mkdir",
+                    "label": "创建目录"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "SFTP 主机",
+            "placeholder": "sftp.example.com 或 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "SFTP 端口",
+            "placeholder": "22",
+            "defaultValue": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "sftp-user",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "认证方法",
+            "defaultValue": "password",
+            "options": [
+                {
+                    "id": "password",
+                    "label": "密码"
+                },
+                {
+                    "id": "privateKey",
+                    "label": "私钥"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "你的 SFTP 密码",
+            "password": true,
+            "description": "当 authMethod 为 'password' 时显示。"
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "私钥",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "口令",
+            "placeholder": "加密密钥的口令（可选）",
+            "password": true,
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "remotePath",
+            "type": "short-input",
+            "title": "远程路径",
+            "placeholder": "/home/user/uploads",
+            "required": true
+        },
+        {
+            "id": "overwrite",
+            "type": "switch",
+            "title": "覆盖现有文件",
+            "defaultValue": true
+        },
+        {
+            "id": "permissions",
+            "type": "short-input",
+            "title": "文件权限",
+            "placeholder": "0644"
+        },
+        {
+            "id": "fileName",
+            "type": "short-input",
+            "title": "文件名",
+            "placeholder": "filename.txt",
+            "required": true
+        },
+        {
+            "id": "fileContent",
+            "type": "code",
+            "title": "文件内容",
+            "placeholder": "要写入文件的文本内容",
+            "language": "plaintext",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建文件 (<code>sftp_upload</code>)</div>
+
+将文件上传到远程 SFTP 服务器
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | 是 | SFTP 服务器主机名或 IP 地址 |
+| `port` | number | 是 | SFTP 服务器端口 \(默认值：22\) |
+| `username` | string | 是 | SFTP 用户名 |
+| `password` | string | 否 | 用于身份验证的密码 \(如果未使用私钥\) |
+| `privateKey` | string | 否 | 用于身份验证的私钥 \(OpenSSH 格式\) |
+| `passphrase` | string | 否 | 加密私钥的口令 |
+| `remotePath` | string | 是 | 远程服务器上的目标目录 |
+| `files` | file[] | 否 | 要上传的文件 |
+| `fileContent` | string | 否 | 直接上传的文件内容 \(用于文本文件\) |
+| `fileName` | string | 否 | 使用直接内容时的文件名 |
+| `overwrite` | boolean | 否 | 是否覆盖现有文件 \(默认值：true\) |
+| `permissions` | string | 否 | 文件权限 \(例如：0644\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 上传是否成功 |
+| `uploadedFiles` | json | 已上传文件的详细信息数组 \(name, remotePath, size\) |
+| `message` | string | 操作状态消息 |
+
+</div>
+
+---
+
+### 下载文件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SFTP"
+    type="sftp"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "sftp_download",
+            "options": [
+                {
+                    "id": "sftp_upload",
+                    "label": "上传文件"
+                },
+                {
+                    "id": "sftp_create",
+                    "label": "创建文件"
+                },
+                {
+                    "id": "sftp_download",
+                    "label": "下载文件"
+                },
+                {
+                    "id": "sftp_list",
+                    "label": "列出目录"
+                },
+                {
+                    "id": "sftp_delete",
+                    "label": "删除文件/目录"
+                },
+                {
+                    "id": "sftp_mkdir",
+                    "label": "创建目录"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "SFTP 主机",
+            "placeholder": "sftp.example.com 或 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "SFTP 端口",
+            "placeholder": "22",
+            "defaultValue": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "sftp-user",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "身份验证方式",
+            "defaultValue": "password",
+            "options": [
+                {
+                    "id": "password",
+                    "label": "密码"
+                },
+                {
+                    "id": "privateKey",
+                    "label": "私钥"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "您的 SFTP 密码",
+            "password": true,
+            "description": "当 authMethod 为 'password' 时显示。"
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "私钥",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "密码短语",
+            "placeholder": "加密密钥的密码短语（可选）",
+            "password": true,
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "remotePath",
+            "type": "short-input",
+            "title": "远程路径",
+            "placeholder": "/home/user/uploads",
+            "required": true
+        },
+        {
+            "id": "encoding",
+            "type": "dropdown",
+            "title": "输出编码",
+            "defaultValue": "utf-8",
+            "options": [
+                {
+                    "id": "utf-8",
+                    "label": "UTF-8（文本）"
+                },
+                {
+                    "id": "base64",
+                    "label": "Base64（二进制）"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">下载文件（<code>sftp_download</code>）</div>
+
+从远程 SFTP 服务器下载文件
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | 是 | SFTP 服务器主机名或 IP 地址 |
+| `port` | number | 是 | SFTP 服务器端口 \(默认：22\) |
+| `username` | string | 是 | SFTP 用户名 |
+| `password` | string | 否 | 用于身份验证的密码 \(如果不使用私钥\) |
+| `privateKey` | string | 否 | 用于身份验证的私钥 \(OpenSSH 格式\) |
+| `passphrase` | string | 否 | 加密私钥的密码短语 |
+| `remotePath` | string | 是 | 远程服务器上的文件路径 |
+| `encoding` | string | 否 | 输出编码：文本使用 utf-8，二进制使用 base64 \(默认：utf-8\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 下载是否成功 |
+| `fileName` | string | 下载文件的名称 |
+| `content` | string | 文件内容 \(文本或 base64 编码\) |
+| `size` | number | 文件大小（字节） |
+| `encoding` | string | 内容编码 \(utf-8 或 base64\) |
+| `message` | string | 操作状态消息 |
+
+</div>
+
+---
+
+### 列出目录
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SFTP"
+    type="sftp"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "sftp_list",
+            "options": [
+                {
+                    "id": "sftp_upload",
+                    "label": "上传文件"
+                },
+                {
+                    "id": "sftp_create",
+                    "label": "创建文件"
+                },
+                {
+                    "id": "sftp_download",
+                    "label": "下载文件"
+                },
+                {
+                    "id": "sftp_list",
+                    "label": "列出目录"
+                },
+                {
+                    "id": "sftp_delete",
+                    "label": "删除文件/目录"
+                },
+                {
+                    "id": "sftp_mkdir",
+                    "label": "创建目录"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "SFTP 主机",
+            "placeholder": "sftp.example.com 或 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "SFTP 端口",
+            "placeholder": "22",
+            "defaultValue": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "sftp-user",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "认证方法",
+            "defaultValue": "password",
+            "options": [
+                {
+                    "id": "password",
+                    "label": "密码"
+                },
+                {
+                    "id": "privateKey",
+                    "label": "私钥"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "您的 SFTP 密码",
+            "password": true,
+            "description": "当 authMethod 为 'password' 时显示。"
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "私钥",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "密码短语",
+            "placeholder": "加密密钥的密码短语（可选）",
+            "password": true,
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "remotePath",
+            "type": "short-input",
+            "title": "远程路径",
+            "placeholder": "/home/user/uploads",
+            "required": true
+        },
+        {
+            "id": "detailed",
+            "type": "switch",
+            "title": "显示详细信息",
+            "defaultValue": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出目录 (<code>sftp_list</code>)</div>
+
+列出远程 SFTP 服务器上的文件和目录
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | 是 | SFTP 服务器主机名或 IP 地址 |
+| `port` | number | 是 | SFTP 服务器端口 \(默认: 22\) |
+| `username` | string | 是 | SFTP 用户名 |
+| `password` | string | 否 | 用于身份验证的密码 \(如果未使用私钥\) |
+| `privateKey` | string | 否 | 用于身份验证的私钥 \(OpenSSH 格式\) |
+| `passphrase` | string | 否 | 加密私钥的密码短语 |
+| `remotePath` | string | 是 | 远程服务器上的目录路径 |
+| `detailed` | boolean | 否 | 包含详细的文件信息 \(大小、权限、修改日期\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作是否成功 |
+| `path` | string | 已列出的目录路径 |
+| `entries` | json | 目录条目数组，包含名称、类型、大小、权限、修改时间 |
+| `count` | number | 目录中的条目数量 |
+| `message` | string | 操作状态消息 |
+
+</div>
+
+---
+
+### 删除文件/目录
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SFTP"
+    type="sftp"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "sftp_delete",
+            "options": [
+                {
+                    "id": "sftp_upload",
+                    "label": "上传文件"
+                },
+                {
+                    "id": "sftp_create",
+                    "label": "创建文件"
+                },
+                {
+                    "id": "sftp_download",
+                    "label": "下载文件"
+                },
+                {
+                    "id": "sftp_list",
+                    "label": "列出目录"
+                },
+                {
+                    "id": "sftp_delete",
+                    "label": "删除文件/目录"
+                },
+                {
+                    "id": "sftp_mkdir",
+                    "label": "创建目录"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "SFTP 主机",
+            "placeholder": "sftp.example.com 或 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "SFTP 端口",
+            "placeholder": "22",
+            "defaultValue": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "sftp-user",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "认证方式",
+            "defaultValue": "password",
+            "options": [
+                {
+                    "id": "password",
+                    "label": "密码"
+                },
+                {
+                    "id": "privateKey",
+                    "label": "私钥"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "您的 SFTP 密码",
+            "password": true,
+            "description": "当 authMethod 为 'password' 时显示。"
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "私钥",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "密码短语",
+            "placeholder": "加密密钥的密码短语（可选）",
+            "password": true,
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "remotePath",
+            "type": "short-input",
+            "title": "远程路径",
+            "placeholder": "/home/user/uploads",
+            "required": true
+        },
+        {
+            "id": "recursive",
+            "type": "switch",
+            "title": "递归删除",
+            "defaultValue": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除文件/目录（<code>sftp_delete</code>）</div>
+
+删除远程 SFTP 服务器上的文件或目录
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | 字符串 | 是 | SFTP 服务器主机名或 IP 地址 |
+| `port` | 数字 | 是 | SFTP 服务器端口（默认：22） |
+| `username` | 字符串 | 是 | SFTP 用户名 |
+| `password` | 字符串 | 否 | 身份验证密码（未使用私钥时） |
+| `privateKey` | 字符串 | 否 | 身份验证私钥（OpenSSH 格式） |
+| `passphrase` | 字符串 | 否 | 加密私钥的密码短语 |
+| `remotePath` | 字符串 | 是 | 要删除的文件或目录路径 |
+| `recursive` | 布尔值 | 否 | 递归删除目录 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | 布尔值 | 删除是否成功 |
+| `deletedPath` | 字符串 | 已删除的路径 |
+| `message` | 字符串 | 操作状态消息 |
+
+</div>
+
+---
+
+### 创建目录
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SFTP"
+    type="sftp"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "sftp_mkdir",
+            "options": [
+                {
+                    "id": "sftp_upload",
+                    "label": "上传文件"
+                },
+                {
+                    "id": "sftp_create",
+                    "label": "创建文件"
+                },
+                {
+                    "id": "sftp_download",
+                    "label": "下载文件"
+                },
+                {
+                    "id": "sftp_list",
+                    "label": "列出目录"
+                },
+                {
+                    "id": "sftp_delete",
+                    "label": "删除文件/目录"
+                },
+                {
+                    "id": "sftp_mkdir",
+                    "label": "创建目录"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "SFTP 主机",
+            "placeholder": "sftp.example.com 或 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "SFTP 端口",
+            "placeholder": "22",
+            "defaultValue": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "sftp-user",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "认证方式",
+            "defaultValue": "password",
+            "options": [
+                {
+                    "id": "password",
+                    "label": "密码"
+                },
+                {
+                    "id": "privateKey",
+                    "label": "私钥"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "你的 SFTP 密码",
+            "password": true,
+            "description": "当 authMethod 为 'password' 时显示。"
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "私钥",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "密码短语",
+            "placeholder": "加密密钥的密码短语（可选）",
+            "password": true,
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "remotePath",
+            "type": "short-input",
+            "title": "远程路径",
+            "placeholder": "/home/user/uploads",
+            "required": true
+        },
+        {
+            "id": "mkdirRecursive",
+            "type": "switch",
+            "title": "创建父目录",
+            "defaultValue": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建目录 (<code>sftp_mkdir</code>)</div>
+
+在远程 SFTP 服务器上创建目录
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | 是 | SFTP 服务器主机名或 IP 地址 |
+| `port` | number | 是 | SFTP 服务器端口 \(默认：22\) |
+| `username` | string | 是 | SFTP 用户名 |
+| `password` | string | 否 | 用于身份验证的密码 \(未使用私钥时\) |
+| `privateKey` | string | 否 | 用于身份验证的私钥 \(OpenSSH 格式\) |
+| `passphrase` | string | 否 | 加密私钥的密码短语 |
+| `remotePath` | string | 是 | 新目录的路径 |
+| `recursive` | boolean | 否 | 父目录不存在时创建父目录 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 目录是否创建成功 |
+| `createdPath` | string | 已创建目录的路径 |
+| `message` | string | 操作状态消息 |
+
+</div>
+
+---
+
+## 使用说明
+
+通过 SFTP 在远程服务器上上传、下载、列出和管理文件。支持密码和私钥两种身份验证方式，实现安全的文件传输。
+
+## 注意事项
+
+- 类别：`tools`
+- 类型：`sftp`

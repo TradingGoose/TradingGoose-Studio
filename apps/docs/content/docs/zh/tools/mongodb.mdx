@@ -32,7 +32,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "options": [
                 {
                     "id": "query",
-                    "label": "查找文档"
+                    "label": "查询文档"
                 },
                 {
                     "id": "insert",
@@ -57,7 +57,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "short-input",
             "title": "主机",
             "layout": "full",
-            "placeholder": "localhost 或 your.mongodb.host",
+            "placeholder": "localhost or your.mongodb.host",
             "required": true
         },
         {
@@ -90,7 +90,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "short-input",
             "title": "密码",
             "layout": "full",
-            "placeholder": "你的数据库密码",
+            "placeholder": "数据库密码",
             "password": true,
             "required": true
         },
@@ -208,7 +208,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "options": [
                 {
                     "id": "query",
-                    "label": "查询文档"
+                    "label": "查找文档"
                 },
                 {
                     "id": "insert",
@@ -233,7 +233,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "short-input",
             "title": "主机",
             "layout": "full",
-            "placeholder": "localhost 或 your.mongodb.host",
+            "placeholder": "localhost or your.mongodb.host",
             "required": true
         },
         {
@@ -250,7 +250,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "short-input",
             "title": "数据库名称",
             "layout": "full",
-            "placeholder": "您的数据库",
+            "placeholder": "your_database",
             "required": true
         },
         {
@@ -258,7 +258,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "short-input",
             "title": "用户名",
             "layout": "full",
-            "placeholder": "MongoDB 用户",
+            "placeholder": "mongodb_user",
             "required": true
         },
         {
@@ -266,7 +266,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "short-input",
             "title": "密码",
             "layout": "full",
-            "placeholder": "您的数据库密码",
+            "placeholder": "Your database password",
             "password": true,
             "required": true
         },
@@ -340,12 +340,12 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
-| 参数 | 类型 | 说明 |
+| 参数 | 类型 | 描述 |
 | --------- | ---- | ----------- |
 | `message` | string | 操作状态消息 |
 | `documentCount` | number | 插入的文档数量 |
-| `insertedId` | string | 插入文档的 ID \(单条插入\) |
-| `insertedIds` | array | 插入文档 ID 的数组 \(多条插入\) |
+| `insertedId` | string | 插入文档的 ID \(单次插入\) |
+| `insertedIds` | array | 插入的文档 ID 数组 \(多次插入\) |
 
 </div>
 
@@ -394,7 +394,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "short-input",
             "title": "主机",
             "layout": "full",
-            "placeholder": "localhost 或 your.mongodb.host",
+            "placeholder": "localhost or your.mongodb.host",
             "required": true
         },
         {
@@ -427,14 +427,14 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "short-input",
             "title": "密码",
             "layout": "full",
-            "placeholder": "你的数据库密码",
+            "placeholder": "Your database password",
             "password": true,
             "required": true
         },
         {
             "id": "authSource",
             "type": "short-input",
-            "title": "认证来源",
+            "title": "认证源",
             "layout": "full",
             "placeholder": "admin"
         },
@@ -447,7 +447,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "options": [
                 {
                     "id": "disabled",
-                    "label": "禁用"
+                    "label": "已禁用"
                 },
                 {
                     "id": "required",
@@ -479,7 +479,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "update",
             "type": "code",
-            "title": "更新 (JSON)",
+            "title": "更新内容 (JSON)",
             "layout": "full",
             "placeholder": "{\"$set\": {\"name\": \"Jane Doe\", \"email\": \"jane@example.com\"}}",
             "language": "json",
@@ -488,17 +488,17 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "upsert",
             "type": "dropdown",
-            "title": "Upsert",
+            "title": "更新插入",
             "layout": "full",
             "defaultValue": "false",
             "options": [
                 {
                     "id": "false",
-                    "label": "False"
+                    "label": "否"
                 },
                 {
                     "id": "true",
-                    "label": "True"
+                    "label": "是"
                 }
             ]
         },
@@ -511,11 +511,11 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "options": [
                 {
                     "id": "false",
-                    "label": "False"
+                    "label": "否"
                 },
                 {
                     "id": "true",
-                    "label": "True"
+                    "label": "是"
                 }
             ]
         }
@@ -549,11 +549,11 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 | 参数 | 类型 | 描述 |
 | --------- | ---- | ----------- |
-| `message` | string | 操作状态消息 |
-| `matchedCount` | number | 筛选匹配的文档数量 |
-| `modifiedCount` | number | 已修改的文档数量 |
-| `documentCount` | number | 受影响的文档总数 |
-| `insertedId` | string | 插入文档的 ID \(启用 upsert 时\) |
+| `message` | 字符串 | 操作状态消息 |
+| `matchedCount` | 数字 | 筛选器匹配的文档数量 |
+| `modifiedCount` | 数字 | 修改的文档数量 |
+| `documentCount` | 数字 | 受影响的文档总数 |
+| `insertedId` | 字符串 | 插入文档的 ID \(如果 upsert\) |
 
 </div>
 
@@ -602,7 +602,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "short-input",
             "title": "主机",
             "layout": "full",
-            "placeholder": "localhost or your.mongodb.host",
+            "placeholder": "localhost 或 your.mongodb.host",
             "required": true
         },
         {
@@ -678,7 +678,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "filter",
             "type": "code",
-            "title": "筛选条件 (JSON)",
+            "title": "筛选器 (JSON)",
             "layout": "full",
             "placeholder": "{\"status\": \"inactive\"}",
             "language": "json",
@@ -704,3 +704,204 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     ]}
   />
 </ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除文档(<code>mongodb_delete</code>)</div>
+
+从 MongoDB 集合中删除文档
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `host` | 字符串 | 是 | MongoDB 服务器主机名或 IP 地址 |
+| `port` | 数字 | 是 | MongoDB 服务器端口 \(默认：27017\) |
+| `database` | 字符串 | 是 | 要连接的数据库名称 |
+| `username` | 字符串 | 否 | MongoDB 用户名 |
+| `password` | 字符串 | 否 | MongoDB 密码 |
+| `authSource` | 字符串 | 否 | 认证数据库 |
+| `ssl` | 字符串 | 否 | SSL 连接模式 \(禁用、必需、首选\) |
+| `collection` | 字符串 | 是 | 要删除的集合名称 |
+| `filter` | 字符串 | 是 | 以 JSON 字符串表示的筛选条件 |
+| `multi` | 布尔值 | 否 | 删除多个文档 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `message` | 字符串 | 操作状态消息 |
+| `deletedCount` | 数字 | 已删除的文档数 |
+| `documentCount` | 数字 | 受影响的文档总数 |
+
+</div>
+
+---
+
+### 聚合管道
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="MongoDB"
+    type="mongodb"
+    color="#00684A"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "execute",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "查找文档"
+                },
+                {
+                    "id": "insert",
+                    "label": "插入文档"
+                },
+                {
+                    "id": "update",
+                    "label": "更新文档"
+                },
+                {
+                    "id": "delete",
+                    "label": "删除文档"
+                },
+                {
+                    "id": "execute",
+                    "label": "聚合管道"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "layout": "full",
+            "placeholder": "localhost 或 your.mongodb.host",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "layout": "full",
+            "placeholder": "27017",
+            "required": true,
+            "defaultValue": "27017"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "数据库名称",
+            "layout": "full",
+            "placeholder": "您的数据库",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "layout": "full",
+            "placeholder": "mongodb_user",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "layout": "full",
+            "placeholder": "您的数据库密码",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "authSource",
+            "type": "short-input",
+            "title": "认证来源",
+            "layout": "full",
+            "placeholder": "admin"
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "SSL 模式",
+            "layout": "full",
+            "defaultValue": "preferred",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "禁用"
+                },
+                {
+                    "id": "required",
+                    "label": "必需"
+                },
+                {
+                    "id": "preferred",
+                    "label": "首选"
+                }
+            ]
+        },
+        {
+            "id": "collection",
+            "type": "short-input",
+            "title": "集合名称",
+            "layout": "full",
+            "placeholder": "users",
+            "required": true
+        },
+        {
+            "id": "pipeline",
+            "type": "code",
+            "title": "聚合管道（JSON 数组）",
+            "layout": "full",
+            "placeholder": "[{\"$group\": {\"_id\": \"$status\", \"count\": {\"$sum\": 1}}}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">聚合管道（<code>mongodb_execute</code>）</div>
+
+执行 MongoDB 聚合管道
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | 字符串 | 是 | MongoDB 服务器主机名或 IP 地址 |
+| `port` | 数字 | 是 | MongoDB 服务器端口 \(默认：27017\) |
+| `database` | 字符串 | 是 | 要连接的数据库名称 |
+| `username` | 字符串 | 否 | MongoDB 用户名 |
+| `password` | 字符串 | 否 | MongoDB 密码 |
+| `authSource` | 字符串 | 否 | 认证数据库 |
+| `ssl` | 字符串 | 否 | SSL 连接模式 \(disabled, required, preferred\) |
+| `collection` | 字符串 | 是 | 执行管道所用的集合名称 |
+| `pipeline` | 字符串 | 是 | JSON 字符串形式的聚合管道 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | 字符串 | 操作状态消息 |
+| `documents` | 数组 | 聚合返回的文档数组 |
+| `documentCount` | 数字 | 返回的文档数量 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 MongoDB 集成到工作流中。可查找、插入、更新、删除和聚合数据。
+
+## 说明
+
+- 类别：`tools`
+- 类型：`mongodb`

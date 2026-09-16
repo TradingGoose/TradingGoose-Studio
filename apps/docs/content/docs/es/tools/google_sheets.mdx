@@ -1,0 +1,493 @@
+---
+title: Google Sheets
+description: Leer, escribir y actualizar datos
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="google_sheets"
+  color="#34A853"
+/>
+
+## Configuración
+
+### Leer datos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Sheets"
+    type="google_sheets"
+    color="#34A853"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "read",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "Leer datos"
+                },
+                {
+                    "id": "write",
+                    "label": "Escribir datos"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar datos"
+                },
+                {
+                    "id": "append",
+                    "label": "Añadir datos"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google",
+            "layout": "full",
+            "placeholder": "Selecciona una cuenta de Google",
+            "provider": "google-sheets",
+            "required": true
+        },
+        {
+            "id": "spreadsheetId",
+            "type": "file-selector",
+            "title": "Seleccionar hoja",
+            "layout": "full",
+            "placeholder": "Selecciona una hoja de cálculo",
+            "provider": "google-drive"
+        },
+        {
+            "id": "manualSpreadsheetId",
+            "type": "short-input",
+            "title": "ID de la hoja de cálculo",
+            "layout": "full",
+            "placeholder": "ID de la hoja de cálculo (desde la URL)"
+        },
+        {
+            "id": "range",
+            "type": "short-input",
+            "title": "Rango",
+            "layout": "full",
+            "placeholder": "Nombre de la hoja y rango de celdas (p. ej., Sheet1!A1:D10)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Leer datos (<code>google_sheets_read</code>)</div>
+
+Leer datos de una hoja de cálculo de Google Sheets
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `spreadsheetId` | string | Sí | El ID de la hoja de cálculo desde la que se leerá |
+| `range` | string | No | El rango de celdas que se leerá |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `data` | json | Datos de la hoja, incluidos el rango y los valores de las celdas |
+| `metadata` | json | Metadatos de la hoja de cálculo, incluidos el ID y la URL |
+
+</div>
+
+---
+
+### Escribir datos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Sheets"
+    type="google_sheets"
+    color="#34A853"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "write",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "Leer datos"
+                },
+                {
+                    "id": "write",
+                    "label": "Escribir datos"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar datos"
+                },
+                {
+                    "id": "append",
+                    "label": "Añadir datos"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Google",
+            "provider": "google-sheets",
+            "required": true
+        },
+        {
+            "id": "spreadsheetId",
+            "type": "file-selector",
+            "title": "Seleccionar hoja",
+            "layout": "full",
+            "placeholder": "Seleccionar una hoja de cálculo",
+            "provider": "google-drive"
+        },
+        {
+            "id": "manualSpreadsheetId",
+            "type": "short-input",
+            "title": "ID de hoja de cálculo",
+            "layout": "full",
+            "placeholder": "ID de la hoja de cálculo (desde la URL)"
+        },
+        {
+            "id": "range",
+            "type": "short-input",
+            "title": "Rango",
+            "layout": "full",
+            "placeholder": "Nombre de la hoja y rango de celdas (ej., Sheet1!A1:D10)"
+        },
+        {
+            "id": "values",
+            "type": "long-input",
+            "title": "Valores",
+            "layout": "full",
+            "placeholder": "Introduce valores como un array JSON de arrays (ej., [[\"A1\", \"B1\"], [\"A2\", \"B2\"]]) o un array de objetos (ej., [{\"name\":\"John\", \"age\":30}, {\"name\":\"Jane\", \"age\":25}])",
+            "required": true
+        },
+        {
+            "id": "valueInputOption",
+            "type": "dropdown",
+            "title": "Opción de entrada de valores",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "USER_ENTERED",
+                    "label": "Introducido por el usuario (analizar fórmulas)"
+                },
+                {
+                    "id": "RAW",
+                    "label": "Sin formato (no analizar fórmulas)"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Escribir datos (<code>google_sheets_write</code>)</div>
+
+Escribir datos en una hoja de cálculo de Google Sheets
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `spreadsheetId` | string | Sí | El ID de la hoja de cálculo en la que se escribirá |
+| `range` | string | No | El rango de celdas en el que se escribirá |
+| `values` | array | Sí | Los datos que se escribirán en la hoja de cálculo |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `updatedRange` | string | Rango de celdas que fueron actualizadas |
+| `updatedRows` | number | Número de filas actualizadas |
+| `updatedColumns` | number | Número de columnas actualizadas |
+| `updatedCells` | number | Número de celdas actualizadas |
+| `metadata` | json | Metadatos de la hoja de cálculo, incluidos ID y URL |
+
+</div>
+
+---
+
+### Actualizar datos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Sheets"
+    type="google_sheets"
+    color="#34A853"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "update",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "Leer datos"
+                },
+                {
+                    "id": "write",
+                    "label": "Escribir datos"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar datos"
+                },
+                {
+                    "id": "append",
+                    "label": "Agregar datos"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Google",
+            "provider": "google-sheets",
+            "required": true
+        },
+        {
+            "id": "spreadsheetId",
+            "type": "file-selector",
+            "title": "Seleccionar hoja",
+            "layout": "full",
+            "placeholder": "Seleccionar una hoja de cálculo",
+            "provider": "google-drive"
+        },
+        {
+            "id": "manualSpreadsheetId",
+            "type": "short-input",
+            "title": "ID de la hoja de cálculo",
+            "layout": "full",
+            "placeholder": "ID de la hoja de cálculo (desde URL)"
+        },
+        {
+            "id": "range",
+            "type": "short-input",
+            "title": "Rango",
+            "layout": "full",
+            "placeholder": "Nombre de hoja y rango de celdas (ej., Sheet1!A1:D10)"
+        },
+        {
+            "id": "values",
+            "type": "long-input",
+            "title": "Valores",
+            "layout": "full",
+            "placeholder": "Introduce valores como un arreglo JSON de arreglos (ej., [[\"A1\", \"B1\"], [\"A2\", \"B2\"]]) o un arreglo de objetos (ej., [{\"name\":\"John\", \"age\":30}, {\"name\":\"Jane\", \"age\":25}])",
+            "required": true
+        },
+        {
+            "id": "valueInputOption",
+            "type": "dropdown",
+            "title": "Opción de entrada de valores",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "USER_ENTERED",
+                    "label": "Introducido por el usuario (analizar fórmulas)"
+                },
+                {
+                    "id": "RAW",
+                    "label": "Sin procesar (no analizar fórmulas)"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar datos (<code>google_sheets_update</code>)</div>
+
+Actualizar datos en una hoja de cálculo de Google Sheets
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `spreadsheetId` | string | Sí | El ID de la hoja de cálculo a actualizar |
+| `range` | string | No | El rango de celdas a actualizar |
+| `values` | array | Sí | Los datos a actualizar en la hoja de cálculo |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `updatedRange` | string | Rango de celdas que se actualizaron |
+| `updatedRows` | number | Número de filas actualizadas |
+| `updatedColumns` | number | Número de columnas actualizadas |
+| `updatedCells` | number | Número de celdas actualizadas |
+| `metadata` | json | Metadatos de la hoja de cálculo, incluidos ID y URL |
+
+</div>
+
+---
+
+### Añadir datos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Sheets"
+    type="google_sheets"
+    color="#34A853"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "append",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "Leer datos"
+                },
+                {
+                    "id": "write",
+                    "label": "Escribir datos"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar datos"
+                },
+                {
+                    "id": "append",
+                    "label": "Añadir datos"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Google",
+            "provider": "google-sheets",
+            "required": true
+        },
+        {
+            "id": "spreadsheetId",
+            "type": "file-selector",
+            "title": "Seleccionar hoja",
+            "layout": "full",
+            "placeholder": "Seleccionar una hoja de cálculo",
+            "provider": "google-drive"
+        },
+        {
+            "id": "manualSpreadsheetId",
+            "type": "short-input",
+            "title": "ID de la hoja de cálculo",
+            "layout": "full",
+            "placeholder": "ID de la hoja de cálculo (desde la URL)"
+        },
+        {
+            "id": "range",
+            "type": "short-input",
+            "title": "Rango",
+            "layout": "full",
+            "placeholder": "Nombre de la hoja y rango de celdas (p. ej., Sheet1!A1:D10)"
+        },
+        {
+            "id": "values",
+            "type": "long-input",
+            "title": "Valores",
+            "layout": "full",
+            "placeholder": "Ingrese valores como un arreglo de arreglos JSON (p. ej., [[\"A1\", \"B1\"], [\"A2\", \"B2\"]]) o un arreglo de objetos (p. ej., [{\"name\":\"John\", \"age\":30}, {\"name\":\"Jane\", \"age\":25}])",
+            "required": true
+        },
+        {
+            "id": "valueInputOption",
+            "type": "dropdown",
+            "title": "Opción de entrada de valores",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "USER_ENTERED",
+                    "label": "Introducido por el usuario (procesar fórmulas)"
+                },
+                {
+                    "id": "RAW",
+                    "label": "Sin formato (no procesar fórmulas)"
+                }
+            ]
+        },
+        {
+            "id": "insertDataOption",
+            "type": "dropdown",
+            "title": "Opción de inserción de datos",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "INSERT_ROWS",
+                    "label": "Insertar filas (agregar nuevas filas)"
+                },
+                {
+                    "id": "OVERWRITE",
+                    "label": "Sobrescribir (agregar a datos existentes)"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Agregar datos (<code>google_sheets_append</code>)</div>
+
+Agregar datos al final de una hoja de cálculo de Google Sheets
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `spreadsheetId` | string | Sí | El ID de la hoja de cálculo a la que agregar datos |
+| `range` | string | No | El rango de celdas después del cual agregar |
+| `values` | array | Sí | Los datos a agregar a la hoja de cálculo |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `tableRange` | string | Rango de la tabla donde se agregaron los datos |
+| `updatedRange` | string | Rango de celdas que se actualizaron |
+| `updatedRows` | number | Número de filas actualizadas |
+| `updatedColumns` | number | Número de columnas actualizadas |
+| `updatedCells` | number | Número de celdas actualizadas |
+| `metadata` | json | Metadatos de la hoja de cálculo que incluyen ID y URL |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integrar Google Sheets en el flujo de trabajo. Puede leer, escribir, agregar y actualizar datos.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `google_sheets`

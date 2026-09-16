@@ -1,0 +1,168 @@
+---
+title: Browser Use
+description: Ejecutar tareas de automatización del navegador
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="browser_use"
+  color=""
+/>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Browser Use"
+    type="browser_use"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "task",
+            "type": "long-input",
+            "title": "Tarea",
+            "placeholder": "Describe lo que debe hacer el agente del navegador...",
+            "required": true
+        },
+        {
+            "id": "variables",
+            "type": "table",
+            "title": "Variables (Secretos)"
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Modelo",
+            "options": [
+                {
+                    "id": "browser-use-llm",
+                    "label": "Browser Use LLM"
+                },
+                {
+                    "id": "gpt-4o",
+                    "label": "GPT-4o"
+                },
+                {
+                    "id": "gpt-4o-mini",
+                    "label": "GPT-4o Mini"
+                },
+                {
+                    "id": "gpt-4.1",
+                    "label": "GPT-4.1"
+                },
+                {
+                    "id": "gpt-4.1-mini",
+                    "label": "GPT-4.1 Mini"
+                },
+                {
+                    "id": "o3",
+                    "label": "O3"
+                },
+                {
+                    "id": "o4-mini",
+                    "label": "O4 Mini"
+                },
+                {
+                    "id": "gemini-2.5-flash",
+                    "label": "Gemini 2.5 Flash"
+                },
+                {
+                    "id": "gemini-2.5-pro",
+                    "label": "Gemini 2.5 Pro"
+                },
+                {
+                    "id": "gemini-3.1-pro-preview",
+                    "label": "Gemini 3.1 Pro Preview"
+                },
+                {
+                    "id": "gemini-flash-latest",
+                    "label": "Gemini Flash Latest"
+                },
+                {
+                    "id": "gemini-flash-lite-latest",
+                    "label": "Gemini Flash Lite Latest"
+                },
+                {
+                    "id": "claude-3-7-sonnet-20250219",
+                    "label": "Claude 3.7 Sonnet"
+                },
+                {
+                    "id": "claude-sonnet-4-20250514",
+                    "label": "Claude Sonnet 4"
+                },
+                {
+                    "id": "claude-sonnet-4-5-20250929",
+                    "label": "Claude Sonnet 4.5"
+                },
+                {
+                    "id": "claude-opus-4-5-20251101",
+                    "label": "Claude Opus 4.5"
+                },
+                {
+                    "id": "llama-4-maverick-17b-128e-instruct",
+                    "label": "Llama 4 Maverick"
+                }
+            ]
+        },
+        {
+            "id": "save_browser_data",
+            "type": "switch",
+            "title": "Guardar datos del navegador",
+            "placeholder": "Guardar datos del navegador"
+        },
+        {
+            "id": "profile_id",
+            "type": "short-input",
+            "title": "ID de perfil",
+            "placeholder": "Introduce el ID del perfil del navegador (opcional)"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API de BrowserUse",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `browser_use_run_task`
+
+Ejecuta una tarea de automatización del navegador con BrowserUse
+
+#### Entrada
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `task` | string | Sí | Qué debe hacer el agente del navegador |
+| `variables` | json | No | Variables opcionales para usar como secretos \(formato: \{clave: valor\}\) |
+| `save_browser_data` | boolean | No | Si se deben guardar los datos del navegador |
+| `model` | string | No | Modelo LLM a usar \(predeterminado: gpt-4o\) |
+| `apiKey` | string | Sí | Clave de API para la API de BrowserUse |
+| `profile_id` | string | No | ID de perfil del navegador para sesiones persistentes \(cookies, estado de inicio de sesión\) |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | string | Identificador de ejecución de la tarea |
+| `success` | boolean | Estado de finalización de la tarea |
+| `output` | json | Datos de salida de la tarea |
+| `steps` | json | Pasos de ejecución realizados |
+
+## Instrucciones de uso
+
+Integra Browser Use en el workflow. Puede navegar por la web y realizar acciones como si un usuario real estuviera interactuando con el navegador.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `browser_use`

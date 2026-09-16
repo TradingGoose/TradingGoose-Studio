@@ -1,0 +1,187 @@
+---
+title: 知识
+description: 使用向量相似度搜索、创建和管理知识库中的文档
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="knowledge"
+  color="#00B0B0"
+  icon={true}
+/>
+
+知识区块将你的工作流连接到知识库，通过执行向量相似度搜索、上传新片段和创建文档来启用检索增强生成（RAG）——全部在运行时完成。
+
+## 概述
+
+<Steps>
+  <Step>
+    <strong>搜索</strong>：针对知识库运行语义相似度查询，检索最相关的片段
+  </Step>
+  <Step>
+    <strong>上传片段</strong>：将新的文本片段追加到现有文档，使其在未来的查询中可被搜索
+  </Step>
+  <Step>
+    <strong>创建文档</strong>：向知识库添加全新文档（可带标签）
+  </Step>
+</Steps>
+
+## 操作
+
+<Tabs items={['搜索', '上传片段', '创建文档']}>
+  <Tab>
+    执行向量相似度搜索，并返回最匹配的片段。
+
+    | 字段 | 必填 | 说明 |
+    |---|---|---|
+    | **知识库** | 是 | 要搜索的知识库 |
+    | **搜索查询** | 否 | 自然语言查询。仅使用标签筛选时可省略。 |
+    | **结果数量** | 否 | 返回的片段数量（默认：10） |
+    | **标签筛选** | 否 | 将结果缩小到匹配特定标签的文档 |
+
+    搜索查询是可选的——你可以仅按标签筛选，以检索某一类别下的所有片段。
+  </Tab>
+  <Tab>
+    将文本片段追加到知识库中的现有文档。片段会自动嵌入，并在后续搜索中可用。
+
+    | 字段 | 必填 | 说明 |
+    |---|---|---|
+    | **知识库** | 是 | 目标知识库 |
+    | **文档** | 是 | 要添加分块的文档 |
+    | **分块内容** | 是 | 要上传的文本内容 |
+  </Tab>
+  <Tab>
+    在知识库中创建新文档。内容会被分块、嵌入并建立索引。
+
+    | 字段 | 必填 | 说明 |
+    |---|---|---|
+    | **知识库** | 是 | 目标知识库 |
+    | **文档名称** | 是 | 新文档的名称 |
+    | **文档内容** | 是 | 完整文本内容 |
+    | **文档标签** | 否 | 用于分类和筛选的标签 |
+  </Tab>
+</Tabs>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Knowledge"
+    type="knowledge"
+    color="#00B0B0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                { "label": "搜索", "id": "search" },
+                { "label": "上传分块", "id": "upload_chunk" },
+                { "label": "创建文档", "id": "create_document" }
+            ]
+        },
+        {
+            "id": "knowledgeBaseId",
+            "type": "knowledge-base-selector",
+            "title": "知识库",
+            "layout": "full",
+            "placeholder": "选择知识库",
+            "required": true,
+            "condition": { "field": "operation", "value": ["search", "upload_chunk", "create_document"] }
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "搜索查询",
+            "layout": "full",
+            "placeholder": "输入搜索查询（使用标签筛选时可选）",
+            "condition": { "field": "operation", "value": "search" }
+        },
+        {
+            "id": "topK",
+            "type": "short-input",
+            "title": "结果数量",
+            "layout": "full",
+            "placeholder": "输入结果数量（默认：10）",
+            "condition": { "field": "operation", "value": "search" }
+        },
+        {
+            "id": "tagFilters",
+            "type": "knowledge-tag-filters",
+            "title": "标签筛选",
+            "layout": "full",
+            "placeholder": "添加标签筛选",
+            "condition": { "field": "operation", "value": "search" }
+        },
+        {
+            "id": "documentId",
+            "type": "document-selector",
+            "title": "文档",
+            "layout": "full",
+            "placeholder": "选择文档",
+            "required": true,
+            "condition": { "field": "operation", "value": "upload_chunk" }
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "分块内容",
+            "layout": "full",
+            "placeholder": "输入要上传的分块内容",
+            "required": true,
+            "condition": { "field": "operation", "value": "upload_chunk" }
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "文档名称",
+            "layout": "full",
+            "placeholder": "输入文档名称",
+            "required": true,
+            "condition": { "field": "operation", "value": ["create_document"] }
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "文档内容",
+            "layout": "full",
+            "placeholder": "输入文档内容",
+            "required": true,
+            "condition": { "field": "operation", "value": ["create_document"] }
+        },
+        {
+            "id": "documentTags",
+            "type": "document-tag-entry",
+            "title": "文档标签",
+            "layout": "full",
+            "condition": { "field": "operation", "value": "create_document" }
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 输出
+
+| 输出 | 类型 | 描述 |
+|---|---|---|
+| `results` | json | 匹配的块数组（搜索）或确认数据（写入操作） |
+| `query` | string | 使用的查询 |
+| `totalResults` | number | 返回的结果数量 |
+
+## 最佳实践
+
+- **使用标签过滤器限定搜索范围** -- 标签让你可以按主题、客户或类别划分知识库，而无需创建单独的知识库。
+- **保持块聚焦** -- 更短、主题连贯的块比冗长、多主题的文本能产生更好的相似度匹配。
+- **与 Agent 块配合使用** -- 将搜索结果传入 Agent 的上下文，以构建 RAG 管道。
+
+<Callout type="info">
+  搜索查询字段是可选的。当你只需要匹配特定标签的文档时，将查询留空，并改用标签过滤器。
+</Callout>

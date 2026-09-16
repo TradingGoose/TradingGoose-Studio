@@ -1,0 +1,1165 @@
+---
+title: Fireflies
+description: 与 Fireflies.ai 会议转录和录音交互
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="fireflies"
+  color=""
+/>
+
+<Cards>
+  <Card title="用作触发器" href="/triggers/fireflies">
+    查看 Fireflies 的触发事件、设置和事件负载。
+  </Card>
+</Cards>
+
+## 配置
+
+### 列出转录
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "fireflies_list_transcripts",
+            "options": [
+                {
+                    "id": "fireflies_list_transcripts",
+                    "label": "列出转录"
+                },
+                {
+                    "id": "fireflies_get_transcript",
+                    "label": "获取转录"
+                },
+                {
+                    "id": "fireflies_get_user",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "fireflies_list_users",
+                    "label": "列出用户"
+                },
+                {
+                    "id": "fireflies_upload_audio",
+                    "label": "上传音频"
+                },
+                {
+                    "id": "fireflies_delete_transcript",
+                    "label": "删除转录"
+                },
+                {
+                    "id": "fireflies_add_to_live_meeting",
+                    "label": "将机器人添加到实时会议"
+                },
+                {
+                    "id": "fireflies_create_bite",
+                    "label": "创建 Bite"
+                },
+                {
+                    "id": "fireflies_list_bites",
+                    "label": "列出 Bite"
+                },
+                {
+                    "id": "fireflies_list_contacts",
+                    "label": "列出联系人"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 Fireflies API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "keyword",
+            "type": "short-input",
+            "title": "关键词",
+            "placeholder": "在标题或转录中搜索",
+            "required": false
+        },
+        {
+            "id": "fromDate",
+            "type": "datetime-input",
+            "title": "开始日期",
+            "placeholder": "例如：2024-01-01T00:00:00Z",
+            "required": false
+        },
+        {
+            "id": "toDate",
+            "type": "datetime-input",
+            "title": "结束日期",
+            "placeholder": "例如：2024-12-31T23:59:59Z",
+            "required": false
+        },
+        {
+            "id": "hostEmail",
+            "type": "short-input",
+            "title": "主持人邮箱",
+            "placeholder": "按主持人邮箱筛选",
+            "required": false
+        },
+        {
+            "id": "participants",
+            "type": "short-input",
+            "title": "参与者",
+            "placeholder": "以逗号分隔的参与者邮箱",
+            "required": false
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "最多 50（默认：50）",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出转录记录（<code>fireflies_list_transcripts</code>）</div>
+
+列出 Fireflies.ai 中的会议转录记录，支持可选筛选
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Fireflies API 密钥 |
+| `keyword` | string | 否 | 在会议标题或转录记录中搜索关键词 |
+| `fromDate` | string | 否 | 筛选此日期之后的转录记录（ISO 8601 格式） |
+| `toDate` | string | 否 | 筛选此日期之前的转录记录（ISO 8601 格式） |
+| `hostEmail` | string | 否 | 按会议主持人邮箱筛选 |
+| `participants` | string | 否 | 按参会者邮箱筛选（逗号分隔） |
+| `limit` | number | 否 | 返回的转录记录数量上限（最多 50） |
+| `skip` | number | 否 | 分页时跳过的转录记录数量 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `transcripts` | array | 转录记录列表 |
+| `count` | number | 返回的转录记录数量 |
+
+</div>
+
+---
+
+### 获取转录记录
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "fireflies_get_transcript",
+            "options": [
+                {
+                    "id": "fireflies_list_transcripts",
+                    "label": "列出转录记录"
+                },
+                {
+                    "id": "fireflies_get_transcript",
+                    "label": "获取转录记录"
+                },
+                {
+                    "id": "fireflies_get_user",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "fireflies_list_users",
+                    "label": "列出用户"
+                },
+                {
+                    "id": "fireflies_upload_audio",
+                    "label": "上传音频"
+                },
+                {
+                    "id": "fireflies_delete_transcript",
+                    "label": "删除转录记录"
+                },
+                {
+                    "id": "fireflies_add_to_live_meeting",
+                    "label": "添加机器人到实时会议"
+                },
+                {
+                    "id": "fireflies_create_bite",
+                    "label": "创建 Bite"
+                },
+                {
+                    "id": "fireflies_list_bites",
+                    "label": "列出 Bite"
+                },
+                {
+                    "id": "fireflies_list_contacts",
+                    "label": "列出联系人"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 Fireflies API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "transcriptId",
+            "type": "short-input",
+            "title": "转录记录 ID",
+            "placeholder": "输入转录记录 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取转录 (<code>fireflies_get_transcript</code>)</div>
+
+获取单个转录的完整详情，包括摘要、行动项和分析
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必需 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Fireflies API 密钥 |
+| `transcriptId` | 字符串 | 是 | 要检索的转录 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `transcript` | 对象 | 包含完整详情的转录 |
+
+</div>
+
+---
+
+### 获取用户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "fireflies_get_user",
+            "options": [
+                {
+                    "id": "fireflies_list_transcripts",
+                    "label": "列出转录"
+                },
+                {
+                    "id": "fireflies_get_transcript",
+                    "label": "获取转录"
+                },
+                {
+                    "id": "fireflies_get_user",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "fireflies_list_users",
+                    "label": "列出用户"
+                },
+                {
+                    "id": "fireflies_upload_audio",
+                    "label": "上传音频"
+                },
+                {
+                    "id": "fireflies_delete_transcript",
+                    "label": "删除转录"
+                },
+                {
+                    "id": "fireflies_add_to_live_meeting",
+                    "label": "添加机器人到实时会议"
+                },
+                {
+                    "id": "fireflies_create_bite",
+                    "label": "创建 Bite"
+                },
+                {
+                    "id": "fireflies_list_bites",
+                    "label": "列出 Bite"
+                },
+                {
+                    "id": "fireflies_list_contacts",
+                    "label": "列出联系人"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 Fireflies API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "用户 ID",
+            "placeholder": "留空表示当前用户",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取用户 (<code>fireflies_get_user</code>)</div>
+
+从 Fireflies.ai 获取用户信息。未指定 ID 时返回当前用户。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Fireflies API 密钥 |
+| `userId` | string | 否 | 要检索的用户 ID \(可选，默认为 API 密钥所有者\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `user` | object | 用户信息 |
+
+</div>
+
+---
+
+### 列出用户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "fireflies_list_users",
+            "options": [
+                {
+                    "id": "fireflies_list_transcripts",
+                    "label": "列出转录"
+                },
+                {
+                    "id": "fireflies_get_transcript",
+                    "label": "获取转录"
+                },
+                {
+                    "id": "fireflies_get_user",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "fireflies_list_users",
+                    "label": "列出用户"
+                },
+                {
+                    "id": "fireflies_upload_audio",
+                    "label": "上传音频"
+                },
+                {
+                    "id": "fireflies_delete_transcript",
+                    "label": "删除转录"
+                },
+                {
+                    "id": "fireflies_add_to_live_meeting",
+                    "label": "将机器人添加到实时会议"
+                },
+                {
+                    "id": "fireflies_create_bite",
+                    "label": "创建 Bite"
+                },
+                {
+                    "id": "fireflies_list_bites",
+                    "label": "列出 Bite"
+                },
+                {
+                    "id": "fireflies_list_contacts",
+                    "label": "列出联系人"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Fireflies API 密钥",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出用户（<code>fireflies_list_users</code>）</div>
+
+列出你的 Fireflies.ai 团队中的所有用户
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Fireflies API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `users` | array | 团队成员列表 |
+
+</div>
+
+---
+
+### 上传音频
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "fireflies_upload_audio",
+            "options": [
+                {
+                    "id": "fireflies_list_transcripts",
+                    "label": "列出转录记录"
+                },
+                {
+                    "id": "fireflies_get_transcript",
+                    "label": "获取转录记录"
+                },
+                {
+                    "id": "fireflies_get_user",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "fireflies_list_users",
+                    "label": "列出用户"
+                },
+                {
+                    "id": "fireflies_upload_audio",
+                    "label": "上传音频"
+                },
+                {
+                    "id": "fireflies_delete_transcript",
+                    "label": "删除转录记录"
+                },
+                {
+                    "id": "fireflies_add_to_live_meeting",
+                    "label": "添加机器人至实时会议"
+                },
+                {
+                    "id": "fireflies_create_bite",
+                    "label": "创建 Bite"
+                },
+                {
+                    "id": "fireflies_list_bites",
+                    "label": "列出 Bite"
+                },
+                {
+                    "id": "fireflies_list_contacts",
+                    "label": "列出联系人"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 Fireflies API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "audioFile",
+            "type": "file-upload",
+            "title": "音频/视频文件",
+            "placeholder": "上传音频或视频文件",
+            "required": false
+        },
+        {
+            "id": "audioFileReference",
+            "type": "short-input",
+            "title": "音频/视频文件引用",
+            "placeholder": "从之前的块引用音频/视频",
+            "required": false
+        },
+        {
+            "id": "audioUrl",
+            "type": "short-input",
+            "title": "音频/视频 URL",
+            "placeholder": "或输入可公开访问的音频/视频 URL",
+            "description": "音频文件的公共 HTTPS URL（MP3、MP4、WAV、M4A、OGG）",
+            "required": false
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "标题",
+            "placeholder": "会议标题",
+            "required": false
+        },
+        {
+            "id": "language",
+            "type": "short-input",
+            "title": "语言",
+            "placeholder": "例如：es、de、fr（默认：英语）",
+            "required": false
+        },
+        {
+            "id": "attendees",
+            "type": "long-input",
+            "title": "参会者",
+            "placeholder": "[{\"displayName\": \"John\", \"email\": \"john@example.com\"}]",
+            "description": "参会者的 JSON 数组",
+            "required": false
+        },
+        {
+            "id": "clientReferenceId",
+            "type": "short-input",
+            "title": "引用 ID",
+            "placeholder": "自定义跟踪 ID",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">上传音频（<code>fireflies_upload_audio</code>）</div>
+
+上传音频文件 URL 至 Fireflies.ai 进行转录
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Fireflies API 密钥 |
+| `audioFile` | file | 否 | 待上传用于转录的音频/视频文件 |
+| `audioUrl` | string | 否 | 音频/视频文件的公开 HTTPS URL \(MP3、MP4、WAV、M4A、OGG\) |
+| `title` | string | 否 | 会议/转录的标题 |
+| `webhook` | string | 否 | 转录完成后用于通知的 Webhook URL |
+| `language` | string | 否 | 转录语言代码 \(例如，"es" 表示西班牙语，"de" 表示德语\) |
+| `attendees` | string | 否 | JSON 格式的参会者：\[\{"displayName": "Name", "email": "email@example.com"\}\] |
+| `clientReferenceId` | string | 否 | 用于跟踪的自定义参考 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 上传是否成功 |
+| `title` | string | 已上传会议的标题 |
+| `message` | string | Fireflies 返回的状态消息 |
+
+</div>
+
+---
+
+### 删除转录
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "fireflies_delete_transcript",
+            "options": [
+                {
+                    "id": "fireflies_list_transcripts",
+                    "label": "列出转录"
+                },
+                {
+                    "id": "fireflies_get_transcript",
+                    "label": "获取转录"
+                },
+                {
+                    "id": "fireflies_get_user",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "fireflies_list_users",
+                    "label": "列出用户"
+                },
+                {
+                    "id": "fireflies_upload_audio",
+                    "label": "上传音频"
+                },
+                {
+                    "id": "fireflies_delete_transcript",
+                    "label": "删除转录"
+                },
+                {
+                    "id": "fireflies_add_to_live_meeting",
+                    "label": "添加机器人到实时会议"
+                },
+                {
+                    "id": "fireflies_create_bite",
+                    "label": "创建 Bite"
+                },
+                {
+                    "id": "fireflies_list_bites",
+                    "label": "列出 Bite"
+                },
+                {
+                    "id": "fireflies_list_contacts",
+                    "label": "列出联系人"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Fireflies API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "transcriptId",
+            "type": "short-input",
+            "title": "转录 ID",
+            "placeholder": "输入转录 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除转录 (<code>fireflies_delete_transcript</code>)</div>
+
+从 Fireflies.ai 删除转录
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Fireflies API 密钥 |
+| `transcriptId` | 字符串 | 是 | 要删除的转录 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | 布尔值 | 转录是否成功删除 |
+
+</div>
+
+---
+
+### 将机器人添加到实时会议
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "fireflies_add_to_live_meeting",
+            "options": [
+                {
+                    "id": "fireflies_list_transcripts",
+                    "label": "列出转录"
+                },
+                {
+                    "id": "fireflies_get_transcript",
+                    "label": "获取转录"
+                },
+                {
+                    "id": "fireflies_get_user",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "fireflies_list_users",
+                    "label": "列出用户"
+                },
+                {
+                    "id": "fireflies_upload_audio",
+                    "label": "上传音频"
+                },
+                {
+                    "id": "fireflies_delete_transcript",
+                    "label": "删除转录"
+                },
+                {
+                    "id": "fireflies_add_to_live_meeting",
+                    "label": "将机器人添加到实时会议"
+                },
+                {
+                    "id": "fireflies_create_bite",
+                    "label": "创建 Bite"
+                },
+                {
+                    "id": "fireflies_list_bites",
+                    "label": "列出 Bite"
+                },
+                {
+                    "id": "fireflies_list_contacts",
+                    "label": "列出联系人"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Fireflies API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "标题",
+            "placeholder": "会议标题",
+            "required": false
+        },
+        {
+            "id": "language",
+            "type": "short-input",
+            "title": "语言",
+            "placeholder": "例如：es、de、fr（默认：英语）",
+            "required": false
+        },
+        {
+            "id": "meetingLink",
+            "type": "short-input",
+            "title": "会议链接",
+            "placeholder": "https://zoom.us/j/... 或 https://meet.google.com/...",
+            "description": "用于 Zoom、Google Meet 或 Microsoft Teams 会议的 URL",
+            "required": true
+        },
+        {
+            "id": "meetingPassword",
+            "type": "short-input",
+            "title": "会议密码",
+            "placeholder": "可选的会议密码",
+            "password": true,
+            "required": false
+        },
+        {
+            "id": "duration",
+            "type": "short-input",
+            "title": "时长（分钟）",
+            "placeholder": "60（15-120 分钟）",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">将机器人添加到实时会议（<code>fireflies_add_to_live_meeting</code>）</div>
+
+将 Fireflies.ai 机器人添加到进行中的会议，以便录制和转录
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Fireflies API 密钥 |
+| `meetingLink` | string | 是 | 有效的会议 URL（Zoom、Google Meet、Microsoft Teams 等） |
+| `title` | string | 否 | 会议标题（最多 256 个字符） |
+| `meetingPassword` | string | 否 | 会议密码（如需要，最多 32 个字符） |
+| `duration` | number | 否 | 会议时长，单位为分钟（15-120，默认：60） |
+| `language` | string | 否 | 转录语言代码（例如 "en"、"es"、"de"） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 机器人是否已成功添加到会议 |
+
+</div>
+
+---
+
+### 创建 Bite
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "fireflies_create_bite",
+            "options": [
+                {
+                    "id": "fireflies_list_transcripts",
+                    "label": "列出转录"
+                },
+                {
+                    "id": "fireflies_get_transcript",
+                    "label": "获取转录"
+                },
+                {
+                    "id": "fireflies_get_user",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "fireflies_list_users",
+                    "label": "列出用户"
+                },
+                {
+                    "id": "fireflies_upload_audio",
+                    "label": "上传音频"
+                },
+                {
+                    "id": "fireflies_delete_transcript",
+                    "label": "删除转录"
+                },
+                {
+                    "id": "fireflies_add_to_live_meeting",
+                    "label": "将机器人添加到实时会议"
+                },
+                {
+                    "id": "fireflies_create_bite",
+                    "label": "创建 Bite"
+                },
+                {
+                    "id": "fireflies_list_bites",
+                    "label": "列出 Bite"
+                },
+                {
+                    "id": "fireflies_list_contacts",
+                    "label": "列出联系人"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 Fireflies API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "transcriptId",
+            "type": "short-input",
+            "title": "转录 ID",
+            "placeholder": "输入转录 ID",
+            "required": true
+        },
+        {
+            "id": "startTime",
+            "type": "short-input",
+            "title": "开始时间（秒）",
+            "placeholder": "例如 30",
+            "required": true
+        },
+        {
+            "id": "endTime",
+            "type": "short-input",
+            "title": "结束时间（秒）",
+            "placeholder": "例如 90",
+            "required": true
+        },
+        {
+            "id": "biteName",
+            "type": "short-input",
+            "title": "Bite 名称",
+            "placeholder": "为此精彩片段命名",
+            "required": false
+        },
+        {
+            "id": "biteSummary",
+            "type": "long-input",
+            "title": "摘要",
+            "placeholder": "精彩片段的简要说明",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建片段 (<code>fireflies_create_bite</code>)</div>
+
+从转录中的指定时间范围创建音频片段/亮点
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Fireflies API 密钥 |
+| `transcriptId` | string | 是 | 用于创建片段的转录 ID |
+| `startTime` | number | 是 | 片段开始时间（秒） |
+| `endTime` | number | 是 | 片段结束时间（秒） |
+| `name` | string | 否 | 片段名称（最多 256 个字符） |
+| `mediaType` | string | 否 | 媒体类型："video" 或 "audio" |
+| `summary` | string | 否 | 片段摘要（最多 500 个字符） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `bite` | object | 创建的片段详情 |
+
+</div>
+
+---
+
+### 列出片段
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "fireflies_list_bites",
+            "options": [
+                {
+                    "id": "fireflies_list_transcripts",
+                    "label": "列出转录"
+                },
+                {
+                    "id": "fireflies_get_transcript",
+                    "label": "获取转录"
+                },
+                {
+                    "id": "fireflies_get_user",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "fireflies_list_users",
+                    "label": "列出用户"
+                },
+                {
+                    "id": "fireflies_upload_audio",
+                    "label": "上传音频"
+                },
+                {
+                    "id": "fireflies_delete_transcript",
+                    "label": "删除转录"
+                },
+                {
+                    "id": "fireflies_add_to_live_meeting",
+                    "label": "将机器人添加到实时会议"
+                },
+                {
+                    "id": "fireflies_create_bite",
+                    "label": "创建片段"
+                },
+                {
+                    "id": "fireflies_list_bites",
+                    "label": "列出片段"
+                },
+                {
+                    "id": "fireflies_list_contacts",
+                    "label": "列出联系人"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 Fireflies API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "transcriptId",
+            "type": "short-input",
+            "title": "转录 ID",
+            "placeholder": "输入转录 ID"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "最大 50（默认：50）",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出精彩片段 (<code>fireflies_list_bites</code>)</div>
+
+列出 Fireflies.ai 的声音片段/精彩片段
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Fireflies API 密钥 |
+| `transcriptId` | 字符串 | 否 | 筛选特定转录的精彩片段 |
+| `mine` | 布尔值 | 否 | 仅返回 API 密钥所有者拥有的精彩片段 \(默认：true\) |
+| `limit` | 数字 | 否 | 返回的最大精彩片段数量 \(最多 50\) |
+| `skip` | 数字 | 否 | 分页时要跳过的精彩片段数量 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `bites` | 数组 | 精彩片段/声音片段列表 |
+
+</div>
+
+---
+
+### 列出联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "fireflies_list_contacts",
+            "options": [
+                {
+                    "id": "fireflies_list_transcripts",
+                    "label": "列出转录"
+                },
+                {
+                    "id": "fireflies_get_transcript",
+                    "label": "获取转录"
+                },
+                {
+                    "id": "fireflies_get_user",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "fireflies_list_users",
+                    "label": "列出用户"
+                },
+                {
+                    "id": "fireflies_upload_audio",
+                    "label": "上传音频"
+                },
+                {
+                    "id": "fireflies_delete_transcript",
+                    "label": "删除转录"
+                },
+                {
+                    "id": "fireflies_add_to_live_meeting",
+                    "label": "将机器人添加到实时会议"
+                },
+                {
+                    "id": "fireflies_create_bite",
+                    "label": "创建精彩片段"
+                },
+                {
+                    "id": "fireflies_list_bites",
+                    "label": "列出精彩片段"
+                },
+                {
+                    "id": "fireflies_list_contacts",
+                    "label": "列出联系人"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 Fireflies API 密钥",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出联系人 (<code>fireflies_list_contacts</code>)</div>
+
+列出您 Fireflies.ai 会议中的所有联系人
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必需 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Fireflies API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `contacts` | array | 会议中的联系人列表 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Fireflies.ai 集成到工作流中。管理会议记录、将机器人添加到实时会议、创建声音片段等。还可以在转录完成后触发工作流。
+
+## 备注
+
+- 类别: `tools`
+- 类型: `fireflies`

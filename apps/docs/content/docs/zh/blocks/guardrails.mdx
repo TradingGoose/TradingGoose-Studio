@@ -1,0 +1,261 @@
+---
+title: 护栏
+description: 使用安全约束验证内容
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { BlockConfigPreview } from '@/components/ui/block-config-preview'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
+
+<BlockInfoCard
+  type="guardrails"
+  color="#3D642D"
+/>
+
+护栏块通过多种验证类型检查内容，验证并保护您的 AI 工作流。在内容进入工作流之前，确保数据质量、防止幻觉、检测 PII 并强制实施格式要求。
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="护栏"
+    type="guardrails"
+    color="#3D642D"
+    hideHeader
+    subBlocks={[
+      { "id": "input", "title": "要验证的内容", "type": "long-input", "layout": "full", "placeholder": "输入要验证的内容", "required": true },
+      { "id": "validationType", "title": "验证类型", "type": "dropdown", "layout": "full", "required": true, "options": [{ "label": "有效 JSON", "id": "json" }, { "label": "正则匹配", "id": "regex" }, { "label": "幻觉检查", "id": "hallucination" }, { "label": "PII 检测", "id": "pii" }], "defaultValue": "json" },
+      { "id": "regex", "title": "正则表达式模式", "type": "short-input", "layout": "full", "placeholder": "例如，^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", "required": true },
+      { "id": "knowledgeBaseId", "title": "知识库", "type": "knowledge-base-selector", "layout": "full", "placeholder": "选择知识库", "required": true },
+      { "id": "model", "title": "模型", "type": "combobox", "layout": "half", "placeholder": "输入或选择模型...", "required": true },
+      { "id": "threshold", "title": "置信度", "type": "slider", "layout": "half" },
+      { "id": "topK", "title": "检索的块数", "type": "slider", "layout": "full" },
+      { "id": "apiKey", "title": "API 密钥", "type": "short-input", "layout": "full", "placeholder": "输入您的 API 密钥", "password": true, "required": true },
+      { "id": "piiEntityTypes", "title": "要检测的 PII 类型", "type": "grouped-checkbox-list", "layout": "full", "options": [{ "label": "人名", "id": "PERSON" }, { "label": "电子邮件地址", "id": "EMAIL_ADDRESS" }, { "label": "电话号码", "id": "PHONE_NUMBER" }, { "label": "位置", "id": "LOCATION" }, { "label": "信用卡号", "id": "CREDIT_CARD" }] },
+      { "id": "piiMode", "title": "操作", "type": "dropdown", "layout": "full", "required": true, "options": [{ "label": "阻止请求", "id": "block" }, { "label": "掩码 PII", "id": "mask" }], "defaultValue": "block" },
+      { "id": "piiLanguage", "title": "语言", "type": "dropdown", "layout": "full", "options": [{ "label": "英语", "id": "en" }, { "label": "西班牙语", "id": "es" }, { "label": "意大利语", "id": "it" }, { "label": "波兰语", "id": "pl" }, { "label": "芬兰语", "id": "fi" }], "defaultValue": "en" }
+    ]}
+  />
+</ShowcaseCard>
+
+## 概述
+
+Guardrails 区块让你可以：
+
+<Steps>
+  <Step>
+    <strong>验证 JSON 结构</strong>：确保 LLM 输出在解析前是有效的 JSON
+  </Step>
+  <Step>
+    <strong>匹配正则表达式模式</strong>：验证内容是否符合特定格式（电子邮件、电话号码、URL 等）
+  </Step>
+  <Step>
+    <strong>检测幻觉</strong>：使用 RAG + LLM 评分，对照知识库内容验证 AI 输出
+  </Step>
+  <Step>
+    <strong>检测 PII</strong>：识别并可选地屏蔽 40 多种实体类型中的个人身份信息
+  </Step>
+</Steps>
+
+## 验证类型
+
+### JSON 验证
+
+验证内容是否为格式正确的 JSON。非常适合确保结构化 LLM 输出能够被安全解析。
+
+**使用场景：**
+- 在解析前验证 Agent 区块返回的 JSON 响应
+- 确保 API 负载格式正确
+- 检查结构化数据的完整性
+
+**输出：**
+- `passed`：如果 JSON 有效，则为 `true`，否则为 `false`
+- `error`：验证失败时的错误消息（例如“无效 JSON：意外的标记...”）
+
+### 正则表达式验证
+
+检查内容是否匹配指定的正则表达式模式。
+
+**使用场景：**
+- 验证电子邮件地址
+- 检查电话号码格式
+- 验证 URL 或自定义标识符
+- 强制特定文本模式
+
+**配置：**
+- **正则表达式模式**：用于匹配的正则表达式（例如，用于电子邮件的 `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`）
+
+**输出：**
+- `passed`：如果内容匹配模式，则为 `true`，否则为 `false`
+- `error`：验证失败时的错误消息
+
+### 幻觉检测
+
+使用检索增强生成（RAG）与 LLM 评分，检测 AI 生成内容何时与知识库矛盾或缺乏依据。
+
+**工作原理：**
+1. 查询知识库以获取相关上下文
+2. 将 AI 输出和检索到的上下文一并发送给 LLM
+3. LLM 分配置信度分数（0-10 分）
+   - **0** = 完全幻觉（完全无依据）
+   - **10** = 完全有依据（完全由知识库支持）
+4. 如果分数 ≥ 阈值（默认：3），则验证通过
+
+**配置：**
+- **知识库**：从现有知识库中选择
+- **模型**：选择用于评分的 LLM（需要较强推理能力 - 推荐 GPT-4o、Claude 3.7 Sonnet）
+- **API 密钥**：所选 LLM 提供商的身份验证（托管/Ollama 模型会自动隐藏）
+- **置信度阈值**：通过的最低分数（0-10，默认值：3）
+- **Top K**（高级）：要检索的知识库分块数量（默认值：10）
+
+**输出：**
+- `passed`：如果置信度分数 ≥ 阈值，则为 `true`
+- `score`：置信度分数（0-10）
+- `reasoning`：LLM 对分数的解释
+- `error`：验证失败时的错误消息
+
+**使用场景：**
+- 根据文档验证 Agent 响应
+- 确保客户支持答案事实准确
+- 验证生成的内容与源材料匹配
+- RAG 应用的质量控制
+
+### PII 检测
+
+使用 Microsoft Presidio 检测个人身份信息。支持多个国家和语言的 40 多种实体类型。
+
+**工作原理：**
+1. 使用模式匹配和 NLP 扫描内容中的 PII 实体
+2. 返回检测到的实体及其位置和置信度分数
+3. 可选地在输出中屏蔽检测到的 PII
+
+**配置：**
+- **要检测的 PII 类型**：通过模态选择器从分组类别中选择
+  - **通用**：人名、电子邮件、电话、信用卡、IP 地址等
+  - **美国**：SSN、驾照、护照等
+  - **英国**：NHS 号码、国民保险号码
+  - **西班牙**：NIF、NIE、CIF
+  - **意大利**：税号、驾照、增值税号
+  - **波兰**：PESEL、NIP、REGON
+  - **新加坡**：NRIC/FIN、UEN
+  - **澳大利亚**：ABN、ACN、TFN、Medicare
+  - **印度**：Aadhaar、PAN、护照、选民号码
+- **模式**：
+  - **检测**：仅识别 PII（默认）
+  - **屏蔽**：用屏蔽值替换检测到的 PII
+- **语言**：检测语言（默认：英语）
+
+**输出：**
+- `passed`：若检测到任何所选 PII 类型，则返回 `false`
+- `detectedEntities`：检测到的 PII 数组，包含类型、位置和置信度
+- `maskedText`：已掩码 PII 的内容（仅当 mode = "Mask" 时）
+- `error`：校验失败时的错误消息
+
+**使用场景：**
+- 拦截包含敏感个人信息的内容
+- 在记录日志或存储数据前掩码 PII
+- 符合 GDPR、HIPAA 及其他隐私法规
+- 在处理前清理用户输入
+
+## 配置
+
+### 待校验的内容
+
+待校验的输入内容。通常来自：
+- Agent 区块输出：`<agent.content>`
+- 函数区块结果：`<function.output>`
+- API 响应：`<api.output>`
+- 任何其他区块输出
+
+### 校验类型
+
+从四种校验类型中选择：
+- **有效 JSON**：检查内容是否为格式正确的 JSON
+- **正则匹配**：验证内容是否匹配正则表达式
+- **幻觉检查**：结合 LLM 评分，对照知识库进行校验
+- **PII 检测**：检测并可选择掩码个人身份信息
+
+## 输出
+
+所有校验类型均返回：
+
+- **`<guardrails.passed>`**：布尔值，指示校验是否通过
+- **`<guardrails.validationType>`**：所执行的校验类型
+- **`<guardrails.input>`**：被校验的原始输入
+- **`<guardrails.error>`**：校验失败时的错误消息（可选）
+
+按类型划分的额外输出：
+
+**幻觉检查：**
+- **`<guardrails.score>`**：置信度评分（0-10）
+- **`<guardrails.reasoning>`**：LLM 的说明
+
+**PII 检测：**
+- **`<guardrails.detectedEntities>`**：检测到的 PII 实体数组
+- **`<guardrails.maskedText>`**：已掩码 PII 的内容（若 mode = "Mask"）
+
+## 示例使用场景
+
+### 解析前校验 JSON
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">场景：确保 Agent 输出为有效的 JSON</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>Agent 生成结构化的 JSON 响应</li>
+    <li>Guardrails 校验 JSON 格式</li>
+    <li>条件区块检查 `<guardrails.passed>`</li>
+    <li>若通过 → 解析并使用数据；若失败 → 重试或处理错误</li>
+  </ol>
+</div>
+
+### 防止幻觉
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">场景：校验客户支持回复</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>Agent 生成对客户问题的回复</li>
+    <li>Guardrails 对照支持文档知识库进行校验</li>
+    <li>如果置信度评分 ≥ 3 → 发送回复</li>
+    <li>如果置信度评分 \< 3 → 标记为人工审核</li>
+  </ol>
+</div>
+
+### 拦截用户输入中的 PII
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">场景：清理用户提交的内容</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>用户提交包含文本内容的表单</li>
+    <li>Guardrails 检测到 PII（邮箱、电话号码、SSN 等）</li>
+    <li>如果检测到 PII → 拒绝提交或对敏感数据做掩码处理</li>
+    <li>如果未检测到 PII → 正常处理</li>
+  </ol>
+</div>
+
+### 校验邮箱格式
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">场景：检查邮箱地址格式</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>Agent 从文本中提取邮箱</li>
+    <li>Guardrails 使用正则表达式进行校验</li>
+    <li>如果有效 → 使用该邮箱发送通知</li>
+    <li>如果无效 → 要求更正</li>
+  </ol>
+</div>
+
+## 最佳实践
+
+- **与条件块组合使用**：使用 `<guardrails.passed>` 根据校验结果对工作流逻辑进行分支
+- **解析前先做 JSON 校验**：在尝试解析 LLM 输出之前，始终先校验 JSON 结构
+- **选择合适的 PII 类型**：只选择与你的使用场景相关的 PII 实体类型，以获得更好的性能
+- **设置合理的置信度阈值**：对于幻觉检测，根据你的准确率要求调整阈值（越高越严格）
+- **使用更强的模型进行幻觉检测**：GPT-4o 或 Claude 3.7 Sonnet 能提供更准确的置信度评分
+- **记录日志时掩码 PII**：在需要记录或存储可能包含 PII 的内容时，使用 "Mask" 模式
+- **测试正则表达式**：在部署到生产环境之前，彻底校验正则表达式
+- **监控校验失败**：跟踪 `<guardrails.error>` 消息，以识别常见的校验问题
+
+<Callout type="info">
+  护栏校验会在你的工作流中同步执行。如果延迟至关重要，进行幻觉检测时请选择更快的模型（如 GPT-4o-mini）。
+</Callout>

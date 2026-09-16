@@ -1,0 +1,110 @@
+---
+title: ElevenLabs
+description: 使用 ElevenLabs 转换 TTS
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="elevenlabs"
+  color=""
+/>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ElevenLabs"
+    type="elevenlabs"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "文本",
+            "layout": "full",
+            "placeholder": "输入要转换为语音的文本",
+            "required": true
+        },
+        {
+            "id": "voiceId",
+            "type": "short-input",
+            "title": "语音 ID",
+            "layout": "full",
+            "placeholder": "输入语音 ID",
+            "required": true
+        },
+        {
+            "id": "modelId",
+            "type": "dropdown",
+            "title": "模型 ID",
+            "layout": "half",
+            "options": [
+                {
+                    "id": "eleven_monolingual_v1",
+                    "label": "eleven_monolingual_v1"
+                },
+                {
+                    "id": "eleven_multilingual_v2",
+                    "label": "eleven_multilingual_v2"
+                },
+                {
+                    "id": "eleven_turbo_v2",
+                    "label": "eleven_turbo_v2"
+                },
+                {
+                    "id": "eleven_turbo_v2_5",
+                    "label": "eleven_turbo_v2_5"
+                },
+                {
+                    "id": "eleven_flash_v2_5",
+                    "label": "eleven_flash_v2_5"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入您的 ElevenLabs API 密钥",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+### `elevenlabs_tts`
+
+使用 ElevenLabs 语音转换 TTS
+
+#### 输入
+
+| 参数 | 类型 | 必需 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `text` | string | 是 | 要转换为语音的文本 |
+| `voiceId` | string | 是 | 要使用的语音 ID |
+| `modelId` | string | 否 | 要使用的模型 ID \(默认为 eleven_monolingual_v1\) |
+| `apiKey` | string | 是 | 您的 ElevenLabs API 密钥 |
+
+#### 输出
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `audioUrl` | string | 生成的音频的 URL |
+| `audioFile` | file | 生成的音频文件 |
+
+## 使用说明
+
+将 ElevenLabs 集成到工作流中。可将文本转换为语音。
+
+## 说明
+
+- 类别：`tools`
+- 类型：`elevenlabs`

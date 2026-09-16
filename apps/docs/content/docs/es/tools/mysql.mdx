@@ -1,0 +1,774 @@
+---
+title: MySQL
+description: Conectar a la base de datos MySQL
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="mysql"
+  color="#F29111"
+/>
+
+## Configuración
+
+### Consulta (SELECT)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="MySQL"
+    type="mysql"
+    color="#F29111"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "query",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Consulta (SELECT)"
+                },
+                {
+                    "id": "insert",
+                    "label": "Insertar datos"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar datos"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar datos"
+                },
+                {
+                    "id": "execute",
+                    "label": "Ejecutar SQL directo"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "layout": "full",
+            "placeholder": "localhost o tu.database.host",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto",
+            "layout": "full",
+            "placeholder": "3306",
+            "required": true,
+            "defaultValue": "3306"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "layout": "full",
+            "placeholder": "tu_base_de_datos",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Usuario",
+            "layout": "full",
+            "placeholder": "root",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "layout": "full",
+            "placeholder": "Contraseña de tu base de datos",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "Modo SSL",
+            "layout": "full",
+            "defaultValue": "preferred",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "Deshabilitado"
+                },
+                {
+                    "id": "required",
+                    "label": "Requerido"
+                },
+                {
+                    "id": "preferred",
+                    "label": "Preferido"
+                }
+            ]
+        },
+        {
+            "id": "query",
+            "type": "code",
+            "title": "Consulta SQL",
+            "layout": "full",
+            "placeholder": "SELECT * FROM users WHERE active = true",
+            "language": "sql",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Consulta (SELECT) (<code>mysql_query</code>)</div>
+
+Ejecuta una consulta SELECT en la base de datos MySQL
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Sí | Nombre de host o dirección IP del servidor MySQL |
+| `port` | number | Sí | Puerto del servidor MySQL \(predeterminado: 3306\) |
+| `database` | string | Sí | Nombre de la base de datos a la que conectarse |
+| `username` | string | Sí | Nombre de usuario de la base de datos |
+| `password` | string | Sí | Contraseña de la base de datos |
+| `ssl` | string | No | Modo de conexión SSL \(deshabilitado, requerido, preferido\) |
+| `query` | string | Sí | Consulta SQL SELECT a ejecutar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `rows` | array | Arreglo de filas devueltas por la consulta |
+| `rowCount` | number | Número de filas devueltas |
+
+</div>
+
+---
+
+### Insertar datos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="MySQL"
+    type="mysql"
+    color="#F29111"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "insert",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Consulta (SELECT)"
+                },
+                {
+                    "id": "insert",
+                    "label": "Insertar datos"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar datos"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar datos"
+                },
+                {
+                    "id": "execute",
+                    "label": "Ejecutar SQL sin procesar"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "layout": "full",
+            "placeholder": "localhost o el.host.de.tu.base.de.datos",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto",
+            "layout": "full",
+            "placeholder": "3306",
+            "required": true,
+            "defaultValue": "3306"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "layout": "full",
+            "placeholder": "tu_base_de_datos",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Nombre de usuario",
+            "layout": "full",
+            "placeholder": "root",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "layout": "full",
+            "placeholder": "La contraseña de tu base de datos",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "Modo SSL",
+            "layout": "full",
+            "defaultValue": "preferred",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "Deshabilitado"
+                },
+                {
+                    "id": "required",
+                    "label": "Requerido"
+                },
+                {
+                    "id": "preferred",
+                    "label": "Preferido"
+                }
+            ]
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "Nombre de la tabla",
+            "layout": "full",
+            "placeholder": "users",
+            "required": true
+        },
+        {
+            "id": "data",
+            "type": "code",
+            "title": "Datos (JSON)",
+            "layout": "full",
+            "placeholder": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"active\": true\n}",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Insertar datos (<code>mysql_insert</code>)</div>
+
+Insertar nuevo registro en la base de datos MySQL
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Sí | Nombre de host o dirección IP del servidor MySQL |
+| `port` | number | Sí | Puerto del servidor MySQL \(predeterminado: 3306\) |
+| `database` | string | Sí | Nombre de la base de datos a la que conectarse |
+| `username` | string | Sí | Nombre de usuario de la base de datos |
+| `password` | string | Sí | Contraseña de la base de datos |
+| `ssl` | string | No | Modo de conexión SSL \(deshabilitado, requerido, preferido\) |
+| `table` | string | Sí | Nombre de la tabla en la que insertar |
+| `data` | object | Sí | Datos a insertar como pares clave-valor |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `rows` | array | Array de filas insertadas |
+| `rowCount` | number | Número de filas insertadas |
+
+</div>
+
+---
+
+### Actualizar datos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="MySQL"
+    type="mysql"
+    color="#F29111"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "update",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Consulta (SELECT)"
+                },
+                {
+                    "id": "insert",
+                    "label": "Insertar datos"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar datos"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar datos"
+                },
+                {
+                    "id": "execute",
+                    "label": "Ejecutar SQL en bruto"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "layout": "full",
+            "placeholder": "localhost o tu.database.host",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto",
+            "layout": "full",
+            "placeholder": "3306",
+            "required": true,
+            "defaultValue": "3306"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "layout": "full",
+            "placeholder": "tu_base_de_datos",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Nombre de usuario",
+            "layout": "full",
+            "placeholder": "root",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "layout": "full",
+            "placeholder": "Contraseña de tu base de datos",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "Modo SSL",
+            "layout": "full",
+            "defaultValue": "preferred",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "Deshabilitado"
+                },
+                {
+                    "id": "required",
+                    "label": "Requerido"
+                },
+                {
+                    "id": "preferred",
+                    "label": "Preferido"
+                }
+            ]
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "Nombre de la tabla",
+            "layout": "full",
+            "placeholder": "usuarios",
+            "required": true
+        },
+        {
+            "id": "data",
+            "type": "code",
+            "title": "Actualizar datos (JSON)",
+            "layout": "full",
+            "placeholder": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\"\n}",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "where",
+            "type": "short-input",
+            "title": "Condición WHERE",
+            "layout": "full",
+            "placeholder": "id = 1",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar datos (<code>mysql_update</code>)</div>
+
+Actualizar registros existentes en la base de datos MySQL
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `host` | cadena | Sí | Nombre de host o dirección IP del servidor MySQL |
+| `port` | número | Sí | Puerto del servidor MySQL \(predeterminado: 3306\) |
+| `database` | cadena | Sí | Nombre de la base de datos a la que conectarse |
+| `username` | cadena | Sí | Nombre de usuario de la base de datos |
+| `password` | cadena | Sí | Contraseña de la base de datos |
+| `ssl` | cadena | No | Modo de conexión SSL \(deshabilitado, requerido, preferido\) |
+| `table` | cadena | Sí | Nombre de la tabla a actualizar |
+| `data` | objeto | Sí | Datos a actualizar como pares clave-valor |
+| `where` | cadena | Sí | Condición de la cláusula WHERE \(sin la palabra clave WHERE\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | cadena | Mensaje de estado de la operación |
+| `rows` | array | Array de filas actualizadas |
+| `rowCount` | número | Número de filas actualizadas |
+
+</div>
+
+---
+
+### Eliminar datos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="MySQL"
+    type="mysql"
+    color="#F29111"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "delete",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Consulta (SELECT)"
+                },
+                {
+                    "id": "insert",
+                    "label": "Insertar datos"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar datos"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar datos"
+                },
+                {
+                    "id": "execute",
+                    "label": "Ejecutar SQL sin procesar"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "layout": "full",
+            "placeholder": "localhost o tu.database.host",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto",
+            "layout": "full",
+            "placeholder": "3306",
+            "required": true,
+            "defaultValue": "3306"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "layout": "full",
+            "placeholder": "tu_base_de_datos",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Nombre de usuario",
+            "layout": "full",
+            "placeholder": "root",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "layout": "full",
+            "placeholder": "Contraseña de tu base de datos",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "Modo SSL",
+            "layout": "full",
+            "defaultValue": "preferred",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "Deshabilitado"
+                },
+                {
+                    "id": "required",
+                    "label": "Requerido"
+                },
+                {
+                    "id": "preferred",
+                    "label": "Preferido"
+                }
+            ]
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "Nombre de la tabla",
+            "layout": "full",
+            "placeholder": "users",
+            "required": true
+        },
+        {
+            "id": "where",
+            "type": "short-input",
+            "title": "Condición WHERE",
+            "layout": "full",
+            "placeholder": "id = 1",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar datos (<code>mysql_delete</code>)</div>
+
+Eliminar registros de la base de datos MySQL
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Sí | Nombre de host o dirección IP del servidor MySQL |
+| `port` | number | Sí | Puerto del servidor MySQL \(predeterminado: 3306\) |
+| `database` | string | Sí | Nombre de la base de datos a la que conectarse |
+| `username` | string | Sí | Nombre de usuario de la base de datos |
+| `password` | string | Sí | Contraseña de la base de datos |
+| `ssl` | string | No | Modo de conexión SSL \(deshabilitado, requerido, preferido\) |
+| `table` | string | Sí | Nombre de la tabla de la que eliminar |
+| `where` | string | Sí | Condición de la cláusula WHERE \(sin la palabra clave WHERE\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `rows` | array | Array de filas eliminadas |
+| `rowCount` | number | Número de filas eliminadas |
+
+</div>
+
+---
+
+### Ejecutar SQL sin procesar
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="MySQL"
+    type="mysql"
+    color="#F29111"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "execute",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Consulta (SELECT)"
+                },
+                {
+                    "id": "insert",
+                    "label": "Insertar datos"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar datos"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar datos"
+                },
+                {
+                    "id": "execute",
+                    "label": "Ejecutar SQL sin procesar"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "layout": "full",
+            "placeholder": "localhost o your.database.host",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto",
+            "layout": "full",
+            "placeholder": "3306",
+            "required": true,
+            "defaultValue": "3306"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "layout": "full",
+            "placeholder": "tu_base_de_datos",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Nombre de usuario",
+            "layout": "full",
+            "placeholder": "root",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "layout": "full",
+            "placeholder": "Tu contraseña de la base de datos",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "Modo SSL",
+            "layout": "full",
+            "defaultValue": "preferred",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "Deshabilitado"
+                },
+                {
+                    "id": "required",
+                    "label": "Requerido"
+                },
+                {
+                    "id": "preferred",
+                    "label": "Preferido"
+                }
+            ]
+        },
+        {
+            "id": "query",
+            "type": "code",
+            "title": "Consulta SQL",
+            "layout": "full",
+            "placeholder": "SELECT * FROM table_name",
+            "language": "sql",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Ejecutar SQL sin procesar (<code>mysql_execute</code>)</div>
+
+Ejecutar consulta SQL sin procesar en base de datos MySQL
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `host` | cadena | Sí | Nombre de host o dirección IP del servidor MySQL |
+| `port` | número | Sí | Puerto del servidor MySQL \\(predeterminado: 3306\\) |
+| `database` | cadena | Sí | Nombre de la base de datos a la que conectarse |
+| `username` | cadena | Sí | Nombre de usuario de la base de datos |
+| `password` | cadena | Sí | Contraseña de la base de datos |
+| `ssl` | cadena | No | Modo de conexión SSL \\(deshabilitado, requerido, preferido\\) |
+| `query` | cadena | Sí | Consulta SQL sin procesar a ejecutar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | cadena | Mensaje de estado de la operación |
+| `rows` | arreglo | Arreglo de filas devueltas por la consulta |
+| `rowCount` | número | Número de filas afectadas |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integrar MySQL en el flujo de trabajo. Puede consultar, insertar, actualizar, eliminar y ejecutar SQL sin procesar.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `mysql`

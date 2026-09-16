@@ -1,0 +1,122 @@
+---
+title: Loop
+description: Repite bloques varias veces con control de iteraciones
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+
+<BlockInfoCard
+  type="loop"
+  color=""
+/>
+
+El bloque Loop es un contenedor que ejecuta repetidamente los bloques que contiene. No es un bloque normal con su propio archivo de origen: es un nodo contenedor especial gestionado por el `LoopBlockHandler` del ejecutor. Arrastra bloques al contenedor del bucle y se ejecutarán una vez por iteración.
+
+<Callout type="info">
+  Los bloques Loop son nodos contenedor. Arrastra los bloques secundarios dentro del bucle en el lienzo. Las conexiones entrantes llegan a través de Loop Start, y las salidas secundarias se reconectan a Loop End antes de que el flujo de trabajo continúe fuera del bucle.
+</Callout>
+
+## Tipos de Loop
+
+<Tabs items={['For', 'ForEach', 'While', 'Do-While']}>
+  <Tab>
+    **Bucle For** -- se ejecuta un número fijo de veces. El número de iteraciones predeterminado es **5** si no se especifica.
+
+    ```
+    Example: Run 3 times
+    - Iteration 1 (index 0)
+    - Iteration 2 (index 1)
+    - Iteration 3 (index 2)
+    ```
+
+  </Tab>
+  <Tab>
+    **Bucle ForEach** -- itera sobre cada elemento de un arreglo u objeto. La colección debe ser no vacía; una colección vacía lanza un error.
+
+    ```
+    Example: Process ["apple", "banana", "orange"]
+    - Iteration 1: currentItem = "apple"
+    - Iteration 2: currentItem = "banana"
+    - Iteration 3: currentItem = "orange"
+    ```
+
+    Para los objetos, cada iteración recibe un par `[key, value]`.
+  </Tab>
+  <Tab>
+    **Bucle While** -- evalúa una condición **antes** de cada iteración. Si la condición es falsa en la primera comprobación, el cuerpo nunca se ejecuta.
+
+    Los bucles While y Do-While **no tienen un límite de iteraciones integrado**. Dependen de que la condición se vuelva falsa (o del tiempo de espera del flujo de trabajo) para detenerse.
+  </Tab>
+  <Tab>
+    **Bucle Do-While** -- ejecuta el cuerpo al menos una vez y luego evalúa la condición **después** de cada iteración. Útil cuando necesitas al menos una pasada antes de comprobar.
+  </Tab>
+</Tabs>
+
+## Cómo funciona
+
+El `LoopBlockHandler` del ejecutor gestiona el control de iteraciones:
+
+1. **Inicializar** -- el contador del bucle comienza en 1. En los bucles `forEach`, se resuelve la colección (JSON, referencias a variables o expresiones).
+2. **Comprobar la continuación** -- `for`/`forEach` comparan el contador con la longitud de la colección o el número de iteraciones. `while`/`doWhile` evalúan la expresión de condición usando el mismo motor que el bloque Condición.
+3. **Activar los elementos secundarios** -- los bloques conectados al controlador de inicio interno del bucle se colocan en la ruta de ejecución activa.
+4. **Recopilar resultados** -- las salidas de cada iteración se agregan en `loop.results`.
+5. **Incrementar y repetir** -- el contador avanza y el paso 2 se ejecuta de nuevo. Cuando el bucle finaliza, se activan los bloques conectados al controlador de salida del bucle.
+
+## Variables de iteración
+
+Dentro del cuerpo del bucle, están disponibles las siguientes variables:
+
+| Variable | Tipo | Descripción |
+|---|---|---|
+| `loop.index` | number | Índice basado en cero de la iteración actual |
+| `loop.currentItem` | any | El elemento actual (bucles ForEach) o el contexto del bucle (bucles While) |
+| `loop.items` | array/object | La colección completa que se itera (solo ForEach) |
+
+Cuando el bucle finaliza, los bloques posteriores pueden acceder a:
+
+| Variable | Tipo | Descripción |
+|---|---|---|
+| `loop.results` | array | Array ordenado con todas las salidas de las iteraciones |
+
+## Configuración
+
+| Parámetro | Se aplica a | Descripción |
+|---|---|---|
+| **Tipo de bucle** | Todos | `for`, `forEach`, `while` o `doWhile` |
+| **Iteraciones** | For | Número de veces que se repite (predeterminado: 5) |
+| **Colección** | ForEach | Array u objeto que se va a iterar. Admite literales JSON, referencias `<block.output>` y expresiones. |
+| **Condición** | While / Do-While | Expresión booleana que se evalúa en cada iteración (p. ej., `<variable.i> < 10`) |
+
+## Casos de uso de ejemplo
+
+### Procesamiento de resultados de la API
+
+1. Un bloque de API obtiene una lista de registros de clientes.
+2. Un bucle ForEach itera sobre cada cliente.
+3. Dentro del bucle, un Agent analiza los datos del cliente y una Function almacena el resultado.
+4. Después del bucle, un bloque Response devuelve el `loop.results` agregado.
+
+### Refinamiento iterativo
+
+1. Un bucle For configurado con 5 iteraciones genera variaciones de contenido.
+2. Dentro del bucle, un Agent produce un borrador y un Evaluator lo puntúa.
+3. Después del bucle, una Function selecciona la variación con la puntuación más alta de `loop.results`.
+
+## Limitaciones
+
+<Callout type="warning">
+  Los bloques contenedores (bucles y paralelos) **no se pueden anidar** entre sí. No puedes colocar un Loop dentro de otro Loop, ni un Parallel dentro de un Loop. Si necesitas una iteración multidimensional, reestructura tu flujo de trabajo para usar bucles secuenciales o procesar los datos por etapas.
+</Callout>
+
+<Callout type="info">
+  Los bucles ejecutan las iteraciones **de forma secuencial**. Para la ejecución concurrente de tareas independientes, usa el bloque Parallel en su lugar.
+</Callout>
+
+## Buenas prácticas
+
+- **Establece un número razonable de iteraciones** para los bucles For a fin de evitar flujos de trabajo de larga duración. El valor predeterminado es 5.
+- **Usa ForEach para las colecciones** — se ajusta automáticamente a la longitud de la colección y te proporciona `currentItem`.
+- **Actualiza siempre tu variable de condición** dentro de los bucles While/Do-While. Olvidar cambiar la variable de la que depende la condición genera un bucle infinito (limitado únicamente por el tiempo de espera del flujo de trabajo).

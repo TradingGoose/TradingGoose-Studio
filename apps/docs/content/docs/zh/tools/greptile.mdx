@@ -1,0 +1,355 @@
+---
+title: Greptile
+description: AI 驱动的代码库搜索与问答
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="greptile"
+  color="#44A775"
+/>
+
+## 配置
+
+### 查询
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Greptile"
+    type="greptile"
+    color="#44A775"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "greptile_query",
+            "options": [
+                {
+                    "id": "greptile_query",
+                    "label": "查询"
+                },
+                {
+                    "id": "greptile_index_repo",
+                    "label": "索引仓库"
+                },
+                {
+                    "id": "greptile_status",
+                    "label": "检查状态"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Greptile API 密钥",
+            "placeholder": "输入您的 Greptile API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "githubToken",
+            "type": "short-input",
+            "title": "GitHub 令牌",
+            "placeholder": "输入您的 GitHub 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "查询",
+            "placeholder": "询问有关代码库的问题...",
+            "required": true
+        },
+        {
+            "id": "repositories",
+            "type": "long-input",
+            "title": "仓库",
+            "placeholder": "owner/repo, github:main:owner/repo (逗号分隔)",
+            "required": true
+        },
+        {
+            "id": "sessionId",
+            "type": "short-input",
+            "title": "会话 ID",
+            "placeholder": "可选的会话 ID，用于保持对话连续性"
+        },
+        {
+            "id": "genius",
+            "type": "switch",
+            "title": "天才模式"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">查询 (<code>greptile_query</code>)</div>
+
+使用自然语言查询仓库，并获得带有相关代码引用的答案。Greptile 使用 AI 理解您的代码库并回答问题。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必需 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `query` | 字符串 | 是 | 关于代码库的自然语言问题 |
+| `repositories` | 字符串 | 是 | 逗号分隔的仓库列表。格式："github:branch:owner/repo" 或 "owner/repo" \(默认为 github:main\) |
+| `sessionId` | 字符串 | 否 | 用于保持对话连续性的会话 ID |
+| `genius` | 布尔值 | 否 | 启用天才模式以进行更彻底的分析 \(速度较慢但更准确\) |
+| `apiKey` | 字符串 | 是 | Greptile API 密钥 |
+| `githubToken` | 字符串 | 是 | 具有仓库读取权限的 GitHub 个人访问令牌 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `message` | string | AI 生成的查询答案 |
+| `sources` | array | 支持该答案的相关代码引用 |
+
+</div>
+
+---
+
+### 索引仓库
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Greptile"
+    type="greptile"
+    color="#44A775"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "greptile_index_repo",
+            "options": [
+                {
+                    "id": "greptile_query",
+                    "label": "查询"
+                },
+                {
+                    "id": "greptile_index_repo",
+                    "label": "索引仓库"
+                },
+                {
+                    "id": "greptile_status",
+                    "label": "检查状态"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Greptile API 密钥",
+            "placeholder": "输入您的 Greptile API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "githubToken",
+            "type": "short-input",
+            "title": "GitHub 令牌",
+            "placeholder": "输入您的 GitHub 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "remote",
+            "type": "dropdown",
+            "title": "Git 远程",
+            "defaultValue": "github",
+            "options": [
+                {
+                    "id": "github",
+                    "label": "GitHub"
+                },
+                {
+                    "id": "gitlab",
+                    "label": "GitLab"
+                }
+            ]
+        },
+        {
+            "id": "repository",
+            "type": "short-input",
+            "title": "仓库",
+            "placeholder": "owner/repo",
+            "required": true
+        },
+        {
+            "id": "branch",
+            "type": "short-input",
+            "title": "分支",
+            "placeholder": "main",
+            "required": true
+        },
+        {
+            "id": "reload",
+            "type": "switch",
+            "title": "强制重新索引"
+        },
+        {
+            "id": "notify",
+            "type": "switch",
+            "title": "邮件通知"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">索引仓库 (<code>greptile_index_repo</code>)</div>
+
+向 Greptile 提交仓库以进行索引。必须完成索引后才能查询该仓库。小型仓库需要 3-5 分钟，较大的仓库可能需要超过一小时。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `remote` | string | 是 | Git 远程类型：github 或 gitlab |
+| `repository` | string | 是 | 仓库，格式为 owner/repo \\(例如 \"facebook/react\"\\) |
+| `branch` | string | 是 | 要索引的分支 \\(例如 \"main\" 或 \"master\"\\) |
+| `reload` | boolean | 否 | 即使已索引也强制重新索引 |
+| `notify` | boolean | 否 | 索引完成时发送邮件通知 |
+| `apiKey` | string | 是 | Greptile API 密钥 |
+| `githubToken` | string | 是 | 具有仓库读取权限的 GitHub 个人访问令牌 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `repositoryId` | string | 已索引仓库的唯一标识符（格式：remote:branch:owner/repo） |
+| `statusEndpoint` | string | 用于检查索引状态的 URL 端点 |
+| `message` | string | 索引操作的状态消息 |
+
+</div>
+
+---
+
+### 检查状态
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Greptile"
+    type="greptile"
+    color="#44A775"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "greptile_status",
+            "options": [
+                {
+                    "id": "greptile_query",
+                    "label": "查询"
+                },
+                {
+                    "id": "greptile_index_repo",
+                    "label": "索引仓库"
+                },
+                {
+                    "id": "greptile_status",
+                    "label": "检查状态"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Greptile API 密钥",
+            "placeholder": "输入你的 Greptile API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "githubToken",
+            "type": "short-input",
+            "title": "GitHub 令牌",
+            "placeholder": "输入你的 GitHub 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "remote",
+            "type": "dropdown",
+            "title": "Git 远程",
+            "defaultValue": "github",
+            "options": [
+                {
+                    "id": "github",
+                    "label": "GitHub"
+                },
+                {
+                    "id": "gitlab",
+                    "label": "GitLab"
+                }
+            ]
+        },
+        {
+            "id": "repository",
+            "type": "short-input",
+            "title": "仓库",
+            "placeholder": "owner/repo",
+            "required": true
+        },
+        {
+            "id": "branch",
+            "type": "short-input",
+            "title": "分支",
+            "placeholder": "main",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">检查状态（<code>greptile_status</code>）</div>
+
+检查仓库的索引状态。可用它确认仓库是否已准备好接受查询，或监控索引进度。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `remote` | string | 是 | Git 远程类型：github 或 gitlab |
+| `repository` | string | 是 | 采用 owner/repo 格式的仓库（例如 “facebook/react”） |
+| `branch` | string | 是 | 分支名称（例如 “main” 或 “master”） |
+| `apiKey` | string | 是 | Greptile API 密钥 |
+| `githubToken` | string | 是 | 具有仓库读取权限的 GitHub 个人访问令牌 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `repository` | string | 仓库名称 \\(owner/repo\\) |
+| `remote` | string | Git 远程仓库 \\(github/gitlab\\) |
+| `branch` | string | 分支名称 |
+| `private` | boolean | 仓库是否为私有 |
+| `status` | string | 索引状态：submitted、cloning、processing、completed 或 failed |
+| `filesProcessed` | number | 已处理的文件数量 |
+| `numFiles` | number | 仓库中的文件总数 |
+| `sampleQuestions` | array | 已索引仓库的示例问题 |
+| `sha` | string | 已索引版本的 Git 提交 SHA |
+
+</div>
+
+---
+
+## 使用说明
+
+使用 Greptile 以自然语言查询和搜索代码库。获取关于代码的 AI 生成答案，查找相关文件，并理解复杂的代码库。
+
+## 注意事项
+
+- 类别：`tools`
+- 类型：`greptile`

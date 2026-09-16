@@ -1,0 +1,91 @@
+---
+title: Introducción
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card'
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Image } from '@/components/ui/image'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
+
+<ShowcaseCard>
+  <img src="/static/introduction/hero-light.png" alt="TradingGoose Studio" className="rounded-lg w-full dark:hidden" />
+  <img src="/static/introduction/hero-dark.png" alt="TradingGoose Studio" className="rounded-lg w-full hidden dark:block" />
+</ShowcaseCard>
+
+TradingGoose Studio es una plataforma de workflows con IA para el trading técnico con LLM. Combina el análisis técnico con modelos de lenguaje de gran tamaño para impulsar tus decisiones de trading, desde el análisis y la investigación hasta los gráficos, el monitoreo y la automatización de workflows.
+
+Crea workflows visualmente en un lienzo conectando blocks: agentes de IA, acciones de trading, indicadores técnicos, integraciones de API y más. No se requiere programar para la mayoría de los workflows, con soporte completo de scripting en PineTS para indicadores y estrategias personalizados.
+
+## Qué puedes crear
+
+**Automatización de trading**
+Conéctate a brokers (Alpaca y Tradier), ejecuta órdenes, monitorea holdings y automatiza estrategias de trading impulsadas por análisis de IA e indicadores técnicos.
+
+**Análisis técnico y gráficos**
+Escribe indicadores personalizados en PineTS, visualiza datos OHLCV con gráficos de velas interactivos, gestiona watchlists con datos de mercado en vivo y activa workflows cuando se cumplan las condiciones de los indicadores.
+
+**Investigación con IA**
+Crea agentes de investigación que analicen datos de mercado, rastreen noticias, procesen documentos financieros y generen informes usando modelos de OpenAI, Anthropic, Google y más.
+
+**Procesamiento de datos e integración**
+Conecta bases de datos, herramientas de comunicación, CRMs y APIs. Orquesta pipelines de datos complejos con condiciones, bucles, ejecución en paralelo y manejo de errores.
+
+## Descripción general de la plataforma
+
+<ShowcaseCard>
+  <img src="/static/introduction/overview-light.png" alt="Descripción general de la plataforma TradingGoose" className="rounded-lg w-full dark:hidden" />
+  <img src="/static/introduction/overview-dark.png" alt="Descripción general de la plataforma TradingGoose" className="rounded-lg w-full hidden dark:block" />
+</ShowcaseCard>
+
+**Lienzo visual de workflows**
+Arrastra y suelta blocks para crear workflows. Conecta modelos de IA, servicios de trading, bases de datos y APIs con conexiones de un solo clic.
+
+**Infraestructura de trading**
+Usa Alpaca o Tradier para las acciones de trading configuradas, y obtén datos de mercado desde Alpaca, Alpha Vantage, Finnhub o Yahoo Finance.
+
+**Scripting con PineTS**
+Escribe indicadores personalizados en PineTS — un entorno de ejecución de JavaScript/TypeScript compatible con Pine Script. Conecta las señales de los indicadores a la automatización de workflows mediante la API `trigger()`.
+
+**Extensibilidad**
+Amplía la plataforma con servidores MCP, herramientas personalizadas, skills reutilizables y bases de conocimiento. El Copiloto de IA te ayuda a crear y gestionar todo en el workspace.
+
+**Múltiples triggers**
+Inicia workflows desde la interfaz de chat, la API REST, webhooks, tareas programadas, señales de indicadores o eventos externos de servicios como Slack y GitHub.
+
+## Integraciones integradas
+
+TradingGoose incluye un amplio catálogo de integraciones:
+
+- **Trading y mercados**: Alpaca, Tradier, Kalshi, Polymarket
+- **Datos de mercado**: Alpaca, Alpha Vantage, Finnhub, Yahoo Finance
+- **Modelos de IA**: OpenAI, Anthropic, Google, Groq, Cerebras, DeepSeek, Ollama (local)
+- **Comunicación**: Gmail, Slack, Teams, Telegram, WhatsApp, Discord
+- **Productividad**: Notion, Google Sheets, Airtable, Jira, Linear
+- **Desarrollo**: GitHub, GitLab, automatización del navegador (Stagehand)
+- **Búsqueda y web**: Google Search, Perplexity, Tavily, Exa, Firecrawl
+- **Bases de datos**: PostgreSQL, MySQL, MongoDB, Supabase, Pinecone, Qdrant
+
+¿Necesitas algo personalizado? Usa la [integración MCP](/utilities/mcp) para conectar cualquier servicio externo, o crea [Herramientas personalizadas](/utilities/custom-tools).
+
+## Opciones de despliegue
+
+**Alojado en la nube**: Usa el servicio gestionado de TradingGoose cuando el registro alojado esté disponible.
+
+**Autoalojado**: Ejecuta el repositorio de forma local o despliégalo en tu propia infraestructura. Puedes conectar modelos de IA locales a través de Ollama.
+
+## Próximos pasos
+
+<Cards>
+  <Card title="Indicadores" href="/indicators">
+    Escribe indicadores personalizados de PineTS para el análisis técnico
+  </Card>
+  <Card title="Blocks" href="/blocks">
+    Explora todos los bloques de workflow disponibles
+  </Card>
+  <Card title="Herramientas e integraciones" href="/tools">
+    Explora las integraciones integradas
+  </Card>
+  <Card title="Utilidades" href="/utilities">
+    MCP, Skills, Herramientas personalizadas y Copiloto
+  </Card>
+</Cards>

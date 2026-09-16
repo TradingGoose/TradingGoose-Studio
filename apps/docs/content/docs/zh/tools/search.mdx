@@ -1,0 +1,64 @@
+---
+title: 搜索
+description: 搜索网页（每次搜索 $0.01）
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="search"
+  color="#3B82F6"
+/>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Search"
+    type="search"
+    color="#3B82F6"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "搜索查询",
+            "placeholder": "输入搜索查询…",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+### `search_tool`
+
+搜索网页。返回最相关的网页结果，每条结果包含标题、链接、摘要和日期。
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | 是 | 搜索查询 |
+
+#### 输出（块级契约）
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `results` | json | 搜索结果 |
+| `query` | string | 搜索查询 |
+| `totalResults` | number | 结果总数 |
+| `source` | string | 搜索来源 \(exa\) |
+| `cost` | json | 费用信息 \($0.01\) |
+
+## 使用说明
+
+使用 Search 工具搜索网页。每次查询费用为 $0.01。
+
+## 注意事项
+
+- 类别：`tools`
+- 类型：`search`

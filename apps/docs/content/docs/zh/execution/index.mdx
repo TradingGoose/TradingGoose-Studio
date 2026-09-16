@@ -1,0 +1,122 @@
+---
+title: 概述
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+TradingGoose 的执行引擎按正确顺序处理区块、管理数据流并妥善处理错误，让您的工作流顺畅运行，从而准确了解工作流在 TradingGoose 中的执行方式。
+
+<Callout type="info">
+  区块调度遵循工作流图。路由器和条件输出会在运行时更新活动路径，因此只有选中的分支会继续执行。
+</Callout>
+
+## 文档概述
+
+<Cards>
+  <Card title="执行基础" href="/execution/basics">
+    了解基本的执行流程、区块类型以及数据如何流经您的工作流
+  </Card>
+
+  <Card title="日志记录" href="/execution/logging">
+    通过全面的日志记录和实时可见性监控工作流执行
+  </Card>
+  
+  <Card title="成本计算" href="/execution/costs">
+    了解工作流执行成本的计算和优化方式
+  </Card>
+  
+  <Card title="外部 API" href="/execution/api">
+    通过 REST API 以编程方式访问执行日志并设置 Webhook
+  </Card>
+</Cards>
+
+## 核心概念
+
+### 拓扑执行
+区块按依赖顺序执行，类似于电子表格重新计算单元格的方式。执行引擎根据已完成的依赖关系自动确定哪些区块可以运行。
+
+### 路径跟踪
+引擎会主动跟踪工作流中的执行路径。路由器和条件区块会动态更新这些路径，确保只执行相关的区块。
+
+### 基于层的处理
+引擎不会逐个执行区块，而是识别可以并行运行的区块层，从而优化复杂工作流的性能。
+
+### 执行上下文
+每个工作流在执行期间维护丰富的上下文，包括：
+- 区块输出和状态
+- 活动执行路径
+- 循环和并行迭代跟踪
+- 环境变量
+- 路由决策
+
+## 执行触发器
+
+工作流可通过多种渠道执行：
+
+- **手动**：直接在编辑器中测试和调试
+- **部署为 API**：创建一个使用 API 密钥保护的 HTTP 端点
+- **部署为聊天**：发布托管的对话式界面
+- **Webhook**：响应来自第三方服务的外部事件
+- **定时**：使用 cron 表达式按周期运行
+
+### 部署为 API
+
+将工作流部署为 API 后，TradingGoose 会：
+- 在 TradingGoose 部署上公开 `POST /api/workflows/{workflowId}/execute`
+- 要求你创建或选择一个 API 密钥，并将该密钥绑定到部署
+- 接受带有 JSON 载荷的 POST 请求
+- 以 JSON 返回工作流执行结果
+
+API 调用示例：
+
+```bash
+curl -X POST https://www.tradinggoose.ai/api/workflows/your-workflow-id/execute \
+  -H "X-API-Key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"input": {"message": "your data here"}}'
+```
+
+### 部署为聊天
+
+聊天部署会为你的工作流创建一个对话式界面：
+- 发布在 TradingGoose 部署的 `/chat/{identifier}`
+- 通过公开、密码、邮箱允许名单或 SSO 模式进行访问控制
+- 可配置标题、描述、欢迎消息和徽标
+- 流式响应，实现实时交互
+- 非常适合 AI 助手、支持机器人或交互式工具
+
+每种部署方式都会将数据传入工作流的起始块，从而启动执行流程。
+
+## 部署快照
+
+公开 API、托管聊天、定时和 Webhook 入口点执行工作流的活动部署快照。更改画布后，如需这些入口点使用更新后的版本，请发布新部署。
+
+从工作流编辑器进行的手动运行使用当前实时画布和工作流变量。这样可以在部署前测试草稿更改。
+
+部署弹窗会保留部署快照的版本历史。你可以查看快照、将其与当前草稿和活动部署进行比较、激活较旧版本，或将已部署版本重新加载到编辑器中。
+
+## 程序化执行
+
+生产集成请使用受支持的 [执行 API](/execution/api)。仓库还包含 [TypeScript](/sdks/typescript) 和 [Python](/sdks/python) 的未发布预览客户端；仅在开发或评估 SDK 包时，才从仓库源码安装这些客户端。
+
+## 最佳实践
+
+### 可靠性设计
+- 通过适当的回退路径妥善处理错误
+- 对敏感数据使用环境变量
+- 为 Function 块添加日志以便调试
+
+### 优化性能
+- 尽可能减少外部 API 调用
+- 对独立操作使用并行执行
+- 在运行期间使用 Variables 块存储可复用的中间值
+
+### 监控执行
+- 定期查看日志以了解性能模式
+- 跟踪 AI 模型使用成本
+- 使用工作流快照调试问题
+
+## 下一步
+
+从 [执行基础](/execution/basics) 开始，了解工作流的运行方式，然后探索 [日志记录](/execution/logging) 以监控执行，并查看 [成本计算](/execution/costs) 以优化支出。

@@ -1,0 +1,650 @@
+---
+title: Asana
+description: Interactuar con Asana
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="asana"
+  color="#E0E0E0"
+/>
+
+## Configuración
+
+### Obtener tarea
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Asana"
+    type="asana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_task",
+            "options": [
+                {
+                    "id": "get_task",
+                    "label": "Obtener tarea"
+                },
+                {
+                    "id": "create_task",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "update_task",
+                    "label": "Actualizar tarea"
+                },
+                {
+                    "id": "get_projects",
+                    "label": "Obtener proyectos"
+                },
+                {
+                    "id": "search_tasks",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "Agregar comentario"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Asana",
+            "placeholder": "Seleccionar cuenta de Asana",
+            "provider": "asana",
+            "required": true
+        },
+        {
+            "id": "taskGid",
+            "type": "short-input",
+            "title": "GID de la tarea",
+            "placeholder": "Dejar vacío para obtener todas las tareas con los filtros a continuación",
+            "required": false
+        },
+        {
+            "id": "getTasks_workspace",
+            "type": "short-input",
+            "title": "GID del espacio de trabajo",
+            "placeholder": "Introducir GID del espacio de trabajo"
+        },
+        {
+            "id": "getTasks_project",
+            "type": "short-input",
+            "title": "GID del proyecto",
+            "placeholder": "Introducir GID del proyecto"
+        },
+        {
+            "id": "getTasks_limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Máximo de tareas a devolver (predeterminado: 50)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener tarea (<code>asana_get_task</code>)</div>
+
+Recupera una tarea individual por GID u obtén varias tareas con filtros
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `taskGid` | string | No | El identificador único global \(GID\) de la tarea. Si no se proporciona, se obtendrán varias tareas. |
+| `workspace` | string | No | GID del espacio de trabajo para filtrar tareas \(obligatorio cuando no se usa taskGid\) |
+| `project` | string | No | GID del proyecto para filtrar tareas |
+| `limit` | number | No | Número máximo de tareas a devolver \(predeterminado: 50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `ts` | string | Marca de tiempo de la respuesta |
+| `gid` | string | Identificador único global de la tarea |
+| `resource_type` | string | Tipo de recurso \(tarea\) |
+| `resource_subtype` | string | Subtipo de recurso |
+| `name` | string | Nombre de la tarea |
+| `notes` | string | Notas o descripción de la tarea |
+| `completed` | boolean | Indica si la tarea está completada |
+| `assignee` | object | Detalles del asignado |
+| `created_by` | object | Detalles del creador |
+| `due_on` | string | Fecha de vencimiento \(YYYY-MM-DD\) |
+| `created_at` | string | Marca de tiempo de creación de la tarea |
+| `modified_at` | string | Marca de tiempo de última modificación de la tarea |
+| `tasks` | array | Array de tareas \(al obtener varias\) |
+
+</div>
+
+---
+
+### Crear tarea
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Asana"
+    type="asana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "create_task",
+            "options": [
+                {
+                    "id": "get_task",
+                    "label": "Obtener tarea"
+                },
+                {
+                    "id": "create_task",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "update_task",
+                    "label": "Actualizar tarea"
+                },
+                {
+                    "id": "get_projects",
+                    "label": "Obtener proyectos"
+                },
+                {
+                    "id": "search_tasks",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "Agregar comentario"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Asana",
+            "placeholder": "Seleccionar cuenta de Asana",
+            "provider": "asana",
+            "required": true
+        },
+        {
+            "id": "workspace",
+            "type": "short-input",
+            "title": "GID del espacio de trabajo",
+            "placeholder": "Ingrese el GID del espacio de trabajo de Asana",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "Nombre de la tarea",
+            "placeholder": "Ingrese el nombre de la tarea",
+            "required": true
+        },
+        {
+            "id": "notes",
+            "type": "long-input",
+            "title": "Notas de la tarea",
+            "placeholder": "Ingrese las notas o descripción de la tarea"
+        },
+        {
+            "id": "assignee",
+            "type": "short-input",
+            "title": "GID del asignado",
+            "placeholder": "Ingrese el GID del usuario asignado"
+        },
+        {
+            "id": "due_on",
+            "type": "datetime-input",
+            "title": "Fecha de vencimiento",
+            "placeholder": "YYYY-MM-DD"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear tarea (<code>asana_create_task</code>)</div>
+
+Crea una tarea nueva en Asana
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `workspace` | string | Sí | GID del espacio de trabajo donde se creará la tarea |
+| `name` | string | Sí | Nombre de la tarea |
+| `notes` | string | No | Notas o descripción de la tarea |
+| `assignee` | string | No | GID del usuario al que se asignará la tarea |
+| `due_on` | string | No | Fecha de vencimiento en formato YYYY-MM-DD |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `ts` | string | Marca de tiempo de la respuesta |
+| `gid` | string | Identificador único global de la tarea |
+| `name` | string | Nombre de la tarea |
+| `notes` | string | Notas o descripción de la tarea |
+| `completed` | boolean | Indica si la tarea está completada |
+| `created_at` | string | Marca de tiempo de creación de la tarea |
+| `permalink_url` | string | URL de la tarea en Asana |
+
+</div>
+
+---
+
+### Actualizar tarea
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Asana"
+    type="asana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "update_task",
+            "options": [
+                {
+                    "id": "get_task",
+                    "label": "Obtener tarea"
+                },
+                {
+                    "id": "create_task",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "update_task",
+                    "label": "Actualizar tarea"
+                },
+                {
+                    "id": "get_projects",
+                    "label": "Obtener proyectos"
+                },
+                {
+                    "id": "search_tasks",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "Agregar comentario"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Asana",
+            "placeholder": "Selecciona una cuenta de Asana",
+            "provider": "asana",
+            "required": true
+        },
+        {
+            "id": "taskGid",
+            "type": "short-input",
+            "title": "GID de la tarea",
+            "placeholder": "Introduce el GID de la tarea de Asana",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "Nombre de la tarea",
+            "placeholder": "Introduce el nombre de la tarea",
+            "required": true
+        },
+        {
+            "id": "notes",
+            "type": "long-input",
+            "title": "Notas de la tarea",
+            "placeholder": "Introduce las notas o la descripción de la tarea"
+        },
+        {
+            "id": "assignee",
+            "type": "short-input",
+            "title": "GID del asignado",
+            "placeholder": "Introduce el GID del usuario asignado"
+        },
+        {
+            "id": "due_on",
+            "type": "datetime-input",
+            "title": "Fecha de vencimiento",
+            "placeholder": "YYYY-MM-DD"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar tarea (<code>asana_update_task</code>)</div>
+
+Actualizar una tarea existente en Asana
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `taskGid` | string | Sí | El identificador único global \(GID\) de la tarea a actualizar |
+| `name` | string | No | Nombre actualizado para la tarea |
+| `notes` | string | No | Notas o descripción actualizadas para la tarea |
+| `assignee` | string | No | GID del usuario asignado actualizado |
+| `completed` | boolean | No | Marcar tarea como completada o no completada |
+| `due_on` | string | No | Fecha de vencimiento actualizada en formato YYYY-MM-DD |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `ts` | string | Marca de tiempo de la respuesta |
+| `gid` | string | Identificador único global de la tarea |
+| `name` | string | Nombre de la tarea |
+| `notes` | string | Notas o descripción de la tarea |
+| `completed` | boolean | Si la tarea está completada |
+| `modified_at` | string | Marca de tiempo de última modificación de la tarea |
+
+</div>
+
+---
+
+### Obtener proyectos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Asana"
+    type="asana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_projects",
+            "options": [
+                {
+                    "id": "get_task",
+                    "label": "Obtener tarea"
+                },
+                {
+                    "id": "create_task",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "update_task",
+                    "label": "Actualizar tarea"
+                },
+                {
+                    "id": "get_projects",
+                    "label": "Obtener proyectos"
+                },
+                {
+                    "id": "search_tasks",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "Agregar comentario"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Asana",
+            "placeholder": "Seleccionar cuenta de Asana",
+            "provider": "asana",
+            "required": true
+        },
+        {
+            "id": "workspace",
+            "type": "short-input",
+            "title": "GID del espacio de trabajo",
+            "placeholder": "Ingrese el GID del espacio de trabajo de Asana",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener proyectos (<code>asana_get_projects</code>)</div>
+
+Recupera todos los proyectos de un espacio de trabajo de Asana
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `workspace` | string | Sí | GID del espacio de trabajo desde el que se recuperan los proyectos |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `ts` | string | Marca de tiempo de la respuesta |
+| `projects` | array | Arreglo de proyectos |
+
+</div>
+
+---
+
+### Buscar tareas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Asana"
+    type="asana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "search_tasks",
+            "options": [
+                {
+                    "id": "get_task",
+                    "label": "Obtener tarea"
+                },
+                {
+                    "id": "create_task",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "update_task",
+                    "label": "Actualizar tarea"
+                },
+                {
+                    "id": "get_projects",
+                    "label": "Obtener proyectos"
+                },
+                {
+                    "id": "search_tasks",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "Agregar comentario"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Asana",
+            "placeholder": "Selecciona una cuenta de Asana",
+            "provider": "asana",
+            "required": true
+        },
+        {
+            "id": "workspace",
+            "type": "short-input",
+            "title": "GID del espacio de trabajo",
+            "placeholder": "Ingresa el GID del espacio de trabajo de Asana",
+            "required": true
+        },
+        {
+            "id": "assignee",
+            "type": "short-input",
+            "title": "GID del asignado",
+            "placeholder": "Ingresa el GID del usuario asignado"
+        },
+        {
+            "id": "searchText",
+            "type": "short-input",
+            "title": "Texto de búsqueda",
+            "placeholder": "Ingresa el texto de búsqueda"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar tareas (<code>asana_search_tasks</code>)</div>
+
+Busca tareas en un espacio de trabajo de Asana
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `workspace` | string | Sí | GID del espacio de trabajo donde buscar tareas |
+| `text` | string | No | Texto que se buscará en los nombres de las tareas |
+| `assignee` | string | No | Filtrar tareas por el GID del usuario asignado |
+| `projects` | array | No | Array de GID de proyectos por los que filtrar tareas |
+| `completed` | boolean | No | Filtrar por estado de finalización |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `ts` | string | Marca de tiempo de la respuesta |
+| `tasks` | array | Array de tareas coincidentes |
+| `next_page` | object | Información de paginación |
+
+</div>
+
+---
+
+### Añadir comentario
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Asana"
+    type="asana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "add_comment",
+            "options": [
+                {
+                    "id": "get_task",
+                    "label": "Obtener tarea"
+                },
+                {
+                    "id": "create_task",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "update_task",
+                    "label": "Actualizar tarea"
+                },
+                {
+                    "id": "get_projects",
+                    "label": "Obtener proyectos"
+                },
+                {
+                    "id": "search_tasks",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "Añadir comentario"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Asana",
+            "placeholder": "Selecciona una cuenta de Asana",
+            "provider": "asana",
+            "required": true
+        },
+        {
+            "id": "taskGid",
+            "type": "short-input",
+            "title": "GID de la tarea",
+            "placeholder": "Introduce el GID de la tarea de Asana",
+            "required": true
+        },
+        {
+            "id": "commentText",
+            "type": "long-input",
+            "title": "Texto del comentario",
+            "placeholder": "Introduce el texto del comentario",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Agregar comentario (<code>asana_add_comment</code>)</div>
+
+Agrega un comentario (story) a una tarea de Asana
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `taskGid` | string | Sí | El identificador único global \(GID\) de la tarea |
+| `text` | string | Sí | El contenido de texto del comentario |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `ts` | string | Marca de tiempo de la respuesta |
+| `gid` | string | Identificador único global del comentario |
+| `text` | string | Contenido de texto del comentario |
+| `created_at` | string | Marca de tiempo de creación del comentario |
+| `created_by` | object | Detalles del autor del comentario |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Asana en el flujo de trabajo. Puede leer, escribir y actualizar tareas.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `asana`

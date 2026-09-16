@@ -1,0 +1,785 @@
+---
+title: Calendly
+description: 管理 Calendly 日程和事件
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="calendly"
+  color="#006bff"
+/>
+
+<Cards>
+  <Card title="用作触发器" href="/triggers/calendly">
+    查看 Calendly 的触发事件、设置和事件负载。
+  </Card>
+</Cards>
+
+## 配置
+
+### 获取当前用户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly"
+    type="calendly"
+    color="#006bff"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "calendly_get_current_user",
+            "options": [
+                {
+                    "id": "calendly_get_current_user",
+                    "label": "获取当前用户"
+                },
+                {
+                    "id": "calendly_list_event_types",
+                    "label": "列出事件类型"
+                },
+                {
+                    "id": "calendly_get_event_type",
+                    "label": "获取事件类型"
+                },
+                {
+                    "id": "calendly_list_scheduled_events",
+                    "label": "列出已安排的事件"
+                },
+                {
+                    "id": "calendly_get_scheduled_event",
+                    "label": "获取已安排的事件"
+                },
+                {
+                    "id": "calendly_list_event_invitees",
+                    "label": "列出事件受邀者"
+                },
+                {
+                    "id": "calendly_cancel_event",
+                    "label": "取消事件"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "输入您的 Calendly 个人访问令牌",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取当前用户 (<code>calendly_get_current_user</code>)</div>
+
+获取当前已认证的 Calendly 用户信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Calendly 个人访问令牌 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `resource` | object | 当前用户信息 |
+
+</div>
+
+---
+
+### 列出事件类型
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly"
+    type="calendly"
+    color="#006bff"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "calendly_list_event_types",
+            "options": [
+                {
+                    "id": "calendly_get_current_user",
+                    "label": "获取当前用户"
+                },
+                {
+                    "id": "calendly_list_event_types",
+                    "label": "列出事件类型"
+                },
+                {
+                    "id": "calendly_get_event_type",
+                    "label": "获取事件类型"
+                },
+                {
+                    "id": "calendly_list_scheduled_events",
+                    "label": "列出已安排的事件"
+                },
+                {
+                    "id": "calendly_get_scheduled_event",
+                    "label": "获取已安排的事件"
+                },
+                {
+                    "id": "calendly_list_event_invitees",
+                    "label": "列出事件受邀者"
+                },
+                {
+                    "id": "calendly_cancel_event",
+                    "label": "取消事件"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "输入您的 Calendly 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "user",
+            "type": "short-input",
+            "title": "用户 URI",
+            "placeholder": "按用户 URI 筛选"
+        },
+        {
+            "id": "organization",
+            "type": "short-input",
+            "title": "组织 URI",
+            "placeholder": "按组织 URI 筛选（可选）"
+        },
+        {
+            "id": "active",
+            "type": "switch",
+            "title": "仅活跃",
+            "description": "启用后仅显示活跃事件类型。禁用后显示所有事件类型。"
+        },
+        {
+            "id": "count",
+            "type": "short-input",
+            "title": "每页结果数",
+            "placeholder": "结果数量（默认：20，最大：100）"
+        },
+        {
+            "id": "pageToken",
+            "type": "short-input",
+            "title": "分页令牌",
+            "placeholder": "用于分页的令牌"
+        },
+        {
+            "id": "sort",
+            "type": "short-input",
+            "title": "排序顺序",
+            "placeholder": "例如：\"name:asc\"、\"start_time:desc\""
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出事件类型（<code>calendly_list_event_types</code>）</div>
+
+获取某个用户或组织的所有事件类型列表
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Calendly 个人访问令牌 |
+| `user` | string | 否 | 仅返回属于该用户的事件类型 \(URI 格式\) |
+| `organization` | string | 否 | 仅返回属于该组织的事件类型 \(URI 格式\) |
+| `count` | number | 否 | 每页返回的结果数量 \(默认：20，最大：100\) |
+| `pageToken` | string | 否 | 用于分页的页码令牌 |
+| `sort` | string | 否 | 结果的排序方式 \(例如 "name:asc"、"name:desc"\) |
+| `active` | boolean | 否 | 为 true 时仅显示启用中的事件类型。为 false 或未勾选时，显示所有事件类型 \(包括启用和停用\）。 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `collection` | array | 事件类型对象数组 |
+| `pagination` | object | 分页信息 |
+
+</div>
+
+---
+
+### 获取事件类型
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly"
+    type="calendly"
+    color="#006bff"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "calendly_get_event_type",
+            "options": [
+                {
+                    "id": "calendly_get_current_user",
+                    "label": "获取当前用户"
+                },
+                {
+                    "id": "calendly_list_event_types",
+                    "label": "列出事件类型"
+                },
+                {
+                    "id": "calendly_get_event_type",
+                    "label": "获取事件类型"
+                },
+                {
+                    "id": "calendly_list_scheduled_events",
+                    "label": "列出已安排事件"
+                },
+                {
+                    "id": "calendly_get_scheduled_event",
+                    "label": "获取已安排事件"
+                },
+                {
+                    "id": "calendly_list_event_invitees",
+                    "label": "列出事件受邀者"
+                },
+                {
+                    "id": "calendly_cancel_event",
+                    "label": "取消事件"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "输入你的 Calendly 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "eventTypeUuid",
+            "type": "short-input",
+            "title": "事件类型 UUID",
+            "placeholder": "输入事件类型 UUID 或 URI",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取事件类型（<code>calendly_get_event_type</code>）</div>
+
+获取特定事件类型的详细信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Calendly 个人访问令牌 |
+| `eventTypeUuid` | string | 是 | 事件类型 UUID \(可以是完整 URI 或仅 UUID\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `resource` | object | 事件类型详情 |
+
+</div>
+
+---
+
+### 列出已安排事件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly"
+    type="calendly"
+    color="#006bff"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "calendly_list_scheduled_events",
+            "options": [
+                {
+                    "id": "calendly_get_current_user",
+                    "label": "获取当前用户"
+                },
+                {
+                    "id": "calendly_list_event_types",
+                    "label": "列出事件类型"
+                },
+                {
+                    "id": "calendly_get_event_type",
+                    "label": "获取事件类型"
+                },
+                {
+                    "id": "calendly_list_scheduled_events",
+                    "label": "列出已安排事件"
+                },
+                {
+                    "id": "calendly_get_scheduled_event",
+                    "label": "获取已安排事件"
+                },
+                {
+                    "id": "calendly_list_event_invitees",
+                    "label": "列出事件受邀者"
+                },
+                {
+                    "id": "calendly_cancel_event",
+                    "label": "取消事件"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "输入您的 Calendly 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "user",
+            "type": "short-input",
+            "title": "用户 URI",
+            "placeholder": "按用户 URI 筛选"
+        },
+        {
+            "id": "organization",
+            "type": "short-input",
+            "title": "组织 URI",
+            "placeholder": "按组织 URI 筛选（可选）"
+        },
+        {
+            "id": "invitee_email",
+            "type": "short-input",
+            "title": "受邀者邮箱",
+            "placeholder": "按受邀者邮箱筛选"
+        },
+        {
+            "id": "min_start_time",
+            "type": "datetime-input",
+            "title": "最早开始时间",
+            "placeholder": "例如：2024-01-01 00:00:00"
+        },
+        {
+            "id": "max_start_time",
+            "type": "datetime-input",
+            "title": "最晚开始时间",
+            "placeholder": "2024-12-31 23:59:59"
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "状态",
+            "options": [
+                {
+                    "id": "",
+                    "label": "全部"
+                },
+                {
+                    "id": "active",
+                    "label": "活跃"
+                },
+                {
+                    "id": "canceled",
+                    "label": "已取消"
+                }
+            ]
+        },
+        {
+            "id": "count",
+            "type": "short-input",
+            "title": "每页结果数",
+            "placeholder": "结果数量（默认：20，最大：100）"
+        },
+        {
+            "id": "pageToken",
+            "type": "short-input",
+            "title": "分页令牌",
+            "placeholder": "用于分页的令牌"
+        },
+        {
+            "id": "sort",
+            "type": "short-input",
+            "title": "排序顺序",
+            "placeholder": "例如：\"name:asc\", \"start_time:desc\""
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出已安排的事件 (<code>calendly_list_scheduled_events</code>)</div>
+
+检索用户或组织已安排的事件列表
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Calendly 个人访问令牌 |
+| `user` | string | 否 | 返回属于该用户的事件\(URI 格式\)。必须提供 "user" 或 "organization" 之一。 |
+| `organization` | string | 否 | 返回属于该组织的事件\(URI 格式\)。必须提供 "user" 或 "organization" 之一。 |
+| `invitee_email` | string | 否 | 返回受邀者使用此电子邮件的事件 |
+| `count` | number | 否 | 每页结果数量\(默认：20，最大：100\) |
+| `max_start_time` | string | 否 | 返回开始时间早于此时间的事件\(ISO 8601 格式\) |
+| `min_start_time` | string | 否 | 返回开始时间晚于此时间的事件\(ISO 8601 格式\) |
+| `pageToken` | string | 否 | 用于分页的页面令牌 |
+| `sort` | string | 否 | 结果的排序顺序\(例如："start_time:asc"，"start_time:desc"\) |
+| `status` | string | 否 | 按状态筛选\("active" 或 "canceled"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `collection` | array | 已安排事件对象的数组 |
+| `pagination` | object | 分页信息 |
+
+</div>
+
+---
+
+### 获取已安排的活动
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly"
+    type="calendly"
+    color="#006bff"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "calendly_get_scheduled_event",
+            "options": [
+                {
+                    "id": "calendly_get_current_user",
+                    "label": "获取当前用户"
+                },
+                {
+                    "id": "calendly_list_event_types",
+                    "label": "列出活动类型"
+                },
+                {
+                    "id": "calendly_get_event_type",
+                    "label": "获取活动类型"
+                },
+                {
+                    "id": "calendly_list_scheduled_events",
+                    "label": "列出已安排的活动"
+                },
+                {
+                    "id": "calendly_get_scheduled_event",
+                    "label": "获取已安排的活动"
+                },
+                {
+                    "id": "calendly_list_event_invitees",
+                    "label": "列出活动受邀者"
+                },
+                {
+                    "id": "calendly_cancel_event",
+                    "label": "取消活动"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "输入你的 Calendly 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "eventUuid",
+            "type": "short-input",
+            "title": "活动 UUID",
+            "placeholder": "输入已安排活动的 UUID 或 URI",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取已安排的活动 (<code>calendly_get_scheduled_event</code>)</div>
+
+获取特定已安排活动的详细信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Calendly 个人访问令牌 |
+| `eventUuid` | string | 是 | 已安排活动的 UUID（可为完整 URI 或仅 UUID） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `resource` | object | 已安排活动的详细信息 |
+
+</div>
+
+---
+
+### 列出活动受邀者
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly"
+    type="calendly"
+    color="#006bff"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "calendly_list_event_invitees",
+            "options": [
+                {
+                    "id": "calendly_get_current_user",
+                    "label": "获取当前用户"
+                },
+                {
+                    "id": "calendly_list_event_types",
+                    "label": "列出活动类型"
+                },
+                {
+                    "id": "calendly_get_event_type",
+                    "label": "获取活动类型"
+                },
+                {
+                    "id": "calendly_list_scheduled_events",
+                    "label": "列出已安排的活动"
+                },
+                {
+                    "id": "calendly_get_scheduled_event",
+                    "label": "获取已安排的活动"
+                },
+                {
+                    "id": "calendly_list_event_invitees",
+                    "label": "列出活动受邀者"
+                },
+                {
+                    "id": "calendly_cancel_event",
+                    "label": "取消活动"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "输入你的 Calendly 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "状态",
+            "options": [
+                {
+                    "id": "",
+                    "label": "全部"
+                },
+                {
+                    "id": "active",
+                    "label": "生效中"
+                },
+                {
+                    "id": "canceled",
+                    "label": "已取消"
+                }
+            ]
+        },
+        {
+            "id": "eventUuid",
+            "type": "short-input",
+            "title": "活动 UUID",
+            "placeholder": "输入已安排活动的 UUID 或 URI",
+            "required": true
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "邮箱",
+            "placeholder": "按受邀者邮箱筛选"
+        },
+        {
+            "id": "count",
+            "type": "short-input",
+            "title": "每页结果数",
+            "placeholder": "结果数量（默认：20，最大：100）"
+        },
+        {
+            "id": "pageToken",
+            "type": "short-input",
+            "title": "分页令牌",
+            "placeholder": "用于分页的令牌"
+        },
+        {
+            "id": "sort",
+            "type": "short-input",
+            "title": "排序顺序",
+            "placeholder": "例如：\"name:asc\"、\"start_time:desc\""
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出事件受邀者 (<code>calendly_list_event_invitees</code>)</div>
+
+获取已安排事件的受邀者列表
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Calendly 个人访问令牌 |
+| `eventUuid` | 字符串 | 是 | 已安排事件的 UUID \(可以是完整 URI 或仅 UUID\) |
+| `count` | 数字 | 否 | 每页结果数 \(默认：20，最大：100\) |
+| `email` | 字符串 | 否 | 按电子邮件地址筛选受邀者 |
+| `pageToken` | 字符串 | 否 | 用于分页的页面令牌 |
+| `sort` | 字符串 | 否 | 结果排序顺序 \(例如："created_at:asc"、"created_at:desc"\) |
+| `status` | 字符串 | 否 | 按状态筛选 \("active" 或 "canceled"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `collection` | 数组 | 受邀者对象数组 |
+| `pagination` | 对象 | 分页信息 |
+
+</div>
+
+---
+
+### 取消事件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly"
+    type="calendly"
+    color="#006bff"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "calendly_cancel_event",
+            "options": [
+                {
+                    "id": "calendly_get_current_user",
+                    "label": "获取当前用户"
+                },
+                {
+                    "id": "calendly_list_event_types",
+                    "label": "列出事件类型"
+                },
+                {
+                    "id": "calendly_get_event_type",
+                    "label": "获取事件类型"
+                },
+                {
+                    "id": "calendly_list_scheduled_events",
+                    "label": "列出已安排事件"
+                },
+                {
+                    "id": "calendly_get_scheduled_event",
+                    "label": "获取已安排事件"
+                },
+                {
+                    "id": "calendly_list_event_invitees",
+                    "label": "列出事件受邀者"
+                },
+                {
+                    "id": "calendly_cancel_event",
+                    "label": "取消事件"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "输入您的 Calendly 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "eventUuid",
+            "type": "short-input",
+            "title": "事件 UUID",
+            "placeholder": "输入已安排事件的 UUID 或 URI",
+            "required": true
+        },
+        {
+            "id": "reason",
+            "type": "long-input",
+            "title": "取消原因",
+            "placeholder": "取消原因（可选）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">取消事件 (<code>calendly_cancel_event</code>)</div>
+
+取消已安排的事件
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Calendly 个人访问令牌 |
+| `eventUuid` | 字符串 | 是 | 要取消的已安排事件 UUID \(可以是完整 URI 或仅 UUID\) |
+| `reason` | 字符串 | 否 | 取消原因 \(将发送给受邀者\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `resource` | 对象 | 取消详情 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Calendly 集成到您的工作流中。管理事件类型、已安排事件、受邀者和 Webhook。还可以基于 Calendly Webhook 事件（受邀者已安排、受邀者已取消、路由表单已提交）触发工作流。需要个人访问令牌。
+
+## 注意事项
+
+- 类别：`tools`
+- 类型：`calendly`

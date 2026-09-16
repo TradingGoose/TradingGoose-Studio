@@ -1,0 +1,512 @@
+---
+title: Outlook
+description: Acceder a Outlook
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="outlook"
+  color="#50D9FF"
+/>
+
+<Cards>
+  <Card title="Usar como disparador" href="/triggers/outlook">
+    Ver eventos de disparador, configuración y payloads de eventos para Outlook.
+  </Card>
+</Cards>
+
+## Configuración
+
+### Enviar correo electrónico
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Outlook"
+    type="outlook"
+    color="#50D9FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "send_outlook",
+            "options": [
+                {
+                    "id": "send_outlook",
+                    "label": "Enviar correo electrónico"
+                },
+                {
+                    "id": "draft_outlook",
+                    "label": "Crear borrador"
+                },
+                {
+                    "id": "read_outlook",
+                    "label": "Leer correo electrónico"
+                },
+                {
+                    "id": "forward_outlook",
+                    "label": "Reenviar correo electrónico"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "outlook",
+            "required": true
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "Para",
+            "layout": "full",
+            "placeholder": "Dirección de correo del destinatario",
+            "required": true
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "Asunto",
+            "layout": "full",
+            "placeholder": "Asunto del correo",
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "Cuerpo",
+            "layout": "full",
+            "placeholder": "Contenido del correo",
+            "required": true
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "Archivos adjuntos",
+            "layout": "full",
+            "placeholder": "Subir archivos para adjuntar",
+            "required": false
+        },
+        {
+            "id": "attachments",
+            "type": "short-input",
+            "title": "Archivos adjuntos",
+            "layout": "full",
+            "placeholder": "Referenciar archivos de bloques anteriores",
+            "required": false
+        },
+        {
+            "id": "replyToMessageId",
+            "type": "short-input",
+            "title": "ID del mensaje para responder",
+            "layout": "full",
+            "placeholder": "ID del mensaje al que responder (para hilos)",
+            "required": false
+        },
+        {
+            "id": "conversationId",
+            "type": "short-input",
+            "title": "ID de conversación",
+            "layout": "full",
+            "placeholder": "ID de conversación para hilos",
+            "required": false
+        },
+        {
+            "id": "cc",
+            "type": "short-input",
+            "title": "CC",
+            "layout": "full",
+            "placeholder": "Destinatarios en CC (separados por comas)",
+            "required": false
+        },
+        {
+            "id": "bcc",
+            "type": "short-input",
+            "title": "CCO",
+            "layout": "full",
+            "placeholder": "Destinatarios en CCO (separados por comas)",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Enviar correo electrónico (<code>outlook_send</code>)</div>
+
+Enviar correos electrónicos con Outlook
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `to` | string | Sí | Dirección de correo del destinatario |
+| `subject` | string | Sí | Asunto del correo |
+| `body` | string | Sí | Contenido del cuerpo del correo |
+| `contentType` | string | No | Tipo de contenido del cuerpo del correo \(text o html\) |
+| `replyToMessageId` | string | No | ID del mensaje al que responder \(para hilos\) |
+| `conversationId` | string | No | ID de conversación para hilos |
+| `cc` | string | No | Destinatarios en CC \(separados por comas\) |
+| `bcc` | string | No | Destinatarios en CCO \(separados por comas\) |
+| `attachments` | file[] | No | Archivos para adjuntar al correo |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito del envío del correo |
+| `status` | string | Estado de entrega del correo |
+| `timestamp` | string | Marca de tiempo del envío del correo |
+| `message` | string | Mensaje de éxito o error |
+
+</div>
+
+---
+
+### Redactar correo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Outlook"
+    type="outlook"
+    color="#50D9FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "draft_outlook",
+            "options": [
+                {
+                    "id": "send_outlook",
+                    "label": "Enviar correo"
+                },
+                {
+                    "id": "draft_outlook",
+                    "label": "Redactar correo"
+                },
+                {
+                    "id": "read_outlook",
+                    "label": "Leer correo"
+                },
+                {
+                    "id": "forward_outlook",
+                    "label": "Reenviar correo"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "outlook",
+            "required": true
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "Para",
+            "layout": "full",
+            "placeholder": "Dirección de correo del destinatario",
+            "required": true
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "Asunto",
+            "layout": "full",
+            "placeholder": "Asunto del correo",
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "Cuerpo",
+            "layout": "full",
+            "placeholder": "Contenido del correo",
+            "required": true
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "Adjuntos",
+            "layout": "full",
+            "placeholder": "Sube archivos para adjuntar",
+            "required": false
+        },
+        {
+            "id": "attachments",
+            "type": "short-input",
+            "title": "Adjuntos",
+            "layout": "full",
+            "placeholder": "Referencia archivos de bloques anteriores",
+            "required": false
+        },
+        {
+            "id": "cc",
+            "type": "short-input",
+            "title": "CC",
+            "layout": "full",
+            "placeholder": "Destinatarios en CC (separados por comas)",
+            "required": false
+        },
+        {
+            "id": "bcc",
+            "type": "short-input",
+            "title": "CCO",
+            "layout": "full",
+            "placeholder": "Destinatarios en CCO (separados por comas)",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Redactar correo electrónico (<code>outlook_draft</code>)</div>
+
+Redactar correos electrónicos con Outlook
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `to` | string | Sí | Dirección de correo electrónico del destinatario |
+| `subject` | string | Sí | Asunto del correo electrónico |
+| `body` | string | Sí | Contenido del cuerpo del correo electrónico |
+| `contentType` | string | No | Tipo de contenido del cuerpo del correo electrónico \(text o html\) |
+| `cc` | string | No | Destinatarios en CC \(separados por comas\) |
+| `bcc` | string | No | Destinatarios en CCO \(separados por comas\) |
+| `attachments` | file[] | No | Archivos para adjuntar al borrador de correo electrónico |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la creación del borrador de correo electrónico |
+| `messageId` | string | Identificador único del correo electrónico redactado |
+| `status` | string | Estado del borrador del correo electrónico |
+| `subject` | string | Asunto del correo electrónico redactado |
+| `timestamp` | string | Marca de tiempo de creación del borrador |
+| `message` | string | Mensaje de éxito o error |
+
+</div>
+
+---
+
+### Leer correo electrónico
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Outlook"
+    type="outlook"
+    color="#50D9FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "read_outlook",
+            "options": [
+                {
+                    "id": "send_outlook",
+                    "label": "Enviar correo electrónico"
+                },
+                {
+                    "id": "draft_outlook",
+                    "label": "Redactar correo electrónico"
+                },
+                {
+                    "id": "read_outlook",
+                    "label": "Leer correo electrónico"
+                },
+                {
+                    "id": "forward_outlook",
+                    "label": "Reenviar correo electrónico"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "outlook",
+            "required": true
+        },
+        {
+            "id": "folder",
+            "type": "folder-selector",
+            "title": "Carpeta",
+            "layout": "full",
+            "placeholder": "Seleccionar carpeta de Outlook",
+            "provider": "outlook"
+        },
+        {
+            "id": "manualFolder",
+            "type": "short-input",
+            "title": "Carpeta",
+            "layout": "full",
+            "placeholder": "Introducir nombre de carpeta de Outlook (p. ej., INBOX, SENT o carpeta personalizada)"
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Número de correos electrónicos",
+            "layout": "full",
+            "placeholder": "Número de correos electrónicos a recuperar (predeterminado: 1, máx.: 10)"
+        },
+        {
+            "id": "includeAttachments",
+            "type": "switch",
+            "title": "Incluir archivos adjuntos",
+            "layout": "full"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Leer correo electrónico (<code>outlook_read</code>)</div>
+
+Leer correos electrónicos de Outlook
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `folder` | string | No | ID de carpeta desde la que leer correos electrónicos \(predeterminado: Bandeja de entrada\) |
+| `maxResults` | number | No | Número máximo de correos electrónicos a recuperar \(predeterminado: 1, máx: 10\) |
+| `includeAttachments` | boolean | No | Descargar e incluir archivos adjuntos de correo electrónico |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de éxito o estado |
+| `results` | array | Matriz de objetos de mensaje de correo electrónico |
+| `attachments` | file[] | Todos los archivos adjuntos de correo electrónico aplanados de todos los correos electrónicos |
+
+</div>
+
+---
+
+### Reenviar correo electrónico
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Outlook"
+    type="outlook"
+    color="#50D9FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "forward_outlook",
+            "options": [
+                {
+                    "id": "send_outlook",
+                    "label": "Enviar correo electrónico"
+                },
+                {
+                    "id": "draft_outlook",
+                    "label": "Redactar correo electrónico"
+                },
+                {
+                    "id": "read_outlook",
+                    "label": "Leer correo electrónico"
+                },
+                {
+                    "id": "forward_outlook",
+                    "label": "Reenviar correo electrónico"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "outlook",
+            "required": true
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "Para",
+            "layout": "full",
+            "placeholder": "Dirección de correo electrónico del destinatario",
+            "required": true
+        },
+        {
+            "id": "messageId",
+            "type": "short-input",
+            "title": "ID de mensaje",
+            "layout": "full",
+            "placeholder": "ID del mensaje a reenviar",
+            "required": true
+        },
+        {
+            "id": "comment",
+            "type": "long-input",
+            "title": "Comentario",
+            "layout": "full",
+            "placeholder": "Comentario opcional para incluir al reenviar",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Reenviar correo electrónico (<code>outlook_forward</code>)</div>
+
+Reenviar un mensaje existente de Outlook a los destinatarios especificados
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `messageId` | cadena | Sí | El ID del mensaje a reenviar |
+| `to` | cadena | Sí | Dirección\\(es\\) de correo electrónico del destinatario, separadas por comas |
+| `comment` | cadena | No | Comentario opcional para incluir con el mensaje reenviado |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | cadena | Mensaje de éxito o error |
+| `results` | objeto | Detalles del resultado de la entrega |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Outlook en el flujo de trabajo. Puede leer, redactar y enviar mensajes de correo electrónico. Se puede utilizar en modo de disparador para activar un flujo de trabajo cuando se recibe un nuevo correo electrónico.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `outlook`

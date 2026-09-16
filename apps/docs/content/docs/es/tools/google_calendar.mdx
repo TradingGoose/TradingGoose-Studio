@@ -1,0 +1,656 @@
+---
+title: Google Calendar
+description: Gestionar eventos de Google Calendar
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="google_calendar"
+  color=""
+/>
+
+## Configuración
+
+### Crear evento
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Calendar"
+    type="google_calendar"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "create",
+            "options": [
+                {
+                    "id": "create",
+                    "label": "Crear evento"
+                },
+                {
+                    "id": "list",
+                    "label": "Listar eventos"
+                },
+                {
+                    "id": "get",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "quick_add",
+                    "label": "Agregar rápido (lenguaje natural)"
+                },
+                {
+                    "id": "invite",
+                    "label": "Invitar asistentes"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google Calendar",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Google Calendar",
+            "provider": "google-calendar",
+            "required": true
+        },
+        {
+            "id": "calendarId",
+            "type": "file-selector",
+            "title": "Calendario",
+            "layout": "full",
+            "placeholder": "Seleccionar calendario",
+            "provider": "google-calendar"
+        },
+        {
+            "id": "manualCalendarId",
+            "type": "short-input",
+            "title": "ID de calendario",
+            "layout": "full",
+            "placeholder": "Ingresar ID de calendario (por ejemplo, primary o calendar@gmail.com)"
+        },
+        {
+            "id": "summary",
+            "type": "short-input",
+            "title": "Título del evento",
+            "layout": "full",
+            "placeholder": "Reunión con el equipo",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "Descripción",
+            "layout": "full",
+            "placeholder": "Descripción del evento"
+        },
+        {
+            "id": "location",
+            "type": "short-input",
+            "title": "Ubicación",
+            "layout": "full",
+            "placeholder": "Sala de conferencias A"
+        },
+        {
+            "id": "startDateTime",
+            "type": "datetime-input",
+            "title": "Fecha y hora de inicio",
+            "layout": "half",
+            "placeholder": "2025-06-03T10:00:00Z",
+            "required": true
+        },
+        {
+            "id": "endDateTime",
+            "type": "datetime-input",
+            "title": "Fecha y hora de finalización",
+            "layout": "half",
+            "placeholder": "2025-06-03T11:00:00Z",
+            "required": true
+        },
+        {
+            "id": "attendees",
+            "type": "short-input",
+            "title": "Asistentes (correos electrónicos separados por comas)",
+            "layout": "full",
+            "placeholder": "john@example.com, jane@example.com"
+        },
+        {
+            "id": "sendUpdates",
+            "type": "dropdown",
+            "title": "Enviar notificaciones por correo electrónico",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "all",
+                    "label": "Todos los asistentes (recomendado)"
+                },
+                {
+                    "id": "externalOnly",
+                    "label": "Solo asistentes externos"
+                },
+                {
+                    "id": "none",
+                    "label": "Ninguno (no se envían correos electrónicos)"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear evento (<code>google_calendar_create</code>)</div>
+
+Crea un nuevo evento en Google Calendar
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `calendarId` | string | No | ID del calendario \(predeterminado: primary\) |
+| `summary` | string | Sí | Título/resumen del evento |
+| `description` | string | No | Descripción del evento |
+| `location` | string | No | Ubicación del evento |
+| `startDateTime` | string | Sí | Fecha y hora de inicio \(formato RFC3339, p. ej., 2025-06-03T10:00:00-08:00\) |
+| `endDateTime` | string | Sí | Fecha y hora de fin \(formato RFC3339, p. ej., 2025-06-03T11:00:00-08:00\) |
+| `timeZone` | string | No | Zona horaria \(p. ej., America/Los_Angeles\) |
+| `attendees` | array | No | Array de direcciones de correo electrónico de los asistentes |
+| `sendUpdates` | string | No | Cómo enviar actualizaciones a los asistentes: all, externalOnly o none |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Mensaje de confirmación de creación del evento |
+| `metadata` | json | Metadatos del evento creado, incluidos ID, estado y detalles |
+
+</div>
+
+---
+
+### Listar eventos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Calendar"
+    type="google_calendar"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "list",
+            "options": [
+                {
+                    "id": "create",
+                    "label": "Crear evento"
+                },
+                {
+                    "id": "list",
+                    "label": "Listar eventos"
+                },
+                {
+                    "id": "get",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "quick_add",
+                    "label": "Añadir rápido (lenguaje natural)"
+                },
+                {
+                    "id": "invite",
+                    "label": "Invitar asistentes"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google Calendar",
+            "layout": "full",
+            "placeholder": "Selecciona una cuenta de Google Calendar",
+            "provider": "google-calendar",
+            "required": true
+        },
+        {
+            "id": "calendarId",
+            "type": "file-selector",
+            "title": "Calendario",
+            "layout": "full",
+            "placeholder": "Selecciona un calendario",
+            "provider": "google-calendar"
+        },
+        {
+            "id": "manualCalendarId",
+            "type": "short-input",
+            "title": "ID del calendario",
+            "layout": "full",
+            "placeholder": "Introduce el ID del calendario (p. ej., primary o calendar@gmail.com)"
+        },
+        {
+            "id": "timeMin",
+            "type": "datetime-input",
+            "title": "Filtro de hora de inicio",
+            "layout": "half",
+            "placeholder": "2025-06-03T00:00:00Z"
+        },
+        {
+            "id": "timeMax",
+            "type": "datetime-input",
+            "title": "Filtro de hora de fin",
+            "layout": "half",
+            "placeholder": "2025-06-04T00:00:00Z"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar eventos (<code>google_calendar_list</code>)</div>
+
+Listar eventos de Google Calendar
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `calendarId` | string | No | ID de calendario \(por defecto: primary\) |
+| `timeMin` | string | No | Límite inferior para eventos \(marca de tiempo RFC3339, p. ej., 2025-06-03T00:00:00Z\) |
+| `timeMax` | string | No | Límite superior para eventos \(marca de tiempo RFC3339, p. ej., 2025-06-04T00:00:00Z\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Resumen del recuento de eventos encontrados |
+| `metadata` | json | Lista de eventos con tokens de paginación y detalles del evento |
+
+</div>
+
+---
+
+### Obtener evento
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Calendar"
+    type="google_calendar"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "get",
+            "options": [
+                {
+                    "id": "create",
+                    "label": "Crear evento"
+                },
+                {
+                    "id": "list",
+                    "label": "Listar eventos"
+                },
+                {
+                    "id": "get",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "quick_add",
+                    "label": "Agregar rápido (lenguaje natural)"
+                },
+                {
+                    "id": "invite",
+                    "label": "Invitar asistentes"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google Calendar",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Google Calendar",
+            "provider": "google-calendar",
+            "required": true
+        },
+        {
+            "id": "calendarId",
+            "type": "file-selector",
+            "title": "Calendario",
+            "layout": "full",
+            "placeholder": "Seleccionar calendario",
+            "provider": "google-calendar"
+        },
+        {
+            "id": "manualCalendarId",
+            "type": "short-input",
+            "title": "ID de calendario",
+            "layout": "full",
+            "placeholder": "Ingresar ID de calendario (p. ej., primary o calendar@gmail.com)"
+        },
+        {
+            "id": "eventId",
+            "type": "short-input",
+            "title": "ID de evento",
+            "layout": "full",
+            "placeholder": "ID de evento",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener evento (<code>google_calendar_get</code>)</div>
+
+Obtener un evento específico de Google Calendar
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `calendarId` | string | No | ID de calendario \(por defecto: primary\) |
+| `eventId` | string | Sí | ID del evento que se va a obtener |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Mensaje de confirmación de la obtención del evento |
+| `metadata` | json | Detalles del evento, incluidos ID, estado, horarios y asistentes |
+
+</div>
+
+---
+
+### Adición rápida (lenguaje natural)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Calendar"
+    type="google_calendar"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "quick_add",
+            "options": [
+                {
+                    "id": "create",
+                    "label": "Crear evento"
+                },
+                {
+                    "id": "list",
+                    "label": "Listar eventos"
+                },
+                {
+                    "id": "get",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "quick_add",
+                    "label": "Adición rápida (lenguaje natural)"
+                },
+                {
+                    "id": "invite",
+                    "label": "Invitar asistentes"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google Calendar",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Google Calendar",
+            "provider": "google-calendar",
+            "required": true
+        },
+        {
+            "id": "calendarId",
+            "type": "file-selector",
+            "title": "Calendario",
+            "layout": "full",
+            "placeholder": "Seleccionar calendario",
+            "provider": "google-calendar"
+        },
+        {
+            "id": "manualCalendarId",
+            "type": "short-input",
+            "title": "ID de calendario",
+            "layout": "full",
+            "placeholder": "Introduce el ID de calendario (p. ej., primary o calendar@gmail.com)"
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Evento en lenguaje natural",
+            "layout": "full",
+            "placeholder": "Reunión con John mañana a las 3 p. m. durante 1 hora",
+            "required": true
+        },
+        {
+            "id": "attendees",
+            "type": "short-input",
+            "title": "Asistentes (correos separados por comas)",
+            "layout": "full",
+            "placeholder": "john@example.com, jane@example.com",
+            "required": true
+        },
+        {
+            "id": "sendUpdates",
+            "type": "dropdown",
+            "title": "Enviar notificaciones por correo",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "all",
+                    "label": "Todos los asistentes (recomendado)"
+                },
+                {
+                    "id": "externalOnly",
+                    "label": "Solo asistentes externos"
+                },
+                {
+                    "id": "none",
+                    "label": "Ninguno (no se envían correos)"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Añadir rápido (Lenguaje natural) (<code>google_calendar_quick_add</code>)</div>
+
+Crear eventos a partir de texto en lenguaje natural
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `calendarId` | string | No | ID del calendario \(por defecto es primary\) |
+| `text` | string | Sí | Texto en lenguaje natural que describe el evento \(por ejemplo, "Reunión con John mañana a las 3pm"\) |
+| `attendees` | array | No | Arreglo de direcciones de correo electrónico de los asistentes \(también se acepta una cadena separada por comas\) |
+| `sendUpdates` | string | No | Cómo enviar actualizaciones a los asistentes: all, externalOnly o none |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Mensaje de confirmación de creación del evento a partir de lenguaje natural |
+| `metadata` | json | Metadatos del evento creado, incluidos los detalles interpretados |
+
+</div>
+
+---
+
+### Invitar a los asistentes
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Calendar"
+    type="google_calendar"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "invite",
+            "options": [
+                {
+                    "id": "create",
+                    "label": "Crear evento"
+                },
+                {
+                    "id": "list",
+                    "label": "Listar eventos"
+                },
+                {
+                    "id": "get",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "quick_add",
+                    "label": "Añadir rápido (Lenguaje natural)"
+                },
+                {
+                    "id": "invite",
+                    "label": "Invitar a los asistentes"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google Calendar",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Google Calendar",
+            "provider": "google-calendar",
+            "required": true
+        },
+        {
+            "id": "calendarId",
+            "type": "file-selector",
+            "title": "Calendario",
+            "layout": "full",
+            "placeholder": "Seleccionar calendario",
+            "provider": "google-calendar"
+        },
+        {
+            "id": "manualCalendarId",
+            "type": "short-input",
+            "title": "ID del calendario",
+            "layout": "full",
+            "placeholder": "Ingrese el ID del calendario (por ejemplo, primary o calendar@gmail.com)"
+        },
+        {
+            "id": "eventId",
+            "type": "short-input",
+            "title": "ID del evento",
+            "layout": "full",
+            "placeholder": "ID del evento",
+            "required": true
+        },
+        {
+            "id": "attendees",
+            "type": "short-input",
+            "title": "Asistentes (correos separados por comas)",
+            "layout": "full",
+            "placeholder": "john@example.com, jane@example.com"
+        },
+        {
+            "id": "replaceExisting",
+            "type": "dropdown",
+            "title": "Reemplazar asistentes existentes",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "false",
+                    "label": "Agregar a los asistentes existentes"
+                },
+                {
+                    "id": "true",
+                    "label": "Reemplazar todos los asistentes"
+                }
+            ]
+        },
+        {
+            "id": "sendUpdates",
+            "type": "dropdown",
+            "title": "Enviar notificaciones por correo electrónico",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "all",
+                    "label": "Todos los asistentes (recomendado)"
+                },
+                {
+                    "id": "externalOnly",
+                    "label": "Solo asistentes externos"
+                },
+                {
+                    "id": "none",
+                    "label": "Ninguno (no se envían correos)"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Invitar a asistentes (<code>google_calendar_invite</code>)</div>
+
+Invitar a asistentes a un evento existente de Google Calendar
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `calendarId` | string | No | ID del calendario \(por defecto: principal\) |
+| `eventId` | string | Sí | ID del evento al que invitar a los asistentes |
+| `attendees` | array | Sí | Array de direcciones de correo electrónico de los asistentes a invitar |
+| `sendUpdates` | string | No | Cómo enviar actualizaciones a los asistentes: all, externalOnly, o none |
+| `replaceExisting` | boolean | No | Si se deben reemplazar los asistentes existentes o agregarlos \(por defecto: false\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Mensaje de confirmación de invitación de asistentes con estado de entrega del correo electrónico |
+| `metadata` | json | Metadatos actualizados del evento, incluida la lista de asistentes y los detalles |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Google Calendar en el workflow. Puede crear, leer, actualizar y listar eventos de calendario.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `google_calendar`

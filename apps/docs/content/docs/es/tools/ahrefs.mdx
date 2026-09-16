@@ -1,0 +1,1218 @@
+---
+title: Ahrefs
+description: Análisis SEO con Ahrefs
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="ahrefs"
+  color="#E0E0E0"
+/>
+
+## Configuración
+
+### Domain Rating
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Ahrefs"
+    type="ahrefs"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "ahrefs_domain_rating",
+            "options": [
+                {
+                    "id": "ahrefs_domain_rating",
+                    "label": "Domain Rating"
+                },
+                {
+                    "id": "ahrefs_backlinks",
+                    "label": "Backlinks"
+                },
+                {
+                    "id": "ahrefs_backlinks_stats",
+                    "label": "Estadísticas de backlinks"
+                },
+                {
+                    "id": "ahrefs_referring_domains",
+                    "label": "Dominios de referencia"
+                },
+                {
+                    "id": "ahrefs_organic_keywords",
+                    "label": "Palabras clave orgánicas"
+                },
+                {
+                    "id": "ahrefs_top_pages",
+                    "label": "Páginas principales"
+                },
+                {
+                    "id": "ahrefs_keyword_overview",
+                    "label": "Resumen de palabras clave"
+                },
+                {
+                    "id": "ahrefs_broken_backlinks",
+                    "label": "Backlinks rotos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Introduce tu clave API de Ahrefs",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "target",
+            "type": "short-input",
+            "title": "Dominio objetivo",
+            "placeholder": "example.com",
+            "required": true
+        },
+        {
+            "id": "date",
+            "type": "datetime-input",
+            "title": "Fecha",
+            "placeholder": "YYYY-MM-DD (por defecto, hoy)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Domain Rating (<code>ahrefs_domain_rating</code>)</div>
+
+Obtén el Domain Rating (DR) y el Ahrefs Rank de un dominio objetivo. El Domain Rating muestra la fuerza del perfil de backlinks de un sitio web en una escala de 0 a 100.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `target` | string | Sí | El dominio objetivo a analizar \(p. ej., example.com\) |
+| `date` | string | No | Fecha para datos históricos en formato YYYY-MM-DD \(por defecto, hoy\) |
+| `apiKey` | string | Sí | Clave API de Ahrefs |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `domainRating` | number | Puntuación de Domain Rating \(0-100\) |
+| `ahrefsRank` | number | Ahrefs Rank: clasificación global según la fuerza del perfil de backlinks |
+
+</div>
+
+---
+
+### Backlinks
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Ahrefs"
+    type="ahrefs"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "ahrefs_backlinks",
+            "options": [
+                {
+                    "id": "ahrefs_domain_rating",
+                    "label": "Domain Rating"
+                },
+                {
+                    "id": "ahrefs_backlinks",
+                    "label": "Backlinks"
+                },
+                {
+                    "id": "ahrefs_backlinks_stats",
+                    "label": "Estadísticas de backlinks"
+                },
+                {
+                    "id": "ahrefs_referring_domains",
+                    "label": "Dominios de referencia"
+                },
+                {
+                    "id": "ahrefs_organic_keywords",
+                    "label": "Palabras clave orgánicas"
+                },
+                {
+                    "id": "ahrefs_top_pages",
+                    "label": "Páginas principales"
+                },
+                {
+                    "id": "ahrefs_keyword_overview",
+                    "label": "Resumen de palabras clave"
+                },
+                {
+                    "id": "ahrefs_broken_backlinks",
+                    "label": "Backlinks rotos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API de Ahrefs",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "target",
+            "type": "short-input",
+            "title": "Dominio/URL de destino",
+            "placeholder": "example.com o https://example.com/page",
+            "required": true
+        },
+        {
+            "id": "mode",
+            "type": "dropdown",
+            "title": "Modo de análisis",
+            "defaultValue": "domain",
+            "options": [
+                {
+                    "id": "domain",
+                    "label": "Dominio (dominio completo)"
+                },
+                {
+                    "id": "prefix",
+                    "label": "Prefijo (prefijo de URL)"
+                },
+                {
+                    "id": "subdomains",
+                    "label": "Subdominios (incluir todos)"
+                },
+                {
+                    "id": "exact",
+                    "label": "Exacto (URL exacta)"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "100"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "Desplazamiento",
+            "placeholder": "0"
+        },
+        {
+            "id": "date",
+            "type": "datetime-input",
+            "title": "Fecha",
+            "placeholder": "AAAA-MM-DD (por defecto, hoy)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Backlinks (<code>ahrefs_backlinks</code>)</div>
+
+Obtén una lista de backlinks que apuntan a un dominio o URL de destino. Devuelve detalles sobre cada backlink, incluida la URL de origen, el texto de anclaje y la calificación de dominio.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `target` | string | Sí | El dominio o URL de destino que se va a analizar |
+| `mode` | string | No | Modo de análisis: domain \(dominio completo\), prefix \(prefijo de URL\), subdomains \(incluir todos los subdominios\), exact \(coincidencia exacta de URL\) |
+| `date` | string | No | Fecha para datos históricos en formato YYYY-MM-DD \(por defecto, hoy\) |
+| `limit` | number | No | Número máximo de resultados a devolver \(por defecto: 100\) |
+| `offset` | number | No | Número de resultados a omitir para la paginación |
+| `apiKey` | string | Sí | Clave de API de Ahrefs |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `backlinks` | array | Lista de backlinks que apuntan al destino |
+
+</div>
+
+---
+
+### Estadísticas de backlinks
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Ahrefs"
+    type="ahrefs"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "ahrefs_backlinks_stats",
+            "options": [
+                {
+                    "id": "ahrefs_domain_rating",
+                    "label": "Calificación de dominio"
+                },
+                {
+                    "id": "ahrefs_backlinks",
+                    "label": "Backlinks"
+                },
+                {
+                    "id": "ahrefs_backlinks_stats",
+                    "label": "Estadísticas de backlinks"
+                },
+                {
+                    "id": "ahrefs_referring_domains",
+                    "label": "Dominios de referencia"
+                },
+                {
+                    "id": "ahrefs_organic_keywords",
+                    "label": "Palabras clave orgánicas"
+                },
+                {
+                    "id": "ahrefs_top_pages",
+                    "label": "Páginas principales"
+                },
+                {
+                    "id": "ahrefs_keyword_overview",
+                    "label": "Resumen de palabras clave"
+                },
+                {
+                    "id": "ahrefs_broken_backlinks",
+                    "label": "Backlinks rotos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingresa tu clave de API de Ahrefs",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "target",
+            "type": "short-input",
+            "title": "Dominio/URL de destino",
+            "placeholder": "example.com",
+            "required": true
+        },
+        {
+            "id": "mode",
+            "type": "dropdown",
+            "title": "Modo de análisis",
+            "defaultValue": "domain",
+            "options": [
+                {
+                    "id": "domain",
+                    "label": "Dominio (dominio completo)"
+                },
+                {
+                    "id": "prefix",
+                    "label": "Prefijo (prefijo de URL)"
+                },
+                {
+                    "id": "subdomains",
+                    "label": "Subdominios (incluir todos)"
+                },
+                {
+                    "id": "exact",
+                    "label": "Exacto (URL exacta)"
+                }
+            ]
+        },
+        {
+            "id": "date",
+            "type": "datetime-input",
+            "title": "Fecha",
+            "placeholder": "YYYY-MM-DD (por defecto, hoy)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Estadísticas de backlinks (<code>ahrefs_backlinks_stats</code>)</div>
+
+Obtén estadísticas de backlinks para un dominio o URL de destino. Devuelve los totales para diferentes tipos de backlinks, incluidos dofollow, nofollow, texto, imagen y enlaces de redirección.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `target` | string | Sí | El dominio o URL de destino a analizar |
+| `mode` | string | No | Modo de análisis: domain \(dominio completo\), prefix \(prefijo de URL\), subdomains \(incluir todos los subdominios\), exact \(coincidencia exacta de URL\) |
+| `date` | string | No | Fecha para datos históricos en formato YYYY-MM-DD \(por defecto, hoy\) |
+| `apiKey` | string | Sí | Clave de API de Ahrefs |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `stats` | object | Resumen de estadísticas de backlinks |
+
+</div>
+
+---
+
+### Dominios de referencia
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Ahrefs"
+    type="ahrefs"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "ahrefs_referring_domains",
+            "options": [
+                {
+                    "id": "ahrefs_domain_rating",
+                    "label": "Calificación de dominio"
+                },
+                {
+                    "id": "ahrefs_backlinks",
+                    "label": "Backlinks"
+                },
+                {
+                    "id": "ahrefs_backlinks_stats",
+                    "label": "Estadísticas de backlinks"
+                },
+                {
+                    "id": "ahrefs_referring_domains",
+                    "label": "Dominios de referencia"
+                },
+                {
+                    "id": "ahrefs_organic_keywords",
+                    "label": "Palabras clave orgánicas"
+                },
+                {
+                    "id": "ahrefs_top_pages",
+                    "label": "Páginas principales"
+                },
+                {
+                    "id": "ahrefs_keyword_overview",
+                    "label": "Resumen de palabras clave"
+                },
+                {
+                    "id": "ahrefs_broken_backlinks",
+                    "label": "Backlinks rotos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API de Ahrefs",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "target",
+            "type": "short-input",
+            "title": "Dominio/URL de destino",
+            "placeholder": "example.com",
+            "required": true
+        },
+        {
+            "id": "mode",
+            "type": "dropdown",
+            "title": "Modo de análisis",
+            "defaultValue": "domain",
+            "options": [
+                {
+                    "id": "domain",
+                    "label": "Dominio (dominio completo)"
+                },
+                {
+                    "id": "prefix",
+                    "label": "Prefijo (prefijo de URL)"
+                },
+                {
+                    "id": "subdomains",
+                    "label": "Subdominios (incluir todos)"
+                },
+                {
+                    "id": "exact",
+                    "label": "Exacto (URL exacta)"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "100"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "Desplazamiento",
+            "placeholder": "0"
+        },
+        {
+            "id": "date",
+            "type": "datetime-input",
+            "title": "Fecha",
+            "placeholder": "YYYY-MM-DD (por defecto, hoy)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Dominios de referencia (<code>ahrefs_referring_domains</code>)</div>
+
+Obtén una lista de dominios que enlazan a un dominio o URL de destino. Devuelve dominios de referencia únicos con su calificación de dominio, recuento de backlinks y fechas de descubrimiento.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `target` | string | Sí | El dominio o URL de destino a analizar |
+| `mode` | string | No | Modo de análisis: domain \(dominio completo\), prefix \(prefijo de URL\), subdomains \(incluir todos los subdominios\), exact \(coincidencia exacta de URL\) |
+| `date` | string | No | Fecha para datos históricos en formato YYYY-MM-DD \(por defecto, hoy\) |
+| `limit` | number | No | Número máximo de resultados a devolver \(por defecto: 100\) |
+| `offset` | number | No | Número de resultados a omitir para la paginación |
+| `apiKey` | string | Sí | Clave de API de Ahrefs |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `referringDomains` | array | Lista de dominios que enlazan al destino |
+
+</div>
+
+---
+
+### Palabras clave orgánicas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Ahrefs"
+    type="ahrefs"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "ahrefs_organic_keywords",
+            "options": [
+                {
+                    "id": "ahrefs_domain_rating",
+                    "label": "Calificación de dominio"
+                },
+                {
+                    "id": "ahrefs_backlinks",
+                    "label": "Backlinks"
+                },
+                {
+                    "id": "ahrefs_backlinks_stats",
+                    "label": "Estadísticas de backlinks"
+                },
+                {
+                    "id": "ahrefs_referring_domains",
+                    "label": "Dominios de referencia"
+                },
+                {
+                    "id": "ahrefs_organic_keywords",
+                    "label": "Palabras clave orgánicas"
+                },
+                {
+                    "id": "ahrefs_top_pages",
+                    "label": "Páginas principales"
+                },
+                {
+                    "id": "ahrefs_keyword_overview",
+                    "label": "Resumen de palabras clave"
+                },
+                {
+                    "id": "ahrefs_broken_backlinks",
+                    "label": "Backlinks rotos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API de Ahrefs",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "target",
+            "type": "short-input",
+            "title": "Dominio/URL de destino",
+            "placeholder": "example.com",
+            "required": true
+        },
+        {
+            "id": "country",
+            "type": "dropdown",
+            "title": "País",
+            "defaultValue": "us",
+            "options": [
+                {
+                    "id": "us",
+                    "label": "Estados Unidos"
+                },
+                {
+                    "id": "gb",
+                    "label": "Reino Unido"
+                },
+                {
+                    "id": "de",
+                    "label": "Alemania"
+                },
+                {
+                    "id": "fr",
+                    "label": "Francia"
+                },
+                {
+                    "id": "es",
+                    "label": "España"
+                },
+                {
+                    "id": "it",
+                    "label": "Italia"
+                },
+                {
+                    "id": "ca",
+                    "label": "Canadá"
+                },
+                {
+                    "id": "au",
+                    "label": "Australia"
+                },
+                {
+                    "id": "jp",
+                    "label": "Japón"
+                },
+                {
+                    "id": "br",
+                    "label": "Brasil"
+                },
+                {
+                    "id": "in",
+                    "label": "India"
+                },
+                {
+                    "id": "nl",
+                    "label": "Países Bajos"
+                },
+                {
+                    "id": "pl",
+                    "label": "Polonia"
+                },
+                {
+                    "id": "ru",
+                    "label": "Rusia"
+                },
+                {
+                    "id": "mx",
+                    "label": "México"
+                }
+            ]
+        },
+        {
+            "id": "mode",
+            "type": "dropdown",
+            "title": "Modo de análisis",
+            "defaultValue": "domain",
+            "options": [
+                {
+                    "id": "domain",
+                    "label": "Domain (dominio completo)"
+                },
+                {
+                    "id": "prefix",
+                    "label": "Prefix (prefijo de URL)"
+                },
+                {
+                    "id": "subdomains",
+                    "label": "Subdomains (incluir todos)"
+                },
+                {
+                    "id": "exact",
+                    "label": "Exact (URL exacta)"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "100"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "Desplazamiento",
+            "placeholder": "0"
+        },
+        {
+            "id": "date",
+            "type": "datetime-input",
+            "title": "Fecha",
+            "placeholder": "YYYY-MM-DD (por defecto, hoy)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Palabras clave orgánicas (<code>ahrefs_organic_keywords</code>)</div>
+
+Obtén las palabras clave orgánicas por las que un dominio o URL objetivo se posiciona en los resultados de búsqueda de Google. Devuelve detalles de las palabras clave, incluido el volumen de búsqueda, la posición en el ranking y el tráfico estimado.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `target` | string | Sí | El dominio o URL objetivo a analizar |
+| `country` | string | No | Código de país para los resultados de búsqueda \(p. ej., us, gb, de\). Predeterminado: us |
+| `mode` | string | No | Modo de análisis: domain \(dominio completo\), prefix \(prefijo de URL\), subdomains \(incluir todos los subdominios\), exact \(coincidencia exacta de URL\) |
+| `date` | string | No | Fecha para datos históricos en formato YYYY-MM-DD \(predeterminado: hoy\) |
+| `limit` | number | No | Número máximo de resultados a devolver \(predeterminado: 100\) |
+| `offset` | number | No | Número de resultados a omitir para la paginación |
+| `apiKey` | string | Sí | Clave de API de Ahrefs |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `keywords` | array | Lista de palabras clave orgánicas para las que se posiciona el objetivo |
+
+</div>
+
+---
+
+### Páginas principales
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Ahrefs"
+    type="ahrefs"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "ahrefs_top_pages",
+            "options": [
+                {
+                    "id": "ahrefs_domain_rating",
+                    "label": "Calificación de dominio"
+                },
+                {
+                    "id": "ahrefs_backlinks",
+                    "label": "Backlinks"
+                },
+                {
+                    "id": "ahrefs_backlinks_stats",
+                    "label": "Estadísticas de backlinks"
+                },
+                {
+                    "id": "ahrefs_referring_domains",
+                    "label": "Dominios de referencia"
+                },
+                {
+                    "id": "ahrefs_organic_keywords",
+                    "label": "Palabras clave orgánicas"
+                },
+                {
+                    "id": "ahrefs_top_pages",
+                    "label": "Páginas principales"
+                },
+                {
+                    "id": "ahrefs_keyword_overview",
+                    "label": "Resumen de palabras clave"
+                },
+                {
+                    "id": "ahrefs_broken_backlinks",
+                    "label": "Backlinks rotos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingresa tu clave de API de Ahrefs",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "target",
+            "type": "short-input",
+            "title": "Dominio objetivo",
+            "placeholder": "ejemplo.com",
+            "required": true
+        },
+        {
+            "id": "country",
+            "type": "dropdown",
+            "title": "País",
+            "defaultValue": "us",
+            "options": [
+                {
+                    "id": "us",
+                    "label": "Estados Unidos"
+                },
+                {
+                    "id": "gb",
+                    "label": "Reino Unido"
+                },
+                {
+                    "id": "de",
+                    "label": "Alemania"
+                },
+                {
+                    "id": "fr",
+                    "label": "Francia"
+                },
+                {
+                    "id": "es",
+                    "label": "España"
+                },
+                {
+                    "id": "it",
+                    "label": "Italia"
+                },
+                {
+                    "id": "ca",
+                    "label": "Canadá"
+                },
+                {
+                    "id": "au",
+                    "label": "Australia"
+                },
+                {
+                    "id": "jp",
+                    "label": "Japón"
+                },
+                {
+                    "id": "br",
+                    "label": "Brasil"
+                },
+                {
+                    "id": "in",
+                    "label": "India"
+                },
+                {
+                    "id": "nl",
+                    "label": "Países Bajos"
+                },
+                {
+                    "id": "pl",
+                    "label": "Polonia"
+                },
+                {
+                    "id": "ru",
+                    "label": "Rusia"
+                },
+                {
+                    "id": "mx",
+                    "label": "México"
+                }
+            ]
+        },
+        {
+            "id": "mode",
+            "type": "dropdown",
+            "title": "Modo de análisis",
+            "defaultValue": "domain",
+            "options": [
+                {
+                    "id": "domain",
+                    "label": "Dominio (dominio completo)"
+                },
+                {
+                    "id": "prefix",
+                    "label": "Prefijo (prefijo de URL)"
+                },
+                {
+                    "id": "subdomains",
+                    "label": "Subdominios (incluir todos)"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "100"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "Desplazamiento",
+            "placeholder": "0"
+        },
+        {
+            "id": "date",
+            "type": "datetime-input",
+            "title": "Fecha",
+            "placeholder": "YYYY-MM-DD (predeterminado: hoy)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Páginas principales (<code>ahrefs_top_pages</code>)</div>
+
+Obtén las páginas principales de un dominio objetivo ordenadas por tráfico orgánico. Devuelve las URL de las páginas con su tráfico, recuento de palabras clave y valor de tráfico estimado.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `target` | string | Sí | El dominio objetivo a analizar |
+| `country` | string | No | Código de país para los datos de tráfico \(p. ej., us, gb, de\). Predeterminado: us |
+| `mode` | string | No | Modo de análisis: domain \(dominio completo\), prefix \(prefijo de URL\), subdomains \(incluir todos los subdominios\) |
+| `date` | string | No | Fecha para datos históricos en formato YYYY-MM-DD \(por defecto, hoy\) |
+| `limit` | number | No | Número máximo de resultados a devolver \(predeterminado: 100\) |
+| `offset` | number | No | Número de resultados a omitir para la paginación |
+| `select` | string | No | Lista de campos separados por comas a devolver \(p. ej., url,traffic,keywords,top_keyword,value\). Predeterminado: url,traffic,keywords,top_keyword,value |
+| `apiKey` | string | Sí | Clave de API de Ahrefs |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `pages` | array | Lista de páginas principales por tráfico orgánico |
+
+</div>
+
+---
+
+### Resumen de palabras clave
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Ahrefs"
+    type="ahrefs"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "ahrefs_keyword_overview",
+            "options": [
+                {
+                    "id": "ahrefs_domain_rating",
+                    "label": "Calificación de dominio"
+                },
+                {
+                    "id": "ahrefs_backlinks",
+                    "label": "Enlaces entrantes"
+                },
+                {
+                    "id": "ahrefs_backlinks_stats",
+                    "label": "Estadísticas de enlaces entrantes"
+                },
+                {
+                    "id": "ahrefs_referring_domains",
+                    "label": "Dominios de referencia"
+                },
+                {
+                    "id": "ahrefs_organic_keywords",
+                    "label": "Palabras clave orgánicas"
+                },
+                {
+                    "id": "ahrefs_top_pages",
+                    "label": "Páginas principales"
+                },
+                {
+                    "id": "ahrefs_keyword_overview",
+                    "label": "Resumen de palabras clave"
+                },
+                {
+                    "id": "ahrefs_broken_backlinks",
+                    "label": "Enlaces entrantes rotos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API de Ahrefs",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "keyword",
+            "type": "short-input",
+            "title": "Palabra clave",
+            "placeholder": "Introduce la palabra clave a analizar",
+            "required": true
+        },
+        {
+            "id": "country",
+            "type": "dropdown",
+            "title": "País",
+            "defaultValue": "us",
+            "options": [
+                {
+                    "id": "us",
+                    "label": "Estados Unidos"
+                },
+                {
+                    "id": "gb",
+                    "label": "Reino Unido"
+                },
+                {
+                    "id": "de",
+                    "label": "Alemania"
+                },
+                {
+                    "id": "fr",
+                    "label": "Francia"
+                },
+                {
+                    "id": "es",
+                    "label": "España"
+                },
+                {
+                    "id": "it",
+                    "label": "Italia"
+                },
+                {
+                    "id": "ca",
+                    "label": "Canadá"
+                },
+                {
+                    "id": "au",
+                    "label": "Australia"
+                },
+                {
+                    "id": "jp",
+                    "label": "Japón"
+                },
+                {
+                    "id": "br",
+                    "label": "Brasil"
+                },
+                {
+                    "id": "in",
+                    "label": "India"
+                },
+                {
+                    "id": "nl",
+                    "label": "Países Bajos"
+                },
+                {
+                    "id": "pl",
+                    "label": "Polonia"
+                },
+                {
+                    "id": "ru",
+                    "label": "Rusia"
+                },
+                {
+                    "id": "mx",
+                    "label": "México"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Resumen de palabras clave (<code>ahrefs_keyword_overview</code>)</div>
+
+Obtén métricas detalladas de una palabra clave, incluyendo volumen de búsqueda, dificultad de la palabra clave, CPC, clics y potencial de tráfico.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `keyword` | string | Sí | La palabra clave que se va a analizar |
+| `country` | string | No | Código de país para los datos de la palabra clave \(p. ej., us, gb, de\). Predeterminado: us |
+| `apiKey` | string | Sí | Clave de API de Ahrefs |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `overview` | object | Resumen de métricas de palabras clave |
+
+</div>
+
+---
+
+### Backlinks rotos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Ahrefs"
+    type="ahrefs"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+          "id": "operation",
+          "type": "dropdown",
+          "title": "Operación",
+          "defaultValue": "ahrefs_broken_backlinks",
+          "options": [
+              {
+                  "id": "ahrefs_domain_rating",
+                  "label": "Calificación de dominio"
+              },
+              {
+                  "id": "ahrefs_backlinks",
+                  "label": "Backlinks"
+              },
+              {
+                  "id": "ahrefs_backlinks_stats",
+                  "label": "Estadísticas de backlinks"
+              },
+              {
+                  "id": "ahrefs_referring_domains",
+                  "label": "Dominios de referencia"
+              },
+              {
+                  "id": "ahrefs_organic_keywords",
+                  "label": "Palabras clave orgánicas"
+              },
+              {
+                  "id": "ahrefs_top_pages",
+                  "label": "Páginas principales"
+              },
+              {
+                  "id": "ahrefs_keyword_overview",
+                  "label": "Resumen de palabras clave"
+              },
+              {
+                  "id": "ahrefs_broken_backlinks",
+                  "label": "Backlinks rotos"
+              }
+          ]
+      },
+      {
+          "id": "apiKey",
+          "type": "short-input",
+          "title": "Clave de API",
+          "placeholder": "Introduce tu clave de API de Ahrefs",
+          "password": true,
+          "required": true
+      },
+      {
+          "id": "target",
+          "type": "short-input",
+          "title": "Dominio/URL de destino",
+          "placeholder": "example.com",
+          "required": true
+      },
+      {
+          "id": "mode",
+          "type": "dropdown",
+          "title": "Modo de análisis",
+          "defaultValue": "domain",
+          "options": [
+              {
+                  "id": "domain",
+                  "label": "Dominio (dominio completo)"
+              },
+              {
+                  "id": "prefix",
+                  "label": "Prefijo (prefijo de URL)"
+              },
+              {
+                  "id": "subdomains",
+                  "label": "Subdominios (incluir todos)"
+              },
+              {
+                  "id": "exact",
+                  "label": "Exacta (URL exacta)"
+              }
+          ]
+      },
+      {
+          "id": "limit",
+          "type": "short-input",
+          "title": "Límite",
+          "placeholder": "100"
+      },
+      {
+          "id": "offset",
+          "type": "short-input",
+          "title": "Desplazamiento",
+          "placeholder": "0"
+      },
+      {
+          "id": "date",
+          "type": "datetime-input",
+          "title": "Fecha",
+          "placeholder": "YYYY-MM-DD (predeterminado: hoy)"
+      }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Backlinks rotos (<code>ahrefs_broken_backlinks</code>)</div>
+
+Obtén una lista de backlinks rotos que apuntan a un dominio o URL de destino. Útil para identificar oportunidades de recuperación de enlaces.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `target` | string | Sí | El dominio o URL de destino a analizar |
+| `mode` | string | No | Modo de análisis: domain \(dominio completo\), prefix \(prefijo de URL\), subdomains \(incluir todos los subdominios\), exact \(coincidencia exacta de URL\) |
+| `date` | string | No | Fecha para datos históricos en formato YYYY-MM-DD \(por defecto, hoy\) |
+| `limit` | number | No | Número máximo de resultados a devolver \(predeterminado: 100\) |
+| `offset` | number | No | Número de resultados a omitir para la paginación |
+| `apiKey` | string | Sí | Clave de API de Ahrefs |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `brokenBacklinks` | array | Lista de backlinks rotos |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra las herramientas SEO de Ahrefs en tu flujo de trabajo. Analiza clasificaciones de dominios, backlinks, palabras clave orgánicas, páginas principales y más. Requiere un plan Enterprise de Ahrefs con acceso a la API.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `ahrefs`

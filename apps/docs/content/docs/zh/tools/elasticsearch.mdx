@@ -1,0 +1,2368 @@
+---
+title: Elasticsearch
+description: 在 Elasticsearch 中搜索、索引和管理数据
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="elasticsearch"
+  color="#E0E0E0"
+/>
+
+## 配置
+
+### 搜索
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elasticsearch"
+    type="elasticsearch"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "elasticsearch_search",
+            "options": [
+                {
+                    "id": "elasticsearch_search",
+                    "label": "搜索"
+                },
+                {
+                    "id": "elasticsearch_index_document",
+                    "label": "索引文档"
+                },
+                {
+                    "id": "elasticsearch_get_document",
+                    "label": "获取文档"
+                },
+                {
+                    "id": "elasticsearch_update_document",
+                    "label": "更新文档"
+                },
+                {
+                    "id": "elasticsearch_delete_document",
+                    "label": "删除文档"
+                },
+                {
+                    "id": "elasticsearch_bulk",
+                    "label": "批量操作"
+                },
+                {
+                    "id": "elasticsearch_count",
+                    "label": "统计文档数"
+                },
+                {
+                    "id": "elasticsearch_create_index",
+                    "label": "创建索引"
+                },
+                {
+                    "id": "elasticsearch_delete_index",
+                    "label": "删除索引"
+                },
+                {
+                    "id": "elasticsearch_get_index",
+                    "label": "获取索引信息"
+                },
+                {
+                    "id": "elasticsearch_cluster_health",
+                    "label": "集群健康"
+                },
+                {
+                    "id": "elasticsearch_cluster_stats",
+                    "label": "集群统计"
+                }
+            ]
+        },
+        {
+            "id": "deploymentType",
+            "type": "dropdown",
+            "title": "部署类型",
+            "defaultValue": "self_hosted",
+            "options": [
+                {
+                    "id": "self_hosted",
+                    "label": "自托管"
+                },
+                {
+                    "id": "cloud",
+                    "label": "Elastic Cloud"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Elasticsearch 主机",
+            "placeholder": "https://localhost:9200",
+            "description": "当 deploymentType 为 'self_hosted' 时显示。"
+        },
+        {
+            "id": "cloudId",
+            "type": "short-input",
+            "title": "Cloud ID",
+            "placeholder": "deployment-name:base64-encoded-data",
+            "description": "当 deploymentType 为 'cloud' 时显示。"
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "认证方式",
+            "defaultValue": "api_key",
+            "options": [
+                {
+                    "id": "api_key",
+                    "label": "API 密钥"
+                },
+                {
+                    "id": "basic_auth",
+                    "label": "基本认证"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入编码后的 API 密钥",
+            "password": true,
+            "description": "当 authMethod 为 'api_key' 时显示。"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "输入用户名",
+            "description": "当 authMethod 为 'basic_auth' 时显示。"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "输入密码",
+            "password": true,
+            "description": "当 authMethod 为 'basic_auth' 时显示。"
+        },
+        {
+            "id": "index",
+            "type": "short-input",
+            "title": "索引名称",
+            "placeholder": "my-index",
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "code",
+            "title": "搜索查询",
+            "placeholder": "{ \"match\": { \"field\": \"搜索词\" } }",
+            "language": "json"
+        },
+        {
+            "id": "size",
+            "type": "short-input",
+            "title": "结果数量",
+            "placeholder": "10"
+        },
+        {
+            "id": "from",
+            "type": "short-input",
+            "title": "偏移量",
+            "placeholder": "0"
+        },
+        {
+            "id": "sort",
+            "type": "code",
+            "title": "排序",
+            "placeholder": "[{ \"field\": { \"order\": \"asc\" } }]",
+            "language": "json"
+        },
+        {
+            "id": "sourceIncludes",
+            "type": "short-input",
+            "title": "包含字段",
+            "placeholder": "field1, field2（逗号分隔）"
+        },
+        {
+            "id": "sourceExcludes",
+            "type": "short-input",
+            "title": "排除字段",
+            "placeholder": "field1, field2（逗号分隔）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索（<code>elasticsearch_search</code>）</div>
+
+使用 Query DSL 在 Elasticsearch 中搜索文档。返回匹配的文档及其评分和元数据。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `deploymentType` | string | 是 | 部署类型：self_hosted 或 cloud |
+| `host` | string | 否 | Elasticsearch 主机 URL\(自托管部署\) |
+| `cloudId` | string | 否 | Elastic Cloud ID\(云端部署\) |
+| `authMethod` | string | 是 | 认证方式：api_key 或 basic_auth |
+| `apiKey` | string | 否 | Elasticsearch API 密钥 |
+| `username` | string | 否 | 基本认证用户名 |
+| `password` | string | 否 | 基本认证密码 |
+| `index` | string | 是 | 要搜索的索引名称 |
+| `query` | string | 否 | JSON 字符串形式的 Query DSL |
+| `from` | number | 否 | 分页起始偏移量\(默认：0\) |
+| `size` | number | 否 | 返回结果数量\(默认：10\) |
+| `sort` | string | 否 | JSON 字符串形式的排序规则 |
+| `sourceIncludes` | string | 否 | 要包含在 _source 中的字段列表，以逗号分隔 |
+| `sourceExcludes` | string | 否 | 要从 _source 中排除的字段列表，以逗号分隔 |
+| `trackTotalHits` | boolean | 否 | 跟踪准确的总命中数\(默认：true\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `took` | 数字 | 搜索耗时（毫秒） |
+| `timed_out` | 布尔值 | 搜索是否超时 |
+| `hits` | 对象 | 搜索结果，包含总数和匹配的文档 |
+| `aggregations` | JSON | 聚合结果（如有） |
+
+</div>
+
+---
+
+### 索引文档
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elasticsearch"
+    type="elasticsearch"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "elasticsearch_index_document",
+            "options": [
+                {
+                    "id": "elasticsearch_search",
+                    "label": "搜索"
+                },
+                {
+                    "id": "elasticsearch_index_document",
+                    "label": "索引文档"
+                },
+                {
+                    "id": "elasticsearch_get_document",
+                    "label": "获取文档"
+                },
+                {
+                    "id": "elasticsearch_update_document",
+                    "label": "更新文档"
+                },
+                {
+                    "id": "elasticsearch_delete_document",
+                    "label": "删除文档"
+                },
+                {
+                    "id": "elasticsearch_bulk",
+                    "label": "批量操作"
+                },
+                {
+                    "id": "elasticsearch_count",
+                    "label": "统计文档数"
+                },
+                {
+                    "id": "elasticsearch_create_index",
+                    "label": "创建索引"
+                },
+                {
+                    "id": "elasticsearch_delete_index",
+                    "label": "删除索引"
+                },
+                {
+                    "id": "elasticsearch_get_index",
+                    "label": "获取索引信息"
+                },
+                {
+                    "id": "elasticsearch_cluster_health",
+                    "label": "集群健康"
+                },
+                {
+                    "id": "elasticsearch_cluster_stats",
+                    "label": "集群统计"
+                }
+            ]
+        },
+        {
+            "id": "deploymentType",
+            "type": "dropdown",
+            "title": "部署类型",
+            "defaultValue": "self_hosted",
+            "options": [
+                {
+                    "id": "self_hosted",
+                    "label": "自托管"
+                },
+                {
+                    "id": "cloud",
+                    "label": "Elastic Cloud"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Elasticsearch 主机",
+            "placeholder": "https://localhost:9200",
+            "description": "当 deploymentType 为 'self_hosted' 时显示。"
+        },
+        {
+            "id": "cloudId",
+            "type": "short-input",
+            "title": "Cloud ID",
+            "placeholder": "deployment-name:base64-encoded-data",
+            "description": "当 deploymentType 为 'cloud' 时显示。"
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "认证方式",
+            "defaultValue": "api_key",
+            "options": [
+                {
+                    "id": "api_key",
+                    "label": "API 密钥"
+                },
+                {
+                    "id": "basic_auth",
+                    "label": "基本认证"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入编码后的 API 密钥",
+            "password": true,
+            "description": "当 authMethod 为 'api_key' 时显示。"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "输入用户名",
+            "description": "当 authMethod 为 'basic_auth' 时显示。"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "输入密码",
+            "password": true,
+            "description": "当 authMethod 为 'basic_auth' 时显示。"
+        },
+        {
+            "id": "index",
+            "type": "short-input",
+            "title": "索引名称",
+            "placeholder": "my-index",
+            "required": true
+        },
+        {
+            "id": "documentId",
+            "type": "short-input",
+            "title": "文档 ID",
+            "placeholder": "留空以自动生成 ID"
+        },
+        {
+            "id": "document",
+            "type": "code",
+            "title": "文档",
+            "placeholder": "{ \"field\": \"value\", \"another_field\": 123 }",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "refresh",
+            "type": "dropdown",
+            "title": "刷新",
+            "defaultValue": "",
+            "options": [
+                {
+                    "id": "",
+                    "label": "默认"
+                },
+                {
+                    "id": "wait_for",
+                    "label": "等待"
+                },
+                {
+                    "id": "true",
+                    "label": "立即"
+                },
+                {
+                    "id": "false",
+                    "label": "无"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">索引文档 (<code>elasticsearch_index_document</code>)</div>
+
+在 Elasticsearch 中索引（创建或更新）文档。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `deploymentType` | string | 是 | 部署类型：self_hosted 或 cloud |
+| `host` | string | 否 | Elasticsearch 主机 URL \(用于自托管\) |
+| `cloudId` | string | 否 | Elastic Cloud ID \(用于云部署\) |
+| `authMethod` | string | 是 | 认证方式：api_key 或 basic_auth |
+| `apiKey` | string | 否 | Elasticsearch API 密钥 |
+| `username` | string | 否 | 基本认证的用户名 |
+| `password` | string | 否 | 基本认证的密码 |
+| `index` | string | 是 | 目标索引名称 |
+| `documentId` | string | 否 | 文档 ID \(未提供时自动生成\) |
+| `document` | string | 是 | 文档正文，JSON 字符串 |
+| `refresh` | string | 否 | 刷新策略：true、false 或 wait_for |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `_index` | string | 存储文档的索引 |
+| `_id` | string | 文档 ID |
+| `_version` | number | 文档版本 |
+| `result` | string | 操作结果 \(已创建或已更新\) |
+
+</div>
+
+---
+
+### 获取文档
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elasticsearch"
+    type="elasticsearch"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "elasticsearch_get_document",
+            "options": [
+                {
+                    "id": "elasticsearch_search",
+                    "label": "搜索"
+                },
+                {
+                    "id": "elasticsearch_index_document",
+                    "label": "索引文档"
+                },
+                {
+                    "id": "elasticsearch_get_document",
+                    "label": "获取文档"
+                },
+                {
+                    "id": "elasticsearch_update_document",
+                    "label": "更新文档"
+                },
+                {
+                    "id": "elasticsearch_delete_document",
+                    "label": "删除文档"
+                },
+                {
+                    "id": "elasticsearch_bulk",
+                    "label": "批量操作"
+                },
+                {
+                    "id": "elasticsearch_count",
+                    "label": "统计文档数"
+                },
+                {
+                    "id": "elasticsearch_create_index",
+                    "label": "创建索引"
+                },
+                {
+                    "id": "elasticsearch_delete_index",
+                    "label": "删除索引"
+                },
+                {
+                    "id": "elasticsearch_get_index",
+                    "label": "获取索引信息"
+                },
+                {
+                    "id": "elasticsearch_cluster_health",
+                    "label": "集群健康"
+                },
+                {
+                    "id": "elasticsearch_cluster_stats",
+                    "label": "集群统计"
+                }
+            ]
+        },
+        {
+            "id": "deploymentType",
+            "type": "dropdown",
+            "title": "部署类型",
+            "defaultValue": "self_hosted",
+            "options": [
+                {
+                    "id": "self_hosted",
+                    "label": "自托管"
+                },
+                {
+                    "id": "cloud",
+                    "label": "Elastic Cloud"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Elasticsearch 主机",
+            "placeholder": "https://localhost:9200",
+            "description": "当 deploymentType 为 'self_hosted' 时显示。"
+        },
+        {
+            "id": "cloudId",
+            "type": "short-input",
+            "title": "Cloud ID",
+            "placeholder": "deployment-name:base64-encoded-data",
+            "description": "当 deploymentType 为 'cloud' 时显示。"
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "认证方式",
+            "defaultValue": "api_key",
+            "options": [
+                {
+                    "id": "api_key",
+                    "label": "API 密钥"
+                },
+                {
+                    "id": "basic_auth",
+                    "label": "基本认证"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入编码后的 API 密钥",
+            "password": true,
+            "description": "当 authMethod 为 'api_key' 时显示。"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "输入用户名",
+            "description": "当 authMethod 为 'basic_auth' 时显示。"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "输入密码",
+            "password": true,
+            "description": "当 authMethod 为 'basic_auth' 时显示。"
+        },
+        {
+            "id": "index",
+            "type": "short-input",
+            "title": "索引名称",
+            "placeholder": "my-index",
+            "required": true
+        },
+        {
+            "id": "documentId",
+            "type": "short-input",
+            "title": "文档 ID",
+            "placeholder": "unique-document-id",
+            "required": true
+        },
+        {
+            "id": "sourceIncludes",
+            "type": "short-input",
+            "title": "包含的字段",
+            "placeholder": "field1, field2（逗号分隔）"
+        },
+        {
+            "id": "sourceExcludes",
+            "type": "short-input",
+            "title": "排除的字段",
+            "placeholder": "field1, field2（逗号分隔）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取文档（<code>elasticsearch_get_document</code>）</div>
+
+根据 ID 从 Elasticsearch 检索文档。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `deploymentType` | string | 是 | 部署类型：self_hosted 或 cloud |
+| `host` | string | 否 | Elasticsearch 主机 URL \(适用于自托管\) |
+| `cloudId` | string | 否 | Elastic Cloud ID \(适用于云部署\) |
+| `authMethod` | string | 是 | 认证方式：api_key 或 basic_auth |
+| `apiKey` | string | 否 | Elasticsearch API 密钥 |
+| `username` | string | 否 | 基本认证的用户名 |
+| `password` | string | 否 | 基本认证的密码 |
+| `index` | string | 是 | 索引名称 |
+| `documentId` | string | 是 | 要检索的文档 ID |
+| `sourceIncludes` | string | 否 | 要包含的字段列表，以逗号分隔 |
+| `sourceExcludes` | string | 否 | 要排除的字段列表，以逗号分隔 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `_index` | string | 索引名称 |
+| `_id` | string | 文档 ID |
+| `_version` | number | 文档版本 |
+| `found` | boolean | 是否找到该文档 |
+| `_source` | json | 文档内容 |
+
+</div>
+
+---
+
+### 更新文档
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elasticsearch"
+    type="elasticsearch"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "elasticsearch_update_document",
+            "options": [
+                {
+                    "id": "elasticsearch_search",
+                    "label": "搜索"
+                },
+                {
+                    "id": "elasticsearch_index_document",
+                    "label": "索引文档"
+                },
+                {
+                    "id": "elasticsearch_get_document",
+                    "label": "获取文档"
+                },
+                {
+                    "id": "elasticsearch_update_document",
+                    "label": "更新文档"
+                },
+                {
+                    "id": "elasticsearch_delete_document",
+                    "label": "删除文档"
+                },
+                {
+                    "id": "elasticsearch_bulk",
+                    "label": "批量操作"
+                },
+                {
+                    "id": "elasticsearch_count",
+                    "label": "统计文档数量"
+                },
+                {
+                    "id": "elasticsearch_create_index",
+                    "label": "创建索引"
+                },
+                {
+                    "id": "elasticsearch_delete_index",
+                    "label": "删除索引"
+                },
+                {
+                    "id": "elasticsearch_get_index",
+                    "label": "获取索引信息"
+                },
+                {
+                    "id": "elasticsearch_cluster_health",
+                    "label": "集群健康状态"
+                },
+                {
+                    "id": "elasticsearch_cluster_stats",
+                    "label": "集群统计信息"
+                }
+            ]
+        },
+        {
+            "id": "deploymentType",
+            "type": "dropdown",
+            "title": "部署类型",
+            "defaultValue": "self_hosted",
+            "options": [
+                {
+                    "id": "self_hosted",
+                    "label": "自托管"
+                },
+                {
+                    "id": "cloud",
+                    "label": "Elastic Cloud"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Elasticsearch 主机",
+            "placeholder": "https://localhost:9200",
+            "description": "当 deploymentType 为 'self_hosted' 时显示。"
+        },
+        {
+            "id": "cloudId",
+            "type": "short-input",
+            "title": "Cloud ID",
+            "placeholder": "deployment-name:base64-encoded-data",
+            "description": "当 deploymentType 为 'cloud' 时显示。"
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "认证方式",
+            "defaultValue": "api_key",
+            "options": [
+                {
+                    "id": "api_key",
+                    "label": "API 密钥"
+                },
+                {
+                    "id": "basic_auth",
+                    "label": "基本认证"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入编码后的 API 密钥",
+            "password": true,
+            "description": "当 authMethod 为 'api_key' 时显示。"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "输入用户名",
+            "description": "当 authMethod 为 'basic_auth' 时显示。"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "输入密码",
+            "password": true,
+            "description": "当 authMethod 为 'basic_auth' 时显示。"
+        },
+        {
+            "id": "index",
+            "type": "short-input",
+            "title": "索引名称",
+            "placeholder": "my-index",
+            "required": true
+        },
+        {
+            "id": "documentId",
+            "type": "short-input",
+            "title": "文档 ID",
+            "placeholder": "unique-document-id",
+            "required": true
+        },
+        {
+            "id": "document",
+            "type": "code",
+            "title": "部分文档",
+            "placeholder": "{ \"field_to_update\": \"new_value\" }",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "retryOnConflict",
+            "type": "short-input",
+            "title": "冲突时重试",
+            "placeholder": "3"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新文档 (<code>elasticsearch_update_document</code>)</div>
+
+使用文档合并部分更新 Elasticsearch 中的文档。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `deploymentType` | string | 是 | 部署类型：self_hosted 或 cloud |
+| `host` | string | 否 | Elasticsearch 主机 URL \(用于自托管\) |
+| `cloudId` | string | 否 | Elastic Cloud ID \(用于云部署\) |
+| `authMethod` | string | 是 | 认证方法：api_key 或 basic_auth |
+| `apiKey` | string | 否 | Elasticsearch API 密钥 |
+| `username` | string | 否 | 基本认证的用户名 |
+| `password` | string | 否 | 基本认证的密码 |
+| `index` | string | 是 | 索引名称 |
+| `documentId` | string | 是 | 要更新的文档 ID |
+| `document` | string | 是 | 要合并为 JSON 字符串的部分文档 |
+| `retryOnConflict` | number | 否 | 版本冲突时的重试次数 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `_index` | string | 索引名称 |
+| `_id` | string | 文档 ID |
+| `_version` | number | 新文档版本 |
+| `result` | string | 操作结果 \(updated 或 noop\) |
+
+</div>
+
+---
+
+### 删除文档
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elasticsearch"
+    type="elasticsearch"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "elasticsearch_delete_document",
+            "options": [
+                {
+                    "id": "elasticsearch_search",
+                    "label": "搜索"
+                },
+                {
+                    "id": "elasticsearch_index_document",
+                    "label": "索引文档"
+                },
+                {
+                    "id": "elasticsearch_get_document",
+                    "label": "获取文档"
+                },
+                {
+                    "id": "elasticsearch_update_document",
+                    "label": "更新文档"
+                },
+                {
+                    "id": "elasticsearch_delete_document",
+                    "label": "删除文档"
+                },
+                {
+                    "id": "elasticsearch_bulk",
+                    "label": "批量操作"
+                },
+                {
+                    "id": "elasticsearch_count",
+                    "label": "统计文档数量"
+                },
+                {
+                    "id": "elasticsearch_create_index",
+                    "label": "创建索引"
+                },
+                {
+                    "id": "elasticsearch_delete_index",
+                    "label": "删除索引"
+                },
+                {
+                    "id": "elasticsearch_get_index",
+                    "label": "获取索引信息"
+                },
+                {
+                    "id": "elasticsearch_cluster_health",
+                    "label": "集群健康"
+                },
+                {
+                    "id": "elasticsearch_cluster_stats",
+                    "label": "集群统计"
+                }
+            ]
+        },
+        {
+            "id": "deploymentType",
+            "type": "dropdown",
+            "title": "部署类型",
+            "defaultValue": "self_hosted",
+            "options": [
+                {
+                    "id": "self_hosted",
+                    "label": "自托管"
+                },
+                {
+                    "id": "cloud",
+                    "label": "Elastic Cloud"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Elasticsearch 主机",
+            "placeholder": "https://localhost:9200",
+            "description": "当 deploymentType 为 'self_hosted' 时显示。"
+        },
+        {
+            "id": "cloudId",
+            "type": "short-input",
+            "title": "Cloud ID",
+            "placeholder": "deployment-name:base64-encoded-data",
+            "description": "当 deploymentType 为 'cloud' 时显示。"
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "认证方法",
+            "defaultValue": "api_key",
+            "options": [
+                {
+                    "id": "api_key",
+                    "label": "API 密钥"
+                },
+                {
+                    "id": "basic_auth",
+                    "label": "基本认证"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入编码后的 API 密钥",
+            "password": true,
+            "description": "当 authMethod 为 'api_key' 时显示。"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "输入用户名",
+            "description": "当 authMethod 为 'basic_auth' 时显示。"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "输入密码",
+            "password": true,
+            "description": "当 authMethod 为 'basic_auth' 时显示。"
+        },
+        {
+            "id": "index",
+            "type": "short-input",
+            "title": "索引名称",
+            "placeholder": "my-index",
+            "required": true
+        },
+        {
+            "id": "documentId",
+            "type": "short-input",
+            "title": "文档 ID",
+            "placeholder": "unique-document-id",
+            "required": true
+        },
+        {
+            "id": "refresh",
+            "type": "dropdown",
+            "title": "刷新",
+            "defaultValue": "",
+            "options": [
+                {
+                    "id": "",
+                    "label": "默认"
+                },
+                {
+                    "id": "wait_for",
+                    "label": "等待"
+                },
+                {
+                    "id": "true",
+                    "label": "立即"
+                },
+                {
+                    "id": "false",
+                    "label": "无"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除文档 (<code>elasticsearch_delete_document</code>)</div>
+
+按 ID 删除 Elasticsearch 中的文档。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `deploymentType` | string | 是 | 部署类型：self_hosted 或 cloud |
+| `host` | string | 否 | Elasticsearch 主机 URL \(用于自托管\) |
+| `cloudId` | string | 否 | Elastic Cloud ID \(用于云端部署\) |
+| `authMethod` | string | 是 | 认证方式：api_key 或 basic_auth |
+| `apiKey` | string | 否 | Elasticsearch API 密钥 |
+| `username` | string | 否 | 基本认证的用户名 |
+| `password` | string | 否 | 基本认证的密码 |
+| `index` | string | 是 | 索引名称 |
+| `documentId` | string | 是 | 要删除的文档 ID |
+| `refresh` | string | 否 | 刷新策略：true、false 或 wait_for |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `_index` | string | 索引名称 |
+| `_id` | string | 文档 ID |
+| `_version` | number | 文档版本 |
+| `result` | string | 操作结果 \(deleted 或 not_found\) |
+
+</div>
+
+---
+
+### 批量操作
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elasticsearch"
+    type="elasticsearch"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "elasticsearch_bulk",
+            "options": [
+                {
+                    "id": "elasticsearch_search",
+                    "label": "搜索"
+                },
+                {
+                    "id": "elasticsearch_index_document",
+                    "label": "索引文档"
+                },
+                {
+                    "id": "elasticsearch_get_document",
+                    "label": "获取文档"
+                },
+                {
+                    "id": "elasticsearch_update_document",
+                    "label": "更新文档"
+                },
+                {
+                    "id": "elasticsearch_delete_document",
+                    "label": "删除文档"
+                },
+                {
+                    "id": "elasticsearch_bulk",
+                    "label": "批量操作"
+                },
+                {
+                    "id": "elasticsearch_count",
+                    "label": "统计文档数"
+                },
+                {
+                    "id": "elasticsearch_create_index",
+                    "label": "创建索引"
+                },
+                {
+                    "id": "elasticsearch_delete_index",
+                    "label": "删除索引"
+                },
+                {
+                    "id": "elasticsearch_get_index",
+                    "label": "获取索引信息"
+                },
+                {
+                    "id": "elasticsearch_cluster_health",
+                    "label": "集群健康状态"
+                },
+                {
+                    "id": "elasticsearch_cluster_stats",
+                    "label": "集群统计信息"
+                }
+            ]
+        },
+        {
+            "id": "deploymentType",
+            "type": "dropdown",
+            "title": "部署类型",
+            "defaultValue": "self_hosted",
+            "options": [
+                {
+                    "id": "self_hosted",
+                    "label": "自托管"
+                },
+                {
+                    "id": "cloud",
+                    "label": "Elastic Cloud"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Elasticsearch 主机",
+            "placeholder": "https://localhost:9200",
+            "description": "当 deploymentType 为 'self_hosted' 时显示。"
+        },
+        {
+            "id": "cloudId",
+            "type": "short-input",
+            "title": "Cloud ID",
+            "placeholder": "deployment-name:base64-encoded-data",
+            "description": "当 deploymentType 为 'cloud' 时显示。"
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "认证方式",
+            "defaultValue": "api_key",
+            "options": [
+                {
+                    "id": "api_key",
+                    "label": "API 密钥"
+                },
+                {
+                    "id": "basic_auth",
+                    "label": "基本认证"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入编码后的 API 密钥",
+            "password": true,
+            "description": "当 authMethod 为 'api_key' 时显示。"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "输入用户名",
+            "description": "当 authMethod 为 'basic_auth' 时显示。"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "输入密码",
+            "password": true,
+            "description": "当 authMethod 为 'basic_auth' 时显示。"
+        },
+        {
+            "id": "index",
+            "type": "short-input",
+            "title": "索引名称",
+            "placeholder": "my-index",
+            "required": true
+        },
+        {
+            "id": "operations",
+            "type": "code",
+            "title": "批量操作",
+            "placeholder": "{ \"index\": { \"_index\": \"my-index\", \"_id\": \"1\" } }\n{ \"field\": \"value\" }\n{ \"delete\": { \"_index\": \"my-index\", \"_id\": \"2\" } }",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "refresh",
+            "type": "dropdown",
+            "title": "刷新",
+            "defaultValue": "",
+            "options": [
+                {
+                    "id": "",
+                    "label": "默认"
+                },
+                {
+                    "id": "wait_for",
+                    "label": "等待"
+                },
+                {
+                    "id": "true",
+                    "label": "立即"
+                },
+                {
+                    "id": "false",
+                    "label": "无"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">批量操作 (<code>elasticsearch_bulk</code>)</div>
+
+在单个请求中执行多个索引、创建、删除或更新操作，以实现高性能。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `deploymentType` | string | 是 | 部署类型：self_hosted 或 cloud |
+| `host` | string | 否 | Elasticsearch 主机 URL \(用于自托管\) |
+| `cloudId` | string | 否 | Elastic Cloud ID \(用于云部署\) |
+| `authMethod` | string | 是 | 认证方式：api_key 或 basic_auth |
+| `apiKey` | string | 否 | Elasticsearch API 密钥 |
+| `username` | string | 否 | 基本认证用户名 |
+| `password` | string | 否 | 基本认证密码 |
+| `index` | string | 否 | 未指定索引的操作的默认索引 |
+| `operations` | string | 是 | 批量操作，格式为 NDJSON 字符串 \(换行分隔的 JSON\) |
+| `refresh` | string | 否 | 刷新策略：true、false 或 wait_for |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `took` | number | 批量操作所花费的时间（毫秒） |
+| `errors` | boolean | 是否有任何操作出错 |
+| `items` | array | 每个操作的结果 |
+
+</div>
+
+---
+
+### 统计文档数量
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elasticsearch"
+    type="elasticsearch"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "elasticsearch_count",
+            "options": [
+                {
+                    "id": "elasticsearch_search",
+                    "label": "搜索"
+                },
+                {
+                    "id": "elasticsearch_index_document",
+                    "label": "索引文档"
+                },
+                {
+                    "id": "elasticsearch_get_document",
+                    "label": "获取文档"
+                },
+                {
+                    "id": "elasticsearch_update_document",
+                    "label": "更新文档"
+                },
+                {
+                    "id": "elasticsearch_delete_document",
+                    "label": "删除文档"
+                },
+                {
+                    "id": "elasticsearch_bulk",
+                    "label": "批量操作"
+                },
+                {
+                    "id": "elasticsearch_count",
+                    "label": "统计文档数量"
+                },
+                {
+                    "id": "elasticsearch_create_index",
+                    "label": "创建索引"
+                },
+                {
+                    "id": "elasticsearch_delete_index",
+                    "label": "删除索引"
+                },
+                {
+                    "id": "elasticsearch_get_index",
+                    "label": "获取索引信息"
+                },
+                {
+                    "id": "elasticsearch_cluster_health",
+                    "label": "集群健康"
+                },
+                {
+                    "id": "elasticsearch_cluster_stats",
+                    "label": "集群统计"
+                }
+            ]
+        },
+        {
+            "id": "deploymentType",
+            "type": "dropdown",
+            "title": "部署类型",
+            "defaultValue": "self_hosted",
+            "options": [
+                {
+                    "id": "self_hosted",
+                    "label": "自托管"
+                },
+                {
+                    "id": "cloud",
+                    "label": "Elastic Cloud"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Elasticsearch 主机",
+            "placeholder": "https://localhost:9200",
+            "description": "当 deploymentType 为 'self_hosted' 时显示。"
+        },
+        {
+            "id": "cloudId",
+            "type": "short-input",
+            "title": "Cloud ID",
+            "placeholder": "deployment-name:base64-encoded-data",
+            "description": "当 deploymentType 为 'cloud' 时显示。"
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "认证方式",
+            "defaultValue": "api_key",
+            "options": [
+                {
+                    "id": "api_key",
+                    "label": "API 密钥"
+                },
+                {
+                    "id": "basic_auth",
+                    "label": "基本认证"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入编码的 API 密钥",
+            "password": true,
+            "description": "当 authMethod 为 'api_key' 时显示。"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "输入用户名",
+            "description": "当 authMethod 为 'basic_auth' 时显示。"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "输入密码",
+            "password": true,
+            "description": "当 authMethod 为 'basic_auth' 时显示。"
+        },
+        {
+            "id": "index",
+            "type": "short-input",
+            "title": "索引名称",
+            "placeholder": "my-index",
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "code",
+            "title": "查询",
+            "placeholder": "{ \"match\": { \"field\": \"value\" } }",
+            "language": "json"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">统计文档数量 (<code>elasticsearch_count</code>)</div>
+
+统计 Elasticsearch 中匹配查询的文档数量。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必需 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `deploymentType` | string | 是 | 部署类型：self_hosted 或 cloud |
+| `host` | string | 否 | Elasticsearch 主机 URL \\(用于自托管\\) |
+| `cloudId` | string | 否 | Elastic Cloud ID \\(用于云部署\\) |
+| `authMethod` | string | 是 | 认证方式：api_key 或 basic_auth |
+| `apiKey` | string | 否 | Elasticsearch API 密钥 |
+| `username` | string | 否 | 基本认证的用户名 |
+| `password` | string | 否 | 基本认证的密码 |
+| `index` | string | 是 | 要统计文档数量的索引名称 |
+| `query` | string | 否 | 用于过滤文档的可选查询 \\(JSON 字符串\\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `count` | number | 匹配查询的文档数量 |
+| `_shards` | object | 分片统计信息 |
+
+</div>
+
+---
+
+### 创建索引
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elasticsearch"
+    type="elasticsearch"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "elasticsearch_create_index",
+            "options": [
+                {
+                    "id": "elasticsearch_search",
+                    "label": "搜索"
+                },
+                {
+                    "id": "elasticsearch_index_document",
+                    "label": "索引文档"
+                },
+                {
+                    "id": "elasticsearch_get_document",
+                    "label": "获取文档"
+                },
+                {
+                    "id": "elasticsearch_update_document",
+                    "label": "更新文档"
+                },
+                {
+                    "id": "elasticsearch_delete_document",
+                    "label": "删除文档"
+                },
+                {
+                    "id": "elasticsearch_bulk",
+                    "label": "批量操作"
+                },
+                {
+                    "id": "elasticsearch_count",
+                    "label": "统计文档数量"
+                },
+                {
+                    "id": "elasticsearch_create_index",
+                    "label": "创建索引"
+                },
+                {
+                    "id": "elasticsearch_delete_index",
+                    "label": "删除索引"
+                },
+                {
+                    "id": "elasticsearch_get_index",
+                    "label": "获取索引信息"
+                },
+                {
+                    "id": "elasticsearch_cluster_health",
+                    "label": "集群健康"
+                },
+                {
+                    "id": "elasticsearch_cluster_stats",
+                    "label": "集群统计"
+                }
+            ]
+        },
+        {
+            "id": "deploymentType",
+            "type": "dropdown",
+            "title": "部署类型",
+            "defaultValue": "self_hosted",
+            "options": [
+                {
+                    "id": "self_hosted",
+                    "label": "自托管"
+                },
+                {
+                    "id": "cloud",
+                    "label": "Elastic Cloud"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Elasticsearch 主机",
+            "placeholder": "https://localhost:9200",
+            "description": "当 deploymentType 为 'self_hosted' 时显示。"
+        },
+        {
+            "id": "cloudId",
+            "type": "short-input",
+            "title": "Cloud ID",
+            "placeholder": "deployment-name:base64-encoded-data",
+            "description": "当 deploymentType 为 'cloud' 时显示。"
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "认证方式",
+            "defaultValue": "api_key",
+            "options": [
+                {
+                    "id": "api_key",
+                    "label": "API 密钥"
+                },
+                {
+                    "id": "basic_auth",
+                    "label": "基本认证"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入编码后的 API 密钥",
+            "password": true,
+            "description": "当 authMethod 为 'api_key' 时显示。"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "输入用户名",
+            "description": "当 authMethod 为 'basic_auth' 时显示。"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "输入密码",
+            "password": true,
+            "description": "当 authMethod 为 'basic_auth' 时显示。"
+        },
+        {
+            "id": "index",
+            "type": "short-input",
+            "title": "索引名称",
+            "placeholder": "my-index",
+            "required": true
+        },
+        {
+            "id": "settings",
+            "type": "code",
+            "title": "索引设置",
+            "placeholder": "{ \"number_of_shards\": 1, \"number_of_replicas\": 1 }",
+            "language": "json"
+        },
+        {
+            "id": "mappings",
+            "type": "code",
+            "title": "索引映射",
+            "placeholder": "{ \"properties\": { \"field\": { \"type\": \"text\" } } }",
+            "language": "json"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建索引（<code>elasticsearch_create_index</code>）</div>
+
+创建新索引，可选配置设置和映射。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `deploymentType` | 字符串 | 是 | 部署类型：self_hosted 或 cloud |
+| `host` | 字符串 | 否 | Elasticsearch 主机 URL（用于自托管） |
+| `cloudId` | 字符串 | 否 | Elastic Cloud ID（用于云端部署） |
+| `authMethod` | 字符串 | 是 | 认证方式：api_key 或 basic_auth |
+| `apiKey` | 字符串 | 否 | Elasticsearch API 密钥 |
+| `username` | 字符串 | 否 | 用于基本认证的用户名 |
+| `password` | 字符串 | 否 | 用于基本认证的密码 |
+| `index` | 字符串 | 是 | 要创建的索引名称 |
+| `settings` | 字符串 | 否 | 索引设置（JSON 字符串） |
+| `mappings` | 字符串 | 否 | 索引映射（JSON 字符串） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `acknowledged` | 布尔值 | 请求是否已被确认 |
+| `shards_acknowledged` | 布尔值 | 分片是否已被确认 |
+| `index` | 字符串 | 已创建的索引名称 |
+
+</div>
+
+---
+
+### 删除索引
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elasticsearch"
+    type="elasticsearch"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "elasticsearch_delete_index",
+            "options": [
+                {
+                    "id": "elasticsearch_search",
+                    "label": "搜索"
+                },
+                {
+                    "id": "elasticsearch_index_document",
+                    "label": "索引文档"
+                },
+                {
+                    "id": "elasticsearch_get_document",
+                    "label": "获取文档"
+                },
+                {
+                    "id": "elasticsearch_update_document",
+                    "label": "更新文档"
+                },
+                {
+                    "id": "elasticsearch_delete_document",
+                    "label": "删除文档"
+                },
+                {
+                    "id": "elasticsearch_bulk",
+                    "label": "批量操作"
+                },
+                {
+                    "id": "elasticsearch_count",
+                    "label": "统计文档数量"
+                },
+                {
+                    "id": "elasticsearch_create_index",
+                    "label": "创建索引"
+                },
+                {
+                    "id": "elasticsearch_delete_index",
+                    "label": "删除索引"
+                },
+                {
+                    "id": "elasticsearch_get_index",
+                    "label": "获取索引信息"
+                },
+                {
+                    "id": "elasticsearch_cluster_health",
+                    "label": "集群健康"
+                },
+                {
+                    "id": "elasticsearch_cluster_stats",
+                    "label": "集群统计"
+                }
+            ]
+        },
+        {
+            "id": "deploymentType",
+            "type": "dropdown",
+            "title": "部署类型",
+            "defaultValue": "self_hosted",
+            "options": [
+                {
+                    "id": "self_hosted",
+                    "label": "自托管"
+                },
+                {
+                    "id": "cloud",
+                    "label": "Elastic Cloud"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Elasticsearch 主机",
+            "placeholder": "https://localhost:9200",
+            "description": "当 deploymentType 为 'self_hosted' 时显示。"
+        },
+        {
+            "id": "cloudId",
+            "type": "short-input",
+            "title": "Cloud ID",
+            "placeholder": "deployment-name:base64-encoded-data",
+            "description": "当 deploymentType 为 'cloud' 时显示。"
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "认证方式",
+            "defaultValue": "api_key",
+            "options": [
+                {
+                    "id": "api_key",
+                    "label": "API 密钥"
+                },
+                {
+                    "id": "basic_auth",
+                    "label": "基本认证"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入编码后的 API 密钥",
+            "password": true,
+            "description": "当 authMethod 为 'api_key' 时显示。"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "输入用户名",
+            "description": "当 authMethod 为 'basic_auth' 时显示。"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "输入密码",
+            "password": true,
+            "description": "当 authMethod 为 'basic_auth' 时显示。"
+        },
+        {
+            "id": "index",
+            "type": "short-input",
+            "title": "索引名称",
+            "placeholder": "my-index",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除索引（<code>elasticsearch_delete_index</code>）</div>
+
+删除索引及其所有文档。此操作不可逆。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `deploymentType` | string | 是 | 部署类型：self_hosted 或 cloud |
+| `host` | string | 否 | Elasticsearch 主机 URL \(用于自托管\) |
+| `cloudId` | string | 否 | Elastic Cloud ID \(用于云部署\) |
+| `authMethod` | string | 是 | 认证方式：api_key 或 basic_auth |
+| `apiKey` | string | 否 | Elasticsearch API 密钥 |
+| `username` | string | 否 | 基本认证的用户名 |
+| `password` | string | 否 | 基本认证的密码 |
+| `index` | string | 是 | 要删除的索引名称 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `acknowledged` | boolean | 删除是否已确认 |
+
+</div>
+
+---
+
+### 获取索引信息
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elasticsearch"
+    type="elasticsearch"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "elasticsearch_get_index",
+            "options": [
+                {
+                    "id": "elasticsearch_search",
+                    "label": "搜索"
+                },
+                {
+                    "id": "elasticsearch_index_document",
+                    "label": "索引文档"
+                },
+                {
+                    "id": "elasticsearch_get_document",
+                    "label": "获取文档"
+                },
+                {
+                    "id": "elasticsearch_update_document",
+                    "label": "更新文档"
+                },
+                {
+                    "id": "elasticsearch_delete_document",
+                    "label": "删除文档"
+                },
+                {
+                    "id": "elasticsearch_bulk",
+                    "label": "批量操作"
+                },
+                {
+                    "id": "elasticsearch_count",
+                    "label": "统计文档数量"
+                },
+                {
+                    "id": "elasticsearch_create_index",
+                    "label": "创建索引"
+                },
+                {
+                    "id": "elasticsearch_delete_index",
+                    "label": "删除索引"
+                },
+                {
+                    "id": "elasticsearch_get_index",
+                    "label": "获取索引信息"
+                },
+                {
+                    "id": "elasticsearch_cluster_health",
+                    "label": "集群健康"
+                },
+                {
+                    "id": "elasticsearch_cluster_stats",
+                    "label": "集群统计"
+                }
+            ]
+        },
+        {
+            "id": "deploymentType",
+            "type": "dropdown",
+            "title": "部署类型",
+            "defaultValue": "self_hosted",
+            "options": [
+                {
+                    "id": "self_hosted",
+                    "label": "自托管"
+                },
+                {
+                    "id": "cloud",
+                    "label": "Elastic Cloud"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Elasticsearch 主机",
+            "placeholder": "https://localhost:9200",
+            "description": "当 deploymentType 为 'self_hosted' 时显示。"
+        },
+        {
+            "id": "cloudId",
+            "type": "short-input",
+            "title": "Cloud ID",
+            "placeholder": "deployment-name:base64-encoded-data",
+            "description": "当 deploymentType 为 'cloud' 时显示。"
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "认证方式",
+            "defaultValue": "api_key",
+            "options": [
+                {
+                    "id": "api_key",
+                    "label": "API 密钥"
+                },
+                {
+                    "id": "basic_auth",
+                    "label": "基本认证"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入编码的 API 密钥",
+            "password": true,
+            "description": "当 authMethod 为 'api_key' 时显示。"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "输入用户名",
+            "description": "当 authMethod 为 'basic_auth' 时显示。"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "输入密码",
+            "password": true,
+            "description": "当 authMethod 为 'basic_auth' 时显示。"
+        },
+        {
+            "id": "index",
+            "type": "short-input",
+            "title": "索引名称",
+            "placeholder": "my-index",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取索引信息 (<code>elasticsearch_get_index</code>)</div>
+
+检索索引信息，包括设置、映射和别名。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 是否必需 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `deploymentType` | 字符串 | 是 | 部署类型：self_hosted 或 cloud |
+| `host` | 字符串 | 否 | Elasticsearch 主机 URL \(用于自托管\) |
+| `cloudId` | 字符串 | 否 | Elastic Cloud ID \(用于云部署\) |
+| `authMethod` | 字符串 | 是 | 认证方式：api_key 或 basic_auth |
+| `apiKey` | 字符串 | 否 | Elasticsearch API 密钥 |
+| `username` | 字符串 | 否 | 基本认证的用户名 |
+| `password` | 字符串 | 否 | 基本认证的密码 |
+| `index` | 字符串 | 是 | 要检索信息的索引名称 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `index` | JSON | 索引信息，包括别名、映射和设置 |
+
+</div>
+
+---
+
+### 集群健康
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elasticsearch"
+    type="elasticsearch"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "elasticsearch_cluster_health",
+            "options": [
+                {
+                    "id": "elasticsearch_search",
+                    "label": "搜索"
+                },
+                {
+                    "id": "elasticsearch_index_document",
+                    "label": "索引文档"
+                },
+                {
+                    "id": "elasticsearch_get_document",
+                    "label": "获取文档"
+                },
+                {
+                    "id": "elasticsearch_update_document",
+                    "label": "更新文档"
+                },
+                {
+                    "id": "elasticsearch_delete_document",
+                    "label": "删除文档"
+                },
+                {
+                    "id": "elasticsearch_bulk",
+                    "label": "批量操作"
+                },
+                {
+                    "id": "elasticsearch_count",
+                    "label": "统计文档数"
+                },
+                {
+                    "id": "elasticsearch_create_index",
+                    "label": "创建索引"
+                },
+                {
+                    "id": "elasticsearch_delete_index",
+                    "label": "删除索引"
+                },
+                {
+                    "id": "elasticsearch_get_index",
+                    "label": "获取索引信息"
+                },
+                {
+                    "id": "elasticsearch_cluster_health",
+                    "label": "集群健康"
+                },
+                {
+                    "id": "elasticsearch_cluster_stats",
+                    "label": "集群统计"
+                }
+            ]
+        },
+        {
+            "id": "deploymentType",
+            "type": "dropdown",
+            "title": "部署类型",
+            "defaultValue": "self_hosted",
+            "options": [
+                {
+                    "id": "self_hosted",
+                    "label": "自托管"
+                },
+                {
+                    "id": "cloud",
+                    "label": "Elastic Cloud"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Elasticsearch 主机",
+            "placeholder": "https://localhost:9200",
+            "description": "当 deploymentType 为 'self_hosted' 时显示。"
+        },
+        {
+            "id": "cloudId",
+            "type": "short-input",
+            "title": "云 ID",
+            "placeholder": "deployment-name:base64-encoded-data",
+            "description": "当 deploymentType 为 'cloud' 时显示。"
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "认证方式",
+            "defaultValue": "api_key",
+            "options": [
+                {
+                    "id": "api_key",
+                    "label": "API 密钥"
+                },
+                {
+                    "id": "basic_auth",
+                    "label": "基本认证"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入编码后的 API 密钥",
+            "password": true,
+            "description": "当 authMethod 为 'api_key' 时显示。"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "输入用户名",
+            "description": "当 authMethod 为 'basic_auth' 时显示。"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "输入密码",
+            "password": true,
+            "description": "当 authMethod 为 'basic_auth' 时显示。"
+        },
+        {
+            "id": "waitForStatus",
+            "type": "dropdown",
+            "title": "等待状态",
+            "defaultValue": "",
+            "options": [
+                {
+                    "id": "",
+                    "label": "无"
+                },
+                {
+                    "id": "green",
+                    "label": "绿色"
+                },
+                {
+                    "id": "yellow",
+                    "label": "黄色"
+                },
+                {
+                    "id": "red",
+                    "label": "红色"
+                }
+            ]
+        },
+        {
+            "id": "timeout",
+            "type": "short-input",
+            "title": "超时（秒）",
+            "placeholder": "30"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">集群健康（<code>elasticsearch_cluster_health</code>）</div>
+
+获取 Elasticsearch 集群的健康状态。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `deploymentType` | string | 是 | 部署类型：self_hosted 或 cloud |
+| `host` | string | 否 | Elasticsearch 主机 URL \(自托管\) |
+| `cloudId` | string | 否 | Elastic Cloud ID \(云端部署\) |
+| `authMethod` | string | 是 | 认证方式：api_key 或 basic_auth |
+| `apiKey` | string | 否 | Elasticsearch API 密钥 |
+| `username` | string | 否 | 基本认证用户名 |
+| `password` | string | 否 | 基本认证密码 |
+| `waitForStatus` | string | 否 | 等待集群达到此状态：green、yellow 或 red |
+| `timeout` | string | 否 | 等待操作的超时时间 \(例如 30s、1m\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `cluster_name` | string | 集群名称 |
+| `status` | string | 集群健康状态：green、yellow 或 red |
+| `number_of_nodes` | number | 集群节点总数 |
+| `number_of_data_nodes` | number | 数据节点数量 |
+| `active_shards` | number | 活跃分片数量 |
+| `unassigned_shards` | number | 未分配分片数量 |
+
+</div>
+
+---
+
+### 集群统计
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elasticsearch"
+    type="elasticsearch"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "elasticsearch_cluster_stats",
+            "options": [
+                {
+                    "id": "elasticsearch_search",
+                    "label": "搜索"
+                },
+                {
+                    "id": "elasticsearch_index_document",
+                    "label": "索引文档"
+                },
+                {
+                    "id": "elasticsearch_get_document",
+                    "label": "获取文档"
+                },
+                {
+                    "id": "elasticsearch_update_document",
+                    "label": "更新文档"
+                },
+                {
+                    "id": "elasticsearch_delete_document",
+                    "label": "删除文档"
+                },
+                {
+                    "id": "elasticsearch_bulk",
+                    "label": "批量操作"
+                },
+                {
+                    "id": "elasticsearch_count",
+                    "label": "统计文档数量"
+                },
+                {
+                    "id": "elasticsearch_create_index",
+                    "label": "创建索引"
+                },
+                {
+                    "id": "elasticsearch_delete_index",
+                    "label": "删除索引"
+                },
+                {
+                    "id": "elasticsearch_get_index",
+                    "label": "获取索引信息"
+                },
+                {
+                    "id": "elasticsearch_cluster_health",
+                    "label": "集群健康"
+                },
+                {
+                    "id": "elasticsearch_cluster_stats",
+                    "label": "集群统计"
+                }
+            ]
+        },
+        {
+            "id": "deploymentType",
+            "type": "dropdown",
+            "title": "部署类型",
+            "defaultValue": "self_hosted",
+            "options": [
+                {
+                    "id": "self_hosted",
+                    "label": "自托管"
+                },
+                {
+                    "id": "cloud",
+                    "label": "Elastic Cloud"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Elasticsearch 主机",
+            "placeholder": "https://localhost:9200",
+            "description": "当 deploymentType 为 'self_hosted' 时显示。"
+        },
+        {
+            "id": "cloudId",
+            "type": "short-input",
+            "title": "Cloud ID",
+            "placeholder": "deployment-name:base64-encoded-data",
+            "description": "当 deploymentType 为 'cloud' 时显示。"
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "认证方式",
+            "defaultValue": "api_key",
+            "options": [
+                {
+                    "id": "api_key",
+                    "label": "API 密钥"
+                },
+                {
+                    "id": "basic_auth",
+                    "label": "基本认证"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入编码后的 API 密钥",
+            "password": true,
+            "description": "当 authMethod 为 'api_key' 时显示。"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "输入用户名",
+            "description": "当 authMethod 为 'basic_auth' 时显示。"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "输入密码",
+            "password": true,
+            "description": "当 authMethod 为 'basic_auth' 时显示。"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">集群统计 (<code>elasticsearch_cluster_stats</code>)</div>
+
+获取 Elasticsearch 集群的全面统计信息。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `deploymentType` | string | 是 | 部署类型：self_hosted 或 cloud |
+| `host` | string | 否 | Elasticsearch 主机 URL \(用于自托管\) |
+| `cloudId` | string | 否 | Elastic Cloud ID \(用于云部署\) |
+| `authMethod` | string | 是 | 认证方法：api_key 或 basic_auth |
+| `apiKey` | string | 否 | Elasticsearch API 密钥 |
+| `username` | string | 否 | 基本认证的用户名 |
+| `password` | string | 否 | 基本认证的密码 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `cluster_name` | string | 集群名称 |
+| `status` | string | 集群健康状态 |
+| `nodes` | object | 节点统计信息，包括数量和版本 |
+| `indices` | object | 索引统计信息，包括文档数量和存储大小 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Elasticsearch 集成到工作流中，以实现强大的搜索、索引和数据管理。支持文档 CRUD 操作、高级搜索查询、批量操作、索引管理和集群监控。适用于自托管和 Elastic Cloud 部署。
+
+## 注意事项
+
+- 类别：`tools`
+- 类型：`elasticsearch`

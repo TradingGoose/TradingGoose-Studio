@@ -1,0 +1,553 @@
+---
+title: API externa
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+
+Usa la API externa para ejecutar flujos de trabajo desplegados, consultar registros de ejecución y recibir webhooks de finalización.
+
+## Autenticación
+
+La ejecución de flujos de trabajo y las solicitudes a la API de registros requieren una clave de API pasada en el encabezado `X-API-Key`:
+
+```bash
+curl -H "x-api-key: YOUR_API_KEY" \
+  https://www.tradinggoose.ai/api/v1/logs?workspaceId=YOUR_WORKSPACE_ID
+```
+
+Puedes generar claves de API desde la configuración de tu usuario en el panel de TradingGoose.
+
+## Ejecutar un flujo de trabajo
+
+Envía una solicitud `POST` a un flujo de trabajo desplegado. El objeto `input` se entrega a su disparador de API.
+
+```bash
+curl -X POST \
+  https://www.tradinggoose.ai/api/workflows/WORKFLOW_ID/execute \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -d '{
+    "input": {
+      "topic": "Semiconductor earnings"
+    }
+  }'
+```
+
+El cuerpo de la solicitud acepta:
+
+- `input` — un objeto que contiene la entrada del flujo de trabajo.
+- `stream` — establecido en `true` para recibir Server-Sent Events en lugar de una respuesta JSON.
+- `selectedOutputs` — una matriz de cadenas `blockName.path`, como `"Summarize.content"`, utilizada para seleccionar salidas de bloques transmitidos. Los nombres de los bloques deben resolverse a exactamente un bloque desplegado.
+
+Los controles de ejecución internos y las anulaciones del estado de borrador se rechazan. El endpoint siempre ejecuta el estado desplegado del flujo de trabajo.
+
+Sin un bloque Response, una solicitud sin streaming devuelve el resultado público de la ejecución:
+
+```json
+{
+  "success": true,
+  "output": {
+    "content": "..."
+  },
+  "metadata": {
+    "duration": 842,
+    "startTime": "2026-09-03T18:30:00.000Z",
+    "endTime": "2026-09-03T18:30:00.842Z"
+  }
+}
+```
+
+Si el flujo de trabajo contiene un bloque Response, una ejecución exitosa en su lugar utiliza el cuerpo JSON, el estado HTTP y los encabezados configurados de ese bloque. Las solicitudes sin streaming esperan hasta 25 segundos por la ejecución en cola; un tiempo de espera agotado devuelve HTTP `504`.
+
+Con `stream: true`, la respuesta tiene el tipo de contenido `text/event-stream` y un encabezado `X-Execution-Id`. Cada mensaje SSE lleva JSON en su campo `data`:
+
+```text
+data: {"blockId":"summarize","chunk":"Partial output"}
+
+data: {"event":"final","data":{"success":true,"output":{"content":"..."},"metadata":{"duration":842}}}
+```
+
+Los errores utilizan el mismo sobre con `"event":"error"` y un mensaje `error`.
+
+## API de registros
+
+Cada respuesta de la API de registros incluye información sobre los límites de ejecución y el uso de tu flujo de trabajo:
+
+```jsonc
+{
+  "limits": {
+    "executionRateLimit": {
+      "sync": {
+        "limit": 60,        // Max sync workflow executions per minute
+        "remaining": 58,    // Remaining sync workflow executions
+        "resetAt": "..."    // When the window resets
+      },
+      "async": {
+        "limit": 60,        // Max async workflow executions per minute
+        "remaining": 59,    // Remaining async workflow executions
+        "resetAt": "..."    // When the window resets
+      }
+    },
+    "usage": {
+      "currentPeriodCost": 1.234,  // Current billing period usage in USD
+      "limit": 10,                  // Usage limit in USD
+      "tier": {                     // Current billing tier summary
+        "id": "tier_pro",
+        "displayName": "Pro"
+      },
+      "isExceeded": false           // Whether limit is exceeded
+    }
+  }
+}
+```
+
+**Nota:** Los límites de frecuencia del cuerpo de la respuesta corresponden a las ejecuciones de flujos de trabajo. Los límites de frecuencia para llamar a este endpoint de la API están en los encabezados de la respuesta (`X-RateLimit-*`).
+
+### Consultar registros
+
+Consulta los registros de ejecución de flujos de trabajo con amplias opciones de filtrado.
+
+<Tabs items={['Solicitud', 'Respuesta']}>
+  <Tab value="Solicitud">
+
+    ```http
+    GET /api/v1/logs
+    ```
+
+    **Parámetros requeridos:**
+    - `workspaceId` - El ID de tu espacio de trabajo
+
+    **Filtros opcionales:**
+    - `workflowIds` - IDs de flujos de trabajo separados por comas
+    - `folderIds` - IDs de carpetas separados por comas
+    - `triggers` - Tipos de disparador separados por comas: `api`, `webhook`, `schedule`, `manual`, `chat`
+    - `level` - Filtrar por nivel: `info`, `error`
+    - `startDate` - Marca de tiempo ISO para el inicio del rango de fechas
+    - `endDate` - Marca de tiempo ISO para el fin del rango de fechas
+    - `executionId` - Coincidencia exacta del ID de ejecución
+    - `minDurationMs` - Duración mínima de la ejecución en milisegundos
+    - `maxDurationMs` - Duración máxima de la ejecución en milisegundos
+    - `minCost` - Costo mínimo de ejecución
+    - `maxCost` - Costo máximo de ejecución
+    - `model` - Filtrar por el modelo de IA utilizado
+    - `monitorId` - ID exacto del monitor
+    - `listing` - Identidad canónica codificada en JSON con `listing_id`, `base_id`, `quote_id` y `listing_type` (`default`, `crypto` o `currency`)
+    - `indicatorId` - ID exacto del indicador
+    - `providerId` - ID exacto del proveedor de mercado o bróker
+    - `interval` - Intervalo exacto del monitor
+    - `triggerSource` - IDs de disparadores del monitor separados por comas: `indicator_trigger`, `portfolio_state_trigger`
+
+    **Paginación:**
+    - `limit` - Resultados por página (predeterminado: 100)
+    - `cursor` - Cursor para la página siguiente
+    - `order` - Orden de clasificación: `desc`, `asc` (predeterminado: desc)
+
+    **Nivel de detalle:**
+    - `details` - Nivel de detalle de la respuesta: `basic`, `full` (predeterminado: basic)
+    - `includeTraceSpans` - Incluir spans de traza cuando `details=full` (predeterminado: false)
+    - `includeFinalOutput` - Incluir la salida final cuando `details=full` (predeterminado: false)
+  </Tab>
+  <Tab value="Respuesta">
+
+    ```jsonc
+    {
+      "data": [
+        {
+          "id": "log_abc123",
+          "workflowId": "wf_xyz789",
+          "executionId": "exec_def456",
+          "level": "info",
+          "trigger": "api",
+          "startedAt": "2025-01-01T12:34:56.789Z",
+          "endedAt": "2025-01-01T12:34:57.123Z",
+          "totalDurationMs": 334,
+          "cost": {
+            "total": 0.00234
+          },
+          "files": null
+        }
+      ],
+      "nextCursor": "eyJzIjoiMjAyNS0wMS0wMVQxMjozNDo1Ni43ODlaIiwiaWQiOiJsb2dfYWJjMTIzIn0",
+      "limits": {
+        "executionRateLimit": {
+          "sync": {
+            "limit": 60,
+            "remaining": 58,
+            "resetAt": "2025-01-01T12:35:56.789Z"
+          },
+          "async": {
+            "limit": 60,
+            "remaining": 59,
+            "resetAt": "2025-01-01T12:35:56.789Z"
+          }
+        },
+        "usage": {
+          "currentPeriodCost": 1.234,
+          "limit": 10,
+          "tier": {
+            "id": "tier_pro",
+            "displayName": "Pro"
+          },
+          "isExceeded": false
+        }
+      }
+    }
+    ```
+
+  </Tab>
+</Tabs>
+
+### Obtener detalles del log
+
+Recupera información detallada sobre una entrada de log específica.
+
+<Tabs items={['Request', 'Response']}>
+  <Tab value="Request">
+
+    ```http
+    GET /api/v1/logs/{id}
+    ```
+
+  </Tab>
+  <Tab value="Response">
+
+    ```jsonc
+    {
+      "data": {
+        "id": "log_abc123",
+        "workflowId": "wf_xyz789",
+        "executionId": "exec_def456",
+        "level": "info",
+        "trigger": "api",
+        "startedAt": "2025-01-01T12:34:56.789Z",
+        "endedAt": "2025-01-01T12:34:57.123Z",
+        "totalDurationMs": 334,
+        "workflow": {
+          "id": "wf_xyz789",
+          "name": "My Workflow",
+          "description": "Process customer data",
+          "color": "#2dd4bf",
+          "folderId": "folder_123",
+          "userId": "user_123",
+          "workspaceId": "workspace_123",
+          "createdAt": "2025-01-01T10:00:00.000Z",
+          "updatedAt": "2025-01-01T11:00:00.000Z"
+        },
+        "executionData": {
+          "traceSpans": [...],
+          "finalOutput": {...}
+        },
+        "cost": {
+          "total": 0.00234,
+          "tokens": {
+            "prompt": 123,
+            "completion": 456,
+            "total": 579
+          },
+          "models": {
+            "gpt-4o": {
+              "input": 0.001,
+              "output": 0.00134,
+              "total": 0.00234,
+              "tokens": {
+                "prompt": 123,
+                "completion": 456,
+                "total": 579
+              }
+            }
+          }
+        },
+        "createdAt": "2025-01-01T12:34:57.200Z"
+      },
+      "limits": {
+          "executionRateLimit": {
+            "sync": {
+              "limit": 60,
+              "remaining": 58,
+              "resetAt": "2025-01-01T12:35:56.789Z"
+            },
+            "async": {
+              "limit": 60,
+              "remaining": 59,
+              "resetAt": "2025-01-01T12:35:56.789Z"
+            }
+          },
+          "usage": {
+            "currentPeriodCost": 1.234,
+            "limit": 10,
+            "tier": {
+              "id": "tier_pro",
+              "displayName": "Pro"
+            },
+            "isExceeded": false
+          }
+        }
+    }
+    ```
+
+  </Tab>
+</Tabs>
+
+### Obtener detalles de la ejecución
+
+Recupera los detalles de la ejecución, incluida la instantánea del estado del flujo de trabajo.
+
+<Tabs items={['Request', 'Response']}>
+  <Tab value="Request">
+
+    ```http
+    GET /api/v1/logs/executions/{executionId}
+    ```
+
+  </Tab>
+  <Tab value="Response">
+
+    ```json
+    {
+      "executionId": "exec_def456",
+      "workflowId": "wf_xyz789",
+      "workflowState": {
+        "blocks": {...},
+        "edges": [...],
+        "loops": {...},
+        "parallels": {...}
+      },
+      "executionMetadata": {
+        "trigger": "api",
+        "startedAt": "2025-01-01T12:34:56.789Z",
+        "endedAt": "2025-01-01T12:34:57.123Z",
+        "totalDurationMs": 334,
+        "cost": {...}
+      },
+      "limits": {
+        "executionRateLimit": {
+          "sync": {
+            "limit": 60,
+            "remaining": 58,
+            "resetAt": "2025-01-01T12:35:56.789Z"
+          },
+          "async": {
+            "limit": 60,
+            "remaining": 59,
+            "resetAt": "2025-01-01T12:35:56.789Z"
+          }
+        },
+        "usage": {
+          "currentPeriodCost": 1.234,
+          "limit": 10,
+          "tier": {
+            "id": "tier_pro",
+            "displayName": "Pro"
+          },
+          "isExceeded": false
+        }
+      }
+    }
+    ```
+
+  </Tab>
+</Tabs>
+
+## Suscripciones de webhook
+
+Recibe notificaciones en tiempo real cuando se completen las ejecuciones del flujo de trabajo.
+
+### Opciones de suscripción
+
+La gestión de suscripciones de webhook no forma parte de la Logs API con clave de API. La aplicación usa rutas de flujo de trabajo autenticadas por sesión para gestionar las suscripciones. Una vez que un flujo de trabajo tiene una suscripción activa, las siguientes opciones controlan la entrega:
+
+**Opciones de configuración disponibles:**
+- `url`: URL de tu endpoint de webhook
+- `secret`: Secreto opcional para la verificación de firma HMAC
+- `includeFinalOutput`: Incluir la salida final del flujo de trabajo en el payload
+- `includeTraceSpans`: Incluir los spans detallados de la traza de ejecución
+- `includeRateLimits`: Incluir la información de límite de tasa del propietario del flujo de trabajo
+- `includeUsageData`: Incluir los datos de uso y facturación del propietario del flujo de trabajo
+- `levelFilter`: Arreglo de niveles de log que se recibirán (`info`, `error`)
+- `triggerFilter`: Arreglo de tipos de disparador que se recibirán (`api`, `webhook`, `schedule`, `manual`, `chat`)
+- `active`: Si una suscripción recién creada se inicia activa (predeterminado: `true`)
+
+### Payload del webhook
+
+Cuando se completa una ejecución del flujo de trabajo, TradingGoose envía una solicitud POST a tu URL de webhook:
+
+```jsonc
+{
+  "id": "evt_123",
+  "type": "workflow.execution.completed",
+  "timestamp": 1735925767890,
+  "data": {
+    "workflowId": "wf_xyz789",
+    "executionId": "exec_def456",
+    "status": "success",
+    "level": "info",
+    "trigger": "api",
+    "startedAt": "2025-01-01T12:34:56.789Z",
+    "endedAt": "2025-01-01T12:34:57.123Z",
+    "totalDurationMs": 334,
+    "cost": {
+      "total": 0.00234,
+      "tokens": {
+        "prompt": 123,
+        "completion": 456,
+        "total": 579
+      },
+      "models": {
+        "gpt-4o": {
+          "input": 0.001,
+          "output": 0.00134,
+          "total": 0.00234,
+          "tokens": {
+            "prompt": 123,
+            "completion": 456,
+            "total": 579
+          }
+        }
+      }
+    },
+    "files": null,
+    "finalOutput": {...},  // Only if includeFinalOutput=true
+    "traceSpans": [...],   // Only if includeTraceSpans=true
+    "rateLimits": {...},   // Only if includeRateLimits=true
+    "usage": {...}         // Only if includeUsageData=true
+  },
+  "links": {
+    "log": "/v1/logs/log_abc123",
+    "execution": "/v1/logs/executions/exec_def456"
+  }
+}
+```
+
+### Encabezados del webhook
+
+Cada solicitud de webhook incluye estos encabezados:
+
+- `tradinggoose-event`: Tipo de evento (siempre `workflow.execution.completed`)
+- `tradinggoose-timestamp`: Marca de tiempo Unix en milisegundos
+- `tradinggoose-delivery-id`: ID de entrega único para la idempotencia
+- `tradinggoose-signature`: Firma HMAC-SHA256 para la verificación (si se configuró un secreto)
+- `Idempotency-Key`: Igual que el ID de entrega para la detección de duplicados
+
+### Verificación de firma
+
+Si configuras un secreto de webhook, verifica la firma para asegurarte de que el webhook proviene de TradingGoose:
+
+<Tabs items={['Node.js', 'Python']}>
+  <Tab value="Node.js">
+
+    ```javascript
+    import crypto from 'crypto';
+    import express from 'express';
+
+    const app = express();
+
+    function verifyWebhookSignature(rawBody, signature, secret) {
+      if (!signature || !secret) return false;
+      const [timestampPart, signaturePart] = signature.split(',');
+      if (!timestampPart || !signaturePart) return false;
+      const timestamp = timestampPart.replace('t=', '');
+      const expectedSignature = signaturePart.replace('v1=', '');
+
+      const computedSignature = crypto
+        .createHmac('sha256', secret)
+        .update(`${timestamp}.${rawBody}`)
+        .digest('hex');
+
+      const computed = Buffer.from(computedSignature, 'hex');
+      const expected = Buffer.from(expectedSignature, 'hex');
+      return computed.length === expected.length && crypto.timingSafeEqual(computed, expected);
+    }
+
+    app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+      const signature = req.headers['tradinggoose-signature'];
+      const rawBody = req.body.toString('utf8');
+
+      if (!verifyWebhookSignature(rawBody, signature, process.env.WEBHOOK_SECRET)) {
+        return res.status(401).send('Invalid signature');
+      }
+
+      const event = JSON.parse(rawBody);
+      // Process event, then acknowledge it.
+      res.sendStatus(200);
+    });
+    ```
+
+  </Tab>
+  <Tab value="Python">
+
+    ```python
+    import hmac
+    import hashlib
+    import os
+    from flask import Flask, request
+
+    app = Flask(__name__)
+
+    def verify_webhook_signature(raw_body: str, signature: str, secret: str) -> bool:
+        if not signature or not secret:
+            return False
+        timestamp_part, separator, signature_part = signature.partition(',')
+        if not separator:
+            return False
+        timestamp = timestamp_part.replace('t=', '')
+        expected_signature = signature_part.replace('v1=', '')
+
+        signature_base = f"{timestamp}.{raw_body}"
+        computed_signature = hmac.new(
+            secret.encode(),
+            signature_base.encode(),
+            hashlib.sha256
+        ).hexdigest()
+
+        return hmac.compare_digest(computed_signature, expected_signature)
+
+    @app.route('/webhook', methods=['POST'])
+    def webhook():
+        signature = request.headers.get('tradinggoose-signature')
+        raw_body = request.get_data(as_text=True)
+
+        if not verify_webhook_signature(raw_body, signature, os.environ['WEBHOOK_SECRET']):
+            return 'Invalid signature', 401
+
+        event = request.get_json()
+        # Process event, then acknowledge it.
+        return '', 200
+    ```
+
+  </Tab>
+</Tabs>
+
+### Política de reintentos
+
+Las entregas de webhook que se pueden reintentar realizan hasta cinco intentos en total: la solicitud inicial y cuatro reintentos con retroceso y jitter.
+
+- Retrasos de reintento: 5 segundos, 15 segundos, 1 minuto y 3 minutos
+- Jitter: hasta un 10 % de retraso adicional para evitar el efecto estampida
+- Los errores HTTP 5xx, los errores HTTP 429, los errores de red y los tiempos de espera agotados activan los reintentos
+- Las entregas agotan el tiempo de espera a los 30 segundos
+
+<Callout type="info">
+  Las entregas de webhook se procesan de forma asíncrona y no afectan el rendimiento de la ejecución del flujo de trabajo.
+</Callout>
+
+## Buenas prácticas
+
+1. **Estrategia de sondeo**: Al sondear logs, usa la paginación basada en cursor con `order=asc` e `startDate` para obtener logs nuevos de forma eficiente.
+
+2. **Seguridad del webhook**: Configura siempre un secreto de webhook y verifica las firmas para asegurarte de que las solicitudes provienen de TradingGoose.
+
+3. **Idempotencia**: Usa el encabezado `Idempotency-Key` para detectar y gestionar entregas de webhook duplicadas.
+
+4. **Privacidad**: De forma predeterminada, `finalOutput` e `traceSpans` se excluyen de las respuestas. Actívalos solo si necesitas los datos y entiendes las implicaciones para la privacidad.
+
+5. **Límite de solicitudes**: Implementa un retroceso exponencial cuando recibas respuestas 429. Consulta el encabezado `Retry-After` para conocer el tiempo de espera recomendado.
+
+## Límite de solicitudes
+
+La API aplica el límite de endpoints de API configurado por el nivel de facturación actual de quien realiza la llamada. Es independiente de los límites de ejecución de flujo de trabajo síncronos y asíncronos incluidos en las respuestas de logs.
+
+La información del límite de solicitudes se incluye en los encabezados de respuesta:
+- `X-RateLimit-Limit`: Solicitudes máximas por ventana
+- `X-RateLimit-Remaining`: Solicitudes restantes en la ventana actual
+- `X-RateLimit-Reset`: Marca de tiempo ISO cuando se restablece la ventana

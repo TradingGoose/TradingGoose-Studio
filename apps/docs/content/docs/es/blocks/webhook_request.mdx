@@ -1,0 +1,112 @@
+---
+title: Solicitud de webhook
+description: Envía llamadas de webhook HTTP POST salientes con firma HMAC opcional
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="webhook_request"
+  color="#10B981"
+  icon={true}
+/>
+
+El bloque Solicitud de webhook envía una solicitud HTTP POST **saliente** a una URL de webhook externa. Úsalo para enviar los resultados del flujo de trabajo a servicios de terceros como Zapier, Make, n8n o cualquier endpoint personalizado que acepte payloads de webhook.
+
+<Callout type="warning">
+  Este bloque envía llamadas de webhook **salientes** (tu flujo de trabajo llama a una URL externa). Es distinto del **Disparador de webhook**, que escucha solicitudes **entrantes** que inician un flujo de trabajo.
+</Callout>
+
+## Descripción general
+
+<Steps>
+  <Step>
+    <strong>Define la URL de destino</strong>: apunta a cualquier endpoint que acepte solicitudes HTTP POST
+  </Step>
+  <Step>
+    <strong>Construye el payload JSON</strong>: incluye datos de bloques anteriores mediante referencias de variables como `<agent.content>`
+  </Step>
+  <Step>
+    <strong>Firma la solicitud de forma opcional</strong>: proporciona un secreto de firma HMAC-SHA256 para que el receptor pueda verificar la autenticidad
+  </Step>
+  <Step>
+    <strong>Agrega encabezados personalizados</strong>: incluye claves de API, tipos de contenido o cualquier encabezado adicional que requiera el receptor
+  </Step>
+</Steps>
+
+## Cómo funciona
+
+Cuando el bloque se ejecuta:
+
+1. Resuelve referencias exactas calificadas por origen, como `<agent.content>`, y variables del flujo de trabajo, como `<variable.userId>`, en la URL, el payload y los encabezados. No inventes marcadores genéricos con prefijo de bloque.
+2. Serializa el payload como JSON.
+3. Si se proporciona un **Secreto de firma**, calcula una firma HMAC-SHA256 sobre el payload y la adjunta como encabezado del webhook para que el servidor receptor pueda verificar que la solicitud no fue alterada.
+4. Envía la solicitud POST con `Content-Type: application/json` y cualquier encabezado adicional que hayas configurado.
+5. Devuelve los datos de la respuesta, el código de estado y los encabezados de respuesta como salidas del bloque.
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Webhook"
+    type="webhook_request"
+    color="#10B981"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "url",
+            "type": "short-input",
+            "title": "URL del webhook",
+            "placeholder": "https://example.com/webhook",
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "code",
+            "title": "Payload",
+            "placeholder": "Introduce el payload JSON...",
+            "language": "json"
+        },
+        {
+            "id": "secret",
+            "type": "short-input",
+            "title": "Secreto de firma",
+            "placeholder": "Opcional: secreto para la firma HMAC",
+            "password": true
+        },
+        {
+            "id": "headers",
+            "type": "table",
+            "title": "Encabezados adicionales",
+            "description": "Encabezados personalizados opcionales para incluir con la solicitud del webhook"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+### Campos
+
+| Campo | Obligatorio | Descripción |
+|---|---|---|
+| **URL del webhook** | Sí | El endpoint de destino. Debe aceptar HTTP POST. |
+| **Payload** | No | Cuerpo JSON a enviar. Usa una etiqueta exacta calificada por la fuente como `<agent.content>` o una variable de flujo de trabajo como `<variable.userId>`. |
+| **Secreto de firma** | No | Un secreto compartido que se usa para generar un encabezado de firma HMAC-SHA256 para la verificación del payload. |
+| **Encabezados adicionales** | No | Pares clave-valor que se añaden a la solicitud (p. ej., `Authorization: Bearer ...`). |
+
+## Salidas
+
+| Salida | Tipo | Descripción |
+|---|---|---|
+| `data` | json | El cuerpo de respuesta analizado desde el endpoint externo |
+| `status` | número | Código de estado HTTP devuelto por el endpoint |
+| `headers` | json | Encabezados de respuesta |
+
+## Prácticas recomendadas
+
+- **Almacena secretos en variables de entorno** -- referencia tu secreto de firma con `{{WEBHOOK_SECRET}}` en lugar de pegarlo directamente.
+- **Comprueba la salida de estado** -- usa un bloque Condition o Router después del webhook para gestionar respuestas que no sean 2xx de forma controlada.
+- **Mantén los payloads pequeños** -- envía solo los datos que necesita el receptor. Los payloads grandes aumentan la latencia y algunos endpoints pueden rechazarlos.

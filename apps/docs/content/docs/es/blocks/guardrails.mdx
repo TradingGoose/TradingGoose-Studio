@@ -1,0 +1,261 @@
+---
+title: Guardrails
+description: Valida contenido con restricciones de seguridad
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { BlockConfigPreview } from '@/components/ui/block-config-preview'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
+
+<BlockInfoCard
+  type="guardrails"
+  color="#3D642D"
+/>
+
+El bloque Guardrails valida y protege tus flujos de trabajo de IA comprobando el contenido con varios tipos de validación. Garantiza la calidad de los datos, evita alucinaciones, detecta PII y exige requisitos de formato antes de que el contenido avance por tu flujo de trabajo.
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Guardrails"
+    type="guardrails"
+    color="#3D642D"
+    hideHeader
+    subBlocks={[
+      { "id": "input", "title": "Contenido a validar", "type": "long-input", "layout": "full", "placeholder": "Introduce el contenido a validar", "required": true },
+      { "id": "validationType", "title": "Tipo de validación", "type": "dropdown", "layout": "full", "required": true, "options": [{ "label": "JSON válido", "id": "json" }, { "label": "Coincidencia con regex", "id": "regex" }, { "label": "Verificación de alucinaciones", "id": "hallucination" }, { "label": "Detección de PII", "id": "pii" }], "defaultValue": "json" },
+      { "id": "regex", "title": "Patrón de regex", "type": "short-input", "layout": "full", "placeholder": "p. ej., ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", "required": true },
+      { "id": "knowledgeBaseId", "title": "Base de conocimiento", "type": "knowledge-base-selector", "layout": "full", "placeholder": "Selecciona la base de conocimiento", "required": true },
+      { "id": "model", "title": "Modelo", "type": "combobox", "layout": "half", "placeholder": "Escribe o selecciona un modelo...", "required": true },
+      { "id": "threshold", "title": "Confianza", "type": "slider", "layout": "half" },
+      { "id": "topK", "title": "Número de fragmentos a recuperar", "type": "slider", "layout": "full" },
+      { "id": "apiKey", "title": "Clave de API", "type": "short-input", "layout": "full", "placeholder": "Introduce tu clave de API", "password": true, "required": true },
+      { "id": "piiEntityTypes", "title": "Tipos de PII a detectar", "type": "grouped-checkbox-list", "layout": "full", "options": [{ "label": "Nombre de persona", "id": "PERSON" }, { "label": "Dirección de correo electrónico", "id": "EMAIL_ADDRESS" }, { "label": "Número de teléfono", "id": "PHONE_NUMBER" }, { "label": "Ubicación", "id": "LOCATION" }, { "label": "Número de tarjeta de crédito", "id": "CREDIT_CARD" }] },
+      { "id": "piiMode", "title": "Acción", "type": "dropdown", "layout": "full", "required": true, "options": [{ "label": "Bloquear solicitud", "id": "block" }, { "label": "Enmascarar PII", "id": "mask" }], "defaultValue": "block" },
+      { "id": "piiLanguage", "title": "Idioma", "type": "dropdown", "layout": "full", "options": [{ "label": "Inglés", "id": "en" }, { "label": "Español", "id": "es" }, { "label": "Italiano", "id": "it" }, { "label": "Polaco", "id": "pl" }, { "label": "Finés", "id": "fi" }], "defaultValue": "en" }
+    ]}
+  />
+</ShowcaseCard>
+
+## Descripción general
+
+El bloque Guardrails te permite:
+
+<Steps>
+  <Step>
+    <strong>Validar la estructura JSON</strong>: Garantiza que las salidas del LLM sean JSON válido antes de analizarlas
+  </Step>
+  <Step>
+    <strong>Coincidir con patrones regex</strong>: Verifica que el contenido coincida con formatos específicos (correos electrónicos, números de teléfono, URL, etc.)
+  </Step>
+  <Step>
+    <strong>Detectar alucinaciones</strong>: Usa RAG + puntuación del LLM para validar las salidas de la IA frente al contenido de la base de conocimiento
+  </Step>
+  <Step>
+    <strong>Detectar PII</strong>: Identifica y, opcionalmente, enmascara información de identificación personal en más de 40 tipos de entidades
+  </Step>
+</Steps>
+
+## Tipos de validación
+
+### Validación de JSON
+
+Valida que el contenido sea JSON con el formato correcto. Ideal para garantizar que las salidas estructuradas del LLM se puedan analizar de forma segura.
+
+**Casos de uso:**
+- Validar las respuestas JSON de los bloques Agent antes de analizarlas
+- Garantizar que los payloads de la API tengan el formato correcto
+- Comprobar la integridad de los datos estructurados
+
+**Salida:**
+- `passed`: `true` si el JSON es válido, `false` en caso contrario
+- `error`: Mensaje de error si la validación falla (p. ej., "Invalid JSON: Unexpected token...")
+
+### Validación con expresiones regulares
+
+Comprueba si el contenido coincide con un patrón de expresión regular especificado.
+
+**Casos de uso:**
+- Validar direcciones de correo electrónico
+- Comprobar formatos de números de teléfono
+- Verificar URL o identificadores personalizados
+- Aplicar patrones de texto específicos
+
+**Configuración:**
+- **Patrón de expresión regular**: La expresión regular con la que se compara (p. ej., `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$` para correos electrónicos)
+
+**Salida:**
+- `passed`: `true` si el contenido coincide con el patrón, `false` en caso contrario
+- `error`: Mensaje de error si la validación falla
+
+### Detección de alucinaciones
+
+Usa la generación aumentada por recuperación (RAG) con puntuación del LLM para detectar cuándo el contenido generado por IA contradice tu base de conocimiento o no se basa en ella.
+
+**Cómo funciona:**
+1. Consulta tu base de conocimiento para obtener contexto relevante
+2. Envía tanto la salida de la IA como el contexto recuperado a un LLM
+3. El LLM asigna una puntuación de confianza (escala de 0 a 10)
+   - **0** = Alucinación total (completamente sin fundamento)
+   - **10** = Totalmente fundamentado (completamente respaldado por la base de conocimiento)
+4. La validación se supera si la puntuación ≥ umbral (predeterminado: 3)
+
+**Configuración:**
+- **Base de conocimiento**: Selecciona entre tus bases de conocimiento existentes
+- **Modelo**: Elige el LLM para la puntuación (requiere razonamiento sólido; se recomiendan GPT-4o y Claude 3.7 Sonnet)
+- **Clave de API**: Autenticación para el proveedor de LLM seleccionado (se oculta automáticamente en modelos alojados/Ollama)
+- **Umbral de confianza**: Puntuación mínima para aprobar (0-10, predeterminado: 3)
+- **Top K** (Avanzado): Número de fragmentos de la base de conocimiento que se recuperarán (predeterminado: 10)
+
+**Salida:**
+- `passed`: `true` si la puntuación de confianza ≥ umbral
+- `score`: Puntuación de confianza (0-10)
+- `reasoning`: Explicación del LLM sobre la puntuación
+- `error`: Mensaje de error si la validación falla
+
+**Casos de uso:**
+- Valida las respuestas del agente con la documentación
+- Garantiza que las respuestas de atención al cliente sean factualmente correctas
+- Verifica que el contenido generado coincida con el material de origen
+- Control de calidad para aplicaciones RAG
+
+### Detección de PII
+
+Detecta información de identificación personal mediante Microsoft Presidio. Admite más de 40 tipos de entidades en varios países e idiomas.
+
+**Cómo funciona:**
+1. Escanea el contenido en busca de entidades de PII mediante coincidencia de patrones y NLP
+2. Devuelve las entidades detectadas con sus ubicaciones y puntuaciones de confianza
+3. Opcionalmente, enmascara la PII detectada en la salida
+
+**Configuración:**
+- **Tipos de PII a detectar**: Selecciona entre categorías agrupadas mediante el selector modal
+  - **Comunes**: Nombre de persona, Correo electrónico, Teléfono, Tarjeta de crédito, Dirección IP, etc.
+  - **EE. UU.**: SSN, Licencia de conducir, Pasaporte, etc.
+  - **Reino Unido**: Número de NHS, Número de seguro nacional
+  - **España**: NIF, NIE, CIF
+  - **Italia**: Código fiscal, Licencia de conducir, Código de IVA
+  - **Polonia**: PESEL, NIP, REGON
+  - **Singapur**: NRIC/FIN, UEN
+  - **Australia**: ABN, ACN, TFN, Medicare
+  - **India**: Aadhaar, PAN, Pasaporte, Número de votante
+- **Modo**: 
+  - **Detectar**: Solo identifica la PII (predeterminado)
+  - **Enmascarar**: Reemplaza la PII detectada por valores enmascarados
+- **Idioma**: Idioma de detección (predeterminado: inglés)
+
+**Salida:**
+- `passed`: `false` si se detecta algún tipo de PII seleccionado
+- `detectedEntities`: Arreglo de PII detectada con tipo, ubicación y confianza
+- `maskedText`: Contenido con PII enmascarada (solo si mode = "Mask")
+- `error`: Mensaje de error si la validación falla
+
+**Casos de uso:**
+- Bloquear contenido que contenga información personal sensible
+- Enmascarar PII antes de registrar o almacenar datos
+- Cumplimiento con GDPR, HIPAA y otras regulaciones de privacidad
+- Sanear las entradas del usuario antes de procesarlas
+
+## Configuración
+
+### Contenido a validar
+
+El contenido de entrada a validar. Normalmente proviene de:
+- Salidas del bloque Agent: `<agent.content>`
+- Resultados del bloque Function: `<function.output>`
+- Respuestas de API: `<api.output>`
+- Cualquier otra salida de bloque
+
+### Tipo de validación
+
+Elige entre cuatro tipos de validación:
+- **JSON válido**: Comprueba si el contenido tiene el formato JSON correcto
+- **Coincidencia Regex**: Verifica si el contenido coincide con un patrón regex
+- **Comprobación de alucinaciones**: Valida contra la base de conocimiento con puntuación LLM
+- **Detección de PII**: Detecta y, opcionalmente, enmascara información personal identificable
+
+## Salidas
+
+Todos los tipos de validación devuelven:
+
+- **`<guardrails.passed>`**: Booleano que indica si la validación fue exitosa
+- **`<guardrails.validationType>`**: El tipo de validación realizada
+- **`<guardrails.input>`**: La entrada original que se validó
+- **`<guardrails.error>`**: Mensaje de error si la validación falló (opcional)
+
+Salidas adicionales por tipo:
+
+**Comprobación de alucinaciones:**
+- **`<guardrails.score>`**: Puntuación de confianza (0-10)
+- **`<guardrails.reasoning>`**: Explicación del LLM
+
+**Detección de PII:**
+- **`<guardrails.detectedEntities>`**: Arreglo de entidades PII detectadas
+- **`<guardrails.maskedText>`**: Contenido con PII enmascarada (si mode = "Mask")
+
+## Ejemplos de casos de uso
+
+### Validar JSON antes de parsear
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">Escenario: Asegurar que la salida de Agent sea JSON válido</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>Agent genera una respuesta JSON estructurada</li>
+    <li>Guardrails valida el formato JSON</li>
+    <li>El bloque Condition comprueba `<guardrails.passed>`</li>
+    <li>Si pasa → Parsear y usar los datos, Si falla → Reintentar o manejar el error</li>
+  </ol>
+</div>
+
+### Prevenir alucinaciones
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">Escenario: Validar respuestas de atención al cliente</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>El agente genera una respuesta a la pregunta del cliente</li>
+    <li>Guardrails verifica contra la base de conocimiento de documentación de soporte</li>
+    <li>Si la puntuación de confianza ≥ 3 → Enviar respuesta</li>
+    <li>Si la puntuación de confianza \< 3 → Marcar para revisión humana</li>
+  </ol>
+</div>
+
+### Bloquear PII en las entradas del usuario
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">Escenario: Sanitizar el contenido enviado por el usuario</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>El usuario envía un formulario con contenido de texto</li>
+    <li>Guardrails detecta PII (correos electrónicos, números de teléfono, SSN, etc.)</li>
+    <li>Si se detecta PII → Rechazar el envío o enmascarar los datos sensibles</li>
+    <li>Si no hay PII → Procesar con normalidad</li>
+  </ol>
+</div>
+
+### Validar el formato de correo electrónico
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">Escenario: Verificar el formato de la dirección de correo electrónico</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>El agente extrae el correo electrónico del texto</li>
+    <li>Guardrails valida con un patrón regex</li>
+    <li>Si es válido → Usar el correo electrónico para la notificación</li>
+    <li>Si no es válido → Solicitar corrección</li>
+  </ol>
+</div>
+
+## Buenas prácticas
+
+- **Encadenar con bloques Condition**: Usa `<guardrails.passed>` para ramificar la lógica del flujo de trabajo según los resultados de la validación
+- **Usa la validación JSON antes de parsear**: Valida siempre la estructura JSON antes de intentar parsear las salidas del LLM
+- **Elige los tipos de PII adecuados**: Selecciona solo los tipos de entidad PII relevantes para tu caso de uso, para obtener un mejor rendimiento
+- **Define umbrales de confianza razonables**: Para la detección de alucinaciones, ajusta el umbral según tus requisitos de precisión (más alto = más estricto)
+- **Usa modelos potentes para la detección de alucinaciones**: GPT-4o o Claude 3.7 Sonnet ofrecen una puntuación de confianza más precisa
+- **Enmascara la PII para el registro**: Usa el modo "Mask" cuando necesites registrar o almacenar contenido que pueda contener PII
+- **Prueba los patrones regex**: Valida a fondo tus patrones regex antes de desplegarlos en producción
+- **Supervisa los fallos de validación**: Haz seguimiento de los mensajes `<guardrails.error>` para identificar problemas de validación comunes
+
+<Callout type="info">
+  La validación de Guardrails se realiza de forma síncrona en tu flujo de trabajo. Para la detección de alucinaciones, elige modelos más rápidos (como GPT-4o-mini) si la latencia es crítica.
+</Callout>

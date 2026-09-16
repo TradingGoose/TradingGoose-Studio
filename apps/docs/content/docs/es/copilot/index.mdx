@@ -1,0 +1,113 @@
+---
+title: Copilot
+description: Asistente de IA que gestiona flujos de trabajo, servidores MCP,
+  habilidades, herramientas personalizadas, bases de conocimiento y más
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+Copilot es un asistente de IA que funciona en todo el espacio de trabajo de TradingGoose, no solo en los flujos de trabajo. Puede gestionar flujos de trabajo, servidores MCP, habilidades, herramientas personalizadas, bases de conocimiento, despliegues, variables y más. En el espacio de trabajo de escritorio, abre o cierra su panel persistente con el control **Copilot** en la barra lateral global. El panel no está disponible en el diseño del espacio de trabajo móvil.
+
+Esta página cubre el asistente integrado de Studio. Para trabajar en TradingGoose desde tu propio agente de codificación, consulta [Copilot MCP](/copilot/copilot-mcp) para conocer las capacidades, la instalación y la autenticación.
+
+## Capacidades
+
+Copilot tiene acceso a un conjunto completo de herramientas que abarcan toda la plataforma:
+
+### Gestión de flujos de trabajo
+- **Editar flujos de trabajo** — añade, elimina o reconfigura bloques y conexiones. Las ediciones se transmiten en tiempo real como vistas previas en línea antes de confirmarse.
+- **Desplegar flujos de trabajo** — comprueba el estado del despliegue y activa nuevos despliegues.
+- **Ejecutar flujos de trabajo** — ejecuta flujos de trabajo e inspecciona los resultados.
+- **Gestionar variables** — obtén y define variables globales de flujo de trabajo.
+- **Ver consola** — recupera registros de ejecución y salida en streaming.
+
+### Herramientas del espacio de trabajo
+- **Gestionar servidores MCP** — crea, actualiza y configura conexiones de servidores MCP.
+- **Gestionar habilidades** — crea, edita y renombra definiciones de habilidades reutilizables.
+- **Gestionar herramientas personalizadas** — crea y edita esquemas y código de herramientas personalizadas.
+- **Base de conocimiento** — consulta y referencia documentos de la base de conocimiento.
+
+### General
+- **Explicar** — responde preguntas sobre conceptos de TradingGoose o cualquier flujo de trabajo en tu espacio de trabajo.
+- **Planificar** — para tareas más grandes, Copilot genera una lista de tareas que realiza un seguimiento del progreso a medida que avanza en cada paso.
+- **Hacer referencia al contexto** — usa el menú de menciones `@` para incluir chats anteriores, entidades del espacio de trabajo, bloques específicos, documentación o registros de ejecución.
+- **Archivos adjuntos** — adjunta archivos directamente a un mensaje para obtener contexto adicional.
+
+## Niveles de acceso
+
+El conmutador de nivel de acceso en la barra de entrada controla cuánta autonomía tiene Copilot.
+
+<Cards>
+  <Card title="Limitado (predeterminado)">
+    Copilot se detiene antes de ejecutar cualquier llamada a herramienta que tenga un indicador de interrupción y antes de ejecutar herramientas de integración. Tú revisas y apruebas cada acción.
+  </Card>
+  <Card title="Completo">
+    Copilot ejecuta automáticamente todas las llamadas a herramienta, las herramientas de integración y las ediciones de flujo de trabajo, sin confirmación. Úsalo cuando confíes en la tarea actual y quieras iterar más rápido.
+  </Card>
+</Cards>
+
+## Modelos compatibles
+
+Copilot admite exactamente seis modelos de OpenRouter. Studio envía cada slug canónico de modelo de OpenRouter sin cambios, y puedes cambiar el modelo activo desde la barra de entrada.
+
+**Anthropic** -- anthropic/claude-fable-5, anthropic/claude-opus-5
+
+**DeepSeek** -- deepseek/deepseek-v4-pro
+
+**OpenAI** -- openai/gpt-5.6-terra, openai/gpt-5.6-sol
+
+**xAI** -- x-ai/grok-4.6
+
+## Configuración
+
+<Steps>
+  <Step>
+    ### Alojado (tradinggoose.ai)
+
+    Copilot funciona sin configuración adicional. Abre cualquier espacio de trabajo, usa el control **Copilot** de la barra lateral global para abrir el panel del espacio de trabajo y empieza a chatear.
+  </Step>
+  <Step>
+    ### Autoalojado
+
+    Las instancias autoalojadas necesitan una clave de API de Copilot para conectarse al servicio de inferencia gestionado.
+
+    1. Inicia sesión en [tradinggoose.ai](https://tradinggoose.ai) y abre **Configuración > Claves de API del servicio**.
+    2. En la tarjeta **Copilot**, haz clic en **Crear** para generar una nueva clave de API. Cópiala de inmediato: solo se muestra una vez.
+    3. Define la variable de entorno `COPILOT_API_KEY` en tu implementación autoalojada con el valor copiado.
+    4. Reinicia la aplicación. El panel global de Copilot ahora se conectará mediante la clave.
+  </Step>
+</Steps>
+
+La variable `COPILOT_API_KEY` anterior conecta el asistente integrado con la inferencia gestionada. [Copilot MCP](/copilot/copilot-mcp#installation) usa una clave de API personal de TradingGoose obtenida mediante su propio flujo de aprobación en el navegador.
+
+<Callout type="warn">
+  Las claves de API del servicio Copilot otorgan acceso a la inferencia gestionada. Guárdalas de forma segura y rótalas si se ven comprometidas. Puedes eliminar una clave de servicio desde **Ajustes > Claves de API de servicio**; la eliminación revoca el acceso de inmediato.
+</Callout>
+
+## Gestión de chats
+
+Cada sesión de Copilot está limitada al usuario autenticado y al espacio de trabajo. El menú desplegable del encabezado muestra todos los chats anteriores agrupados por antigüedad (Hoy, Ayer, Esta semana, La semana pasada, Anteriores). Desde el encabezado puedes:
+
+- **Cambiar de chat** — haz clic en cualquier conversación anterior para reanudarla.
+- **Iniciar un chat nuevo** — haz clic en el botón **+** del encabezado para crear una sesión nueva.
+- **Eliminar un chat** — pasa el cursor sobre una entrada de chat y haz clic en el icono de papelera. Un diálogo de confirmación evita eliminaciones accidentales.
+
+El estado del chat se conserva mientras navegas por el espacio de trabajo o contraes y vuelves a abrir el panel. Copilot sigue la página y la selección actuales: por ejemplo, un detalle de conocimiento, un registro de ejecución seleccionado o un monitor. En el dashboard, el contexto actual identifica únicamente el diseño activo. Copilot puede leer ese diseño a través de sus herramientas de dashboard cuando la tarea requiere más detalle.
+
+## Integración con el editor
+
+Copilot tiene en cuenta el contexto. La página actual solo publica la identidad del objeto seleccionado, como el diseño de dashboard activo, la base de conocimiento, el registro de ejecución o el monitor. Usa el menú de menciones `@` cuando quieras añadir otro contexto explícito a un mensaje.
+
+Cuando Copilot transmite una respuesta que incluye llamadas a herramientas (por ejemplo, añadir un bloque, crear una skill o configurar un servidor MCP), cada acción se muestra como una vista previa insertada. En el modo **Limited**, apruebas o rechazas cada cambio; en el modo **Full**, los cambios se aplican automáticamente.
+
+Puedes editar un prompt anterior para truncar y regenerar los mensajes que le siguen, pero solo cuando no haya una mutación en vivo aceptada después de ese prompt. Editar el historial del chat no deshace los cambios ya aplicados al espacio de trabajo; para revertir una acción aplicada, modifica de nuevo la entidad afectada. Los mensajes posteriores a un punto editable se atenúan para indicar que se regenerarán.
+
+## Facturación
+
+Los cargos por completaciones de Copilot usan el costo total autoritativo informado por OpenRouter, seguido del multiplicador de costo de Copilot de tu plan. Esto mantiene la facturación final alineada con la solicitud realmente enrutada, incluidos los cargos aplicables por tokens en caché, razonamiento, medios, búsqueda, contexto largo y los específicos del proveedor.
+
+<Callout type="info">
+  Studio puede reservar una estimación conservadora antes de una solicitud. El cargo final siempre usa el costo de completación informado por OpenRouter, no la estimación.
+</Callout>

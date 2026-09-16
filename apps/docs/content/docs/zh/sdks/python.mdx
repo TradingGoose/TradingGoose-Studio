@@ -1,0 +1,58 @@
+---
+title: Python SDK
+description: 用于 TradingGoose 工作流的 Python 客户端
+---
+
+## 开发状态
+
+Python SDK 是仓库本地预览版。`tradinggoose-sdk` 目前尚未发布到 PyPI，因此 `pip install tradinggoose-sdk` 不可用。仓库贡献者可以从该目录使用 `pip install -e .` 安装来自 [`packages/python-sdk`](https://github.com/TradingGoose/TradingGoose-Studio/tree/staging/packages/python-sdk) 的包。
+
+对于生产集成，请使用受支持的 [Execution API](/execution/api)。以下示例描述从仓库源代码安装的预览包。
+
+## 执行工作流
+
+```python
+import os
+from tradinggoose import TradingGooseClient
+
+client = TradingGooseClient(
+    api_key=os.environ["TRADINGGOOSE_API_KEY"],
+    base_url="https://www.tradinggoose.ai",
+)
+
+result = client.execute_workflow(
+    "workflow-id",
+    input_data={"message": "Analyze this"},
+    timeout=30.0,
+)
+```
+
+`timeout` 以秒为单位，默认值为 `30.0`。
+
+## 流式传输限制
+
+流式传输使 Execution API 返回 `text/event-stream`。预览版 SDK 不提供流式传输或选定输出参数，因为它未实现 SSE 读取器。请直接使用 [Execution API](/execution/api) 来消费 SSE 并选择流式传输的块输出。
+
+## 状态与验证
+
+- `get_workflow_status(workflow_id)` 返回 `WorkflowStatus`。
+- `validate_workflow(workflow_id)` 返回工作流是否已部署。
+- `set_api_key(api_key)`、`set_base_url(base_url)` 和 `close()` 管理客户端。
+- 客户端支持 `with TradingGooseClient(...) as client` 上下文管理。
+
+## 重试与限制
+
+`execute_with_retry` 仅重试 `RATE_LIMIT_EXCEEDED`。其默认值为 `max_retries=3`、`initial_delay=1.0` 秒、`max_delay=30.0` 秒和 `backoff_multiplier=2.0`。当前工作流端点不发出 `Retry-After`，因此客户端使用带 ±25% 抖动的指数退避。提供该标头的兼容部署会覆盖该延迟。Python 将这些设置作为关键字参数公开，而不是单独的 retry-options 类型。
+
+- `get_rate_limit_info()` 通常返回 `None`，因为当前工作流和使用端点不发出速率限制标头。兼容的部署或代理可能提供 `limit`、`remaining`、ISO `reset` 时间戳以及可选的以毫秒存储的 `retry_after`。
+- `get_usage_limits()` 返回 `UsageLimits(success, rate_limit, usage, storage)`；速率限制、使用和存储负载是与 API 响应匹配的字典。
+
+## 错误与结果
+
+`TradingGooseError` 保留 API `code` 和 HTTP `status`。客户端使用 `TIMEOUT`、`EXECUTION_ERROR`、`STATUS_ERROR`、`RATE_LIMIT_EXCEEDED` 和 `USAGE_ERROR` 处理自身的失败路径。
+
+`execute_workflow()` 和 `execute_with_retry()` 返回 `WorkflowExecutionResponse`，定义为 `WorkflowExecutionResult | Dict[str, Any]`。对于没有 Response 块的工作流，`WorkflowExecutionResult` 包含 `success`、`output`、可选的 `error`，以及可选的计时元数据（`duration`、`startTime` 和 `endTime`）。
+
+带有 Response 块的工作流则返回该块配置的 JSON 正文、HTTP 状态和标头。对于成功的 2xx 响应，Python 客户端会以字典形式返回不符合标准执行信封的响应体。它不会暴露响应标头，并将非 2xx 的自定义状态视为 `TradingGooseError`；当状态或标头很重要时，请直接使用 [Execution API](/execution/api)。
+
+完整示例和文件上传行为请参阅 [Python SDK 包 README](https://github.com/TradingGoose/TradingGoose-Studio/blob/staging/packages/python-sdk/README.md)。

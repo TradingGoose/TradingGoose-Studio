@@ -1,0 +1,24 @@
+---
+title: SDKs
+description: Acceso programático a los flujos de trabajo de TradingGoose desde
+  TypeScript y Python
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+El repositorio de TradingGoose Studio contiene clientes preliminares de TypeScript/JavaScript y Python para ejecutar flujos de trabajo implementados, verificar el estado de la implementación, gestionar límites de velocidad y consultar límites de uso.
+
+> Los paquetes SDK están en desarrollo y actualmente no están publicados en npm o PyPI. Por lo tanto, los comandos de instalación para esos registros no están disponibles. Para integraciones de producción, use la [Execution API](/execution/api) compatible.
+
+<Cards>
+  <Card title="SDK de Python" href="/sdks/python">
+    Revise el cliente Python síncrono local del repositorio.
+  </Card>
+  <Card title="SDK de TypeScript" href="/sdks/typescript">
+    Revise el cliente Node.js local del repositorio.
+  </Card>
+</Cards>
+
+Cuando se usan desde el código fuente del repositorio, ambos clientes se autentican con una clave de API a través de `X-API-Key` y de forma predeterminada usan `https://www.tradinggoose.ai`. Exponen ejecución de flujos de trabajo sin transmisión y estado, comportamiento de reintento en caso de límite de velocidad y límites de uso. Los nombres, tipos, limitaciones y unidades de tiempo de espera específicos del lenguaje se documentan en sus respectivas páginas.
+
+La ejecución en streaming está disponible desde la API HTTP como eventos enviados por el servidor, pero los clientes SDK preliminares no consumen esa transmisión. Use la [Execution API](/execution/api) directamente para streaming o cuando necesite el estado y los encabezados HTTP personalizados de un bloque Response.

@@ -1,0 +1,263 @@
+---
+title: Firecrawl
+description: Extrae o busca en la web
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="firecrawl"
+  color="#FA5D19"
+/>
+
+## Configuración
+
+### Extracción
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Firecrawl"
+    type="firecrawl"
+    color="#FA5D19"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "scrape",
+            "options": [
+                {
+                    "id": "scrape",
+                    "label": "Extracción"
+                },
+                {
+                    "id": "search",
+                    "label": "Búsqueda"
+                },
+                {
+                    "id": "crawl",
+                    "label": "Rastreo"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Firecrawl",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "url",
+            "type": "short-input",
+            "title": "URL del sitio web",
+            "layout": "full",
+            "placeholder": "Introduce la URL del sitio web",
+            "required": true
+        },
+        {
+            "id": "onlyMainContent",
+            "type": "switch",
+            "title": "Solo contenido principal",
+            "layout": "half"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Extracción (<code>firecrawl_scrape</code>)</div>
+
+Extrae contenido estructurado de páginas web con compatibilidad completa de metadatos. Convierte el contenido a markdown o HTML a la vez que captura metadatos SEO, etiquetas Open Graph e información de la página.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `url` | string | Sí | La URL desde la que extraer el contenido |
+| `apiKey` | string | Sí | Clave de API de Firecrawl |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `markdown` | string | Contenido de la página en formato markdown |
+| `html` | string | Contenido HTML sin procesar de la página |
+| `metadata` | object | Metadatos de la página, incluida información SEO y de Open Graph |
+
+</div>
+
+---
+
+### Búsqueda
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Firecrawl"
+    type="firecrawl"
+    color="#FA5D19"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "search",
+            "options": [
+                {
+                    "id": "scrape",
+                    "label": "Extraer"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "crawl",
+                    "label": "Rastrear"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Firecrawl",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "Consulta de búsqueda",
+            "layout": "full",
+            "placeholder": "Introduce la consulta de búsqueda",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Búsqueda (<code>firecrawl_search</code>)</div>
+
+Busca información en la web con Firecrawl
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | Sí | La consulta de búsqueda a usar |
+| `apiKey` | string | Sí | Clave de API de Firecrawl |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `data` | array | Datos de los resultados de búsqueda |
+| `warning` | string | Mensajes de advertencia de la operación de búsqueda |
+
+</div>
+
+---
+
+### Rastreo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Firecrawl"
+    type="firecrawl"
+    color="#FA5D19"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "crawl",
+            "options": [
+                {
+                    "id": "scrape",
+                    "label": "Extraer"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "crawl",
+                    "label": "Rastrear"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Firecrawl",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "url",
+            "type": "short-input",
+            "title": "URL del sitio web",
+            "layout": "full",
+            "placeholder": "Introduce la URL del sitio web",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite de páginas",
+            "layout": "half",
+            "placeholder": "100"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Rastreo (<code>firecrawl_crawl</code>)</div>
+
+Rastrear sitios web completos y extraer contenido estructurado de todas las páginas accesibles
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `url` | cadena | Sí | URL del sitio web a rastrear |
+| `limit` | número | No | Número máximo de páginas a rastrear \(predeterminado: 100\) |
+| `onlyMainContent` | booleano | No | Extraer solo el contenido principal de las páginas |
+| `apiKey` | cadena | Sí | Clave de API de Firecrawl |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `pages` | array | Array de páginas rastreadas con su contenido y metadatos |
+| `total` | número | Número total de páginas encontradas durante el rastreo |
+| `creditsUsed` | número | Número de créditos consumidos por la operación de rastreo |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Firecrawl en el flujo de trabajo. Puede buscar, extraer o rastrear sitios web.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `firecrawl`

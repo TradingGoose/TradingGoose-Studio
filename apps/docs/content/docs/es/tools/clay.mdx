@@ -1,0 +1,83 @@
+---
+title: Clay
+description: Rellenar el libro de trabajo de Clay
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="clay"
+  color=""
+/>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Clay"
+    type="clay"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "webhookURL",
+            "type": "short-input",
+            "title": "URL del webhook",
+            "layout": "full",
+            "placeholder": "Ingresa la URL del webhook de Clay",
+            "required": true
+        },
+        {
+            "id": "data",
+            "type": "long-input",
+            "title": "Datos (JSON o texto sin formato)",
+            "layout": "full",
+            "placeholder": "Ingresa tus datos JSON para rellenar tu tabla de Clay",
+            "description": "JSON vs. texto sin formato:\nJSON: Ideal para rellenar varias columnas.\nTexto sin formato: Ideal para rellenar una tabla de forma libre.\n      ",
+            "required": true
+        },
+        {
+            "id": "authToken",
+            "type": "short-input",
+            "title": "Token de autenticación",
+            "layout": "full",
+            "placeholder": "Ingresa tu token de autenticación del webhook de Clay",
+            "description": "Opcional: Si tu tabla de Clay tiene habilitada la autenticación de webhook, ingresa el token de autenticación aquí. Se enviará en el encabezado x-clay-webhook-auth.",
+            "password": true,
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `clay_populate`
+
+Rellena Clay con datos de un archivo JSON. Permite comunicación directa y notificaciones con seguimiento de marcas de tiempo y confirmación de canal.
+
+#### Entrada
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `webhookURL` | string | Sí | La URL del webhook a rellenar |
+| `data` | json | Sí | Los datos a rellenar |
+| `authToken` | string | No | Token de autenticación opcional para la autenticación del webhook de Clay \(la mayoría de los webhooks no lo requieren\) |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `data` | json | Datos de respuesta del webhook de Clay |
+| `metadata` | object | Metadatos de respuesta del webhook |
+
+## Instrucciones de uso
+
+Integra Clay en el flujo de trabajo. Puede rellenar una tabla con datos.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `clay`

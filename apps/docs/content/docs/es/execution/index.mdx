@@ -1,0 +1,123 @@
+---
+title: Descripción general
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+El motor de ejecución de TradingGoose da vida a tus flujos de trabajo: procesa los bloques en el orden correcto, gestiona el flujo de datos y maneja los errores de forma controlada, para que entiendas con exactitud cómo se ejecutan los flujos de trabajo en TradingGoose.
+
+<Callout type="info">
+  La programación de bloques sigue el grafo del flujo de trabajo. Las salidas de Router y Condition actualizan la ruta activa en tiempo de ejecución, por lo que solo continúan las ramas seleccionadas.
+</Callout>
+
+## Descripción general de la documentación
+
+<Cards>
+  <Card title="Fundamentos de la ejecución" href="/execution/basics">
+    Conoce el flujo de ejecución fundamental, los tipos de bloques y cómo fluyen los datos por tu
+    flujo de trabajo
+  </Card>
+
+  <Card title="Registro" href="/execution/logging">
+    Supervisa las ejecuciones de tus flujos de trabajo con un registro detallado y visibilidad en tiempo real
+  </Card>
+  
+  <Card title="Cálculo de costos" href="/execution/costs">
+    Entiende cómo se calculan y optimizan los costos de ejecución de los flujos de trabajo
+  </Card>
+  
+  <Card title="API externa" href="/execution/api">
+    Accede a los registros de ejecución y configura webhooks de forma programática mediante la API REST
+  </Card>
+</Cards>
+
+## Conceptos clave
+
+### Ejecución topológica
+Los bloques se ejecutan en orden de dependencia, de forma similar a como una hoja de cálculo recalcula las celdas. El motor de ejecución determina automáticamente qué bloques pueden ejecutarse según las dependencias completadas.
+
+### Seguimiento de rutas
+El motor hace un seguimiento activo de las rutas de ejecución en tu flujo de trabajo. Los bloques Router y Condition actualizan dinámicamente estas rutas, lo que garantiza que solo se ejecuten los bloques relevantes.
+
+### Procesamiento por capas
+En lugar de ejecutar los bloques uno por uno, el motor identifica capas de bloques que pueden ejecutarse en paralelo, lo que optimiza el rendimiento en flujos de trabajo complejos.
+
+### Contexto de ejecución
+Cada flujo de trabajo mantiene un contexto enriquecido durante la ejecución que contiene:
+- Salidas y estados de los bloques
+- Rutas de ejecución activas
+- Seguimiento de iteraciones en bucle y en paralelo
+- Variables de entorno
+- Decisiones de enrutamiento
+
+## Desencadenadores de ejecución
+
+Los flujos de trabajo se pueden ejecutar a través de varios canales:
+
+- **Manual**: Prueba y depura directamente en el editor
+- **Implementar como API**: Crea un endpoint HTTP protegido con claves de API
+- **Implementar como Chat**: Publica una interfaz conversacional alojada
+- **Webhooks**: Responde a eventos externos de servicios de terceros
+- **Programado**: Ejecuta según una programación recurrente con expresiones cron
+
+### Implementar como API
+
+Cuando implementas un flujo de trabajo como API, TradingGoose:
+- Expone `POST /api/workflows/{workflowId}/execute` en tu despliegue de TradingGoose
+- Requiere que crees o selecciones una clave de API y fija esa clave al despliegue
+- Acepta solicitudes POST con cargas útiles JSON
+- Devuelve los resultados de la ejecución del flujo de trabajo como JSON
+
+Ejemplo de llamada a la API:
+
+```bash
+curl -X POST https://www.tradinggoose.ai/api/workflows/your-workflow-id/execute \
+  -H "X-API-Key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"input": {"message": "your data here"}}'
+```
+
+### Implementar como Chat
+
+La implementación como Chat crea una interfaz conversacional para tu flujo de trabajo:
+- Publicada en `/chat/{identifier}` en tu despliegue de TradingGoose
+- Control de acceso mediante modos público, contraseña, lista de correos permitidos o SSO
+- Título, descripción, mensaje de bienvenida y logotipo configurables
+- Respuestas en streaming para interacción en tiempo real
+- Ideal para asistentes de IA, bots de soporte o herramientas interactivas
+
+Cada método de implementación pasa datos al bloque inicial de tu flujo de trabajo, lo que da inicio al flujo de ejecución.
+
+## Instantáneas de implementación
+
+Los puntos de entrada de API pública, Chat alojado, Programación y Webhook ejecutan la instantánea de implementación activa del flujo de trabajo. Publica una nueva implementación después de cambiar el lienzo si quieres que esos puntos de entrada usen la versión actualizada.
+
+Las ejecuciones manuales desde el editor de flujos de trabajo usan el lienzo activo actual y las variables del flujo de trabajo. Esto te permite probar los cambios en borrador antes de implementarlos.
+
+El modal de implementación mantiene un historial de versiones de las instantáneas de implementación. Puedes inspeccionar una instantánea, compararla con el borrador actual y la implementación activa, activar una versión anterior o cargar una versión implementada de nuevo en el editor.
+
+## Ejecución programática
+
+Usa la [Execution API](/execution/api) compatible para integraciones de producción. El repositorio también contiene clientes de vista previa no publicados para [TypeScript](/sdks/typescript) y [Python](/sdks/python); instálalos desde el código fuente del repositorio solo cuando desarrolles o evalúes los paquetes del SDK.
+
+## Buenas prácticas
+
+### Diseña para la fiabilidad
+- Gestiona los errores de forma controlada con rutas de respaldo adecuadas
+- Usa variables de entorno para datos sensibles
+- Añade registro a los bloques Function para la depuración
+
+### Optimiza el rendimiento
+- Minimiza las llamadas a API externas siempre que sea posible
+- Usa la ejecución en paralelo para operaciones independientes
+- Almacena valores intermedios reutilizables con bloques Variables durante una ejecución
+
+### Supervisa las ejecuciones
+- Revisa los registros con regularidad para entender los patrones de rendimiento
+- Haz un seguimiento de los costos por el uso de modelos de IA
+- Usa las instantáneas del flujo de trabajo para depurar problemas
+
+## ¿Qué sigue?
+
+Empieza con [Conceptos básicos de ejecución](/execution/basics) para entender cómo se ejecutan los flujos de trabajo, luego explora [Registro](/execution/logging) para supervisar tus ejecuciones y [Cálculo de costos](/execution/costs) para optimizar tu gasto.

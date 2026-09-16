@@ -1,0 +1,99 @@
+---
+title: Flujo de trabajo
+description: Ejecutar un flujo de trabajo secundario y mapear las variables del
+  padre en su esquema de entrada
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="workflow_input"
+  color="#6366F1"
+  icon={true}
+/>
+
+El bloque de flujo de trabajo ejecuta otro flujo de trabajo (secundario) desde dentro del flujo de trabajo actual (principal). Lee el esquema del **Disparador de formulario de entrada** del flujo de trabajo secundario y presenta una interfaz de mapeo para que puedas pasar las variables del padre a las entradas esperadas del secundario. Este es el mecanismo principal para modularizar automatizaciones complejas en subflujos de trabajo reutilizables.
+
+## Descripción general
+
+<Steps>
+  <Step>
+    <strong>Selecciona un flujo de trabajo secundario</strong>: Elige cualquier flujo de trabajo en tu espacio de trabajo (excepto el actual)
+  </Step>
+  <Step>
+    <strong>Mapea las entradas</strong>: El bloque lee el Disparador de formulario de entrada del secundario y muestra cada campo esperado. Mapea las variables del padre o codifica valores para cada una.
+  </Step>
+  <Step>
+    <strong>Ejecuta</strong>: El flujo de trabajo secundario se ejecuta hasta completarse con las entradas mapeadas
+  </Step>
+  <Step>
+    <strong>Devuelve resultados</strong>: La salida final del secundario se devuelve al padre como la salida `result` del bloque
+  </Step>
+</Steps>
+
+## Cómo funciona
+
+El flujo de trabajo secundario debe usar un **Disparador de formulario de entrada** como su bloque de inicio. Ese disparador define el esquema de entrada (nombres de campos, tipos y descripciones). Cuando seleccionas el flujo de trabajo secundario en este bloque, la interfaz de mapeo de entradas renderiza dinámicamente esos campos para que puedas conectarlos.
+
+En tiempo de ejecución, el bloque:
+
+1. Resuelve todos los valores mapeados desde el estado actual del flujo de trabajo principal.
+2. Invoca al ejecutor del flujo de trabajo secundario, pasando las entradas resueltas.
+3. Espera a que el secundario termine.
+4. Devuelve `success`, `childWorkflowName` y el `result` completo de la ejecución del secundario.
+
+<Callout type="info">
+  El menú desplegable solo muestra los flujos de trabajo de tu espacio de trabajo que son diferentes del actual. No puedes invocar un flujo de trabajo de forma recursiva.
+</Callout>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Workflow"
+    type="workflow_input"
+    color="#6366F1"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "workflowId",
+            "type": "dropdown",
+            "title": "Seleccionar flujo de trabajo",
+            "required": true
+        },
+        {
+            "id": "inputMapping",
+            "type": "input-mapping",
+            "title": "Asignación de entradas",
+            "layout": "full",
+            "description": "Asigna los campos definidos en el disparador de entrada del flujo de trabajo secundario a variables/valores de este flujo de trabajo."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+### Campos
+
+| Campo | Obligatorio | Descripción |
+|---|---|---|
+| **Seleccionar flujo de trabajo** | Sí | El flujo de trabajo secundario que se va a ejecutar. Debe tener un disparador de formulario de entrada. |
+| **Asignación de entradas** | -- | Asignación dinámica de los valores del flujo principal al esquema del disparador del flujo secundario. Aparece después de seleccionar un flujo de trabajo. |
+
+## Salidas
+
+| Salida | Tipo | Descripción |
+|---|---|---|
+| `success` | boolean | Indica si el flujo de trabajo secundario se completó correctamente |
+| `childWorkflowName` | string | Nombre del flujo de trabajo secundario ejecutado |
+| `result` | json | El resultado completo de la ejecución del flujo de trabajo secundario |
+| `error` | string | Mensaje de error si el flujo de trabajo secundario falló |
+
+## Buenas prácticas
+
+- **Diseña flujos de trabajo secundarios con disparadores de formulario de entrada claros** -- nombra los campos de forma descriptiva para que la interfaz de asignación sea fácil de usar en el flujo principal.
+- **Mantén los flujos de trabajo secundarios enfocados** -- un flujo de trabajo secundario debe hacer bien una sola cosa, lo que lo hace reutilizable en varios flujos principales.
+- **Revisa la salida `success`** -- usa un bloque Condition después del bloque Workflow para gestionar los fallos de forma controlada.

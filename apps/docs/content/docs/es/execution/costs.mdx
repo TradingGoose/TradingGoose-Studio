@@ -1,0 +1,152 @@
+---
+title: Cálculo de costos
+---
+
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion'
+import { Callout } from 'fumadocs-ui/components/callout'
+
+TradingGoose calcula los costos de un flujo de trabajo a partir del cargo de ejecución configurado y del uso medido de modelos. El propietario de facturación —usuario u organización— configurado en el espacio de trabajo puede ajustar ambos valores según su nivel efectivo.
+
+## Cómo se calculan los costos
+
+Cuando la facturación está habilitada, un flujo de trabajo puede tener dos componentes de costo:
+
+- **Cargo de ejecución**: el cargo de flujo de trabajo configurado en la instancia, multiplicado por el multiplicador de ejecución de flujos de trabajo del nivel actual.
+- **Uso de modelos de IA**: el costo del modelo del proveedor registrado por cada span de ejecución, multiplicado por el multiplicador de costo de modelos del nivel actual.
+
+```javascript
+executionCost = configuredWorkflowCharge * tierWorkflowExecutionMultiplier
+adjustedModelCost = recordedModelCost * tierWorkflowModelCostMultiplier
+totalCost = executionCost + sum(adjustedModelCost)
+```
+
+<Callout type="info">
+  Cuando la facturación está deshabilitada, el cargo de ejecución es cero y los costos de modelos registrados usan un multiplicador de uno. La configuración de niveles de facturación, y no los valores fijos de esta guía, es la fuente de verdad para los cargos y los multiplicadores.
+</Callout>
+
+## Desglose de modelos en los registros
+
+En los flujos de trabajo que usan bloques de IA, puedes consultar información detallada de costos en los registros:
+
+La barra lateral de detalle del registro incluye una sección de desglose de modelos que muestra:
+- **Uso de tokens**: recuento de tokens de entrada y de salida de cada modelo
+- **Desglose de costos**: costo de entrada, de salida y total de cada modelo
+- **Modelos utilizados**: qué modelos contribuyeron al costo de ejecución
+- **Costo total**: costo agregado de toda la ejecución del flujo de trabajo
+
+## Precios y límites
+
+Los niveles de facturación disponibles y el catálogo de modelos se configuran en el despliegue de TradingGoose y pueden cambiar de forma independiente de esta documentación. Usa **Settings → Subscription** para consultar el uso actual, el límite de uso y los planes, precios y funciones anunciadas disponibles. La API de límites de uso que se describe a continuación informa valores de tasa, almacenamiento, retención y multiplicadores para el ámbito de facturación personal del usuario autenticado; no resuelve el nivel efectivo de una organización para un espacio de trabajo. Usa el selector de modelos del bloque Agent para ver los modelos disponibles actualmente en tu espacio de trabajo.
+
+Si recibes un código de acceso para un nivel privado, ingrésalo en **Configuración → Suscripción**. Los códigos distinguen entre mayúsculas y minúsculas, aunque se ignoran los espacios en blanco alrededor. Un código válido habilita el plan privado correspondiente para tu usuario.
+
+Un nivel de facturación también puede imponer una duración máxima a cada ejecución de flujo de trabajo en cola. La ejecución que alcanza ese límite se termina y se registra con el error `Workflow execution time limit exceeded`.
+
+## Estrategias de optimización de costos
+
+<Accordions>
+  <Accordion title="Selección de modelo">
+    Elige un modelo que se ajuste a la complejidad de la tarea y revisa el precio actual de su proveedor antes del despliegue.
+  </Accordion>
+  
+  <Accordion title="Ingeniería de prompts">
+    Los prompts bien estructurados y concisos reducen el uso de tokens sin sacrificar la calidad.
+  </Accordion>
+  
+  <Accordion title="Modelos locales">
+    Usa Ollama cuando un modelo local sea adecuado para evitar los cargos del proveedor externo de modelos. El cargo por ejecución de flujo de trabajo puede seguir aplicándose.
+  </Accordion>
+  
+  <Accordion title="Caché y reutilización">
+    Reutiliza las salidas de etapas anteriores o las variables del flujo de trabajo dentro de una ejecución en lugar de repetir llamadas al modelo de IA.
+  </Accordion>
+  
+  <Accordion title="Procesamiento por lotes">
+    Procesa varios elementos en una sola solicitud de IA en lugar de hacer llamadas individuales.
+  </Accordion>
+</Accordions>
+
+## Monitoreo de uso
+
+Monitorea tu uso y tu facturación en Configuración → Suscripción:
+
+- **Uso actual**: Uso y costos acumulados en el periodo actual
+- **Límite de uso**: El límite de gasto efectivo y el porcentaje consumido
+- **Gestión del plan**: Acciones de suscripción disponibles cuando la facturación está habilitada
+
+### Seguimiento programático del uso personal
+
+Puedes consultar el uso personal y los límites del usuario autenticado de forma programática mediante la API:
+
+**Endpoint:**
+
+```text
+GET /api/users/me/usage-limits
+```
+
+**Autenticación:**
+- Incluye tu clave de API en el encabezado `X-API-Key`
+
+**Solicitud de ejemplo:**
+
+```bash
+curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" https://www.tradinggoose.ai/api/users/me/usage-limits
+```
+
+**Respuesta de ejemplo:**
+
+```jsonc
+{
+  "success": true,
+  "rateLimit": {
+    "sync": { "isLimited": false, "limit": 10, "remaining": 10, "resetAt": "2025-09-08T22:51:55.999Z" },
+    "async": { "isLimited": false, "limit": 50, "remaining": 50, "resetAt": "2025-09-08T22:51:56.155Z" },
+    "authType": "api"
+  },
+  "usage": {
+    "currentPeriodCost": 12.34,
+    "limit": 100,
+    "tier": {
+      "id": "tier_example",
+      "displayName": "Example Tier",
+      "ownerType": "user",
+      "usageScope": "individual",
+      "syncRateLimitPerMinute": 10,
+      "asyncRateLimitPerMinute": 50,
+      "apiEndpointRateLimitPerMinute": 60,
+      "logRetentionDays": 30,
+      "workflowExecutionMultiplier": 1,
+      "workflowModelCostMultiplier": 1
+      // The response includes the remaining BillingTierSummary fields.
+    }
+  },
+  "storage": {
+    "usedBytes": 5242880,
+    "limitBytes": 1073741824,
+    "percentUsed": 0.48828125
+  }
+}
+```
+
+**Campos de la respuesta:**
+- `currentPeriodCost` refleja el uso en el periodo de facturación actual
+- `limit` es el límite de uso efectivo para el ámbito de facturación del usuario autenticado
+- `tier` es el resumen completo del nivel de facturación, incluidos sus límites de velocidad configurados, la retención y los multiplicadores de costo
+- `storage` informa el uso actual en bytes, el límite de bytes y el porcentaje utilizado
+
+Los valores de ejemplo son ilustrativos. Lee la respuesta que se devuelve para tu cuenta en lugar de basarte en nombres de planes o límites fijos.
+
+## Prácticas recomendadas para la gestión de costos
+
+1. **Supervisa con regularidad**: Revisa con frecuencia tu panel de uso para evitar sorpresas
+2. **Establece presupuestos**: Cuando tu plan lo permita, usa el límite de uso editable como barrera de gasto
+3. **Optimiza los flujos de trabajo**: Revisa las ejecuciones de alto costo y optimiza los prompts o la selección del modelo
+4. **Usa modelos adecuados**: Ajusta la complejidad del modelo a los requisitos de la tarea
+5. **Agrupa tareas similares**: Combina varias solicitudes cuando sea posible para reducir la sobrecarga
+
+## Próximos pasos
+
+- Revisa tu uso actual en **Configuración → Suscripción**
+- Obtén más información sobre el [Registro](/execution/logging) para hacer seguimiento de los detalles de ejecución
+- Explora la [API externa](/execution/api) para el monitoreo programático de costos
+- Consulta las [técnicas de optimización de flujos de trabajo](/blocks) para reducir costos

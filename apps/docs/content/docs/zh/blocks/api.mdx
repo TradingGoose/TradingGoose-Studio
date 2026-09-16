@@ -1,0 +1,246 @@
+---
+title: API
+description: 通过 HTTP 请求连接外部服务
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { BlockConfigPreview } from '@/components/ui/block-config-preview'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
+
+<BlockInfoCard
+  type="api"
+  color="#2F55FF"
+/>
+
+API 区块让你可以通过 HTTP 请求，经由 API 端点将工作流连接到外部服务。它支持 GET、POST、PUT、DELETE 和 PATCH 等多种方法，几乎可与任何 API 端点交互。
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="API"
+    type="api"
+    color="#2F55FF"
+    hideHeader
+    subBlocks={[
+      { "id": "url", "title": "URL", "type": "short-input", "layout": "full", "placeholder": "输入 URL", "required": true },
+      { "id": "method", "title": "方法", "type": "dropdown", "layout": "half", "required": true, "options": [{ "label": "GET", "id": "GET" }, { "label": "POST", "id": "POST" }, { "label": "PUT", "id": "PUT" }, { "label": "DELETE", "id": "DELETE" }, { "label": "PATCH", "id": "PATCH" }] },
+      { "id": "params", "title": "查询参数", "type": "table", "layout": "full" },
+      { "id": "headers", "title": "请求头", "type": "table", "layout": "full", "description": "自定义请求头（User-Agent、Accept 等标准请求头会自动添加）" },
+      { "id": "body", "title": "请求体", "type": "code", "layout": "full", "placeholder": "输入 JSON..." }
+    ]}
+  />
+</ShowcaseCard>
+
+## 概览
+
+API 区块让你可以：
+
+<Steps>
+  <Step>
+    <strong>连接外部服务</strong>：向 REST API 和 Web 服务发起 HTTP 请求
+  </Step>
+  <Step>
+    <strong>发送和接收数据</strong>：处理响应并转换来自外部来源的数据
+  </Step>
+  <Step>
+    <strong>集成第三方平台</strong>：连接 Stripe、Slack 或自定义 API 等服务
+  </Step>
+  <Step>
+    <strong>处理身份验证</strong>：支持 Bearer 令牌和 API 密钥等多种认证方式
+  </Step>
+</Steps>
+
+## 工作原理
+
+API 块通过结构化方式处理 HTTP 请求：
+
+1. **配置请求**：设置 URL、方法、请求头和请求体参数
+2. **执行请求**：向指定端点发送 HTTP 请求
+3. **处理响应**：处理响应数据、状态码和响应头
+4. **错误处理**：管理超时、重试和错误条件
+
+## 配置选项
+
+### URL
+
+API 请求的端点 URL。可以是：
+
+- 直接在块中输入的静态 URL
+- 从另一个块的输出连接的动态 URL
+- 带路径参数的 URL
+
+### 方法
+
+选择请求的 HTTP 方法：
+
+- **GET**：从服务器检索数据
+- **POST**：向服务器发送数据以创建资源
+- **PUT**：更新服务器上的现有资源
+- **DELETE**：从服务器删除资源
+- **PATCH**：部分更新现有资源
+
+### 查询参数
+
+定义将作为查询参数附加到 URL 的键值对。例如：
+
+```
+Key: apiKey
+Value: your_api_key_here
+
+Key: limit
+Value: 10
+```
+
+这些将作为 `?apiKey=your_api_key_here&limit=10` 添加到 URL。
+
+### 请求头
+
+为你的请求配置 HTTP 请求头。常见请求头包括：
+
+```
+Key: Content-Type
+Value: application/json
+
+Key: Authorization
+Value: Bearer your_token_here
+```
+
+### 请求体
+
+对于支持请求体的方法（POST、PUT、PATCH），你可以定义要发送的数据。请求体可以是：
+
+- 直接在块中输入的 JSON 数据
+- 从另一个块的输出连接的数据
+- 在工作流执行期间动态生成的数据
+
+### 访问结果
+
+API 请求完成后，你可以访问其输出：
+
+- **`<api.data>`**：来自 API 的响应体数据
+- **`<api.status>`**：HTTP 状态码（200、404、500 等）
+- **`<api.headers>`**：来自服务器的响应头
+- **`<api.error>`**：请求失败时的错误详情
+
+## 高级功能
+
+### 动态 URL 构建
+
+使用之前块中的变量动态构建 URL：
+
+```javascript
+// In a Function block before the API
+const userId = <start.userId>;
+const apiUrl = `https://api.example.com/users/${userId}/profile`;
+```
+
+### 请求重试
+
+API 块自动处理：
+- 具有指数退避的网络超时
+- 速率限制响应（429 状态码）
+- 具有重试逻辑的服务器错误（5xx 状态码）
+- 具有重连尝试的连接失败
+
+### 响应验证
+
+在处理前验证 API 响应：
+
+```javascript
+// In a Function block after the API
+if (<api.status> === 200) {
+  const data = <api.data>;
+  // Process successful response
+} else {
+  // Handle error response
+  console.error(`API Error: ${<api.status>}`);
+}
+```
+
+## 输入与输出
+
+<Tabs items={['Configuration', 'Variables', 'Results']}>
+  <Tab>
+    <ul className="list-disc space-y-2 pl-6">
+      <li>
+        <strong>URL</strong>：发送请求的端点
+      </li>
+      <li>
+        <strong>方法</strong>：HTTP 方法（GET、POST、PUT、DELETE、PATCH）
+      </li>
+      <li>
+        <strong>查询参数</strong>：URL 参数的键值对
+      </li>
+      <li>
+        <strong>请求头</strong>：用于认证和内容类型的 HTTP 头
+      </li>
+      <li>
+        <strong>请求体</strong>：POST/PUT/PATCH 方法的请求负载
+      </li>
+    </ul>
+  </Tab>
+  <Tab>
+    <ul className="list-disc space-y-2 pl-6">
+      <li>
+        <strong>api.data</strong>：API 调用的响应体数据
+      </li>
+      <li>
+        <strong>api.status</strong>：服务器返回的 HTTP 状态码
+      </li>
+      <li>
+        <strong>api.headers</strong>：来自服务器的响应头
+      </li>
+      <li>
+        <strong>api.error</strong>：请求失败时的错误详情
+      </li>
+    </ul>
+  </Tab>
+  <Tab>
+    <ul className="list-disc space-y-2 pl-6">
+      <li>
+        <strong>响应数据</strong>：主要 API 响应内容
+      </li>
+      <li>
+        <strong>状态信息</strong>：HTTP 状态和错误详情
+      </li>
+      <li>
+        <strong>访问</strong>：在 API 调用后的块中可用
+      </li>
+    </ul>
+  </Tab>
+</Tabs>
+
+## 示例用例
+
+### 获取用户个人资料数据
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">场景：从外部服务检索用户信息</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>函数块从输入构造用户 ID</li>
+    <li>API 块调用 GET /users/&#123;id&#125; 端点</li>
+    <li>函数块处理并格式化用户数据</li>
+    <li>响应块返回格式化后的个人资料</li>
+  </ol>
+</div>
+
+### 支付处理
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">场景：通过 Stripe API 处理支付</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>功能块验证支付数据</li>
+    <li>API 块通过 Stripe 创建支付意图</li>
+    <li>条件块处理支付成功/失败</li>
+    <li>Supabase 块更新数据库中的订单状态</li>
+  </ol>
+</div>
+
+## 最佳实践
+
+- **对敏感数据使用环境变量**：不要硬编码 API 密钥或凭据
+- **优雅地处理错误**：为失败的请求连接错误处理逻辑
+- **验证响应**：在处理数据前检查状态码和响应格式
+- **遵守速率限制**：注意 API 速率限制并实施适当的节流

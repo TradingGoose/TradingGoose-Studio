@@ -1,0 +1,211 @@
+---
+title: Paralelo
+description: Ejecutar bloques hijos simultáneamente dentro de un contenedor
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+
+<BlockInfoCard
+  type="parallel"
+  color=""
+/>
+
+El bloque Paralelo es un bloque contenedor en TradingGoose que ejecuta bloques hijos simultáneamente.
+
+<Callout type="info">
+  Los bloques Paralelo son nodos contenedores. Arrastra bloques hijos dentro del paralelo en el lienzo. Las aristas entrantes entran a través de Inicio Paralelo, y las salidas de los hijos se reconectan a Fin Paralelo antes de que el flujo de trabajo continúe fuera del contenedor.
+</Callout>
+
+## Descripción general
+
+El bloque Paralelo te permite:
+
+<Steps>
+  <Step>
+    <strong>Distribuir trabajo</strong>: Procesa múltiples elementos simultáneamente
+  </Step>
+  <Step>
+    <strong>Acelerar la ejecución</strong>: Ejecuta operaciones independientes simultáneamente
+  </Step>
+  <Step>
+    <strong>Manejar operaciones masivas</strong>: Procesa grandes conjuntos de datos de manera eficiente
+  </Step>
+  <Step>
+    <strong>Agregar resultados</strong>: Recopila las salidas de todas las ejecuciones paralelas
+  </Step>
+</Steps>
+
+## Opciones de configuración
+
+### Tipo de paralelo
+
+Elige entre dos tipos de ejecución paralela:
+
+<Tabs items={['Basado en conteo', 'Basado en colección']}>
+  <Tab>
+    **Paralelo basado en conteo** - Ejecuta un número fijo de instancias paralelas.
+    
+    Úsalo cuando necesites ejecutar la misma operación varias veces simultáneamente.
+    
+
+    ```
+    Example: Run 5 parallel instances
+    - Instance 1 ┐
+    - Instance 2 ├─ All execute simultaneously
+    - Instance 3 │
+    - Instance 4 │
+    - Instance 5 ┘
+    ```
+
+  </Tab>
+  <Tab>
+    **Paralelo basado en colección** - Distribuye una colección entre instancias paralelas.
+    
+    Cada instancia procesa un elemento de la colección simultáneamente.
+    
+
+    ```
+    Example: Process ["task1", "task2", "task3"] in parallel
+    - Instance 1: Process "task1" ┐
+    - Instance 2: Process "task2" ├─ All execute simultaneously
+    - Instance 3: Process "task3" ┘
+    ```
+
+  </Tab>
+</Tabs>
+
+## Cómo usar bloques Paralelo
+
+### Crear un bloque Paralelo
+
+1. Arrastra un bloque Paralelo desde la barra de herramientas a tu lienzo
+2. Configura el tipo de paralelo y los parámetros
+3. Arrastra los bloques hijos que deberían ejecutarse en paralelo dentro del contenedor
+4. Conecta el flujo entrante a Inicio Paralelo, y conecta las salidas de los hijos de vuelta a Fin Paralelo antes de continuar fuera del contenedor
+
+### Acceder a los resultados
+
+Cuando un bloque paralelo finaliza, puedes acceder a los resultados agregados:
+
+- **`<parallel.results>`**: arreglo de resultados de todas las instancias paralelas
+
+## Casos de uso de ejemplo
+
+### Procesamiento por lotes de API
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">Escenario: procesar varias llamadas a la API de forma simultánea</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>Bloque paralelo con una colección de endpoints de API</li>
+    <li>Dentro del paralelo: el bloque de API llama a cada endpoint</li>
+    <li>Después del paralelo: procesa todas las respuestas en conjunto</li>
+  </ol>
+</div>
+
+### Procesamiento con varios modelos de IA
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">Escenario: obtener respuestas de varios modelos de IA</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>Paralelo basado en colección sobre una lista de ID de modelos (p. ej., ["gpt-4o", "claude-3.7-sonnet", "gemini-2.5-pro"])</li>
+    <li>Dentro del paralelo: el modelo del agente se establece en el elemento actual de la colección</li>
+    <li>Después del paralelo: compara y selecciona la mejor respuesta</li>
+  </ol>
+</div>
+
+## Funciones avanzadas
+
+### Agregación de resultados
+
+Los resultados de todas las instancias paralelas se recopilan automáticamente:
+
+```javascript
+// In a Function block after the parallel
+const allResults = input.parallel.results;
+// Returns: [result1, result2, result3, ...]
+```
+
+### Aislamiento de instancias
+
+Cada instancia paralela se ejecuta de forma independiente:
+- Ámbitos de variables separados
+- Sin estado compartido entre instancias
+- Los fallos en una instancia no afectan a las demás
+
+### Limitaciones
+
+<Callout type="warning">
+  Los bloques contenedores (bucles y paralelos) no se pueden anidar entre sí. Esto significa:
+  - No puedes colocar un bloque de bucle dentro de un bloque paralelo
+  - No puedes colocar otro bloque paralelo dentro de un bloque paralelo
+  - No puedes colocar ningún bloque contenedor dentro de otro bloque contenedor
+</Callout>
+
+<Callout type="info">
+  Aunque la ejecución paralela es más rápida, ten en cuenta:
+  - Los límites de frecuencia de la API al hacer solicitudes simultáneas
+  - El uso de memoria con conjuntos de datos grandes
+  - Un máximo de 20 instancias simultáneas para evitar el agotamiento de recursos
+</Callout>
+
+## Paralelo vs bucle
+
+Cómo saber cuándo usar cada uno:
+
+| Característica | Paralelo | Bucle |
+|---------|----------|------|
+| Ejecución | Concurrente | Secuencial |
+| Velocidad | Más rápido para operaciones independientes | Más lento pero ordenado |
+| Orden | Sin orden garantizado | Mantiene el orden |
+| Caso de uso | Operaciones independientes | Operaciones dependientes |
+| Uso de recursos | Mayor | Menor |
+
+## Entradas y salidas
+
+<Tabs items={['Configuración', 'Variables', 'Resultados']}>
+  <Tab>
+    <ul className="list-disc space-y-2 pl-6">
+      <li>
+        <strong>Tipo de paralelismo</strong>: Elige entre 'count' o 'collection'
+      </li>
+      <li>
+        <strong>Cantidad</strong>: Número de instancias que se ejecutarán (basado en count)
+      </li>
+      <li>
+        <strong>Colección</strong>: Array u objeto a distribuir (basado en colección)
+      </li>
+    </ul>
+  </Tab>
+  <Tab>
+    <ul className="list-disc space-y-2 pl-6">
+      <li>
+        <strong>parallel.currentItem</strong>: Elemento para esta instancia
+      </li>
+      <li>
+        <strong>parallel.index</strong>: Número de instancia (basado en 0)
+      </li>
+      <li>
+        <strong>parallel.items</strong>: Colección completa (basado en colección)
+      </li>
+    </ul>
+  </Tab>
+  <Tab>
+    <ul className="list-disc space-y-2 pl-6">
+      <li>
+        <strong>parallel.results</strong>: Array con los resultados de todas las instancias
+      </li>
+      <li>
+        <strong>Acceso</strong>: Disponible en bloques después del paralelo
+      </li>
+    </ul>
+  </Tab>
+</Tabs>
+
+## Buenas prácticas
+
+- **Solo operaciones independientes**: Asegúrate de que las operaciones no dependan entre sí
+- **Gestiona los límites de velocidad**: Agrega retrasos o limitación de velocidad para flujos de trabajo con uso intensivo de API
+- **Manejo de errores**: Cada instancia debe gestionar sus propios errores de forma controlada

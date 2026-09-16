@@ -1,0 +1,907 @@
+---
+title: MongoDB
+description: Conectar a la base de datos MongoDB
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="mongodb"
+  color="#00684A"
+/>
+
+## Configuración
+
+### Buscar documentos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="MongoDB"
+    type="mongodb"
+    color="#00684A"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "query",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Buscar documentos"
+                },
+                {
+                    "id": "insert",
+                    "label": "Insertar documentos"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar documentos"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar documentos"
+                },
+                {
+                    "id": "execute",
+                    "label": "Pipeline de agregación"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "layout": "full",
+            "placeholder": "localhost or your.mongodb.host",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto",
+            "layout": "full",
+            "placeholder": "27017",
+            "required": true,
+            "defaultValue": "27017"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "layout": "full",
+            "placeholder": "your_database",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Nombre de usuario",
+            "layout": "full",
+            "placeholder": "mongodb_user",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "layout": "full",
+            "placeholder": "Tu contraseña de la base de datos",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "authSource",
+            "type": "short-input",
+            "title": "Origen de autenticación",
+            "layout": "full",
+            "placeholder": "admin"
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "Modo SSL",
+            "layout": "full",
+            "defaultValue": "preferred",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "Deshabilitado"
+                },
+                {
+                    "id": "required",
+                    "label": "Requerido"
+                },
+                {
+                    "id": "preferred",
+                    "label": "Preferido"
+                }
+            ]
+        },
+        {
+            "id": "collection",
+            "type": "short-input",
+            "title": "Nombre de la colección",
+            "layout": "full",
+            "placeholder": "users",
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "code",
+            "title": "Filtro de consulta (JSON)",
+            "layout": "full",
+            "placeholder": "{\"status\": \"active\"}",
+            "language": "json"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "layout": "full",
+            "placeholder": "100"
+        },
+        {
+            "id": "sort",
+            "type": "code",
+            "title": "Orden (JSON)",
+            "layout": "full",
+            "placeholder": "{\"createdAt\": -1}",
+            "language": "json"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar documentos (<code>mongodb_query</code>)</div>
+
+Ejecuta la operación find en una colección de MongoDB
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Sí | Nombre de host o dirección IP del servidor de MongoDB |
+| `port` | number | Sí | Puerto del servidor de MongoDB \(predeterminado: 27017\) |
+| `database` | string | Sí | Nombre de la base de datos a la que conectarse |
+| `username` | string | No | Nombre de usuario de MongoDB |
+| `password` | string | No | Contraseña de MongoDB |
+| `authSource` | string | No | Base de datos de autenticación |
+| `ssl` | string | No | Modo de conexión SSL \(disabled, required, preferred\) |
+| `collection` | string | Sí | Nombre de la colección a consultar |
+| `query` | string | No | Filtro de consulta de MongoDB como cadena JSON |
+| `limit` | number | No | Número máximo de documentos a devolver |
+| `sort` | string | No | Criterios de ordenación como cadena JSON |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `documents` | array | Matriz de documentos devueltos por la consulta |
+| `documentCount` | number | Número de documentos devueltos |
+
+</div>
+
+---
+
+### Insertar documentos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="MongoDB"
+    type="mongodb"
+    color="#00684A"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "insert",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Buscar documentos"
+                },
+                {
+                    "id": "insert",
+                    "label": "Insertar documentos"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar documentos"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar documentos"
+                },
+                {
+                    "id": "execute",
+                    "label": "Pipeline de agregación"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "layout": "full",
+            "placeholder": "localhost o tu.mongodb.host",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto",
+            "layout": "full",
+            "placeholder": "27017",
+            "required": true,
+            "defaultValue": "27017"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "layout": "full",
+            "placeholder": "your_database",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Nombre de usuario",
+            "layout": "full",
+            "placeholder": "mongodb_user",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "layout": "full",
+            "placeholder": "Contraseña de tu base de datos",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "authSource",
+            "type": "short-input",
+            "title": "Origen de autenticación",
+            "layout": "full",
+            "placeholder": "admin"
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "Modo SSL",
+            "layout": "full",
+            "defaultValue": "preferred",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "Deshabilitado"
+                },
+                {
+                    "id": "required",
+                    "label": "Obligatorio"
+                },
+                {
+                    "id": "preferred",
+                    "label": "Preferido"
+                }
+            ]
+        },
+        {
+            "id": "collection",
+            "type": "short-input",
+            "title": "Nombre de la colección",
+            "layout": "full",
+            "placeholder": "users",
+            "required": true
+        },
+        {
+            "id": "documents",
+            "type": "code",
+            "title": "Documentos (matriz JSON)",
+            "layout": "full",
+            "placeholder": "[{\"name\": \"John Doe\", \"email\": \"john@example.com\", \"status\": \"active\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Insertar documentos (<code>mongodb_insert</code>)</div>
+
+Inserta documentos en una colección de MongoDB
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Sí | Nombre de host o dirección IP del servidor MongoDB |
+| `port` | number | Sí | Puerto del servidor MongoDB \(predeterminado: 27017\) |
+| `database` | string | Sí | Nombre de la base de datos a la que conectarse |
+| `username` | string | No | Nombre de usuario de MongoDB |
+| `password` | string | No | Contraseña de MongoDB |
+| `authSource` | string | No | Base de datos de autenticación |
+| `ssl` | string | No | Modo de conexión SSL \(deshabilitado, obligatorio, preferido\) |
+| `collection` | string | Sí | Nombre de la colección en la que insertar |
+| `documents` | array | Sí | Matriz de documentos a insertar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `documentCount` | number | Número de documentos insertados |
+| `insertedId` | string | ID del documento insertado \(inserción única\) |
+| `insertedIds` | array | Matriz de IDs de documentos insertados \(inserción múltiple\) |
+
+</div>
+
+---
+
+### Actualizar documentos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="MongoDB"
+    type="mongodb"
+    color="#00684A"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "update",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Buscar documentos"
+                },
+                {
+                    "id": "insert",
+                    "label": "Insertar documentos"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar documentos"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar documentos"
+                },
+                {
+                    "id": "execute",
+                    "label": "Pipeline de agregación"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "layout": "full",
+            "placeholder": "localhost o tu.mongodb.host",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto",
+            "layout": "full",
+            "placeholder": "27017",
+            "required": true,
+            "defaultValue": "27017"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "layout": "full",
+            "placeholder": "tu_base_de_datos",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Nombre de usuario",
+            "layout": "full",
+            "placeholder": "mongodb_user",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "layout": "full",
+            "placeholder": "Contraseña de tu base de datos",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "authSource",
+            "type": "short-input",
+            "title": "Origen de autenticación",
+            "layout": "full",
+            "placeholder": "admin"
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "Modo SSL",
+            "layout": "full",
+            "defaultValue": "preferred",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "Deshabilitado"
+                },
+                {
+                    "id": "required",
+                    "label": "Obligatorio"
+                },
+                {
+                    "id": "preferred",
+                    "label": "Preferido"
+                }
+            ]
+        },
+        {
+            "id": "collection",
+            "type": "short-input",
+            "title": "Nombre de la colección",
+            "layout": "full",
+            "placeholder": "users",
+            "required": true
+        },
+        {
+            "id": "filter",
+            "type": "code",
+            "title": "Filtro (JSON)",
+            "layout": "full",
+            "placeholder": "{\"name\": \"Alice Test\"}",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "update",
+            "type": "code",
+            "title": "Actualización (JSON)",
+            "layout": "full",
+            "placeholder": "{\"$set\": {\"name\": \"Jane Doe\", \"email\": \"jane@example.com\"}}",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "upsert",
+            "type": "dropdown",
+            "title": "Upsert",
+            "layout": "full",
+            "defaultValue": "false",
+            "options": [
+                {
+                    "id": "false",
+                    "label": "Falso"
+                },
+                {
+                    "id": "true",
+                    "label": "Verdadero"
+                }
+            ]
+        },
+        {
+            "id": "multi",
+            "type": "dropdown",
+            "title": "Actualizar varios",
+            "layout": "full",
+            "defaultValue": "false",
+            "options": [
+                {
+                    "id": "false",
+                    "label": "Falso"
+                },
+                {
+                    "id": "true",
+                    "label": "Verdadero"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar documentos (<code>mongodb_update</code>)</div>
+
+Actualizar documentos en la colección de MongoDB
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Sí | Nombre de host o dirección IP del servidor MongoDB |
+| `port` | number | Sí | Puerto del servidor MongoDB \(predeterminado: 27017\) |
+| `database` | string | Sí | Nombre de la base de datos a la que conectarse |
+| `username` | string | No | Nombre de usuario de MongoDB |
+| `password` | string | No | Contraseña de MongoDB |
+| `authSource` | string | No | Base de datos de autenticación |
+| `ssl` | string | No | Modo de conexión SSL \(deshabilitado, requerido, preferido\) |
+| `collection` | string | Sí | Nombre de la colección a actualizar |
+| `filter` | string | Sí | Criterios de filtro como cadena JSON |
+| `update` | string | Sí | Operaciones de actualización como cadena JSON |
+| `upsert` | boolean | No | Crear documento si no se encuentra |
+| `multi` | boolean | No | Actualizar varios documentos |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `matchedCount` | number | Número de documentos que coinciden con el filtro |
+| `modifiedCount` | number | Número de documentos modificados |
+| `documentCount` | number | Número total de documentos afectados |
+| `insertedId` | string | ID del documento insertado \(si upsert\) |
+
+</div>
+
+---
+
+### Eliminar documentos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="MongoDB"
+    type="mongodb"
+    color="#00684A"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "delete",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Buscar documentos"
+                },
+                {
+                    "id": "insert",
+                    "label": "Insertar documentos"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar documentos"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar documentos"
+                },
+                {
+                    "id": "execute",
+                    "label": "Pipeline de agregación"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "layout": "full",
+            "placeholder": "localhost or your.mongodb.host",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto",
+            "layout": "full",
+            "placeholder": "27017",
+            "required": true,
+            "defaultValue": "27017"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "layout": "full",
+            "placeholder": "your_database",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Nombre de usuario",
+            "layout": "full",
+            "placeholder": "mongodb_user",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "layout": "full",
+            "placeholder": "Your database password",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "authSource",
+            "type": "short-input",
+            "title": "Fuente de autenticación",
+            "layout": "full",
+            "placeholder": "admin"
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "Modo SSL",
+            "layout": "full",
+            "defaultValue": "preferred",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "Deshabilitado"
+                },
+                {
+                    "id": "required",
+                    "label": "Requerido"
+                },
+                {
+                    "id": "preferred",
+                    "label": "Preferido"
+                }
+            ]
+        },
+        {
+            "id": "collection",
+            "type": "short-input",
+            "title": "Nombre de la colección",
+            "layout": "full",
+            "placeholder": "users",
+            "required": true
+        },
+        {
+            "id": "filter",
+            "type": "code",
+            "title": "Filtro (JSON)",
+            "layout": "full",
+            "placeholder": "{\"status\": \"inactive\"}",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "multi",
+            "type": "dropdown",
+            "title": "Eliminar varios",
+            "layout": "full",
+            "defaultValue": "false",
+            "options": [
+                {
+                    "id": "false",
+                    "label": "Falso"
+                },
+                {
+                    "id": "true",
+                    "label": "Verdadero"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar documentos (<code>mongodb_delete</code>)</div>
+
+Eliminar documentos de la colección de MongoDB
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Sí | Nombre de host o dirección IP del servidor MongoDB |
+| `port` | number | Sí | Puerto del servidor MongoDB \(predeterminado: 27017\) |
+| `database` | string | Sí | Nombre de la base de datos a la que conectarse |
+| `username` | string | No | Nombre de usuario de MongoDB |
+| `password` | string | No | Contraseña de MongoDB |
+| `authSource` | string | No | Base de datos de autenticación |
+| `ssl` | string | No | Modo de conexión SSL \(deshabilitado, obligatorio, preferido\) |
+| `collection` | string | Sí | Nombre de la colección de la que eliminar |
+| `filter` | string | Sí | Criterios de filtro como cadena JSON |
+| `multi` | boolean | No | Eliminar varios documentos |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `deletedCount` | number | Número de documentos eliminados |
+| `documentCount` | number | Número total de documentos afectados |
+
+</div>
+
+---
+
+### Pipeline de agregación
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="MongoDB"
+    type="mongodb"
+    color="#00684A"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "execute",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Buscar documentos"
+                },
+                {
+                    "id": "insert",
+                    "label": "Insertar documentos"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar documentos"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar documentos"
+                },
+                {
+                    "id": "execute",
+                    "label": "Pipeline de agregación"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "layout": "full",
+            "placeholder": "localhost o tu.mongodb.host",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto",
+            "layout": "full",
+            "placeholder": "27017",
+            "required": true,
+            "defaultValue": "27017"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "layout": "full",
+            "placeholder": "tu_base_de_datos",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Nombre de usuario",
+            "layout": "full",
+            "placeholder": "usuario_mongodb",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "layout": "full",
+            "placeholder": "Contraseña de tu base de datos",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "authSource",
+            "type": "short-input",
+            "title": "Origen de autenticación",
+            "layout": "full",
+            "placeholder": "admin"
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "Modo SSL",
+            "layout": "full",
+            "defaultValue": "preferred",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "Deshabilitado"
+                },
+                {
+                    "id": "required",
+                    "label": "Obligatorio"
+                },
+                {
+                    "id": "preferred",
+                    "label": "Preferido"
+                }
+            ]
+        },
+        {
+            "id": "collection",
+            "type": "short-input",
+            "title": "Nombre de la colección",
+            "layout": "full",
+            "placeholder": "usuarios",
+            "required": true
+        },
+        {
+            "id": "pipeline",
+            "type": "code",
+            "title": "Pipeline de agregación (array JSON)",
+            "layout": "full",
+            "placeholder": "[{\"$group\": {\"_id\": \"$status\", \"count\": {\"$sum\": 1}}}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Pipeline de agregación (<code>mongodb_execute</code>)</div>
+
+Ejecutar pipeline de agregación de MongoDB
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `host` | cadena | Sí | Nombre de host o dirección IP del servidor MongoDB |
+| `port` | número | Sí | Puerto del servidor MongoDB \\(predeterminado: 27017\\) |
+| `database` | cadena | Sí | Nombre de la base de datos a la que conectarse |
+| `username` | cadena | No | Nombre de usuario de MongoDB |
+| `password` | cadena | No | Contraseña de MongoDB |
+| `authSource` | cadena | No | Base de datos de autenticación |
+| `ssl` | cadena | No | Modo de conexión SSL \\(deshabilitado, requerido, preferido\\) |
+| `collection` | cadena | Sí | Nombre de la colección sobre la que ejecutar el pipeline |
+| `pipeline` | cadena | Sí | Pipeline de agregación como cadena JSON |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | cadena | Mensaje de estado de la operación |
+| `documents` | array | Array de documentos devueltos por la agregación |
+| `documentCount` | número | Número de documentos devueltos |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra MongoDB en el workflow. Puede buscar, insertar, actualizar, eliminar y agregar datos.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `mongodb`

@@ -1,0 +1,374 @@
+---
+title: Jira
+description: Interactuar con Jira
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="jira"
+  color="#2684FF"
+/>
+
+## Configuración
+
+### Leer incidencia
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira"
+    type="jira"
+    color="#2684FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "read",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "Leer incidencia"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar incidencia"
+                },
+                {
+                    "id": "write",
+                    "label": "Escribir incidencia"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Dominio",
+            "layout": "full",
+            "placeholder": "Ingresa el dominio de Jira (p. ej., tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Jira",
+            "layout": "full",
+            "placeholder": "Selecciona una cuenta de Jira",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "project-selector",
+            "title": "Seleccionar proyecto",
+            "layout": "full",
+            "placeholder": "Selecciona un proyecto de Jira",
+            "provider": "jira"
+        },
+        {
+            "id": "manualProjectId",
+            "type": "short-input",
+            "title": "ID del proyecto",
+            "layout": "full",
+            "placeholder": "Ingresa el ID del proyecto de Jira"
+        },
+        {
+            "id": "issueKey",
+            "type": "file-selector",
+            "title": "Seleccionar incidencia",
+            "layout": "full",
+            "placeholder": "Selecciona una incidencia de Jira",
+            "provider": "jira"
+        },
+        {
+            "id": "manualIssueKey",
+            "type": "short-input",
+            "title": "Clave de incidencia",
+            "layout": "full",
+            "placeholder": "Ingresa la clave de incidencia de Jira"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Leer incidencia (<code>jira_retrieve</code>)</div>
+
+Recuperar información detallada sobre una incidencia específica de Jira
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | Sí | Tu dominio de Jira \(p. ej., yourcompany.atlassian.net\) |
+| `projectId` | string | No | ID de proyecto de Jira \(opcional; no se requiere para recuperar una incidencia individual\). |
+| `issueKey` | string | Sí | Clave de incidencia de Jira a recuperar \(p. ej., PROJ-123\) |
+| `cloudId` | string | No | ID de Jira Cloud para la instancia. Si no se proporciona, se obtendrá utilizando el dominio. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `output` | object | Detalles de la incidencia de Jira con clave de incidencia, resumen, descripción, marcas de tiempo de creación y actualización |
+
+</div>
+
+---
+
+### Actualizar incidencia
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira"
+    type="jira"
+    color="#2684FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "update",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "Leer incidencia"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar incidencia"
+                },
+                {
+                    "id": "write",
+                    "label": "Crear incidencia"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Dominio",
+            "layout": "full",
+            "placeholder": "Ingrese el dominio de Jira (por ejemplo, tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Jira",
+            "layout": "full",
+            "placeholder": "Seleccione una cuenta de Jira",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "project-selector",
+            "title": "Seleccionar proyecto",
+            "layout": "full",
+            "placeholder": "Seleccione un proyecto de Jira",
+            "provider": "jira"
+        },
+        {
+            "id": "manualProjectId",
+            "type": "short-input",
+            "title": "ID del proyecto",
+            "layout": "full",
+            "placeholder": "Ingrese el ID del proyecto de Jira"
+        },
+        {
+            "id": "issueKey",
+            "type": "file-selector",
+            "title": "Seleccionar incidencia",
+            "layout": "full",
+            "placeholder": "Seleccione una incidencia de Jira",
+            "provider": "jira"
+        },
+        {
+            "id": "manualIssueKey",
+            "type": "short-input",
+            "title": "Clave de la incidencia",
+            "layout": "full",
+            "placeholder": "Ingrese la clave de la incidencia de Jira"
+        },
+        {
+            "id": "summary",
+            "type": "short-input",
+            "title": "Nuevo resumen",
+            "layout": "full",
+            "placeholder": "Ingrese un nuevo resumen para la incidencia",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "Nueva descripción",
+            "layout": "full",
+            "placeholder": "Ingrese una nueva descripción para la incidencia"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar incidencia (<code>jira_update</code>)</div>
+
+Actualizar una incidencia de Jira
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | Sí | Tu dominio de Jira \(p. ej., yourcompany.atlassian.net\) |
+| `projectId` | string | No | ID del proyecto de Jira en el que actualizar las incidencias. Si no se proporciona, se recuperarán todas las incidencias. |
+| `issueKey` | string | Sí | Clave de la incidencia de Jira a actualizar |
+| `summary` | string | No | Nuevo resumen para la incidencia |
+| `description` | string | No | Nueva descripción para la incidencia |
+| `status` | string | No | Nuevo estado para la incidencia |
+| `priority` | string | No | Nueva prioridad para la incidencia |
+| `assignee` | string | No | Nuevo responsable para la incidencia |
+| `cloudId` | string | No | ID de Jira Cloud para la instancia. Si no se proporciona, se obtendrá utilizando el dominio. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ts` | string | Marca de tiempo de la operación |
+| `issueKey` | string | Clave de la incidencia actualizada \(p. ej., PROJ-123\) |
+| `summary` | string | Resumen de la incidencia después de la actualización |
+
+</div>
+
+---
+
+### Escribir incidencia
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira"
+    type="jira"
+    color="#2684FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "write",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "Leer incidencia"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar incidencia"
+                },
+                {
+                    "id": "write",
+                    "label": "Escribir incidencia"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Dominio",
+            "layout": "full",
+            "placeholder": "Introduce el dominio de Jira (p. ej., tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Jira",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Jira",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "project-selector",
+            "title": "Seleccionar proyecto",
+            "layout": "full",
+            "placeholder": "Seleccionar proyecto de Jira",
+            "provider": "jira"
+        },
+        {
+            "id": "manualProjectId",
+            "type": "short-input",
+            "title": "ID del proyecto",
+            "layout": "full",
+            "placeholder": "Introduce el ID del proyecto de Jira"
+        },
+        {
+            "id": "summary",
+            "type": "short-input",
+            "title": "Nuevo resumen",
+            "layout": "full",
+            "placeholder": "Introduce un nuevo resumen para la incidencia",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "Nueva descripción",
+            "layout": "full",
+            "placeholder": "Introduce una nueva descripción para la incidencia"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Escribir incidencia (<code>jira_write</code>)</div>
+
+Escribir una incidencia de Jira
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | Sí | Tu dominio de Jira \(p. ej., yourcompany.atlassian.net\) |
+| `projectId` | string | Sí | ID del proyecto para la incidencia |
+| `summary` | string | Sí | Resumen para la incidencia |
+| `description` | string | No | Descripción para la incidencia |
+| `priority` | string | No | ID o nombre de prioridad para la incidencia \(p. ej., "10000" o "High"\) |
+| `assignee` | string | No | ID de cuenta del asignado para la incidencia |
+| `labels` | array | No | Etiquetas para la incidencia \(array de nombres de etiquetas\) |
+| `duedate` | string | No | Fecha de vencimiento para la incidencia \(formato: YYYY-MM-DD\) |
+| `reporter` | string | No | ID de cuenta del informador para la incidencia |
+| `environment` | string | No | Información del entorno para la incidencia |
+| `customFieldId` | string | No | ID de campo personalizado \(p. ej., customfield_10001\) |
+| `customFieldValue` | string | No | Valor para el campo personalizado |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ts` | string | Marca de tiempo de la operación |
+| `issueKey` | string | Clave de la incidencia creada \(p. ej., PROJ-123\) |
+| `summary` | string | Resumen de la incidencia |
+| `url` | string | URL de la incidencia creada |
+| `assigneeId` | string | ID de cuenta del usuario asignado \(si está asignado\) |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Jira en el flujo de trabajo. Puede leer, escribir y actualizar incidencias.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `jira`

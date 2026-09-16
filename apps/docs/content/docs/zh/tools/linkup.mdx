@@ -1,0 +1,107 @@
+---
+title: Linkup
+description: 使用 Linkup 搜索网页
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="linkup"
+  color="#0084ff"
+/>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Linkup"
+    type="linkup"
+    color="#0084ff"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "q",
+            "type": "long-input",
+            "title": "搜索查询",
+            "layout": "full",
+            "placeholder": "输入搜索查询",
+            "required": true
+        },
+        {
+            "id": "outputType",
+            "type": "dropdown",
+            "title": "输出类型",
+            "layout": "half",
+            "defaultValue": "sourcedAnswer",
+            "options": [
+                {
+                    "id": "sourcedAnswer",
+                    "label": "答案"
+                },
+                {
+                    "id": "searchResults",
+                    "label": "搜索"
+                }
+            ]
+        },
+        {
+            "id": "depth",
+            "type": "dropdown",
+            "title": "搜索深度",
+            "layout": "half",
+            "options": [
+                {
+                    "id": "standard",
+                    "label": "标准"
+                },
+                {
+                    "id": "deep",
+                    "label": "深度"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Linkup API 密钥",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+### `linkup_search`
+
+使用 Linkup 搜索网络信息
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `q` | string | 是 | 搜索查询 |
+| `depth` | string | 是 | 搜索深度 \(必须为 "standard" 或 "deep"\) |
+| `outputType` | string | 是 | 返回的输出类型 \(必须为 "sourcedAnswer" 或 "searchResults"\) |
+| `apiKey` | string | 是 | 输入你的 Linkup API 密钥 |
+
+#### 输出
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `answer` | string | 搜索查询的来源答案 |
+| `sources` | array | 用于生成答案的来源数组，每项包含 name、url 和 snippet |
+
+## 使用说明
+
+将 Linkup 集成到工作流中。可搜索网络。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`linkup`

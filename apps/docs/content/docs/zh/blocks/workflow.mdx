@@ -1,0 +1,50 @@
+---
+title: 工作流区块
+description: 在当前流程中运行另一个工作流
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { BlockConfigPreview } from '@/components/ui/block-config-preview'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
+
+<BlockInfoCard
+  type="workflow"
+  color="#705335"
+/>
+
+## 功能说明
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="工作流"
+    type="workflow"
+    color="#705335"
+    hideHeader
+    subBlocks={[
+      { "id": "workflowId", "title": "选择工作流", "type": "dropdown", "required": true },
+      { "id": "input", "title": "输入变量（可选）", "type": "short-input", "placeholder": "选择要传递给子工作流的变量", "description": "该变量在子工作流中可作为 start.input 使用" }
+    ]}
+  />
+</ShowcaseCard>
+
+当你需要在更大的流程中调用子工作流时，拖入一个工作流区块。该区块会运行该工作流最新部署的版本，等待其结束后再继续执行父工作流。
+
+## 配置方法
+
+1. **选择一个工作流**（自引用会被阻止，以防出现循环）。
+2. **映射输入**：如果子工作流带有 Input Form 触发器，你会看到每个字段，并可连接父流程变量。映射后的值即子工作流接收的值。
+3. **输出**：子工作流结束后，该区块会暴露以下内容：
+   - `result` – 子工作流的最终响应
+   - `success` – 是否在无错误的情况下运行
+   - `error` – 运行失败时的消息
+
+## 执行说明
+
+- 子工作流在同一工作区上下文中运行，因此环境变量和工具会被沿用。
+- 该区块使用部署版本控制：任何通过 API、定时任务、Webhook、手动或聊天方式发起的执行，都会调用已部署的快照。修改子工作流后，请重新部署。
+- 如果子工作流失败，该区块会抛出错误，除非你在下游处理它。
+
+<Callout>
+让子工作流保持专注。小型、可复用的流程更易于组合，而不会造成深层嵌套。
+</Callout>

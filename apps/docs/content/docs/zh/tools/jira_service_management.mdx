@@ -1,0 +1,3234 @@
+---
+title: Jira Service Management
+description: 与 Jira Service Management 交互
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="jira_service_management"
+  color="#E0E0E0"
+/>
+
+## 配置
+
+### 获取服务台
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_service_desks",
+            "options": [
+                {
+                    "id": "get_service_desks",
+                    "label": "获取服务台"
+                },
+                {
+                    "id": "get_request_types",
+                    "label": "获取请求类型"
+                },
+                {
+                    "id": "create_request",
+                    "label": "创建请求"
+                },
+                {
+                    "id": "get_request",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "get_requests",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "添加评论"
+                },
+                {
+                    "id": "get_comments",
+                    "label": "获取评论"
+                },
+                {
+                    "id": "get_customers",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "add_customer",
+                    "label": "添加客户"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "获取组织"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "创建组织"
+                },
+                {
+                    "id": "add_organization",
+                    "label": "添加组织"
+                },
+                {
+                    "id": "get_queues",
+                    "label": "获取队列"
+                },
+                {
+                    "id": "get_sla",
+                    "label": "获取 SLA"
+                },
+                {
+                    "id": "get_transitions",
+                    "label": "获取转换"
+                },
+                {
+                    "id": "transition_request",
+                    "label": "转换请求"
+                },
+                {
+                    "id": "get_participants",
+                    "label": "获取参与者"
+                },
+                {
+                    "id": "add_participants",
+                    "label": "添加参与者"
+                },
+                {
+                    "id": "get_approvals",
+                    "label": "获取审批"
+                },
+                {
+                    "id": "answer_approval",
+                    "label": "回复审批"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "输入 Jira 域名（例如：tradinggoose.atlassian.net）",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira 账户",
+            "placeholder": "选择 Jira 账户",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "最大结果数",
+            "placeholder": "最大结果数（默认：50）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取服务台 (<code>jsm_get_service_desks</code>)</div>
+
+从 Jira Service Management 获取所有服务台
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | 是 | 你的 Jira 域名（例如：yourcompany.atlassian.net） |
+| `start` | number | 否 | 分页起始索引（默认：0） |
+| `limit` | number | 否 | 返回的最大结果数（默认：50） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `ts` | string | 操作时间戳 |
+| `serviceDesks` | json | 服务台数组 |
+| `total` | number | 服务台总数 |
+| `isLastPage` | boolean | 是否为最后一页 |
+
+</div>
+
+---
+
+### 获取请求类型
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_request_types",
+            "options": [
+                {
+                    "id": "get_service_desks",
+                    "label": "获取服务台"
+                },
+                {
+                    "id": "get_request_types",
+                    "label": "获取请求类型"
+                },
+                {
+                    "id": "create_request",
+                    "label": "创建请求"
+                },
+                {
+                    "id": "get_request",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "get_requests",
+                    "label": "获取请求列表"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "添加评论"
+                },
+                {
+                    "id": "get_comments",
+                    "label": "获取评论"
+                },
+                {
+                    "id": "get_customers",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "add_customer",
+                    "label": "添加客户"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "获取组织"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "创建组织"
+                },
+                {
+                    "id": "add_organization",
+                    "label": "添加组织"
+                },
+                {
+                    "id": "get_queues",
+                    "label": "获取队列"
+                },
+                {
+                    "id": "get_sla",
+                    "label": "获取 SLA"
+                },
+                {
+                    "id": "get_transitions",
+                    "label": "获取转换"
+                },
+                {
+                    "id": "transition_request",
+                    "label": "转换请求"
+                },
+                {
+                    "id": "get_participants",
+                    "label": "获取参与者"
+                },
+                {
+                    "id": "add_participants",
+                    "label": "添加参与者"
+                },
+                {
+                    "id": "get_approvals",
+                    "label": "获取审批"
+                },
+                {
+                    "id": "answer_approval",
+                    "label": "答复审批"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "输入 Jira 域名（例如：tradinggoose.atlassian.net）",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira 账户",
+            "placeholder": "选择 Jira 账户",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "serviceDeskId",
+            "type": "short-input",
+            "title": "服务台 ID",
+            "placeholder": "输入服务台 ID"
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "最大结果数",
+            "placeholder": "最大结果数（默认：50）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取请求类型（<code>jsm_get_request_types</code>）</div>
+
+获取 Jira Service Management 中某个服务台的请求类型
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | 是 | 你的 Jira 域名 \(例如 yourcompany.atlassian.net\) |
+| `serviceDeskId` | string | 是 | 要获取请求类型的服务台 ID |
+| `start` | number | 否 | 分页起始索引 \(默认：0\) |
+| `limit` | number | 否 | 最大返回结果数 \(默认：50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `ts` | string | 操作时间戳 |
+| `requestTypes` | json | 请求类型数组 |
+| `total` | number | 请求类型总数 |
+| `isLastPage` | boolean | 是否为最后一页 |
+
+</div>
+
+---
+
+### 创建请求
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "create_request",
+            "options": [
+                {
+                    "id": "get_service_desks",
+                    "label": "获取服务台"
+                },
+                {
+                    "id": "get_request_types",
+                    "label": "获取请求类型"
+                },
+                {
+                    "id": "create_request",
+                    "label": "创建请求"
+                },
+                {
+                    "id": "get_request",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "get_requests",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "添加评论"
+                },
+                {
+                    "id": "get_comments",
+                    "label": "获取评论"
+                },
+                {
+                    "id": "get_customers",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "add_customer",
+                    "label": "添加客户"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "获取组织"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "创建组织"
+                },
+                {
+                    "id": "add_organization",
+                    "label": "添加组织"
+                },
+                {
+                    "id": "get_queues",
+                    "label": "获取队列"
+                },
+                {
+                    "id": "get_sla",
+                    "label": "获取 SLA"
+                },
+                {
+                    "id": "get_transitions",
+                    "label": "获取流转"
+                },
+                {
+                    "id": "transition_request",
+                    "label": "流转请求"
+                },
+                {
+                    "id": "get_participants",
+                    "label": "获取参与者"
+                },
+                {
+                    "id": "add_participants",
+                    "label": "添加参与者"
+                },
+                {
+                    "id": "get_approvals",
+                    "label": "获取审批"
+                },
+                {
+                    "id": "answer_approval",
+                    "label": "答复审批"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "输入 Jira 域名（例如 tradinggoose.atlassian.net）",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira 账户",
+            "placeholder": "选择 Jira 账户",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "serviceDeskId",
+            "type": "short-input",
+            "title": "服务台 ID",
+            "placeholder": "输入服务台 ID"
+        },
+        {
+            "id": "requestTypeId",
+            "type": "short-input",
+            "title": "请求类型 ID",
+            "placeholder": "输入请求类型 ID",
+            "required": true
+        },
+        {
+            "id": "summary",
+            "type": "short-input",
+            "title": "摘要",
+            "placeholder": "输入请求摘要",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "描述",
+            "placeholder": "输入请求描述"
+        },
+        {
+            "id": "raiseOnBehalfOf",
+            "type": "short-input",
+            "title": "代他人提交",
+            "placeholder": "代他人提交请求的账户 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建请求（<code>jsm_create_request</code>）</div>
+
+在 Jira Service Management 中创建新的服务请求
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | 是 | 你的 Jira 域名 \(例如 yourcompany.atlassian.net\) |
+| `serviceDeskId` | string | 是 | 用于创建请求的服务台 ID |
+| `requestTypeId` | string | 是 | 新请求的请求类型 ID |
+| `summary` | string | 是 | 服务请求的摘要/标题 |
+| `description` | string | 否 | 服务请求的描述 |
+| `raiseOnBehalfOf` | string | 否 | 代客户提交请求的客户账户 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `ts` | string | 操作时间戳 |
+| `issueId` | string | 已创建请求的问题 ID |
+| `issueKey` | string | 已创建请求的问题键 \(例如 SD-123\) |
+| `requestTypeId` | string | 请求类型 ID |
+| `serviceDeskId` | string | 服务台 ID |
+| `success` | boolean | 请求是否创建成功 |
+| `url` | string | 所创建请求的 URL |
+
+</div>
+
+---
+
+### 获取请求
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_request",
+            "options": [
+                {
+                    "id": "get_service_desks",
+                    "label": "获取服务台"
+                },
+                {
+                    "id": "get_request_types",
+                    "label": "获取请求类型"
+                },
+                {
+                    "id": "create_request",
+                    "label": "创建请求"
+                },
+                {
+                    "id": "get_request",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "get_requests",
+                    "label": "获取请求列表"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "添加评论"
+                },
+                {
+                    "id": "get_comments",
+                    "label": "获取评论"
+                },
+                {
+                    "id": "get_customers",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "add_customer",
+                    "label": "添加客户"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "获取组织"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "创建组织"
+                },
+                {
+                    "id": "add_organization",
+                    "label": "添加组织"
+                },
+                {
+                    "id": "get_queues",
+                    "label": "获取队列"
+                },
+                {
+                    "id": "get_sla",
+                    "label": "获取 SLA"
+                },
+                {
+                    "id": "get_transitions",
+                    "label": "获取状态转换"
+                },
+                {
+                    "id": "transition_request",
+                    "label": "转换请求"
+                },
+                {
+                    "id": "get_participants",
+                    "label": "获取参与者"
+                },
+                {
+                    "id": "add_participants",
+                    "label": "添加参与者"
+                },
+                {
+                    "id": "get_approvals",
+                    "label": "获取审批"
+                },
+                {
+                    "id": "answer_approval",
+                    "label": "答复审批"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "输入 Jira 域名（例如 tradinggoose.atlassian.net）",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira 账户",
+            "placeholder": "选择 Jira 账户",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "issueIdOrKey",
+            "type": "short-input",
+            "title": "问题 ID 或键",
+            "placeholder": "输入问题 ID 或键（例如 SD-123）",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取请求 (<code>jsm_get_request</code>)</div>
+
+从 Jira Service Management 获取单个服务请求
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必需 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | 是 | 你的 Jira 域名 \\(例如：yourcompany.atlassian.net\\) |
+| `issueIdOrKey` | string | 是 | 问题 ID 或键 \\(例如：SD-123\\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `ts` | string | 操作的时间戳 |
+| `request` | json | 服务请求对象 |
+
+</div>
+
+---
+
+### 获取多个请求
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_requests",
+            "options": [
+                {
+                    "id": "get_service_desks",
+                    "label": "获取服务台"
+                },
+                {
+                    "id": "get_request_types",
+                    "label": "获取请求类型"
+                },
+                {
+                    "id": "create_request",
+                    "label": "创建请求"
+                },
+                {
+                    "id": "get_request",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "get_requests",
+                    "label": "获取多个请求"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "添加评论"
+                },
+                {
+                    "id": "get_comments",
+                    "label": "获取评论"
+                },
+                {
+                    "id": "get_customers",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "add_customer",
+                    "label": "添加客户"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "获取组织"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "创建组织"
+                },
+                {
+                    "id": "add_organization",
+                    "label": "添加组织"
+                },
+                {
+                    "id": "get_queues",
+                    "label": "获取队列"
+                },
+                {
+                    "id": "get_sla",
+                    "label": "获取 SLA"
+                },
+                {
+                    "id": "get_transitions",
+                    "label": "获取转换"
+                },
+                {
+                    "id": "transition_request",
+                    "label": "转换请求"
+                },
+                {
+                    "id": "get_participants",
+                    "label": "获取参与者"
+                },
+                {
+                    "id": "add_participants",
+                    "label": "添加参与者"
+                },
+                {
+                    "id": "get_approvals",
+                    "label": "获取审批"
+                },
+                {
+                    "id": "answer_approval",
+                    "label": "答复审批"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "输入 Jira 域名（例如：tradinggoose.atlassian.net）",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira 账户",
+            "placeholder": "选择 Jira 账户",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "requestOwnership",
+            "type": "dropdown",
+            "title": "请求所有权",
+            "defaultValue": "ALL_REQUESTS",
+            "options": [
+                {
+                    "id": "ALL_REQUESTS",
+                    "label": "所有请求"
+                },
+                {
+                    "id": "OWNED_REQUESTS",
+                    "label": "我的请求"
+                },
+                {
+                    "id": "PARTICIPATED_REQUESTS",
+                    "label": "参与的"
+                },
+                {
+                    "id": "ORGANIZATION",
+                    "label": "组织"
+                }
+            ]
+        },
+        {
+            "id": "requestStatus",
+            "type": "dropdown",
+            "title": "请求状态",
+            "defaultValue": "ALL",
+            "options": [
+                {
+                    "id": "ALL",
+                    "label": "全部"
+                },
+                {
+                    "id": "OPEN",
+                    "label": "打开"
+                },
+                {
+                    "id": "CLOSED",
+                    "label": "已关闭"
+                }
+            ]
+        },
+        {
+            "id": "searchTerm",
+            "type": "short-input",
+            "title": "搜索词",
+            "placeholder": "搜索请求"
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "最大结果数",
+            "placeholder": "最大结果数（默认：50）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取请求 (<code>jsm_get_requests</code>)</div>
+
+从 Jira Service Management 获取多个服务请求
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | 是 | 你的 Jira 域名 \(例如：yourcompany.atlassian.net\) |
+| `serviceDeskId` | string | 否 | 按服务台 ID 筛选 |
+| `requestOwnership` | string | 否 | 按所有权筛选：OWNED_REQUESTS、PARTICIPATED_REQUESTS、ORGANIZATION、ALL_REQUESTS |
+| `requestStatus` | string | 否 | 按状态筛选：OPEN、CLOSED、ALL |
+| `searchTerm` | string | 否 | 用于筛选请求的搜索词 |
+| `start` | number | 否 | 分页起始索引 \(默认：0\) |
+| `limit` | number | 否 | 返回的最大结果数 \(默认：50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `ts` | string | 操作的时间戳 |
+| `requests` | json | 服务请求数组 |
+| `total` | number | 请求总数 |
+| `isLastPage` | boolean | 是否为最后一页 |
+
+</div>
+
+---
+
+### 添加评论
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "add_comment",
+            "options": [
+                {
+                    "id": "get_service_desks",
+                    "label": "获取服务台"
+                },
+                {
+                    "id": "get_request_types",
+                    "label": "获取请求类型"
+                },
+                {
+                    "id": "create_request",
+                    "label": "创建请求"
+                },
+                {
+                    "id": "get_request",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "get_requests",
+                    "label": "获取请求列表"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "添加评论"
+                },
+                {
+                    "id": "get_comments",
+                    "label": "获取评论"
+                },
+                {
+                    "id": "get_customers",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "add_customer",
+                    "label": "添加客户"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "获取组织"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "创建组织"
+                },
+                {
+                    "id": "add_organization",
+                    "label": "添加组织"
+                },
+                {
+                    "id": "get_queues",
+                    "label": "获取队列"
+                },
+                {
+                    "id": "get_sla",
+                    "label": "获取 SLA"
+                },
+                {
+                    "id": "get_transitions",
+                    "label": "获取转换"
+                },
+                {
+                    "id": "transition_request",
+                    "label": "转换请求"
+                },
+                {
+                    "id": "get_participants",
+                    "label": "获取参与者"
+                },
+                {
+                    "id": "add_participants",
+                    "label": "添加参与者"
+                },
+                {
+                    "id": "get_approvals",
+                    "label": "获取审批"
+                },
+                {
+                    "id": "answer_approval",
+                    "label": "答复审批"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "输入 Jira 域名（例如：tradinggoose.atlassian.net）",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira 账户",
+            "placeholder": "选择 Jira 账户",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "issueIdOrKey",
+            "type": "short-input",
+            "title": "问题 ID 或 Key",
+            "placeholder": "输入问题 ID 或 Key（例如：SD-123）",
+            "required": true
+        },
+        {
+            "id": "commentBody",
+            "type": "long-input",
+            "title": "评论",
+            "placeholder": "输入评论内容",
+            "required": true
+        },
+        {
+            "id": "isPublic",
+            "type": "dropdown",
+            "title": "评论可见性",
+            "defaultValue": "true",
+            "options": [
+                {
+                    "id": "true",
+                    "label": "公开（客户可见）"
+                },
+                {
+                    "id": "false",
+                    "label": "内部（仅限坐席）"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">添加评论（<code>jsm_add_comment</code>）</div>
+
+在 Jira Service Management 中向服务请求添加评论（公开或内部）
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `domain` | 字符串 | 是 | 你的 Jira 域名 \(例如 yourcompany.atlassian.net\) |
+| `issueIdOrKey` | 字符串 | 是 | 问题 ID 或键 \(例如 SD-123\) |
+| `body` | 字符串 | 是 | 评论正文 |
+| `isPublic` | 布尔值 | 是 | 评论是公开 \(对客户可见\) 还是内部 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `ts` | 字符串 | 操作时间戳 |
+| `issueIdOrKey` | 字符串 | 问题 ID 或键 |
+| `commentId` | 字符串 | 创建的评论 ID |
+| `body` | 字符串 | 评论正文 |
+| `isPublic` | 布尔值 | 评论是否公开 |
+| `success` | 布尔值 | 评论是否添加成功 |
+
+</div>
+
+---
+
+### 获取评论
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_comments",
+            "options": [
+                {
+                    "id": "get_service_desks",
+                    "label": "获取服务台"
+                },
+                {
+                    "id": "get_request_types",
+                    "label": "获取请求类型"
+                },
+                {
+                    "id": "create_request",
+                    "label": "创建请求"
+                },
+                {
+                    "id": "get_request",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "get_requests",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "添加评论"
+                },
+                {
+                    "id": "get_comments",
+                    "label": "获取评论"
+                },
+                {
+                    "id": "get_customers",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "add_customer",
+                    "label": "添加客户"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "获取组织"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "创建组织"
+                },
+                {
+                    "id": "add_organization",
+                    "label": "添加组织"
+                },
+                {
+                    "id": "get_queues",
+                    "label": "获取队列"
+                },
+                {
+                    "id": "get_sla",
+                    "label": "获取 SLA"
+                },
+                {
+                    "id": "get_transitions",
+                    "label": "获取转换"
+                },
+                {
+                    "id": "transition_request",
+                    "label": "转换请求"
+                },
+                {
+                    "id": "get_participants",
+                    "label": "获取参与者"
+                },
+                {
+                    "id": "add_participants",
+                    "label": "添加参与者"
+                },
+                {
+                    "id": "get_approvals",
+                    "label": "获取审批"
+                },
+                {
+                    "id": "answer_approval",
+                    "label": "答复审批"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "输入 Jira 域名（例如 tradinggoose.atlassian.net）",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira 账户",
+            "placeholder": "选择 Jira 账户",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "issueIdOrKey",
+            "type": "short-input",
+            "title": "问题 ID 或键",
+            "placeholder": "输入问题 ID 或键（例如 SD-123）",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "最大结果数",
+            "placeholder": "最大结果数（默认：50）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取评论 (<code>jsm_get_comments</code>)</div>
+
+获取 Jira Service Management 中服务请求的评论
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | 是 | 您的 Jira 域名 \(例如 yourcompany.atlassian.net\) |
+| `issueIdOrKey` | string | 是 | 问题 ID 或键 \(例如 SD-123\) |
+| `isPublic` | boolean | 否 | 仅筛选公开评论 |
+| `internal` | boolean | 否 | 仅筛选内部评论 |
+| `start` | number | 否 | 分页起始索引 \(默认：0\) |
+| `limit` | number | 否 | 最大返回结果数 \(默认：50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `ts` | string | 操作的时间戳 |
+| `issueIdOrKey` | string | 问题 ID 或键 |
+| `comments` | json | 评论数组 |
+| `total` | number | 评论总数 |
+| `isLastPage` | boolean | 是否为最后一页 |
+
+</div>
+
+---
+
+### 获取客户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_customers",
+            "options": [
+                {
+                    "id": "get_service_desks",
+                    "label": "获取服务台"
+                },
+                {
+                    "id": "get_request_types",
+                    "label": "获取请求类型"
+                },
+                {
+                    "id": "create_request",
+                    "label": "创建请求"
+                },
+                {
+                    "id": "get_request",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "get_requests",
+                    "label": "获取请求列表"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "添加评论"
+                },
+                {
+                    "id": "get_comments",
+                    "label": "获取评论"
+                },
+                {
+                    "id": "get_customers",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "add_customer",
+                    "label": "添加客户"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "获取组织"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "创建组织"
+                },
+                {
+                    "id": "add_organization",
+                    "label": "添加组织"
+                },
+                {
+                    "id": "get_queues",
+                    "label": "获取队列"
+                },
+                {
+                    "id": "get_sla",
+                    "label": "获取 SLA"
+                },
+                {
+                    "id": "get_transitions",
+                    "label": "获取转换"
+                },
+                {
+                    "id": "transition_request",
+                    "label": "转换请求"
+                },
+                {
+                    "id": "get_participants",
+                    "label": "获取参与者"
+                },
+                {
+                    "id": "add_participants",
+                    "label": "添加参与者"
+                },
+                {
+                    "id": "get_approvals",
+                    "label": "获取审批"
+                },
+                {
+                    "id": "answer_approval",
+                    "label": "答复审批"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "输入 Jira 域名（例如 tradinggoose.atlassian.net）",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira 账户",
+            "placeholder": "选择 Jira 账户",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "serviceDeskId",
+            "type": "short-input",
+            "title": "服务台 ID",
+            "placeholder": "输入服务台 ID"
+        },
+        {
+            "id": "customerQuery",
+            "type": "short-input",
+            "title": "搜索查询",
+            "placeholder": "按名称或邮箱搜索客户"
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "最大结果数",
+            "placeholder": "最大结果数（默认：50）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取客户 (<code>jsm_get_customers</code>)</div>
+
+在 Jira Service Management 中获取服务台的客户
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | 是 | 您的 Jira 域名 \\(例如，yourcompany.atlassian.net\\) |
+| `serviceDeskId` | string | 是 | 要获取客户的服务台 ID |
+| `query` | string | 否 | 用于筛选客户的搜索查询 |
+| `start` | number | 否 | 分页起始索引 \\(默认：0\\) |
+| `limit` | number | 否 | 返回的最大结果数 \\(默认：50\\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `ts` | string | 操作的时间戳 |
+| `customers` | json | 客户数组 |
+| `total` | number | 客户总数 |
+| `isLastPage` | boolean | 是否为最后一页 |
+
+</div>
+
+---
+
+### 添加客户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "add_customer",
+            "options": [
+                {
+                    "id": "get_service_desks",
+                    "label": "获取服务台"
+                },
+                {
+                    "id": "get_request_types",
+                    "label": "获取请求类型"
+                },
+                {
+                    "id": "create_request",
+                    "label": "创建请求"
+                },
+                {
+                    "id": "get_request",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "get_requests",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "添加评论"
+                },
+                {
+                    "id": "get_comments",
+                    "label": "获取评论"
+                },
+                {
+                    "id": "get_customers",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "add_customer",
+                    "label": "添加客户"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "获取组织"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "创建组织"
+                },
+                {
+                    "id": "add_organization",
+                    "label": "添加组织"
+                },
+                {
+                    "id": "get_queues",
+                    "label": "获取队列"
+                },
+                {
+                    "id": "get_sla",
+                    "label": "获取 SLA"
+                },
+                {
+                    "id": "get_transitions",
+                    "label": "获取转换"
+                },
+                {
+                    "id": "transition_request",
+                    "label": "转换请求"
+                },
+                {
+                    "id": "get_participants",
+                    "label": "获取参与者"
+                },
+                {
+                    "id": "add_participants",
+                    "label": "添加参与者"
+                },
+                {
+                    "id": "get_approvals",
+                    "label": "获取审批"
+                },
+                {
+                    "id": "answer_approval",
+                    "label": "回答审批"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "输入 Jira 域名（例如，tradinggoose.atlassian.net）",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira 账户",
+            "placeholder": "选择 Jira 账户",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "serviceDeskId",
+            "type": "short-input",
+            "title": "服务台 ID",
+            "placeholder": "输入服务台 ID"
+        },
+        {
+            "id": "emails",
+            "type": "short-input",
+            "title": "电子邮件地址",
+            "placeholder": "以逗号分隔的电子邮件地址",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">添加客户（<code>jsm_add_customer</code>）</div>
+
+向 Jira Service Management 中的服务台添加客户
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | 是 | 你的 Jira 域名 \(例如 yourcompany.atlassian.net\) |
+| `serviceDeskId` | string | 是 | 要添加客户的服务台 ID |
+| `emails` | string | 是 | 以逗号分隔的客户邮箱地址 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `ts` | string | 操作时间戳 |
+| `serviceDeskId` | string | 服务台 ID |
+| `success` | boolean | 客户是否添加成功 |
+
+</div>
+
+---
+
+### 获取组织
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_organizations",
+            "options": [
+                {
+                    "id": "get_service_desks",
+                    "label": "获取服务台"
+                },
+                {
+                    "id": "get_request_types",
+                    "label": "获取请求类型"
+                },
+                {
+                    "id": "create_request",
+                    "label": "创建请求"
+                },
+                {
+                    "id": "get_request",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "get_requests",
+                    "label": "获取请求列表"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "添加评论"
+                },
+                {
+                    "id": "get_comments",
+                    "label": "获取评论"
+                },
+                {
+                    "id": "get_customers",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "add_customer",
+                    "label": "添加客户"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "获取组织"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "创建组织"
+                },
+                {
+                    "id": "add_organization",
+                    "label": "添加组织"
+                },
+                {
+                    "id": "get_queues",
+                    "label": "获取队列"
+                },
+                {
+                    "id": "get_sla",
+                    "label": "获取 SLA"
+                },
+                {
+                    "id": "get_transitions",
+                    "label": "获取转换"
+                },
+                {
+                    "id": "transition_request",
+                    "label": "转换请求"
+                },
+                {
+                    "id": "get_participants",
+                    "label": "获取参与者"
+                },
+                {
+                    "id": "add_participants",
+                    "label": "添加参与者"
+                },
+                {
+                    "id": "get_approvals",
+                    "label": "获取审批"
+                },
+                {
+                    "id": "answer_approval",
+                    "label": "答复审批"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "输入 Jira 域名（例如 tradinggoose.atlassian.net）",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira 账户",
+            "placeholder": "选择 Jira 账户",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "serviceDeskId",
+            "type": "short-input",
+            "title": "服务台 ID",
+            "placeholder": "输入服务台 ID"
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "最大结果数",
+            "placeholder": "最大结果数（默认：50）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取组织 (<code>jsm_get_organizations</code>)</div>
+
+在 Jira Service Management 中获取服务台的组织
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | 是 | 您的 Jira 域名 \(例如：yourcompany.atlassian.net\) |
+| `serviceDeskId` | string | 是 | 要获取组织的服务台 ID |
+| `start` | number | 否 | 分页的起始索引 \(默认：0\) |
+| `limit` | number | 否 | 返回的最大结果数 \(默认：50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `ts` | string | 操作的时间戳 |
+| `organizations` | json | 组织数组 |
+| `total` | number | 组织总数 |
+| `isLastPage` | boolean | 是否为最后一页 |
+
+</div>
+
+---
+
+### 创建组织
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "create_organization",
+            "options": [
+                {
+                    "id": "get_service_desks",
+                    "label": "获取服务台"
+                },
+                {
+                    "id": "get_request_types",
+                    "label": "获取请求类型"
+                },
+                {
+                    "id": "create_request",
+                    "label": "创建请求"
+                },
+                {
+                    "id": "get_request",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "get_requests",
+                    "label": "获取请求列表"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "添加评论"
+                },
+                {
+                    "id": "get_comments",
+                    "label": "获取评论"
+                },
+                {
+                    "id": "get_customers",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "add_customer",
+                    "label": "添加客户"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "获取组织"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "创建组织"
+                },
+                {
+                    "id": "add_organization",
+                    "label": "添加组织"
+                },
+                {
+                    "id": "get_queues",
+                    "label": "获取队列"
+                },
+                {
+                    "id": "get_sla",
+                    "label": "获取 SLA"
+                },
+                {
+                    "id": "get_transitions",
+                    "label": "获取转换"
+                },
+                {
+                    "id": "transition_request",
+                    "label": "转换请求"
+                },
+                {
+                    "id": "get_participants",
+                    "label": "获取参与者"
+                },
+                {
+                    "id": "add_participants",
+                    "label": "添加参与者"
+                },
+                {
+                    "id": "get_approvals",
+                    "label": "获取审批"
+                },
+                {
+                    "id": "answer_approval",
+                    "label": "回复审批"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "输入 Jira 域名（例如：tradinggoose.atlassian.net）",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira 账户",
+            "placeholder": "选择 Jira 账户",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "organizationName",
+            "type": "short-input",
+            "title": "组织名称",
+            "placeholder": "输入组织名称",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建组织（<code>jsm_create_organization</code>）</div>
+
+在 Jira Service Management 中创建新组织
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | 是 | 你的 Jira 域名 \(例如 yourcompany.atlassian.net\) |
+| `name` | string | 是 | 要创建的组织名称 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `ts` | string | 操作时间戳 |
+| `organizationId` | string | 创建的组织 ID |
+| `name` | string | 创建的组织名称 |
+| `success` | boolean | 操作是否成功 |
+
+</div>
+
+---
+
+### 添加组织
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "add_organization",
+            "options": [
+                {
+                    "id": "get_service_desks",
+                    "label": "获取服务台"
+                },
+                {
+                    "id": "get_request_types",
+                    "label": "获取请求类型"
+                },
+                {
+                    "id": "create_request",
+                    "label": "创建请求"
+                },
+                {
+                    "id": "get_request",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "get_requests",
+                    "label": "获取请求列表"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "添加评论"
+                },
+                {
+                    "id": "get_comments",
+                    "label": "获取评论列表"
+                },
+                {
+                    "id": "get_customers",
+                    "label": "获取客户列表"
+                },
+                {
+                    "id": "add_customer",
+                    "label": "添加客户"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "获取组织列表"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "创建组织"
+                },
+                {
+                    "id": "add_organization",
+                    "label": "添加组织"
+                },
+                {
+                    "id": "get_queues",
+                    "label": "获取队列"
+                },
+                {
+                    "id": "get_sla",
+                    "label": "获取 SLA"
+                },
+                {
+                    "id": "get_transitions",
+                    "label": "获取状态转换"
+                },
+                {
+                    "id": "transition_request",
+                    "label": "转换请求状态"
+                },
+                {
+                    "id": "get_participants",
+                    "label": "获取参与者"
+                },
+                {
+                    "id": "add_participants",
+                    "label": "添加参与者"
+                },
+                {
+                    "id": "get_approvals",
+                    "label": "获取审批"
+                },
+                {
+                    "id": "answer_approval",
+                    "label": "回复审批"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "输入 Jira 域名（例如 tradinggoose.atlassian.net）",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira 账号",
+            "placeholder": "选择 Jira 账号",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "serviceDeskId",
+            "type": "short-input",
+            "title": "服务台 ID",
+            "placeholder": "输入服务台 ID"
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "输入组织 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">添加组织（<code>jsm_add_organization</code>）</div>
+
+在 Jira Service Management 中向服务台添加组织
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | 是 | 你的 Jira 域名 \(例如 yourcompany.atlassian.net\) |
+| `serviceDeskId` | string | 是 | 要添加组织的服务台 ID |
+| `organizationId` | string | 是 | 要添加到服务台的组织 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `ts` | string | 操作时间戳 |
+| `serviceDeskId` | string | 服务台 ID |
+| `organizationId` | string | 已添加的组织 ID |
+| `success` | boolean | 操作是否成功 |
+
+</div>
+
+---
+
+### 获取队列
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_queues",
+            "options": [
+                {
+                    "id": "get_service_desks",
+                    "label": "获取服务台"
+                },
+                {
+                    "id": "get_request_types",
+                    "label": "获取请求类型"
+                },
+                {
+                    "id": "create_request",
+                    "label": "创建请求"
+                },
+                {
+                    "id": "get_request",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "get_requests",
+                    "label": "获取请求列表"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "添加评论"
+                },
+                {
+                    "id": "get_comments",
+                    "label": "获取评论"
+                },
+                {
+                    "id": "get_customers",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "add_customer",
+                    "label": "添加客户"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "获取组织"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "创建组织"
+                },
+                {
+                    "id": "add_organization",
+                    "label": "添加组织"
+                },
+                {
+                    "id": "get_queues",
+                    "label": "获取队列"
+                },
+                {
+                    "id": "get_sla",
+                    "label": "获取 SLA"
+                },
+                {
+                    "id": "get_transitions",
+                    "label": "获取流转"
+                },
+                {
+                    "id": "transition_request",
+                    "label": "流转请求"
+                },
+                {
+                    "id": "get_participants",
+                    "label": "获取参与者"
+                },
+                {
+                    "id": "add_participants",
+                    "label": "添加参与者"
+                },
+                {
+                    "id": "get_approvals",
+                    "label": "获取审批"
+                },
+                {
+                    "id": "answer_approval",
+                    "label": "回复审批"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "输入 Jira 域名（例如 tradinggoose.atlassian.net）",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira 账户",
+            "placeholder": "选择 Jira 账户",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "serviceDeskId",
+            "type": "short-input",
+            "title": "服务台 ID",
+            "placeholder": "输入服务台 ID"
+        },
+        {
+            "id": "includeCount",
+            "type": "dropdown",
+            "title": "包含问题数量",
+            "defaultValue": "false",
+            "options": [
+                {
+                    "id": "false",
+                    "label": "否"
+                },
+                {
+                    "id": "true",
+                    "label": "是"
+                }
+            ]
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "最大结果数",
+            "placeholder": "最大结果数（默认：50）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取队列（<code>jsm_get_queues</code>）</div>
+
+获取 Jira Service Management 中服务台的队列
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | 是 | 你的 Jira 域名 \(例如 yourcompany.atlassian.net\) |
+| `serviceDeskId` | string | 是 | 要获取队列的服务台 ID |
+| `includeCount` | boolean | 否 | 是否包含每个队列的问题数 |
+| `start` | number | 否 | 分页起始索引 \(默认：0\) |
+| `limit` | number | 否 | 返回的最大结果数 \(默认：50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `ts` | string | 操作时间戳 |
+| `queues` | json | 队列数组 |
+| `total` | number | 队列总数 |
+| `isLastPage` | boolean | 是否为最后一页 |
+
+</div>
+
+---
+
+### 获取 SLA
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_sla",
+            "options": [
+                {
+                    "id": "get_service_desks",
+                    "label": "获取服务台"
+                },
+                {
+                    "id": "get_request_types",
+                    "label": "获取请求类型"
+                },
+                {
+                    "id": "create_request",
+                    "label": "创建请求"
+                },
+                {
+                    "id": "get_request",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "get_requests",
+                    "label": "获取请求列表"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "添加评论"
+                },
+                {
+                    "id": "get_comments",
+                    "label": "获取评论"
+                },
+                {
+                    "id": "get_customers",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "add_customer",
+                    "label": "添加客户"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "获取组织"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "创建组织"
+                },
+                {
+                    "id": "add_organization",
+                    "label": "添加组织"
+                },
+                {
+                    "id": "get_queues",
+                    "label": "获取队列"
+                },
+                {
+                    "id": "get_sla",
+                    "label": "获取 SLA"
+                },
+                {
+                    "id": "get_transitions",
+                    "label": "获取状态流转"
+                },
+                {
+                    "id": "transition_request",
+                    "label": "流转请求"
+                },
+                {
+                    "id": "get_participants",
+                    "label": "获取参与者"
+                },
+                {
+                    "id": "add_participants",
+                    "label": "添加参与者"
+                },
+                {
+                    "id": "get_approvals",
+                    "label": "获取审批"
+                },
+                {
+                    "id": "answer_approval",
+                    "label": "答复审批"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "输入 Jira 域名（例如 tradinggoose.atlassian.net）",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira 账户",
+            "placeholder": "选择 Jira 账户",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "issueIdOrKey",
+            "type": "short-input",
+            "title": "问题 ID 或键",
+            "placeholder": "输入问题 ID 或键（例如 SD-123）",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "最大结果数",
+            "placeholder": "最大结果数（默认：50）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取 SLA (<code>jsm_get_sla</code>)</div>
+
+获取 Jira Service Management 中服务请求的 SLA 信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | 是 | 你的 Jira 域名 \(例如，yourcompany.atlassian.net\) |
+| `issueIdOrKey` | string | 是 | 问题 ID 或键 \(例如，SD-123\) |
+| `start` | number | 否 | 分页的起始索引 \(默认值：0\) |
+| `limit` | number | 否 | 最多返回的结果数 \(默认值：50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `ts` | string | 操作的时间戳 |
+| `issueIdOrKey` | string | 问题 ID 或键 |
+| `slas` | json | SLA 信息数组 |
+| `total` | number | SLA 总数 |
+| `isLastPage` | boolean | 是否为最后一页 |
+
+</div>
+
+---
+
+### 获取转换
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_transitions",
+            "options": [
+                {
+                    "id": "get_service_desks",
+                    "label": "获取服务台"
+                },
+                {
+                    "id": "get_request_types",
+                    "label": "获取请求类型"
+                },
+                {
+                    "id": "create_request",
+                    "label": "创建请求"
+                },
+                {
+                    "id": "get_request",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "get_requests",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "添加评论"
+                },
+                {
+                    "id": "get_comments",
+                    "label": "获取评论"
+                },
+                {
+                    "id": "get_customers",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "add_customer",
+                    "label": "添加客户"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "获取组织"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "创建组织"
+                },
+                {
+                    "id": "add_organization",
+                    "label": "添加组织"
+                },
+                {
+                    "id": "get_queues",
+                    "label": "获取队列"
+                },
+                {
+                    "id": "get_sla",
+                    "label": "获取 SLA"
+                },
+                {
+                    "id": "get_transitions",
+                    "label": "获取转换"
+                },
+                {
+                    "id": "transition_request",
+                    "label": "转换请求"
+                },
+                {
+                    "id": "get_participants",
+                    "label": "获取参与者"
+                },
+                {
+                    "id": "add_participants",
+                    "label": "添加参与者"
+                },
+                {
+                    "id": "get_approvals",
+                    "label": "获取审批"
+                },
+                {
+                    "id": "answer_approval",
+                    "label": "答复审批"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "输入 Jira 域名（例如，tradinggoose.atlassian.net）",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira 账户",
+            "placeholder": "选择 Jira 账户",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "issueIdOrKey",
+            "type": "short-input",
+            "title": "问题 ID 或键",
+            "placeholder": "输入问题 ID 或键（例如，SD-123）",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取转换（<code>jsm_get_transitions</code>）</div>
+
+获取 Jira Service Management 中服务请求的可用转换
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | 是 | 你的 Jira 域名 \(例如 yourcompany.atlassian.net\) |
+| `issueIdOrKey` | string | 是 | 工单 ID 或键 \(例如 SD-123\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `ts` | string | 操作的时间戳 |
+| `issueIdOrKey` | string | 工单 ID 或键 |
+| `transitions` | json | 可用转换的数组 |
+
+</div>
+
+---
+
+### 转换请求
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "transition_request",
+            "options": [
+                {
+                    "id": "get_service_desks",
+                    "label": "获取服务台"
+                },
+                {
+                    "id": "get_request_types",
+                    "label": "获取请求类型"
+                },
+                {
+                    "id": "create_request",
+                    "label": "创建请求"
+                },
+                {
+                    "id": "get_request",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "get_requests",
+                    "label": "获取请求列表"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "添加评论"
+                },
+                {
+                    "id": "get_comments",
+                    "label": "获取评论"
+                },
+                {
+                    "id": "get_customers",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "add_customer",
+                    "label": "添加客户"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "获取组织"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "创建组织"
+                },
+                {
+                    "id": "add_organization",
+                    "label": "添加组织"
+                },
+                {
+                    "id": "get_queues",
+                    "label": "获取队列"
+                },
+                {
+                    "id": "get_sla",
+                    "label": "获取 SLA"
+                },
+                {
+                    "id": "get_transitions",
+                    "label": "获取转换"
+                },
+                {
+                    "id": "transition_request",
+                    "label": "转换请求"
+                },
+                {
+                    "id": "get_participants",
+                    "label": "获取参与者"
+                },
+                {
+                    "id": "add_participants",
+                    "label": "添加参与者"
+                },
+                {
+                    "id": "get_approvals",
+                    "label": "获取审批"
+                },
+                {
+                    "id": "answer_approval",
+                    "label": "答复审批"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "输入 Jira 域名（例如 tradinggoose.atlassian.net）",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira 账户",
+            "placeholder": "选择 Jira 账户",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "issueIdOrKey",
+            "type": "short-input",
+            "title": "工单 ID 或键",
+            "placeholder": "输入工单 ID 或键（例如 SD-123）",
+            "required": true
+        },
+        {
+            "id": "transitionId",
+            "type": "short-input",
+            "title": "转换 ID",
+            "placeholder": "输入转换 ID",
+            "required": true
+        },
+        {
+            "id": "transitionComment",
+            "type": "long-input",
+            "title": "评论",
+            "placeholder": "在转换期间添加可选评论"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">转换请求 (<code>jsm_transition_request</code>)</div>
+
+在 Jira Service Management 中将服务请求转换为新状态
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | 是 | 您的 Jira 域名 \(例如：yourcompany.atlassian.net\) |
+| `issueIdOrKey` | string | 是 | 问题 ID 或键 \(例如：SD-123\) |
+| `transitionId` | string | 是 | 要应用的转换 ID |
+| `comment` | string | 否 | 转换期间添加的可选评论 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `ts` | string | 操作的时间戳 |
+| `issueIdOrKey` | string | 问题 ID 或键 |
+| `transitionId` | string | 应用的转换 ID |
+| `success` | boolean | 转换是否成功 |
+
+</div>
+
+---
+
+### 获取参与者
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_participants",
+            "options": [
+                {
+                    "id": "get_service_desks",
+                    "label": "获取服务台"
+                },
+                {
+                    "id": "get_request_types",
+                    "label": "获取请求类型"
+                },
+                {
+                    "id": "create_request",
+                    "label": "创建请求"
+                },
+                {
+                    "id": "get_request",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "get_requests",
+                    "label": "获取请求列表"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "添加评论"
+                },
+                {
+                    "id": "get_comments",
+                    "label": "获取评论"
+                },
+                {
+                    "id": "get_customers",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "add_customer",
+                    "label": "添加客户"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "获取组织"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "创建组织"
+                },
+                {
+                    "id": "add_organization",
+                    "label": "添加组织"
+                },
+                {
+                    "id": "get_queues",
+                    "label": "获取队列"
+                },
+                {
+                    "id": "get_sla",
+                    "label": "获取 SLA"
+                },
+                {
+                    "id": "get_transitions",
+                    "label": "获取转换"
+                },
+                {
+                    "id": "transition_request",
+                    "label": "转换请求"
+                },
+                {
+                    "id": "get_participants",
+                    "label": "获取参与者"
+                },
+                {
+                    "id": "add_participants",
+                    "label": "添加参与者"
+                },
+                {
+                    "id": "get_approvals",
+                    "label": "获取审批"
+                },
+                {
+                    "id": "answer_approval",
+                    "label": "回复审批"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "输入 Jira 域名（例如：tradinggoose.atlassian.net）",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira 账户",
+            "placeholder": "选择 Jira 账户",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "issueIdOrKey",
+            "type": "short-input",
+            "title": "问题 ID 或键",
+            "placeholder": "输入问题 ID 或键（例如：SD-123）",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取参与者 (<code>jsm_get_participants</code>)</div>
+
+获取 Jira Service Management 中请求的参与者
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | 是 | 你的 Jira 域名 \(例如 yourcompany.atlassian.net\) |
+| `issueIdOrKey` | string | 是 | 问题 ID 或键 \(例如 SD-123\) |
+| `start` | number | 否 | 分页起始索引 \(默认：0\) |
+| `limit` | number | 否 | 返回的最大结果数 \(默认：50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `ts` | string | 操作时间戳 |
+| `issueIdOrKey` | string | 问题 ID 或键 |
+| `participants` | json | 参与者数组 |
+| `total` | number | 参与者总数 |
+| `isLastPage` | boolean | 是否为最后一页 |
+
+</div>
+
+---
+
+### 添加参与者
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "add_participants",
+            "options": [
+                {
+                    "id": "get_service_desks",
+                    "label": "获取服务台"
+                },
+                {
+                    "id": "get_request_types",
+                    "label": "获取请求类型"
+                },
+                {
+                    "id": "create_request",
+                    "label": "创建请求"
+                },
+                {
+                    "id": "get_request",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "get_requests",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "添加评论"
+                },
+                {
+                    "id": "get_comments",
+                    "label": "获取评论"
+                },
+                {
+                    "id": "get_customers",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "add_customer",
+                    "label": "添加客户"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "获取组织"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "创建组织"
+                },
+                {
+                    "id": "add_organization",
+                    "label": "添加组织"
+                },
+                {
+                    "id": "get_queues",
+                    "label": "获取队列"
+                },
+                {
+                    "id": "get_sla",
+                    "label": "获取 SLA"
+                },
+                {
+                    "id": "get_transitions",
+                    "label": "获取转换"
+                },
+                {
+                    "id": "transition_request",
+                    "label": "转换请求"
+                },
+                {
+                    "id": "get_participants",
+                    "label": "获取参与者"
+                },
+                {
+                    "id": "add_participants",
+                    "label": "添加参与者"
+                },
+                {
+                    "id": "get_approvals",
+                    "label": "获取审批"
+                },
+                {
+                    "id": "answer_approval",
+                    "label": "答复审批"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "输入 Jira 域名（例如 tradinggoose.atlassian.net）",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira 账户",
+            "placeholder": "选择 Jira 账户",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "issueIdOrKey",
+            "type": "short-input",
+            "title": "问题 ID 或键",
+            "placeholder": "输入问题 ID 或键（例如 SD-123）",
+            "required": true
+        },
+        {
+            "id": "participantAccountIds",
+            "type": "short-input",
+            "title": "账户 ID",
+            "placeholder": "逗号分隔的账户 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">添加参与者 (<code>jsm_add_participants</code>)</div>
+
+在 Jira Service Management 中为请求添加参与者
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `domain` | 字符串 | 是 | 你的 Jira 域名 \(例如 yourcompany.atlassian.net\) |
+| `issueIdOrKey` | 字符串 | 是 | 问题 ID 或键 \(例如 SD-123\) |
+| `accountIds` | 字符串 | 是 | 以逗号分隔的账户 ID，用于添加为参与者 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `ts` | 字符串 | 操作时间戳 |
+| `issueIdOrKey` | 字符串 | 问题 ID 或键 |
+| `participants` | JSON | 已添加参与者的数组 |
+| `success` | 布尔值 | 操作是否成功 |
+
+</div>
+
+---
+
+### 获取审批
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_approvals",
+            "options": [
+                {
+                    "id": "get_service_desks",
+                    "label": "获取服务台"
+                },
+                {
+                    "id": "get_request_types",
+                    "label": "获取请求类型"
+                },
+                {
+                    "id": "create_request",
+                    "label": "创建请求"
+                },
+                {
+                    "id": "get_request",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "get_requests",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "添加评论"
+                },
+                {
+                    "id": "get_comments",
+                    "label": "获取评论"
+                },
+                {
+                    "id": "get_customers",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "add_customer",
+                    "label": "添加客户"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "获取组织"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "创建组织"
+                },
+                {
+                    "id": "add_organization",
+                    "label": "添加组织"
+                },
+                {
+                    "id": "get_queues",
+                    "label": "获取队列"
+                },
+                {
+                    "id": "get_sla",
+                    "label": "获取 SLA"
+                },
+                {
+                    "id": "get_transitions",
+                    "label": "获取转换"
+                },
+                {
+                    "id": "transition_request",
+                    "label": "转换请求"
+                },
+                {
+                    "id": "get_participants",
+                    "label": "获取参与者"
+                },
+                {
+                    "id": "add_participants",
+                    "label": "添加参与者"
+                },
+                {
+                    "id": "get_approvals",
+                    "label": "获取审批"
+                },
+                {
+                    "id": "answer_approval",
+                    "label": "回复审批"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "输入 Jira 域名（例如 tradinggoose.atlassian.net）",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira 账户",
+            "placeholder": "选择 Jira 账户",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "issueIdOrKey",
+            "type": "short-input",
+            "title": "问题 ID 或键",
+            "placeholder": "输入问题 ID 或键（例如 SD-123）",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取审批 (<code>jsm_get_approvals</code>)</div>
+
+在 Jira Service Management 中获取请求的审批
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | 是 | 你的 Jira 域名 \(例如，yourcompany.atlassian.net\) |
+| `issueIdOrKey` | string | 是 | 问题 ID 或密钥 \(例如，SD-123\) |
+| `start` | number | 否 | 分页起始索引 \(默认：0\) |
+| `limit` | number | 否 | 返回的最大结果数 \(默认：50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `ts` | string | 操作的时间戳 |
+| `issueIdOrKey` | string | 问题 ID 或密钥 |
+| `approvals` | json | 审批数组 |
+| `total` | number | 审批总数 |
+| `isLastPage` | boolean | 是否为最后一页 |
+
+</div>
+
+---
+
+### 回复审批
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "answer_approval",
+            "options": [
+                {
+                    "id": "get_service_desks",
+                    "label": "获取服务台"
+                },
+                {
+                    "id": "get_request_types",
+                    "label": "获取请求类型"
+                },
+                {
+                    "id": "create_request",
+                    "label": "创建请求"
+                },
+                {
+                    "id": "get_request",
+                    "label": "获取请求"
+                },
+                {
+                    "id": "get_requests",
+                    "label": "获取请求列表"
+                },
+                {
+                    "id": "add_comment",
+                    "label": "添加评论"
+                },
+                {
+                    "id": "get_comments",
+                    "label": "获取评论"
+                },
+                {
+                    "id": "get_customers",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "add_customer",
+                    "label": "添加客户"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "获取组织"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "创建组织"
+                },
+                {
+                    "id": "add_organization",
+                    "label": "添加组织"
+                },
+                {
+                    "id": "get_queues",
+                    "label": "获取队列"
+                },
+                {
+                    "id": "get_sla",
+                    "label": "获取 SLA"
+                },
+                {
+                    "id": "get_transitions",
+                    "label": "获取转换"
+                },
+                {
+                    "id": "transition_request",
+                    "label": "转换请求"
+                },
+                {
+                    "id": "get_participants",
+                    "label": "获取参与者"
+                },
+                {
+                    "id": "add_participants",
+                    "label": "添加参与者"
+                },
+                {
+                    "id": "get_approvals",
+                    "label": "获取审批"
+                },
+                {
+                    "id": "answer_approval",
+                    "label": "回复审批"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "输入 Jira 域名（例如：tradinggoose.atlassian.net）",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira 账户",
+            "placeholder": "选择 Jira 账户",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "issueIdOrKey",
+            "type": "short-input",
+            "title": "问题 ID 或密钥",
+            "placeholder": "输入问题 ID 或密钥（例如：SD-123）",
+            "required": true
+        },
+        {
+            "id": "approvalId",
+            "type": "short-input",
+            "title": "审批 ID",
+            "placeholder": "输入审批 ID",
+            "required": true
+        },
+        {
+            "id": "approvalDecision",
+            "type": "dropdown",
+            "title": "决定",
+            "defaultValue": "approve",
+            "options": [
+                {
+                    "id": "approve",
+                    "label": "批准"
+                },
+                {
+                    "id": "decline",
+                    "label": "拒绝"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">答复审批 (<code>jsm_answer_approval</code>)</div>
+
+在 Jira Service Management 中批准或拒绝审批请求
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | Yes | 你的 Jira 域名（例如 yourcompany.atlassian.net） |
+| `issueIdOrKey` | string | Yes | 问题 ID 或键（例如 SD-123） |
+| `approvalId` | string | Yes | 要答复的审批 ID |
+| `decision` | string | Yes | 决策："approve" 或 "decline" |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `ts` | string | 操作时间戳 |
+| `issueIdOrKey` | string | 问题 ID 或键 |
+| `approvalId` | string | 审批 ID |
+| `decision` | string | 做出的决策（approve/decline） |
+| `success` | boolean | 操作是否成功 |
+
+</div>
+
+---
+
+## 使用说明
+
+与 Jira Service Management 集成，用于 IT 服务管理。创建和管理服务请求，处理客户和组织，跟踪 SLA，并管理队列。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`jira_service_management`

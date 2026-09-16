@@ -1,0 +1,154 @@
+---
+title: Copilot MCP
+description: 将你的编码代理连接到 TradingGoose Copilot 工具。安装、认证，并通过 MCP 使用你的 Studio 工作区。
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+Copilot MCP 允许你的编码代理使用 TradingGoose 的服务端 Copilot 工具来读取和编辑你的工作区。你的代理提供对话和模型；TradingGoose 提供用于工作流、仪表板、自选列表、指标、知识库及其他工作区实体的工具。
+
+安装程序支持 **Claude Code、Cursor、OpenCode、Codex、Antigravity 和 Gemini CLI**。其他客户端可通过 Streamable HTTP，使用下方的[手动配置](#manual-configuration)进行连接。
+
+<Callout type="warn">
+  MCP 变更会直接按你账户的权限生效。内置 Copilot 的受限模式和 Studio 审批提示不适用于外部 MCP 调用。当你希望在执行前审核操作时，请配置可信客户端并使用其自身的审批控制。
+</Callout>
+
+## 安装
+
+安装你首选的编码代理，并确保终端中可用 **Node.js 18 或更高版本**。设置命令会配置 TradingGoose 连接；它不会安装编码代理本身。
+
+### macOS 和 Linux
+
+```bash
+curl -fsSL https://www.tradinggoose.ai/mcp/setup | sh
+```
+
+### Windows PowerShell
+
+```powershell
+irm https://www.tradinggoose.ai/mcp/setup | iex
+```
+
+### 批准访问并选择客户端
+
+1. 打开终端中打印的批准链接，登录 TradingGoose，并批准 MCP 访问。
+2. 返回终端，选择要配置的编码代理。
+3. 检查每个所选代理的结果。安装程序会报告其更新的配置文件，或该客户端无法配置时的错误。
+4. 重启客户端或重新加载其 MCP 连接，然后检查 **TradingGoose** 是否出现在其 MCP 服务器列表中。
+
+安装程序会创建一个个人 API 密钥，并保存到 `~/.tradinggoose/credentials.json`。后续的 setup 和 login 命令会验证并复用该密钥。如果密钥已被吊销，安装程序会要求你批准一次新的登录。浏览器审批将在十分钟后过期。
+
+### 为特定客户端安装
+
+在 `/mcp/setup` 后追加目标即可跳过客户端选择器。例如，配置 Codex：
+
+```bash
+curl -fsSL https://www.tradinggoose.ai/mcp/setup/codex | sh
+```
+
+```powershell
+irm https://www.tradinggoose.ai/mcp/setup/codex | iex
+```
+
+安装程序会写入一个名为 `TradingGoose` 的用户级服务器条目。以下是支持的目标与默认配置位置；`~` 表示你的主目录。
+
+| 客户端 | 目标路径 | 默认配置文件 |
+|--------|-------------|----------------------------|
+| Claude Code | `/mcp/setup/claude` | `~/.claude.json` |
+| Cursor | `/mcp/setup/cursor` | `~/.cursor/mcp.json` |
+| OpenCode | `/mcp/setup/opencode` | `~/.config/opencode/opencode.json` |
+| Codex | `/mcp/setup/codex` | `~/.codex/config.toml` |
+| Antigravity | `/mcp/setup/antigravity` | `~/.gemini/config/mcp_config.json` |
+| Gemini CLI | `/mcp/setup/gemini` | `~/.gemini/settings.json` |
+
+使用 `/mcp/setup/all` 可配置全部六个客户端。指定目标或使用 `all` 也可跳过交互式客户端选择器；当不存在有效的已保存凭据时，仍需进行浏览器审批。
+
+对于 Claude Code，安装程序还会检查已设置的 `CLAUDE_CONFIG_DIR`。对于 OpenCode，如果存在受支持的 JSON 或 JSONC 配置，安装程序会更新它。它会保留无关设置，并在重新配置该客户端时替换现有的 `TradingGoose` 条目。
+
+### 自托管 Studio
+
+将命令中的 `https://www.tradinggoose.ai` 替换为你的 Studio 部署的公开源。在该部署上登录并批准访问。其 `NEXT_PUBLIC_APP_URL` 必须与外部可访问的源一致，因为安装程序会用它生成审批链接和 MCP 端点。
+
+MCP 身份验证使用**个人 TradingGoose API 密钥**。工作区 API 密钥，或内置助手托管推理所用的 `COPILOT_API_KEY`，均无法通过此端点的身份验证。
+
+## 手动配置
+
+对于没有安装程序目标的客户端，请使用 login 命令获取端点和授权标头：
+
+```bash
+curl -fsSL https://www.tradinggoose.ai/mcp/login | sh
+```
+
+```powershell
+irm https://www.tradinggoose.ai/mcp/login | iex
+```
+
+login 会在必要时完成身份验证，并输出连接详情。它不会写入编码代理的 MCP 配置。
+
+| 设置 | 值 |
+|---------|-------|
+| 服务器名称 | `TradingGoose` |
+| 传输方式 | Streamable HTTP |
+| 端点 | `https://www.tradinggoose.ai/api/copilot/mcp` |
+| 授权标头 | `Authorization: Bearer <personal-api-key>` |
+
+请按客户端针对远程 MCP 服务器和 HTTP 标头的配置格式进行配置。对于自托管 Studio，请使用该部署的 login 命令所输出的端点。
+
+该连接用于标识你的账户。工作区和实体 ID 应放在各个工具调用中，因此同一连接可用于你可访问的所有工作区。该端点通过 `POST` 处理 MCP 请求；在浏览器中直接打开会返回 `405 Method Not Allowed`。
+
+<Callout type="warn">
+  login 命令会输出个人令牌，安装流程会将其存入凭据缓存和所选的客户端配置中。请妥善保管这些值。这是个人 API 密钥，并非仅限单个工作区或仅供 MCP 使用的凭据。
+</Callout>
+
+## 使用 Copilot MCP
+
+连接后，让你的代理检查可用的 TradingGoose 工具并确定目标工作区。服务器的初始化说明会列出可访问的工作区名称、ID 和权限。客户端通过 `tools/list` 发现工具名称和输入模式。
+
+常用的首次请求包括：
+
+- “列出我的 TradingGoose 研究工作区中的工作流，并说明每个工作流的用途。”
+- “读取我的自选列表，并汇总其分区和标的。”
+- “检查此工作流的最新日志，并说明它失败的原因。”
+- “读取我的仪表板布局，并添加一个 Watchlist 小组件。”
+
+编辑时，让智能体先读取当前实体，保留其标识符，并遵循目标编辑工具的输入 schema。某些读取响应是检查文档，不能原样作为编辑提交。列表和创建操作需要 `workspaceId`；其他工具会指定各自的目标字段。凭据和环境操作需要 `scope: "personal"`，或者需要 `scope: "workspace"` 并附带 `workspaceId`。
+
+### 可用能力
+
+| 领域 | MCP 工具支持的内容 |
+|------|----------------------------|
+| 工作流 | 列出、读取、创建和重命名工作流；编辑工作流图、单个块和变量；检查日志、块输出、上游引用和部署状态 |
+| 仪表板 | 列出、读取、创建、重命名和编辑你的布局；添加或替换小组件面板，编辑小组件设置，并发现可用的小组件类型 |
+| 工作区实体 | 列出、读取、创建、重命名和编辑自选列表、自定义指标、技能、自定义工具和 MCP 服务器定义 |
+| 知识库 | 列出、读取、创建、重命名、编辑和查询知识库 |
+| 监控 | 列出、读取和编辑现有监控 |
+| 环境 | 检查可用变量名，并设置个人或工作区环境变量 |
+| 参考与连接 | 搜索文档和列表，检查块和指标目录，列出并读取已连接的 Google Drive 文件，并检查可用的凭据元数据和环境变量名 |
+
+工具可用性和参数来自连接的服务器。已连接服务的操作还取决于部署配置和你现有的凭据。
+
+MCP 工具集是[内置 Copilot](/copilot)的子集。它可以检查部署状态，但不公开内置的 `run_workflow` 或 `deploy_workflow` 操作、通用集成执行，或 Studio 聊天和规划界面。使用 Studio 运行或部署工作流。
+
+要使外部服务器上的工具在 Studio 的 Agent 块中可用，请遵循单独的 [MCP 集成指南](/utilities/mcp)。
+
+## 权限与凭据
+
+普通工作区读写权限仍然适用。工作区还必须允许个人 API 密钥供 MCP 工具访问。仪表板布局工具在您自己的布局上运行。有关工作区访问级别，请参阅 [角色和权限](/permissions)。
+
+要撤销访问权限，请在工作区导航中打开 **更多 → API 密钥**，选择 **个人**，然后删除由 MCP 设置创建的密钥。其名称以 `TradingGoose Personal API Key (MCP setup)` 开头。撤销该密钥会断开所有使用该密钥的客户端。仅删除本地凭据文件不会撤销该密钥。
+
+要断开单个客户端，请移除其 `TradingGoose` MCP 服务器条目。要在撤销后重新连接，请为所需客户端重新运行设置并批准新密钥。
+
+## 故障排除
+
+| 症状 | 检查内容 |
+|---------|---------------|
+| Node 缺失或版本过旧 | 安装 Node.js 18 或更高版本，并确保在运行设置的终端中可以使用 `node`。 |
+| 设置需要交互式终端 | 使用目标 URL（如 `/mcp/setup/cursor`），或从终端运行交互式命令。 |
+| 浏览器批准过期 | 在十分钟内重新运行设置或登录并批准新链接。 |
+| 无法验证已保存的凭据 | 检查 Studio 连接并重试。速率限制或服务错误会停止设置，但不会替换已保存的密钥或客户端配置。 |
+| 客户端未配置 | 在安装程序输出中读取该客户端的结果。检查报告的文件及其权限，然后重新运行其目标命令。 |
+| MCP 响应 HTTP 401 | 使用同一 Studio 部署颁发的有效个人密钥。撤销旧密钥后重新运行设置。 |
+| 工具报告 `access_denied` 或 `personal_api_keys_disabled` | 检查您的工作区权限，并向工作区管理员询问其个人 API 密钥策略。 |
+| 连接成功但工具失败 | 检查工具的错误响应，确认其目标 ID 和所需范围，并检查所连接服务的凭据。成功的 HTTP 响应仍可能包含 MCP 工具错误。 |
+| MCP 响应 HTTP 429 | 在重试之前等待服务器的 `Retry-After` 间隔。 |

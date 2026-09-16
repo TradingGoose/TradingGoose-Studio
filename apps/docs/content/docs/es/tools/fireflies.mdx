@@ -1,0 +1,1165 @@
+---
+title: Fireflies
+description: Interactúa con las transcripciones y grabaciones de reuniones de Fireflies.ai
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="fireflies"
+  color=""
+/>
+
+<Cards>
+  <Card title="Usar como disparador" href="/triggers/fireflies">
+    Consulta los eventos del disparador, la configuración y las cargas útiles de eventos para Fireflies.
+  </Card>
+</Cards>
+
+## Configuración
+
+### Listar transcripciones
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "fireflies_list_transcripts",
+            "options": [
+                {
+                    "id": "fireflies_list_transcripts",
+                    "label": "Listar transcripciones"
+                },
+                {
+                    "id": "fireflies_get_transcript",
+                    "label": "Obtener transcripción"
+                },
+                {
+                    "id": "fireflies_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "fireflies_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "fireflies_upload_audio",
+                    "label": "Subir audio"
+                },
+                {
+                    "id": "fireflies_delete_transcript",
+                    "label": "Eliminar transcripción"
+                },
+                {
+                    "id": "fireflies_add_to_live_meeting",
+                    "label": "Agregar bot a reunión en vivo"
+                },
+                {
+                    "id": "fireflies_create_bite",
+                    "label": "Crear Bite"
+                },
+                {
+                    "id": "fireflies_list_bites",
+                    "label": "Listar Bites"
+                },
+                {
+                    "id": "fireflies_list_contacts",
+                    "label": "Listar contactos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API de Fireflies",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "keyword",
+            "type": "short-input",
+            "title": "Palabra clave",
+            "placeholder": "Buscar en el título o la transcripción",
+            "required": false
+        },
+        {
+            "id": "fromDate",
+            "type": "datetime-input",
+            "title": "Fecha de inicio",
+            "placeholder": "p. ej., 2024-01-01T00:00:00Z",
+            "required": false
+        },
+        {
+            "id": "toDate",
+            "type": "datetime-input",
+            "title": "Fecha de fin",
+            "placeholder": "p. ej., 2024-12-31T23:59:59Z",
+            "required": false
+        },
+        {
+            "id": "hostEmail",
+            "type": "short-input",
+            "title": "Correo electrónico del anfitrión",
+            "placeholder": "Filtrar por correo electrónico del anfitrión",
+            "required": false
+        },
+        {
+            "id": "participants",
+            "type": "short-input",
+            "title": "Participantes",
+            "placeholder": "Correos electrónicos de participantes separados por comas",
+            "required": false
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Máx. 50 (predeterminado: 50)",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar transcripciones (<code>fireflies_list_transcripts</code>)</div>
+
+Listar transcripciones de reuniones de Fireflies.ai con filtrado opcional
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Fireflies |
+| `keyword` | string | No | Palabra clave de búsqueda en el título de la reunión o la transcripción |
+| `fromDate` | string | No | Filtrar transcripciones desde esta fecha \(formato ISO 8601\) |
+| `toDate` | string | No | Filtrar transcripciones hasta esta fecha \(formato ISO 8601\) |
+| `hostEmail` | string | No | Filtrar por correo electrónico del anfitrión de la reunión |
+| `participants` | string | No | Filtrar por correos electrónicos de los participantes \(separados por comas\) |
+| `limit` | number | No | Número máximo de transcripciones a devolver \(máximo 50\) |
+| `skip` | number | No | Número de transcripciones a omitir para la paginación |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `transcripts` | array | Lista de transcripciones |
+| `count` | number | Número de transcripciones devueltas |
+
+</div>
+
+---
+
+### Obtener transcripción
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "fireflies_get_transcript",
+            "options": [
+                {
+                    "id": "fireflies_list_transcripts",
+                    "label": "Listar transcripciones"
+                },
+                {
+                    "id": "fireflies_get_transcript",
+                    "label": "Obtener transcripción"
+                },
+                {
+                    "id": "fireflies_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "fireflies_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "fireflies_upload_audio",
+                    "label": "Subir audio"
+                },
+                {
+                    "id": "fireflies_delete_transcript",
+                    "label": "Eliminar transcripción"
+                },
+                {
+                    "id": "fireflies_add_to_live_meeting",
+                    "label": "Agregar bot a reunión en vivo"
+                },
+                {
+                    "id": "fireflies_create_bite",
+                    "label": "Crear Bite"
+                },
+                {
+                    "id": "fireflies_list_bites",
+                    "label": "Listar Bites"
+                },
+                {
+                    "id": "fireflies_list_contacts",
+                    "label": "Listar contactos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingrese su clave de API de Fireflies",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "transcriptId",
+            "type": "short-input",
+            "title": "ID de transcripción",
+            "placeholder": "Ingrese el ID de transcripción",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener transcripción (<code>fireflies_get_transcript</code>)</div>
+
+Obtener una transcripción individual con todos los detalles, incluidos el resumen, los elementos de acción y el análisis.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Fireflies |
+| `transcriptId` | string | Sí | El ID de la transcripción a recuperar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `transcript` | object | La transcripción con todos los detalles |
+
+</div>
+
+---
+
+### Obtener usuario
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "fireflies_get_user",
+            "options": [
+                {
+                    "id": "fireflies_list_transcripts",
+                    "label": "Listar transcripciones"
+                },
+                {
+                    "id": "fireflies_get_transcript",
+                    "label": "Obtener transcripción"
+                },
+                {
+                    "id": "fireflies_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "fireflies_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "fireflies_upload_audio",
+                    "label": "Subir audio"
+                },
+                {
+                    "id": "fireflies_delete_transcript",
+                    "label": "Eliminar transcripción"
+                },
+                {
+                    "id": "fireflies_add_to_live_meeting",
+                    "label": "Agregar bot a reunión en vivo"
+                },
+                {
+                    "id": "fireflies_create_bite",
+                    "label": "Crear Bite"
+                },
+                {
+                    "id": "fireflies_list_bites",
+                    "label": "Listar Bites"
+                },
+                {
+                    "id": "fireflies_list_contacts",
+                    "label": "Listar contactos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingresa tu clave de API de Fireflies",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "ID de usuario",
+            "placeholder": "Dejar vacío para el usuario actual",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener usuario (<code>fireflies_get_user</code>)</div>
+
+Obtener información del usuario de Fireflies.ai. Devuelve el usuario actual si no se especifica un ID.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Fireflies |
+| `userId` | string | No | ID de usuario a recuperar \(opcional, por defecto el propietario de la clave de API\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `user` | object | Información del usuario |
+
+</div>
+
+---
+
+### Listar usuarios
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "fireflies_list_users",
+            "options": [
+                {
+                    "id": "fireflies_list_transcripts",
+                    "label": "Listar transcripciones"
+                },
+                {
+                    "id": "fireflies_get_transcript",
+                    "label": "Obtener transcripción"
+                },
+                {
+                    "id": "fireflies_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "fireflies_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "fireflies_upload_audio",
+                    "label": "Subir audio"
+                },
+                {
+                    "id": "fireflies_delete_transcript",
+                    "label": "Eliminar transcripción"
+                },
+                {
+                    "id": "fireflies_add_to_live_meeting",
+                    "label": "Añadir bot a reunión en vivo"
+                },
+                {
+                    "id": "fireflies_create_bite",
+                    "label": "Crear Bite"
+                },
+                {
+                    "id": "fireflies_list_bites",
+                    "label": "Listar Bites"
+                },
+                {
+                    "id": "fireflies_list_contacts",
+                    "label": "Listar contactos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API de Fireflies",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar usuarios (<code>fireflies_list_users</code>)</div>
+
+Listar todos los usuarios de tu equipo de Fireflies.ai
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Fireflies |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `users` | array | Lista de usuarios del equipo |
+
+</div>
+
+---
+
+### Subir audio
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "fireflies_upload_audio",
+            "options": [
+                {
+                    "id": "fireflies_list_transcripts",
+                    "label": "Listar transcripciones"
+                },
+                {
+                    "id": "fireflies_get_transcript",
+                    "label": "Obtener transcripción"
+                },
+                {
+                    "id": "fireflies_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "fireflies_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "fireflies_upload_audio",
+                    "label": "Subir audio"
+                },
+                {
+                    "id": "fireflies_delete_transcript",
+                    "label": "Eliminar transcripción"
+                },
+                {
+                    "id": "fireflies_add_to_live_meeting",
+                    "label": "Agregar Bot a reunión en vivo"
+                },
+                {
+                    "id": "fireflies_create_bite",
+                    "label": "Crear Bite"
+                },
+                {
+                    "id": "fireflies_list_bites",
+                    "label": "Listar Bites"
+                },
+                {
+                    "id": "fireflies_list_contacts",
+                    "label": "Listar contactos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API de Fireflies",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "audioFile",
+            "type": "file-upload",
+            "title": "Archivo de audio/video",
+            "placeholder": "Sube un archivo de audio o video",
+            "required": false
+        },
+        {
+            "id": "audioFileReference",
+            "type": "short-input",
+            "title": "Referencia de archivo de audio/video",
+            "placeholder": "Haz referencia a audio/video de bloques anteriores",
+            "required": false
+        },
+        {
+            "id": "audioUrl",
+            "type": "short-input",
+            "title": "URL de audio/video",
+            "placeholder": "O introduce una URL de audio/video accesible públicamente",
+            "description": "URL HTTPS pública al archivo de audio (MP3, MP4, WAV, M4A, OGG)",
+            "required": false
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Título",
+            "placeholder": "Título de la reunión",
+            "required": false
+        },
+        {
+            "id": "language",
+            "type": "short-input",
+            "title": "Idioma",
+            "placeholder": "p. ej., es, de, fr (predeterminado: inglés)",
+            "required": false
+        },
+        {
+            "id": "attendees",
+            "type": "long-input",
+            "title": "Asistentes",
+            "placeholder": "[{\"displayName\": \"John\", \"email\": \"john@example.com\"}]",
+            "description": "Array JSON de asistentes",
+            "required": false
+        },
+        {
+            "id": "clientReferenceId",
+            "type": "short-input",
+            "title": "ID de referencia",
+            "placeholder": "ID de seguimiento personalizado",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Subir audio (<code>fireflies_upload_audio</code>)</div>
+
+Sube una URL de archivo de audio a Fireflies.ai para transcripción
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Fireflies |
+| `audioFile` | file | No | Archivo de audio/video para subir para transcripción |
+| `audioUrl` | string | No | URL HTTPS pública del archivo de audio/video \(MP3, MP4, WAV, M4A, OGG\) |
+| `title` | string | No | Título para la reunión/transcripción |
+| `webhook` | string | No | URL del webhook para notificar cuando se complete la transcripción |
+| `language` | string | No | Código de idioma para la transcripción \(p. ej., "es" para español, "de" para alemán\) |
+| `attendees` | string | No | Asistentes en formato JSON: \[\{"displayName": "Nombre", "email": "email@example.com"\}\] |
+| `clientReferenceId` | string | No | ID de referencia personalizado para seguimiento |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Indica si la subida fue exitosa |
+| `title` | string | Título de la reunión subida |
+| `message` | string | Mensaje de estado de Fireflies |
+
+</div>
+
+---
+
+### Eliminar transcripción
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "fireflies_delete_transcript",
+            "options": [
+                {
+                    "id": "fireflies_list_transcripts",
+                    "label": "Listar transcripciones"
+                },
+                {
+                    "id": "fireflies_get_transcript",
+                    "label": "Obtener transcripción"
+                },
+                {
+                    "id": "fireflies_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "fireflies_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "fireflies_upload_audio",
+                    "label": "Subir audio"
+                },
+                {
+                    "id": "fireflies_delete_transcript",
+                    "label": "Eliminar transcripción"
+                },
+                {
+                    "id": "fireflies_add_to_live_meeting",
+                    "label": "Añadir bot a reunión en vivo"
+                },
+                {
+                    "id": "fireflies_create_bite",
+                    "label": "Crear Bite"
+                },
+                {
+                    "id": "fireflies_list_bites",
+                    "label": "Listar Bites"
+                },
+                {
+                    "id": "fireflies_list_contacts",
+                    "label": "Listar contactos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API de Fireflies",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "transcriptId",
+            "type": "short-input",
+            "title": "ID de transcripción",
+            "placeholder": "Introduce el ID de transcripción",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar transcripción (<code>fireflies_delete_transcript</code>)</div>
+
+Eliminar una transcripción de Fireflies.ai
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Fireflies |
+| `transcriptId` | string | Sí | El ID de la transcripción a eliminar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | booleano | Si la transcripción se eliminó correctamente |
+
+</div>
+
+---
+
+### Agregar bot a reunión en vivo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "fireflies_add_to_live_meeting",
+            "options": [
+                {
+                    "id": "fireflies_list_transcripts",
+                    "label": "Listar transcripciones"
+                },
+                {
+                    "id": "fireflies_get_transcript",
+                    "label": "Obtener transcripción"
+                },
+                {
+                    "id": "fireflies_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "fireflies_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "fireflies_upload_audio",
+                    "label": "Subir audio"
+                },
+                {
+                    "id": "fireflies_delete_transcript",
+                    "label": "Eliminar transcripción"
+                },
+                {
+                    "id": "fireflies_add_to_live_meeting",
+                    "label": "Agregar bot a reunión en vivo"
+                },
+                {
+                    "id": "fireflies_create_bite",
+                    "label": "Crear Bite"
+                },
+                {
+                    "id": "fireflies_list_bites",
+                    "label": "Listar Bites"
+                },
+                {
+                    "id": "fireflies_list_contacts",
+                    "label": "Listar contactos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingresa tu clave de API de Fireflies",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Título",
+            "placeholder": "Título de la reunión",
+            "required": false
+        },
+        {
+            "id": "language",
+            "type": "short-input",
+            "title": "Idioma",
+            "placeholder": "p. ej., es, de, fr (predeterminado: inglés)",
+            "required": false
+        },
+        {
+            "id": "meetingLink",
+            "type": "short-input",
+            "title": "Enlace de reunión",
+            "placeholder": "https://zoom.us/j/... o https://meet.google.com/...",
+            "description": "URL para reunión de Zoom, Google Meet o Microsoft Teams",
+            "required": true
+        },
+        {
+            "id": "meetingPassword",
+            "type": "short-input",
+            "title": "Contraseña de reunión",
+            "placeholder": "Contraseña de reunión opcional",
+            "password": true,
+            "required": false
+        },
+        {
+            "id": "duration",
+            "type": "short-input",
+            "title": "Duración (minutos)",
+            "placeholder": "60 (15-120 minutos)",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Añadir bot a reunión en vivo (<code>fireflies_add_to_live_meeting</code>)</div>
+
+Agregar el bot de Fireflies.ai a una reunión en curso para grabar y transcribir
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Fireflies |
+| `meetingLink` | string | Sí | URL de reunión válida \(Zoom, Google Meet, Microsoft Teams, etc.\) |
+| `title` | string | No | Título para la reunión \(máx. 256 caracteres\) |
+| `meetingPassword` | string | No | Contraseña para la reunión si es necesario \(máx. 32 caracteres\) |
+| `duration` | number | No | Duración de la reunión en minutos \(15-120, por defecto: 60\) |
+| `language` | string | No | Código de idioma para la transcripción \(ej., "en", "es", "de"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Si el bot se agregó correctamente a la reunión |
+
+</div>
+
+---
+
+### Crear Bite
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "fireflies_create_bite",
+            "options": [
+                {
+                    "id": "fireflies_list_transcripts",
+                    "label": "Listar transcripciones"
+                },
+                {
+                    "id": "fireflies_get_transcript",
+                    "label": "Obtener transcripción"
+                },
+                {
+                    "id": "fireflies_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "fireflies_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "fireflies_upload_audio",
+                    "label": "Subir audio"
+                },
+                {
+                    "id": "fireflies_delete_transcript",
+                    "label": "Eliminar transcripción"
+                },
+                {
+                    "id": "fireflies_add_to_live_meeting",
+                    "label": "Añadir bot a reunión en vivo"
+                },
+                {
+                    "id": "fireflies_create_bite",
+                    "label": "Crear Bite"
+                },
+                {
+                    "id": "fireflies_list_bites",
+                    "label": "Listar Bites"
+                },
+                {
+                    "id": "fireflies_list_contacts",
+                    "label": "Listar contactos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingresa tu clave de API de Fireflies",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "transcriptId",
+            "type": "short-input",
+            "title": "ID de transcripción",
+            "placeholder": "Ingresa el ID de transcripción",
+            "required": true
+        },
+        {
+            "id": "startTime",
+            "type": "short-input",
+            "title": "Hora de inicio (segundos)",
+            "placeholder": "ej., 30",
+            "required": true
+        },
+        {
+            "id": "endTime",
+            "type": "short-input",
+            "title": "Hora de finalización (segundos)",
+            "placeholder": "ej., 90",
+            "required": true
+        },
+        {
+            "id": "biteName",
+            "type": "short-input",
+            "title": "Nombre de Bite",
+            "placeholder": "Nombre para este destacado",
+            "required": false
+        },
+        {
+            "id": "biteSummary",
+            "type": "long-input",
+            "title": "Resumen",
+            "placeholder": "Breve descripción del destacado",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear Bite (<code>fireflies_create_bite</code>)</div>
+
+Crear un clip/destacado desde un rango de tiempo específico en una transcripción
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave API de Fireflies |
+| `transcriptId` | string | Sí | ID de la transcripción desde la que se creará el Bite |
+| `startTime` | number | Sí | Tiempo de inicio del Bite en segundos |
+| `endTime` | number | Sí | Tiempo de finalización del Bite en segundos |
+| `name` | string | No | Nombre para el Bite \(máx. 256 caracteres\) |
+| `mediaType` | string | No | Tipo de medio: "video" o "audio" |
+| `summary` | string | No | Resumen para el Bite \(máx. 500 caracteres\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `bite` | object | Detalles del Bite creado |
+
+</div>
+
+---
+
+### Listar Bites
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "fireflies_list_bites",
+            "options": [
+                {
+                    "id": "fireflies_list_transcripts",
+                    "label": "Listar transcripciones"
+                },
+                {
+                    "id": "fireflies_get_transcript",
+                    "label": "Obtener transcripción"
+                },
+                {
+                    "id": "fireflies_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "fireflies_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "fireflies_upload_audio",
+                    "label": "Subir audio"
+                },
+                {
+                    "id": "fireflies_delete_transcript",
+                    "label": "Eliminar transcripción"
+                },
+                {
+                    "id": "fireflies_add_to_live_meeting",
+                    "label": "Agregar bot a reunión en vivo"
+                },
+                {
+                    "id": "fireflies_create_bite",
+                    "label": "Crear Bite"
+                },
+                {
+                    "id": "fireflies_list_bites",
+                    "label": "Listar Bites"
+                },
+                {
+                    "id": "fireflies_list_contacts",
+                    "label": "Listar contactos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Ingrese su clave API de Fireflies",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "transcriptId",
+            "type": "short-input",
+            "title": "ID de transcripción",
+            "placeholder": "Ingrese ID de transcripción"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Máx. 50 (predeterminado: 50)",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar Bites (<code>fireflies_list_bites</code>)</div>
+
+Listar fragmentos de audio/destacados de Fireflies.ai
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Fireflies |
+| `transcriptId` | string | No | Filtrar los Bites de una transcripción específica |
+| `mine` | boolean | No | Devolver solo los Bites propiedad del titular de la clave de API \(predeterminado: true\) |
+| `limit` | number | No | Número máximo de Bites a devolver \(máx. 50\) |
+| `skip` | number | No | Número de Bites a omitir para la paginación |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `bites` | array | Lista de Bites/fragmentos de audio |
+
+</div>
+
+---
+
+### Listar contactos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies"
+    type="fireflies"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "fireflies_list_contacts",
+            "options": [
+                {
+                    "id": "fireflies_list_transcripts",
+                    "label": "Listar transcripciones"
+                },
+                {
+                    "id": "fireflies_get_transcript",
+                    "label": "Obtener transcripción"
+                },
+                {
+                    "id": "fireflies_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "fireflies_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "fireflies_upload_audio",
+                    "label": "Subir audio"
+                },
+                {
+                    "id": "fireflies_delete_transcript",
+                    "label": "Eliminar transcripción"
+                },
+                {
+                    "id": "fireflies_add_to_live_meeting",
+                    "label": "Añadir bot a reunión en vivo"
+                },
+                {
+                    "id": "fireflies_create_bite",
+                    "label": "Crear Bite"
+                },
+                {
+                    "id": "fireflies_list_bites",
+                    "label": "Listar Bites"
+                },
+                {
+                    "id": "fireflies_list_contacts",
+                    "label": "Listar contactos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API de Fireflies",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar contactos (<code>fireflies_list_contacts</code>)</div>
+
+Enumera todos los contactos de tus reuniones de Fireflies.ai
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Fireflies |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `contacts` | array | Lista de contactos de reuniones |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Fireflies.ai en el flujo de trabajo. Gestiona transcripciones de reuniones, agrega el bot a reuniones en vivo, crea clips de audio y más. También puede activar flujos de trabajo cuando se completen las transcripciones.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `fireflies`

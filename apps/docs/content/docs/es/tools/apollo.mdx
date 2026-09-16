@@ -1,0 +1,4480 @@
+---
+title: Apollo
+description: Busca, enriquece y gestiona contactos con Apollo.io
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="apollo"
+  color="#EBF212"
+/>
+
+## Configuración
+
+### Buscar personas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "people_search",
+            "options": [
+                {
+                    "id": "people_search",
+                    "label": "Buscar personas"
+                },
+                {
+                    "id": "people_enrich",
+                    "label": "Enriquecer persona"
+                },
+                {
+                    "id": "people_bulk_enrich",
+                    "label": "Enriquecer personas en masa"
+                },
+                {
+                    "id": "organization_search",
+                    "label": "Buscar organizaciones"
+                },
+                {
+                    "id": "organization_enrich",
+                    "label": "Enriquecer organización"
+                },
+                {
+                    "id": "organization_bulk_enrich",
+                    "label": "Enriquecer organizaciones en masa"
+                },
+                {
+                    "id": "contact_create",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "contact_update",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "contact_search",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "contact_bulk_create",
+                    "label": "Crear contactos en masa"
+                },
+                {
+                    "id": "contact_bulk_update",
+                    "label": "Actualizar contactos en masa"
+                },
+                {
+                    "id": "account_create",
+                    "label": "Crear cuenta"
+                },
+                {
+                    "id": "account_update",
+                    "label": "Actualizar cuenta"
+                },
+                {
+                    "id": "account_search",
+                    "label": "Buscar cuentas"
+                },
+                {
+                    "id": "account_bulk_create",
+                    "label": "Crear cuentas en masa"
+                },
+                {
+                    "id": "account_bulk_update",
+                    "label": "Actualizar cuentas en masa"
+                },
+                {
+                    "id": "opportunity_create",
+                    "label": "Crear oportunidad"
+                },
+                {
+                    "id": "opportunity_search",
+                    "label": "Buscar oportunidades"
+                },
+                {
+                    "id": "opportunity_get",
+                    "label": "Obtener oportunidad"
+                },
+                {
+                    "id": "opportunity_update",
+                    "label": "Actualizar oportunidad"
+                },
+                {
+                    "id": "sequence_search",
+                    "label": "Buscar secuencias"
+                },
+                {
+                    "id": "sequence_add",
+                    "label": "Añadir a secuencia"
+                },
+                {
+                    "id": "task_create",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "task_search",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "email_accounts",
+                    "label": "Obtener cuentas de correo"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Apollo",
+            "placeholder": "Introduce tu clave de API de Apollo",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "person_titles",
+            "type": "code",
+            "title": "Cargos",
+            "placeholder": "[\"CEO\", \"VP de Ventas\"]",
+            "language": "json"
+        },
+        {
+            "id": "person_locations",
+            "type": "code",
+            "title": "Ubicaciones",
+            "placeholder": "[\"San Francisco, CA\", \"Nueva York, NY\"]",
+            "language": "json"
+        },
+        {
+            "id": "organization_names",
+            "type": "code",
+            "title": "Nombres de empresas",
+            "placeholder": "[\"Empresa A\", \"Empresa B\"]",
+            "language": "json"
+        },
+        {
+            "id": "person_seniorities",
+            "type": "code",
+            "title": "Niveles de antigüedad",
+            "placeholder": "[\"senior\", \"gerente\", \"director\"]",
+            "language": "json"
+        },
+        {
+            "id": "q_keywords",
+            "type": "short-input",
+            "title": "Palabras clave",
+            "placeholder": "Buscar palabras clave"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Número de página",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "Resultados por página",
+            "placeholder": "25 (máx: 100)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar personas (<code>apollo_people_search</code>)</div>
+
+Busca en la base de datos de Apollo personas mediante filtros demográficos
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `person_titles` | array | No | Cargos que se van a buscar \(p. ej., \["CEO", "VP of Sales"\]\) |
+| `person_locations` | array | No | Ubicaciones en las que buscar \(p. ej., \["San Francisco, CA", "New York, NY"\]\) |
+| `person_seniorities` | array | No | Niveles de antigüedad \(p. ej., \["senior", "executive", "manager"\]\) |
+| `organization_names` | array | No | Nombres de empresas en los que buscar |
+| `q_keywords` | string | No | Palabras clave que se van a buscar |
+| `page` | number | No | Número de página para la paginación \(predeterminado: 1\) |
+| `per_page` | number | No | Resultados por página \(predeterminado: 25, máx.: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `people` | json | Array de personas que coinciden con los criterios de búsqueda |
+| `metadata` | json | Información de paginación que incluye page, per_page y total_entries |
+
+</div>
+
+---
+
+### Enriquecer persona
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "people_enrich",
+            "options": [
+                {
+                    "id": "people_search",
+                    "label": "Buscar personas"
+                },
+                {
+                    "id": "people_enrich",
+                    "label": "Enriquecer persona"
+                },
+                {
+                    "id": "people_bulk_enrich",
+                    "label": "Enriquecer personas en masa"
+                },
+                {
+                    "id": "organization_search",
+                    "label": "Buscar organizaciones"
+                },
+                {
+                    "id": "organization_enrich",
+                    "label": "Enriquecer organización"
+                },
+                {
+                    "id": "organization_bulk_enrich",
+                    "label": "Enriquecer organizaciones en masa"
+                },
+                {
+                    "id": "contact_create",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "contact_update",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "contact_search",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "contact_bulk_create",
+                    "label": "Crear contactos en masa"
+                },
+                {
+                    "id": "contact_bulk_update",
+                    "label": "Actualizar contactos en masa"
+                },
+                {
+                    "id": "account_create",
+                    "label": "Crear cuenta"
+                },
+                {
+                    "id": "account_update",
+                    "label": "Actualizar cuenta"
+                },
+                {
+                    "id": "account_search",
+                    "label": "Buscar cuentas"
+                },
+                {
+                    "id": "account_bulk_create",
+                    "label": "Crear cuentas en masa"
+                },
+                {
+                    "id": "account_bulk_update",
+                    "label": "Actualizar cuentas en masa"
+                },
+                {
+                    "id": "opportunity_create",
+                    "label": "Crear oportunidad"
+                },
+                {
+                    "id": "opportunity_search",
+                    "label": "Buscar oportunidades"
+                },
+                {
+                    "id": "opportunity_get",
+                    "label": "Obtener oportunidad"
+                },
+                {
+                    "id": "opportunity_update",
+                    "label": "Actualizar oportunidad"
+                },
+                {
+                    "id": "sequence_search",
+                    "label": "Buscar secuencias"
+                },
+                {
+                    "id": "sequence_add",
+                    "label": "Añadir a secuencia"
+                },
+                {
+                    "id": "task_create",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "task_search",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "email_accounts",
+                    "label": "Obtener cuentas de correo"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Apollo",
+            "placeholder": "Introduce tu clave de API de Apollo",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "first_name",
+            "type": "short-input",
+            "title": "Nombre",
+            "placeholder": "Nombre"
+        },
+        {
+            "id": "last_name",
+            "type": "short-input",
+            "title": "Apellido",
+            "placeholder": "Apellido"
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "email@example.com"
+        },
+        {
+            "id": "organization_name",
+            "type": "short-input",
+            "title": "Nombre de la empresa",
+            "placeholder": "Nombre de la empresa"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Dominio",
+            "placeholder": "example.com"
+        },
+        {
+            "id": "reveal_personal_emails",
+            "type": "switch",
+            "title": "Revelar correos personales"
+        },
+        {
+            "id": "reveal_phone_number",
+            "type": "switch",
+            "title": "Revelar números de teléfono"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Enriquecer persona (<code>apollo_people_enrich</code>)</div>
+
+Enriquece los datos de una sola persona con Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `first_name` | cadena | No | Nombre de la persona |
+| `last_name` | cadena | No | Apellido de la persona |
+| `email` | cadena | No | Dirección de correo electrónico de la persona |
+| `organization_name` | cadena | No | Nombre de la empresa donde trabaja la persona |
+| `domain` | cadena | No | Dominio de la empresa \\(p. ej., apollo.io\\) |
+| `linkedin_url` | cadena | No | URL del perfil de LinkedIn |
+| `reveal_personal_emails` | booleano | No | Revelar direcciones de correo electrónico personales \\(usa créditos\\) |
+| `reveal_phone_number` | booleano | No | Revelar números de teléfono \\(usa créditos\\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `person` | json | Datos de persona enriquecidos de Apollo |
+| `metadata` | json | Metadatos de enriquecimiento, incluido el estado de enriquecimiento |
+
+</div>
+
+---
+
+### Enriquecer personas en lote
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "people_bulk_enrich",
+            "options": [
+                {
+                    "id": "people_search",
+                    "label": "Search People"
+                },
+                {
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
+                },
+                {
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
+                },
+                {
+                    "id": "organization_search",
+                    "label": "Search Organizations"
+                },
+                {
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
+                },
+                {
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
+                },
+                {
+                    "id": "contact_create",
+                    "label": "Create Contact"
+                },
+                {
+                    "id": "contact_update",
+                    "label": "Update Contact"
+                },
+                {
+                    "id": "contact_search",
+                    "label": "Search Contacts"
+                },
+                {
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
+                },
+                {
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
+                },
+                {
+                    "id": "account_create",
+                    "label": "Create Account"
+                },
+                {
+                    "id": "account_update",
+                    "label": "Update Account"
+                },
+                {
+                    "id": "account_search",
+                    "label": "Search Accounts"
+                },
+                {
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
+                },
+                {
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
+                },
+                {
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
+                },
+                {
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
+                },
+                {
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
+                },
+                {
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
+                },
+                {
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
+                },
+                {
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
+                },
+                {
+                    "id": "task_create",
+                    "label": "Create Task"
+                },
+                {
+                    "id": "task_search",
+                    "label": "Search Tasks"
+                },
+                {
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Apollo",
+            "placeholder": "Enter your Apollo API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "reveal_personal_emails",
+            "type": "switch",
+            "title": "Revelar correos electrónicos personales"
+        },
+        {
+            "id": "reveal_phone_number",
+            "type": "switch",
+            "title": "Revelar números de teléfono"
+        },
+        {
+            "id": "people",
+            "type": "code",
+            "title": "Personas (Matriz JSON)",
+            "placeholder": "[{\"first_name\": \"John\", \"last_name\": \"Doe\", \"email\": \"john@example.com\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Enriquecimiento masivo de personas (<code>apollo_people_bulk_enrich</code>)</div>
+
+Enriquece datos de hasta 10 personas a la vez con Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `people` | array | Sí | Array de personas a enriquecer \(máx. 10\) |
+| `reveal_personal_emails` | boolean | No | Revelar direcciones de correo personal \(consume créditos\) |
+| `reveal_phone_number` | boolean | No | Revelar números de teléfono \(consume créditos\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `people` | json | Array de datos de personas enriquecidas |
+| `metadata` | json | Metadatos del enriquecimiento masivo, incluidos los recuentos totales y de enriquecidos |
+
+</div>
+
+---
+
+### Buscar organizaciones
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "organization_search",
+            "options": [
+                {
+                    "id": "people_search",
+                    "label": "Buscar personas"
+                },
+                {
+                    "id": "people_enrich",
+                    "label": "Enriquecer persona"
+                },
+                {
+                    "id": "people_bulk_enrich",
+                    "label": "Enriquecer personas en masa"
+                },
+                {
+                    "id": "organization_search",
+                    "label": "Buscar organizaciones"
+                },
+                {
+                    "id": "organization_enrich",
+                    "label": "Enriquecer organización"
+                },
+                {
+                    "id": "organization_bulk_enrich",
+                    "label": "Enriquecer organizaciones en masa"
+                },
+                {
+                    "id": "contact_create",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "contact_update",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "contact_search",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "contact_bulk_create",
+                    "label": "Crear contactos en masa"
+                },
+                {
+                    "id": "contact_bulk_update",
+                    "label": "Actualizar contactos en masa"
+                },
+                {
+                    "id": "account_create",
+                    "label": "Crear cuenta"
+                },
+                {
+                    "id": "account_update",
+                    "label": "Actualizar cuenta"
+                },
+                {
+                    "id": "account_search",
+                    "label": "Buscar cuentas"
+                },
+                {
+                    "id": "account_bulk_create",
+                    "label": "Crear cuentas en masa"
+                },
+                {
+                    "id": "account_bulk_update",
+                    "label": "Actualizar cuentas en masa"
+                },
+                {
+                    "id": "opportunity_create",
+                    "label": "Crear oportunidad"
+                },
+                {
+                    "id": "opportunity_search",
+                    "label": "Buscar oportunidades"
+                },
+                {
+                    "id": "opportunity_get",
+                    "label": "Obtener oportunidad"
+                },
+                {
+                    "id": "opportunity_update",
+                    "label": "Actualizar oportunidad"
+                },
+                {
+                    "id": "sequence_search",
+                    "label": "Buscar secuencias"
+                },
+                {
+                    "id": "sequence_add",
+                    "label": "Añadir a secuencia"
+                },
+                {
+                    "id": "task_create",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "task_search",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "email_accounts",
+                    "label": "Obtener cuentas de correo"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Apollo",
+            "placeholder": "Introduce tu clave de API de Apollo",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organization_locations",
+            "type": "code",
+            "title": "Ubicaciones de la organización",
+            "placeholder": "[\"San Francisco, CA\"]",
+            "language": "json"
+        },
+        {
+            "id": "organization_num_employees_ranges",
+            "type": "code",
+            "title": "Rangos de número de empleados",
+            "placeholder": "[\"1-10\", \"11-50\", \"51-200\"]",
+            "language": "json"
+        },
+        {
+            "id": "q_organization_keyword_tags",
+            "type": "code",
+            "title": "Etiquetas de palabras clave",
+            "placeholder": "[\"saas\", \"b2b\", \"enterprise\"]",
+            "language": "json"
+        },
+        {
+            "id": "q_organization_name",
+            "type": "short-input",
+            "title": "Nombre de la organización",
+            "placeholder": "Nombre de la empresa a buscar"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Número de página",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "Resultados por página",
+            "placeholder": "25 (máx.: 100)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar organizaciones (<code>apollo_organization_search</code>)</div>
+
+Buscar empresas en la base de datos de Apollo usando filtros
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `organization_locations` | array | No | Ubicaciones de empresas para buscar |
+| `organization_num_employees_ranges` | array | No | Rangos de número de empleados \(p. ej., \["1-10", "11-50"\]\) |
+| `q_organization_keyword_tags` | array | No | Etiquetas de industria o palabras clave |
+| `q_organization_name` | string | No | Nombre de la organización para buscar |
+| `page` | number | No | Número de página para paginación |
+| `per_page` | number | No | Resultados por página \(máx.: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `organizations` | json | Matriz de organizaciones que coinciden con los criterios de búsqueda |
+| `metadata` | json | Información de paginación que incluye page, per_page y total_entries |
+
+</div>
+
+---
+
+### Enriquecer organización
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "organization_enrich",
+            "options": [
+                {
+                    "id": "people_search",
+                    "label": "Buscar personas"
+                },
+                {
+                    "id": "people_enrich",
+                    "label": "Enriquecer persona"
+                },
+                {
+                    "id": "people_bulk_enrich",
+                    "label": "Enriquecer personas en masa"
+                },
+                {
+                    "id": "organization_search",
+                    "label": "Buscar organizaciones"
+                },
+                {
+                    "id": "organization_enrich",
+                    "label": "Enriquecer organización"
+                },
+                {
+                    "id": "organization_bulk_enrich",
+                    "label": "Enriquecer organizaciones en masa"
+                },
+                {
+                    "id": "contact_create",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "contact_update",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "contact_search",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "contact_bulk_create",
+                    "label": "Crear contactos en masa"
+                },
+                {
+                    "id": "contact_bulk_update",
+                    "label": "Actualizar contactos en masa"
+                },
+                {
+                    "id": "account_create",
+                    "label": "Crear cuenta"
+                },
+                {
+                    "id": "account_update",
+                    "label": "Actualizar cuenta"
+                },
+                {
+                    "id": "account_search",
+                    "label": "Buscar cuentas"
+                },
+                {
+                    "id": "account_bulk_create",
+                    "label": "Crear cuentas en masa"
+                },
+                {
+                    "id": "account_bulk_update",
+                    "label": "Actualizar cuentas en masa"
+                },
+                {
+                    "id": "opportunity_create",
+                    "label": "Crear oportunidad"
+                },
+                {
+                    "id": "opportunity_search",
+                    "label": "Buscar oportunidades"
+                },
+                {
+                    "id": "opportunity_get",
+                    "label": "Obtener oportunidad"
+                },
+                {
+                    "id": "opportunity_update",
+                    "label": "Actualizar oportunidad"
+                },
+                {
+                    "id": "sequence_search",
+                    "label": "Buscar secuencias"
+                },
+                {
+                    "id": "sequence_add",
+                    "label": "Agregar a secuencia"
+                },
+                {
+                    "id": "task_create",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "task_search",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "email_accounts",
+                    "label": "Obtener cuentas de correo electrónico"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Apollo",
+            "placeholder": "Ingresa tu clave de API de Apollo",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organization_name",
+            "type": "short-input",
+            "title": "Nombre de la empresa",
+            "placeholder": "Nombre de la empresa"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Dominio",
+            "placeholder": "example.com"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Enriquecer organización (<code>apollo_organization_enrich</code>)</div>
+
+Enriquecer los datos de una sola organización con Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `organization_name` | string | No | Nombre de la organización \(se requiere al menos uno de organization_name o domain\) |
+| `domain` | string | No | Dominio de la empresa \(p. ej., apollo.io\) \(se requiere al menos uno de domain o organization_name\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `organization` | json | Datos de organización enriquecidos de Apollo |
+| `metadata` | json | Metadatos de enriquecimiento, incluido el estado de enriquecimiento |
+
+</div>
+
+---
+
+### Enriquecer organizaciones en masa
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "organization_bulk_enrich",
+            "options": [
+                {
+                    "id": "people_search",
+                    "label": "Buscar personas"
+                },
+                {
+                    "id": "people_enrich",
+                    "label": "Enriquecer persona"
+                },
+                {
+                    "id": "people_bulk_enrich",
+                    "label": "Enriquecer personas en masa"
+                },
+                {
+                    "id": "organization_search",
+                    "label": "Buscar organizaciones"
+                },
+                {
+                    "id": "organization_enrich",
+                    "label": "Enriquecer organización"
+                },
+                {
+                    "id": "organization_bulk_enrich",
+                    "label": "Enriquecer organizaciones en masa"
+                },
+                {
+                    "id": "contact_create",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "contact_update",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "contact_search",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "contact_bulk_create",
+                    "label": "Crear contactos en masa"
+                },
+                {
+                    "id": "contact_bulk_update",
+                    "label": "Actualizar contactos en masa"
+                },
+                {
+                    "id": "account_create",
+                    "label": "Crear cuenta"
+                },
+                {
+                    "id": "account_update",
+                    "label": "Actualizar cuenta"
+                },
+                {
+                    "id": "account_search",
+                    "label": "Buscar cuentas"
+                },
+                {
+                    "id": "account_bulk_create",
+                    "label": "Crear cuentas en masa"
+                },
+                {
+                    "id": "account_bulk_update",
+                    "label": "Actualizar cuentas en masa"
+                },
+                {
+                    "id": "opportunity_create",
+                    "label": "Crear oportunidad"
+                },
+                {
+                    "id": "opportunity_search",
+                    "label": "Buscar oportunidades"
+                },
+                {
+                    "id": "opportunity_get",
+                    "label": "Obtener oportunidad"
+                },
+                {
+                    "id": "opportunity_update",
+                    "label": "Actualizar oportunidad"
+                },
+                {
+                    "id": "sequence_search",
+                    "label": "Buscar secuencias"
+                },
+                {
+                    "id": "sequence_add",
+                    "label": "Añadir a secuencia"
+                },
+                {
+                    "id": "task_create",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "task_search",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "email_accounts",
+                    "label": "Obtener cuentas de correo"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Apollo",
+            "placeholder": "Introduce tu clave de API de Apollo",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizations",
+            "type": "code",
+            "title": "Organizaciones (matriz JSON)",
+            "placeholder": "[{\"organization_name\": \"Company A\", \"domain\": \"companya.com\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Enriquecimiento masivo de organizaciones (<code>apollo_organization_bulk_enrich</code>)</div>
+
+Enriquece datos de hasta 10 organizaciones a la vez con Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `organizations` | array | Sí | Array de organizaciones para enriquecer \(máx. 10\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `organizations` | json | Array de datos de organizaciones enriquecidas |
+| `metadata` | json | Metadatos de enriquecimiento en bloque, incluidos los recuentos totales y de enriquecidos |
+
+</div>
+
+---
+
+### Crear contacto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+          "id": "operation",
+          "type": "dropdown",
+          "title": "Operación",
+          "defaultValue": "contact_create",
+          "options": [
+                {
+                    "id": "people_search",
+                    "label": "Buscar personas"
+                },
+                {
+                    "id": "people_enrich",
+                    "label": "Enriquecer persona"
+                },
+                {
+                    "id": "people_bulk_enrich",
+                    "label": "Enriquecer personas en bloque"
+                },
+                {
+                    "id": "organization_search",
+                    "label": "Buscar organizaciones"
+                },
+                {
+                    "id": "organization_enrich",
+                    "label": "Enriquecer organización"
+                },
+                {
+                    "id": "organization_bulk_enrich",
+                    "label": "Enriquecer organizaciones en bloque"
+                },
+                {
+                    "id": "contact_create",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "contact_update",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "contact_search",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "contact_bulk_create",
+                    "label": "Crear contactos en bloque"
+                },
+                {
+                    "id": "contact_bulk_update",
+                    "label": "Actualizar contactos en bloque"
+                },
+                {
+                    "id": "account_create",
+                    "label": "Crear cuenta"
+                },
+                {
+                    "id": "account_update",
+                    "label": "Actualizar cuenta"
+                },
+                {
+                    "id": "account_search",
+                    "label": "Buscar cuentas"
+                },
+                {
+                    "id": "account_bulk_create",
+                    "label": "Crear cuentas en bloque"
+                },
+                {
+                    "id": "account_bulk_update",
+                    "label": "Actualizar cuentas en bloque"
+                },
+                {
+                    "id": "opportunity_create",
+                    "label": "Crear oportunidad"
+                },
+                {
+                    "id": "opportunity_search",
+                    "label": "Buscar oportunidades"
+                },
+                {
+                    "id": "opportunity_get",
+                    "label": "Obtener oportunidad"
+                },
+                {
+                    "id": "opportunity_update",
+                    "label": "Actualizar oportunidad"
+                },
+                {
+                    "id": "sequence_search",
+                    "label": "Buscar secuencias"
+                },
+                {
+                    "id": "sequence_add",
+                    "label": "Agregar a secuencia"
+                },
+                {
+                    "id": "task_create",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "task_search",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "email_accounts",
+                    "label": "Obtener cuentas de correo"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Apollo",
+            "placeholder": "Introduce tu clave de API de Apollo",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "first_name",
+            "type": "short-input",
+            "title": "Nombre",
+            "placeholder": "Nombre",
+            "required": true
+        },
+        {
+            "id": "last_name",
+            "type": "short-input",
+            "title": "Apellido",
+            "placeholder": "Apellido",
+            "required": true
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "email@example.com"
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Cargo",
+            "placeholder": "Cargo"
+        },
+        {
+            "id": "account_id",
+            "type": "short-input",
+            "title": "ID de cuenta",
+            "placeholder": "ID de cuenta de Apollo"
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "ID de propietario",
+            "placeholder": "ID de usuario de Apollo"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear contacto (<code>apollo_contact_create</code>)</div>
+
+Crea un nuevo contacto en tu base de datos de Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `first_name` | string | Sí | Nombre del contacto |
+| `last_name` | string | Sí | Apellido del contacto |
+| `email` | string | No | Dirección de correo electrónico del contacto |
+| `title` | string | No | Cargo |
+| `account_id` | string | No | ID de cuenta de Apollo con la que asociar |
+| `owner_id` | string | No | ID de usuario del propietario del contacto |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `contact` | json | Datos del contacto creado desde Apollo |
+| `metadata` | json | Metadatos de creación, incluido el estado de creación |
+
+</div>
+
+---
+
+### Actualizar contacto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "contact_update",
+            "options": [
+                {
+                    "id": "people_search",
+                    "label": "Buscar personas"
+                },
+                {
+                    "id": "people_enrich",
+                    "label": "Enriquecer persona"
+                },
+                {
+                    "id": "people_bulk_enrich",
+                    "label": "Enriquecer personas en masa"
+                },
+                {
+                    "id": "organization_search",
+                    "label": "Buscar organizaciones"
+                },
+                {
+                    "id": "organization_enrich",
+                    "label": "Enriquecer organización"
+                },
+                {
+                    "id": "organization_bulk_enrich",
+                    "label": "Enriquecer organizaciones en masa"
+                },
+                {
+                    "id": "contact_create",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "contact_update",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "contact_search",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "contact_bulk_create",
+                    "label": "Crear contactos en masa"
+                },
+                {
+                    "id": "contact_bulk_update",
+                    "label": "Actualizar contactos en masa"
+                },
+                {
+                    "id": "account_create",
+                    "label": "Crear cuenta"
+                },
+                {
+                    "id": "account_update",
+                    "label": "Actualizar cuenta"
+                },
+                {
+                    "id": "account_search",
+                    "label": "Buscar cuentas"
+                },
+                {
+                    "id": "account_bulk_create",
+                    "label": "Crear cuentas en masa"
+                },
+                {
+                    "id": "account_bulk_update",
+                    "label": "Actualizar cuentas en masa"
+                },
+                {
+                    "id": "opportunity_create",
+                    "label": "Crear oportunidad"
+                },
+                {
+                    "id": "opportunity_search",
+                    "label": "Buscar oportunidades"
+                },
+                {
+                    "id": "opportunity_get",
+                    "label": "Obtener oportunidad"
+                },
+                {
+                    "id": "opportunity_update",
+                    "label": "Actualizar oportunidad"
+                },
+                {
+                    "id": "sequence_search",
+                    "label": "Buscar secuencias"
+                },
+                {
+                    "id": "sequence_add",
+                    "label": "Añadir a secuencia"
+                },
+                {
+                    "id": "task_create",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "task_search",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "email_accounts",
+                    "label": "Obtener cuentas de correo"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Apollo",
+            "placeholder": "Introduce tu clave de API de Apollo",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "first_name",
+            "type": "short-input",
+            "title": "Nombre",
+            "placeholder": "Nombre"
+        },
+        {
+            "id": "last_name",
+            "type": "short-input",
+            "title": "Apellido",
+            "placeholder": "Apellido"
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "email@example.com"
+        },
+        {
+            "id": "contact_id",
+            "type": "short-input",
+            "title": "ID de contacto",
+            "placeholder": "ID de contacto de Apollo",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Cargo",
+            "placeholder": "Cargo"
+        },
+        {
+            "id": "account_id",
+            "type": "short-input",
+            "title": "ID de cuenta",
+            "placeholder": "ID de cuenta de Apollo"
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "ID de propietario",
+            "placeholder": "ID de usuario de Apollo"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar contacto (<code>apollo_contact_update</code>)</div>
+
+Actualizar un contacto existente en tu base de datos de Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `contact_id` | string | Sí | ID del contacto que se va a actualizar |
+| `first_name` | string | No | Nombre del contacto |
+| `last_name` | string | No | Apellidos del contacto |
+| `email` | string | No | Dirección de correo electrónico |
+| `title` | string | No | Puesto de trabajo |
+| `account_id` | string | No | ID de cuenta de Apollo |
+| `owner_id` | string | No | ID de usuario del propietario del contacto |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `contact` | json | Datos de contacto actualizados de Apollo |
+| `metadata` | json | Metadatos de la actualización, incluido el estado de actualización |
+
+</div>
+
+---
+
+### Buscar contactos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "contact_search",
+            "options": [
+                {
+                    "id": "people_search",
+                    "label": "Buscar personas"
+                },
+                {
+                    "id": "people_enrich",
+                    "label": "Enriquecer persona"
+                },
+                {
+                    "id": "people_bulk_enrich",
+                    "label": "Enriquecer personas en masa"
+                },
+                {
+                    "id": "organization_search",
+                    "label": "Buscar organizaciones"
+                },
+                {
+                    "id": "organization_enrich",
+                    "label": "Enriquecer organización"
+                },
+                {
+                    "id": "organization_bulk_enrich",
+                    "label": "Enriquecer organizaciones en masa"
+                },
+                {
+                    "id": "contact_create",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "contact_update",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "contact_search",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "contact_bulk_create",
+                    "label": "Crear contactos en masa"
+                },
+                {
+                    "id": "contact_bulk_update",
+                    "label": "Actualizar contactos en masa"
+                },
+                {
+                    "id": "account_create",
+                    "label": "Crear cuenta"
+                },
+                {
+                    "id": "account_update",
+                    "label": "Actualizar cuenta"
+                },
+                {
+                    "id": "account_search",
+                    "label": "Buscar cuentas"
+                },
+                {
+                    "id": "account_bulk_create",
+                    "label": "Crear cuentas en masa"
+                },
+                {
+                    "id": "account_bulk_update",
+                    "label": "Actualizar cuentas en masa"
+                },
+                {
+                    "id": "opportunity_create",
+                    "label": "Crear oportunidad"
+                },
+                {
+                    "id": "opportunity_search",
+                    "label": "Buscar oportunidades"
+                },
+                {
+                    "id": "opportunity_get",
+                    "label": "Obtener oportunidad"
+                },
+                {
+                    "id": "opportunity_update",
+                    "label": "Actualizar oportunidad"
+                },
+                {
+                    "id": "sequence_search",
+                    "label": "Buscar secuencias"
+                },
+                {
+                    "id": "sequence_add",
+                    "label": "Añadir a secuencia"
+                },
+                {
+                    "id": "task_create",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "task_search",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "email_accounts",
+                    "label": "Obtener cuentas de correo"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Apollo",
+            "placeholder": "Introduce tu clave de API de Apollo",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contact_stage_ids",
+            "type": "code",
+            "title": "IDs de etapa de contacto",
+            "placeholder": "[\"stage_id_1\", \"stage_id_2\"]",
+            "language": "json"
+        },
+        {
+            "id": "q_keywords",
+            "type": "short-input",
+            "title": "Palabras clave",
+            "placeholder": "Palabras clave de búsqueda"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Número de página",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "Resultados por página",
+            "placeholder": "25 (máx: 100)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar contactos (<code>apollo_contact_search</code>)</div>
+
+Busca los contactos de tu equipo en Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `q_keywords` | string | No | Palabras clave para buscar |
+| `contact_stage_ids` | array | No | Filtrar por IDs de etapa de contacto |
+| `page` | number | No | Número de página para paginación |
+| `per_page` | number | No | Resultados por página \\(max: 100\\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `contacts` | json | Array de contactos que coinciden con los criterios de búsqueda |
+| `metadata` | json | Información de paginación que incluye page, per_page y total_entries |
+
+</div>
+
+---
+
+### Creación masiva de contactos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "contact_bulk_create",
+            "options": [
+                {
+                    "id": "people_search",
+                    "label": "Buscar personas"
+                },
+                {
+                    "id": "people_enrich",
+                    "label": "Enriquecer persona"
+                },
+                {
+                    "id": "people_bulk_enrich",
+                    "label": "Enriquecer personas en lote"
+                },
+                {
+                    "id": "organization_search",
+                    "label": "Buscar organizaciones"
+                },
+                {
+                    "id": "organization_enrich",
+                    "label": "Enriquecer organización"
+                },
+                {
+                    "id": "organization_bulk_enrich",
+                    "label": "Enriquecer organizaciones en lote"
+                },
+                {
+                    "id": "contact_create",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "contact_update",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "contact_search",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "contact_bulk_create",
+                    "label": "Crear contactos en lote"
+                },
+                {
+                    "id": "contact_bulk_update",
+                    "label": "Actualizar contactos en lote"
+                },
+                {
+                    "id": "account_create",
+                    "label": "Crear cuenta"
+                },
+                {
+                    "id": "account_update",
+                    "label": "Actualizar cuenta"
+                },
+                {
+                    "id": "account_search",
+                    "label": "Buscar cuentas"
+                },
+                {
+                    "id": "account_bulk_create",
+                    "label": "Crear cuentas en lote"
+                },
+                {
+                    "id": "account_bulk_update",
+                    "label": "Actualizar cuentas en lote"
+                },
+                {
+                    "id": "opportunity_create",
+                    "label": "Crear oportunidad"
+                },
+                {
+                    "id": "opportunity_search",
+                    "label": "Buscar oportunidades"
+                },
+                {
+                    "id": "opportunity_get",
+                    "label": "Obtener oportunidad"
+                },
+                {
+                    "id": "opportunity_update",
+                    "label": "Actualizar oportunidad"
+                },
+                {
+                    "id": "sequence_search",
+                    "label": "Buscar secuencias"
+                },
+                {
+                    "id": "sequence_add",
+                    "label": "Añadir a secuencia"
+                },
+                {
+                    "id": "task_create",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "task_search",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "email_accounts",
+                    "label": "Obtener cuentas de correo"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Apollo",
+            "placeholder": "Ingresa tu clave de API de Apollo",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contacts",
+            "type": "code",
+            "title": "Contactos (Array JSON)",
+            "placeholder": "[{\"first_name\": \"John\", \"last_name\": \"Doe\", \"email\": \"john@example.com\", \"title\": \"CEO\"}]",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "run_dedupe",
+            "type": "switch",
+            "title": "Ejecutar deduplicación"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Creación masiva de contactos (<code>apollo_contact_bulk_create</code>)</div>
+
+Crea hasta 100 contactos a la vez en tu base de datos de Apollo. Admite deduplicación para evitar la creación de contactos duplicados. Se requiere clave maestra.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `contacts` | array | Sí | Arreglo de contactos que se van a crear \(máx. 100\). Cada contacto debe incluir first_name, last_name y, opcionalmente, email, title, account_id, owner_id |
+| `run_dedupe` | boolean | No | Activa la deduplicación para evitar crear contactos duplicados. Cuando es true, los contactos existentes se devuelven sin modificaciones |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `created_contacts` | json | Arreglo de contactos recién creados |
+| `existing_contacts` | json | Arreglo de contactos existentes \(cuando la deduplicación está activada\) |
+| `metadata` | json | Metadatos de creación masiva, incluidos los recuentos de contactos creados y existentes |
+
+</div>
+
+---
+
+### Actualización masiva de contactos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "contact_bulk_update",
+            "options": [
+                {
+                    "id": "people_search",
+                    "label": "Buscar personas"
+                },
+                {
+                    "id": "people_enrich",
+                    "label": "Enriquecer persona"
+                },
+                {
+                    "id": "people_bulk_enrich",
+                    "label": "Enriquecer personas en masa"
+                },
+                {
+                    "id": "organization_search",
+                    "label": "Buscar organizaciones"
+                },
+                {
+                    "id": "organization_enrich",
+                    "label": "Enriquecer organización"
+                },
+                {
+                    "id": "organization_bulk_enrich",
+                    "label": "Enriquecer organizaciones en masa"
+                },
+                {
+                    "id": "contact_create",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "contact_update",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "contact_search",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "contact_bulk_create",
+                    "label": "Crear contactos en masa"
+                },
+                {
+                    "id": "contact_bulk_update",
+                    "label": "Actualizar contactos en masa"
+                },
+                {
+                    "id": "account_create",
+                    "label": "Crear cuenta"
+                },
+                {
+                    "id": "account_update",
+                    "label": "Actualizar cuenta"
+                },
+                {
+                    "id": "account_search",
+                    "label": "Buscar cuentas"
+                },
+                {
+                    "id": "account_bulk_create",
+                    "label": "Crear cuentas en masa"
+                },
+                {
+                    "id": "account_bulk_update",
+                    "label": "Actualizar cuentas en masa"
+                },
+                {
+                    "id": "opportunity_create",
+                    "label": "Crear oportunidad"
+                },
+                {
+                    "id": "opportunity_search",
+                    "label": "Buscar oportunidades"
+                },
+                {
+                    "id": "opportunity_get",
+                    "label": "Obtener oportunidad"
+                },
+                {
+                    "id": "opportunity_update",
+                    "label": "Actualizar oportunidad"
+                },
+                {
+                    "id": "sequence_search",
+                    "label": "Buscar secuencias"
+                },
+                {
+                    "id": "sequence_add",
+                    "label": "Agregar a secuencia"
+                },
+                {
+                    "id": "task_create",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "task_search",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "email_accounts",
+                    "label": "Obtener cuentas de correo"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Apollo",
+            "placeholder": "Introduce tu clave de API de Apollo",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contacts",
+            "type": "code",
+            "title": "Contactos (arreglo JSON)",
+            "placeholder": "[{\"id\": \"contact_id_1\", \"first_name\": \"John\", \"last_name\": \"Doe\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualización masiva de contactos (<code>apollo_contact_bulk_update</code>)</div>
+
+Actualiza hasta 100 contactos existentes a la vez en tu base de datos de Apollo. Cada contacto debe incluir un campo id. Se requiere clave maestra.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `contacts` | array | Sí | Array de contactos para actualizar \(máx 100\). Cada contacto debe incluir el campo id, y opcionalmente first_name, last_name, email, title, account_id, owner_id |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `updated_contacts` | json | Array de contactos actualizados correctamente |
+| `failed_contacts` | json | Array de contactos que no se pudieron actualizar |
+| `metadata` | json | Metadatos de actualización masiva, incluidos los recuentos de contactos actualizados y fallidos |
+
+</div>
+
+---
+
+### Crear cuenta
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "account_create",
+            "options": [
+                {
+                    "id": "people_search",
+                    "label": "Buscar personas"
+                },
+                {
+                    "id": "people_enrich",
+                    "label": "Enriquecer persona"
+                },
+                {
+                    "id": "people_bulk_enrich",
+                    "label": "Enriquecer personas en masa"
+                },
+                {
+                    "id": "organization_search",
+                    "label": "Buscar organizaciones"
+                },
+                {
+                    "id": "organization_enrich",
+                    "label": "Enriquecer organización"
+                },
+                {
+                    "id": "organization_bulk_enrich",
+                    "label": "Enriquecer organizaciones en masa"
+                },
+                {
+                    "id": "contact_create",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "contact_update",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "contact_search",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "contact_bulk_create",
+                    "label": "Crear contactos en masa"
+                },
+                {
+                    "id": "contact_bulk_update",
+                    "label": "Actualizar contactos en masa"
+                },
+                {
+                    "id": "account_create",
+                    "label": "Crear cuenta"
+                },
+                {
+                    "id": "account_update",
+                    "label": "Actualizar cuenta"
+                },
+                {
+                    "id": "account_search",
+                    "label": "Buscar cuentas"
+                },
+                {
+                    "id": "account_bulk_create",
+                    "label": "Crear cuentas en masa"
+                },
+                {
+                    "id": "account_bulk_update",
+                    "label": "Actualizar cuentas en masa"
+                },
+                {
+                    "id": "opportunity_create",
+                    "label": "Crear oportunidad"
+                },
+                {
+                    "id": "opportunity_search",
+                    "label": "Buscar oportunidades"
+                },
+                {
+                    "id": "opportunity_get",
+                    "label": "Obtener oportunidad"
+                },
+                {
+                    "id": "opportunity_update",
+                    "label": "Actualizar oportunidad"
+                },
+                {
+                    "id": "sequence_search",
+                    "label": "Buscar secuencias"
+                },
+                {
+                    "id": "sequence_add",
+                    "label": "Añadir a secuencia"
+                },
+                {
+                    "id": "task_create",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "task_search",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "email_accounts",
+                    "label": "Obtener cuentas de correo electrónico"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API de Apollo",
+            "placeholder": "Introduce tu clave API de Apollo",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "ID del propietario",
+            "placeholder": "ID de usuario de Apollo"
+        },
+        {
+            "id": "account_name",
+            "type": "short-input",
+            "title": "Nombre de la cuenta",
+            "placeholder": "Nombre de la empresa",
+            "required": true
+        },
+        {
+            "id": "website_url",
+            "type": "short-input",
+            "title": "URL del sitio web",
+            "placeholder": "https://example.com"
+        },
+        {
+            "id": "phone",
+            "type": "short-input",
+            "title": "Número de teléfono",
+            "placeholder": "Teléfono de la empresa"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear cuenta (<code>apollo_account_create</code>)</div>
+
+Crear una nueva cuenta (empresa) en tu base de datos de Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `name` | string | Sí | Nombre de la empresa |
+| `website_url` | string | No | URL del sitio web de la empresa |
+| `phone` | string | No | Número de teléfono de la empresa |
+| `owner_id` | string | No | ID de usuario del propietario de la cuenta |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `account` | json | Datos de la cuenta creada desde Apollo |
+| `metadata` | json | Metadatos de creación, incluido el estado de creación |
+
+</div>
+
+---
+
+### Actualizar cuenta
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "account_update",
+            "options": [
+                {
+                    "id": "people_search",
+                    "label": "Buscar personas"
+                },
+                {
+                    "id": "people_enrich",
+                    "label": "Enriquecer persona"
+                },
+                {
+                    "id": "people_bulk_enrich",
+                    "label": "Enriquecer personas en masa"
+                },
+                {
+                    "id": "organization_search",
+                    "label": "Buscar organizaciones"
+                },
+                {
+                    "id": "organization_enrich",
+                    "label": "Enriquecer organización"
+                },
+                {
+                    "id": "organization_bulk_enrich",
+                    "label": "Enriquecer organizaciones en masa"
+                },
+                {
+                    "id": "contact_create",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "contact_update",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "contact_search",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "contact_bulk_create",
+                    "label": "Crear contactos en masa"
+                },
+                {
+                    "id": "contact_bulk_update",
+                    "label": "Actualizar contactos en masa"
+                },
+                {
+                    "id": "account_create",
+                    "label": "Crear cuenta"
+                },
+                {
+                    "id": "account_update",
+                    "label": "Actualizar cuenta"
+                },
+                {
+                    "id": "account_search",
+                    "label": "Buscar cuentas"
+                },
+                {
+                    "id": "account_bulk_create",
+                    "label": "Crear cuentas en masa"
+                },
+                {
+                    "id": "account_bulk_update",
+                    "label": "Actualizar cuentas en masa"
+                },
+                {
+                    "id": "opportunity_create",
+                    "label": "Crear oportunidad"
+                },
+                {
+                    "id": "opportunity_search",
+                    "label": "Buscar oportunidades"
+                },
+                {
+                    "id": "opportunity_get",
+                    "label": "Obtener oportunidad"
+                },
+                {
+                    "id": "opportunity_update",
+                    "label": "Actualizar oportunidad"
+                },
+                {
+                    "id": "sequence_search",
+                    "label": "Buscar secuencias"
+                },
+                {
+                    "id": "sequence_add",
+                    "label": "Añadir a secuencia"
+                },
+                {
+                    "id": "task_create",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "task_search",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "email_accounts",
+                    "label": "Obtener cuentas de correo"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Apollo",
+            "placeholder": "Introduce tu clave de API de Apollo",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "account_id",
+            "type": "short-input",
+            "title": "ID de cuenta",
+            "placeholder": "ID de cuenta de Apollo",
+            "required": true
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "ID del propietario",
+            "placeholder": "ID de usuario de Apollo"
+        },
+        {
+            "id": "account_name",
+            "type": "short-input",
+            "title": "Nombre de la cuenta",
+            "placeholder": "Nombre de la empresa"
+        },
+        {
+            "id": "website_url",
+            "type": "short-input",
+            "title": "URL del sitio web",
+            "placeholder": "https://example.com"
+        },
+        {
+            "id": "phone",
+            "type": "short-input",
+            "title": "Número de teléfono",
+            "placeholder": "Teléfono de la empresa"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar cuenta (<code>apollo_account_update</code>)</div>
+
+Actualiza una cuenta existente en tu base de datos de Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `account_id` | string | Sí | ID de la cuenta a actualizar |
+| `name` | string | No | Nombre de la empresa |
+| `website_url` | string | No | URL del sitio web de la empresa |
+| `phone` | string | No | Número de teléfono de la empresa |
+| `owner_id` | string | No | ID de usuario del propietario de la cuenta |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `account` | json | Datos actualizados de la cuenta desde Apollo |
+| `metadata` | json | Metadatos de la actualización, incluido el estado actualizado |
+
+</div>
+
+---
+
+### Buscar cuentas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "account_search",
+            "options": [
+                {
+                    "id": "people_search",
+                    "label": "Buscar personas"
+                },
+                {
+                    "id": "people_enrich",
+                    "label": "Enriquecer persona"
+                },
+                {
+                    "id": "people_bulk_enrich",
+                    "label": "Enriquecer personas en lote"
+                },
+                {
+                    "id": "organization_search",
+                    "label": "Buscar organizaciones"
+                },
+                {
+                    "id": "organization_enrich",
+                    "label": "Enriquecer organización"
+                },
+                {
+                    "id": "organization_bulk_enrich",
+                    "label": "Enriquecer organizaciones en lote"
+                },
+                {
+                    "id": "contact_create",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "contact_update",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "contact_search",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "contact_bulk_create",
+                    "label": "Crear contactos en lote"
+                },
+                {
+                    "id": "contact_bulk_update",
+                    "label": "Actualizar contactos en lote"
+                },
+                {
+                    "id": "account_create",
+                    "label": "Crear cuenta"
+                },
+                {
+                    "id": "account_update",
+                    "label": "Actualizar cuenta"
+                },
+                {
+                    "id": "account_search",
+                    "label": "Buscar cuentas"
+                },
+                {
+                    "id": "account_bulk_create",
+                    "label": "Crear cuentas en lote"
+                },
+                {
+                    "id": "account_bulk_update",
+                    "label": "Actualizar cuentas en lote"
+                },
+                {
+                    "id": "opportunity_create",
+                    "label": "Crear oportunidad"
+                },
+                {
+                    "id": "opportunity_search",
+                    "label": "Buscar oportunidades"
+                },
+                {
+                    "id": "opportunity_get",
+                    "label": "Obtener oportunidad"
+                },
+                {
+                    "id": "opportunity_update",
+                    "label": "Actualizar oportunidad"
+                },
+                {
+                    "id": "sequence_search",
+                    "label": "Buscar secuencias"
+                },
+                {
+                    "id": "sequence_add",
+                    "label": "Agregar a secuencia"
+                },
+                {
+                    "id": "task_create",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "task_search",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "email_accounts",
+                    "label": "Obtener cuentas de correo"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Apollo",
+            "placeholder": "Ingresa tu clave de API de Apollo",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "ID del propietario",
+            "placeholder": "ID de usuario de Apollo"
+        },
+        {
+            "id": "q_keywords",
+            "type": "short-input",
+            "title": "Palabras clave",
+            "placeholder": "Palabras clave de búsqueda"
+        },
+        {
+            "id": "account_stage_ids",
+            "type": "code",
+            "title": "ID de etapas de la cuenta",
+            "placeholder": "[\"stage_id_1\", \"stage_id_2\"]",
+            "language": "json"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Número de página",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "Resultados por página",
+            "placeholder": "25 (max: 100)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar cuentas (<code>apollo_account_search</code>)</div>
+
+Busca las cuentas de tu equipo en Apollo. Límite de visualización: 50.000 registros (100 registros por página, 500 páginas como máximo). Usa filtros para acotar los resultados. Se requiere clave maestra.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `q_keywords` | string | No | Palabras clave que se buscarán en los datos de la cuenta |
+| `owner_id` | string | No | Filtrar por ID de usuario del propietario de la cuenta |
+| `account_stage_ids` | array | No | Filtrar por IDs de etapa de la cuenta |
+| `page` | number | No | Número de página para la paginación |
+| `per_page` | number | No | Resultados por página \(máx.: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `accounts` | json | Arreglo de cuentas que coinciden con los criterios de búsqueda |
+| `metadata` | json | Información de paginación, incluidos page, per_page y total_entries |
+
+</div>
+
+---
+
+### Crear cuentas en masa
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "account_bulk_create",
+            "options": [
+                {
+                    "id": "people_search",
+                    "label": "Buscar personas"
+                },
+                {
+                    "id": "people_enrich",
+                    "label": "Enriquecer persona"
+                },
+                {
+                    "id": "people_bulk_enrich",
+                    "label": "Enriquecer personas en masa"
+                },
+                {
+                    "id": "organization_search",
+                    "label": "Buscar organizaciones"
+                },
+                {
+                    "id": "organization_enrich",
+                    "label": "Enriquecer organización"
+                },
+                {
+                    "id": "organization_bulk_enrich",
+                    "label": "Enriquecer organizaciones en masa"
+                },
+                {
+                    "id": "contact_create",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "contact_update",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "contact_search",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "contact_bulk_create",
+                    "label": "Crear contactos en masa"
+                },
+                {
+                    "id": "contact_bulk_update",
+                    "label": "Actualizar contactos en masa"
+                },
+                {
+                    "id": "account_create",
+                    "label": "Crear cuenta"
+                },
+                {
+                    "id": "account_update",
+                    "label": "Actualizar cuenta"
+                },
+                {
+                    "id": "account_search",
+                    "label": "Buscar cuentas"
+                },
+                {
+                    "id": "account_bulk_create",
+                    "label": "Crear cuentas en masa"
+                },
+                {
+                    "id": "account_bulk_update",
+                    "label": "Actualizar cuentas en masa"
+                },
+                {
+                    "id": "opportunity_create",
+                    "label": "Crear oportunidad"
+                },
+                {
+                    "id": "opportunity_search",
+                    "label": "Buscar oportunidades"
+                },
+                {
+                    "id": "opportunity_get",
+                    "label": "Obtener oportunidad"
+                },
+                {
+                    "id": "opportunity_update",
+                    "label": "Actualizar oportunidad"
+                },
+                {
+                    "id": "sequence_search",
+                    "label": "Buscar secuencias"
+                },
+                {
+                    "id": "sequence_add",
+                    "label": "Añadir a la secuencia"
+                },
+                {
+                    "id": "task_create",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "task_search",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "email_accounts",
+                    "label": "Obtener cuentas de correo"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Apollo",
+            "placeholder": "Introduce tu clave de API de Apollo",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "accounts",
+            "type": "code",
+            "title": "Cuentas (arreglo JSON)",
+            "placeholder": "[{\"name\": \"Company A\", \"website_url\": \"https://companya.com\", \"phone\": \"+1234567890\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Creación masiva de cuentas (<code>apollo_account_bulk_create</code>)</div>
+
+Crea hasta 100 cuentas a la vez en tu base de datos de Apollo. Nota: Apollo no aplica deduplicación; se pueden crear cuentas duplicadas si las entradas comparten nombres o dominios similares. Se requiere clave maestra.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `accounts` | array | Sí | Arreglo de cuentas a crear \(máx. 100\). Cada cuenta debe incluir name \(obligatorio\) y, opcionalmente, website_url, phone, owner_id |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `created_accounts` | json | Arreglo de cuentas recién creadas |
+| `failed_accounts` | json | Arreglo de cuentas que no se pudieron crear |
+| `metadata` | json | Metadatos de creación masiva, incluidos los recuentos de cuentas creadas y fallidas |
+
+</div>
+
+---
+
+### Actualización masiva de cuentas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "account_bulk_update",
+            "options": [
+                {
+                    "id": "people_search",
+                    "label": "Buscar personas"
+                },
+                {
+                    "id": "people_enrich",
+                    "label": "Enriquecer persona"
+                },
+                {
+                    "id": "people_bulk_enrich",
+                    "label": "Enriquecer personas en masa"
+                },
+                {
+                    "id": "organization_search",
+                    "label": "Buscar organizaciones"
+                },
+                {
+                    "id": "organization_enrich",
+                    "label": "Enriquecer organización"
+                },
+                {
+                    "id": "organization_bulk_enrich",
+                    "label": "Enriquecer organizaciones en masa"
+                },
+                {
+                    "id": "contact_create",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "contact_update",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "contact_search",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "contact_bulk_create",
+                    "label": "Crear contactos en masa"
+                },
+                {
+                    "id": "contact_bulk_update",
+                    "label": "Actualizar contactos en masa"
+                },
+                {
+                    "id": "account_create",
+                    "label": "Crear cuenta"
+                },
+                {
+                    "id": "account_update",
+                    "label": "Actualizar cuenta"
+                },
+                {
+                    "id": "account_search",
+                    "label": "Buscar cuentas"
+                },
+                {
+                    "id": "account_bulk_create",
+                    "label": "Crear cuentas en masa"
+                },
+                {
+                    "id": "account_bulk_update",
+                    "label": "Actualizar cuentas en masa"
+                },
+                {
+                    "id": "opportunity_create",
+                    "label": "Crear oportunidad"
+                },
+                {
+                    "id": "opportunity_search",
+                    "label": "Buscar oportunidades"
+                },
+                {
+                    "id": "opportunity_get",
+                    "label": "Obtener oportunidad"
+                },
+                {
+                    "id": "opportunity_update",
+                    "label": "Actualizar oportunidad"
+                },
+                {
+                    "id": "sequence_search",
+                    "label": "Buscar secuencias"
+                },
+                {
+                    "id": "sequence_add",
+                    "label": "Agregar a secuencia"
+                },
+                {
+                    "id": "task_create",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "task_search",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "email_accounts",
+                    "label": "Obtener cuentas de correo"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Apollo",
+            "placeholder": "Ingresa tu clave de API de Apollo",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "accounts",
+            "type": "code",
+            "title": "Cuentas (arreglo JSON)",
+            "placeholder": "[{\"id\": \"account_id_1\", \"name\": \"Updated Company Name\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualización masiva de cuentas (<code>apollo_account_bulk_update</code>)</div>
+
+Actualiza hasta 1000 cuentas existentes a la vez en tu base de datos de Apollo (¡límite más alto que el de contactos!). Cada cuenta debe incluir un campo id. Se requiere clave maestra.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `accounts` | array | Sí | Array de cuentas para actualizar \(máx. 1000\). Cada cuenta debe incluir el campo id y, opcionalmente, name, website_url, phone, owner_id |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `updated_accounts` | json | Array de cuentas actualizadas correctamente |
+| `failed_accounts` | json | Array de cuentas que no se pudieron actualizar |
+| `metadata` | json | Metadatos de la actualización masiva, incluidos los recuentos de cuentas actualizadas y fallidas |
+
+</div>
+
+---
+
+### Crear oportunidad
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "opportunity_create",
+            "options": [
+                {
+                    "id": "people_search",
+                    "label": "Buscar personas"
+                },
+                {
+                    "id": "people_enrich",
+                    "label": "Enriquecer persona"
+                },
+                {
+                    "id": "people_bulk_enrich",
+                    "label": "Enriquecer personas en masa"
+                },
+                {
+                    "id": "organization_search",
+                    "label": "Buscar organizaciones"
+                },
+                {
+                    "id": "organization_enrich",
+                    "label": "Enriquecer organización"
+                },
+                {
+                    "id": "organization_bulk_enrich",
+                    "label": "Enriquecer organizaciones en masa"
+                },
+                {
+                    "id": "contact_create",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "contact_update",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "contact_search",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "contact_bulk_create",
+                    "label": "Crear contactos en masa"
+                },
+                {
+                    "id": "contact_bulk_update",
+                    "label": "Actualizar contactos en masa"
+                },
+                {
+                    "id": "account_create",
+                    "label": "Crear cuenta"
+                },
+                {
+                    "id": "account_update",
+                    "label": "Actualizar cuenta"
+                },
+                {
+                    "id": "account_search",
+                    "label": "Buscar cuentas"
+                },
+                {
+                    "id": "account_bulk_create",
+                    "label": "Crear cuentas en masa"
+                },
+                {
+                    "id": "account_bulk_update",
+                    "label": "Actualizar cuentas en masa"
+                },
+                {
+                    "id": "opportunity_create",
+                    "label": "Crear oportunidad"
+                },
+                {
+                    "id": "opportunity_search",
+                    "label": "Buscar oportunidades"
+                },
+                {
+                    "id": "opportunity_get",
+                    "label": "Obtener oportunidad"
+                },
+                {
+                    "id": "opportunity_update",
+                    "label": "Actualizar oportunidad"
+                },
+                {
+                    "id": "sequence_search",
+                    "label": "Buscar secuencias"
+                },
+                {
+                    "id": "sequence_add",
+                    "label": "Añadir a secuencia"
+                },
+                {
+                    "id": "task_create",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "task_search",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "email_accounts",
+                    "label": "Obtener cuentas de correo"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Apollo",
+            "placeholder": "Introduce tu clave de API de Apollo",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "account_id",
+            "type": "short-input",
+            "title": "ID de cuenta",
+            "placeholder": "ID de cuenta de Apollo",
+            "required": true
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "ID de propietario",
+            "placeholder": "ID de usuario de Apollo"
+        },
+        {
+            "id": "opportunity_name",
+            "type": "short-input",
+            "title": "Nombre de la oportunidad",
+            "placeholder": "Nombre de la oportunidad",
+            "required": true
+        },
+        {
+            "id": "amount",
+            "type": "short-input",
+            "title": "Importe",
+            "placeholder": "Importe del acuerdo (p. ej., 50000)"
+        },
+        {
+            "id": "stage_id",
+            "type": "short-input",
+            "title": "ID de etapa",
+            "placeholder": "ID de etapa de la oportunidad"
+        },
+        {
+            "id": "close_date",
+            "type": "datetime-input",
+            "title": "Fecha de cierre",
+            "placeholder": "Fecha ISO (p. ej., 2024-12-31)"
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "Descripción",
+            "placeholder": "Descripción de la oportunidad"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear oportunidad (<code>apollo_opportunity_create</code>)</div>
+
+Crea una nueva oportunidad para una cuenta en tu base de datos de Apollo (se requiere clave maestra)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `name` | string | Sí | Nombre de la oportunidad/negocio |
+| `account_id` | string | Sí | ID de la cuenta a la que pertenece esta oportunidad |
+| `amount` | number | No | Valor monetario de la oportunidad |
+| `stage_id` | string | No | ID de la etapa de la oportunidad |
+| `owner_id` | string | No | ID de usuario del propietario de la oportunidad |
+| `close_date` | string | No | Fecha de cierre prevista \(formato ISO 8601\) |
+| `description` | string | No | Descripción o notas sobre la oportunidad |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `opportunity` | json | Datos de la oportunidad creada desde Apollo |
+| `metadata` | json | Metadatos de creación, incluido el estado de creación |
+
+</div>
+
+---
+
+### Buscar oportunidades
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "opportunity_search",
+            "options": [
+                {
+                    "id": "people_search",
+                    "label": "Buscar personas"
+                },
+                {
+                    "id": "people_enrich",
+                    "label": "Enriquecer persona"
+                },
+                {
+                    "id": "people_bulk_enrich",
+                    "label": "Enriquecimiento masivo de personas"
+                },
+                {
+                    "id": "organization_search",
+                    "label": "Buscar organizaciones"
+                },
+                {
+                    "id": "organization_enrich",
+                    "label": "Enriquecer organización"
+                },
+                {
+                    "id": "organization_bulk_enrich",
+                    "label": "Enriquecimiento masivo de organizaciones"
+                },
+                {
+                    "id": "contact_create",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "contact_update",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "contact_search",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "contact_bulk_create",
+                    "label": "Crear contactos en masa"
+                },
+                {
+                    "id": "contact_bulk_update",
+                    "label": "Actualizar contactos en masa"
+                },
+                {
+                    "id": "account_create",
+                    "label": "Crear cuenta"
+                },
+                {
+                    "id": "account_update",
+                    "label": "Actualizar cuenta"
+                },
+                {
+                    "id": "account_search",
+                    "label": "Buscar cuentas"
+                },
+                {
+                    "id": "account_bulk_create",
+                    "label": "Crear cuentas en masa"
+                },
+                {
+                    "id": "account_bulk_update",
+                    "label": "Actualizar cuentas en masa"
+                },
+                {
+                    "id": "opportunity_create",
+                    "label": "Crear oportunidad"
+                },
+                {
+                    "id": "opportunity_search",
+                    "label": "Buscar oportunidades"
+                },
+                {
+                    "id": "opportunity_get",
+                    "label": "Obtener oportunidad"
+                },
+                {
+                    "id": "opportunity_update",
+                    "label": "Actualizar oportunidad"
+                },
+                {
+                    "id": "sequence_search",
+                    "label": "Buscar secuencias"
+                },
+                {
+                    "id": "sequence_add",
+                    "label": "Añadir a secuencia"
+                },
+                {
+                    "id": "task_create",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "task_search",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "email_accounts",
+                    "label": "Obtener cuentas de correo"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Apollo",
+            "placeholder": "Introduce tu clave de API de Apollo",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "q_keywords",
+            "type": "short-input",
+            "title": "Palabras clave",
+            "placeholder": "Buscar palabras clave"
+        },
+        {
+            "id": "account_ids",
+            "type": "code",
+            "title": "ID de cuentas",
+            "placeholder": "[\"account_id_1\", \"account_id_2\"]",
+            "language": "json"
+        },
+        {
+            "id": "stage_ids",
+            "type": "code",
+            "title": "ID de etapas",
+            "placeholder": "[\"stage_id_1\", \"stage_id_2\"]",
+            "language": "json"
+        },
+        {
+            "id": "owner_ids",
+            "type": "code",
+            "title": "ID de propietarios",
+            "placeholder": "[\"user_id_1\", \"user_id_2\"]",
+            "language": "json"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Número de página",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "Resultados por página",
+            "placeholder": "25 (máx.: 100)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar oportunidades (<code>apollo_opportunity_search</code>)</div>
+
+Busca y lista todos los negocios/oportunidades en la cuenta de Apollo de tu equipo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `q_keywords` | string | No | Palabras clave para buscar en los nombres de las oportunidades |
+| `account_ids` | array | No | Filtrar por IDs de cuenta específicos |
+| `stage_ids` | array | No | Filtrar por IDs de etapa de la oportunidad |
+| `owner_ids` | array | No | Filtrar por IDs del propietario de la oportunidad |
+| `page` | number | No | Número de página para la paginación |
+| `per_page` | number | No | Resultados por página \(máx.: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `opportunities` | json | Arreglo de oportunidades que coinciden con los criterios de búsqueda |
+| `metadata` | json | Información de paginación que incluye page, per_page y total_entries |
+
+</div>
+
+---
+
+### Obtener oportunidad
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "opportunity_get",
+            "options": [
+                {
+                    "id": "people_search",
+                    "label": "Buscar personas"
+                },
+                {
+                    "id": "people_enrich",
+                    "label": "Enriquecer persona"
+                },
+                {
+                    "id": "people_bulk_enrich",
+                    "label": "Enriquecer personas en lote"
+                },
+                {
+                    "id": "organization_search",
+                    "label": "Buscar organizaciones"
+                },
+                {
+                    "id": "organization_enrich",
+                    "label": "Enriquecer organización"
+                },
+                {
+                    "id": "organization_bulk_enrich",
+                    "label": "Enriquecer organizaciones en lote"
+                },
+                {
+                    "id": "contact_create",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "contact_update",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "contact_search",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "contact_bulk_create",
+                    "label": "Crear contactos en lote"
+                },
+                {
+                    "id": "contact_bulk_update",
+                    "label": "Actualizar contactos en lote"
+                },
+                {
+                    "id": "account_create",
+                    "label": "Crear cuenta"
+                },
+                {
+                    "id": "account_update",
+                    "label": "Actualizar cuenta"
+                },
+                {
+                    "id": "account_search",
+                    "label": "Buscar cuentas"
+                },
+                {
+                    "id": "account_bulk_create",
+                    "label": "Crear cuentas en lote"
+                },
+                {
+                    "id": "account_bulk_update",
+                    "label": "Actualizar cuentas en lote"
+                },
+                {
+                    "id": "opportunity_create",
+                    "label": "Crear oportunidad"
+                },
+                {
+                    "id": "opportunity_search",
+                    "label": "Buscar oportunidades"
+                },
+                {
+                    "id": "opportunity_get",
+                    "label": "Obtener oportunidad"
+                },
+                {
+                    "id": "opportunity_update",
+                    "label": "Actualizar oportunidad"
+                },
+                {
+                    "id": "sequence_search",
+                    "label": "Buscar secuencias"
+                },
+                {
+                    "id": "sequence_add",
+                    "label": "Agregar a secuencia"
+                },
+                {
+                    "id": "task_create",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "task_search",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "email_accounts",
+                    "label": "Obtener cuentas de correo"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Apollo",
+            "placeholder": "Ingresa tu clave de API de Apollo",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "opportunity_id",
+            "type": "short-input",
+            "title": "ID de oportunidad",
+            "placeholder": "ID de oportunidad de Apollo",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener oportunidad (<code>apollo_opportunity_get</code>)</div>
+
+Recupera los detalles completos de una oportunidad o negocio específico por su ID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `opportunity_id` | string | Sí | ID de la oportunidad a recuperar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `opportunity` | json | Datos completos de la oportunidad desde Apollo |
+| `metadata` | json | Metadatos de la recuperación, incluido el estado de encontrado |
+
+</div>
+
+---
+
+### Actualizar oportunidad
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "opportunity_update",
+            "options": [
+                {
+                    "id": "people_search",
+                    "label": "Buscar personas"
+                },
+                {
+                    "id": "people_enrich",
+                    "label": "Enriquecer persona"
+                },
+                {
+                    "id": "people_bulk_enrich",
+                    "label": "Enriquecer personas en masa"
+                },
+                {
+                    "id": "organization_search",
+                    "label": "Buscar organizaciones"
+                },
+                {
+                    "id": "organization_enrich",
+                    "label": "Enriquecer organización"
+                },
+                {
+                    "id": "organization_bulk_enrich",
+                    "label": "Enriquecer organizaciones en masa"
+                },
+                {
+                    "id": "contact_create",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "contact_update",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "contact_search",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "contact_bulk_create",
+                    "label": "Crear contactos en masa"
+                },
+                {
+                    "id": "contact_bulk_update",
+                    "label": "Actualizar contactos en masa"
+                },
+                {
+                    "id": "account_create",
+                    "label": "Crear cuenta"
+                },
+                {
+                    "id": "account_update",
+                    "label": "Actualizar cuenta"
+                },
+                {
+                    "id": "account_search",
+                    "label": "Buscar cuentas"
+                },
+                {
+                    "id": "account_bulk_create",
+                    "label": "Crear cuentas en masa"
+                },
+                {
+                    "id": "account_bulk_update",
+                    "label": "Actualizar cuentas en masa"
+                },
+                {
+                    "id": "opportunity_create",
+                    "label": "Crear oportunidad"
+                },
+                {
+                    "id": "opportunity_search",
+                    "label": "Buscar oportunidades"
+                },
+                {
+                    "id": "opportunity_get",
+                    "label": "Obtener oportunidad"
+                },
+                {
+                    "id": "opportunity_update",
+                    "label": "Actualizar oportunidad"
+                },
+                {
+                    "id": "sequence_search",
+                    "label": "Buscar secuencias"
+                },
+                {
+                    "id": "sequence_add",
+                    "label": "Añadir a secuencia"
+                },
+                {
+                    "id": "task_create",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "task_search",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "email_accounts",
+                    "label": "Obtener cuentas de correo"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Apollo",
+            "placeholder": "Introduce tu clave de API de Apollo",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "ID del propietario",
+            "placeholder": "ID de usuario de Apollo"
+        },
+        {
+            "id": "opportunity_name",
+            "type": "short-input",
+            "title": "Nombre de la oportunidad",
+            "placeholder": "Nombre de la oportunidad"
+        },
+        {
+            "id": "amount",
+            "type": "short-input",
+            "title": "Importe",
+            "placeholder": "Importe del negocio (p. ej., 50000)"
+        },
+        {
+            "id": "stage_id",
+            "type": "short-input",
+            "title": "ID de la etapa",
+            "placeholder": "ID de la etapa de la oportunidad"
+        },
+        {
+            "id": "close_date",
+            "type": "datetime-input",
+            "title": "Fecha de cierre",
+            "placeholder": "Fecha ISO (p. ej., 2024-12-31)"
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "Descripción",
+            "placeholder": "Descripción de la oportunidad"
+        },
+        {
+            "id": "opportunity_id",
+            "type": "short-input",
+            "title": "ID de la oportunidad",
+            "placeholder": "ID de oportunidad de Apollo",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar oportunidad (<code>apollo_opportunity_update</code>)</div>
+
+Actualiza una oportunidad o negocio existente en tu base de datos de Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `opportunity_id` | string | Sí | ID de la oportunidad que se va a actualizar |
+| `name` | string | No | Nombre de la oportunidad/negocio |
+| `amount` | number | No | Valor monetario de la oportunidad |
+| `stage_id` | string | No | ID de la etapa del negocio |
+| `owner_id` | string | No | ID de usuario del propietario de la oportunidad |
+| `close_date` | string | No | Fecha de cierre prevista \(formato ISO 8601\) |
+| `description` | string | No | Descripción o notas sobre la oportunidad |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `opportunity` | json | Datos actualizados de la oportunidad desde Apollo |
+| `metadata` | json | Metadatos de la actualización, incluido el estado actualizado |
+
+</div>
+
+---
+
+### Buscar secuencias
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "sequence_search",
+            "options": [
+                {
+                    "id": "people_search",
+                    "label": "Buscar personas"
+                },
+                {
+                    "id": "people_enrich",
+                    "label": "Enriquecer persona"
+                },
+                {
+                    "id": "people_bulk_enrich",
+                    "label": "Enriquecer personas en lote"
+                },
+                {
+                    "id": "organization_search",
+                    "label": "Buscar organizaciones"
+                },
+                {
+                    "id": "organization_enrich",
+                    "label": "Enriquecer organización"
+                },
+                {
+                    "id": "organization_bulk_enrich",
+                    "label": "Enriquecer organizaciones en lote"
+                },
+                {
+                    "id": "contact_create",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "contact_update",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "contact_search",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "contact_bulk_create",
+                    "label": "Crear contactos en lote"
+                },
+                {
+                    "id": "contact_bulk_update",
+                    "label": "Actualizar contactos en lote"
+                },
+                {
+                    "id": "account_create",
+                    "label": "Crear cuenta"
+                },
+                {
+                    "id": "account_update",
+                    "label": "Actualizar cuenta"
+                },
+                {
+                    "id": "account_search",
+                    "label": "Buscar cuentas"
+                },
+                {
+                    "id": "account_bulk_create",
+                    "label": "Crear cuentas en lote"
+                },
+                {
+                    "id": "account_bulk_update",
+                    "label": "Actualizar cuentas en lote"
+                },
+                {
+                    "id": "opportunity_create",
+                    "label": "Crear oportunidad"
+                },
+                {
+                    "id": "opportunity_search",
+                    "label": "Buscar oportunidades"
+                },
+                {
+                    "id": "opportunity_get",
+                    "label": "Obtener oportunidad"
+                },
+                {
+                    "id": "opportunity_update",
+                    "label": "Actualizar oportunidad"
+                },
+                {
+                    "id": "sequence_search",
+                    "label": "Buscar secuencias"
+                },
+                {
+                    "id": "sequence_add",
+                    "label": "Añadir a secuencia"
+                },
+                {
+                    "id": "task_create",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "task_search",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "email_accounts",
+                    "label": "Obtener cuentas de correo"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Apollo",
+            "placeholder": "Introduce tu clave de API de Apollo",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "q_name",
+            "type": "short-input",
+            "title": "Nombre de la secuencia",
+            "placeholder": "Buscar por nombre de secuencia"
+        },
+        {
+            "id": "active",
+            "type": "switch",
+            "title": "Solo activos"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Número de página",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "Resultados por página",
+            "placeholder": "25 (máx.: 100)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar secuencias (<code>apollo_sequence_search</code>)</div>
+
+Buscar secuencias/campañas en la cuenta de Apollo de tu equipo (se requiere clave maestra)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `q_name` | string | No | Buscar secuencias por nombre |
+| `active` | boolean | No | Filtrar por estado activo \(true para secuencias activas, false para inactivas\) |
+| `page` | number | No | Número de página para paginación |
+| `per_page` | number | No | Resultados por página \(máx: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `sequences` | json | Matriz de secuencias/campañas que coinciden con los criterios de búsqueda |
+| `metadata` | json | Información de paginación que incluye page, per_page y total_entries |
+
+</div>
+
+---
+
+### Agregar a secuencia
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "sequence_add",
+            "options": [
+                {
+                    "id": "people_search",
+                    "label": "Buscar personas"
+                },
+                {
+                    "id": "people_enrich",
+                    "label": "Enriquecer persona"
+                },
+                {
+                    "id": "people_bulk_enrich",
+                    "label": "Enriquecer personas en masa"
+                },
+                {
+                    "id": "organization_search",
+                    "label": "Buscar organizaciones"
+                },
+                {
+                    "id": "organization_enrich",
+                    "label": "Enriquecer organización"
+                },
+                {
+                    "id": "organization_bulk_enrich",
+                    "label": "Enriquecer organizaciones en masa"
+                },
+                {
+                    "id": "contact_create",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "contact_update",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "contact_search",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "contact_bulk_create",
+                    "label": "Crear contactos en masa"
+                },
+                {
+                    "id": "contact_bulk_update",
+                    "label": "Actualizar contactos en masa"
+                },
+                {
+                    "id": "account_create",
+                    "label": "Crear cuenta"
+                },
+                {
+                    "id": "account_update",
+                    "label": "Actualizar cuenta"
+                },
+                {
+                    "id": "account_search",
+                    "label": "Buscar cuentas"
+                },
+                {
+                    "id": "account_bulk_create",
+                    "label": "Crear cuentas en masa"
+                },
+                {
+                    "id": "account_bulk_update",
+                    "label": "Actualizar cuentas en masa"
+                },
+                {
+                    "id": "opportunity_create",
+                    "label": "Crear oportunidad"
+                },
+                {
+                    "id": "opportunity_search",
+                    "label": "Buscar oportunidades"
+                },
+                {
+                    "id": "opportunity_get",
+                    "label": "Obtener oportunidad"
+                },
+                {
+                    "id": "opportunity_update",
+                    "label": "Actualizar oportunidad"
+                },
+                {
+                    "id": "sequence_search",
+                    "label": "Buscar secuencias"
+                },
+                {
+                    "id": "sequence_add",
+                    "label": "Agregar a secuencia"
+                },
+                {
+                    "id": "task_create",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "task_search",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "email_accounts",
+                    "label": "Obtener cuentas de correo"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API de Apollo",
+            "placeholder": "Ingresa tu clave API de Apollo",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "sequence_id",
+            "type": "short-input",
+            "title": "ID de secuencia",
+            "placeholder": "ID de secuencia de Apollo",
+            "required": true
+        },
+        {
+            "id": "contact_ids",
+            "type": "code",
+            "title": "IDs de contacto (matriz JSON)",
+            "placeholder": "[\"contact_id_1\", \"contact_id_2\"]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Añadir a secuencia (<code>apollo_sequence_add_contacts</code>)</div>
+
+Añadir contactos a una secuencia de Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `sequence_id` | string | Sí | ID de la secuencia a la que se añadirán contactos |
+| `contact_ids` | array | Sí | Array de IDs de contacto para añadir a la secuencia |
+| `emailer_campaign_id` | string | No | ID de campaña de correo electrónico opcional |
+| `send_email_from_user_id` | string | No | ID de usuario desde el que enviar correos electrónicos |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `contacts_added` | json | Array de IDs de contacto añadidos a la secuencia |
+| `metadata` | json | Metadatos de la secuencia, incluidos sequence_id y el recuento total_added |
+
+</div>
+
+---
+
+### Crear tarea
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "task_create",
+            "options": [
+                {
+                    "id": "people_search",
+                    "label": "Buscar personas"
+                },
+                {
+                    "id": "people_enrich",
+                    "label": "Enriquecer persona"
+                },
+                {
+                    "id": "people_bulk_enrich",
+                    "label": "Enriquecer personas en masa"
+                },
+                {
+                    "id": "organization_search",
+                    "label": "Buscar organizaciones"
+                },
+                {
+                    "id": "organization_enrich",
+                    "label": "Enriquecer organización"
+                },
+                {
+                    "id": "organization_bulk_enrich",
+                    "label": "Enriquecer organizaciones en masa"
+                },
+                {
+                    "id": "contact_create",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "contact_update",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "contact_search",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "contact_bulk_create",
+                    "label": "Crear contactos en masa"
+                },
+                {
+                    "id": "contact_bulk_update",
+                    "label": "Actualizar contactos en masa"
+                },
+                {
+                    "id": "account_create",
+                    "label": "Crear cuenta"
+                },
+                {
+                    "id": "account_update",
+                    "label": "Actualizar cuenta"
+                },
+                {
+                    "id": "account_search",
+                    "label": "Buscar cuentas"
+                },
+                {
+                    "id": "account_bulk_create",
+                    "label": "Crear cuentas en masa"
+                },
+                {
+                    "id": "account_bulk_update",
+                    "label": "Actualizar cuentas en masa"
+                },
+                {
+                    "id": "opportunity_create",
+                    "label": "Crear oportunidad"
+                },
+                {
+                    "id": "opportunity_search",
+                    "label": "Buscar oportunidades"
+                },
+                {
+                    "id": "opportunity_get",
+                    "label": "Obtener oportunidad"
+                },
+                {
+                    "id": "opportunity_update",
+                    "label": "Actualizar oportunidad"
+                },
+                {
+                    "id": "sequence_search",
+                    "label": "Buscar secuencias"
+                },
+                {
+                    "id": "sequence_add",
+                    "label": "Añadir a secuencia"
+                },
+                {
+                    "id": "task_create",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "task_search",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "email_accounts",
+                    "label": "Obtener cuentas de correo electrónico"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Apollo",
+            "placeholder": "Introduce tu clave de API de Apollo",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "account_id",
+            "type": "short-input",
+            "title": "ID de cuenta",
+            "placeholder": "ID de cuenta de Apollo"
+        },
+        {
+            "id": "note",
+            "type": "long-input",
+            "title": "Nota de tarea",
+            "placeholder": "Descripción de la tarea",
+            "required": true
+        },
+        {
+            "id": "due_at",
+            "type": "datetime-input",
+            "title": "Fecha de vencimiento",
+            "placeholder": "Fecha ISO (p. ej., 2024-12-31T23:59:59Z)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear tarea (<code>apollo_task_create</code>)</div>
+
+Crea una nueva tarea en Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `note` | string | Sí | Nota/descripción de la tarea |
+| `contact_id` | string | No | ID del contacto con el que asociar |
+| `account_id` | string | No | ID de la cuenta con la que asociar |
+| `due_at` | string | No | Fecha de vencimiento en formato ISO |
+| `priority` | string | No | Prioridad de la tarea |
+| `type` | string | No | Tipo de tarea |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `task` | json | Datos de la tarea creada desde Apollo |
+| `metadata` | json | Metadatos de creación, incluido el estado de creación |
+
+</div>
+
+---
+
+### Buscar tareas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "task_search",
+            "options": [
+                {
+                    "id": "people_search",
+                    "label": "Buscar personas"
+                },
+                {
+                    "id": "people_enrich",
+                    "label": "Enriquecer persona"
+                },
+                {
+                    "id": "people_bulk_enrich",
+                    "label": "Enriquecer personas en bloque"
+                },
+                {
+                    "id": "organization_search",
+                    "label": "Buscar organizaciones"
+                },
+                {
+                    "id": "organization_enrich",
+                    "label": "Enriquecer organización"
+                },
+                {
+                    "id": "organization_bulk_enrich",
+                    "label": "Enriquecer organizaciones en bloque"
+                },
+                {
+                    "id": "contact_create",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "contact_update",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "contact_search",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "contact_bulk_create",
+                    "label": "Crear contactos en bloque"
+                },
+                {
+                    "id": "contact_bulk_update",
+                    "label": "Actualizar contactos en bloque"
+                },
+                {
+                    "id": "account_create",
+                    "label": "Crear cuenta"
+                },
+                {
+                    "id": "account_update",
+                    "label": "Actualizar cuenta"
+                },
+                {
+                    "id": "account_search",
+                    "label": "Buscar cuentas"
+                },
+                {
+                    "id": "account_bulk_create",
+                    "label": "Crear cuentas en bloque"
+                },
+                {
+                    "id": "account_bulk_update",
+                    "label": "Actualizar cuentas en bloque"
+                },
+                {
+                    "id": "opportunity_create",
+                    "label": "Crear oportunidad"
+                },
+                {
+                    "id": "opportunity_search",
+                    "label": "Buscar oportunidades"
+                },
+                {
+                    "id": "opportunity_get",
+                    "label": "Obtener oportunidad"
+                },
+                {
+                    "id": "opportunity_update",
+                    "label": "Actualizar oportunidad"
+                },
+                {
+                    "id": "sequence_search",
+                    "label": "Buscar secuencias"
+                },
+                {
+                    "id": "sequence_add",
+                    "label": "Añadir a secuencia"
+                },
+                {
+                    "id": "task_create",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "task_search",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "email_accounts",
+                    "label": "Obtener cuentas de correo electrónico"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Apollo",
+            "placeholder": "Introduce tu clave de API de Apollo",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "completed",
+            "type": "switch",
+            "title": "Completado"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Número de página",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "Resultados por página",
+            "placeholder": "25 (máx.: 100)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar tareas (<code>apollo_task_search</code>)</div>
+
+Buscar tareas en Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `contact_id` | string | No | Filtrar por ID de contacto |
+| `account_id` | string | No | Filtrar por ID de cuenta |
+| `completed` | boolean | No | Filtrar por estado de finalización |
+| `page` | number | No | Número de página para la paginación |
+| `per_page` | number | No | Resultados por página \(máx.: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `tasks` | json | Matriz de tareas que coinciden con los criterios de búsqueda |
+| `metadata` | json | Información de paginación, incluidos page, per_page y total_entries |
+
+</div>
+
+---
+
+### Obtener cuentas de correo electrónico
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "email_accounts",
+            "options": [
+                {
+                    "id": "people_search",
+                    "label": "Buscar personas"
+                },
+                {
+                    "id": "people_enrich",
+                    "label": "Enriquecer persona"
+                },
+                {
+                    "id": "people_bulk_enrich",
+                    "label": "Enriquecer personas en masa"
+                },
+                {
+                    "id": "organization_search",
+                    "label": "Buscar organizaciones"
+                },
+                {
+                    "id": "organization_enrich",
+                    "label": "Enriquecer organización"
+                },
+                {
+                    "id": "organization_bulk_enrich",
+                    "label": "Enriquecer organizaciones en masa"
+                },
+                {
+                    "id": "contact_create",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "contact_update",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "contact_search",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "contact_bulk_create",
+                    "label": "Crear contactos en masa"
+                },
+                {
+                    "id": "contact_bulk_update",
+                    "label": "Actualizar contactos en masa"
+                },
+                {
+                    "id": "account_create",
+                    "label": "Crear cuenta"
+                },
+                {
+                    "id": "account_update",
+                    "label": "Actualizar cuenta"
+                },
+                {
+                    "id": "account_search",
+                    "label": "Buscar cuentas"
+                },
+                {
+                    "id": "account_bulk_create",
+                    "label": "Crear cuentas en masa"
+                },
+                {
+                    "id": "account_bulk_update",
+                    "label": "Actualizar cuentas en masa"
+                },
+                {
+                    "id": "opportunity_create",
+                    "label": "Crear oportunidad"
+                },
+                {
+                    "id": "opportunity_search",
+                    "label": "Buscar oportunidades"
+                },
+                {
+                    "id": "opportunity_get",
+                    "label": "Obtener oportunidad"
+                },
+                {
+                    "id": "opportunity_update",
+                    "label": "Actualizar oportunidad"
+                },
+                {
+                    "id": "sequence_search",
+                    "label": "Buscar secuencias"
+                },
+                {
+                    "id": "sequence_add",
+                    "label": "Añadir a secuencia"
+                },
+                {
+                    "id": "task_create",
+                    "label": "Crear tarea"
+                },
+                {
+                    "id": "task_search",
+                    "label": "Buscar tareas"
+                },
+                {
+                    "id": "email_accounts",
+                    "label": "Obtener cuentas de correo electrónico"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Apollo",
+            "placeholder": "Introduce tu clave de API de Apollo",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener cuentas de correo electrónico (<code>apollo_email_accounts</code>)</div>
+
+Obtener la lista de las cuentas de correo electrónico vinculadas del equipo en Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+Esta operación no tiene parámetros directos.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `email_accounts` | json | Matriz de cuentas de correo electrónico del equipo vinculadas en Apollo |
+| `metadata` | json | Metadatos que incluyen el recuento total de cuentas de correo electrónico |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Apollo.io en el flujo de trabajo. Busca personas y empresas, enriquece los datos de contacto, gestiona tus contactos y cuentas del CRM, agrega contactos a secuencias y crea tareas.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `apollo`

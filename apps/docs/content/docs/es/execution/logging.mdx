@@ -1,0 +1,104 @@
+---
+title: Registro
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+
+TradingGoose ofrece un registro completo de todas las ejecuciones de workflow, lo que te da visibilidad total de cómo se ejecutan tus workflows, qué datos fluyen por ellos y dónde pueden surgir problemas.
+
+## Sistema de registro
+
+TradingGoose ofrece dos interfaces de registro complementarias para adaptarse a distintos workflows y casos de uso:
+
+### Consola en tiempo real
+
+Durante la ejecución manual o desde el chat del workspace, los registros aparecen en un widget [Workflow Console](/widgets/workflow-console) configurado para el mismo workflow. Puedes colocar y redimensionar ese widget en cualquier lugar de la disposición de un dashboard.
+
+La consola muestra:
+- Progreso de ejecución de bloques con resaltado del bloque activo
+- Salidas en tiempo real a medida que los bloques finalizan
+- Tiempo de ejecución de cada bloque
+- Indicadores de estado de éxito/error
+
+### Página de registros
+
+Todas las ejecuciones de workflow, ya sea que se activen manualmente o mediante API, Chat, Schedule o Webhook, se registran en la página de registros dedicada:
+
+La página de registros ofrece:
+- Filtrado completo por rango de tiempo, estado, tipo de trigger, carpeta y workflow
+- Función de búsqueda en todos los registros
+- Modo en vivo para actualizaciones en tiempo real
+- Retención de registros según el nivel efectivo del usuario configurado en el workspace o del responsable de facturación de la organización
+
+## Barra lateral de detalles del registro
+
+Al hacer clic en cualquier entrada de registro se abre una vista lateral detallada que muestra la línea de tiempo de la ejecución, los detalles a nivel de bloque y el resumen de costos.
+
+### Entrada/Salida de bloques
+
+Consulta el flujo de datos completo de cada bloque con pestañas para alternar entre:
+
+<Tabs items={['Salida', 'Entrada']}>
+  <Tab>
+    **Pestaña Salida** muestra el resultado de la ejecución del bloque:
+    - Datos estructurados con formato JSON
+    - Representación en Markdown para contenido generado por IA
+    - Botón de copiar para extraer los datos fácilmente
+  </Tab>
+  
+  <Tab>
+    **Pestaña Entrada** muestra lo que se pasó al bloque:
+    - Valores de variables resueltos
+    - Salidas referenciadas de otros bloques
+    - Variables de entorno utilizadas
+    - Los valores con forma de credencial se ocultan en la instantánea congelada del workflow; los demás argumentos y salidas de herramientas registrados también deben tratarse como potencialmente sensibles
+  </Tab>
+</Tabs>
+
+### Cronología de ejecución
+
+Para los logs a nivel de flujo de trabajo, consulta métricas de ejecución detalladas:
+- Marcas de tiempo de inicio y fin
+- Duración total del flujo de trabajo
+- Tiempos de ejecución de cada bloque
+- Identificación de cuellos de botella de rendimiento
+
+## Instantáneas del flujo de trabajo
+
+Para cualquier ejecución registrada, haz clic en "Ver instantánea" para ver el estado exacto del flujo de trabajo en el momento de la ejecución. La instantánea proporciona:
+- Lienzo congelado que muestra la estructura del flujo de trabajo
+- Estados de los bloques y conexiones tal como estaban durante la ejecución
+- Haz clic en cualquier bloque para ver sus entradas y salidas
+- Útil para depurar flujos de trabajo que se han modificado desde entonces
+
+<Callout type="info">
+  Si una instantánea de flujo de trabajo almacenada no está disponible, la vista de instantánea muestra un mensaje "Estado registrado no encontrado".
+</Callout>
+
+## Retención de logs
+
+La retención de logs se configura según el nivel efectivo del propietario de la facturación del espacio de trabajo. Un valor finito de `logRetentionDays` determina cuándo se eliminan los logs antiguos; un nivel sin límite de retención conserva los logs de forma indefinida. Consulta la configuración actual de Suscripción en lugar de basarte en nombres o duraciones de planes fijos.
+
+## Buenas prácticas
+
+### Para el desarrollo
+- Usa la consola en tiempo real para obtener comentarios inmediatos durante las pruebas
+- Revisa las entradas y salidas de los bloques para verificar el flujo de datos
+- Usa las instantáneas del flujo de trabajo para comparar versiones funcionales con versiones con errores
+
+### Para producción
+- Supervisa la página de Logs con regularidad para detectar errores o problemas de rendimiento
+- Configura filtros para centrarte en flujos de trabajo o períodos de tiempo específicos
+- Usa el modo en vivo durante despliegues críticos para observar las ejecuciones en tiempo real
+
+### Para la depuración
+- Revisa siempre la cronología de ejecución para identificar bloques lentos
+- Compara las entradas entre ejecuciones funcionales y fallidas
+- Usa las instantáneas del flujo de trabajo para ver el estado exacto cuando ocurrieron los problemas
+
+## Próximos pasos
+
+- Aprende sobre el [Cálculo de costos](/execution/costs) para entender el precio de los flujos de trabajo
+- Explora la [API externa](/execution/api) para el acceso programático a los registros
+- Configura las [notificaciones de webhook](/execution/api#webhook-subscriptions) para alertas en tiempo real

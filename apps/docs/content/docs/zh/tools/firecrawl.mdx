@@ -1,0 +1,263 @@
+---
+title: Firecrawl
+description: 抓取或搜索网页
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="firecrawl"
+  color="#FA5D19"
+/>
+
+## 配置
+
+### 抓取
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Firecrawl"
+    type="firecrawl"
+    color="#FA5D19"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "scrape",
+            "options": [
+                {
+                    "id": "scrape",
+                    "label": "抓取"
+                },
+                {
+                    "id": "search",
+                    "label": "搜索"
+                },
+                {
+                    "id": "crawl",
+                    "label": "爬取"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入您的 Firecrawl API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "url",
+            "type": "short-input",
+            "title": "网站 URL",
+            "layout": "full",
+            "placeholder": "输入网站 URL",
+            "required": true
+        },
+        {
+            "id": "onlyMainContent",
+            "type": "switch",
+            "title": "仅主要内容",
+            "layout": "half"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">抓取 (<code>firecrawl_scrape</code>)</div>
+
+从网页提取结构化内容，并提供全面的元数据支持。将内容转换为 Markdown 或 HTML，同时捕获 SEO 元数据、Open Graph 标签和页面信息。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `url` | string | 是 | 要抓取内容的 URL |
+| `apiKey` | string | 是 | Firecrawl API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `markdown` | string | Markdown 格式的页面内容 |
+| `html` | string | 页面的原始 HTML 内容 |
+| `metadata` | object | 页面元数据，包括 SEO 和 Open Graph 信息 |
+
+</div>
+
+---
+
+### 搜索
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Firecrawl"
+    type="firecrawl"
+    color="#FA5D19"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "search",
+            "options": [
+                {
+                    "id": "scrape",
+                    "label": "抓取"
+                },
+                {
+                    "id": "search",
+                    "label": "搜索"
+                },
+                {
+                    "id": "crawl",
+                    "label": "爬取"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "请输入您的 Firecrawl API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "搜索查询",
+            "layout": "full",
+            "placeholder": "输入搜索查询",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索 (<code>firecrawl_search</code>)</div>
+
+使用 Firecrawl 搜索网络信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 是否必需 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | 是 | 要使用的搜索查询 |
+| `apiKey` | string | 是 | Firecrawl API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `data` | array | 搜索结果数据 |
+| `warning` | string | 搜索操作中的警告消息 |
+
+</div>
+
+---
+
+### 爬取
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Firecrawl"
+    type="firecrawl"
+    color="#FA5D19"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "crawl",
+            "options": [
+                {
+                    "id": "scrape",
+                    "label": "抓取"
+                },
+                {
+                    "id": "search",
+                    "label": "搜索"
+                },
+                {
+                    "id": "crawl",
+                    "label": "爬取"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "请输入您的 Firecrawl API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "url",
+            "type": "short-input",
+            "title": "网站 URL",
+            "layout": "full",
+            "placeholder": "输入网站 URL",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "页面限制",
+            "layout": "half",
+            "placeholder": "100"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">爬取 (<code>firecrawl_crawl</code>)</div>
+
+爬取整个网站，并从所有可访问页面提取结构化内容
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 是否必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `url` | string | 是 | 要爬取的网站 URL |
+| `limit` | number | 否 | 要爬取的最大页面数 \(默认值：100\) |
+| `onlyMainContent` | boolean | 否 | 仅从页面提取主要内容 |
+| `apiKey` | string | 是 | Firecrawl API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `pages` | array | 抓取页面的数组，包含其内容和元数据 |
+| `total` | number | 抓取期间发现的页面总数 |
+| `creditsUsed` | number | 抓取操作消耗的积分数量 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Firecrawl 集成到工作流中。可以搜索、抓取或爬取网站。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`firecrawl`

@@ -1,0 +1,152 @@
+---
+title: Memoria
+description: Conserva los mensajes de conversación entre ejecuciones del flujo de trabajo
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="memory"
+  color="#F64F9E"
+  icon={true}
+/>
+
+El bloque Memoria almacena y recupera mensajes de conversación que persisten entre ejecuciones del flujo de trabajo. Está diseñado para funcionar junto con los bloques Agent, y les da a tus agentes un contexto conversacional de largo plazo que sobrevive entre ejecuciones.
+
+## Descripción general
+
+<Steps>
+  <Step>
+    <strong>Agregar memoria</strong>: Almacena un mensaje con un rol (user, assistant o system) bajo un ID de memoria con nombre
+  </Step>
+  <Step>
+    <strong>Obtener memoria</strong>: Recupera una entrada de memoria por su ID
+  </Step>
+  <Step>
+    <strong>Obtener todas las memorias</strong>: Recupera todas las memorias almacenadas del flujo de trabajo actual
+  </Step>
+  <Step>
+    <strong>Eliminar memoria</strong>: Elimina una entrada de memoria por su ID
+  </Step>
+</Steps>
+
+## Cómo funciona
+
+Las entradas de memoria se almacenan como mensajes estilo chat con tres campos obligatorios: un **ID** que delimita el alcance de la memoria, un **Role** (`user`, `assistant` o `system`) y el texto de **Content**. Cuando después recuperes memorias y las pases a la entrada Memories de un bloque Agent, el agente las verá como turnos previos de la conversación -- lo que habilita un diálogo de varios turnos entre ejecuciones distintas.
+
+Un flujo de trabajo conversacional típico usa tres bloques Memoria alrededor de un Agent:
+
+1. **Memoria (Add, role: user)** -- guarda el mensaje entrante del usuario antes de que se ejecute el Agent
+2. **Agent** -- procesa el mensaje con las memorias recuperadas como contexto
+3. **Memoria (Add, role: assistant)** -- guarda la respuesta del Agent después de que se ejecute
+
+<Callout type="info">
+  Los ID de memoria delimitan el alcance de la conversación. Usa el mismo ID entre ejecuciones para construir un historial de conversación continuo, o usa ID distintos para mantener hilos separados.
+</Callout>
+
+## Operaciones
+
+<Tabs items={['Agregar memoria', 'Obtener memoria', 'Obtener todas las memorias', 'Eliminar memoria']}>
+  <Tab>
+    Almacena un mensaje nuevo en el almacén de memoria.
+
+    | Campo | Obligatorio | Descripción |
+    |---|---|---|
+    | **ID** | Sí | Identificador de memoria: agrupa los mensajes en una conversación |
+    | **Rol** | Sí | `user`, `assistant` o `system` |
+    | **Contenido** | Sí | Texto del mensaje a almacenar |
+  </Tab>
+  <Tab>
+    Recupera todos los mensajes almacenados bajo un ID de memoria específico.
+
+    | Campo | Obligatorio | Descripción |
+    |---|---|---|
+    | **ID** | Sí | El identificador de memoria que se va a recuperar |
+  </Tab>
+  <Tab>
+    Devuelve todas las entradas de memoria del flujo de trabajo actual. No se requieren campos adicionales.
+  </Tab>
+  <Tab>
+    Elimina una entrada de memoria por ID.
+
+    | Campo | Obligatorio | Descripción |
+    |---|---|---|
+    | **ID** | Sí | El identificador de memoria que se va a eliminar |
+  </Tab>
+</Tabs>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Memoria"
+    type="memory"
+    color="#F64F9E"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "placeholder": "Seleccionar operación",
+            "options": [
+                { "label": "Agregar memoria", "id": "add" },
+                { "label": "Obtener todas las memorias", "id": "getAll" },
+                { "label": "Obtener memoria", "id": "get" },
+                { "label": "Eliminar memoria", "id": "delete" }
+            ]
+        },
+        {
+            "id": "id",
+            "type": "short-input",
+            "title": "ID",
+            "layout": "full",
+            "placeholder": "Ingresa el identificador de memoria",
+            "required": true,
+            "condition": { "field": "operation", "value": "add" }
+        },
+        {
+            "id": "role",
+            "type": "dropdown",
+            "title": "Rol",
+            "layout": "full",
+            "placeholder": "Seleccionar rol del agente",
+            "required": true,
+            "options": [
+                { "label": "Usuario", "id": "user" },
+                { "label": "Asistente", "id": "assistant" },
+                { "label": "Sistema", "id": "system" }
+            ],
+            "condition": { "field": "operation", "value": "add" }
+        },
+        {
+            "id": "content",
+            "type": "short-input",
+            "title": "Contenido",
+            "layout": "full",
+            "placeholder": "Ingresa el contenido del mensaje",
+            "required": true,
+            "condition": { "field": "operation", "value": "add" }
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Salidas
+
+| Salida | Tipo | Descripción |
+|---|---|---|
+| `memories` | json | Los datos de memoria recuperados (arreglo de mensajes) |
+| `id` | string | El identificador de memoria sobre el que se operó |
+
+## Buenas prácticas
+
+- **Usa IDs consistentes** -- el ID de memoria es la clave que agrupa los mensajes en una conversación. Usa un identificador estable (como un ID de usuario o un ID de sesión) para que las memorias se acumulen correctamente entre ejecuciones.
+- **Almacena ambos lados de la conversación** -- agrega un mensaje de rol `user` antes del Agent y un mensaje de rol `assistant` después, para que se conserve el diálogo completo.
+- **Limpia cuando sea necesario** -- usa la operación Delete para borrar conversaciones obsoletas y evitar un crecimiento ilimitado de la memoria.

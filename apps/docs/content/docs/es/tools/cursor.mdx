@@ -1,0 +1,697 @@
+---
+title: Cursor
+description: Inicia y gestiona agentes en la nube de Cursor para trabajar en
+  repositorios de GitHub
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="cursor"
+  color=""
+/>
+
+## Configuración
+
+### Iniciar agente
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Cursor"
+    type="cursor"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "cursor_launch_agent",
+            "options": [
+                {
+                    "id": "cursor_launch_agent",
+                    "label": "Iniciar agente"
+                },
+                {
+                    "id": "cursor_add_followup",
+                    "label": "Añadir seguimiento"
+                },
+                {
+                    "id": "cursor_get_agent",
+                    "label": "Obtener estado del agente"
+                },
+                {
+                    "id": "cursor_get_conversation",
+                    "label": "Obtener conversación"
+                },
+                {
+                    "id": "cursor_list_agents",
+                    "label": "Listar agentes"
+                },
+                {
+                    "id": "cursor_stop_agent",
+                    "label": "Detener agente"
+                },
+                {
+                    "id": "cursor_delete_agent",
+                    "label": "Eliminar agente"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce la clave de API de Cursor",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "repository",
+            "type": "short-input",
+            "title": "URL del repositorio",
+            "placeholder": "https://github.com/your-org/your-repo",
+            "required": true
+        },
+        {
+            "id": "ref",
+            "type": "short-input",
+            "title": "Rama/Ref",
+            "placeholder": "main (opcional)"
+        },
+        {
+            "id": "promptText",
+            "type": "long-input",
+            "title": "Prompt",
+            "placeholder": "Describe la tarea para el agente...",
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "short-input",
+            "title": "Modelo",
+            "placeholder": "Selección automática por defecto"
+        },
+        {
+            "id": "branchName",
+            "type": "short-input",
+            "title": "Nombre de la rama",
+            "placeholder": "Nombre de rama personalizado (opcional)"
+        },
+        {
+            "id": "autoCreatePr",
+            "type": "switch",
+            "title": "Crear PR automáticamente"
+        },
+        {
+            "id": "openAsCursorGithubApp",
+            "type": "switch",
+            "title": "Abrir como aplicación de GitHub de Cursor"
+        },
+        {
+            "id": "skipReviewerRequest",
+            "type": "switch",
+            "title": "Omitir solicitud de revisor"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Iniciar agente (<code>cursor_launch_agent</code>)</div>
+
+Inicia un nuevo agente en la nube para trabajar en un repositorio de GitHub con las instrucciones proporcionadas.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Cursor |
+| `repository` | string | Sí | URL del repositorio de GitHub \(p. ej., https://github.com/your-org/your-repo\) |
+| `ref` | string | No | Rama, etiqueta o commit desde el que trabajar \(por defecto, la rama predeterminada\) |
+| `promptText` | string | Sí | El texto de instrucción para el agente |
+| `promptImages` | string | No | Array JSON de objetos de imagen con datos base64 y dimensiones |
+| `model` | string | No | Modelo a usar \(dejar vacío para selección automática\) |
+| `branchName` | string | No | Nombre de rama personalizado para que lo use el agente |
+| `autoCreatePr` | boolean | No | Crear automáticamente un PR cuando el agente termine |
+| `openAsCursorGithubApp` | boolean | No | Abrir el PR como la app de GitHub de Cursor |
+| `skipReviewerRequest` | boolean | No | Omitir la solicitud de revisores en el PR |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Mensaje de éxito con los detalles del agente |
+| `metadata` | object | Metadatos del resultado del lanzamiento |
+
+</div>
+
+---
+
+### Añadir seguimiento
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Cursor"
+    type="cursor"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "cursor_add_followup",
+            "options": [
+                {
+                    "id": "cursor_launch_agent",
+                    "label": "Lanzar agente"
+                },
+                {
+                    "id": "cursor_add_followup",
+                    "label": "Añadir seguimiento"
+                },
+                {
+                    "id": "cursor_get_agent",
+                    "label": "Obtener estado del agente"
+                },
+                {
+                    "id": "cursor_get_conversation",
+                    "label": "Obtener conversación"
+                },
+                {
+                    "id": "cursor_list_agents",
+                    "label": "Listar agentes"
+                },
+                {
+                    "id": "cursor_stop_agent",
+                    "label": "Detener agente"
+                },
+                {
+                    "id": "cursor_delete_agent",
+                    "label": "Eliminar agente"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce la clave de API de Cursor",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "agentId",
+            "type": "short-input",
+            "title": "ID del agente",
+            "placeholder": "p. ej., bc_abc123",
+            "required": true
+        },
+        {
+            "id": "followupPromptText",
+            "type": "long-input",
+            "title": "Prompt de seguimiento",
+            "placeholder": "Instrucciones adicionales para el agente...",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Agregar seguimiento (<code>cursor_add_followup</code>)</div>
+
+Agrega una instrucción de seguimiento a un agente en la nube existente.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Cursor |
+| `agentId` | string | Sí | Identificador único del agente en la nube \(p. ej., bc_abc123\) |
+| `followupPromptText` | string | Sí | Texto de la instrucción de seguimiento para el agente |
+| `promptImages` | string | No | Arreglo JSON de objetos de imagen con datos en base64 y dimensiones \(máx. 5\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Mensaje de éxito |
+| `metadata` | object | Metadatos del resultado |
+
+</div>
+
+---
+
+### Obtener estado del agente
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Cursor"
+    type="cursor"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "cursor_get_agent",
+            "options": [
+                {
+                    "id": "cursor_launch_agent",
+                    "label": "Iniciar agente"
+                },
+                {
+                    "id": "cursor_add_followup",
+                    "label": "Agregar seguimiento"
+                },
+                {
+                    "id": "cursor_get_agent",
+                    "label": "Obtener estado del agente"
+                },
+                {
+                    "id": "cursor_get_conversation",
+                    "label": "Obtener conversación"
+                },
+                {
+                    "id": "cursor_list_agents",
+                    "label": "Listar agentes"
+                },
+                {
+                    "id": "cursor_stop_agent",
+                    "label": "Detener agente"
+                },
+                {
+                    "id": "cursor_delete_agent",
+                    "label": "Eliminar agente"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingresa la clave de API de Cursor",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "agentId",
+            "type": "short-input",
+            "title": "ID del agente",
+            "placeholder": "p. ej., bc_abc123",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener estado del agente (<code>cursor_get_agent</code>)</div>
+
+Recuperar el estado actual y los resultados de un agente en la nube.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Cursor |
+| `agentId` | string | Sí | Identificador único para el agente en la nube \(p. ej., bc_abc123\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Detalles del agente legibles por humanos |
+| `metadata` | object | Metadatos del agente |
+
+</div>
+
+---
+
+### Obtener conversación
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Cursor"
+    type="cursor"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "cursor_get_conversation",
+            "options": [
+                {
+                    "id": "cursor_launch_agent",
+                    "label": "Iniciar agente"
+                },
+                {
+                    "id": "cursor_add_followup",
+                    "label": "Añadir seguimiento"
+                },
+                {
+                    "id": "cursor_get_agent",
+                    "label": "Obtener estado del agente"
+                },
+                {
+                    "id": "cursor_get_conversation",
+                    "label": "Obtener conversación"
+                },
+                {
+                    "id": "cursor_list_agents",
+                    "label": "Listar agentes"
+                },
+                {
+                    "id": "cursor_stop_agent",
+                    "label": "Detener agente"
+                },
+                {
+                    "id": "cursor_delete_agent",
+                    "label": "Eliminar agente"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce la clave de API de Cursor",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "agentId",
+            "type": "short-input",
+            "title": "ID del agente",
+            "placeholder": "p. ej., bc_abc123",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener conversación (<code>cursor_get_conversation</code>)</div>
+
+Recuperar el historial de conversación de un agente en la nube, incluidos todos los prompts del usuario y las respuestas del asistente.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Cursor |
+| `agentId` | string | Sí | Identificador único para el agente en la nube \(p. ej., bc_abc123\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Historial de conversación legible |
+| `metadata` | object | Metadatos de la conversación |
+
+</div>
+
+---
+
+### Listar agentes
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Cursor"
+    type="cursor"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "cursor_list_agents",
+            "options": [
+                {
+                    "id": "cursor_launch_agent",
+                    "label": "Lanzar agente"
+                },
+                {
+                    "id": "cursor_add_followup",
+                    "label": "Agregar seguimiento"
+                },
+                {
+                    "id": "cursor_get_agent",
+                    "label": "Obtener estado del agente"
+                },
+                {
+                    "id": "cursor_get_conversation",
+                    "label": "Obtener conversación"
+                },
+                {
+                    "id": "cursor_list_agents",
+                    "label": "Listar agentes"
+                },
+                {
+                    "id": "cursor_stop_agent",
+                    "label": "Detener agente"
+                },
+                {
+                    "id": "cursor_delete_agent",
+                    "label": "Eliminar agente"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingresar clave de API de Cursor",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "20 (predeterminado, máx. 100)"
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "Cursor de paginación",
+            "placeholder": "Cursor de la respuesta anterior"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar agentes (<code>cursor_list_agents</code>)</div>
+
+Listar todos los agentes en la nube para el usuario autenticado con paginación opcional.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Cursor |
+| `limit` | number | No | Número de agentes a devolver \(predeterminado: 20, máx.: 100\) |
+| `cursor` | string | No | Cursor de paginación de la respuesta anterior |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Lista legible de agentes |
+| `metadata` | object | Metadatos de la lista de agentes |
+
+</div>
+
+---
+
+### Detener agente
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Cursor"
+    type="cursor"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "cursor_stop_agent",
+            "options": [
+                {
+                    "id": "cursor_launch_agent",
+                    "label": "Iniciar agente"
+                },
+                {
+                    "id": "cursor_add_followup",
+                    "label": "Añadir seguimiento"
+                },
+                {
+                    "id": "cursor_get_agent",
+                    "label": "Obtener estado del agente"
+                },
+                {
+                    "id": "cursor_get_conversation",
+                    "label": "Obtener conversación"
+                },
+                {
+                    "id": "cursor_list_agents",
+                    "label": "Listar agentes"
+                },
+                {
+                    "id": "cursor_stop_agent",
+                    "label": "Detener agente"
+                },
+                {
+                    "id": "cursor_delete_agent",
+                    "label": "Eliminar agente"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce la clave de API de Cursor",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "agentId",
+            "type": "short-input",
+            "title": "ID del agente",
+            "placeholder": "p. ej., bc_abc123",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Detener agente (<code>cursor_stop_agent</code>)</div>
+
+Detiene un agente en la nube en ejecución. Pausa el agente sin eliminarlo.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Cursor |
+| `agentId` | string | Sí | Identificador único del agente en la nube \(p. ej., bc_abc123\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Mensaje de éxito |
+| `metadata` | object | Metadatos del resultado |
+
+</div>
+
+---
+
+### Eliminar agente
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Cursor"
+    type="cursor"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "cursor_delete_agent",
+            "options": [
+                {
+                    "id": "cursor_launch_agent",
+                    "label": "Lanzar agente"
+                },
+                {
+                    "id": "cursor_add_followup",
+                    "label": "Añadir seguimiento"
+                },
+                {
+                    "id": "cursor_get_agent",
+                    "label": "Obtener estado del agente"
+                },
+                {
+                    "id": "cursor_get_conversation",
+                    "label": "Obtener conversación"
+                },
+                {
+                    "id": "cursor_list_agents",
+                    "label": "Listar agentes"
+                },
+                {
+                    "id": "cursor_stop_agent",
+                    "label": "Detener agente"
+                },
+                {
+                    "id": "cursor_delete_agent",
+                    "label": "Eliminar agente"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce la clave de API de Cursor",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "agentId",
+            "type": "short-input",
+            "title": "ID del agente",
+            "placeholder": "p. ej., bc_abc123",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar agente (<code>cursor_delete_agent</code>)</div>
+
+Elimina permanentemente un agente en la nube. Esta acción no se puede deshacer.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | ¿Obligatorio? | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Cursor |
+| `agentId` | string | Sí | Identificador único del agente en la nube \(p. ej., bc_abc123\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Mensaje de éxito |
+| `metadata` | object | Metadatos del resultado |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Interactúa con la API de Cursor Cloud Agents para lanzar agentes de IA que pueden trabajar en tus repositorios de GitHub. Admite el lanzamiento de agentes, la incorporación de instrucciones de seguimiento, la consulta del estado, la visualización de conversaciones y la gestión del ciclo de vida de los agentes.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `cursor`

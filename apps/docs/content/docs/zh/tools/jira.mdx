@@ -1,0 +1,374 @@
+---
+title: Jira
+description: 与 Jira 交互
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="jira"
+  color="#2684FF"
+/>
+
+## 配置
+
+### 读取问题
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira"
+    type="jira"
+    color="#2684FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "read",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "读取问题"
+                },
+                {
+                    "id": "update",
+                    "label": "更新问题"
+                },
+                {
+                    "id": "write",
+                    "label": "写入问题"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "layout": "full",
+            "placeholder": "输入 Jira 域名（例如 tradinggoose.atlassian.net）",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira 账户",
+            "layout": "full",
+            "placeholder": "选择 Jira 账户",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "project-selector",
+            "title": "选择项目",
+            "layout": "full",
+            "placeholder": "选择 Jira 项目",
+            "provider": "jira"
+        },
+        {
+            "id": "manualProjectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "layout": "full",
+            "placeholder": "输入 Jira 项目 ID"
+        },
+        {
+            "id": "issueKey",
+            "type": "file-selector",
+            "title": "选择问题",
+            "layout": "full",
+            "placeholder": "选择 Jira 问题",
+            "provider": "jira"
+        },
+        {
+            "id": "manualIssueKey",
+            "type": "short-input",
+            "title": "问题键",
+            "layout": "full",
+            "placeholder": "输入 Jira 问题键"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">读取问题 (<code>jira_retrieve</code>)</div>
+
+获取指定 Jira 问题的详细信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | 是 | 你的 Jira 域名 \(例如 yourcompany.atlassian.net\) |
+| `projectId` | string | 否 | Jira 项目 ID \(可选；检索单个问题时无需填写\)。 |
+| `issueKey` | string | 是 | 要检索的 Jira 问题键 \(例如 PROJ-123\) |
+| `cloudId` | string | 否 | 该实例的 Jira Cloud ID。如果未提供，将使用域名获取。 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作成功状态 |
+| `output` | object | Jira 问题详情，包含问题键、摘要、描述以及创建和更新时间戳 |
+
+</div>
+
+---
+
+### 更新问题
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira"
+    type="jira"
+    color="#2684FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "update",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "读取问题"
+                },
+                {
+                    "id": "update",
+                    "label": "更新问题"
+                },
+                {
+                    "id": "write",
+                    "label": "写入问题"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "layout": "full",
+            "placeholder": "输入 Jira 域名（例如 tradinggoose.atlassian.net）",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira 账户",
+            "layout": "full",
+            "placeholder": "选择 Jira 账户",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "project-selector",
+            "title": "选择项目",
+            "layout": "full",
+            "placeholder": "选择 Jira 项目",
+            "provider": "jira"
+        },
+        {
+            "id": "manualProjectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "layout": "full",
+            "placeholder": "输入 Jira 项目 ID"
+        },
+        {
+            "id": "issueKey",
+            "type": "file-selector",
+            "title": "选择问题",
+            "layout": "full",
+            "placeholder": "选择 Jira 问题",
+            "provider": "jira"
+        },
+        {
+            "id": "manualIssueKey",
+            "type": "short-input",
+            "title": "问题键",
+            "layout": "full",
+            "placeholder": "输入 Jira 问题键"
+        },
+        {
+            "id": "summary",
+            "type": "short-input",
+            "title": "新摘要",
+            "layout": "full",
+            "placeholder": "输入问题的新摘要",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "新描述",
+            "layout": "full",
+            "placeholder": "输入问题的新描述"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新问题（<code>jira_update</code>）</div>
+
+更新 Jira 问题
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | 是 | 您的 Jira 域名 \(例如 yourcompany.atlassian.net\) |
+| `projectId` | string | 否 | 用于更新问题的 Jira 项目 ID。若未提供，将检索所有问题。 |
+| `issueKey` | string | 是 | 要更新的 Jira 问题键 |
+| `summary` | string | 否 | 问题的新摘要 |
+| `description` | string | 否 | 问题的新描述 |
+| `status` | string | 否 | 问题的新状态 |
+| `priority` | string | 否 | 问题的新优先级 |
+| `assignee` | string | 否 | 问题的新经办人 |
+| `cloudId` | string | 否 | 实例的 Jira Cloud ID。若未提供，将使用域名获取。 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `ts` | string | 操作的时间戳 |
+| `issueKey` | string | 更新后的问题键 \(例如 PROJ-123\) |
+| `summary` | string | 更新后的问题摘要 |
+
+</div>
+
+---
+
+### 创建问题
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira"
+    type="jira"
+    color="#2684FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "defaultValue": "write",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "Read Issue"
+                },
+                {
+                    "id": "update",
+                    "label": "Update Issue"
+                },
+                {
+                    "id": "write",
+                    "label": "Write Issue"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "layout": "full",
+            "placeholder": "Enter Jira domain (e.g., tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira Account",
+            "layout": "full",
+            "placeholder": "Select Jira account",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "project-selector",
+            "title": "Select Project",
+            "layout": "full",
+            "placeholder": "Select Jira project",
+            "provider": "jira"
+        },
+        {
+            "id": "manualProjectId",
+            "type": "short-input",
+            "title": "Project ID",
+            "layout": "full",
+            "placeholder": "Enter Jira project ID"
+        },
+        {
+            "id": "summary",
+            "type": "short-input",
+            "title": "New Summary",
+            "layout": "full",
+            "placeholder": "Enter new summary for the issue",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "New Description",
+            "layout": "full",
+            "placeholder": "Enter new description for the issue"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">写入 Issue（<code>jira_write</code>）</div>
+
+写入一个 Jira Issue
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | 是 | 你的 Jira 域名\(例如 yourcompany.atlassian.net\) |
+| `projectId` | string | 是 | Issue 的项目 ID |
+| `summary` | string | 是 | Issue 的摘要 |
+| `description` | string | 否 | Issue 的描述 |
+| `priority` | string | 否 | Issue 的优先级 ID 或名称\(例如 "10000" 或 "High"\) |
+| `assignee` | string | 否 | Issue 的经办人账号 ID |
+| `labels` | array | 否 | Issue 的标签\(标签名称数组\) |
+| `duedate` | string | 否 | Issue 的截止日期\(格式：YYYY-MM-DD\) |
+| `reporter` | string | 否 | Issue 的报告人账号 ID |
+| `environment` | string | 否 | Issue 的环境信息 |
+| `customFieldId` | string | 否 | 自定义字段 ID\(例如 customfield_10001\) |
+| `customFieldValue` | string | 否 | 自定义字段的值 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `ts` | string | 操作的时间戳 |
+| `issueKey` | string | 创建的 Issue 键\(例如 PROJ-123\) |
+| `summary` | string | Issue 摘要 |
+| `url` | string | 所创建 Issue 的 URL |
+| `assigneeId` | string | 被分配用户的账号 ID\(如果已分配\) |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Jira 集成到工作流中。可以读取、写入和更新问题。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`jira`

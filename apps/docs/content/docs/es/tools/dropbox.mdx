@@ -1,0 +1,1147 @@
+---
+title: Dropbox
+description: Sube, descarga, comparte y gestiona archivos en Dropbox
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="dropbox"
+  color="#0061FF"
+/>
+
+## Configuración
+
+### Subir archivo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Dropbox"
+    type="dropbox"
+    color="#0061FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "dropbox_upload",
+            "options": [
+                {
+                    "id": "dropbox_upload",
+                    "label": "Subir archivo"
+                },
+                {
+                    "id": "dropbox_download",
+                    "label": "Descargar archivo"
+                },
+                {
+                    "id": "dropbox_list_folder",
+                    "label": "Listar carpeta"
+                },
+                {
+                    "id": "dropbox_create_folder",
+                    "label": "Crear carpeta"
+                },
+                {
+                    "id": "dropbox_delete",
+                    "label": "Eliminar archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_copy",
+                    "label": "Copiar archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_move",
+                    "label": "Mover archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_get_metadata",
+                    "label": "Obtener metadatos"
+                },
+                {
+                    "id": "dropbox_create_shared_link",
+                    "label": "Crear enlace compartido"
+                },
+                {
+                    "id": "dropbox_search",
+                    "label": "Buscar archivos"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Dropbox",
+            "placeholder": "Seleccionar cuenta de Dropbox",
+            "provider": "dropbox",
+            "required": true
+        },
+        {
+            "id": "path",
+            "type": "short-input",
+            "title": "Ruta de destino",
+            "placeholder": "/folder/document.pdf",
+            "required": true
+        },
+        {
+            "id": "fileContent",
+            "type": "long-input",
+            "title": "Contenido del archivo",
+            "placeholder": "Contenido del archivo codificado en Base64 o referencia del archivo",
+            "required": true
+        },
+        {
+            "id": "mode",
+            "type": "dropdown",
+            "title": "Modo de escritura",
+            "defaultValue": "add",
+            "options": [
+                {
+                    "id": "add",
+                    "label": "Agregar (crear nuevo)"
+                },
+                {
+                    "id": "overwrite",
+                    "label": "Sobrescribir (reemplazar existente)"
+                }
+            ]
+        },
+        {
+            "id": "autorename",
+            "type": "switch",
+            "title": "Renombrar automáticamente en caso de conflicto"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Subir archivo (<code>dropbox_upload</code>)</div>
+
+Sube un archivo a Dropbox
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `path` | string | Sí | La ruta en Dropbox donde se debe guardar el archivo \(p. ej., /folder/document.pdf\) |
+| `fileContent` | string | Sí | El contenido del archivo que se va a subir, codificado en base64 |
+| `fileName` | string | No | Nombre de archivo opcional \(se usa si la ruta es una carpeta\) |
+| `mode` | string | No | Modo de escritura: add \(predeterminado\) u overwrite |
+| `autorename` | boolean | No | Si es true, renombra el archivo si hay un conflicto |
+| `mute` | boolean | No | Si es true, no notifica al usuario sobre esta carga |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `file` | object | Los metadatos del archivo subido |
+
+</div>
+
+---
+
+### Descargar archivo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Dropbox"
+    type="dropbox"
+    color="#0061FF"
+    hideHeader
+    subBlocks={[
+        {
+          "id": "operation",
+          "type": "dropdown",
+          "title": "Operación",
+          "defaultValue": "dropbox_download",
+          "options": [
+                {
+                  "id": "dropbox_upload",
+                  "label": "Subir archivo"
+                },
+                {
+                  "id": "dropbox_download",
+                  "label": "Descargar archivo"
+                },
+                {
+                  "id": "dropbox_list_folder",
+                  "label": "Listar carpeta"
+                },
+                {
+                  "id": "dropbox_create_folder",
+                  "label": "Crear carpeta"
+                },
+                {
+                  "id": "dropbox_delete",
+                  "label": "Eliminar archivo/carpeta"
+                },
+                {
+                  "id": "dropbox_copy",
+                  "label": "Copiar archivo/carpeta"
+                },
+                {
+                  "id": "dropbox_move",
+                  "label": "Mover archivo/carpeta"
+                },
+                {
+                  "id": "dropbox_get_metadata",
+                  "label": "Obtener metadatos"
+                },
+                {
+                  "id": "dropbox_create_shared_link",
+                  "label": "Crear enlace compartido"
+                },
+                {
+                  "id": "dropbox_search",
+                  "label": "Buscar archivos"
+                }
+            ]
+        },
+        {
+          "id": "credential",
+          "type": "oauth-input",
+          "title": "Cuenta de Dropbox",
+          "placeholder": "Seleccionar cuenta de Dropbox",
+          "provider": "dropbox",
+          "required": true
+        },
+        {
+          "id": "path",
+          "type": "short-input",
+          "title": "Ruta del archivo",
+          "placeholder": "/folder/document.pdf",
+          "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Descargar archivo (<code>dropbox_download</code>)</div>
+
+Descarga un archivo de Dropbox y obtén un enlace temporal
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `path` | string | Sí | La ruta del archivo que se va a descargar \(p. ej., /folder/document.pdf\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `file` | object | Los metadatos del archivo |
+| `temporaryLink` | string | Enlace temporal para descargar el archivo \(válido durante ~4 horas\) |
+| `content` | string | Contenido del archivo codificado en Base64 \(si se obtuvo\) |
+
+</div>
+
+---
+
+### Listar carpeta
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Dropbox"
+    type="dropbox"
+    color="#0061FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "dropbox_list_folder",
+            "options": [
+                {
+                    "id": "dropbox_upload",
+                    "label": "Subir archivo"
+                },
+                {
+                    "id": "dropbox_download",
+                    "label": "Descargar archivo"
+                },
+                {
+                    "id": "dropbox_list_folder",
+                    "label": "Listar carpeta"
+                },
+                {
+                    "id": "dropbox_create_folder",
+                    "label": "Crear carpeta"
+                },
+                {
+                    "id": "dropbox_delete",
+                    "label": "Eliminar archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_copy",
+                    "label": "Copiar archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_move",
+                    "label": "Mover archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_get_metadata",
+                    "label": "Obtener metadatos"
+                },
+                {
+                    "id": "dropbox_create_shared_link",
+                    "label": "Crear enlace compartido"
+                },
+                {
+                    "id": "dropbox_search",
+                    "label": "Buscar archivos"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Dropbox",
+            "placeholder": "Selecciona una cuenta de Dropbox",
+            "provider": "dropbox",
+            "required": true
+        },
+        {
+            "id": "path",
+            "type": "short-input",
+            "title": "Ruta de la carpeta",
+            "placeholder": "/ (raíz) o /carpeta",
+            "required": true
+        },
+        {
+            "id": "recursive",
+            "type": "switch",
+            "title": "Listar recursivamente"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Máximo de resultados",
+            "placeholder": "500"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar carpeta (<code>dropbox_list_folder</code>)</div>
+
+Lista el contenido de una carpeta en Dropbox
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `path` | string | Sí | La ruta de la carpeta a listar \(usa "" para la raíz\) |
+| `recursive` | boolean | No | Si es true, lista el contenido recursivamente |
+| `includeDeleted` | boolean | No | Si es true, incluye archivos/carpetas eliminados |
+| `includeMediaInfo` | boolean | No | Si es true, incluye información multimedia de fotos/videos |
+| `limit` | number | No | Número máximo de resultados a devolver \(predeterminado: 500\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `entries` | array | Lista de archivos y carpetas en el directorio |
+| `cursor` | string | Cursor para la paginación |
+| `hasMore` | boolean | Indica si hay más resultados |
+
+</div>
+
+---
+
+### Crear carpeta
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Dropbox"
+    type="dropbox"
+    color="#0061FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "dropbox_create_folder",
+            "options": [
+                {
+                    "id": "dropbox_upload",
+                    "label": "Subir archivo"
+                },
+                {
+                    "id": "dropbox_download",
+                    "label": "Descargar archivo"
+                },
+                {
+                    "id": "dropbox_list_folder",
+                    "label": "Listar carpeta"
+                },
+                {
+                    "id": "dropbox_create_folder",
+                    "label": "Crear carpeta"
+                },
+                {
+                    "id": "dropbox_delete",
+                    "label": "Eliminar archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_copy",
+                    "label": "Copiar archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_move",
+                    "label": "Mover archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_get_metadata",
+                    "label": "Obtener metadatos"
+                },
+                {
+                    "id": "dropbox_create_shared_link",
+                    "label": "Crear enlace compartido"
+                },
+                {
+                    "id": "dropbox_search",
+                    "label": "Buscar archivos"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Dropbox",
+            "placeholder": "Seleccionar cuenta de Dropbox",
+            "provider": "dropbox",
+            "required": true
+        },
+        {
+            "id": "path",
+            "type": "short-input",
+            "title": "Ruta de la carpeta",
+            "placeholder": "/new-folder",
+            "required": true
+        },
+        {
+            "id": "autorename",
+            "type": "switch",
+            "title": "Cambiar nombre automáticamente en caso de conflicto"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear carpeta (<code>dropbox_create_folder</code>)</div>
+
+Crea una nueva carpeta en Dropbox
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `path` | string | Sí | La ruta donde se debe crear la carpeta \(p. ej., /new-folder\) |
+| `autorename` | boolean | No | Si es true, cambia el nombre de la carpeta si hay un conflicto |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `folder` | object | Los metadatos de la carpeta creada |
+
+</div>
+
+---
+
+### Eliminar archivo/carpeta
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Dropbox"
+    type="dropbox"
+    color="#0061FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "dropbox_delete",
+            "options": [
+                {
+                    "id": "dropbox_upload",
+                    "label": "Subir archivo"
+                },
+                {
+                    "id": "dropbox_download",
+                    "label": "Descargar archivo"
+                },
+                {
+                    "id": "dropbox_list_folder",
+                    "label": "Listar carpeta"
+                },
+                {
+                    "id": "dropbox_create_folder",
+                    "label": "Crear carpeta"
+                },
+                {
+                    "id": "dropbox_delete",
+                    "label": "Eliminar archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_copy",
+                    "label": "Copiar archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_move",
+                    "label": "Mover archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_get_metadata",
+                    "label": "Obtener metadatos"
+                },
+                {
+                    "id": "dropbox_create_shared_link",
+                    "label": "Crear enlace compartido"
+                },
+                {
+                    "id": "dropbox_search",
+                    "label": "Buscar archivos"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Dropbox",
+            "placeholder": "Seleccionar cuenta de Dropbox",
+            "provider": "dropbox",
+            "required": true
+        },
+        {
+            "id": "path",
+            "type": "short-input",
+            "title": "Ruta a eliminar",
+            "placeholder": "/folder/file.txt",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar archivo/carpeta (<code>dropbox_delete</code>)</div>
+
+Elimina un archivo o carpeta en Dropbox (se mueve a la papelera)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `path` | string | Sí | La ruta del archivo o carpeta a eliminar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `metadata` | object | Metadatos del elemento eliminado |
+| `deleted` | boolean | Indica si la eliminación se realizó correctamente |
+
+</div>
+
+---
+
+### Copiar archivo/carpeta
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Dropbox"
+    type="dropbox"
+    color="#0061FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "dropbox_copy",
+            "options": [
+                {
+                    "id": "dropbox_upload",
+                    "label": "Subir archivo"
+                },
+                {
+                    "id": "dropbox_download",
+                    "label": "Descargar archivo"
+                },
+                {
+                    "id": "dropbox_list_folder",
+                    "label": "Listar carpeta"
+                },
+                {
+                    "id": "dropbox_create_folder",
+                    "label": "Crear carpeta"
+                },
+                {
+                    "id": "dropbox_delete",
+                    "label": "Eliminar archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_copy",
+                    "label": "Copiar archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_move",
+                    "label": "Mover archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_get_metadata",
+                    "label": "Obtener metadatos"
+                },
+                {
+                    "id": "dropbox_create_shared_link",
+                    "label": "Crear enlace compartido"
+                },
+                {
+                    "id": "dropbox_search",
+                    "label": "Buscar archivos"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Dropbox",
+            "placeholder": "Seleccionar cuenta de Dropbox",
+            "provider": "dropbox",
+            "required": true
+        },
+        {
+            "id": "fromPath",
+            "type": "short-input",
+            "title": "Ruta de origen",
+            "placeholder": "/source/document.pdf",
+            "required": true
+        },
+        {
+            "id": "toPath",
+            "type": "short-input",
+            "title": "Ruta de destino",
+            "placeholder": "/destination/document.pdf",
+            "required": true
+        },
+        {
+            "id": "autorename",
+            "type": "switch",
+            "title": "Renombrar automáticamente en caso de conflicto"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Copiar archivo/carpeta (<code>dropbox_copy</code>)</div>
+
+Copia un archivo o carpeta en Dropbox
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `fromPath` | string | Sí | La ruta de origen del archivo o carpeta que se va a copiar |
+| `toPath` | string | Sí | La ruta de destino del archivo o carpeta copiado |
+| `autorename` | boolean | No | Si es true, renombra el archivo si hay un conflicto en el destino |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `metadata` | object | Metadatos del elemento copiado |
+
+</div>
+
+---
+
+### Mover archivo/carpeta
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Dropbox"
+    type="dropbox"
+    color="#0061FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "dropbox_move",
+            "options": [
+                {
+                    "id": "dropbox_upload",
+                    "label": "Subir archivo"
+                },
+                {
+                    "id": "dropbox_download",
+                    "label": "Descargar archivo"
+                },
+                {
+                    "id": "dropbox_list_folder",
+                    "label": "Listar carpeta"
+                },
+                {
+                    "id": "dropbox_create_folder",
+                    "label": "Crear carpeta"
+                },
+                {
+                    "id": "dropbox_delete",
+                    "label": "Eliminar archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_copy",
+                    "label": "Copiar archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_move",
+                    "label": "Mover archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_get_metadata",
+                    "label": "Obtener metadatos"
+                },
+                {
+                    "id": "dropbox_create_shared_link",
+                    "label": "Crear enlace compartido"
+                },
+                {
+                    "id": "dropbox_search",
+                    "label": "Buscar archivos"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Dropbox",
+            "placeholder": "Seleccionar cuenta de Dropbox",
+            "provider": "dropbox",
+            "required": true
+        },
+        {
+            "id": "fromPath",
+            "type": "short-input",
+            "title": "Ruta de origen",
+            "placeholder": "/old-location/document.pdf",
+            "required": true
+        },
+        {
+            "id": "toPath",
+            "type": "short-input",
+            "title": "Ruta de destino",
+            "placeholder": "/new-location/document.pdf",
+            "required": true
+        },
+        {
+            "id": "autorename",
+            "type": "switch",
+            "title": "Renombrar automáticamente en caso de conflicto"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Mover archivo/carpeta (<code>dropbox_move</code>)</div>
+
+Mueve o renombra un archivo o carpeta en Dropbox
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `fromPath` | string | Sí | La ruta de origen del archivo o carpeta que se va a mover |
+| `toPath` | string | Sí | La ruta de destino del archivo o carpeta movido |
+| `autorename` | boolean | No | Si es true, renombra el archivo si hay un conflicto en el destino |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `metadata` | object | Metadatos del elemento movido |
+
+</div>
+
+---
+
+### Obtener metadatos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Dropbox"
+    type="dropbox"
+    color="#0061FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "dropbox_get_metadata",
+            "options": [
+                {
+                    "id": "dropbox_upload",
+                    "label": "Subir archivo"
+                },
+                {
+                    "id": "dropbox_download",
+                    "label": "Descargar archivo"
+                },
+                {
+                    "id": "dropbox_list_folder",
+                    "label": "Listar carpeta"
+                },
+                {
+                    "id": "dropbox_create_folder",
+                    "label": "Crear carpeta"
+                },
+                {
+                    "id": "dropbox_delete",
+                    "label": "Eliminar archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_copy",
+                    "label": "Copiar archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_move",
+                    "label": "Mover archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_get_metadata",
+                    "label": "Obtener metadatos"
+                },
+                {
+                    "id": "dropbox_create_shared_link",
+                    "label": "Crear enlace compartido"
+                },
+                {
+                    "id": "dropbox_search",
+                    "label": "Buscar archivos"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Dropbox",
+            "placeholder": "Seleccionar cuenta de Dropbox",
+            "provider": "dropbox",
+            "required": true
+        },
+        {
+            "id": "path",
+            "type": "short-input",
+            "title": "Ruta de archivo/carpeta",
+            "placeholder": "/folder/document.pdf",
+            "required": true
+        },
+        {
+            "id": "includeMediaInfo",
+            "type": "switch",
+            "title": "Incluir información multimedia"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener metadatos (<code>dropbox_get_metadata</code>)</div>
+
+Obtener metadatos de un archivo o carpeta en Dropbox
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `path` | string | Sí | La ruta del archivo o carpeta del que se obtienen los metadatos |
+| `includeMediaInfo` | boolean | No | Si es true, incluye información multimedia de fotos y vídeos |
+| `includeDeleted` | boolean | No | Si es true, incluye los archivos eliminados en los resultados |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `metadata` | object | Metadatos del archivo o carpeta |
+
+</div>
+
+---
+
+### Crear enlace compartido
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Dropbox"
+    type="dropbox"
+    color="#0061FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "dropbox_create_shared_link",
+            "options": [
+                {
+                    "id": "dropbox_upload",
+                    "label": "Subir archivo"
+                },
+                {
+                    "id": "dropbox_download",
+                    "label": "Descargar archivo"
+                },
+                {
+                    "id": "dropbox_list_folder",
+                    "label": "Listar carpeta"
+                },
+                {
+                    "id": "dropbox_create_folder",
+                    "label": "Crear carpeta"
+                },
+                {
+                    "id": "dropbox_delete",
+                    "label": "Eliminar archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_copy",
+                    "label": "Copiar archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_move",
+                    "label": "Mover archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_get_metadata",
+                    "label": "Obtener metadatos"
+                },
+                {
+                    "id": "dropbox_create_shared_link",
+                    "label": "Crear enlace compartido"
+                },
+                {
+                    "id": "dropbox_search",
+                    "label": "Buscar archivos"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Dropbox",
+            "placeholder": "Seleccionar cuenta de Dropbox",
+            "provider": "dropbox",
+            "required": true
+        },
+        {
+            "id": "path",
+            "type": "short-input",
+            "title": "Ruta del archivo/carpeta",
+            "placeholder": "/folder/document.pdf",
+            "required": true
+        },
+        {
+            "id": "requestedVisibility",
+            "type": "dropdown",
+            "title": "Visibilidad",
+            "defaultValue": "public",
+            "options": [
+                {
+                    "id": "public",
+                    "label": "Público (cualquiera con el enlace)"
+                },
+                {
+                    "id": "team_only",
+                    "label": "Solo equipo"
+                },
+                {
+                    "id": "password",
+                    "label": "Protegido con contraseña"
+                }
+            ]
+        },
+        {
+            "id": "linkPassword",
+            "type": "short-input",
+            "title": "Contraseña del enlace",
+            "placeholder": "Introduce la contraseña del enlace",
+            "password": true
+        },
+        {
+            "id": "expires",
+            "type": "datetime-input",
+            "title": "Fecha de expiración",
+            "placeholder": "2025-12-31T23:59:59Z"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear enlace compartido (<code>dropbox_create_shared_link</code>)</div>
+
+Crea un enlace compartible para un archivo o carpeta en Dropbox
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `path` | string | Sí | La ruta del archivo o carpeta que se va a compartir |
+| `requestedVisibility` | string | No | Visibilidad: public, team_only o password |
+| `linkPassword` | string | No | Contraseña para el enlace compartido \(solo si la visibilidad es password\) |
+| `expires` | string | No | Fecha de caducidad en formato ISO 8601 \(p. ej., 2025-12-31T23:59:59Z\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `sharedLink` | object | El enlace compartido creado |
+
+</div>
+
+---
+
+### Buscar archivos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Dropbox"
+    type="dropbox"
+    color="#0061FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "dropbox_search",
+            "options": [
+                {
+                    "id": "dropbox_upload",
+                    "label": "Subir archivo"
+                },
+                {
+                    "id": "dropbox_download",
+                    "label": "Descargar archivo"
+                },
+                {
+                    "id": "dropbox_list_folder",
+                    "label": "Listar carpeta"
+                },
+                {
+                    "id": "dropbox_create_folder",
+                    "label": "Crear carpeta"
+                },
+                {
+                    "id": "dropbox_delete",
+                    "label": "Eliminar archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_copy",
+                    "label": "Copiar archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_move",
+                    "label": "Mover archivo/carpeta"
+                },
+                {
+                    "id": "dropbox_get_metadata",
+                    "label": "Obtener metadatos"
+                },
+                {
+                    "id": "dropbox_create_shared_link",
+                    "label": "Crear enlace compartido"
+                },
+                {
+                    "id": "dropbox_search",
+                    "label": "Buscar archivos"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Dropbox",
+            "placeholder": "Seleccionar cuenta de Dropbox",
+            "provider": "dropbox",
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "Consulta de búsqueda",
+            "placeholder": "Introduce el término de búsqueda...",
+            "required": true
+        },
+        {
+            "id": "path",
+            "type": "short-input",
+            "title": "Buscar en carpeta",
+            "placeholder": "/ (buscar todo) o /carpeta"
+        },
+        {
+            "id": "fileExtensions",
+            "type": "short-input",
+            "title": "Extensiones de archivo",
+            "placeholder": "pdf,xlsx,docx (separados por comas)"
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Resultados máximos",
+            "placeholder": "100"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar archivos (<code>dropbox_search</code>)</div>
+
+Buscar archivos y carpetas en Dropbox
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | Sí | La consulta de búsqueda |
+| `path` | string | No | Limitar la búsqueda a una ruta de carpeta específica |
+| `fileExtensions` | string | No | Lista separada por comas de extensiones de archivo por las que filtrar \(p. ej., pdf,xlsx\) |
+| `maxResults` | number | No | Número máximo de resultados a devolver \(predeterminado: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `matches` | array | Resultados de búsqueda |
+| `hasMore` | boolean | Si hay más resultados |
+| `cursor` | string | Cursor para paginación |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Dropbox en tu flujo de trabajo para la gestión, el uso compartido y la colaboración de archivos. Sube archivos, descarga contenido, crea carpetas, gestiona enlaces compartidos y mucho más.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `dropbox`

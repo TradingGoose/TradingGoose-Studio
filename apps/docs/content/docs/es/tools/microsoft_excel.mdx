@@ -1,0 +1,328 @@
+---
+title: Microsoft Excel
+description: Leer, escribir y actualizar datos
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="microsoft_excel"
+  color="#33C481"
+/>
+
+## Configuración
+
+### Leer datos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Microsoft Excel"
+    type="microsoft_excel"
+    color="#33C481"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "read",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "Leer datos"
+                },
+                {
+                    "id": "write",
+                    "label": "Escribir/Actualizar datos"
+                },
+                {
+                    "id": "table_add",
+                    "label": "Agregar a tabla"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "microsoft-excel",
+            "required": true
+        },
+        {
+            "id": "spreadsheetId",
+            "type": "file-selector",
+            "title": "Seleccionar hoja",
+            "layout": "full",
+            "placeholder": "Seleccionar una hoja de cálculo",
+            "provider": "microsoft-excel"
+        },
+        {
+            "id": "manualSpreadsheetId",
+            "type": "short-input",
+            "title": "ID de hoja de cálculo",
+            "layout": "full",
+            "placeholder": "Ingresar ID de hoja de cálculo"
+        },
+        {
+            "id": "range",
+            "type": "short-input",
+            "title": "Rango",
+            "layout": "full",
+            "placeholder": "Nombre de hoja y rango de celdas (p. ej., Hoja1!A1:D10)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Leer datos (<code>microsoft_excel_read</code>)</div>
+
+Leer datos de una hoja de cálculo de Microsoft Excel
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `spreadsheetId` | string | Sí | El ID de la hoja de cálculo a leer |
+| `range` | string | No | El rango de celdas a leer. Acepta "NombreHoja!A1:B2" para rangos explícitos o solo "NombreHoja" para leer el rango usado de esa hoja. Si se omite, lee el rango usado de la primera hoja. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `data` | object | Datos de rango de la hoja de cálculo |
+| `metadata` | object | Metadatos de la hoja de cálculo |
+
+</div>
+
+---
+
+### Escribir/Actualizar datos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Microsoft Excel"
+    type="microsoft_excel"
+    color="#33C481"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "write",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "Leer datos"
+                },
+                {
+                    "id": "write",
+                    "label": "Escribir/Actualizar datos"
+                },
+                {
+                    "id": "table_add",
+                    "label": "Agregar a tabla"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "microsoft-excel",
+            "required": true
+        },
+        {
+            "id": "spreadsheetId",
+            "type": "file-selector",
+            "title": "Seleccionar hoja",
+            "layout": "full",
+            "placeholder": "Seleccionar una hoja de cálculo",
+            "provider": "microsoft-excel"
+        },
+        {
+            "id": "manualSpreadsheetId",
+            "type": "short-input",
+            "title": "ID de hoja de cálculo",
+            "layout": "full",
+            "placeholder": "Ingresar ID de hoja de cálculo"
+        },
+        {
+            "id": "range",
+            "type": "short-input",
+            "title": "Rango",
+            "layout": "full",
+            "placeholder": "Nombre de hoja y rango de celdas (ej., Hoja1!A1:D10)"
+        },
+        {
+            "id": "values",
+            "type": "long-input",
+            "title": "Valores",
+            "layout": "full",
+            "placeholder": "Ingresar valores como un array JSON de arrays (ej., [[\"A1\", \"B1\"], [\"A2\", \"B2\"]]) o un array de objetos (ej., [{\"name\":\"John\", \"age\":30}, {\"name\":\"Jane\", \"age\":25}])",
+            "required": true
+        },
+        {
+            "id": "valueInputOption",
+            "type": "dropdown",
+            "title": "Opción de entrada de valores",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "USER_ENTERED",
+                    "label": "Introducido por el usuario (analizar fórmulas)"
+                },
+                {
+                    "id": "RAW",
+                    "label": "Sin formato (no analizar fórmulas)"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Escribir/Actualizar datos (<code>microsoft_excel_write</code>)</div>
+
+Escribir datos en una hoja de cálculo de Microsoft Excel
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `spreadsheetId` | string | Sí | El ID de la hoja de cálculo en la que se escribirá |
+| `range` | string | No | El rango de celdas en el que se escribirá |
+| `values` | array | Sí | Los datos que se escribirán en la hoja de cálculo |
+| `valueInputOption` | string | No | El formato de los datos a escribir |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `updatedRange` | string | El rango que se actualizó |
+| `updatedRows` | number | Número de filas que se actualizaron |
+| `updatedColumns` | number | Número de columnas que se actualizaron |
+| `updatedCells` | number | Número de celdas que se actualizaron |
+| `metadata` | object | Metadatos de la hoja de cálculo |
+
+</div>
+
+---
+
+### Agregar a tabla
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Microsoft Excel"
+    type="microsoft_excel"
+    color="#33C481"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "table_add",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "Leer datos"
+                },
+                {
+                    "id": "write",
+                    "label": "Escribir/Actualizar datos"
+                },
+                {
+                    "id": "table_add",
+                    "label": "Agregar a tabla"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "microsoft-excel",
+            "required": true
+        },
+        {
+            "id": "spreadsheetId",
+            "type": "file-selector",
+            "title": "Seleccionar hoja",
+            "layout": "full",
+            "placeholder": "Seleccionar una hoja de cálculo",
+            "provider": "microsoft-excel"
+        },
+        {
+            "id": "manualSpreadsheetId",
+            "type": "short-input",
+            "title": "ID de hoja de cálculo",
+            "layout": "full",
+            "placeholder": "Ingresar ID de hoja de cálculo"
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "Nombre de la tabla",
+            "layout": "full",
+            "placeholder": "Nombre de la tabla de Excel",
+            "required": true
+        },
+        {
+            "id": "values",
+            "type": "long-input",
+            "title": "Valores",
+            "layout": "full",
+            "placeholder": "Ingresar valores como un array JSON de arrays (p. ej., [[\"A1\", \"B1\"], [\"A2\", \"B2\"]]) o un array de objetos (p. ej., [{\"name\":\"John\", \"age\":30}, {\"name\":\"Jane\", \"age\":25}])",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Agregar a tabla (<code>microsoft_excel_table_add</code>)</div>
+
+Agregar nuevas filas a una tabla de Microsoft Excel
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `spreadsheetId` | string | Sí | El ID de la hoja de cálculo que contiene la tabla |
+| `tableName` | string | Sí | El nombre de la tabla a la que agregar filas |
+| `values` | array | Sí | Los datos a agregar a la tabla \(arreglo de arreglos o arreglo de objetos\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `index` | number | Índice de la primera fila que se agregó |
+| `values` | array | Arreglo de filas que se agregaron a la tabla |
+| `metadata` | object | Metadatos de la hoja de cálculo |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Microsoft Excel en el workflow. Puede leer, escribir, actualizar y agregar a la tabla.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `microsoft_excel`

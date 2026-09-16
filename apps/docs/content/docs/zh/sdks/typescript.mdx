@@ -1,0 +1,55 @@
+---
+title: TypeScript SDK
+description: 用于 TradingGoose 工作流的 TypeScript 和 JavaScript 客户端
+---
+
+## 开发状态
+
+TypeScript SDK 是面向 Node.js 的仓库内预览版。`tradinggoose-ts-sdk` 目前尚未发布到 npm，因此 `npm install tradinggoose-ts-sdk` 不可用。仓库贡献者可以从 [`packages/ts-sdk`](https://github.com/TradingGoose/TradingGoose-Studio/tree/staging/packages/ts-sdk) 构建该包。
+
+生产环境集成请使用受支持的 [Execution API](/execution/api)。以下示例描述的是从仓库源代码链接的预览包。
+
+## 执行工作流
+
+```typescript
+import { TradingGooseClient } from 'tradinggoose-ts-sdk'
+
+const client = new TradingGooseClient({
+  apiKey: process.env.TRADINGGOOSE_API_KEY!,
+  baseUrl: 'https://www.tradinggoose.ai',
+})
+
+const result = await client.executeWorkflow('workflow-id', {
+  input: { message: 'Analyze this' },
+  timeout: 30000,
+})
+```
+
+`ExecutionOptions` 包含一个对象值的 `input` 和 `timeout`（毫秒，默认 `30000`）。
+
+## 流式传输限制
+
+启用流式传输后，Execution API 会返回 `text/event-stream`。预览版 SDK 未提供流式传输或选定输出选项，因为它没有实现 SSE 读取器。要消费 SSE 并选择流式传输的块输出，请直接使用 [Execution API](/execution/api)。
+
+## 状态与校验
+
+- `getWorkflowStatus(workflowId)` 返回 `WorkflowStatus`。
+- `validateWorkflow(workflowId)` 返回工作流是否已部署。
+- `setApiKey(apiKey)` 和 `setBaseUrl(baseUrl)` 更新客户端配置。
+
+## 重试与限制
+
+`executeWithRetry(workflowId, options, retryOptions)` 仅重试 `RATE_LIMIT_EXCEEDED`。`RetryOptions` 默认为 `maxRetries: 3`、`initialDelay: 1000` 毫秒、`maxDelay: 30000` 毫秒和 `backoffMultiplier: 2`。当前工作流端点不会发出 `Retry-After`，因此客户端使用带 ±25% 抖动的指数退避。提供该响应头的兼容部署会覆盖该延迟。
+
+- `getRateLimitInfo(): RateLimitInfo | null` 通常返回 `null`，因为当前的工作流和使用端点不会发出速率限制响应头。兼容的部署或代理可能提供 `limit`、`remaining`、ISO `reset` 时间戳，以及可选的以毫秒为单位的 `retryAfter`。
+- `getUsageLimits(): Promise<UsageLimits>` 暴露同步和异步的 `isLimited`、`limit`、`remaining` 和 `resetAt`，以及 `authType`；使用情况 `currentPeriodCost`、`limit` 和计费层级摘要对象；存储 `usedBytes`、`limitBytes` 和 `percentUsed`。
+
+## 错误与结果
+
+`TradingGooseError` 保留 API `code` 和 HTTP `status`。客户端使用 `TIMEOUT`、`EXECUTION_ERROR`、`STATUS_ERROR`、`RATE_LIMIT_EXCEEDED` 和 `USAGE_ERROR` 处理自身的失败路径。
+
+对于没有 Response 块的非流式工作流，`executeWorkflow()` 返回 `WorkflowExecutionResult`，包含 `success`、`output`、可选的 `error` 以及可选的计时元数据（`duration`、`startTime` 和 `endTime`）。
+
+带有 Response 块的工作流则返回该块配置的 JSON 主体、HTTP 状态和标头。TypeScript 客户端会解码并返回成功的 JSON 主体，但不会暴露响应标头，并将非 2xx 的自定义状态视为 `TradingGooseError`。将预期的 body 类型作为方法的类型参数传入——例如 `executeWorkflow<MyResponse>('workflow-id')`——或在状态或标头很重要时直接使用 [Execution API](/execution/api)。
+
+有关完整示例和文件上传行为，请参阅 [TypeScript SDK 包 README](https://github.com/TradingGoose/TradingGoose-Studio/blob/staging/packages/ts-sdk/README.md)。
