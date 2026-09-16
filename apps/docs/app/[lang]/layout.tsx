@@ -1,22 +1,13 @@
 import type { ReactNode } from 'react'
 import { Analytics } from '@vercel/analytics/next'
-import { defineI18nUI } from 'fumadocs-ui/i18n'
-import { RootProvider } from 'fumadocs-ui/provider/next'
 import { Geist_Mono, Inter } from 'next/font/google'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
+import { DocsProvider } from '@/components/docs-provider'
 import { DocsLayout } from '@/components/layout/docs'
 import '../global.css'
-import { i18n, isDocsLocale } from '@/lib/i18n'
+import { isDocsLocale } from '@/lib/i18n'
 import { source } from '@/lib/source'
-
-const { provider } = defineI18nUI(i18n, {
-  translations: {
-    en: { displayName: 'English' },
-    es: { displayName: 'Español' },
-    zh: { displayName: '中文' },
-  },
-})
 
 const inter = Inter({
   subsets: ['latin'],
@@ -52,7 +43,7 @@ export default async function Layout({ children, params }: LayoutProps) {
     name: 'TradingGoose Documentation',
     description:
       'Comprehensive documentation for TradingGoose - the visual workflow builder for AI Agent Workflows.',
-    url: 'https://docs.tradinggoose.ai',
+    url: `https://docs.tradinggoose.ai/${locale}`,
     publisher: {
       '@type': 'Organization',
       name: 'TradingGoose',
@@ -67,7 +58,7 @@ export default async function Layout({ children, params }: LayoutProps) {
       '@type': 'SearchAction',
       target: {
         '@type': 'EntryPoint',
-        urlTemplate: 'https://docs.tradinggoose.ai/api/search?q={search_term_string}',
+        urlTemplate: `https://docs.tradinggoose.ai/api/search?locale=${locale}&query={search_term_string}`,
       },
       'query-input': 'required name=search_term_string',
     },
@@ -86,7 +77,7 @@ export default async function Layout({ children, params }: LayoutProps) {
         />
       </head>
       <body className='flex min-h-screen flex-col font-sans'>
-        <RootProvider i18n={provider(locale)}>
+        <DocsProvider locale={locale}>
           <DocsLayout
             tree={tree}
             i18n
@@ -95,7 +86,7 @@ export default async function Layout({ children, params }: LayoutProps) {
             }}
             nav={{
               title: 'Documentation',
-              url: locale === i18n.defaultLanguage ? '/' : `/${locale}`,
+              url: `/${locale}`,
               logo: (
                 <div className='flex h-8 w-8 items-center justify-center rounded-md bg-fd-primary'>
                   <Image
@@ -116,7 +107,7 @@ export default async function Layout({ children, params }: LayoutProps) {
             {children}
           </DocsLayout>
           <Analytics />
-        </RootProvider>
+        </DocsProvider>
       </body>
     </html>
   )

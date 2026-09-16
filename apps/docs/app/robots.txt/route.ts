@@ -85,7 +85,7 @@ Sitemap: ${baseUrl}/sitemap.xml
 #   Individual pages: ${baseUrl}/llms.mdx/[page-path]
 
 # Documentation root:
-# ${baseUrl}`
+# ${baseUrl}/`
 
   return new Response(robotsTxt, {
     headers: {

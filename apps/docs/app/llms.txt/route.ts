@@ -1,32 +1,27 @@
+import type { NextRequest } from 'next/server'
 import { i18n } from '@/lib/i18n'
+import { getRequestLocale } from '@/lib/locale-request'
 import { source } from '@/lib/source'
 
-export const revalidate = false
+export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const baseUrl = 'https://docs.tradinggoose.ai'
-  const alternateLanguages = i18n.languages.filter((lang) => lang !== i18n.defaultLanguage)
+  const locale = getRequestLocale(request, request.nextUrl.searchParams.get('locale'))
+  const headers = {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Content-Language': locale,
+    'Cache-Control': 'private, no-store',
+    Vary: 'Cookie, Accept-Language',
+  }
 
   try {
-    const pages = source.getPages().filter((page) => {
-      if (!page || !page.data || !page.url) return false
-
-      const pathParts = page.url.split('/').filter(Boolean)
-      const hasLangPrefix =
-        typeof pathParts[0] === 'string' &&
-        alternateLanguages.includes(pathParts[0] as (typeof alternateLanguages)[number])
-
-      return !hasLangPrefix
-    })
+    const pages = source.getPages(locale)
 
     const sections: Record<string, Array<{ title: string; url: string; description?: string }>> = {}
 
     pages.forEach((page) => {
-      const pathParts = page.url.split('/').filter(Boolean)
-      const section =
-        pathParts[0] && i18n.languages.includes(pathParts[0] as (typeof i18n.languages)[number])
-          ? pathParts[1] || 'root'
-          : pathParts[0] || 'root'
+      const section = page.slugs[0] || 'root'
 
       if (!sections[section]) {
         sections[section] = []
@@ -47,7 +42,7 @@ TradingGoose is a visual workflow builder for AI applications that lets you buil
 
 ## Documentation Overview
 
-This file provides an overview of our documentation. For full content of all pages, see ${baseUrl}/llms-full.txt
+This file provides an overview of our documentation. For full content of all pages, see ${baseUrl}/llms-full.txt?locale=${locale}
 
 ## Main Sections
 
@@ -63,15 +58,14 @@ ${Object.entries(sections)
 
 ## Additional Resources
 
-- Full documentation content: ${baseUrl}/llms-full.txt
-- Individual page content: ${baseUrl}/llms.mdx/[page-path]
-- API documentation: ${baseUrl}/sdks/
-- Tool integrations: ${baseUrl}/tools/
+- Full documentation content: ${baseUrl}/llms-full.txt?locale=${locale}
+- Individual page content: ${baseUrl}/llms.mdx/${locale}/[page-path]
 
 ## Statistics
 
-- Total pages: ${pages.length} (English only)
-${alternateLanguages.length > 0 ? `- Other languages available at: ${baseUrl}/[lang]/ (${alternateLanguages.join(', ')})` : ''}
+- Total pages: ${pages.length}
+- Content language: ${locale}
+- Languages: ${i18n.languages.join(', ')}
 
 ---
 
@@ -79,13 +73,9 @@ Generated: ${new Date().toISOString()}
 Format: llms.txt v0.1.0
 See: https://llmstxt.org for specification`
 
-    return new Response(manifest, {
-      headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-      },
-    })
+    return new Response(manifest, { headers })
   } catch (error) {
     console.error('Error generating LLM manifest:', error)
-    return new Response('Error generating documentation manifest', { status: 500 })
+    return new Response('Error generating documentation manifest', { status: 500, headers })
   }
 }

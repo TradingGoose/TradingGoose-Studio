@@ -9,8 +9,8 @@ import { StructuredData } from '@/components/structured-data'
 import { AccordionHashSync } from '@/components/ui/accordion-hash-sync'
 import { CodeBlock } from '@/components/ui/code-block'
 import { CopyPageButton } from '@/components/ui/copy-page-button'
-import { type DocsLocale, i18n, isDocsLocale } from '@/lib/i18n'
-import { humanizeSlug, supportedLanguages } from '@/lib/page-tree'
+import { type DocsLocale, getDocsPathname, i18n, isDocsLocale } from '@/lib/i18n'
+import { humanizeSlug } from '@/lib/page-tree'
 import { source } from '@/lib/source'
 
 export default async function Page(props: { params: Promise<{ slug?: string[]; lang: string }> }) {
@@ -21,16 +21,14 @@ export default async function Page(props: { params: Promise<{ slug?: string[]; l
 
   const pageTreeRecord = source.pageTree as Record<DocsLocale, PageTree.Root>
   const pageTree = pageTreeRecord[params.lang]
-  const page =
-    source.getPage(slugSegments, params.lang) ??
-    (slugSegments.length === 0 ? source.getPage(['index'], params.lang) : null)
+  const page = source.getPage(slugSegments, params.lang)
 
   if (!page) notFound()
 
   const MDX = page.data.body
   const neighbours = pageTree ? findNeighbour(pageTree, page.url) : null
 
-  const breadcrumbs = generateBreadcrumbs(page.url, page.data.title, baseUrl)
+  const breadcrumbs = generateBreadcrumbs(page.url, page.data.title, baseUrl, params.lang)
 
   const CustomFooter = () => (
     <div className='mt-12'>
@@ -164,23 +162,23 @@ ${page.data.description || ''}`}
   )
 }
 
-function generateBreadcrumbs(targetUrl: string, pageTitle: string, baseUrl: string) {
+function generateBreadcrumbs(
+  targetUrl: string,
+  pageTitle: string,
+  baseUrl: string,
+  locale: DocsLocale
+) {
   const breadcrumbs: Array<{ name: string; url: string }> = [
     {
-      name: 'Home',
-      url: baseUrl,
+      name: source.getPage([], locale)?.data.title || locale,
+      url: `${baseUrl}/${locale}`,
     },
   ]
 
-  const urlParts = targetUrl.split('/').filter(Boolean)
-  let currentPath = ''
+  const urlParts = getDocsPathname(targetUrl).split('/').filter(Boolean)
+  let currentPath = `/${locale}`
 
   urlParts.forEach((part, index) => {
-    if (index === 0 && supportedLanguages.includes(part as (typeof supportedLanguages)[number])) {
-      currentPath = `/${part}`
-      return
-    }
-
     currentPath += `/${part}`
 
     if (index === urlParts.length - 1) {
@@ -210,28 +208,13 @@ export async function generateMetadata(props: {
   if (!isDocsLocale(params.lang)) notFound()
   const slugSegments = params.slug ?? []
   const baseUrl = 'https://docs.tradinggoose.ai'
-  const defaultDescription =
-    'TradingGoose visual workflow builder documentation for AI applications.'
-
-  const page =
-    source.getPage(slugSegments, params.lang) ??
-    (slugSegments.length === 0 ? source.getPage(['index'], params.lang) : null)
+  const page = source.getPage(slugSegments, params.lang)
   if (!page) notFound()
 
   const fullUrl = `${baseUrl}${page.url}`
-  const canonicalPath = `/${page.slugs.join('/')}`
-  const alternateLanguages = Object.fromEntries(
-    i18n.languages.map((lang) => [
-      lang,
-      lang === i18n.defaultLanguage
-        ? `${baseUrl}${canonicalPath}`
-        : `${baseUrl}/${lang}${canonicalPath}`,
-    ])
-  )
-
   return {
     title: page.data.title,
-    description: page.data.description || defaultDescription,
+    description: page.data.description,
     keywords: [
       'AI workflow builder',
       'visual workflow editor',
@@ -248,16 +231,16 @@ export async function generateMetadata(props: {
     category: 'Developer Tools',
     openGraph: {
       title: page.data.title,
-      description: page.data.description || defaultDescription,
+      description: page.data.description,
       url: fullUrl,
       siteName: 'TradingGoose Documentation',
       type: 'article',
-      locale: 'en_US',
+      locale: { en: 'en_US', es: 'es_ES', zh: 'zh_CN' }[params.lang],
     },
     twitter: {
       card: 'summary',
       title: page.data.title,
-      description: page.data.description || defaultDescription,
+      description: page.data.description,
     },
     robots: {
       index: true,
@@ -270,13 +253,14 @@ export async function generateMetadata(props: {
         'max-snippet': -1,
       },
     },
-    canonical: fullUrl,
     alternates: {
       canonical: fullUrl,
-      languages: {
-        'x-default': `${baseUrl}${canonicalPath}`,
-        ...alternateLanguages,
-      },
+      languages: Object.fromEntries(
+        i18n.languages.flatMap((locale) => {
+          const translation = source.getPage(slugSegments, locale)
+          return translation ? [[locale, `${baseUrl}${translation.url}`]] : []
+        })
+      ),
     },
   }
 }

@@ -8,20 +8,6 @@ const config = {
   outputFileTracingIncludes: {
     '/**': ['./content/**/*'],
   },
-  async redirects() {
-    return [
-      {
-        source: '/',
-        destination: '/index',
-        permanent: false,
-      },
-      {
-        source: '/docs/:path*.mdx',
-        destination: '/llms.mdx/:path*',
-        permanent: true,
-      },
-    ]
-  },
 }
 
 export default withMDX(config)
