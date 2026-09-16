@@ -198,13 +198,13 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 | 参数 | 类型 | 必填 | 描述 |
 | --------- | ---- | -------- | ----------- |
-| `person_titles` | array | 否 | 要搜索的职位名称 \\(例如，\\[\"CEO\", \"销售副总裁\"\\]\\) |
-| `person_locations` | array | 否 | 要搜索的地点 \\(例如，\\[\"旧金山，加州\", \"纽约，纽约州\"\\]\\) |
-| `person_seniorities` | array | 否 | 资历级别 \\(例如，\\[\"高级\", \"高管\", \"经理\"\\]\\) |
+| `person_titles` | array | 否 | 要搜索的职位名称 \(例如，\[\"CEO\", \"销售副总裁\"\]\) |
+| `person_locations` | array | 否 | 要搜索的地点 \(例如，\[\"旧金山，加州\", \"纽约，纽约州\"\]\) |
+| `person_seniorities` | array | 否 | 资历级别 \(例如，\[\"高级\", \"高管\", \"经理\"\]\) |
 | `organization_names` | array | 否 | 要在其中搜索的公司名称 |
 | `q_keywords` | string | 否 | 要搜索的关键词 |
-| `page` | number | 否 | 分页的页码 \\(默认：1\\) |
-| `per_page` | number | 否 | 每页结果数 \\(默认：25，最大：100\\) |
+| `page` | number | 否 | 分页的页码 \(默认：1\) |
+| `per_page` | number | 否 | 每页结果数 \(默认：25，最大：100\) |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
@@ -399,10 +399,10 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 | `last_name` | string | 否 | 此人的姓 |
 | `email` | string | 否 | 此人的电子邮件地址 |
 | `organization_name` | string | 否 | 此人所在公司的名称 |
-| `domain` | string | 否 | 公司域名 \\(例如，apollo.io\\) |
+| `domain` | string | 否 | 公司域名 \(例如，apollo.io\) |
 | `linkedin_url` | string | 否 | LinkedIn 个人资料 URL |
-| `reveal_personal_emails` | boolean | 否 | 显示个人电子邮件地址 \\(消耗积分\\) |
-| `reveal_phone_number` | boolean | 否 | 显示电话号码 \\(消耗积分\\) |
+| `reveal_personal_emails` | boolean | 否 | 显示个人电子邮件地址 \(消耗积分\) |
+| `reveal_phone_number` | boolean | 否 | 显示电话号码 \(消耗积分\) |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
@@ -3278,7 +3278,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     type="apollo"
     color="#EBF212"
     hideHeader
-    subBlocks={}[
+    subBlocks={[
         {
             "id": "operation",
             "type": "dropdown",

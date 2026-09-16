@@ -266,11 +266,11 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 | 参数 | 类型 | 必填 | 说明 |
 | --------- | ---- | -------- | ----------- |
-| `projectApiKey` | string | 是 | PostHog 项目 API 密钥 \（用于事件采集的公开令牌\） |
-| `region` | string | 否 | PostHog 区域：us\（默认\）或 eu |
-| `event` | string | 是 | 要捕获的事件名称\（例如 "page_view"、"button_clicked"\） |
+| `projectApiKey` | string | 是 | PostHog 项目 API 密钥 （用于事件采集的公开令牌） |
+| `region` | string | 否 | PostHog 区域：us（默认）或 eu |
+| `event` | string | 是 | 要捕获的事件名称（例如 "page_view"、"button_clicked"） |
 | `distinctId` | string | 是 | 用户或设备的唯一标识符。可以是用户 ID、设备 ID 或匿名 ID |
-| `properties` | string | 否 | 事件属性的 JSON 字符串\（例如 \{"button_name": "signup", "page": "homepage"\}\） |
+| `properties` | string | 否 | 事件属性的 JSON 字符串（例如 \{"button_name": "signup", "page": "homepage"\}） |
 | `timestamp` | string | 否 | 事件发生时间的 ISO 8601 时间戳。未提供时使用当前时间 |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>

@@ -154,7 +154,7 @@ Buscar y listar todos los dashboards
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --------- | ---- | -------- | ----------- |
 | `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
-| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., [https://your-grafana.com](https://your-grafana.com)) |
 | `organizationId` | string | No | ID de organización para instancias Grafana con varias organizaciones |
 | `query` | string | No | Consulta de búsqueda para filtrar dashboards por título |
 | `tag` | string | No | Filtrar por etiqueta \(separadas por comas si hay varias\) |
@@ -307,7 +307,7 @@ Obtener un dashboard por su UID
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --------- | ---- | -------- | ----------- |
 | `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
-| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., [https://your-grafana.com](https://your-grafana.com)) |
 | `organizationId` | string | No | ID de organización para instancias Grafana con varias organizaciones |
 | `dashboardUid` | string | Sí | UID del dashboard que se va a recuperar |
 
@@ -481,7 +481,7 @@ Crear un dashboard nuevo
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --------- | ---- | -------- | ----------- |
 | `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
-| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., [https://your-grafana.com](https://your-grafana.com)) |
 | `organizationId` | string | No | ID de organización para instancias de Grafana con varias organizaciones |
 | `title` | string | Sí | El título del nuevo dashboard |
 | `folderUid` | string | No | El UID de la carpeta donde crear el dashboard |
@@ -666,7 +666,7 @@ Actualiza un dashboard existente. Obtiene el dashboard actual y fusiona tus camb
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --------- | ---- | -------- | ----------- |
 | `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
-| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., [https://your-grafana.com](https://your-grafana.com)) |
 | `organizationId` | string | No | ID de organización para instancias Grafana con varias organizaciones |
 | `dashboardUid` | string | Sí | UID del dashboard que se va a actualizar |
 | `title` | string | No | Nuevo título del dashboard |
@@ -828,7 +828,7 @@ Elimina un dashboard por su UID
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --------- | ---- | -------- | ----------- |
 | `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
-| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., [https://your-grafana.com](https://your-grafana.com)) |
 | `organizationId` | string | No | ID de organización para instancias Grafana con varias organizaciones |
 | `dashboardUid` | string | Sí | UID del dashboard que se va a eliminar |
 
@@ -972,7 +972,7 @@ Lista todas las reglas de alerta de la instancia de Grafana
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --------- | ---- | -------- | ----------- |
 | `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
-| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., [https://your-grafana.com](https://your-grafana.com)) |
 | `organizationId` | string | No | ID de organización para instancias Grafana con varias organizaciones |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
@@ -1120,7 +1120,7 @@ Obtener una regla de alerta específica por su UID
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --------- | ---- | -------- | ----------- |
 | `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
-| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., [https://your-grafana.com](https://your-grafana.com)) |
 | `organizationId` | string | No | ID de organización para instancias Grafana con varias organizaciones |
 | `alertRuleUid` | string | Sí | UID de la regla de alerta que se va a obtener |
 
@@ -1349,7 +1349,7 @@ Crear una nueva regla de alerta
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --------- | ---- | -------- | ----------- |
 | `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
-| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., [https://your-grafana.com](https://your-grafana.com)) |
 | `organizationId` | string | No | ID de organización para instancias de Grafana con varias organizaciones |
 | `title` | string | Sí | El título de la regla de alerta |
 | `folderUid` | string | Sí | El UID de la carpeta en la que crear la alerta |
@@ -1582,7 +1582,7 @@ Actualiza una regla de alerta existente. Obtiene la regla actual y fusiona tus c
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --------- | ---- | -------- | ----------- |
 | `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
-| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., [https://your-grafana.com](https://your-grafana.com)) |
 | `organizationId` | string | No | ID de organización para instancias de Grafana con varias organizaciones |
 | `alertRuleUid` | string | Sí | El UID de la regla de alerta que se va a actualizar |
 | `title` | string | No | Nuevo título de la regla de alerta |
@@ -1744,7 +1744,7 @@ Elimina una regla de alerta por su UID
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
-| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., [https://your-grafana.com](https://your-grafana.com)) |
 | `organizationId` | string | No | ID de organización para instancias Grafana con varias organizaciones |
 | `alertRuleUid` | string | Sí | El UID de la regla de alerta que se va a eliminar |
 
@@ -1886,7 +1886,7 @@ Listar todos los puntos de contacto de notificación de alertas
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --------- | ---- | -------- | ----------- |
 | `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
-| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., [https://your-grafana.com](https://your-grafana.com)) |
 | `organizationId` | string | No | ID de organización para instancias Grafana con varias organizaciones |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
@@ -2065,7 +2065,7 @@ Crea una anotación en un dashboard o como anotación global
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --------- | ---- | -------- | ----------- |
 | `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
-| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., [https://your-grafana.com](https://your-grafana.com)) |
 | `organizationId` | string | No | ID de organización para instancias de Grafana con varias organizaciones |
 | `text` | string | Sí | El contenido de texto de la anotación |
 | `tags` | string | No | Lista de etiquetas separadas por comas |
@@ -2244,7 +2244,7 @@ Consultar anotaciones por intervalo de tiempo, dashboard o etiquetas
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --------- | ---- | -------- | ----------- |
 | `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
-| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., [https://your-grafana.com](https://your-grafana.com)) |
 | `organizationId` | string | No | ID de organización para instancias de Grafana con varias organizaciones |
 | `from` | number | No | Hora de inicio en milisegundos epoch |
 | `to` | number | No | Hora de fin en milisegundos epoch |
@@ -2424,7 +2424,7 @@ Actualizar una anotación existente
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
-| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., [https://your-grafana.com](https://your-grafana.com)) |
 | `organizationId` | string | No | ID de organización para instancias Grafana con varias organizaciones |
 | `annotationId` | number | Sí | ID de la anotación que se va a actualizar |
 | `text` | string | Sí | Nuevo contenido de texto de la anotación |
@@ -2578,7 +2578,7 @@ Eliminar una anotación por su ID
 | Parámetro | Tipo | Requerido | Descripción |
 | --------- | ---- | -------- | ----------- |
 | `apiKey` | cadena | Sí | Token de cuenta de servicio de Grafana |
-| `baseUrl` | cadena | Sí | URL de la instancia de Grafana \\(p. ej., https://your-grafana.com\\) |
+| `baseUrl` | cadena | Sí | URL de la instancia de Grafana \(p. ej., [https://your-grafana.com](https://your-grafana.com)) |
 | `organizationId` | cadena | No | ID de organización para instancias de Grafana multi-org |
 | `annotationId` | número | Sí | El ID de la anotación a eliminar |
 
@@ -2720,7 +2720,7 @@ Lista todas las fuentes de datos configuradas en Grafana
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --------- | ---- | -------- | ----------- |
 | `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
-| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., [https://your-grafana.com](https://your-grafana.com)) |
 | `organizationId` | string | No | ID de organización para instancias de Grafana con varias organizaciones |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
@@ -2868,7 +2868,7 @@ Obtiene una fuente de datos por su ID o UID
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --------- | ---- | -------- | ----------- |
 | `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
-| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., [https://your-grafana.com](https://your-grafana.com)) |
 | `organizationId` | string | No | ID de organización para instancias de Grafana con varias organizaciones |
 | `dataSourceId` | string | Sí | El ID o UID de la fuente de datos que se desea obtener |
 
@@ -3017,7 +3017,7 @@ Listar todas las carpetas en Grafana
 | Parámetro | Tipo | Requerido | Descripción |
 | --------- | ---- | -------- | ----------- |
 | `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
-| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., [https://your-grafana.com](https://your-grafana.com)) |
 | `organizationId` | string | No | ID de organización para instancias de Grafana con varias organizaciones |
 | `limit` | number | No | Número máximo de carpetas a devolver |
 | `page` | number | No | Número de página para la paginación |
@@ -3173,7 +3173,7 @@ Crear una nueva carpeta en Grafana
 | Parámetro | Tipo | Requerido | Descripción |
 | --------- | ---- | -------- | ----------- |
 | `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
-| `baseUrl` | string | Sí | URL de la instancia de Grafana \(por ejemplo, https://your-grafana.com\) |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(por ejemplo, [https://your-grafana.com](https://your-grafana.com)) |
 | `organizationId` | string | No | ID de organización para instancias de Grafana multi-org |
 | `title` | string | Sí | El título de la nueva carpeta |
 | `uid` | string | No | UID opcional para la carpeta \(generado automáticamente si no se proporciona\) |
