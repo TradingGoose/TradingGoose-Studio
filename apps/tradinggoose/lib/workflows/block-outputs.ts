@@ -138,8 +138,8 @@ export function getBlockOutputPaths(
     for (const [key, value] of Object.entries(obj)) {
       const path = prefix ? `${prefix}.${key}` : key
 
-      // If value has 'type' property, it's a leaf node (output definition)
-      if (value && typeof value === 'object' && 'type' in value) {
+      // Typed objects expose both their value and their declared properties.
+      if (value && typeof value === 'object' && typeof value.type === 'string') {
         // Special handling for 'files' type - expand to show array element properties
         if (value.type === 'files') {
           // Show properties without [0] for cleaner display
@@ -153,6 +153,14 @@ export function getBlockOutputPaths(
           paths.push(`${path}.expiresAt`)
         } else {
           paths.push(path)
+          if (
+            value.type === 'object' &&
+            value.properties &&
+            typeof value.properties === 'object' &&
+            !Array.isArray(value.properties)
+          ) {
+            collectPaths(value.properties, path)
+          }
         }
       }
       // If value is an object without 'type', recurse into it
@@ -184,6 +192,7 @@ export function getBlockOutputType(
   const arrayIndexRegex = /\[(\d+)\]/g
   const cleanPath = outputPath.replace(arrayIndexRegex, '')
   const pathParts = cleanPath.split('.').filter(Boolean)
+  if (pathParts.length === 0) return 'any'
 
   const filePropertyTypes: Record<string, string> = {
     url: 'string',
@@ -195,31 +204,26 @@ export function getBlockOutputType(
     expiresAt: 'string',
   }
 
-  const lastPart = pathParts[pathParts.length - 1]
-  if (lastPart && filePropertyTypes[lastPart]) {
-    const parentPath = pathParts.slice(0, -1).join('.')
-    let current: any = outputs
-    for (const part of pathParts.slice(0, -1)) {
-      if (!current || typeof current !== 'object') break
-      current = current[part]
-    }
-    if (current && typeof current === 'object' && 'type' in current && current.type === 'files') {
-      return filePropertyTypes[lastPart]
-    }
-  }
+  let current: any = outputs[pathParts[0]]
 
-  let current: any = outputs
-
-  for (const part of pathParts) {
+  for (let index = 1; index < pathParts.length; index++) {
+    const part = pathParts[index]
     if (!current || typeof current !== 'object') {
       return 'any'
     }
-    current = current[part]
+    if (typeof current.type === 'string') {
+      if (current.type === 'files' && index === pathParts.length - 1) {
+        return Object.hasOwn(filePropertyTypes, part) ? filePropertyTypes[part] : 'any'
+      }
+      current = current.type === 'object' ? current.properties?.[part] : undefined
+    } else {
+      current = current[part]
+    }
   }
 
   if (!current) return 'any'
 
-  if (typeof current === 'object' && 'type' in current) {
+  if (typeof current === 'object' && typeof current.type === 'string') {
     return current.type
   }
 

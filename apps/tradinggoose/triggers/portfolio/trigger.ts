@@ -1,6 +1,7 @@
+import type { OutputProperty } from '@/tools/types'
 import type { TriggerConfig } from '@/triggers/types'
 
-export const portfolioStateTrigger: TriggerConfig = {
+export const portfolioStateTrigger = {
   id: 'portfolio_state_trigger',
   name: 'Portfolio State Trigger',
   webhookProvider: 'portfolio',
@@ -35,19 +36,23 @@ export const portfolioStateTrigger: TriggerConfig = {
     portfolio: {
       type: 'object',
       description: 'Monitored portfolio identity and the detail snapshot that matched.',
-      identity: { type: 'object', description: 'Trading portfolio identity.' },
-      detail: { type: 'object', description: 'Portfolio detail snapshot.' },
+      properties: {
+        identity: { type: 'object', description: 'Trading portfolio identity.' },
+        detail: { type: 'object', description: 'Portfolio detail snapshot.' },
+      },
     },
     monitor: {
       type: 'object',
       description: 'Identifiers for the monitor, target workflow, provider, service, and account.',
-      id: { type: 'string', description: 'Portfolio monitor ID.' },
-      workflowId: { type: 'string', description: 'Target workflow ID.' },
-      blockId: { type: 'string', description: 'Target trigger block ID.' },
-      providerId: { type: 'string', description: 'Trading provider ID.' },
-      serviceId: { type: 'string', description: 'Connected trading service ID.' },
-      accountId: { type: 'string', description: 'Monitored broker account ID.' },
+      properties: {
+        id: { type: 'string', description: 'Portfolio monitor ID.' },
+        workflowId: { type: 'string', description: 'Target workflow ID.' },
+        blockId: { type: 'string', description: 'Target trigger block ID.' },
+        providerId: { type: 'string', description: 'Trading provider ID.' },
+        serviceId: { type: 'string', description: 'Connected trading service ID.' },
+        accountId: { type: 'string', description: 'Monitored broker account ID.' },
+      },
     },
     condition: { type: 'json', description: 'Matched portfolio fire condition.' },
-  },
-}
+  } satisfies Record<string, OutputProperty>,
+} satisfies TriggerConfig

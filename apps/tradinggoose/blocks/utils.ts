@@ -9,7 +9,10 @@ export function resolveOutputType(
 
   for (const [key, outputType] of Object.entries(outputs)) {
     if (typeof outputType === 'object' && outputType !== null && 'type' in outputType) {
-      resolvedOutputs[key] = outputType.type as BlockOutput
+      resolvedOutputs[key] =
+        outputType.type === 'object' && outputType.properties
+          ? resolveOutputType(outputType.properties)
+          : outputType.type
     } else {
       resolvedOutputs[key] = outputType as BlockOutput
     }
