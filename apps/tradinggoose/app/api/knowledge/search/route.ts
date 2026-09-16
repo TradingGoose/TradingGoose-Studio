@@ -1,9 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
+import { authorizeWorkflowScope } from '@/lib/auth/workflow-scope'
 import { TAG_SLOTS } from '@/lib/knowledge/consts'
 import { getDocumentTagDefinitions } from '@/lib/knowledge/tags/service'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getUserId } from '@/lib/oauth/tokens'
 import { estimateTokenCount } from '@/lib/tokenization/estimators'
 import { generateRequestId } from '@/lib/utils'
 import { checkKnowledgeBaseAccess } from '@/app/api/knowledge/utils'
@@ -40,11 +41,12 @@ const VectorSearchSchema = z
       .default(10)
       .transform((val) => val ?? 10),
     filters: z
-      .record(z.string(), z.string())
+      .record(z.string().trim().min(1), z.string().trim().min(1))
       .optional()
       .nullable()
       .transform((val) => val || undefined), // Allow dynamic filter keys (display names)
   })
+  .strict()
   .refine(
     (data) => {
       // Ensure at least query or filters are provided
@@ -61,15 +63,21 @@ export async function POST(request: NextRequest) {
   const requestId = generateRequestId()
 
   try {
+    const auth = await checkSessionOrInternalAuth(request, { requireWorkflowId: false })
+    if (!auth.success || !auth.userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const body = await request.json()
     const { workflowId, ...searchParams } = body
-
-    const userId = await getUserId(requestId, workflowId)
-
-    if (!userId) {
-      const errorMessage = workflowId ? 'Workflow not found' : 'Unauthorized'
-      const statusCode = workflowId ? 404 : 401
-      return NextResponse.json({ error: errorMessage }, { status: statusCode })
+    const userId = auth.userId
+    let workflowWorkspaceId: string | undefined
+    if (workflowId !== undefined) {
+      if (typeof workflowId !== 'string' || !workflowId.trim()) {
+        return NextResponse.json({ error: 'Invalid workflowId' }, { status: 400 })
+      }
+      const scope = await authorizeWorkflowScope(auth, workflowId, 'read')
+      if (!scope.ok) return NextResponse.json({ error: scope.error }, { status: scope.status })
+      workflowWorkspaceId = scope.workspaceId
     }
 
     try {
@@ -84,43 +92,54 @@ export async function POST(request: NextRequest) {
         knowledgeBaseIds.map((kbId) => checkKnowledgeBaseAccess(kbId, userId))
       )
       const accessibleKnowledgeBases = accessChecks.flatMap((check) =>
-        check.hasAccess ? [check.knowledgeBase] : []
+        check.hasAccess &&
+        (!workflowWorkspaceId || check.knowledgeBase.workspaceId === workflowWorkspaceId)
+          ? [check.knowledgeBase]
+          : []
       )
       const accessibleKbIds = accessibleKnowledgeBases.map((kb) => kb.id)
 
+      if (accessibleKbIds.length !== knowledgeBaseIds.length) {
+        return NextResponse.json(
+          { error: 'Knowledge base not found or access denied' },
+          { status: 404 }
+        )
+      }
+
       // Map display names to tag slots for filtering
       const mappedFilters: Record<string, string> = {}
-      if (validatedData.filters && accessibleKbIds.length > 0) {
+      let tagDefinitions: Awaited<ReturnType<typeof getDocumentTagDefinitions>>[] | undefined
+      if (validatedData.filters) {
         try {
-          // Fetch tag definitions for the first accessible KB (since we're using single KB now)
-          const kbId = accessibleKbIds[0]
-          const tagDefs = await getDocumentTagDefinitions(kbId)
+          tagDefinitions = await Promise.all(accessibleKbIds.map(getDocumentTagDefinitions))
+          const mappings = tagDefinitions.map(
+            (defs) => new Map(defs.map((def) => [def.displayName, def.tagSlot]))
+          )
 
-          logger.debug(`[${requestId}] Found tag definitions:`, tagDefs)
-          logger.debug(`[${requestId}] Original filters:`, validatedData.filters)
-
-          // Create mapping from display name to tag slot
-          const displayNameToSlot: Record<string, string> = {}
-          tagDefs.forEach((def) => {
-            displayNameToSlot[def.displayName] = def.tagSlot
-          })
-
-          // Map the filters and handle OR logic
-          Object.entries(validatedData.filters).forEach(([key, value]) => {
-            if (value) {
-              const tagSlot = displayNameToSlot[key] || key
-
-              // Check if this is an OR filter (contains |OR| separator)
-              if (value.includes('|OR|')) {
-                logger.debug(
-                  `[${requestId}] OR filter detected: "${key}" -> "${tagSlot}" = "${value}"`
-                )
-              }
-
-              mappedFilters[tagSlot] = value
-              logger.debug(`[${requestId}] Mapped filter: "${key}" -> "${tagSlot}" = "${value}"`)
+          for (const [key, value] of Object.entries(validatedData.filters)) {
+            const tagSlot = mappings[0].get(key) || key
+            if (!TAG_SLOTS.includes(tagSlot as (typeof TAG_SLOTS)[number])) {
+              return NextResponse.json({ error: `Unknown knowledge tag: ${key}` }, { status: 400 })
             }
-          })
+            if (mappings.some((mapping) => (mapping.get(key) || key) !== tagSlot)) {
+              return NextResponse.json(
+                {
+                  error: `Tag ${key} maps differently across knowledge bases; search them separately`,
+                },
+                { status: 400 }
+              )
+            }
+            const values = value.split('|OR|').map((entry) => entry.trim())
+            if (values.some((entry) => !entry)) {
+              return NextResponse.json(
+                { error: `Empty value for knowledge tag: ${key}` },
+                { status: 400 }
+              )
+            }
+            mappedFilters[tagSlot] = mappedFilters[tagSlot]
+              ? `${mappedFilters[tagSlot]}|OR|${values.join('|OR|')}`
+              : values.join('|OR|')
+          }
 
           logger.debug(`[${requestId}] Final mapped filters:`, mappedFilters)
         } catch (error) {
@@ -133,13 +152,6 @@ export async function POST(request: NextRequest) {
             { status: 503 }
           )
         }
-      }
-
-      if (accessibleKbIds.length === 0) {
-        return NextResponse.json(
-          { error: 'Knowledge base not found or access denied' },
-          { status: 404 }
-        )
       }
 
       // Generate query embedding only if query is provided
@@ -171,19 +183,9 @@ export async function POST(request: NextRequest) {
         ? generateSearchEmbedding(validatedData.query!, queryEmbeddingModel)
         : Promise.resolve(null)
 
-      // Check if any requested knowledge bases were not accessible
-      const inaccessibleKbIds = knowledgeBaseIds.filter((id) => !accessibleKbIds.includes(id))
-
-      if (inaccessibleKbIds.length > 0) {
-        return NextResponse.json(
-          { error: `Knowledge bases not found or access denied: ${inaccessibleKbIds.join(', ')}` },
-          { status: 404 }
-        )
-      }
-
       let results: SearchResult[]
 
-      const hasFilters = mappedFilters && Object.keys(mappedFilters).length > 0
+      const hasFilters = Object.keys(mappedFilters).length > 0
 
       if (!hasQuery && hasFilters) {
         // Tag-only search without vector similarity
@@ -242,9 +244,9 @@ export async function POST(request: NextRequest) {
 
       // Fetch tag definitions for display name mapping (reuse the same fetch from filtering)
       const tagDefsResults = await Promise.all(
-        accessibleKbIds.map(async (kbId) => {
+        accessibleKbIds.map(async (kbId, index) => {
           try {
-            const tagDefs = await getDocumentTagDefinitions(kbId)
+            const tagDefs = tagDefinitions?.[index] ?? (await getDocumentTagDefinitions(kbId))
             const map: Record<string, string> = {}
             tagDefs.forEach((def) => {
               map[def.tagSlot] = def.displayName
@@ -334,6 +336,9 @@ export async function POST(request: NextRequest) {
       throw validationError
     }
   } catch (error) {
+    if (error instanceof SyntaxError) {
+      return NextResponse.json({ error: 'Invalid request data' }, { status: 400 })
+    }
     return NextResponse.json(
       {
         error: 'Failed to perform vector search',

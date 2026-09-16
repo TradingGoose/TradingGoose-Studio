@@ -6,7 +6,8 @@ import type { ToolConfig } from '@/tools/types'
 export const knowledgeSearchTool: ToolConfig<any, KnowledgeSearchResponse> = {
   id: 'knowledge_search',
   name: 'Knowledge Search',
-  description: 'Search for similar content in a knowledge base using vector similarity',
+  description:
+    'Search a knowledge base by query, text tag equality, or both. Repeated values for one tag use OR; different tags use AND.',
   version: '1.0.0',
 
   params: {
@@ -32,7 +33,8 @@ export const knowledgeSearchTool: ToolConfig<any, KnowledgeSearchResponse> = {
       type: 'array',
       required: false,
       visibility: 'user-or-llm',
-      description: 'Array of tag filters with tagName and tagValue properties',
+      description:
+        'Text-equality filters with tagName and tagValue. Repeated tag names are OR alternatives; different tags are combined with AND.',
       items: {
         type: 'object',
         properties: {
@@ -62,14 +64,13 @@ export const knowledgeSearchTool: ToolConfig<any, KnowledgeSearchResponse> = {
       // Use single knowledge base ID
       const knowledgeBaseIds = [params.knowledgeBaseId]
 
-      // Parse tag filters from various formats (array, JSON string)
-      const structuredFilters = parseTagFilters(params.tagFilters)
+      const filters = parseTagFilters(params.tagFilters)
 
       const requestBody = {
         knowledgeBaseIds,
         query: params.query,
         topK: params.topK ? Math.max(1, Math.min(100, Number(params.topK))) : 10,
-        ...(structuredFilters.length > 0 && { tagFilters: structuredFilters }),
+        ...(Object.keys(filters).length > 0 && { filters }),
         ...(workflowId && { workflowId }),
       }
 
