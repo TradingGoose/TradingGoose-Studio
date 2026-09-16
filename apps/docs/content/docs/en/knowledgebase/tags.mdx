@@ -22,7 +22,7 @@ You can add custom tags to any document in your knowledgebase to organize and ca
 
 The search API accepts document tag filters through its `filters` field, a record of tag names and values. It supports tag-only, vector-only, and combined searches.
 
-**Current block limitation:** The Knowledge block sends `tagFilters` instead of the API's `filters` field. A tag-only block request fails validation; a request with both a query and tags runs without the tag filters. Until this contract is corrected, use the block for query-only search and do not rely on its tag fields to restrict content. The modes below describe API behavior when filters are supplied correctly.
+In Advanced mode, the Knowledge block accepts `tagFilters` rows with `tagName` and `tagValue` and converts them to the API's `filters` map. The block supports text equality only; unknown tags, malformed filters, and unsupported operators are rejected. Query-only, tag-only, and combined searches all use the modes below.
 
 ## Search Modes
 
@@ -72,13 +72,13 @@ When you **provide both tags and a search query**:
 
 ### Knowledge Block Configuration
 1. **Select knowledgebase**: Choose which knowledgebase to search
-2. **Enter query**: Provide a search query while the block's tag-filter limitation remains
+2. **Choose search inputs**: Provide a query, text-equality tag filters in Advanced mode, or both
 3. **Configure results**: Set the number of chunks to retrieve (1-100, default: 10)
 4. **Map results**: Explicitly reference the returned chunks in downstream inputs or prompts
 5. **Test search**: Inspect the results before relying on them
 
 ### Dynamic Tag Usage
-- **Variable tags**: An API client can supply dynamically resolved tag values through `filters`; the Knowledge block limitation above still applies
+- **Variable tags**: Use workflow references in the block's tag values; direct API clients send the resolved values through `filters`
 - **Conditional filtering**: Apply different tags based on workflow logic
 - **Context-aware search**: Adjust tags based on conversation context
 - **Multi-step filtering**: Refine searches through workflow steps
@@ -92,7 +92,7 @@ When you **provide both tags and a search query**:
 1. **Plan your tag structure**: Decide on consistent naming conventions
 2. **Start tagging**: Add relevant tags to your existing documents
 3. **Test combinations**: Experiment with tag + search query combinations
-4. **Integrate into workflows**: Verify that the caller sends the API's `filters` field; do not rely on the currently broken block tag fields
+4. **Integrate into workflows**: Configure the Knowledge block's tag filters and inspect the returned chunks; direct API clients use `filters`
 5. **Refine over time**: Adjust your tagging approach based on search results
 
 Tags transform your knowledgebase from a simple document store into a precisely organized, searchable intelligence system that your AI workflows can navigate with surgical precision.

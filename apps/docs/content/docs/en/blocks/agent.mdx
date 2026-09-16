@@ -1,21 +1,20 @@
 ---
 title: Agent
-description: Build an agent using AI models with tool integration
+description: Build an agent
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
-import { Callout } from 'fumadocs-ui/components/callout'
-import { Step, Steps } from 'fumadocs-ui/components/steps'
-import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
-import { BlockConfigPreview } from '@/components/ui/block-config-preview'
-import { ShowcaseCard } from '@/components/ui/showcase-card'
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
 
 <BlockInfoCard
   type="agent"
   color="#2873f6"
 />
 
-The Agent block serves as the interface between your workflow and Large Language Models (LLMs). It executes inference requests against various AI providers, processes natural language inputs according to defined instructions, and generates structured or unstructured outputs for downstream consumption.
+
+## Configuration
 
 <ShowcaseCard>
   <BlockConfigPreview
@@ -24,261 +23,192 @@ The Agent block serves as the interface between your workflow and Large Language
     color="#2873f6"
     hideHeader
     subBlocks={[
-      { "id": "systemPrompt", "title": "System Prompt", "type": "long-input", "layout": "full", "placeholder": "Enter system prompt..." },
-      { "id": "userPrompt", "title": "User Prompt", "type": "long-input", "layout": "full", "placeholder": "Enter context or user message..." },
-      { "id": "memories", "title": "Memories", "type": "short-input", "layout": "full", "placeholder": "Connect memory block output..." },
-      { "id": "model", "title": "Model", "type": "combobox", "layout": "half", "placeholder": "Type or select a model...", "required": true },
-      { "id": "temperature", "title": "Temperature", "type": "slider", "layout": "half", "defaultValue": 0.5 },
-      { "id": "reasoningEffort", "title": "Reasoning Effort", "type": "dropdown", "layout": "half", "placeholder": "Select reasoning effort...", "options": [{ "label": "minimal", "id": "minimal" }, { "label": "low", "id": "low" }, { "label": "medium", "id": "medium" }, { "label": "high", "id": "high" }] },
-      { "id": "verbosity", "title": "Verbosity", "type": "dropdown", "layout": "half", "placeholder": "Select verbosity...", "options": [{ "label": "low", "id": "low" }, { "label": "medium", "id": "medium" }, { "label": "high", "id": "high" }] },
-      { "id": "apiKey", "title": "API Key", "type": "short-input", "layout": "full", "placeholder": "Enter your API key", "password": true, "required": true },
-      { "id": "azureEndpoint", "title": "Azure OpenAI Endpoint", "type": "short-input", "layout": "full", "password": true, "placeholder": "https://your-resource.openai.azure.com" },
-      { "id": "azureApiVersion", "title": "Azure API Version", "type": "short-input", "layout": "full", "placeholder": "2024-07-01-preview" },
-      { "id": "tools", "title": "Tools", "type": "tool-input", "layout": "full", "defaultValue": [] },
-      { "id": "skills", "title": "Skills", "type": "skill-input", "layout": "full", "defaultValue": [] },
-      { "id": "responseFormat", "title": "Response Format", "type": "code", "layout": "full", "placeholder": "Enter JSON schema..." }
+        {
+            "id": "systemPrompt",
+            "type": "long-input",
+            "title": "System Prompt",
+            "layout": "full",
+            "placeholder": "Enter system prompt..."
+        },
+        {
+            "id": "userPrompt",
+            "type": "long-input",
+            "title": "User Prompt",
+            "layout": "full",
+            "placeholder": "Enter context or user message..."
+        },
+        {
+            "id": "memories",
+            "type": "short-input",
+            "title": "Memories",
+            "layout": "full",
+            "placeholder": "Connect memory block output...",
+            "description": "Available in Advanced mode."
+        },
+        {
+            "id": "model",
+            "type": "combobox",
+            "title": "Model",
+            "layout": "half",
+            "placeholder": "Type or select a model...",
+            "required": true
+        },
+        {
+            "id": "temperature",
+            "type": "slider",
+            "title": "Temperature",
+            "layout": "half",
+            "min": 0,
+            "max": 1,
+            "defaultValue": 0.5,
+            "description": "Shown when model is one of 'claude-opus-4-6', 'claude-sonnet-4-6', 'claude-opus-4-5', 'claude-sonnet-4-5', 'claude-haiku-4-5', 'azure-anthropic/claude-opus-4-6', 'azure-anthropic/claude-opus-4-5', 'azure-anthropic/claude-sonnet-4-5', 'azure-anthropic/claude-haiku-4-5', 'bedrock/anthropic.claude-opus-4-5-20251101-v1:0', 'bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0', 'bedrock/anthropic.claude-haiku-4-5-20251001-v1:0', 'bedrock/amazon.nova-2-lite-v1:0', 'bedrock/amazon.nova-pro-v1:0', 'bedrock/amazon.nova-lite-v1:0', 'bedrock/amazon.nova-micro-v1:0', 'bedrock/meta.llama4-maverick-17b-instruct-v1:0', 'bedrock/meta.llama4-scout-17b-instruct-v1:0', 'bedrock/meta.llama3-3-70b-instruct-v1:0', 'bedrock/meta.llama3-1-70b-instruct-v1:0', 'bedrock/meta.llama3-1-8b-instruct-v1:0', 'bedrock/mistral.mistral-large-3-675b-instruct', 'bedrock/mistral.pixtral-large-2502-v1:0', 'bedrock/mistral.magistral-small-2509', 'bedrock/mistral.ministral-3-14b-instruct', 'bedrock/mistral.ministral-3-8b-instruct', 'bedrock/mistral.ministral-3-3b-instruct', 'bedrock/mistral.mixtral-8x7b-instruct-v0:1'."
+        },
+        {
+            "id": "temperature",
+            "type": "slider",
+            "title": "Temperature",
+            "layout": "half",
+            "min": 0,
+            "max": 2,
+            "defaultValue": 1,
+            "description": "Shown when model is one of 'fireworks/glm-5.2', 'fireworks/kimi-k3', 'gpt-4.1', 'gpt-4.1-mini', 'azure/gpt-5-chat', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.1-pro-preview', 'gemini-3.1-flash-lite', 'gemini-3-flash-preview', 'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'vertex/gemini-3.5-flash', 'vertex/gemini-3.1-pro-preview', 'vertex/gemini-3.1-flash-lite', 'vertex/gemini-3-flash-preview', 'vertex/gemini-2.5-pro', 'vertex/gemini-2.5-flash', 'vertex/gemini-2.5-flash-lite', 'deepseek-v4-flash', 'deepseek-chat', 'grok-4.6', 'grok-4.5', 'grok-4.3', 'grok-4.20-0309-reasoning', 'grok-4.20-0309-non-reasoning', 'grok-4.20-multi-agent-0309', 'cerebras/gpt-oss-120b', 'cerebras/zai-glm-4.7', 'cerebras/gemma-4-31b', 'groq/openai/gpt-oss-120b', 'groq/openai/gpt-oss-20b', 'groq/openai/gpt-oss-safeguard-20b', 'groq/qwen/qwen3.6-27b', 'groq/llama-3.1-8b-instant', 'groq/llama-3.3-70b-versatile'."
+        },
+        {
+            "id": "reasoningEffort",
+            "type": "dropdown",
+            "title": "Reasoning Effort",
+            "layout": "half",
+            "placeholder": "Select reasoning effort...",
+            "defaultValue": "medium",
+            "options": [
+                {
+                    "id": "minimal",
+                    "label": "minimal"
+                },
+                {
+                    "id": "low",
+                    "label": "low"
+                },
+                {
+                    "id": "medium",
+                    "label": "medium"
+                },
+                {
+                    "id": "high",
+                    "label": "high"
+                }
+            ],
+            "description": "Shown when model is one of 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5-pro', 'gpt-5.5', 'gpt-5.4-pro', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-5.2-pro', 'gpt-5.2', 'gpt-5.1', 'gpt-5-pro', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/o3', 'azure/o4-mini', 'deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-reasoner', 'grok-4.6', 'grok-4.5', 'grok-4.3', 'grok-4.20-multi-agent-0309', 'groq/openai/gpt-oss-120b', 'groq/openai/gpt-oss-20b', 'groq/openai/gpt-oss-safeguard-20b'."
+        },
+        {
+            "id": "verbosity",
+            "type": "dropdown",
+            "title": "Verbosity",
+            "layout": "half",
+            "placeholder": "Select verbosity...",
+            "defaultValue": "medium",
+            "options": [
+                {
+                    "id": "low",
+                    "label": "low"
+                },
+                {
+                    "id": "medium",
+                    "label": "medium"
+                },
+                {
+                    "id": "high",
+                    "label": "high"
+                }
+            ],
+            "description": "Shown when model is one of 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-5.2', 'gpt-5.1', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano'."
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "layout": "full",
+            "placeholder": "Enter your API key",
+            "password": true,
+            "description": "Shown when applicable to the selected model at runtime."
+        },
+        {
+            "id": "azureEndpoint",
+            "type": "short-input",
+            "title": "Azure OpenAI Endpoint",
+            "layout": "full",
+            "placeholder": "https://your-resource.openai.azure.com",
+            "password": true,
+            "description": "Shown when model is one of 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano', 'azure/model-router'."
+        },
+        {
+            "id": "azureApiVersion",
+            "type": "short-input",
+            "title": "Azure API Version",
+            "layout": "full",
+            "placeholder": "2024-07-01-preview",
+            "description": "Shown when model is one of 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano', 'azure/model-router'."
+        },
+        {
+            "id": "tools",
+            "type": "tool-input",
+            "title": "Tools",
+            "layout": "full"
+        },
+        {
+            "id": "skills",
+            "type": "skill-input",
+            "title": "Skills",
+            "layout": "full"
+        },
+        {
+            "id": "responseFormat",
+            "type": "code",
+            "title": "Response Format",
+            "layout": "full",
+            "placeholder": "Enter JSON schema...",
+            "language": "json"
+        }
     ]}
   />
 </ShowcaseCard>
 
-## Overview
+## Input
 
-The Agent block enables you to:
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `systemPrompt` | string | No | Initial system instructions |
+| `userPrompt` | string | No | User message or context |
+| `memories` | json | No | Agent memory data |
+| `model` | string | Yes | AI model to use |
+| `apiKey` | string | No | Provider API key. Shown when applicable to the selected model at runtime. |
+| `azureEndpoint` | string | No | Azure OpenAI endpoint URL. Shown when model is one of 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano', 'azure/model-router'. |
+| `azureApiVersion` | string | No | Azure API version. Shown when model is one of 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano', 'azure/model-router'. |
+| `responseFormat` | json | No | JSON response format schema |
+| `temperature` | number | No | Response randomness level |
+| `reasoningEffort` | string | No | Reasoning effort level for GPT-5 models. Shown when model is one of 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5-pro', 'gpt-5.5', 'gpt-5.4-pro', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-5.2-pro', 'gpt-5.2', 'gpt-5.1', 'gpt-5-pro', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/o3', 'azure/o4-mini', 'deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-reasoner', 'grok-4.6', 'grok-4.5', 'grok-4.3', 'grok-4.20-multi-agent-0309', 'groq/openai/gpt-oss-120b', 'groq/openai/gpt-oss-20b', 'groq/openai/gpt-oss-safeguard-20b'. |
+| `verbosity` | string | No | Verbosity level for GPT-5 models. Shown when model is one of 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-5.2', 'gpt-5.1', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano'. |
+| `tools` | json | No | Available tools configuration |
+| `skills` | json | No | Selected skills configuration |
 
-<Steps>
-  <Step>
-    <strong>Process natural language</strong>: Analyze user input and generate contextual responses
-  </Step>
-  <Step>
-    <strong>Execute AI-powered tasks</strong>: Perform content analysis, generation, and decision-making
-  </Step>
-  <Step>
-    <strong>Call external tools</strong>: Access APIs, databases, and services during processing
-  </Step>
-  <Step>
-    <strong>Generate structured output</strong>: Return JSON data that matches your schema requirements
-  </Step>
-</Steps> 
+## Output
 
-## Configuration Options
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `content` | string | Generated response content |
+| `model` | string | Model used for generation |
+| `tokens` | any | Token usage statistics |
+| `toolCalls` | any | Tool calls made |
+| `toolResults` | any | Tool results returned by the provider |
 
-### System Prompt
 
-The system prompt establishes the agent's operational parameters and behavioral constraints. This configuration defines the agent's role, response methodology, and processing boundaries for all incoming requests.
+## Usage Instructions
 
-```markdown
-You are a helpful assistant that specializes in financial analysis.
-Always provide clear explanations and cite sources when possible.
-When responding to questions about investments, include risk disclaimers.
-```
+Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Available models come from the deployment catalog and configured provider connections. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. With a Response Format, valid JSON response fields become top-level outputs alongside response metadata; malformed JSON falls back to standard content with a warning. Without a Response Format, the block returns the standard outputs listed below.
 
-### User Prompt
 
-The user prompt represents the primary input data for inference processing. This parameter accepts natural language text or structured data that the agent will analyze and respond to. Input sources include:
 
-- **Static Configuration**: Direct text input specified in the block configuration
-- **Dynamic Input**: Data passed from upstream blocks through connection interfaces
-- **Runtime Generation**: Programmatically generated content during workflow execution
+## Notes
 
-### Model Selection
-
-The Agent block supports multiple LLM providers through a unified inference interface. Its model selector is grouped by provider and reflects the deployment's current built-in catalog together with models discovered from configured OpenRouter and Ollama connections. Use the selector as the source of truth instead of relying on a fixed model list.
-
-### Temperature
-
-Control the creativity and randomness of responses:
-
-<Tabs items={['Low (0-0.3)', 'Medium (0.3-0.7)', 'High (0.7-2.0)']}>
-  <Tab>
-    More deterministic, focused responses. Best for factual tasks, customer support, and
-    situations where accuracy is critical.
-  </Tab>
-  <Tab>
-    Balanced creativity and focus. Suitable for general purpose applications that require both
-    accuracy and some creativity.
-  </Tab>
-  <Tab>
-    More creative, varied responses. Ideal for creative writing, brainstorming, and generating
-    diverse ideas.
-  </Tab>
-</Tabs>
-
-<div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
-  The temperature range (0-1 or 0-2) varies depending on the selected model.
-</div>
-
-### API Key
-
-When this field is shown, enter an API key for the selected provider. Hosted models on the managed deployment and local Ollama models do not show this field.
-
-### Tools
-
-Tools extend the agent's capabilities through external API integrations and service connections. The tool system enables function calling, allowing the agent to execute operations beyond text generation.
-
-**Tool Integration Process**:
-1. Access the Tools configuration section within the Agent block
-2. Select a built-in integration, connected MCP tool, or custom tool
-3. Configure authentication parameters and operational constraints
-
-**Available Tool Categories**:
-- **Communication**: Gmail, Slack, Telegram, WhatsApp, Microsoft Teams
-- **Data Sources**: Notion, Google Sheets, Airtable, Supabase, Pinecone
-- **Web Services**: Firecrawl, Google Search, Exa AI, browser automation
-- **Development**: GitHub, Jira, Linear repository and issue management
-- **AI Services**: OpenAI, Perplexity, Hugging Face, ElevenLabs
-
-**Tool Execution Control**:
-- **Auto**: Model determines tool invocation based on context and necessity
-- **Force**: Provider is instructed to use this tool in the response
-- **None**: Tool is excluded from the provider request
-
-### Response Format
-
-The Response Format parameter requests structured output using a JSON Schema:
-
-```json
-{
-  "name": "user_analysis",
-  "description": "Classifies sentiment with a confidence score",
-  "strict": true,
-  "schema": {
-    "type": "object",
-    "properties": {
-      "sentiment": {
-        "type": "string",
-        "enum": ["positive", "negative", "neutral"]
-      },
-      "confidence": {
-        "type": "number",
-        "minimum": 0,
-        "maximum": 1
-      }
-    },
-    "required": ["sentiment", "confidence"],
-    "additionalProperties": false
-  }
-}
-```
-
-When the model returns valid JSON, the schema fields are exposed directly at the Agent block's output root. If the response is malformed, the block falls back to its standard output and includes `_responseFormatWarning`.
-
-### Accessing Results
-
-Without a response format, an Agent exposes these standard outputs:
-
-- **`<agent.content>`**: The agent's response text
-- **`<agent.model>`**: The model used for the response
-- **`<agent.tokens>`**: Provider-reported token usage statistics
-- **`<agent.toolCalls>`**: Details of any tools the agent used during execution
-- **`<agent.toolResults>`**: Results returned by those tools
-- **`<agent.cost>`**: Estimated cost of the API call (if available)
-
-With a valid response format, reference each schema field directly, such as `<agent.sentiment>`. Token, tool, timing, and cost metadata remain available alongside those fields.
-
-## Advanced Features
-
-### Memory + Agent: Conversation History
-
-An Agent can use an existing message array from `<memory.memories>` in its Memories field. However, the Memory block's Add operation currently fails, so the usual save-user-message → Agent → save-reply flow is not operational. See the [Memory limitation](/blocks/memory) before designing cross-run conversation persistence.
-
-## Inputs and Outputs
-
-<Tabs items={['Configuration', 'Variables', 'Results']}>
-  <Tab>
-    <ul className="list-disc space-y-2 pl-6">
-      <li>
-        <strong>System Prompt</strong>: Instructions defining agent behavior and role
-      </li>
-      <li>
-        <strong>User Prompt</strong>: Input text or data to process
-      </li>
-      <li>
-        <strong>Model</strong>: AI model selection (OpenAI, Anthropic, Google, etc.)
-      </li>
-      <li>
-        <strong>Temperature</strong>: Response randomness control (0-2)
-      </li>
-      <li>
-        <strong>Tools</strong>: Array of available tools for function calling
-      </li>
-      <li>
-        <strong>Response Format</strong>: JSON Schema for structured output
-      </li>
-    </ul>
-  </Tab>
-  <Tab>
-    <ul className="list-disc space-y-2 pl-6">
-      <li>
-        <strong>agent.content</strong>: Agent's response text or structured data
-      </li>
-      <li>
-        <strong>agent.tokens</strong>: Token usage statistics object
-      </li>
-      <li>
-        <strong>agent.toolCalls</strong>: Tool execution details and count
-      </li>
-      <li>
-        <strong>agent.toolResults</strong>: Results returned by invoked tools
-      </li>
-    </ul>
-  </Tab>
-  <Tab>
-    <ul className="list-disc space-y-2 pl-6">
-      <li>
-        <strong>Content</strong>: Primary response output from the agent
-      </li>
-      <li>
-        <strong>Metadata</strong>: Usage statistics and execution details
-      </li>
-      <li>
-        <strong>Access</strong>: Available in blocks after the agent
-      </li>
-    </ul>
-  </Tab>
-</Tabs>
-
-## Example Use Cases
-
-### Customer Support Automation
-
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Scenario: Handle customer inquiries with database access</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>User submits a support ticket via the API trigger</li>
-    <li>Agent checks orders/subscriptions in Postgres and searches the knowledge base for guidance</li>
-    <li>If escalation is needed, the Agent creates a Linear issue with relevant context</li>
-    <li>Agent drafts a clear email reply</li>
-    <li>Gmail sends the reply to the customer</li>
-    <li>Use persistent storage for future conversation history; Memory Add is currently unavailable</li>
-  </ol>
-</div>
-
-### Multi-Model Content Analysis
-
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Scenario: Analyze content with different AI models</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>Function block processes uploaded document</li>
-    <li>Agent with GPT-4o performs technical analysis</li>
-    <li>Agent with Claude analyzes sentiment and tone</li>
-    <li>Function block combines results for final report</li>
-  </ol>
-</div>
-
-### Tool-Powered Research Assistant
-
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Scenario: Research assistant with web search and document access</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>User query received via input</li>
-    <li>Agent searches web using Google Search tool</li>
-    <li>Agent accesses Notion database for internal docs</li>
-    <li>Agent compiles comprehensive research report</li>
-  </ol>
-</div>
-
-## Best Practices
-
-- **Be specific in system prompts**: Clearly define the agent's role, tone, and limitations. The more specific your instructions are, the better the agent will be able to fulfill its intended purpose.
-- **Choose the right temperature setting**: Use lower temperature settings (0-0.3) when accuracy is important, or increase temperature (0.7-2.0) for more creative or varied responses
-- **Leverage tools effectively**: Integrate tools that complement the agent's purpose and enhance its capabilities. Be selective about which tools you provide to avoid overwhelming the agent. For tasks with little overlap, use another Agent block for the best results.
+- Category: `blocks`
+- Type: `agent`

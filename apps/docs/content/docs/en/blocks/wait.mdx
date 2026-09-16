@@ -1,20 +1,20 @@
 ---
 title: Wait
-description: Pause workflow execution for a specified duration
+description: Pause workflow execution for a specified time delay
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
-import { Callout } from 'fumadocs-ui/components/callout'
-import { Step, Steps } from 'fumadocs-ui/components/steps'
-import { BlockConfigPreview } from '@/components/ui/block-config-preview'
-import { ShowcaseCard } from '@/components/ui/showcase-card'
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
 
 <BlockInfoCard
   type="wait"
   color="#F59E0B"
 />
 
-The Wait block pauses your workflow for a specified amount of time before continuing to the next block. Use it to add delays between actions, respect API rate limits, or space out operations.
+
+## Configuration
 
 <ShowcaseCard>
   <BlockConfigPreview
@@ -23,88 +23,60 @@ The Wait block pauses your workflow for a specified amount of time before contin
     color="#F59E0B"
     hideHeader
     subBlocks={[
-      { "id": "timeValue", "title": "Wait Amount", "type": "short-input", "layout": "half", "description": "Max: 600 seconds or 10 minutes", "placeholder": "10", "required": true },
-      { "id": "timeUnit", "title": "Unit", "type": "dropdown", "layout": "half", "options": [{ "label": "Seconds", "id": "seconds" }, { "label": "Minutes", "id": "minutes" }], "required": true }
+        {
+            "id": "timeValue",
+            "type": "short-input",
+            "title": "Wait Amount",
+            "layout": "half",
+            "placeholder": "10",
+            "description": "Max: 600 seconds or 10 minutes",
+            "required": true,
+            "defaultValue": "10"
+        },
+        {
+            "id": "timeUnit",
+            "type": "dropdown",
+            "title": "Unit",
+            "layout": "half",
+            "required": true,
+            "defaultValue": "seconds",
+            "options": [
+                {
+                    "id": "seconds",
+                    "label": "Seconds"
+                },
+                {
+                    "id": "minutes",
+                    "label": "Minutes"
+                }
+            ]
+        }
     ]}
   />
 </ShowcaseCard>
 
-## Overview
+## Input
 
-The Wait block enables you to:
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `timeValue` | string | Yes | Wait duration value |
+| `timeUnit` | string | Yes | Wait duration unit \(seconds or minutes\) |
 
-<Steps>
-  <Step>
-    <strong>Add time delays</strong>: Pause execution between workflow steps
-  </Step>
-  <Step>
-    <strong>Respect rate limits</strong>: Space out API calls to stay within limits
-  </Step>
-  <Step>
-    <strong>Schedule sequences</strong>: Create timed workflows with delays between actions
-  </Step>
-</Steps>
+## Output
 
-## Configuration
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `waitDuration` | number | Wait duration in milliseconds |
+| `status` | string | completed after the delay, or cancelled when a browser-side wait is interrupted. |
 
-### Wait Amount
 
-Enter the duration to pause execution:
-- **Input**: Positive number
-- **Maximum**: 600 seconds (10 minutes) or 10 minutes
+## Usage Instructions
 
-### Unit
+Delay the current execution path by a positive number of seconds or minutes, up to 600 seconds or 10 minutes. The default is 10 seconds. The runtime parses the amount as an integer, so use whole numbers. This is an in-process delay, not a persisted human-approval pause. Browser execution checks for cancellation during the wait; server execution uses a single sleep and does not interrupt it mid-flight.
 
-Choose the time unit:
-- **Seconds**: For short, precise delays
-- **Minutes**: For longer pauses
 
-<Callout type="info">
-  Wait blocks can be cancelled by stopping the workflow. The maximum wait time is 10 minutes.
-</Callout>
 
-## Outputs
+## Notes
 
-- **`<wait.waitDuration>`**: The wait duration in milliseconds
-- **`<wait.status>`**: Status of the wait ('waiting', 'completed', or 'cancelled')
-
-## Example Use Cases
-
-### API Rate Limiting
-
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Scenario: Stay within API rate limits</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>API block makes first request</li>
-    <li>Wait block pauses for 2 seconds</li>
-    <li>API block makes second request</li>
-    <li>Process continues without hitting rate limits</li>
-  </ol>
-</div>
-
-### Timed Notifications
-
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Scenario: Send follow-up messages</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>Function sends initial email</li>
-    <li>Wait block pauses for 5 minutes</li>
-    <li>Function sends follow-up email</li>
-  </ol>
-</div>
-
-### Processing Delays
-
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Scenario: Wait for external system</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>API block triggers job in external system</li>
-    <li>Wait block pauses for 30 seconds</li>
-    <li>API block checks job completion status</li>
-  </ol>
-</div>
-
-## Best Practices
-
-- **Keep waits reasonable**: Use Wait for delays up to 10 minutes. For longer delays, consider scheduled workflows
-- **Monitor execution time**: Remember that waits extend total workflow duration
+- Category: `blocks`
+- Type: `wait`

@@ -5,6 +5,7 @@ This directory contains scripts for generating and auditing TradingGoose documen
 ## Available Scripts
 
 - `bun run docs:generate`: Generates all supported documentation from the repository root
+- `bun run docs:generate:blocks`: Regenerates built-in block documentation
 - `bun run docs:generate:tools`: Generates tool documentation
 - `bun run docs:generate:triggers`: Generates trigger documentation
 - `bun run docs:audit`: Reports structural source-to-page coverage
@@ -36,8 +37,8 @@ The documentation generator:
 
 1. Loads active blocks and triggers from the runtime registries
 2. Loads provider tool contracts referenced by the registered blocks
-3. Regenerates source-backed tool and trigger pages, including existing or empty pages
-4. Creates only missing block and widget pages and updates each `meta.json`
+3. Regenerates source-backed block, tool, and trigger pages, including existing or empty pages
+4. Creates only missing widget pages and updates each `meta.json`
 
 ## Running the Generator
 
@@ -54,4 +55,6 @@ Generated documentation is reviewed and committed with the source changes that r
 
 If you add new properties to block definitions that should be included in the documentation, update the relevant renderer in `scripts/doc-gen/`.
 
-Tool pages and non-core registry-backed trigger pages are wholly generated and overwritten on every run. Put durable descriptions and instructions in their runtime contracts. Existing block and widget pages, plus the five hand-written core trigger pages, are preserved; missing block and widget pages are scaffolded from runtime contracts.
+Block reference pages (including Evaluator, Loop, and Parallel), tool pages, and non-core registry-backed trigger pages are wholly generated and overwritten on every run. Put durable descriptions and execution instructions in runtime contracts. Loop and Parallel use the existing subflow configuration metadata. Overview and unrelated guide pages, existing widget pages, and the five hand-written core trigger pages are preserved. Only missing widget pages are scaffolded.
+
+Generation writes English source pages only. Run the configured Lingo.dev translation workflow separately; the generator does not change translations, locale targets, or `i18n.lock`.

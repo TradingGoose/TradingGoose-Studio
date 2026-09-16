@@ -6,7 +6,7 @@ export const NoteBlock: BlockConfig = {
   name: 'Note',
   description: 'Add contextual annotations directly onto the workflow canvas.',
   longDescription:
-    'Use Note blocks to document decisions, share instructions, or leave context for collaborators directly on the workflow canvas. Notes support Markdown rendering and YouTube video embeds.',
+    'Use Note blocks to document decisions, share instructions, or leave context for collaborators directly on the workflow canvas. Notes support Markdown rendering and YouTube video embeds. Notes are canvas annotations: they do not execute workflow actions or produce runtime outputs.',
   category: 'blocks',
   bgColor: '#F59E0B',
   icon: NoteIcon,

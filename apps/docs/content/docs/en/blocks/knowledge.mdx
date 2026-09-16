@@ -1,74 +1,22 @@
 ---
 title: Knowledge
-description: Search, create, and manage documents in your knowledge bases using vector similarity
+description: Use vector search
 ---
 
-import { Callout } from 'fumadocs-ui/components/callout'
-import { Step, Steps } from 'fumadocs-ui/components/steps'
-import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
 import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 
+
 <BlockInfoCard
   type="knowledge"
   color="#00B0B0"
-  icon={true}
 />
 
-The Knowledge block connects your workflow to a knowledge base, enabling retrieval-augmented generation (RAG) by performing vector similarity searches, uploading new chunks, and creating documents -- all at runtime.
-
-## Overview
-
-<Steps>
-  <Step>
-    <strong>Search</strong>: Run a semantic similarity query against your knowledge base and retrieve the most relevant chunks
-  </Step>
-  <Step>
-    <strong>Upload Chunk</strong>: Append a new text chunk to an existing document so it becomes searchable in future queries
-  </Step>
-  <Step>
-    <strong>Create Document</strong>: Add a brand-new document (with optional tags) to the knowledge base
-  </Step>
-</Steps>
-
-## Operations
-
-<Tabs items={['Search', 'Upload Chunk', 'Create Document']}>
-  <Tab>
-    Performs a vector similarity search and returns the top matching chunks.
-
-    | Field | Required | Description |
-    |---|---|---|
-    | **Knowledge Base** | Yes | The knowledge base to search |
-    | **Search Query** | Yes for working searches | Natural-language query; see the tag-filter limitation below. |
-    | **Number of Results** | No | How many chunks to return (default: 10) |
-    | **Tag Filters** | No | Narrow results to documents that match specific tags |
-
-    Tag filtering is an intended capability, but currently tag-only searches fail and query-plus-tag searches do not apply the tags. Do not rely on tags to restrict results until this is fixed.
-  </Tab>
-  <Tab>
-    Appends a text chunk to an existing document inside the knowledge base. The chunk is automatically embedded and becomes available for future searches.
-
-    | Field | Required | Description |
-    |---|---|---|
-    | **Knowledge Base** | Yes | Target knowledge base |
-    | **Document** | Yes | The document to add the chunk to |
-    | **Chunk Content** | Yes | The text content to upload |
-  </Tab>
-  <Tab>
-    Creates a new document in the knowledge base. The content is chunked, embedded, and indexed.
-
-    | Field | Required | Description |
-    |---|---|---|
-    | **Knowledge Base** | Yes | Target knowledge base |
-    | **Document Name** | Yes | Name for the new document |
-    | **Document Content** | Yes | Full text content |
-    | **Document Tags** | No | Tags for categorization and filtering |
-  </Tab>
-</Tabs>
 
 ## Configuration
+
+### Search
 
 <ShowcaseCard>
   <BlockConfigPreview
@@ -82,10 +30,20 @@ The Knowledge block connects your workflow to a knowledge base, enabling retriev
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "search",
             "options": [
-                { "label": "Search", "id": "search" },
-                { "label": "Upload Chunk", "id": "upload_chunk" },
-                { "label": "Create Document", "id": "create_document" }
+                {
+                    "id": "search",
+                    "label": "Search"
+                },
+                {
+                    "id": "upload_chunk",
+                    "label": "Upload Chunk"
+                },
+                {
+                    "id": "create_document",
+                    "label": "Create Document"
+                }
             ]
         },
         {
@@ -94,8 +52,7 @@ The Knowledge block connects your workflow to a knowledge base, enabling retriev
             "title": "Knowledge Base",
             "layout": "full",
             "placeholder": "Select knowledge base",
-            "required": true,
-            "condition": { "field": "operation", "value": ["search", "upload_chunk", "create_document"] }
+            "required": true
         },
         {
             "id": "query",
@@ -103,15 +60,14 @@ The Knowledge block connects your workflow to a knowledge base, enabling retriev
             "title": "Search Query",
             "layout": "full",
             "placeholder": "Enter your search query (optional when using tag filters)",
-            "condition": { "field": "operation", "value": "search" }
+            "required": false
         },
         {
             "id": "topK",
             "type": "short-input",
             "title": "Number of Results",
             "layout": "full",
-            "placeholder": "Enter number of results (default: 10)",
-            "condition": { "field": "operation", "value": "search" }
+            "placeholder": "Enter number of results (default: 10)"
         },
         {
             "id": "tagFilters",
@@ -119,7 +75,84 @@ The Knowledge block connects your workflow to a knowledge base, enabling retriev
             "title": "Tag Filters",
             "layout": "full",
             "placeholder": "Add tag filters",
-            "condition": { "field": "operation", "value": "search" }
+            "description": "Available in Advanced mode."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Search (<code>knowledge_search</code>)</div>
+
+Search a knowledge base by query, text tag equality, or both. Repeated values for one tag use OR; different tags use AND.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `knowledgeBaseId` | string | Yes | ID of the knowledge base to search in |
+| `query` | string | No | Search query text \(optional when using tag filters\) |
+| `topK` | number | No | Number of most similar results to return \(1-100\) |
+| `tagFilters` | array | No | Text-equality filters with tagName and tagValue. Repeated tag names are OR alternatives; different tags are combined with AND. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `results` | array | Array of search results from the knowledge base |
+| `results[].documentId` | string | Document ID |
+| `results[].documentName` | string | Document name |
+| `results[].content` | string | Content of the result |
+| `results[].chunkIndex` | number | Index of the chunk within the document |
+| `results[].similarity` | number | Similarity score of the result |
+| `results[].metadata` | object | Metadata of the result, including tags |
+| `query` | string | The search query that was executed |
+| `totalResults` | number | Total number of results found |
+| `cost` | object | Cost information for the search operation |
+
+</div>
+
+
+
+---
+
+### Upload Chunk
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Knowledge"
+    type="knowledge"
+    color="#00B0B0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "defaultValue": "upload_chunk",
+            "options": [
+                {
+                    "id": "search",
+                    "label": "Search"
+                },
+                {
+                    "id": "upload_chunk",
+                    "label": "Upload Chunk"
+                },
+                {
+                    "id": "create_document",
+                    "label": "Create Document"
+                }
+            ]
+        },
+        {
+            "id": "knowledgeBaseId",
+            "type": "knowledge-base-selector",
+            "title": "Knowledge Base",
+            "layout": "full",
+            "placeholder": "Select knowledge base",
+            "required": true
         },
         {
             "id": "documentId",
@@ -127,8 +160,7 @@ The Knowledge block connects your workflow to a knowledge base, enabling retriev
             "title": "Document",
             "layout": "full",
             "placeholder": "Select document",
-            "required": true,
-            "condition": { "field": "operation", "value": "upload_chunk" }
+            "required": true
         },
         {
             "id": "content",
@@ -136,8 +168,86 @@ The Knowledge block connects your workflow to a knowledge base, enabling retriev
             "title": "Chunk Content",
             "layout": "full",
             "placeholder": "Enter the chunk content to upload",
-            "required": true,
-            "condition": { "field": "operation", "value": "upload_chunk" }
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Upload Chunk (<code>knowledge_upload_chunk</code>)</div>
+
+Upload a new chunk to a document in a knowledge base
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `knowledgeBaseId` | string | Yes | ID of the knowledge base containing the document |
+| `documentId` | string | Yes | ID of the document to upload the chunk to |
+| `content` | string | Yes | Content of the chunk to upload |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `data` | object | Information about the uploaded chunk |
+| `data.chunkId` | string | Chunk ID |
+| `data.chunkIndex` | number | Index of the chunk within the document |
+| `data.content` | string | Content of the chunk |
+| `data.contentLength` | number | Length of the content in characters |
+| `data.tokenCount` | number | Number of tokens in the chunk |
+| `data.enabled` | boolean | Whether the chunk is enabled |
+| `data.createdAt` | string | Creation timestamp |
+| `data.updatedAt` | string | Last update timestamp |
+| `message` | string | Success or error message describing the operation result |
+| `documentId` | string | ID of the document the chunk was added to |
+| `documentName` | string | Name of the document the chunk was added to |
+| `cost` | object | Cost information for the upload operation |
+
+</div>
+
+
+
+---
+
+### Create Document
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Knowledge"
+    type="knowledge"
+    color="#00B0B0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "defaultValue": "create_document",
+            "options": [
+                {
+                    "id": "search",
+                    "label": "Search"
+                },
+                {
+                    "id": "upload_chunk",
+                    "label": "Upload Chunk"
+                },
+                {
+                    "id": "create_document",
+                    "label": "Create Document"
+                }
+            ]
+        },
+        {
+            "id": "knowledgeBaseId",
+            "type": "knowledge-base-selector",
+            "title": "Knowledge Base",
+            "layout": "full",
+            "placeholder": "Select knowledge base",
+            "required": true
         },
         {
             "id": "name",
@@ -145,8 +255,7 @@ The Knowledge block connects your workflow to a knowledge base, enabling retriev
             "title": "Document Name",
             "layout": "full",
             "placeholder": "Enter document name",
-            "required": true,
-            "condition": { "field": "operation", "value": ["create_document"] }
+            "required": true
         },
         {
             "id": "content",
@@ -154,35 +263,82 @@ The Knowledge block connects your workflow to a knowledge base, enabling retriev
             "title": "Document Content",
             "layout": "full",
             "placeholder": "Enter the document content",
-            "required": true,
-            "condition": { "field": "operation", "value": ["create_document"] }
+            "required": true
         },
         {
             "id": "documentTags",
             "type": "document-tag-entry",
             "title": "Document Tags",
-            "layout": "full",
-            "condition": { "field": "operation", "value": "create_document" }
+            "layout": "full"
         }
     ]}
   />
 </ShowcaseCard>
 
-## Outputs
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Document (<code>knowledge_create_document</code>)</div>
 
-| Operation | Output |
-|---|---|
-| Search | `results` (matching chunks), `query`, `totalResults` |
-| Upload Chunk | `message`, `data.chunkId`, `data.content`, `data.chunkIndex`, plus `documentId`, `documentName`, and `cost` |
-| Create Document | `message` and `data` containing `documentId`, `documentName`, `type`, `enabled`, `createdAt`, and `updatedAt` |
+Create a new document in a knowledge base
 
-Use `<knowledge.data.documentId>` after Create Document. Write confirmations are not returned in `results`.
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
-## Best Practices
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `knowledgeBaseId` | string | Yes | ID of the knowledge base containing the document |
+| `name` | string | Yes | Name of the document |
+| `content` | string | Yes | Content of the document |
+| `documentTagsData` | array | No | Structured tag data with names, types, and values |
 
-- **Keep chunks focused** -- shorter, topically coherent chunks produce better similarity matches than long, multi-topic text.
-- **Pair with an Agent block** -- pipe the search results into an Agent's context to build a RAG pipeline.
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-<Callout type="warning">
-  Tag filtering is currently unreliable: tag-only searches fail, and query-plus-tag searches are not tag-filtered. See [Knowledgebase](/knowledgebase). Use a non-empty query and inspect returned documents; tags are not an access-control boundary.
-</Callout>
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `data` | object | Information about the created document |
+| `data.documentId` | string | Document ID |
+| `data.documentName` | string | Document name |
+| `data.type` | string | Document type |
+| `data.enabled` | boolean | Whether the document is enabled |
+| `data.createdAt` | string | Creation timestamp |
+| `data.updatedAt` | string | Last update timestamp |
+| `message` | string | Success or error message describing the operation result |
+| `documentId` | string | ID of the created document |
+
+</div>
+
+
+
+---
+
+## Input
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `operation` | string | No | Operation to perform |
+| `knowledgeBaseId` | string | No | Knowledge base identifier. Shown when operation is one of 'search', 'upload_chunk', 'create_document'. |
+| `query` | string | No | Search query terms. Shown when operation is 'search'. |
+| `topK` | number | No | Number of results. Shown when operation is 'search'. |
+| `documentId` | string | No | Document identifier. Shown when operation is 'upload_chunk'. |
+| `content` | string | No | Content data |
+| `name` | string | No | Document name. Shown when operation is 'create_document'. |
+| `tagFilters` | string | No | Tag filter criteria. Shown when operation is 'search'. |
+| `documentTags` | string | No | Document tags. Shown when operation is 'create_document'. |
+
+## Output
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `results` | json | Search results |
+| `query` | string | Query used |
+| `totalResults` | number | Total results count |
+
+
+## Usage Instructions
+
+Search a knowledge base, upload chunks, or create documents. Search accepts a query, text tag filters, or both. Tag equality is case-insensitive; repeated values for the same tag use OR and different tags use AND. Tag-only searches do not generate a query embedding. Unknown tags and unsupported filter operators are rejected. Write operations return confirmation data under data, not results.
+
+
+
+## Notes
+
+- Category: `blocks`
+- Type: `knowledge`

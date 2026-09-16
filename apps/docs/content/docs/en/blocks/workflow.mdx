@@ -1,8 +1,70 @@
 ---
-title: Workflow Block
-description: Call a child workflow using the current input-mapping block
+title: Workflow
+description: This is a core workflow block. Execute another workflow as a block in your workflow. Enter the input variable to pass to the child workflow.
 ---
 
-The Workflow block available in the editor uses the `workflow_input` type. Select a child workflow with an Input Form trigger and map its fields in **Input Mapping**.
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-See [Workflow](/blocks/workflow_input) for the current configuration, outputs, and error handling. Child execution inherits the parent's target: live runs use live child state, and deployed runs use the deployed child snapshot.
+
+<BlockInfoCard
+  type="workflow"
+  color="#705335"
+/>
+
+
+## Configuration
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Workflow"
+    type="workflow"
+    color="#705335"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "workflowId",
+            "type": "dropdown",
+            "title": "Select Workflow",
+            "required": true
+        },
+        {
+            "id": "input",
+            "type": "short-input",
+            "title": "Input Variable (Optional)",
+            "placeholder": "Select a variable to pass to the child workflow",
+            "description": "Value passed directly as the child workflow input.",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Input
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `workflowId` | string | Yes | ID of the workflow to execute |
+| `input` | string | No | Variable reference to pass to the child workflow |
+
+## Output
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Execution success status |
+| `childWorkflowName` | string | Child workflow name |
+| `result` | json | Workflow execution result |
+| `childTraceSpans` | array | Trace spans from the child execution. |
+
+
+## Usage Instructions
+
+This hidden block type is not offered in the block toolbar; use the Workflow block with Input Mapping for new workflows. The selected input value is passed directly as the child workflow input. The parent waits for the child and exposes the child output under result. The execution target follows the parent: deployed parents run deployed children, and live parents run live children. Child failures fail this block, and nested workflow execution is limited to 10 levels.
+
+
+
+## Notes
+
+- Category: `blocks`
+- Type: `workflow`

@@ -10,7 +10,7 @@ export const WaitBlock: BlockConfig = {
   name: 'Wait',
   description: 'Pause workflow execution for a specified time delay',
   longDescription:
-    'Pauses workflow execution for a specified time interval. The wait executes a simple sleep for the configured duration.',
+    'Delay the current execution path by a positive number of seconds or minutes, up to 600 seconds or 10 minutes. The default is 10 seconds. The runtime parses the amount as an integer, so use whole numbers. This is an in-process delay, not a persisted human-approval pause. Browser execution checks for cancellation during the wait; server execution uses a single sleep and does not interrupt it mid-flight.',
   bestPractices: `
   - Use for simple time delays (max 10 minutes)
   - Configure the wait amount and unit (seconds or minutes)
@@ -66,7 +66,8 @@ export const WaitBlock: BlockConfig = {
     },
     status: {
       type: 'string',
-      description: 'Status of the wait block (waiting, completed, cancelled)',
+      description:
+        'completed after the delay, or cancelled when a browser-side wait is interrupted.',
     },
   },
 }

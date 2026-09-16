@@ -72,7 +72,7 @@ beforeAll(() => {
         invalidOperationMappings.push(source.config.type + ': incomplete operation map')
       }
       for (const toolId of Object.values(source.config.operationToolMap ?? {})) {
-        if (!source.config.tools?.access?.includes(toolId)) {
+        if (!source.config.tools?.access?.includes(toolId) || !source.toolInfo.has(toolId)) {
           invalidOperationMappings.push(source.config.type + ': ' + toolId)
         }
       }
@@ -151,7 +151,10 @@ beforeAll(() => {
 
 describe('runtime documentation metadata', () => {
   it('keeps built-in blocks out of integration tool generation', () => {
-    expect(metadata.builtInTypes.length).toBeGreaterThan(0)
+    expect(metadata.builtInTypes).toHaveLength(18)
+    expect(metadata.builtInTypes).toContain('evaluator')
+    expect(metadata.builtInTypes).toContain('loop')
+    expect(metadata.builtInTypes).toContain('parallel')
     for (const type of metadata.builtInTypes) expect(metadata.toolTypes).not.toContain(type)
     expect(metadata.toolTypes).not.toContain('evaluator')
     expect(metadata.toolTypes).not.toContain('number')

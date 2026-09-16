@@ -179,7 +179,7 @@ Con un formato de respuesta válido, haga referencia a cada campo del esquema di
 
 ### Memoria + Agente: Historial de conversación
 
-Un Agent puede usar un arreglo de mensajes existente de `<memory.memories>` en el campo Memories. Sin embargo, Add del bloque Memory falla actualmente, por lo que el flujo guardar mensaje → Agent → guardar respuesta no es operativo. Revisa la [limitación de Memory](/blocks/memory) antes de diseñar persistencia entre ejecuciones.
+Un Agent puede usar el arreglo de mensajes de Get Memory, por ejemplo `<memory.memories>`, en el campo Memories. Guarda los mensajes de usuario y asistente con Add Memory y recupera la conversación en ejecuciones posteriores usando el mismo ID y flujo de trabajo. Las variables del flujo no conservan por sí solas el historial entre ejecuciones. Consulta [Memory](/blocks/memory).
 
 ## Entradas y salidas
 
@@ -249,7 +249,7 @@ Un Agent puede usar un arreglo de mensajes existente de `<memory.memories>` en e
     <li>Si se necesita escalar, el agente crea un issue en Linear con el contexto relevante</li>
     <li>El agente redacta una respuesta de correo clara</li>
     <li>Gmail envía la respuesta al cliente</li>
-    <li>Usa almacenamiento persistente para el historial; Memory Add no está disponible actualmente</li>
+    <li>Guarda los mensajes con Memory Add y carga el historial mediante Get Memory en ejecuciones posteriores</li>
   </ol>
 </div>
 

@@ -51,7 +51,7 @@ TradingGoose 支持 PDF、Word (DOC/DOCX)、纯文本 (TXT)、Markdown (MD)、HT
 
 文档处理完成后，添加 Knowledge 块、选择知识库并配置搜索查询。要使用检索增强生成（RAG），请在下游 Agent 提示词中显式引用检索结果，例如块名为 `knowledge` 时使用 `<knowledge.results>`。仅连接两个块不会自动注入检索内容。你也可以将 Knowledge 配置为供 Agent 调用的工具。
 
-**当前标签筛选限制：** Knowledge 块发送的筛选格式与搜索 API 不一致。仅提供标签的请求会失败，同时提供查询和标签的请求则会忽略这些标签筛选。请勿依赖块中的标签筛选来限制检索内容。API 支持的搜索模式请参阅[标签与筛选](/knowledgebase/tags)。
+Knowledge 块支持仅查询、仅标签以及组合搜索。在高级模式中配置文本相等筛选条件，块会将其转换为 API 的 `filters` 格式。同一标签的多个值使用 OR，不同标签使用 AND。未知标签和不支持的运算符会被拒绝。标签用于组织检索，不是访问控制边界。请参阅[标签与筛选](/knowledgebase/tags)。
 
 ### 知识块功能
 - **语义搜索**：用自然语言查询查找相关内容

@@ -51,7 +51,7 @@ Cuando se configura con Azure o [Mistral OCR](https://docs.mistral.ai/ocr/):
 
 Una vez procesados los documentos, añade un bloque Knowledge, selecciona una base de conocimiento y configura una consulta. Para usar los resultados en generación aumentada por recuperación (RAG), referencia explícitamente los resultados del bloque en el prompt del Agent posterior, por ejemplo `<knowledge.results>` si el bloque se llama `knowledge`. Conectar los bloques no inyecta el contenido recuperado. También puedes configurar Knowledge como herramienta que el Agent puede invocar.
 
-**Limitación actual de los filtros de etiquetas:** El bloque Knowledge no envía los filtros en el formato que acepta la API de búsqueda. Las solicitudes solo con etiquetas fallan, y las solicitudes con consulta y etiquetas se ejecutan sin esos filtros. No dependas de los filtros del bloque para restringir el contenido recuperado. Consulta [Etiquetas y filtrado](/knowledgebase/tags) para conocer los modos de búsqueda compatibles con la API.
+El bloque Knowledge admite búsquedas solo con consulta, solo con etiquetas y combinadas. En el modo avanzado, configura filtros de igualdad de texto; el bloque los convierte al contrato `filters` de la API. Varios valores de una etiqueta se combinan con OR, y distintas etiquetas con AND. Se rechazan las etiquetas desconocidas y los operadores no compatibles. Las etiquetas organizan la búsqueda, pero no son una barrera de control de acceso. Consulta [Etiquetas y filtrado](/knowledgebase/tags).
 
 ### Características del bloque de conocimiento
 - **Búsqueda semántica**: Encuentra contenido relevante usando consultas en lenguaje natural

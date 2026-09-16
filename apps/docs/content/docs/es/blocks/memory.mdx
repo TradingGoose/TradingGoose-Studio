@@ -16,17 +16,13 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   icon={true}
 />
 
-El bloque Memoria está diseñado para almacenar y recuperar mensajes entre ejecuciones y proporcionar historial a los bloques Agent. Su operación Add no está disponible actualmente; las operaciones de lectura y eliminación permiten gestionar registros existentes.
-
-<Callout type="warning">
-  Add Memory no está disponible actualmente mediante el bloque: la solicitud omite `type` y `workflowId`, obligatorios para el endpoint, y guardar un mensaje falla. Configurar ID, Role y Content no resuelve esta incompatibilidad. No dependas de este bloque para guardar nuevas conversaciones hasta que se corrija.
-</Callout>
+El bloque Memoria almacena y recupera mensajes entre ejecuciones del mismo flujo de trabajo y proporciona historial a los bloques Agent. Add Memory añade mensajes al ID indicado. Todas las operaciones requieren acceso al espacio de trabajo del flujo; las escrituras requieren permiso de escritura.
 
 ## Descripción general
 
 <Steps>
   <Step>
-    <strong>Agregar memoria</strong>: No disponible actualmente; está previsto para almacenar un mensaje bajo un ID de memoria
+    <strong>Agregar memoria</strong>: Guarda un mensaje bajo un ID de memoria; reutilizar el ID añade mensajes a la misma conversación
   </Step>
   <Step>
     <strong>Obtener memoria</strong>: Recupera una entrada de memoria por su ID
@@ -43,7 +39,7 @@ El bloque Memoria está diseñado para almacenar y recuperar mensajes entre ejec
 
 Las entradas de memoria se almacenan como mensajes estilo chat con tres campos obligatorios: un **ID** que delimita el alcance de la memoria, un **Role** (`user`, `assistant` o `system`) y el texto de **Content**. Cuando después recuperes memorias y las pases a la entrada Memories de un bloque Agent, el agente las verá como turnos previos de la conversación -- lo que habilita un diálogo de varios turnos entre ejecuciones distintas.
 
-El patrón previsto Add → Agent → Add está bloqueado por la limitación actual de Add. Get Memory permite leer registros existentes; pasa el arreglo de mensajes devuelto al campo Memories del Agent.
+Guarda los mensajes de usuario y asistente con Add Memory. En ejecuciones posteriores, usa Get Memory con el mismo ID y pasa el arreglo de mensajes devuelto al campo Memories del Agent.
 
 <Callout type="info">
   Los ID de memoria delimitan el alcance de la conversación. Usa el mismo ID entre ejecuciones para construir un historial de conversación continuo, o usa ID distintos para mantener hilos separados.
@@ -53,7 +49,7 @@ El patrón previsto Add → Agent → Add está bloqueado por la limitación act
 
 <Tabs items={['Agregar memoria', 'Obtener memoria', 'Obtener todas las memorias', 'Eliminar memoria']}>
   <Tab>
-    No disponible actualmente. A continuación se muestran los campos de configuración previstos, pero completarlos no corrige la incompatibilidad de la solicitud descrita arriba.
+    Añade un mensaje a la conversación indicada. El contexto de ejecución proporciona automáticamente el flujo de trabajo y el tipo de memoria.
 
     | Campo | Obligatorio | Descripción |
     |---|---|---|
@@ -145,7 +141,7 @@ El patrón previsto Add → Agent → Add está bloqueado por la limitación act
 | Get Memory | `memories`: arreglo de mensajes del ID seleccionado; `message`: texto de estado |
 | Get All Memories | `memories`: hasta 50 registros con forma `{ key, type, data }`; `message`: texto de estado |
 | Delete Memory | `message`: confirmación de eliminación |
-| Add Memory | Falla actualmente; consulta la limitación anterior |
+| Add Memory | `memories`: arreglo de mensajes actualizado de la conversación |
 
 Get All Memories no devuelve un único arreglo plano de mensajes. Selecciona `data` del registro deseado antes de usar su conversación como memoria del Agent. No se devuelve un `id` independiente en el nivel superior.
 

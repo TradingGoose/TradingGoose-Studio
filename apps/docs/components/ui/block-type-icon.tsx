@@ -143,7 +143,6 @@ const baseTypeToIconMap: Record<string, IconComponent> = {
   vision: icons.EyeIcon,
   wealthbox: icons.WealthboxIcon,
   webflow: icons.WebflowIcon,
-  webhook_request: icons.WebhookIcon,
   whatsapp: icons.WhatsAppIcon,
   wikipedia: icons.WikipediaIcon,
   wordpress: icons.WordpressIcon,

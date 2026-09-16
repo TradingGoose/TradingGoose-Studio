@@ -3,11 +3,14 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { afterAll, describe, expect, it } from 'bun:test'
+import { remark } from '../../apps/docs/node_modules/remark/index.js'
+import remarkMdx from '../../apps/docs/node_modules/remark-mdx/index.js'
 import { updateMetaJson } from './utils'
 
 const rootDir = path.resolve(import.meta.dir, '../..')
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tradinggoose-doc-gen-'))
 const toolDocsDir = path.join(tempDir, 'tools')
+const blockDocsDir = path.join(tempDir, 'blocks')
 const triggerDocsDir = path.join(tempDir, 'triggers')
 const widgetDocsDir = path.join(tempDir, 'widgets')
 const unsupportedPreviewFields = [
@@ -36,22 +39,17 @@ function expectNoUnsupportedPreviewFields(pages: Record<string, string>) {
 }
 
 function runGenerator(
-  generator: 'tools' | 'triggers' | 'widgets',
+  generator: 'blocks' | 'tools' | 'triggers' | 'widgets',
   docsOutputPath: string,
   now?: number
 ) {
-  const moduleName =
-    generator === 'tools'
-      ? 'generate-tools'
-      : generator === 'triggers'
-        ? 'generate-triggers'
-        : 'generate-widgets'
-  const exportName =
-    generator === 'tools'
-      ? 'generateToolDocs'
-      : generator === 'triggers'
-        ? 'generateTriggerDocs'
-        : 'generateWidgetDocs'
+  const moduleName = `generate-${generator}`
+  const exportName = {
+    blocks: 'generateBlockDocs',
+    tools: 'generateToolDocs',
+    triggers: 'generateTriggerDocs',
+    widgets: 'generateWidgetDocs',
+  }[generator]
   const script = `
     ${now === undefined ? '' : `Date.now = () => ${now}`}
     const { ${exportName} } = await import('./scripts/doc-gen/${moduleName}')
@@ -64,6 +62,85 @@ function runGenerator(
 }
 
 describe('documentation regeneration boundaries', () => {
+  it('regenerates every block, including stale and empty references, while preserving guides', () => {
+    const slugs = [
+      'agent',
+      'api',
+      'condition',
+      'evaluator',
+      'function',
+      'guardrails',
+      'human_in_the_loop',
+      'knowledge',
+      'loop',
+      'memory',
+      'note',
+      'parallel',
+      'response',
+      'router',
+      'variables',
+      'wait',
+      'workflow',
+      'workflow_input',
+    ]
+    fs.mkdirSync(blockDocsDir, { recursive: true })
+    fs.writeFileSync(path.join(blockDocsDir, 'index.mdx'), 'CURATED BLOCK OVERVIEW')
+    fs.writeFileSync(path.join(blockDocsDir, 'concept-guide.mdx'), 'CURATED WORKFLOW GUIDE')
+    fs.writeFileSync(
+      path.join(blockDocsDir, 'meta.json'),
+      JSON.stringify({ title: 'Blocks', pages: ['index', 'memory', 'concept-guide'] })
+    )
+    for (const [index, slug] of slugs.entries()) {
+      fs.writeFileSync(path.join(blockDocsDir, `${slug}.mdx`), index % 2 ? '' : 'STALE BLOCK PAGE')
+    }
+
+    runGenerator('blocks', blockDocsDir, 1_800_000_000_000)
+    const first = snapshot(blockDocsDir)
+    expect(Object.keys(first).filter((name) => name.endsWith('.mdx'))).toHaveLength(20)
+    for (const slug of slugs) {
+      expect(first[`${slug}.mdx`]).toContain('## Configuration')
+      expect(first[`${slug}.mdx`]).toContain('## Input')
+      expect(first[`${slug}.mdx`]).toContain('## Output')
+      expect(first[`${slug}.mdx`]).not.toContain('STALE BLOCK PAGE')
+      expect(() => remark().use(remarkMdx).parse(first[`${slug}.mdx`])).not.toThrow()
+    }
+    expect(first['index.mdx']).toBe('CURATED BLOCK OVERVIEW')
+    expect(first['concept-guide.mdx']).toBe('CURATED WORKFLOW GUIDE')
+    expect(JSON.parse(first['meta.json'])).toMatchObject({ title: 'Blocks' })
+    expect(JSON.parse(first['meta.json']).pages.slice(0, 3)).toEqual([
+      'index',
+      'memory',
+      'concept-guide',
+    ])
+    expect(first['memory.mdx']).toContain('### Add Memory')
+    expect(first['memory.mdx']).toContain('### Get All Memories')
+    expect(first['memory.mdx']).not.toContain('conversationId')
+    expect(first['knowledge.mdx']).toContain('### Search')
+    expect(first['knowledge.mdx']).toContain('### Upload Chunk')
+    expect(first['knowledge.mdx']).toContain('### Create Document')
+    expect(first['knowledge.mdx']).toContain('Available in Advanced mode.')
+    expect(first['response.mdx']).toContain('| `response.data` | json |')
+    expect(first['function.mdx']).toContain('| `result` | json |')
+    expect(first['agent.mdx']).not.toContain('"defaultValue": undefined')
+    expect(first['loop.mdx']).toContain('"id": "doWhile"')
+    expect(first['loop.mdx']).toContain('no fixed iteration cap')
+    expect(first['loop.mdx']).toContain('| `results` | array |')
+    expect(first['parallel.mdx']).toContain('does not cap collection mode')
+    expect(first['parallel.mdx']).toContain('| `results` | array |')
+    expectNoUnsupportedPreviewFields(first)
+
+    for (const [index, slug] of slugs.entries()) {
+      fs.writeFileSync(
+        path.join(blockDocsDir, `${slug}.mdx`),
+        index % 2 ? 'REPLACED BLOCK PAGE' : ''
+      )
+    }
+    runGenerator('blocks', blockDocsDir, 1_900_000_000_000)
+    expect(snapshot(blockDocsDir)).toEqual(first)
+    runGenerator('blocks', blockDocsDir)
+    expect(snapshot(blockDocsDir)).toEqual(first)
+  })
+
   it('preserves curated metadata and page order while reconciling files', () => {
     const docsDir = path.join(tempDir, 'curated-meta')
     fs.mkdirSync(docsDir, { recursive: true })

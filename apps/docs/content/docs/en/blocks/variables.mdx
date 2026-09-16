@@ -1,48 +1,58 @@
 ---
 title: Variables
-description: Set and manage workflow-scoped variables
+description: Set workflow-scoped variables
 ---
 
-import { Callout } from 'fumadocs-ui/components/callout'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-The Variables block updates variables already defined in the workflow. Assignments change the current execution's values; they do not save new initial values or persist runtime state between runs.
 
-## Configure assignments
+<BlockInfoCard
+  type="variables"
+  color="#8B5CF6"
+/>
 
-1. Create the variables in the workflow's Variables panel, with names, types, and initial values.
-2. Add a Variables block and select each variable to update.
-3. Supply a literal value or an exact reference to an upstream output.
 
-For example, after an API block returns a customer profile:
+## Configuration
 
-```text
-customerEmail = <api.data.email>
-userId = <api.data.id>
-userTier = <api.data.tier>
-```
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Variables"
+    type="variables"
+    color="#8B5CF6"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "variables",
+            "type": "variables-input",
+            "title": "Variable Assignments",
+            "layout": "full",
+            "description": "Select workflow variables and update their values during execution. Access them anywhere using exact tags like <variable.riskLimit>.",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
 
-Use the actual source block's name. In plain-text value fields, enter text without surrounding quotation marks.
+## Input
 
-## Calculations
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `variables` | json | No | Assignment entries with variableId, variableName, type, and value. |
 
-The Variables block converts values to the selected variable type; it does not evaluate JavaScript expressions. A numeric assignment such as `<variable.retryCount> + 1` becomes text such as `0 + 1` and fails numeric conversion.
+## Output
 
-Calculate in a Function block first:
+This block does not declare a structured output schema.
 
-```typescript
-return <variable.retryCount> + 1;
-```
 
-Then assign `retryCount` to `<function.result>` in the Variables block. Use the same pattern for a loop counter such as `itemsProcessed`.
+## Usage Instructions
 
-## Read values and outputs
+Create variables in the Workflow Variables widget, then select them here to update their values during execution. Supported types are plain, number, boolean, object, array, and listingIdentity. Reference a value with an exact tag such as &lt;variable.riskLimit&gt;. Updates apply to this execution, not future runs. All Variables blocks and parallel branches share the workflow variable namespace. Each assignment is also returned as a dynamically named top-level block output. An assignment to an unknown variable does not create a workflow variable.
 
-- Read the latest value anywhere in the run with `<variable.retryCount>` or `<variable.customerEmail>`.
-- Block outputs contain the assigned names directly, for example `<variables.retryCount>`. There is no `assignments` wrapper.
-- For a retry workflow, connect the failed block's **error path** to your recovery logic. A normal success connection does not handle a thrown failure.
 
-<Callout type="warning">
-  Workflow variables are shared across parallel instances. Concurrent assignments can overwrite each other. Keep per-item data in block outputs and aggregate the Parallel results instead of using shared variables as isolated instance state.
-</Callout>
 
-Use persistent storage for state that must survive across runs.
+## Notes
+
+- Category: `blocks`
+- Type: `variables`

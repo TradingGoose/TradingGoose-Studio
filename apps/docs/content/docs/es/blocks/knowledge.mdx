@@ -42,11 +42,11 @@ El bloque Conocimiento conecta tu flujo de trabajo con una base de conocimiento,
     | Campo | Obligatorio | Descripción |
     |---|---|---|
     | **Base de conocimiento** | Sí | La base de conocimiento que se va a buscar |
-    | **Consulta de búsqueda** | Sí para búsquedas operativas | Consulta en lenguaje natural; consulta la limitación de filtros por etiquetas. |
+    | **Consulta de búsqueda** | No si se proporcionan filtros de etiquetas | Consulta en lenguaje natural; se puede combinar con filtros. |
     | **Número de resultados** | No | Cuántos fragmentos devolver (predeterminado: 10) |
     | **Filtros de etiquetas** | No | Limita los resultados a documentos que coincidan con etiquetas específicas |
 
-    El filtrado por etiquetas es una capacidad prevista, pero las búsquedas solo por etiquetas fallan y las búsquedas con consulta y etiquetas no aplican estas. No dependas de ellas para restringir los resultados hasta que se corrija.
+    Configura filtros de igualdad de texto en el modo avanzado. Se admiten búsquedas solo con etiquetas, solo con consulta o combinadas. Varios valores de una etiqueta usan OR; distintas etiquetas usan AND. Se rechazan las etiquetas desconocidas y los operadores no compatibles.
   </Tab>
   <Tab>
     Añade un fragmento de texto a un documento existente dentro de la base de conocimiento. El fragmento se incrusta automáticamente y queda disponible para futuras búsquedas.
@@ -185,5 +185,5 @@ Usa `<knowledge.data.documentId>` después de Create Document. Las confirmacione
 - **Combínalo con un bloque Agent** -- canaliza los resultados de búsqueda al contexto de un Agent para construir un flujo RAG.
 
 <Callout type="warning">
-  El filtrado por etiquetas no es fiable: las búsquedas solo por etiquetas fallan y las búsquedas con consulta y etiquetas no filtran por estas. Consulta [Base de conocimiento](/knowledgebase). Usa una consulta no vacía y revisa los documentos; las etiquetas no son una barrera de control de acceso.
+  Los filtros de etiquetas restringen los documentos buscados y pueden combinarse con una consulta semántica. Consulta [Base de conocimiento](/knowledgebase). Revisa los documentos devueltos; las etiquetas no son una barrera de control de acceso.
 </Callout>

@@ -1,21 +1,20 @@
 ---
 title: API
-description: Connect to external services via HTTP requests
+description: Use any API
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
-import { Callout } from 'fumadocs-ui/components/callout'
-import { Step, Steps } from 'fumadocs-ui/components/steps'
-import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
-import { BlockConfigPreview } from '@/components/ui/block-config-preview'
-import { ShowcaseCard } from '@/components/ui/showcase-card'
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
 
 <BlockInfoCard
   type="api"
   color="#2F55FF"
 />
 
-The API block enables you to connect your workflow to external services through API endpoints using HTTP requests. It supports various methods like GET, POST, PUT, DELETE, and PATCH, allowing you to interact with virtually any API endpoint.
+
+## Configuration
 
 <ShowcaseCard>
   <BlockConfigPreview
@@ -24,216 +23,124 @@ The API block enables you to connect your workflow to external services through 
     color="#2F55FF"
     hideHeader
     subBlocks={[
-      { "id": "url", "title": "URL", "type": "short-input", "layout": "full", "placeholder": "Enter URL", "required": true },
-      { "id": "method", "title": "Method", "type": "dropdown", "layout": "half", "required": true, "options": [{ "label": "GET", "id": "GET" }, { "label": "POST", "id": "POST" }, { "label": "PUT", "id": "PUT" }, { "label": "DELETE", "id": "DELETE" }, { "label": "PATCH", "id": "PATCH" }] },
-      { "id": "params", "title": "Query Params", "type": "table", "layout": "full" },
-      { "id": "headers", "title": "Headers", "type": "table", "layout": "full", "description": "Custom headers (standard headers like User-Agent, Accept, etc. are added automatically)" },
-      { "id": "body", "title": "Body", "type": "code", "layout": "full", "placeholder": "Enter JSON..." }
+        {
+            "id": "url",
+            "type": "short-input",
+            "title": "URL",
+            "layout": "full",
+            "placeholder": "Enter URL",
+            "required": true
+        },
+        {
+            "id": "method",
+            "type": "dropdown",
+            "title": "Method",
+            "layout": "half",
+            "required": true,
+            "options": [
+                {
+                    "id": "GET",
+                    "label": "GET"
+                },
+                {
+                    "id": "POST",
+                    "label": "POST"
+                },
+                {
+                    "id": "PUT",
+                    "label": "PUT"
+                },
+                {
+                    "id": "DELETE",
+                    "label": "DELETE"
+                },
+                {
+                    "id": "PATCH",
+                    "label": "PATCH"
+                }
+            ]
+        },
+        {
+            "id": "params",
+            "type": "table",
+            "title": "Query Params",
+            "layout": "full"
+        },
+        {
+            "id": "headers",
+            "type": "table",
+            "title": "Headers",
+            "layout": "full",
+            "description": "Custom headers (standard headers like User-Agent, Accept, etc. are added automatically)"
+        },
+        {
+            "id": "body",
+            "type": "code",
+            "title": "Body",
+            "layout": "full",
+            "placeholder": "Enter JSON...",
+            "language": "json"
+        }
     ]}
   />
 </ShowcaseCard>
 
-## Overview
+## Tools
 
-The API block enables you to:
+### `http_request`
 
-<Steps>
-  <Step>
-    <strong>Connect to external services</strong>: Make HTTP requests to REST APIs and web services
-  </Step>
-  <Step>
-    <strong>Send and receive data</strong>: Process responses and transform data from external sources
-  </Step>
-  <Step>
-    <strong>Integrate third-party platforms</strong>: Connect with services like Stripe, Slack, or custom APIs
-  </Step>
-  <Step>
-    <strong>Handle authentication</strong>: Support various auth methods including Bearer tokens and API keys
-  </Step>
-</Steps>
+Make HTTP requests with comprehensive support for methods, headers, query parameters, path parameters, and form data. Features configurable timeout and status validation for robust API interactions.
 
-## How It Works
+#### Input
 
-The API block processes HTTP requests through a structured approach:
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `url` | string | Yes | The URL to send the request to |
+| `method` | string | No | HTTP method \(GET, POST, PUT, PATCH, DELETE\) |
+| `headers` | object | No | HTTP headers to include |
+| `body` | object | No | Request body \(for POST, PUT, PATCH\) |
+| `params` | object | No | URL query parameters to append |
+| `pathParams` | object | No | URL path parameters to replace \(e.g., :id in /users/:id\) |
+| `formData` | object | No | Form data to send \(will set appropriate Content-Type\) |
+| `timeout` | number | No | Request timeout in milliseconds |
+| `validateStatus` | object | No | Custom status validation function |
 
-1. **Configure Request** - Set URL, method, headers, and body parameters
-2. **Execute Request** - Send HTTP request to the specified endpoint
-3. **Process Response** - Handle response data, status codes, and headers
-4. **Error Handling** - Route failed requests through an explicit error path
+#### Output
 
-## Configuration Options
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `data` | json | Response data from the HTTP request \(JSON object, text, or other format\) |
+| `status` | number | HTTP status code of the response \(e.g., 200, 404, 500\) |
+| `headers` | object | Response headers as key-value pairs |
+| `headers.content-type` | string | Content type of the response |
+| `headers.content-length` | string | Content length |
 
-### URL
+## Input
 
-The endpoint URL for the API request. This can be:
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `url` | string | Yes | Request URL |
+| `method` | string | Yes | HTTP method |
+| `headers` | json | No | Request headers |
+| `body` | json | No | Request body data |
+| `params` | json | No | URL query parameters |
 
-- A static URL entered directly in the block
-- A dynamic URL connected from another block's output
-- A URL with path parameters
+## Output
 
-### Method
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `data` | json | API response data \(JSON, text, or other formats\) |
+| `status` | number | HTTP status code \(200, 404, 500, etc.\) |
+| `headers` | json | HTTP response headers as key-value pairs |
 
-Select the HTTP method for your request:
 
-- **GET**: Retrieve data from the server
-- **POST**: Send data to the server to create a resource
-- **PUT**: Update an existing resource on the server
-- **DELETE**: Remove a resource from the server
-- **PATCH**: Partially update an existing resource
+## Usage Instructions
 
-### Query Parameters
+Send an HTTP request using the configured method, URL, headers, query parameters, and optional body. Standard request headers are added automatically. Reference upstream outputs and workflow variables using their exact TradingGoose tags. Responses expose data, status, and headers. Non-successful requests fail the block; connect an error path for recovery. The block does not automatically retry failed requests.
 
-Define key-value pairs that will be appended to the URL as query parameters. For example:
 
-```
-Key: apiKey
-Value: your_api_key_here
 
-Key: limit
-Value: 10
-```
+## Notes
 
-These would be added to the URL as `?apiKey=your_api_key_here&limit=10`.
-
-### Headers
-
-Configure HTTP headers for your request. Common headers include:
-
-```
-Key: Content-Type
-Value: application/json
-
-Key: Authorization
-Value: Bearer your_token_here
-```
-
-### Request Body
-
-For methods that support a request body (POST, PUT, PATCH), you can define the data to send. The body can be:
-
-- JSON data entered directly in the block
-- Data connected from another block's output
-- Dynamically generated during workflow execution
-
-### Accessing Results
-
-After an API request completes, you can access its outputs:
-
-- **`<api.data>`**: The response body data from the API
-- **`<api.status>`**: HTTP status code (200, 404, 500, etc.)
-- **`<api.headers>`**: Response headers from the server
-- **`<api.error>`**: Error details if the request failed
-
-## Advanced Features
-
-### Dynamic URL Construction
-
-Build URLs dynamically using variables from previous blocks:
-
-```javascript
-// In a Function block before the API
-const { userId } = <start>;
-return `https://api.example.com/users/${encodeURIComponent(userId)}/profile`;
-```
-
-### Request Retries
-
-The API block does not automatically retry timeouts, connection failures, HTTP 429, or 5xx responses. Failed requests raise a block error. Connect the block's error path to recovery logic; implement bounded retries and backoff explicitly in the workflow when needed. Only retry requests that are safe to repeat.
-
-### Response Validation
-
-Connect a Function block to the API block's normal output to validate a successful response. Connect failure recovery to the API block's error path, not a Condition after its normal output. Set the API URL to `<function.result>` when using the URL-building Function above.
-
-```javascript
-const data = <api.data>;
-if (!data || typeof data !== 'object') {
-  throw new Error('Expected an object response');
-}
-return data;
-```
-
-## Inputs and Outputs
-
-<Tabs items={['Configuration', 'Variables', 'Results']}>
-  <Tab>
-    <ul className="list-disc space-y-2 pl-6">
-      <li>
-        <strong>URL</strong>: The endpoint to send the request to
-      </li>
-      <li>
-        <strong>Method</strong>: HTTP method (GET, POST, PUT, DELETE, PATCH)
-      </li>
-      <li>
-        <strong>Query Parameters</strong>: Key-value pairs for URL parameters
-      </li>
-      <li>
-        <strong>Headers</strong>: HTTP headers for authentication and content type
-      </li>
-      <li>
-        <strong>Body</strong>: Request payload for POST/PUT/PATCH methods
-      </li>
-    </ul>
-  </Tab>
-  <Tab>
-    <ul className="list-disc space-y-2 pl-6">
-      <li>
-        <strong>api.data</strong>: Response body data from the API call
-      </li>
-      <li>
-        <strong>api.status</strong>: HTTP status code returned by server
-      </li>
-      <li>
-        <strong>api.headers</strong>: Response headers from the server
-      </li>
-      <li>
-        <strong>api.error</strong>: Error details if request failed
-      </li>
-    </ul>
-  </Tab>
-  <Tab>
-    <ul className="list-disc space-y-2 pl-6">
-      <li>
-        <strong>Response Data</strong>: Primary API response content
-      </li>
-      <li>
-        <strong>Status Information</strong>: HTTP status and error details
-      </li>
-      <li>
-        <strong>Access</strong>: Available in blocks after the API call
-      </li>
-    </ul>
-  </Tab>
-</Tabs>
-
-## Example Use Cases
-
-### Fetch User Profile Data
-
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Scenario: Retrieve user information from external service</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>Function block constructs user ID from input</li>
-    <li>API block calls GET /users/&#123;id&#125; endpoint</li>
-    <li>Function block processes and formats user data</li>
-    <li>Response block returns formatted profile</li>
-  </ol>
-</div>
-
-### Payment Processing
-
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Scenario: Process payment through Stripe API</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>Function block validates payment data</li>
-    <li>API block creates payment intent via Stripe</li>
-    <li>Condition block handles payment success/failure</li>
-    <li>Supabase block updates order status in database</li>
-  </ol>
-</div>
-
-## Best Practices
-
-- **Use environment variables for sensitive data**: Don't hardcode API keys or credentials
-- **Handle errors gracefully**: Connect error handling logic for failed requests
-- **Validate responses**: Check status codes and response formats before processing data
-- **Respect rate limits**: Be mindful of API rate limits and implement appropriate throttling
+- Category: `blocks`
+- Type: `api`

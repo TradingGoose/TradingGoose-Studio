@@ -179,7 +179,7 @@ Agent 块通过统一的推理接口支持多个 LLM 提供商。其模型选择
 
 ### 记忆 + Agent：对话历史
 
-Agent 的 Memories 字段可使用来自 `<memory.memories>` 的已有消息数组。但 Memory 块的 Add 操作当前会失败，因此保存用户消息 → Agent → 保存回复的流程尚不可用。设计跨运行对话持久化前，请先阅读 [Memory 当前限制](/blocks/memory)。
+Agent 的 Memories 字段可使用 Get Memory 返回的消息数组，例如 `<memory.memories>`。使用 Add Memory 保存用户和助手消息，并在同一工作流的后续执行中使用相同 ID 读取对话。工作流变量本身不会跨执行保存历史记录。请参阅 [Memory](/blocks/memory)。
 
 ## 输入与输出
 
@@ -249,7 +249,7 @@ Agent 的 Memories 字段可使用来自 `<memory.memories>` 的已有消息数�
     <li>如果需要升级，Agent 会创建包含相关上下文的 Linear 问题</li>
     <li>Agent 起草清晰的电子邮件回复</li>
     <li>Gmail 将回复发送给客户</li>
-    <li>使用持久存储保留后续对话历史；Memory Add 当前不可用</li>
+    <li>使用 Memory Add 保存消息，在后续执行中通过 Get Memory 加载历史记录</li>
   </ol>
 </div>
 

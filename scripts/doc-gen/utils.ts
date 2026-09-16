@@ -25,7 +25,7 @@ export function describeVisibilityCondition(
   return conditions.length > 0 ? conditions.map(describeCondition).join(' and ') : undefined
 }
 
-function collectConditions(condition: DocCondition): DocCondition[] {
+export function collectConditions(condition: DocCondition): DocCondition[] {
   const nested = condition.and
     ? (Array.isArray(condition.and) ? condition.and : [condition.and]).flatMap(collectConditions)
     : []

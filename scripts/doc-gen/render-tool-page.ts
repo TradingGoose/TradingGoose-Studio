@@ -1,5 +1,51 @@
 import type { BlockConfig, DocCondition, DocSubBlock, RelatedDocPage, ToolInfo } from './types'
-import { appendSentence, describeVisibilityCondition, escapeMdx } from './utils'
+import { appendSentence, collectConditions, describeVisibilityCondition, escapeMdx } from './utils'
+
+/** Use the shared renderer for built-in UI, tool operations, and block contracts. */
+export function renderBlockPage(config: BlockConfig, toolInfo: Map<string, ToolInfo>): string {
+  const params = Object.entries(config.inputs ?? {}).map(([name, input]) => {
+    const fields = (config.subBlocks ?? []).filter((field) => field.id === name)
+    const field = fields.length === 1 ? fields[0] : undefined
+    const visibility = field?.condition ? describeVisibilityCondition(field.condition) : undefined
+    let description = input.description ?? field?.description ?? field?.title ?? name
+    if (visibility) description = appendSentence(description, `Shown when ${visibility}.`)
+    return {
+      name,
+      type: input.type,
+      required: input.required === true || fields.some((item) => item.required && !item.condition),
+      description,
+    }
+  })
+  return renderToolPage(
+    { ...config, longDescription: config.longDescription && escapeMdx(config.longDescription) },
+    new Map(
+      [...toolInfo].map(([id, info]) => [
+        id,
+        {
+          ...info,
+          description: escapeMdx(info.description),
+          outputs: flattenOutputFields(info.outputs),
+        },
+      ])
+    ),
+    undefined,
+    { description: config.description, params, outputs: flattenOutputFields(config.outputs ?? {}) }
+  )
+}
+
+function flattenOutputFields(fields: Record<string, any>, prefix = ''): Record<string, any> {
+  const flattened: Record<string, any> = {}
+  for (const [name, field] of Object.entries(fields)) {
+    const key = `${prefix}${name}`
+    flattened[key] = field
+    if (field?.properties)
+      Object.assign(flattened, flattenOutputFields(field.properties, `${key}.`))
+    if (field?.items?.properties) {
+      Object.assign(flattened, flattenOutputFields(field.items.properties, `${key}[].`))
+    }
+  }
+  return flattened
+}
 
 /**
  * Render MDX content for an integration tool page.
@@ -39,7 +85,7 @@ export function renderToolPage(
       subBlocks,
       operationField!,
       operationFieldId,
-      operationToolMap || {},
+      operationToolMap!,
       toolInfoMap,
       outputs
     )
@@ -165,10 +211,8 @@ function buildTabbedBody(
       ...opFields,
     ].map((field) => toPreviewField(field, operationFieldId, op.id))
 
-    const toolId = operationToolMap[op.id] || op.id
-    const operationContent = toolInfoMap.has(toolId)
-      ? renderToolSection(toolId, op.label, toolInfoMap, outputs, true)
-      : renderTabbedOutputSection(outputs)
+    const toolId = operationToolMap[op.id]
+    const operationContent = renderToolSection(toolId, op.label, toolInfoMap, outputs, true)
 
     result += `### ${op.label}
 
@@ -232,13 +276,6 @@ function conditionMatchesResolvedValue(
       : value === resolvedValue
     return not ? !matches : matches
   })
-}
-
-function collectConditions(condition: DocCondition): DocCondition[] {
-  const nested = condition.and
-    ? (Array.isArray(condition.and) ? condition.and : [condition.and]).flatMap(collectConditions)
-    : []
-  return [condition, ...nested]
 }
 
 // ── Render a single tool's input/output tables ────────────────────
@@ -338,16 +375,6 @@ function renderInputTable(
   for (const param of params) {
     result += `| \`${param.name}\` | ${param.type} | ${param.required ? 'Yes' : 'No'} | ${escapeMdx(param.description)} |\n`
   }
-  return result
-}
-
-function renderTabbedOutputSection(outputs: Record<string, any>): string {
-  if (Object.keys(outputs).length === 0) return ''
-
-  let result = `<div className="mt-6 border-t border-fd-border pt-4">\n`
-  result += `<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output (block-level contract)</div>\n\n`
-  result += renderOutputTable(outputs)
-  result += '\n</div>\n\n'
   return result
 }
 

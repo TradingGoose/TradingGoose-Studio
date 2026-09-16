@@ -22,7 +22,7 @@ Puedes añadir etiquetas personalizadas a cualquier documento de tu base de cono
 
 La API de búsqueda acepta filtros de etiquetas de documentos mediante `filters`, un registro de nombres y valores de etiquetas. Admite búsquedas solo por etiquetas, solo vectoriales y combinadas.
 
-**Limitación actual del bloque:** El bloque Knowledge envía `tagFilters` en lugar del campo `filters` de la API. Una solicitud del bloque solo con etiquetas falla la validación; una solicitud con consulta y etiquetas se ejecuta sin los filtros de etiquetas. Hasta que se corrija este contrato, usa el bloque para búsquedas solo con consulta y no dependas de sus campos de etiquetas para restringir contenido. Los modos siguientes describen el comportamiento de la API cuando los filtros se envían correctamente.
+En el modo avanzado, Knowledge acepta filas `tagFilters` con `tagName` y `tagValue` y las convierte al mapa `filters` de la API. El bloque solo admite igualdad de texto; se rechazan las etiquetas desconocidas, los filtros mal formados y los operadores no compatibles. Las búsquedas solo con consulta, solo con etiquetas y combinadas utilizan los modos siguientes.
 
 ## Modos de búsqueda
 
@@ -72,13 +72,13 @@ Cuando **proporcionas tanto etiquetas como una consulta de búsqueda**:
 
 ### Configuración del bloque de conocimiento
 1. **Seleccionar base de conocimiento**: Elige qué base de conocimiento buscar
-2. **Ingresar consulta**: Proporciona una consulta mientras exista la limitación de filtros del bloque
+2. **Elegir entradas de búsqueda**: Proporciona una consulta, filtros de igualdad de texto en el modo avanzado o ambos
 3. **Configurar resultados**: Establece el número de fragmentos que recuperar (1-100, predeterminado: 10)
 4. **Mapear resultados**: Referencia explícitamente los fragmentos devueltos en las entradas o prompts posteriores
 5. **Probar búsqueda**: Inspecciona los resultados antes de depender de ellos
 
 ### Uso dinámico de etiquetas
-- **Etiquetas variables**: Un cliente de la API puede enviar valores resueltos dinámicamente mediante `filters`; sigue aplicándose la limitación del bloque Knowledge descrita arriba
+- **Etiquetas variables**: Usa referencias del flujo en los valores de etiquetas del bloque; los clientes directos de la API envían los valores resueltos mediante `filters`
 - **Filtrado condicional**: Aplica distintas etiquetas según la lógica del flujo de trabajo
 - **Búsqueda según el contexto**: Ajusta las etiquetas según el contexto de la conversación
 - **Filtrado en varios pasos**: Refina las búsquedas a través de los pasos del flujo de trabajo
@@ -92,7 +92,7 @@ Cuando **proporcionas tanto etiquetas como una consulta de búsqueda**:
 1. **Planifica la estructura de tus etiquetas**: Define convenciones de nombres coherentes
 2. **Empieza a etiquetar**: Agrega etiquetas relevantes a tus documentos existentes
 3. **Prueba combinaciones**: Experimenta con combinaciones de etiquetas y consultas de búsqueda
-4. **Integra en tus flujos de trabajo**: Verifica que el cliente envíe el campo `filters` de la API; no dependas de los campos de etiquetas del bloque, que actualmente no funcionan
+4. **Integra en tus flujos de trabajo**: Configura los filtros de etiquetas del bloque Knowledge y revisa los fragmentos devueltos; los clientes directos de la API usan `filters`
 5. **Refina con el tiempo**: Ajusta tu enfoque de etiquetado según los resultados de búsqueda
 
 Las etiquetas transforman tu base de conocimiento de un simple almacén de documentos en un sistema de inteligencia organizado con precisión y totalmente consultable, que tus flujos de trabajo de IA pueden recorrer con precisión quirúrgica.

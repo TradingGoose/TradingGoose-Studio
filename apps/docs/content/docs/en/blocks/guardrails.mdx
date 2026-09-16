@@ -1,21 +1,20 @@
 ---
 title: Guardrails
-description: Validate content with safety constraints
+description: Validate content with guardrails
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
-import { Callout } from 'fumadocs-ui/components/callout'
-import { Step, Steps } from 'fumadocs-ui/components/steps'
-import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
-import { BlockConfigPreview } from '@/components/ui/block-config-preview'
-import { ShowcaseCard } from '@/components/ui/showcase-card'
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
 
 <BlockInfoCard
   type="guardrails"
   color="#3D642D"
 />
 
-The Guardrails block validates and protects your AI workflows by checking content against multiple validation types. Ensure data quality, prevent hallucinations, detect PII, and enforce format requirements before content moves through your workflow.
+
+## Configuration
 
 <ShowcaseCard>
   <BlockConfigPreview
@@ -24,238 +23,372 @@ The Guardrails block validates and protects your AI workflows by checking conten
     color="#3D642D"
     hideHeader
     subBlocks={[
-      { "id": "input", "title": "Content to Validate", "type": "long-input", "layout": "full", "placeholder": "Enter content to validate", "required": true },
-      { "id": "validationType", "title": "Validation Type", "type": "dropdown", "layout": "full", "required": true, "options": [{ "label": "Valid JSON", "id": "json" }, { "label": "Regex Match", "id": "regex" }, { "label": "Hallucination Check", "id": "hallucination" }, { "label": "PII Detection", "id": "pii" }], "defaultValue": "json" },
-      { "id": "regex", "title": "Regex Pattern", "type": "short-input", "layout": "full", "placeholder": "e.g., ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", "required": true },
-      { "id": "knowledgeBaseId", "title": "Knowledge Base", "type": "knowledge-base-selector", "layout": "full", "placeholder": "Select knowledge base", "required": true },
-      { "id": "model", "title": "Model", "type": "combobox", "layout": "half", "placeholder": "Type or select a model...", "required": true },
-      { "id": "threshold", "title": "Confidence", "type": "slider", "layout": "half" },
-      { "id": "topK", "title": "Number of Chunks to Retrieve", "type": "slider", "layout": "full" },
-      { "id": "apiKey", "title": "API Key", "type": "short-input", "layout": "full", "placeholder": "Enter your API key", "password": true, "required": true },
-      { "id": "piiEntityTypes", "title": "PII Types to Detect", "type": "grouped-checkbox-list", "layout": "full", "options": [{ "label": "Person name", "id": "PERSON" }, { "label": "Email address", "id": "EMAIL_ADDRESS" }, { "label": "Phone number", "id": "PHONE_NUMBER" }, { "label": "Location", "id": "LOCATION" }, { "label": "Credit card number", "id": "CREDIT_CARD" }] },
-      { "id": "piiMode", "title": "Action", "type": "dropdown", "layout": "full", "required": true, "options": [{ "label": "Block Request", "id": "block" }, { "label": "Mask PII", "id": "mask" }], "defaultValue": "block" },
-      { "id": "piiLanguage", "title": "Language", "type": "dropdown", "layout": "full", "options": [{ "label": "English", "id": "en" }, { "label": "Spanish", "id": "es" }, { "label": "Italian", "id": "it" }, { "label": "Polish", "id": "pl" }, { "label": "Finnish", "id": "fi" }], "defaultValue": "en" }
+        {
+            "id": "input",
+            "type": "long-input",
+            "title": "Content to Validate",
+            "layout": "full",
+            "placeholder": "Enter content to validate",
+            "required": true
+        },
+        {
+            "id": "validationType",
+            "type": "dropdown",
+            "title": "Validation Type",
+            "layout": "full",
+            "required": true,
+            "defaultValue": "json",
+            "options": [
+                {
+                    "id": "json",
+                    "label": "Valid JSON"
+                },
+                {
+                    "id": "regex",
+                    "label": "Regex Match"
+                },
+                {
+                    "id": "hallucination",
+                    "label": "Hallucination Check"
+                },
+                {
+                    "id": "pii",
+                    "label": "PII Detection"
+                }
+            ]
+        },
+        {
+            "id": "regex",
+            "type": "short-input",
+            "title": "Regex Pattern",
+            "layout": "full",
+            "placeholder": "e.g., ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+            "description": "Shown when validationType is 'regex'."
+        },
+        {
+            "id": "knowledgeBaseId",
+            "type": "knowledge-base-selector",
+            "title": "Knowledge Base",
+            "layout": "full",
+            "placeholder": "Select knowledge base",
+            "description": "Shown when validationType is 'hallucination'."
+        },
+        {
+            "id": "model",
+            "type": "combobox",
+            "title": "Model",
+            "layout": "half",
+            "placeholder": "Type or select a model...",
+            "description": "Shown when validationType is 'hallucination'."
+        },
+        {
+            "id": "threshold",
+            "type": "slider",
+            "title": "Confidence",
+            "layout": "half",
+            "min": 0,
+            "max": 10,
+            "step": 1,
+            "defaultValue": 3,
+            "description": "Shown when validationType is 'hallucination'."
+        },
+        {
+            "id": "topK",
+            "type": "slider",
+            "title": "Number of Chunks to Retrieve",
+            "layout": "full",
+            "min": 1,
+            "max": 20,
+            "step": 1,
+            "defaultValue": 5,
+            "description": "Available in Advanced mode. Shown when validationType is 'hallucination'."
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "layout": "full",
+            "placeholder": "Enter your API key",
+            "password": true,
+            "description": "Shown when validationType is 'hallucination' and applicable to the selected model at runtime."
+        },
+        {
+            "id": "piiEntityTypes",
+            "type": "grouped-checkbox-list",
+            "title": "PII Types to Detect",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "PERSON",
+                    "label": "Person name"
+                },
+                {
+                    "id": "EMAIL_ADDRESS",
+                    "label": "Email address"
+                },
+                {
+                    "id": "PHONE_NUMBER",
+                    "label": "Phone number"
+                },
+                {
+                    "id": "LOCATION",
+                    "label": "Location"
+                },
+                {
+                    "id": "DATE_TIME",
+                    "label": "Date or time"
+                },
+                {
+                    "id": "IP_ADDRESS",
+                    "label": "IP address"
+                },
+                {
+                    "id": "URL",
+                    "label": "URL"
+                },
+                {
+                    "id": "CREDIT_CARD",
+                    "label": "Credit card number"
+                },
+                {
+                    "id": "IBAN_CODE",
+                    "label": "International bank account number (IBAN)"
+                },
+                {
+                    "id": "CRYPTO",
+                    "label": "Cryptocurrency wallet address"
+                },
+                {
+                    "id": "MEDICAL_LICENSE",
+                    "label": "Medical license number"
+                },
+                {
+                    "id": "NRP",
+                    "label": "Nationality / religion / political group"
+                },
+                {
+                    "id": "US_BANK_NUMBER",
+                    "label": "US bank account number"
+                },
+                {
+                    "id": "US_DRIVER_LICENSE",
+                    "label": "US driver license number"
+                },
+                {
+                    "id": "US_ITIN",
+                    "label": "US individual taxpayer identification number (ITIN)"
+                },
+                {
+                    "id": "US_PASSPORT",
+                    "label": "US passport number"
+                },
+                {
+                    "id": "US_SSN",
+                    "label": "US Social Security number"
+                },
+                {
+                    "id": "UK_NINO",
+                    "label": "UK National Insurance number"
+                },
+                {
+                    "id": "UK_NHS",
+                    "label": "UK NHS number"
+                },
+                {
+                    "id": "ES_NIF",
+                    "label": "Spanish NIF number"
+                },
+                {
+                    "id": "ES_NIE",
+                    "label": "Spanish NIE number"
+                },
+                {
+                    "id": "IT_FISCAL_CODE",
+                    "label": "Italian fiscal code"
+                },
+                {
+                    "id": "IT_DRIVER_LICENSE",
+                    "label": "Italian driver license"
+                },
+                {
+                    "id": "IT_IDENTITY_CARD",
+                    "label": "Italian identity card"
+                },
+                {
+                    "id": "IT_PASSPORT",
+                    "label": "Italian passport"
+                },
+                {
+                    "id": "PL_PESEL",
+                    "label": "Polish PESEL"
+                },
+                {
+                    "id": "SG_NRIC_FIN",
+                    "label": "Singapore NRIC/FIN"
+                },
+                {
+                    "id": "AU_ABN",
+                    "label": "Australian business number (ABN)"
+                },
+                {
+                    "id": "AU_ACN",
+                    "label": "Australian company number (ACN)"
+                },
+                {
+                    "id": "AU_TFN",
+                    "label": "Australian tax file number (TFN)"
+                },
+                {
+                    "id": "AU_MEDICARE",
+                    "label": "Australian Medicare number"
+                },
+                {
+                    "id": "IN_AADHAAR",
+                    "label": "Indian Aadhaar"
+                },
+                {
+                    "id": "IN_PAN",
+                    "label": "Indian PAN"
+                },
+                {
+                    "id": "IN_VEHICLE_REGISTRATION",
+                    "label": "Indian vehicle registration"
+                },
+                {
+                    "id": "IN_VOTER",
+                    "label": "Indian voter number"
+                },
+                {
+                    "id": "IN_PASSPORT",
+                    "label": "Indian passport"
+                }
+            ],
+            "description": "Shown when validationType is 'pii'."
+        },
+        {
+            "id": "piiMode",
+            "type": "dropdown",
+            "title": "Action",
+            "layout": "full",
+            "defaultValue": "block",
+            "options": [
+                {
+                    "id": "block",
+                    "label": "Block Request"
+                },
+                {
+                    "id": "mask",
+                    "label": "Mask PII"
+                }
+            ],
+            "description": "Shown when validationType is 'pii'."
+        },
+        {
+            "id": "piiLanguage",
+            "type": "dropdown",
+            "title": "Language",
+            "layout": "full",
+            "defaultValue": "en",
+            "options": [
+                {
+                    "id": "en",
+                    "label": "English"
+                },
+                {
+                    "id": "es",
+                    "label": "Spanish"
+                },
+                {
+                    "id": "it",
+                    "label": "Italian"
+                },
+                {
+                    "id": "pl",
+                    "label": "Polish"
+                },
+                {
+                    "id": "fi",
+                    "label": "Finnish"
+                }
+            ],
+            "description": "Shown when validationType is 'pii'."
+        }
     ]}
   />
 </ShowcaseCard>
 
-## Overview
+## Tools
 
-The Guardrails block enables you to:
+### `guardrails_validate`
 
-<Steps>
-  <Step>
-    <strong>Validate JSON Structure</strong>: Ensure LLM outputs are valid JSON before parsing
-  </Step>
-  <Step>
-    <strong>Match Regex Patterns</strong>: Verify content matches specific formats (emails, phone numbers, URLs, etc.)
-  </Step>
-  <Step>
-    <strong>Detect Hallucinations</strong>: Use RAG + LLM scoring to validate AI outputs against knowledge base content
-  </Step>
-  <Step>
-    <strong>Detect PII</strong>: Identify and optionally mask personally identifiable information across the supported entity types
-  </Step>
-</Steps>
+Validate content using guardrails \(JSON, regex, hallucination check, or PII detection\)
 
-## Validation Types
+#### Input
 
-### JSON Validation
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `input` | string | Yes | Content to validate \(from wired block\) |
+| `validationType` | string | Yes | Type of validation: json, regex, hallucination, or pii |
+| `regex` | string | No | Regex pattern \(required for regex validation\) |
+| `knowledgeBaseId` | string | No | Knowledge base ID \(required for hallucination check\) |
+| `threshold` | string | No | Confidence threshold \(0-10 scale, default: 3, scores below fail\) |
+| `topK` | string | No | Number of chunks to retrieve from knowledge base \(default: 10\) |
+| `model` | string | No | LLM model for confidence scoring \(default: gpt-4o-mini\) |
+| `apiKey` | string | No | API key for LLM provider \(optional if using hosted\) |
+| `piiEntityTypes` | array | No | PII entity types to detect \(empty = detect all\) |
+| `piiMode` | string | No | PII action mode: block or mask \(default: block\) |
+| `piiLanguage` | string | No | Language for PII detection \(default: en\) |
 
-Validates that content is properly formatted JSON. Perfect for ensuring structured LLM outputs can be safely parsed.
+#### Output
 
-**Use Cases:**
-- Validate JSON responses from Agent blocks before parsing
-- Ensure API payloads are properly formatted
-- Check structured data integrity
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `passed` | boolean | Whether validation passed |
+| `validationType` | string | Type of validation performed |
+| `input` | string | Original input |
+| `error` | string | Error message if validation failed |
+| `score` | number | Confidence score \(0-10, 0=hallucination, 10=grounded, only for hallucination check\) |
+| `reasoning` | string | Reasoning for confidence score \(only for hallucination check\) |
+| `detectedEntities` | array | Detected PII entities \(only for PII detection\) |
+| `maskedText` | string | Text with PII masked \(only for PII detection in mask mode\) |
 
-**Output:**
-- `passed`: `true` if valid JSON, `false` otherwise
-- `error`: Error message if validation fails (e.g., "Invalid JSON: Unexpected token...")
+## Input
 
-### Regex Validation
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `input` | string | Yes | Content to validate \(automatically receives input from wired block\) |
+| `validationType` | string | Yes | Type of validation to perform \(json, regex, hallucination, or pii\) |
+| `regex` | string | No | Regex pattern for regex validation. Shown when validationType is 'regex'. |
+| `knowledgeBaseId` | string | No | Knowledge base ID for hallucination check. Shown when validationType is 'hallucination'. |
+| `threshold` | string | No | Confidence threshold \(0-10 scale, default: 3, scores below fail\). Shown when validationType is 'hallucination'. |
+| `topK` | string | No | Number of chunks to retrieve from knowledge base \(default: 5\). Shown when validationType is 'hallucination'. |
+| `model` | string | No | LLM model for hallucination scoring \(default: gpt-4o-mini\). Shown when validationType is 'hallucination'. |
+| `apiKey` | string | No | API key for LLM provider \(optional if using hosted\). Shown when validationType is 'hallucination' and applicable to the selected model at runtime. |
+| `piiEntityTypes` | json | No | PII entity types to detect \(array of strings, empty = detect all\). Shown when validationType is 'pii'. |
+| `piiMode` | string | No | PII action mode: block or mask. Shown when validationType is 'pii'. |
+| `piiLanguage` | string | No | Language for PII detection \(default: en\). Shown when validationType is 'pii'. |
 
-Checks if content matches a specified regular expression pattern.
+## Output
 
-**Use Cases:**
-- Validate email addresses
-- Check phone number formats
-- Verify URLs or custom identifiers
-- Enforce specific text patterns
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `input` | string | Original input that was validated |
+| `maskedText` | string | Text with PII masked \(only for PII detection in mask mode\) |
+| `validationType` | string | Type of validation performed |
+| `passed` | boolean | Whether validation passed \(true/false\) |
+| `score` | number | Confidence score \(0-10, 0=hallucination, 10=grounded, only for hallucination check\) |
+| `reasoning` | string | Reasoning for confidence score \(only for hallucination check\) |
+| `detectedEntities` | array | Detected PII entities \(only for PII detection\) |
+| `error` | string | Error message if validation failed |
 
-**Configuration:**
-- **Regex Pattern**: The regular expression to match against (e.g., `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$` for emails)
 
-**Output:**
-- `passed`: `true` if content matches pattern, `false` otherwise
-- `error`: Error message if validation fails
+## Usage Instructions
 
-### Hallucination Detection
+Validate content using guardrails. Check if content is valid JSON, matches a regex pattern, detect hallucinations using RAG + LLM scoring, or detect PII.
 
-Uses Retrieval-Augmented Generation (RAG) with LLM scoring to detect when AI-generated content contradicts or isn't grounded in your knowledge base.
 
-**How It Works:**
-1. Queries your knowledge base for relevant context
-2. Sends both the AI output and retrieved context to an LLM
-3. LLM assigns a confidence score (0-10 scale)
-   - **0** = Full hallucination (completely ungrounded)
-   - **10** = Fully grounded (completely supported by knowledge base)
-4. Validation passes if score ≥ threshold (default: 3)
 
-**Configuration:**
-- **Knowledge Base**: Select from your existing knowledge bases
-- **Model**: Choose LLM for scoring (requires strong reasoning - GPT-4o, Claude 3.7 Sonnet recommended)
-- **API Key**: Authentication for selected LLM provider (auto-hidden for hosted/Ollama models)
-- **Confidence Threshold**: Minimum score to pass (0-10, default: 3)
-- **Top K** (Advanced): Number of knowledge base chunks to retrieve (default: 5)
+## Notes
 
-**Output:**
-- `passed`: `true` if confidence score ≥ threshold
-- `score`: Confidence score (0-10)
-- `reasoning`: LLM's explanation for the score
-- `error`: Error message if validation fails
-
-**Use Cases:**
-- Validate Agent responses against documentation
-- Ensure customer support answers are factually accurate
-- Verify generated content matches source material
-- Quality control for RAG applications
-
-### PII Detection
-
-Detects personally identifiable information using Microsoft Presidio. Supports the selectable entity types across multiple countries and languages.
-
-**How It Works:**
-1. Scans content for PII entities using pattern matching and NLP
-2. Returns detected entities with locations and confidence scores
-3. Optionally masks detected PII in the output
-
-**Configuration:**
-- **PII Types to Detect**: Select from grouped categories via modal selector
-  - **Common**: Person name, Email, Phone, Credit card, IP address, etc.
-  - **USA**: SSN, Driver's license, Passport, etc.
-  - **UK**: NHS number, National insurance number
-  - **Spain**: NIF, NIE, CIF
-  - **Italy**: Fiscal code, Driver's license, VAT code
-  - **Poland**: PESEL, NIP, REGON
-  - **Singapore**: NRIC/FIN, UEN
-  - **Australia**: ABN, ACN, TFN, Medicare
-  - **India**: Aadhaar, PAN, Passport, Voter number
-- **Mode**: 
-  - **Block**: Detect PII and set `passed` to `false` when found (default). Connect a Condition block to enforce the decision.
-  - **Mask**: Replace detected PII with masked values
-- **Language**: Detection language (default: English)
-
-**Output:**
-- `passed`: in Block mode, `false` when selected PII is found; in Mask mode, `true` after masking, even when entities are detected
-- `detectedEntities`: Array of detected PII with type, location, and confidence
-- `maskedText`: Content with PII masked (only if mode = "Mask")
-- `error`: Error message if validation fails
-
-**Use Cases:**
-- Block content containing sensitive personal information
-- Mask PII before logging or storing data
-- Compliance with GDPR, HIPAA, and other privacy regulations
-- Sanitize user inputs before processing
-
-## Configuration
-
-### Content to Validate
-
-The input content to validate. This typically comes from:
-- Agent block outputs: `<agent.content>`
-- Function block results: `<function.result>`
-- API responses: `<api.data>`
-- Any other block output
-
-### Validation Type
-
-Choose from four validation types:
-- **Valid JSON**: Check if content is properly formatted JSON
-- **Regex Match**: Verify content matches a regex pattern
-- **Hallucination Check**: Validate against knowledge base with LLM scoring
-- **PII Detection**: Detect and optionally mask personally identifiable information
-
-## Outputs
-
-All validation types return:
-
-- **`<guardrails.passed>`**: Boolean indicating if validation passed
-- **`<guardrails.validationType>`**: The type of validation performed
-- **`<guardrails.input>`**: The original input that was validated
-- **`<guardrails.error>`**: Error message if validation failed (optional)
-
-Additional outputs by type:
-
-**Hallucination Check:**
-- **`<guardrails.score>`**: Confidence score (0-10)
-- **`<guardrails.reasoning>`**: LLM's explanation
-
-**PII Detection:**
-- **`<guardrails.detectedEntities>`**: Array of detected PII entities
-- **`<guardrails.maskedText>`**: Content with PII masked (if mode = "Mask")
-
-## Example Use Cases
-
-### Validate JSON Before Parsing
-
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Scenario: Ensure Agent output is valid JSON</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>Agent generates structured JSON response</li>
-    <li>Guardrails validates JSON format</li>
-    <li>Condition block checks `<guardrails.passed>`</li>
-    <li>If passed → Parse and use data, If failed → Retry or handle error</li>
-  </ol>
-</div>
-
-### Prevent Hallucinations
-
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Scenario: Validate customer support responses</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>Agent generates response to customer question</li>
-    <li>Guardrails checks against support documentation knowledge base</li>
-    <li>If confidence score ≥ 3 → Send response</li>
-    <li>If confidence score \< 3 → Flag for human review</li>
-  </ol>
-</div>
-
-### Block PII in User Inputs
-
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Scenario: Sanitize user-submitted content</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>User submits form with text content</li>
-    <li>Guardrails detects PII (emails, phone numbers, SSN, etc.)</li>
-    <li>If PII detected → Reject submission or mask sensitive data</li>
-    <li>If no PII → Process normally</li>
-  </ol>
-</div>
-
-### Validate Email Format
-
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Scenario: Check email address format</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>Agent extracts email from text</li>
-    <li>Guardrails validates with regex pattern</li>
-    <li>If valid → Use email for notification</li>
-    <li>If invalid → Request correction</li>
-  </ol>
-</div>
-
-## Best Practices
-
-- **Chain with Condition blocks**: Use `<guardrails.passed>` to branch workflow logic based on validation results
-- **Use JSON validation before parsing**: Always validate JSON structure before attempting to parse LLM outputs
-- **Choose appropriate PII types**: Only select the PII entity types relevant to your use case for better performance
-- **Set reasonable confidence thresholds**: For hallucination detection, adjust threshold based on your accuracy requirements (higher = stricter)
-- **Use strong models for hallucination detection**: GPT-4o or Claude 3.7 Sonnet provide more accurate confidence scoring
-- **Mask PII for logging**: Use "Mask" mode when you need to log or store content that may contain PII
-- **Test regex patterns**: Validate your regex patterns thoroughly before deploying to production
-- **Monitor validation failures**: Track `<guardrails.error>` messages to identify common validation issues
-
-<Callout type="info">
-  Guardrails validation happens synchronously in your workflow. For hallucination detection, choose faster models (like GPT-4o-mini) if latency is critical.
-</Callout>
+- Category: `blocks`
+- Type: `guardrails`

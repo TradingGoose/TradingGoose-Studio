@@ -1,53 +1,79 @@
 ---
 title: Function
-description: Run custom TypeScript or JavaScript code
+description: Run custom logic
 ---
 
-import { Callout } from 'fumadocs-ui/components/callout'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-The Function block runs TypeScript or JavaScript statements to transform data, perform calculations, and call external services. TypeScript is transpiled to JavaScript before execution. Python is not supported by this block.
 
-## Write code
+<BlockInfoCard
+  type="function"
+  color="#FF402F"
+/>
 
-Enter statements directly in the Code editor. An async wrapper is supplied automatically, so use `await` and `return` without declaring a wrapper function.
 
-Reference upstream outputs with source-qualified tags. There is no automatically populated `input` object.
+## Configuration
 
-```typescript
-const customers = <api.data.customers>;
-const activeCustomers = customers.filter((customer) => customer.active);
-console.log('Active customers:', activeCustomers.length);
-return activeCustomers;
-```
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Function"
+    type="function"
+    color="#FF402F"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "code",
+            "type": "code",
+            "layout": "full",
+            "language": "typescript"
+        }
+    ]}
+  />
+</ShowcaseCard>
 
-Use the actual source block name and output path. Workflow variables use `<variable.name>`; environment variables use `{{VARIABLE_NAME}}`.
+## Tools
 
-## Execution environment
+### `function_execute`
 
-Execution uses an isolated local JavaScript VM or an E2B JavaScript sandbox, according to the deployment's **E2B system-service configuration**. There is no per-block Remote Code Execution toggle or language selector. An administrator configures the E2B service and its API key; setting a block field does not enable it.
+Execute TypeScript code. fetch\(\) is available. Code runs in async IIFE wrapper automatically after TypeScript transpiles to JavaScript. CRITICAL: Write plain statements with await/return, NOT wrapped in functions. For available indicators, use indicator.&lt;ID&gt;\(marketSeries\) or indicator\["&lt;ID&gt;"\]\(marketSeries\) with full Historical Data output and an optional object of input-title overrides. Do not define indicator\(...\) or import pinets/PineTS in this block.
 
-- The default code timeout is **180 seconds**. Workflow limits may stop the overall run earlier.
-- `fetch()` is available for HTTP requests, subject to runtime URL restrictions.
-- External imports require E2B runtime support; they are not available in the local VM.
-- `console.log()` is captured in `stdout`.
+#### Input
 
-<Callout>
-  Use [Indicators](/indicators) for available indicator definitions. Function code can call `await indicator.RSI(<historical_data>, { Length: 7 })` with the full Historical Data output. Do not pass only a scalar price series or import PineTS directly.
-</Callout>
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `code` | string | Yes | Raw TypeScript statements \(NOT a function\). Code is transpiled to JavaScript and auto-wrapped in async context. MUST use fetch\(\) for HTTP \(NOT xhr/axios/request libs\). Write like: await fetch\(url\) then return result. Imports require E2B runtime support. For available indicators, pass the full Historical Data MarketSeries object, not a scalar series like &lt;historical_data.close&gt;. The optional second argument must be an object, for example indicator.RSI\(&lt;historical_data&gt;, \{ Length: 7 \}\) or indicator\["custom-indicator-id"\]\(&lt;historical_data&gt;, \{ inputs: \{ Length: 7 \} \}\). Use indicator.list\(\) if the available ID is unknown. Do not import pinets or define indicator\(...\) directly. |
 
-## Outputs
+#### Output
 
-| Reference | Description |
-|---|---|
-| `<function.result>` | Value returned by the code |
-| `<function.stdout>` | Captured console output |
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `result` | json | The returned value of the code execution. |
+| `stdout` | string | The standard output of the code execution |
 
-Errors fail the block. Use an error-path connection to handle execution failures, or catch errors within your code when you can recover safely.
+## Input
 
-## Example: update a counter
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `code` | string | No | TypeScript code to execute |
+| `timeout` | number | No | Execution timeout |
 
-Calculate the next value in Function, then assign `<function.result>` with a Variables block:
+## Output
 
-```typescript
-return <variable.retryCount> + 1;
-```
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `result` | json | Return value from the executed TypeScript function |
+| `stdout` | string | Console log output and debug messages from function execution |
+
+
+## Usage Instructions
+
+Write TypeScript or JavaScript statements directly, using await and return without a function wrapper. Python is not supported. Code transpiles to JavaScript and runs in a local VM or an E2B sandbox, according to the deployment's E2B system-service configuration; there is no per-block runtime toggle. The default code timeout is 180 seconds, and workflow limits may end a run sooner. fetch\(\) is available subject to URL restrictions; external imports require E2B runtime support. console.log\(\) is captured in stdout. There is no automatically populated input object: use exact upstream tags such as &lt;api.data&gt;, workflow variables such as &lt;variable.riskLimit&gt;, and environment references such as \{\{API_KEY\}\}. For indicators, call await indicator.RSI\(&lt;historical_data&gt;, \{ Length: 7 \}\) with the full Historical Data output and saved input titles; use indicator.list\(\) to discover available IDs. Do not import PineTS or define an indicator in Function code. Execution errors fail the block and can be handled with an error-path connection.
+
+
+
+## Notes
+
+- Category: `blocks`
+- Type: `function`

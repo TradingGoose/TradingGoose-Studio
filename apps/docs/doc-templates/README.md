@@ -10,7 +10,7 @@ Each template defines the expected structure, required sections, and available c
 
 | Template | Output Path | Content Type |
 |----------|-------------|--------------|
-| `block.mdx` | `content/docs/en/blocks/{slug}.mdx` | Built-in workflow blocks (Agent, Condition, Loop, etc.) |
+| Runtime block and subflow contracts | `content/docs/en/blocks/{slug}.mdx` | Generated built-in workflow references (Agent, Condition, Loop, etc.) |
 | `tool.mdx` | `content/docs/en/tools/{slug}.mdx` | Integration tools (Slack, GitHub, trading blocks, etc.) |
 | `indicator.mdx` | `content/docs/en/indicators/{slug}.mdx` | PineTS scripting guide pages |
 | `widget.mdx` | `content/docs/en/widgets/{slug}.mdx` | Dashboard UI components |
@@ -94,7 +94,7 @@ Wrap **any** visual content (JSON previews, images, videos, mock components) in 
 
 1. **Frontmatter**: Always include `title` and `description`
 2. **Meta.json**: Each category directory needs a `meta.json` listing page order
-3. **Generated pages**: Source-backed tool and non-core registry trigger pages are fully overwritten; put durable copy in their runtime contracts
+3. **Generated pages**: Block references, source-backed tools, and non-core registry trigger pages are fully overwritten; put durable copy in their runtime contracts. Run `bun run docs:generate:blocks` for built-in blocks. Do not hand-edit generated references or copy a template over them.
 4. **Code language**: Use `javascript` for PineTS code blocks (not `pinescript` — Shiki doesn't support it)
 5. **No emojis**: Unless explicitly requested
 

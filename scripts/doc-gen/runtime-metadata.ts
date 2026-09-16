@@ -7,10 +7,16 @@ import type {
   SubBlockCondition,
   SubBlockConfig,
 } from '../../apps/tradinggoose/blocks/types'
+import { getPublicCopy } from '../../apps/tradinggoose/i18n/public-copy'
 import { tools as registeredTools } from '../../apps/tradinggoose/tools/registry'
 import type { ToolConfig } from '../../apps/tradinggoose/tools/types'
 import { TRIGGER_REGISTRY } from '../../apps/tradinggoose/triggers/registry'
 import type { TriggerConfig as RuntimeTriggerConfig } from '../../apps/tradinggoose/triggers/types'
+import {
+  getSubflowPanelCopy,
+  getSubflowPreviewSubBlocks,
+  SubflowBlockConfigs,
+} from '../../apps/tradinggoose/widgets/widgets/editor_workflow/components/subflows/config'
 import { shouldGenerateToolDoc } from './doc-pages'
 import type {
   BlockConfig,
@@ -142,7 +148,7 @@ function sanitizeSubBlock(
     typeof defaultValue === 'boolean'
   ) {
     result.defaultValue = defaultValue
-  } else if (hasValueFactory) {
+  } else if (hasValueFactory && defaultValue !== undefined) {
     throw new Error(`${ownerType ?? 'block'}.${subBlock.id} value is not serializable`)
   }
 
@@ -176,7 +182,13 @@ function sanitizeSubBlock(
 function sanitizeBlock(block: RuntimeBlockConfig, resolveOperations = true): BlockConfig {
   const sourceSubBlocks = block.subBlocks.filter((subBlock) => subBlock.mode !== 'trigger')
   const subBlocks = sourceSubBlocks
-    .map((subBlock) => sanitizeSubBlock(subBlock, resolveOperations, block.type))
+    .map((subBlock) => {
+      const field = sanitizeSubBlock(subBlock, true, block.type)
+      if (field && block.category === 'blocks' && subBlock.mode === 'advanced') {
+        field.description = appendSentence(field.description, 'Available in Advanced mode.')
+      }
+      return field
+    })
     .filter((subBlock): subBlock is DocSubBlock => subBlock !== null)
   const datadogSeries =
     block.type === 'datadog' ? subBlocks.find(({ id }) => id === 'series') : undefined
@@ -341,9 +353,28 @@ function toBlockInfo(block: BlockConfig): ToolInfo {
 }
 
 export function getBlockDocConfigs(): BlockConfig[] {
-  return getAllBlocks()
-    .filter((block) => block.category === 'blocks')
-    .map((block) => sanitizeBlock(block, false))
+  const blocks = getAllBlocks()
+    .filter((block) => block.category === 'blocks' || block.type === 'evaluator')
+    .map((block) => sanitizeBlock(block, Boolean(block.tools.config?.tool)))
+  const copy = getPublicCopy('en').workspace.widgets.workflowEditor
+  for (const kind of ['loop', 'parallel'] as const) {
+    const config = SubflowBlockConfigs[kind]
+    const panel = getSubflowPanelCopy(copy, kind)
+    const subBlocks = getSubflowPreviewSubBlocks(copy, kind).map((subBlock) => {
+      const field = sanitizeSubBlock(subBlock, true, kind)!
+      if (field.id === `${kind}Type`) {
+        field.options = panel.typeOptions.map(({ value, label }) => ({ id: value, label }))
+      }
+      return field
+    })
+    blocks.push({
+      ...config,
+      category: 'blocks',
+      tools: { access: [] },
+      subBlocks,
+    })
+  }
+  return blocks
 }
 
 export function getToolDocConfigs(): BlockConfig[] {
@@ -353,7 +384,14 @@ export function getToolDocConfigs(): BlockConfig[] {
 }
 
 export async function loadToolDocSources(rootDir: string): Promise<ToolDocSource[]> {
-  const blocks = getToolDocConfigs()
+  return loadDocSources(rootDir, getToolDocConfigs())
+}
+
+export async function loadBlockDocSources(rootDir: string): Promise<ToolDocSource[]> {
+  return loadDocSources(rootDir, getBlockDocConfigs())
+}
+
+async function loadDocSources(rootDir: string, blocks: BlockConfig[]): Promise<ToolDocSource[]> {
   const tools = await loadToolConfigs(path.join(rootDir, 'apps/tradinggoose/tools'))
   const unresolved: string[] = []
   const sources = blocks.map((config) => {
@@ -365,6 +403,9 @@ export async function loadToolDocSources(rootDir: string): Promise<ToolDocSource
       if (tool) toolInfo.set(toolId, toToolInfo(tool))
       else if (AI_DISPATCH_TOOL_IDS.has(toolId)) usesBlockInfo = true
       else unresolved.push(`${config.type}: ${toolId}`)
+    }
+    for (const [operation, toolId] of Object.entries(config.operationToolMap ?? {})) {
+      if (!toolInfo.has(toolId)) unresolved.push(`${config.type}.${operation}: ${toolId}`)
     }
 
     return {

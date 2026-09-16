@@ -7,6 +7,7 @@
  *
  * Usage:
  *   bun run scripts/doc-gen/index.ts              # Run all generators
+ *   bun run scripts/doc-gen/index.ts blocks       # Run only blocks generator
  *   bun run scripts/doc-gen/index.ts tools        # Run only tools generator
  *   bun run scripts/doc-gen/index.ts triggers     # Run only triggers generator
  *   bun run scripts/doc-gen/index.ts widgets      # Run only widgets generator
