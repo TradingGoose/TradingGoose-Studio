@@ -28,18 +28,23 @@ Webhook 允许外部服务通过发送 HTTP 请求来触发工作流执行。Tra
     type="generic_webhook"
     hideHeader
     subBlocks={[
-      { "id": "webhookUrl", "title": "Webhook URL", "type": "short-input", "placeholder": "自动生成的 Webhook URL", "description": "复制此 URL 并在外部服务中配置" },
-      { "id": "secret", "title": "Webhook 密钥", "type": "short-input", "password": true, "placeholder": "用于请求校验的可选密钥" }
+      { "id": "webhookUrlDisplay", "title": "Webhook URL", "type": "short-input", "description": "Copy the generated endpoint into the external service" },
+      { "id": "requireAuth", "title": "Require Authentication", "type": "switch", "defaultValue": false },
+      { "id": "token", "title": "Authentication Token", "type": "short-input", "password": true },
+      { "id": "secretHeaderName", "title": "Secret Header Name (Optional)", "type": "short-input", "placeholder": "X-Secret-Key" },
+      { "id": "inputFormat", "title": "Input Format", "type": "input-format", "description": "Optional expected JSON schema" }
     ]}
   />
 </ShowcaseCard>
+
+启用 **Require Authentication** 并设置 **Authentication Token** 以要求令牌。未设置 Secret Header Name 时发送 `Authorization: Bearer TOKEN`，否则在配置的自定义请求头中发送令牌。发送外部请求前请保存触发器并部署工作流。Webhook 响应确认请求已入队，不表示工作流已完成。
 
 ### 工作原理
 
 1. **添加通用 Webhook 模块** — 将通用 Webhook 模块拖入以开始工作流
 2. **获取 Webhook URL** — 复制自动生成的唯一端点
 3. **外部集成** — 将外部服务配置为向此 URL 发送 POST 请求
-4. **工作流执行** — 每次向该 Webhook URL 发起请求都会触发工作流
+4. **工作流执行** — 接受的请求会将已部署工作流的执行加入队列。
 
 ### 功能
 
@@ -63,5 +68,5 @@ Webhook 允许外部服务通过发送 HTTP 请求来触发工作流执行。Tra
 - 需要自动注册 Webhook
 
 <Callout>
-每当 Webhook URL 收到请求时，通用 Webhook 触发器都会触发，适合实时集成。
+只有有效且被接受的请求才会触发执行。身份验证、部署状态及平台限制可能在入队前拒绝请求。
 </Callout>

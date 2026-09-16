@@ -16,19 +16,23 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   icon={true}
 />
 
-记忆块用于存储和检索在多次工作流执行之间持久保留的对话消息。它设计为与 Agent 块配合使用，为你的 Agent 提供跨运行存续的长期对话上下文。
+记忆块旨在跨工作流执行存储和检索对话消息，并向 Agent 提供历史记录。当前 Add 操作不可用；读取和删除操作可用于管理已有记录。
+
+<Callout type="warning">
+  当前无法通过该块使用 Add Memory：请求缺少记忆端点要求的 `type` 和 `workflowId`，导致添加消息失败。配置 ID、Role 和 Content 无法解决此不匹配。修复前请勿依赖此块保存新的对话历史。
+</Callout>
 
 ## 概览
 
 <Steps>
   <Step>
-    <strong>添加记忆</strong>：存储一条带角色（user、assistant 或 system）的消息，并归入指定的记忆 ID
+    <strong>添加记忆</strong>：当前不可用；预期用途是将消息存入指定的记忆 ID
   </Step>
   <Step>
     <strong>获取记忆</strong>：按 ID 检索单条记忆条目
   </Step>
   <Step>
-    <strong>获取全部记忆</strong>：获取当前工作流存储的所有记忆
+    <strong>获取全部记忆</strong>: 获取当前工作流最多 50 条记忆记录
   </Step>
   <Step>
     <strong>删除记忆</strong>：按 ID 删除记忆条目
@@ -39,11 +43,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 记忆条目以聊天风格的消息存储，包含三个必填字段：用于限定记忆范围的 **ID**、**Role**（`user`、`assistant` 或 `system`）以及 **Content** 文本。之后检索记忆并将其传入 Agent 块的 Memories 输入时，Agent 会将它们视为先前的对话轮次——从而支持跨独立执行的多轮对话。
 
-典型的对话工作流会在一个 Agent 周围使用三个记忆块：
-
-1. **记忆（添加，角色：user）** —— 在 Agent 运行前保存传入的用户消息
-2. **Agent** —— 将消息与检索到的记忆作为上下文进行处理
-3. **记忆（添加，角色：assistant）** —— 在 Agent 运行后保存其响应
+预期的 Add → Agent → Add 流程目前受 Add 限制阻断。仍可通过 Get Memory 读取已有记录，并将返回的消息数组传入 Agent 的 Memories 字段。
 
 <Callout type="info">
   记忆 ID 用于限定对话范围。在多次执行中使用同一 ID 可构建连续的对话历史，或使用不同 ID 来维护独立线程。
@@ -53,7 +53,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <Tabs items={['添加记忆', '获取记忆', '获取所有记忆', '删除记忆']}>
   <Tab>
-    在记忆存储中存储一条新消息。
+    当前不可用。下方展示预期的配置字段，但填写这些字段无法修复上述请求接口不一致的问题。
 
     | 字段 | 必填 | 描述 |
     |---|---|---|
@@ -69,7 +69,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     | **ID** | 是 | 要检索的记忆标识符 |
   </Tab>
   <Tab>
-    返回当前工作流的所有记忆条目。无需其他字段。
+    返回当前工作流最多 50 条记忆记录。该块不提供分页，因此不能用来导出完整历史。
   </Tab>
   <Tab>
     按 ID 删除记忆条目。
@@ -140,13 +140,16 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 ## 输出
 
-| 输出 | 类型 | 说明 |
-|---|---|---|
-| `memories` | json | 检索到的记忆数据（消息数组） |
-| `id` | string | 被操作的记忆标识符 |
+| 操作 | 输出 |
+|---|---|
+| Get Memory | `memories`：所选 ID 的消息数组；`message`：状态文本 |
+| Get All Memories | `memories`：最多 50 条 `{ key, type, data }` 记录；`message`：状态文本 |
+| Delete Memory | `message`：删除确认 |
+| Add Memory | 当前失败；请参阅上述限制 |
+
+Get All Memories 不返回一个扁平消息数组。将对话用作 Agent 记忆前，请先选择所需记录的 `data`。输出顶层不包含单独的 `id`。
 
 ## 最佳实践
 
 - **使用一致的 ID** -- 记忆 ID 是将消息分组为对话的键。使用稳定的标识符（例如用户 ID 或会话 ID），以便记忆在多次运行中正确累积。
-- **存储对话的双方** -- 在 Agent 之前添加一条 `user` 角色的消息，并在其后添加一条 `assistant` 角色的消息，以便保留完整的对话。
 - **需要时清理** -- 使用删除操作清除陈旧的对话，并防止记忆无限增长。

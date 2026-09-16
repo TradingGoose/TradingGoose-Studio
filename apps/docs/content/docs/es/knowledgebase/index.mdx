@@ -24,16 +24,18 @@ TradingGoose admite archivos PDF, Word (DOC/DOCX), texto sin formato (TXT), Mark
 Una vez procesados tus documentos, puedes ver y editar los fragmentos individuales. Esto te da control total sobre cómo se organiza y se busca tu contenido. La vista de fragmentos muestra el contenido de texto de cada fragmento, su índice dentro del documento y las etiquetas asociadas.
 
 ### Configuración de fragmentos
-- **Tamaño de fragmento predeterminado**: 1,024 caracteres
-- **Rango configurable**: 100-4,000 caracteres por fragmento
-- **Superposición inteligente**: 200 caracteres de forma predeterminada para preservar el contexto
+- **Tamaño de fragmento predeterminado**: 1,024 tokens estimados para el fragmentador de texto, con aproximadamente cuatro caracteres por token
+- **Rango configurable**: 100-4,000 para el ajuste de tamaño; no es un límite de caracteres
+- **Superposición**: El fragmentador de texto antepone hasta 200 palabras del fragmento anterior de forma predeterminada; esto puede aumentar el tamaño final
 - **División jerárquica**: Respeta la estructura del documento (secciones, párrafos, oraciones)
+
+Estas unidades corresponden al fragmentador de texto. Los formatos estructurados usan fragmentadores específicos, por lo que el ajuste no es un límite universal de la longitud final del texto.
 
 ### Capacidades de edición
 - **Editar el contenido del fragmento**: Modifica el contenido de texto de fragmentos individuales
-- **Ajustar los límites del fragmento**: Combina o divide fragmentos según sea necesario
-- **Agregar metadatos**: Mejora los fragmentos con contexto adicional
-- **Operaciones masivas**: Gestiona varios fragmentos de forma eficiente
+- **Añadir fragmentos**: Crea fragmentos adicionales cuando sea necesario; no hay controles específicos para combinar o dividir fragmentos
+- **Etiquetas de documentos**: Organiza los documentos mediante sus campos de etiquetas
+- **Operaciones masivas**: Habilita, deshabilita o elimina los fragmentos seleccionados
 
 ## Procesamiento avanzado de PDF
 
@@ -47,11 +49,13 @@ Cuando se configura con Azure o [Mistral OCR](https://docs.mistral.ai/ocr/):
 
 ## Uso del bloque de conocimiento en flujos de trabajo
 
-Una vez procesados tus documentos, puedes usarlos en tus flujos de trabajo de IA a través del bloque de conocimiento. Esto habilita la Generación Aumentada por Recuperación (RAG), lo que permite que tus agentes de IA accedan y razonen sobre el contenido de tus documentos para proporcionar respuestas más precisas y contextuales. Agrega un bloque de conocimiento a tu flujo de trabajo, selecciona una base de conocimiento y configura tu consulta de búsqueda y los filtros de etiquetas opcionales.
+Una vez procesados los documentos, añade un bloque Knowledge, selecciona una base de conocimiento y configura una consulta. Para usar los resultados en generación aumentada por recuperación (RAG), referencia explícitamente los resultados del bloque en el prompt del Agent posterior, por ejemplo `<knowledge.results>` si el bloque se llama `knowledge`. Conectar los bloques no inyecta el contenido recuperado. También puedes configurar Knowledge como herramienta que el Agent puede invocar.
+
+**Limitación actual de los filtros de etiquetas:** El bloque Knowledge no envía los filtros en el formato que acepta la API de búsqueda. Las solicitudes solo con etiquetas fallan, y las solicitudes con consulta y etiquetas se ejecutan sin esos filtros. No dependas de los filtros del bloque para restringir el contenido recuperado. Consulta [Etiquetas y filtrado](/knowledgebase/tags) para conocer los modos de búsqueda compatibles con la API.
 
 ### Características del bloque de conocimiento
 - **Búsqueda semántica**: Encuentra contenido relevante usando consultas en lenguaje natural
-- **Integración de contexto**: Incluye automáticamente fragmentos relevantes en los prompts de los agentes
+- **Integración de contexto**: Referencia explícitamente los fragmentos recuperados en los prompts de los agentes
 - **Recuperación dinámica**: La búsqueda ocurre en tiempo real durante la ejecución del flujo de trabajo
 - **Puntuación de relevancia**: Resultados clasificados por similitud semántica
 
@@ -59,7 +63,7 @@ Una vez procesados tus documentos, puedes usarlos en tus flujos de trabajo de IA
 - **Prompts del sistema**: Proporciona contexto a tus agentes de IA
 - **Contexto dinámico**: Busca e incluye información relevante durante las conversaciones
 - **Búsqueda en varios documentos**: Consulta en toda tu base de conocimiento
-- **Búsqueda filtrada**: Combina con etiquetas para una recuperación precisa del contenido
+- **API de búsqueda filtrada**: Combina la búsqueda vectorial con etiquetas mediante el campo `filters` de la API; sigue aplicándose la limitación del bloque descrita arriba
 
 ## Tecnología de búsqueda vectorial
 
@@ -74,8 +78,8 @@ TradingGoose utiliza búsqueda vectorial impulsada por [pgvector](https://github
 ### Funciones de búsqueda
 - **Consultas en lenguaje natural**: Haz preguntas en lenguaje natural
 - **Búsqueda por similitud**: Encuentra contenido conceptualmente similar
-- **Búsqueda híbrida**: Combina la búsqueda vectorial con la búsqueda tradicional por palabras clave
-- **Resultados configurables**: Controla el número de resultados y el umbral de relevancia
+- **Búsqueda vectorial filtrada por etiquetas**: Restringe la búsqueda semántica a documentos etiquetados; no es una búsqueda híbrida de palabras clave y vectores
+- **Resultados configurables**: Solicita entre 1 y 100 fragmentos con `topK` (predeterminado: 10). Los umbrales de similitud se seleccionan internamente y no son configurables por el usuario
 
 ## Gestión de documentos
 
@@ -89,7 +93,7 @@ TradingGoose utiliza búsqueda vectorial impulsada por [pgvector](https://github
 - **Almacenamiento seguro**: Documentos almacenados con seguridad de nivel empresarial
 - **Control de acceso**: Permisos basados en el espacio de trabajo
 - **Aislamiento del procesamiento**: Cada espacio de trabajo tiene un procesamiento de documentos aislado
-- **Retención de datos**: Configura políticas de retención de documentos
+- **Eliminación de documentos**: Elimina los documentos cuando ya no los necesites; no hay políticas configurables de retención automática de documentos
 
 ## Primeros pasos
 

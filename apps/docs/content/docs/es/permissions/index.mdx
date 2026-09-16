@@ -81,7 +81,12 @@ Cada workspace tiene un **Propietario** (la persona que lo creó) y cualquier n�
 ### Administrador del workspace
 - Tiene los mismos permisos de gestión del workspace que el propietario, incluida la eliminación del workspace
 - No puede eliminar al propietario del workspace
-- El propietario u otros administradores pueden eliminarlo del workspace
+- El propietario u otros administradores pueden eliminarlo del workspace, salvo que sea el responsable de facturación personal configurado
+
+### Responsable de facturación personal
+- La titularidad de facturación es independiente de la propiedad del workspace
+- Cuando el workspace se factura a un usuario, ese usuario debe conservar permisos de administrador y no se puede eliminar
+- Reasigna la facturación antes de eliminar a ese usuario o reducir sus permisos por debajo de administrador
 
 Ni los propietarios ni los administradores pueden eliminar su último workspace accesible. Actualmente, TradingGoose no ofrece una acción para transferir la propiedad del workspace.
 

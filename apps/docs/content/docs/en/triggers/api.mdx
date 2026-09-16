@@ -29,7 +29,7 @@ The API trigger exposes your workflow as a secure HTTP endpoint. Send JSON data 
     color="#2F55FF"
     hideHeader
     subBlocks={[
-      { "id": "inputFormat", "title": "Input Format", "type": "short-input", "layout": "full", "description": "Define the JSON input schema accepted by the API endpoint" }
+      { "id": "inputFormat", "title": "Input Format", "type": "input-format", "layout": "full", "description": "Define the JSON input schema accepted by the API endpoint" }
     ]}
   />
 </ShowcaseCard>
@@ -39,7 +39,9 @@ Add an **Input Format** field for each parameter. Supported types:
 - **string** — Text values
 - **number** — Numeric values
 - **boolean** — True/false values
-- **json** — JSON objects
+- **object** — JSON objects
+- **array** — JSON arrays
+- **listingIdentity** — Structured instrument/listing identity
 - **files** — File uploads (access via `<api.fieldName[0].url>`, `<api.fieldName[0].name>`, etc.)
 
 ### Output Reference

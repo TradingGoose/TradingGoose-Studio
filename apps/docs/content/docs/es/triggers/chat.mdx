@@ -31,12 +31,15 @@ El trigger de chat crea una interfaz conversacional para tu workflow. Despliega 
       { "id": "identifier", "title": "Identificador", "type": "short-input", "required": true, "placeholder": "company-name", "description": "Segmento de ruta pública usado para la URL del chat publicado" },
       { "id": "title", "title": "Título del chat", "type": "short-input", "required": true, "placeholder": "Asistente de atención al cliente" },
       { "id": "description", "title": "Descripción", "type": "long-input", "placeholder": "Una breve descripción de lo que hace este chat" },
+      { "id": "selectedOutputBlocks", "title": "Chat Output", "type": "checkbox-list", "required": true, "options": [], "description": "Select which workflow outputs are returned to the user" },
       { "id": "authType", "title": "Control de acceso", "type": "dropdown", "defaultValue": "public", "options": [{ "label": "Acceso público", "id": "public" }, { "label": "Protegido con contraseña", "id": "password" }, { "label": "Acceso por correo electrónico", "id": "email" }, { "label": "Acceso SSO", "id": "sso" }] },
       { "id": "welcomeMessage", "title": "Mensaje de bienvenida", "type": "long-input", "placeholder": "Hola, ¿en qué puedo ayudarte?" },
       { "id": "imageUrl", "title": "Logo del chat", "type": "short-input", "placeholder": "URL de la imagen del logo" }
     ]}
   />
 </ShowcaseCard>
+
+Selecciona al menos una **Chat Output** antes de publicar. Este ajuste obligatorio determina qué salidas devuelve el chat; la publicación falla si está vacío. Ejecuta el flujo en el editor para verificar las salidas. El acceso Password requiere una contraseña; Email y SSO requieren una lista de correos permitidos.
 
 ### Esquema de salida
 

@@ -124,16 +124,15 @@ Parallel 块让你可以：
 
 ```javascript
 // In a Function block after the parallel
-const allResults = input.parallel.results;
-// Returns: [result1, result2, result3, ...]
+const allResults = <parallel.results>;
+return allResults;
 ```
 
 ### 实例隔离
 
-每个并行实例独立运行：
-- 独立的变量作用域
-- 实例之间不共享状态
-- 单个实例失败不会影响其他实例
+块输出和当前项按实例记录，但工作流变量由所有实例共享。并发写入同一变量会产生竞争；请返回逐项输出，并在 Parallel 块之后聚合。
+
+未处理的块错误可能导致执行失败；并行不保证错误隔离。如需恢复，请在容器内连接错误路径。
 
 ### 限制
 
@@ -148,7 +147,7 @@ const allResults = input.parallel.results;
   并行执行虽然更快，但需注意：
   - 并发请求时的 API 速率限制
   - 大数据集的内存占用
-  - 最多 20 个并发实例，以防止资源耗尽
+  - 计数模式最多创建 20 个实例；集合模式为每个元素创建实例，不受此限制。请显式分批处理大型集合。
 </Callout>
 
 ## 并行与循环
@@ -159,7 +158,7 @@ const allResults = input.parallel.results;
 |---------|----------|------|
 | 执行 | 并发 | 顺序 |
 | 速度 | 独立操作更快 | 较慢但有序 |
-| 顺序 | 无保证顺序 | 保持顺序 |
+| 顺序 | 完成顺序不定；结果按实例索引排列 | 保持顺序 |
 | 适用场景 | 独立操作 | 依赖操作 |
 | 资源占用 | 更高 | 更低 |
 

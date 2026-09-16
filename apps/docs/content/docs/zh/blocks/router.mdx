@@ -101,23 +101,11 @@ Router 区块让你可以：
 
 ### 目标块
 
-路由块可供选择的目标块。路由块会自动检测已连接的块，但你也可以：
-
-- 自定义目标块的描述，以提高路由准确性
-- 为每个目标块指定路由条件
-- 将某些块排除在路由目标之外
+Router 从已连接的目标块中选择路径。请为目标块命名清楚，并在 Router 提示词中说明路由条件。若要排除某个目标，请删除对应连接；没有单独的目标排除设置。
 
 ### 模型选择
 
-选择一个 AI 模型来驱动路由决策：
-
-**OpenAI**：GPT-4o、o1、o3、o4-mini、gpt-4.1  \
-**Anthropic**：Claude 3.7 Sonnet \
-**Google**：Gemini 2.5 Pro、Gemini 2.0 Flash \
-**其他提供商**：Groq、Cerebras、xAI、DeepSeek \
-**本地模型**：任何在 Ollama 上运行的模型
-
-**建议**：使用 GPT-4o 或 Claude 3.7 Sonnet 等具备强推理能力的模型，以获得更准确的路由决策。
+从当前模型选择器中选择可用模型，并配置对应提供商的凭据。可用模型取决于实例配置。
 
 ### API 密钥
 
@@ -127,8 +115,8 @@ Router 区块让你可以：
 
 路由器做出决策后，你可以访问其输出：
 
-- **`<router.prompt>`**：所用路由提示词的摘要
-- **`<router.selected_path>`**：所选目标块的详情
+- **`<router.prompt>`**：原始路由提示词
+- **`<router.selectedPath>`**：所选目标块的详情
 - **`<router.tokens>`**：LLM 的 token 用量统计
 - **`<router.cost>`**：路由调用的成本汇总（输入、输出、总计）
 - **`<router.model>`**：用于决策的模型
@@ -168,10 +156,10 @@ Target Block 3: "General questions, feedback, feature requests"
   <Tab>
     <ul className="list-disc space-y-2 pl-6">
       <li>
-        <strong>router.prompt</strong>：所用路由提示词的摘要
+        <strong>router.prompt</strong>：原始路由提示词
       </li>
       <li>
-        <strong>router.selected_path</strong>：所选目标的详情
+        <strong>router.selectedPath</strong>：所选目标的详情
       </li>
       <li>
         <strong>router.tokens</strong>：token 用量统计

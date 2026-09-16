@@ -3,131 +3,46 @@ title: 变量
 description: 设置和管理工作流范围内的变量
 ---
 
-import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { Callout } from 'fumadocs-ui/components/callout'
-import { Step, Steps } from 'fumadocs-ui/components/steps'
-import { BlockConfigPreview } from '@/components/ui/block-config-preview'
-import { ShowcaseCard } from '@/components/ui/showcase-card'
 
-<BlockInfoCard
-  type="variables"
-  color="#8B5CF6"
-/>
+Variables 区块更新工作流中已定义的变量。赋值只改变当前执行的值，不会保存新的初始值，也不会在多次运行间持久保存运行状态。
 
-变量块在执行期间更新工作流变量。必须先在你的工作流的“变量”部分初始化变量，然后才能在工作流运行时使用此块更新其值。
+## 配置赋值
 
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="变量"
-    type="variables"
-    color="#8B5CF6"
-    hideHeader
-    subBlocks={[
-      { "id": "variables", "title": "变量赋值", "type": "variables-input", "layout": "full", "description": "选择工作流变量并在执行期间更新其值。使用 <variable.variableName> 语法在任何位置访问它们。" }
-    ]}
-  />
-</ShowcaseCard>
+1. 在工作流的 Variables 面板中创建变量，设置名称、类型和初始值。
+2. 添加 Variables 区块并选择需要更新的变量。
+3. 提供字面值或准确的上游输出引用。
 
-<Callout>
-  使用 `<variable.variableName>` 语法，在工作流任意位置访问变量。
+例如，在 API 区块返回客户资料后：
+
+```text
+customerEmail = <api.data.email>
+userId = <api.data.id>
+userTier = <api.data.tier>
+```
+
+请使用实际来源区块的名称。在纯文本值字段中直接输入文本，不要添加外围引号。
+
+## 计算
+
+Variables 区块将值转换为所选变量类型，不会求值 JavaScript 表达式。数值赋值 `<variable.retryCount> + 1` 会变成 `0 + 1` 这样的文本，导致数值转换失败。
+
+先在 Function 区块中计算：
+
+```typescript
+return <variable.retryCount> + 1;
+```
+
+然后在 Variables 区块中将 `retryCount` 赋值为 `<function.result>`。更新 `itemsProcessed` 等循环计数器也使用此方式。
+
+## 读取值和输出
+
+- 通过 `<variable.retryCount>` 或 `<variable.customerEmail>` 在运行中的任意位置读取当前值。
+- 区块输出直接使用被赋值的名称，例如 `<variables.retryCount>`，没有 `assignments` 包装层。
+- 重试工作流需要将失败区块的**错误路径**连接到恢复逻辑。普通成功路径连接不能处理抛出的失败。
+
+<Callout type="warning">
+  并行实例共享工作流变量，并发赋值可能相互覆盖。请将每个项目的数据保留在区块输出中，再汇总 Parallel 结果，不要把共享变量当作隔离的实例状态。
 </Callout>
 
-## 概述
-
-变量块让你能够：
-
-<Steps>
-  <Step>
-    <strong>更新工作流变量</strong>：在执行期间更改变量值
-  </Step>
-  <Step>
-    <strong>存储动态数据</strong>：将块输出捕获到变量中
-  </Step>
-  <Step>
-    <strong>维护状态</strong>：跟踪计数器、标志和中间结果
-  </Step>
-</Steps>
-
-## 如何使用变量
-
-### 1. 在工作流变量中初始化
-
-首先，在工作流的“变量”部分创建变量（可从工作流设置中访问）：
-
-```
-customerEmail = ""
-retryCount = 0
-currentStatus = "pending"
-```
-
-### 2. 使用变量块更新
-
-使用变量块在执行期间更新这些值：
-
-```
-customerEmail = <api.email>
-retryCount = <variable.retryCount> + 1
-currentStatus = "processing"
-```
-
-### 3. 随处访问
-
-在任何块中引用变量：
-
-```
-Agent prompt: "Send email to <variable.customerEmail>"
-Condition: <variable.retryCount> < 5
-API body: {"status": "<variable.currentStatus>"}
-```
-
-## 示例用例
-
-### 循环计数器和状态
-
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">场景：跟踪循环迭代进度</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>在工作流中初始化：`itemsProcessed = 0`、`lastResult = ""`</li>
-    <li>循环遍历项目</li>
-    <li>循环内部：Agent 处理当前项目</li>
-    <li>循环内部：变量更新 `itemsProcessed = <variable.itemsProcessed> + 1`</li>
-    <li>循环内部：变量更新 `lastResult = <agent.content>`</li>
-    <li>下一次迭代：访问 `<variable.lastResult>` 以与当前结果比较</li>
-  </ol>
-</div>
-
-### 重试逻辑
-
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">场景：跟踪 API 重试次数</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>在工作流中初始化：`retryCount = 0`</li>
-    <li>API 块尝试发起请求</li>
-    <li>如果失败，变量递增：`retryCount = <variable.retryCount> + 1`</li>
-    <li>条件检查 `<variable.retryCount>` 是否 \< 3，以决定重试或失败</li>
-  </ol>
-</div>
-
-### 动态配置
-
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">场景：为工作流存储用户上下文</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>在工作流中初始化：`userId = ""`, `userTier = ""`</li>
-    <li>API 获取用户资料</li>
-    <li>变量存储：`userId = <api.id>`, `userTier = <api.tier>`</li>
-    <li>智能体使用 `<variable.userTier>` 个性化响应</li>
-    <li>API 使用 `<variable.userId>` 记录日志</li>
-  </ol>
-</div>
-
-## 输出
-
-- **`<variables.assignments>`**：包含此块所有变量赋值的 JSON 对象
-
-## 最佳实践
-
-- **在工作流设置中初始化**：使用前，请始终在工作流的变量部分创建变量
-- **动态更新**：使用变量块根据块输出或计算结果更新值
-- **在循环中使用**：非常适合跨迭代跟踪状态
-- **使用描述性名称**：使用清晰的名称，如 `currentIndex`、`totalProcessed` 或 `lastError`
+需要跨运行保留的状态应使用持久存储。

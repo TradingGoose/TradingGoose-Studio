@@ -59,7 +59,7 @@ API 块通过结构化方式处理 HTTP 请求：
 1. **配置请求**：设置 URL、方法、请求头和请求体参数
 2. **执行请求**：向指定端点发送 HTTP 请求
 3. **处理响应**：处理响应数据、状态码和响应头
-4. **错误处理**：管理超时、重试和错误条件
+4. **错误处理**：通过显式错误路径处理失败的请求
 
 ## 配置选项
 
@@ -132,31 +132,24 @@ API 请求完成后，你可以访问其输出：
 
 ```javascript
 // In a Function block before the API
-const userId = <start.userId>;
-const apiUrl = `https://api.example.com/users/${userId}/profile`;
+const { userId } = <start>;
+return `https://api.example.com/users/${encodeURIComponent(userId)}/profile`;
 ```
 
 ### 请求重试
 
-API 块自动处理：
-- 具有指数退避的网络超时
-- 速率限制响应（429 状态码）
-- 具有重试逻辑的服务器错误（5xx 状态码）
-- 具有重连尝试的连接失败
+API 块不会自动重试超时、连接失败或 HTTP 429、5xx 响应。请求失败会抛出块错误。请连接块的错误路径以执行恢复逻辑；如需重试，请在工作流中显式设置次数上限和退避等待。仅重试可安全重复的请求。
 
 ### 响应验证
 
-在处理前验证 API 响应：
+将 Function 块连接到 API 块的正常输出以校验成功响应。失败恢复必须连接到 API 块的错误路径，而不是正常输出之后的 Condition。使用上面的 URL 构建 Function 时，将 API URL 设置为 `<function.result>`。
 
 ```javascript
-// In a Function block after the API
-if (<api.status> === 200) {
-  const data = <api.data>;
-  // Process successful response
-} else {
-  // Handle error response
-  console.error(`API Error: ${<api.status>}`);
+const data = <api.data>;
+if (!data || typeof data !== 'object') {
+  throw new Error('Expected an object response');
 }
+return data;
 ```
 
 ## 输入与输出

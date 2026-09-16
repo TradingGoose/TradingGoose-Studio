@@ -1,50 +1,8 @@
 ---
 title: Workflow Block
-description: Run another workflow inside the current flow
+description: Call a child workflow using the current input-mapping block
 ---
 
-import { BlockInfoCard } from "@/components/ui/block-info-card"
-import { Callout } from 'fumadocs-ui/components/callout'
-import { BlockConfigPreview } from '@/components/ui/block-config-preview'
-import { ShowcaseCard } from '@/components/ui/showcase-card'
+The Workflow block available in the editor uses the `workflow_input` type. Select a child workflow with an Input Form trigger and map its fields in **Input Mapping**.
 
-<BlockInfoCard
-  type="workflow"
-  color="#705335"
-/>
-
-## What It Does
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="Workflow"
-    type="workflow"
-    color="#705335"
-    hideHeader
-    subBlocks={[
-      { "id": "workflowId", "title": "Select Workflow", "type": "dropdown", "required": true },
-      { "id": "input", "title": "Input Variable (Optional)", "type": "short-input", "placeholder": "Select a variable to pass to the child workflow", "description": "This variable will be available as start.input in the child workflow" }
-    ]}
-  />
-</ShowcaseCard>
-
-Drop a Workflow block when you want to call a child workflow as part of a larger flow. The block runs the latest deployed version of that workflow, waits for it to finish, and then continues with the parent.
-
-## Configure It
-
-1. **Pick a workflow** from the dropdown (self-references are blocked to prevent loops).
-2. **Map inputs**: If the child workflow has an Input Form trigger, you’ll see each field and can connect parent variables. The mapped values are what the child receives.
-3. **Outputs**: After the child finishes, the block exposes:
-   - `result` – the child workflow’s final response
-   - `success` – whether it ran without errors
-   - `error` – message when the run fails
-
-## Execution Notes
-
-- Child workflows run in the same workspace context, so environment variables and tools carry over.
-- The block uses deployment versioning: any API, schedule, webhook, manual, or chat execution calls the deployed snapshot. Redeploy the child when you change it.
-- If the child fails, the block raises an error unless you handle it downstream.
-
-<Callout>
-Keep child workflows focused. Small, reusable flows make it easier to combine them without creating deep nesting.
-</Callout>
+See [Workflow](/blocks/workflow_input) for the current configuration, outputs, and error handling. Child execution inherits the parent's target: live runs use live child state, and deployed runs use the deployed child snapshot.

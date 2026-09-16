@@ -60,7 +60,7 @@ The Evaluator block processes content through AI-powered assessment:
 1. **Receive Content** - Takes input content from previous blocks in your workflow
 2. **Apply Metrics** - Evaluates content against your defined custom metrics  
 3. **Generate Scores** - AI model assigns numeric scores for each metric
-4. **Provide Summary** - Returns detailed evaluation with scores and explanations
+4. **Return scores** - Returns numeric scores under lowercase metric names; no separate natural-language evaluation summary is returned.
 
 ## Configuration Options
 
@@ -188,10 +188,7 @@ Your API key for the selected LLM provider. This is securely stored and used for
   <Tab>
     <ul className="list-disc space-y-2 pl-6">
       <li>
-        <strong>Metric Scores</strong>: Numeric scores for each defined metric
-      </li>
-      <li>
-        <strong>Evaluation Summary</strong>: Detailed assessment with explanations
+        <strong>Metric Scores</strong>: Numeric outputs keyed by lowercase metric names
       </li>
       <li>
         <strong>Access</strong>: Available in blocks after the evaluator

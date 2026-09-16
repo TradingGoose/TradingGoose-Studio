@@ -101,23 +101,11 @@ El contenido o prompt que el Router analizará para tomar decisiones de enrutami
 
 ### Bloques de destino
 
-Los posibles bloques de destino que el Router puede seleccionar. El Router detectará automáticamente los bloques conectados, pero también puede:
-
-- Personalizar las descripciones de los bloques de destino para mejorar la precisión del enrutamiento
-- Especificar criterios de enrutamiento para cada bloque de destino
-- Excluir ciertos bloques para que no se consideren destinos de enrutamiento
+Router elige entre los bloques de destino conectados. Usa nombres claros y explica los criterios de enrutamiento en el prompt de Router. Para excluir un destino, elimina su conexión; no existe un ajuste de exclusión por destino.
 
 ### Selección de modelo
 
-Elija un modelo de IA para impulsar la decisión de enrutamiento:
-
-**OpenAI**: GPT-4o, o1, o3, o4-mini, gpt-4.1  \
-**Anthropic**: Claude 3.7 Sonnet \
-**Google**: Gemini 2.5 Pro, Gemini 2.0 Flash \
-**Otros proveedores**: Groq, Cerebras, xAI, DeepSeek \
-**Modelos locales**: Cualquier modelo que se ejecute en Ollama
-
-**Recomendación**: Use modelos con sólidas capacidades de razonamiento como GPT-4o o Claude 3.7 Sonnet para decisiones de enrutamiento más precisas.
+Elige un modelo disponible en el selector actual y configura las credenciales de su proveedor. La disponibilidad depende de la configuración de tu instancia.
 
 ### Clave de API
 
@@ -127,8 +115,8 @@ Tu clave de API para el proveedor de LLM seleccionado. Se almacena de forma segu
 
 Después de que un enrutador toma una decisión, puedes acceder a sus salidas:
 
-- **`<router.prompt>`**: Resumen del prompt de enrutamiento utilizado
-- **`<router.selected_path>`**: Detalles del bloque de destino elegido
+- **`<router.prompt>`**: El prompt de enrutamiento original
+- **`<router.selectedPath>`**: Detalles del bloque de destino elegido
 - **`<router.tokens>`**: Estadísticas de uso de tokens del LLM
 - **`<router.cost>`**: Resumen de costos de la llamada de enrutamiento (entrada, salida, total)
 - **`<router.model>`**: El modelo utilizado para la toma de decisiones
@@ -168,10 +156,10 @@ Target Block 3: "General questions, feedback, feature requests"
   <Tab>
     <ul className="list-disc space-y-2 pl-6">
       <li>
-        <strong>router.prompt</strong>: Resumen del prompt de enrutamiento utilizado
+        <strong>router.prompt</strong>: Prompt de enrutamiento original
       </li>
       <li>
-        <strong>router.selected_path</strong>: Detalles del destino elegido
+        <strong>router.selectedPath</strong>: Detalles del destino elegido
       </li>
       <li>
         <strong>router.tokens</strong>: Estadísticas de uso de tokens

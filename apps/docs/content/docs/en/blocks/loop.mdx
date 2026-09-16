@@ -47,7 +47,7 @@ The Loop block is a container that executes the blocks inside it repeatedly. It 
   <Tab>
     **While Loop** -- evaluates a condition **before** each iteration. If the condition is false on the first check, the body never executes.
 
-    While and Do-While loops have **no built-in iteration cap**. They rely on the condition becoming false (or the workflow timeout) to stop.
+    While and Do-While have no separate per-loop iteration cap, but execution is bounded by the workflow timeout and the executor's 500 scheduling-pass limit. A scheduling pass is not a loop iteration; the number of completed iterations depends on the workflow graph.
   </Tab>
   <Tab>
     **Do-While Loop** -- executes the body at least once, then evaluates the condition **after** each iteration. Useful when you need at least one pass before checking.
@@ -118,4 +118,4 @@ After the loop completes, downstream blocks can access:
 
 - **Set reasonable iteration counts** for For loops to avoid long-running workflows. The default is 5.
 - **Use ForEach for collections** -- it automatically sizes to the collection length and gives you `currentItem`.
-- **Always update your condition variable** inside While/Do-While loops. Forgetting to change the variable the condition depends on creates an infinite loop (bounded only by the workflow timeout).
+- **Always update your condition variable** inside While/Do-While loops. Forgetting to change the variable the condition depends on creates an infinite loop (bounded by the executor scheduling limit and workflow timeout).

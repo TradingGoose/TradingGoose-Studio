@@ -54,7 +54,7 @@ Guardrails 区块让你可以：
     <strong>检测幻觉</strong>：使用 RAG + LLM 评分，对照知识库内容验证 AI 输出
   </Step>
   <Step>
-    <strong>检测 PII</strong>：识别并可选地屏蔽 40 多种实体类型中的个人身份信息
+    <strong>检测 PII</strong>：识别并可选地屏蔽 受支持的实体类型中的个人身份信息
   </Step>
 </Steps>
 
@@ -107,7 +107,7 @@ Guardrails 区块让你可以：
 - **模型**：选择用于评分的 LLM（需要较强推理能力 - 推荐 GPT-4o、Claude 3.7 Sonnet）
 - **API 密钥**：所选 LLM 提供商的身份验证（托管/Ollama 模型会自动隐藏）
 - **置信度阈值**：通过的最低分数（0-10，默认值：3）
-- **Top K**（高级）：要检索的知识库分块数量（默认值：10）
+- **Top K**（高级）：要检索的知识库分块数量（默认值：5）
 
 **输出：**
 - `passed`：如果置信度分数 ≥ 阈值，则为 `true`
@@ -123,7 +123,7 @@ Guardrails 区块让你可以：
 
 ### PII 检测
 
-使用 Microsoft Presidio 检测个人身份信息。支持多个国家和语言的 40 多种实体类型。
+使用 Microsoft Presidio 检测个人身份信息。支持多个国家和语言的 受支持的实体类型。
 
 **工作原理：**
 1. 使用模式匹配和 NLP 扫描内容中的 PII 实体
@@ -142,12 +142,12 @@ Guardrails 区块让你可以：
   - **澳大利亚**：ABN、ACN、TFN、Medicare
   - **印度**：Aadhaar、PAN、护照、选民号码
 - **模式**：
-  - **检测**：仅识别 PII（默认）
+  - **Block**：检测 PII，发现时将 `passed` 设为 `false`（默认）。请连接 Condition 块来执行相应分支。
   - **屏蔽**：用屏蔽值替换检测到的 PII
 - **语言**：检测语言（默认：英语）
 
 **输出：**
-- `passed`：若检测到任何所选 PII 类型，则返回 `false`
+- `passed`：Block 模式检测到所选 PII 时为 `false`；Mask 模式在屏蔽后为 `true`，即使检测到了实体
 - `detectedEntities`：检测到的 PII 数组，包含类型、位置和置信度
 - `maskedText`：已掩码 PII 的内容（仅当 mode = "Mask" 时）
 - `error`：校验失败时的错误消息
@@ -164,8 +164,8 @@ Guardrails 区块让你可以：
 
 待校验的输入内容。通常来自：
 - Agent 区块输出：`<agent.content>`
-- 函数区块结果：`<function.output>`
-- API 响应：`<api.output>`
+- 函数区块结果：`<function.result>`
+- API 响应：`<api.data>`
 - 任何其他区块输出
 
 ### 校验类型

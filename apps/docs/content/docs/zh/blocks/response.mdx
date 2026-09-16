@@ -68,7 +68,6 @@ import { ShowcaseCard } from '@/components/ui/showcase-card'
 ## 何时需要响应块
 
 - **API 端点**：当您的工作流通过 API 调用时，响应块会格式化返回数据
-- **Webhook**：将确认或数据返回给调用系统
 - **测试**：在测试工作流时查看格式化结果
 
 ## 构建响应的两种方式
@@ -157,15 +156,9 @@ import { ShowcaseCard } from '@/components/ui/showcase-card'
 
 ### Webhook 确认
 
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">场景：确认 Webhook 接收与处理</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>Webhook 触发器接收外部系统数据</li>
-    <li>工作流处理传入数据</li>
-    <li>响应块返回包含处理状态的确认信息</li>
-    <li>外部系统收到确认</li>
-  </ol>
-</div>
+<Callout type="warning">
+  Response 不控制 webhook 确认响应。Webhook 端点先将工作流加入队列，并在执行完成前确认请求。Response 可以构建工作流输出，但其状态码、响应头和正文不会作为该 webhook 的确认响应返回。
+</Callout>
 
 ### 错误响应处理
 
@@ -208,9 +201,6 @@ import { ShowcaseCard } from '@/components/ui/showcase-card'
       </li>
       <li>
         <strong>response.headers</strong>：响应中包含的响应头
-      </li>
-      <li>
-        <strong>response.success</strong>：表示成功完成的布尔值
       </li>
     </ul>
   </Tab>

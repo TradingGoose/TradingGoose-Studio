@@ -16,19 +16,23 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   icon={true}
 />
 
-The Memory block stores and retrieves conversation messages that persist across workflow executions. It is designed to work alongside Agent blocks, giving your agents long-term conversational context that survives between runs.
+The Memory block is designed to store and retrieve conversation messages across workflow executions and supply history to Agent blocks. Its Add operation is currently unavailable; the read and delete operations can manage existing records.
+
+<Callout type="warning">
+  Add Memory is currently unavailable through the block: its request omits the `type` and `workflowId` required by the memory endpoint, so adding a message fails. Configuring ID, Role, and Content does not resolve this mismatch. Do not rely on this block to save new conversation history until the implementation is fixed.
+</Callout>
 
 ## Overview
 
 <Steps>
   <Step>
-    <strong>Add Memory</strong>: Store a message with a role (user, assistant, or system) under a named memory ID
+    <strong>Add Memory</strong>: Currently unavailable; intended to store a message under a named memory ID
   </Step>
   <Step>
     <strong>Get Memory</strong>: Retrieve a single memory entry by its ID
   </Step>
   <Step>
-    <strong>Get All Memories</strong>: Fetch every stored memory for the current workflow
+    <strong>Get All Memories</strong>: Fetch up to 50 stored memory records for the current workflow
   </Step>
   <Step>
     <strong>Delete Memory</strong>: Remove a memory entry by ID
@@ -39,11 +43,7 @@ The Memory block stores and retrieves conversation messages that persist across 
 
 Memory entries are stored as chat-style messages with three required fields: an **ID** to scope the memory, a **Role** (`user`, `assistant`, or `system`), and the **Content** text. When you later retrieve memories and pass them into an Agent block's Memories input, the agent sees them as prior conversation turns -- enabling multi-turn dialogue across separate executions.
 
-A typical conversational workflow uses three Memory blocks around an Agent:
-
-1. **Memory (Add, role: user)** -- save the incoming user message before the Agent runs
-2. **Agent** -- processes the message with retrieved memories as context
-3. **Memory (Add, role: assistant)** -- save the Agent's response after it runs
+The intended Add → Agent → Add pattern is blocked by the current Add limitation. Existing records can still be read with Get Memory; pass the returned message array into the Agent's Memories field.
 
 <Callout type="info">
   Memory IDs scope the conversation. Use the same ID across executions to build a continuous conversation history, or use different IDs to maintain separate threads.
@@ -53,7 +53,7 @@ A typical conversational workflow uses three Memory blocks around an Agent:
 
 <Tabs items={['Add Memory', 'Get Memory', 'Get All Memories', 'Delete Memory']}>
   <Tab>
-    Stores a new message in the memory store.
+    Currently unavailable. The intended configuration fields are shown below, but supplying them does not fix the request-contract mismatch described above.
 
     | Field | Required | Description |
     |---|---|---|
@@ -69,7 +69,7 @@ A typical conversational workflow uses three Memory blocks around an Agent:
     | **ID** | Yes | The memory identifier to retrieve |
   </Tab>
   <Tab>
-    Returns every memory entry for the current workflow. No additional fields required.
+    Returns up to 50 memory records for the current workflow. The block does not expose pagination; this is not a complete-history export.
   </Tab>
   <Tab>
     Removes a memory entry by ID.
@@ -140,13 +140,16 @@ A typical conversational workflow uses three Memory blocks around an Agent:
 
 ## Outputs
 
-| Output | Type | Description |
-|---|---|---|
-| `memories` | json | The retrieved memory data (messages array) |
-| `id` | string | The memory identifier that was operated on |
+| Operation | Output |
+|---|---|
+| Get Memory | `memories`: message array for the selected ID; `message`: status text |
+| Get All Memories | `memories`: up to 50 records shaped as `{ key, type, data }`; `message`: status text |
+| Delete Memory | `message`: deletion confirmation |
+| Add Memory | Currently fails; see the limitation above |
+
+Get All Memories does not return one flat message array. Select the required record's `data` before using its conversation as Agent memory. No separate top-level `id` is returned.
 
 ## Best Practices
 
 - **Use consistent IDs** -- the memory ID is the key that groups messages into a conversation. Use a stable identifier (such as a user ID or session ID) so memories accumulate correctly across runs.
-- **Store both sides of the conversation** -- add a `user` role message before the Agent and an `assistant` role message after it so the full dialogue is preserved.
 - **Clean up when needed** -- use the Delete operation to clear stale conversations and prevent unbounded memory growth.

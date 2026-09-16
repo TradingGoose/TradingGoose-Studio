@@ -1,50 +1,8 @@
 ---
 title: Bloque de flujo de trabajo
-description: Ejecuta otro flujo de trabajo dentro del flujo actual
+description: Invoca un flujo secundario con el bloque actual de asignación de entradas
 ---
 
-import { BlockInfoCard } from "@/components/ui/block-info-card"
-import { Callout } from 'fumadocs-ui/components/callout'
-import { BlockConfigPreview } from '@/components/ui/block-config-preview'
-import { ShowcaseCard } from '@/components/ui/showcase-card'
+El bloque Workflow disponible en el editor usa el tipo `workflow_input`. Selecciona un flujo secundario con un disparador de formulario de entrada y asigna sus campos en **Asignación de entradas**.
 
-<BlockInfoCard
-  type="workflow"
-  color="#705335"
-/>
-
-## Qué hace
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="Flujo de trabajo"
-    type="workflow"
-    color="#705335"
-    hideHeader
-    subBlocks={[
-      { "id": "workflowId", "title": "Seleccionar flujo de trabajo", "type": "dropdown", "required": true },
-      { "id": "input", "title": "Variable de entrada (opcional)", "type": "short-input", "placeholder": "Selecciona una variable para pasar al flujo de trabajo secundario", "description": "Esta variable estará disponible como start.input en el flujo de trabajo secundario" }
-    ]}
-  />
-</ShowcaseCard>
-
-Coloca un bloque de flujo de trabajo cuando quieras llamar a un flujo de trabajo secundario como parte de un flujo más grande. El bloque ejecuta la última versión desplegada de ese flujo de trabajo, espera a que termine y luego continúa con el flujo principal.
-
-## Cómo configurarlo
-
-1. **Elige un flujo de trabajo** en el menú desplegable (las autorreferencias están bloqueadas para evitar bucles).
-2. **Asigna las entradas**: si el flujo de trabajo secundario tiene un disparador de Formulario de entrada, verás cada campo y podrás conectar variables del flujo principal. Los valores asignados son los que recibe el flujo secundario.
-3. **Salidas**: cuando el flujo secundario termina, el bloque expone:
-   - `result` – la respuesta final del flujo de trabajo secundario
-   - `success` – si se ejecutó sin errores
-   - `error` – mensaje cuando falla la ejecución
-
-## Notas de ejecución
-
-- Los flujos de trabajo secundarios se ejecutan en el mismo contexto de espacio de trabajo, por lo que las variables de entorno y las herramientas se mantienen.
-- El bloque usa el versionado de despliegue: cualquier ejecución por API, programación, webhook, manual o chat llama a la instantánea desplegada. Vuelve a desplegar el flujo secundario cuando lo modifiques.
-- Si el flujo secundario falla, el bloque genera un error a menos que lo gestiones en las etapas posteriores.
-
-<Callout>
-Mantén los flujos de trabajo hijos enfocados. Los flujos pequeños y reutilizables facilitan combinarlos sin crear un anidamiento profundo.
-</Callout>
+Consulta [Workflow](/blocks/workflow_input) para conocer la configuración actual, las salidas y la gestión de errores. La ejecución secundaria hereda el destino del padre: las ejecuciones en vivo usan el estado en vivo del secundario y las desplegadas usan su instantánea desplegada.

@@ -59,7 +59,7 @@ El bloque API procesa solicitudes HTTP mediante un enfoque estructurado:
 1. **Configurar la solicitud** - Define la URL, el método, los encabezados y los parámetros del cuerpo
 2. **Ejecutar la solicitud** - Envía la solicitud HTTP al endpoint especificado
 3. **Procesar la respuesta** - Gestiona los datos de la respuesta, los códigos de estado y los encabezados
-4. **Gestión de errores** - Administra tiempos de espera, reintentos y condiciones de error
+4. **Gestión de errores** - Dirige las solicitudes fallidas a una ruta de error explícita
 
 ## Opciones de configuración
 
@@ -132,31 +132,24 @@ Construye URL dinámicamente usando variables de bloques anteriores:
 
 ```javascript
 // In a Function block before the API
-const userId = <start.userId>;
-const apiUrl = `https://api.example.com/users/${userId}/profile`;
+const { userId } = <start>;
+return `https://api.example.com/users/${encodeURIComponent(userId)}/profile`;
 ```
 
 ### Reintentos de solicitudes
 
-El bloque API gestiona automáticamente:
-- Tiempos de espera de red con retroceso exponencial
-- Respuestas de límite de tasa (códigos de estado 429)
-- Errores del servidor (códigos de estado 5xx) con lógica de reintentos
-- Fallos de conexión con intentos de reconexión
+El bloque API no reintenta automáticamente tiempos de espera, fallos de conexión ni respuestas HTTP 429 o 5xx. Las solicitudes fallidas generan un error de bloque. Conecta su ruta de error a la lógica de recuperación; implementa explícitamente reintentos limitados y esperas en el flujo cuando sean necesarios. Reintenta solo solicitudes que puedan repetirse con seguridad.
 
 ### Validación de respuestas
 
-Valida las respuestas de la API antes de procesarlas:
+Conecta un bloque Function a la salida normal del bloque API para validar una respuesta correcta. Conecta la recuperación a la ruta de error del bloque API, no a una Condition después de su salida normal. Usa `<function.result>` como URL de API con la Function anterior.
 
 ```javascript
-// In a Function block after the API
-if (<api.status> === 200) {
-  const data = <api.data>;
-  // Process successful response
-} else {
-  // Handle error response
-  console.error(`API Error: ${<api.status>}`);
+const data = <api.data>;
+if (!data || typeof data !== 'object') {
+  throw new Error('Expected an object response');
 }
+return data;
 ```
 
 ## Entradas y salidas

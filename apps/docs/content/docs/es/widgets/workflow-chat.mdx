@@ -17,17 +17,17 @@ El widget Chat de workflow ofrece una interfaz conversacional para interactuar c
 
 ## Funciones
 
-- **Conexión de socket en vivo** -- cada instancia de chat abre su propio socket al workflow, de modo que los mensajes y las respuestas se transmiten en tiempo real
+- **Respuestas en vivo** -- las respuestas del workflow se transmiten a la conversación en tiempo real
 - **Selector de salidas** -- un menú desplegable de selección múltiple en el encabezado te permite elegir qué salidas de bloques del workflow se incluyen en la respuesta del chat; las selecciones se deduplican y se conservan por workflow
 - **Borrar chat** -- un botón del encabezado elimina el historial de conversación actual del workflow activo; el botón se desactiva cuando no hay mensajes
-- **Selector de workflow** -- un menú desplegable en el centro del encabezado te permite cambiar entre workflows del workspace; cuando el widget está emparejado (color de emparejamiento distinto de gris), el menú refleja la selección compartida y se ignoran los cambios manuales
-- **Resolución automática de workflow** -- el widget resuelve el workflow activo a partir de los parámetros del widget, el canal de color de emparejamiento o el registro de workflows, y conserva la selección entre sesiones
+- **Selector de workflow** -- un menú desplegable en el centro del encabezado te permite cambiar entre workflows del workspace; cuando el widget está emparejado (color de emparejamiento distinto de gris), elegir un workflow también actualiza los widgets vinculados
+- **Selección explícita de workflow** -- selecciona un workflow en este widget o en uno vinculado; la selección se conserva entre sesiones y no se usa automáticamente el primer workflow
 
 ## Uso
 
 ### Cómo añadir el widget
 
-Abre el selector de widgets y elige **Chat de workflow**. El widget requiere un workspace activo; si no hay ninguno seleccionado, muestra un aviso para elegir uno. Cuando se carga un workspace, se conecta automáticamente al primer workflow disponible.
+Abre el selector de widgets y elige **Chat de workflow**. El widget requiere un workspace activo; si no hay ninguno seleccionado, muestra un aviso para elegir uno. Cuando se carga un workspace, selecciona un workflow desde el encabezado o desde un widget vinculado. Hasta entonces, el chat muestra un aviso para seleccionar un workflow.
 
 ### Diseño del encabezado
 

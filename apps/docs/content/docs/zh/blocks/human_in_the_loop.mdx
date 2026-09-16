@@ -1,101 +1,12 @@
 ---
-title: Human in the Loop
-description: 暂停工作流执行，等待人工批准后再继续
+title: 人工审批
+description: 人工审批工作流的当前可用状态
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout'
-import { Step, Steps } from 'fumadocs-ui/components/steps'
-import { BlockInfoCard } from "@/components/ui/block-info-card"
-import { BlockConfigPreview } from "@/components/ui/block-config-preview"
-import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard
-  type="human_in_the_loop"
-  color="#10B981"
-  icon={true}
-/>
-
-Human in the Loop 模块会暂停正在运行的工作流，等待人员审核、提供输入或批准后再继续执行。它是为自动化流水线加入人工监督的主要机制。
-
-## 概述
-
-<Steps>
-  <Step>
-    <strong>暂停执行</strong>：工作流会在此模块处停止，进入等待状态
-  </Step>
-  <Step>
-    <strong>展示上下文</strong>：向审核者显示结构化的展示数据，以便其做出有依据的决策
-  </Step>
-  <Step>
-    <strong>通知审批人</strong>：可选择通过 Slack 消息、电子邮件或其他通知方式发送审核 URL
-  </Step>
-  <Step>
-    <strong>收集输入并恢复</strong>：审批人填写恢复表单，工作流继续运行，其输入可在下游使用
-  </Step>
-</Steps>
-
-## 工作原理
-
-当执行器到达 Human in the Loop 模块时，它会：
-
-1. **渲染展示数据** —— 对 `builderData` 字段进行求值（包括任何 `<variable.name>` 引用），并以结构化摘要的形式呈现给审核者。
-2. **生成恢复 URL** —— 创建唯一的 URL 和 API 端点。URL 打开审核界面；端点接受以编程方式发送的 `POST` 来恢复。
-3. **发送通知** —— 如果配置了通知工具（Slack、Email 等），恢复 URL 会自动发送。
-4. **等待** —— 执行暂停。在审核者操作之前，不会运行任何下游模块。
-5. **恢复** —— 审核者提交恢复表单后，工作流会从中断处继续。审核者填写的任何字段都可作为模块输出使用。
-
-<Callout type="info">
-  该块暂停后会输出两个值：**url**（审核界面链接）和 **resumeEndpoint**（一个 API URL，可使用 `curl` 或任意 HTTP 客户端调用，以编程方式恢复）。
+<Callout type="warning">
+  人工审批目前不可用。虽然区块配置已存在，但执行器尚未实现审批暂停、审核链接、通知或恢复功能。运行此区块会失败，不会创建审批请求。
 </Callout>
 
-## 配置
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="人在回路"
-    type="human_in_the_loop"
-    color="#10B981"
-    hideHeader
-    subBlocks={[
-        {
-            "id": "builderData",
-            "type": "response-format",
-            "title": "显示数据",
-            "description": "定义响应数据的结构。在字段名中使用 <variable.name> 引用工作流变量。"
-        },
-        {
-            "id": "notification",
-            "type": "tool-input",
-            "title": "通知（发送 URL）",
-            "description": "配置通知工具以提醒审批人（例如 Slack、邮件）"
-        },
-        {
-            "id": "inputFormat",
-            "type": "input-format",
-            "title": "恢复表单",
-            "description": "定义审批人在恢复时可填写的字段"
-        }
-    ]}
-  />
-</ShowcaseCard>
-
-### 字段
-
-| 字段 | 用途 |
-|---|---|
-| **显示数据** | 向审核人展示的结构化键值数据。使用 `<block.output>` 语法引用上游变量。 |
-| **通知** | 附加一个工具（Slack、邮件等），该块暂停时将触发通知，把恢复 URL 发送给相关人员。 |
-| **恢复表单** | 定义审批人在工作流恢复前必须填写的输入字段。这些字段会作为块的输出。 |
-
-## 输出
-
-| 输出 | 类型 | 说明 |
-|---|---|---|
-| `url` | string | 审核界面的 URL，审批人可在此处执行操作 |
-| `resumeEndpoint` | string | 用于通过 HTTP POST 恢复工作流的 API 端点 |
-
-## 最佳实践
-
-- **务必配置通知**，让审批人知道有工作流正在等待他们处理。若未配置，只能手动分享恢复 URL。
-- **保持显示数据聚焦** —— 只包含审核人做决定所需的信息。
-- **精心设计恢复表单** —— 下游块会依赖你在此定义的字段，因此请清晰命名。
+请勿将此区块用作可运行的审批步骤。执行功能可用后，将补充审批与恢复说明。

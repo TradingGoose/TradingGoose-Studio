@@ -15,13 +15,13 @@ El motor de ejecución de TradingGoose procesa los workflows de forma inteligent
 
 Varios blocks se ejecutan de forma concurrente cuando no dependen entre sí. Esta ejecución en paralelo mejora de forma considerable el rendimiento sin necesidad de configuración manual.
 
-Por ejemplo, si un block Start se conecta a un agente Customer Support y a un agente Deep Researcher, ambos blocks de agente se ejecutan simultáneamente y se maximiza la eficiencia.
+Por ejemplo, si un disparador Manual se conecta a un agente Customer Support y a un agente Deep Researcher, ambos bloques de agente pueden ejecutarse de forma concurrente.
 
-### Combinación automática de salidas
+### Dependencias y mapeo explícito de datos
 
-Cuando los blocks tienen varias dependencias, el motor de ejecución espera automáticamente a que todas se completen y después entrega sus salidas combinadas al siguiente block. No es necesario combinarlas de forma manual.
+Cuando un bloque tiene varias dependencias activas, el motor espera a que se completen. Las conexiones determinan el orden de ejecución; no combinan automáticamente las salidas en un objeto de entrada ni insertan contenido en el prompt de un Agent.
 
-Por ejemplo, un block Function conectado a dos blocks de agente anteriores esperará a que ambos terminen y después recibirá sus salidas combinadas para procesarlas.
+Por ejemplo, un bloque Function conectado a agentes llamados `support` y `research` puede combinar explícitamente sus salidas con `return { support: <support.content>, research: <research.content> };`. Del mismo modo, referencia explícitamente los resultados de Knowledge en el prompt del Agent posterior. El código de Function no recibe un objeto `input` inyectado automáticamente.
 
 ### Enrutamiento inteligente
 
@@ -35,7 +35,7 @@ TradingGoose ofrece distintos tipos de blocks que cumplen funciones específicas
 
 <Cards>
   <Card title="Disparadores" href="/triggers">
-    Los **bloques de inicio** inician flujos de trabajo y los **bloques de Webhook** responden a eventos externos. Todo flujo de trabajo necesita un disparador para comenzar la ejecución.
+    Los **bloques de disparador** definen puntos de entrada como Manual, API, Input Form, Chat y eventos externos. Un flujo de trabajo puede tener varios puntos de entrada; cada ejecución comienza desde un disparador seleccionado.
   </Card>
 
   <Card title="Bloques de procesamiento" href="/blocks">
@@ -70,7 +70,7 @@ Despliega flujos de trabajo como endpoints HTTP que se pueden invocar de forma p
 Responde en tiempo real a eventos de servicios externos como GitHub, Stripe o sistemas personalizados.
 
 ### Interfaz de chat
-Crea interfaces conversacionales alojadas en subdominios personalizados para aplicaciones de IA orientadas al usuario.
+Publica interfaces conversacionales en `/chat/{identifier}` bajo el origen de tu implementación para aplicaciones de IA orientadas al usuario.
 
 <Callout type="info">
   Obtén más información sobre cada tipo de disparador en la [sección Disparadores](/triggers) de la documentación.
@@ -93,9 +93,9 @@ Cuando se ejecutan los flujos de trabajo, TradingGoose ofrece visibilidad en tie
 
 Entender estos principios fundamentales te ayudará a crear mejores flujos de trabajo:
 
-1. **Ejecución basada en dependencias**: Los bloques solo se ejecutan cuando todas sus dependencias se han completado
+1. **Ejecución basada en dependencias**: Los bloques se ejecutan cuando se satisfacen las dependencias de su ruta activa
 2. **Paralelización automática**: Los bloques independientes se ejecutan en paralelo sin configuración
-3. **Flujo de datos inteligente**: Las salidas fluyen automáticamente hacia los bloques conectados
+3. **Mapeo explícito de datos**: Referencia las salidas anteriores en las entradas o prompts; las conexiones por sí solas no insertan los datos
 4. **Manejo de errores**: Los bloques con error detienen su ruta de ejecución, pero no afectan a las rutas independientes
 5. **Persistencia de estado**: Todas las salidas de los bloques y los detalles de ejecución se conservan para la depuración
 

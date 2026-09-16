@@ -29,7 +29,7 @@ El trigger de API expone tu workflow como un endpoint HTTP seguro. Envía datos 
     color="#2F55FF"
     hideHeader
     subBlocks={[
-      { "id": "inputFormat", "title": "Formato de entrada", "type": "short-input", "layout": "full", "description": "Define el esquema JSON de entrada que acepta el endpoint de la API" }
+      { "id": "inputFormat", "title": "Formato de entrada", "type": "input-format", "layout": "full", "description": "Define el esquema JSON de entrada que acepta el endpoint de la API" }
     ]}
   />
 </ShowcaseCard>
@@ -39,7 +39,9 @@ Añade un campo **Formato de entrada** por cada parámetro. Tipos admitidos:
 - **string** — Valores de texto
 - **number** — Valores numéricos
 - **boolean** — Valores true/false
-- **json** — Objetos JSON
+- **object** — Objetos JSON
+- **array** — Arreglos JSON
+- **listingIdentity** — Identidad estructurada de un instrumento/listado
 - **files** — Carga de archivos (acceso mediante `<api.fieldName[0].url>`, `<api.fieldName[0].name>`, etc.)
 
 ### Referencia de salida

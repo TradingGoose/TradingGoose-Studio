@@ -42,11 +42,11 @@ El bloque Conocimiento conecta tu flujo de trabajo con una base de conocimiento,
     | Campo | Obligatorio | Descripción |
     |---|---|---|
     | **Base de conocimiento** | Sí | La base de conocimiento que se va a buscar |
-    | **Consulta de búsqueda** | No | Consulta en lenguaje natural. Opcional cuando se usan solo filtros de etiquetas. |
+    | **Consulta de búsqueda** | Sí para búsquedas operativas | Consulta en lenguaje natural; consulta la limitación de filtros por etiquetas. |
     | **Número de resultados** | No | Cuántos fragmentos devolver (predeterminado: 10) |
     | **Filtros de etiquetas** | No | Limita los resultados a documentos que coincidan con etiquetas específicas |
 
-    La consulta de búsqueda es opcional; puedes filtrar únicamente por etiquetas para recuperar todos los fragmentos de una categoría determinada.
+    El filtrado por etiquetas es una capacidad prevista, pero las búsquedas solo por etiquetas fallan y las búsquedas con consulta y etiquetas no aplican estas. No dependas de ellas para restringir los resultados hasta que se corrija.
   </Tab>
   <Tab>
     Añade un fragmento de texto a un documento existente dentro de la base de conocimiento. El fragmento se incrusta automáticamente y queda disponible para futuras búsquedas.
@@ -171,18 +171,19 @@ El bloque Conocimiento conecta tu flujo de trabajo con una base de conocimiento,
 
 ## Salidas
 
-| Salida | Tipo | Descripción |
-|---|---|---|
-| `results` | json | Array de fragmentos coincidentes (búsqueda) o datos de confirmación (operaciones de escritura) |
-| `query` | string | La consulta que se utilizó |
-| `totalResults` | number | Recuento de resultados devueltos |
+| Operación | Salida |
+|---|---|
+| Search | `results` (fragmentos coincidentes), `query`, `totalResults` |
+| Upload Chunk | `message`, `data.chunkId`, `data.content`, `data.chunkIndex`, además de `documentId`, `documentName` y `cost` |
+| Create Document | `message` y `data` con `documentId`, `documentName`, `type`, `enabled`, `createdAt` y `updatedAt` |
+
+Usa `<knowledge.data.documentId>` después de Create Document. Las confirmaciones de escritura no se devuelven en `results`.
 
 ## Buenas prácticas
 
-- **Usa filtros de etiquetas para acotar las búsquedas** -- las etiquetas te permiten dividir una base de conocimiento por tema, cliente o categoría sin crear bases separadas.
 - **Mantén los fragmentos enfocados** -- los fragmentos más cortos y coherentes en cuanto al tema producen mejores coincidencias de similitud que un texto largo con múltiples temas.
 - **Combínalo con un bloque Agent** -- canaliza los resultados de búsqueda al contexto de un Agent para construir un flujo RAG.
 
-<Callout type="info">
-  El campo de consulta de búsqueda es opcional. Cuando solo necesitas documentos que coincidan con ciertas etiquetas, deja la consulta vacía y usa filtros de etiquetas en su lugar.
+<Callout type="warning">
+  El filtrado por etiquetas no es fiable: las búsquedas solo por etiquetas fallan y las búsquedas con consulta y etiquetas no filtran por estas. Consulta [Base de conocimiento](/knowledgebase). Usa una consulta no vacía y revisa los documentos; las etiquetas no son una barrera de control de acceso.
 </Callout>

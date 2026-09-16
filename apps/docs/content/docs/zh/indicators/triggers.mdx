@@ -44,8 +44,8 @@ indicator('RSI Trigger Example');
 
 const rsi = ta.rsi(close, 14);
 plot(rsi, 'RSI');
-hline(70, { linestyle: hline.style_dashed });
-hline(30, { linestyle: hline.style_dashed });
+hline(70, 'Overbought', '#FF0000', hline.style_dashed);
+hline(30, 'Oversold', '#00FF00', hline.style_dashed);
 
 // Fire when RSI crosses above 70 (overbought)
 if (ta.crossover(rsi, 70)) {
@@ -135,5 +135,5 @@ if (hist > 0 && hist[1] <= 0) {
 | `indicator_trigger_invalid_time` | 无法获取 K 线开盘时间 |
 
 <Callout type="info">
-  `trigger()` API 是 TradingGoose 专属扩展，标准 Pine Script 或 PineTS 中并不存在。包含 `trigger()` 调用的指标在所有环境中都能正常运行 —— 只是在 TradingGoose 之外，该触发器不会产生任何效果。
+  `trigger()` API 是 TradingGoose 专属扩展，标准 Pine Script 或 PineTS 中并不存在。原生 PineTS 执行这些调用时会抛出 `trigger is not defined` 错误。在 TradingGoose 之外运行导出的指标前，请移除或适配这些调用。
 </Callout>

@@ -41,11 +41,11 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     | 字段 | 必填 | 说明 |
     |---|---|---|
     | **知识库** | 是 | 要搜索的知识库 |
-    | **搜索查询** | 否 | 自然语言查询。仅使用标签筛选时可省略。 |
+    | **搜索查询** | 当前可用搜索需要 | 自然语言查询；请参阅下方标签过滤限制。 |
     | **结果数量** | 否 | 返回的片段数量（默认：10） |
     | **标签筛选** | 否 | 将结果缩小到匹配特定标签的文档 |
 
-    搜索查询是可选的——你可以仅按标签筛选，以检索某一类别下的所有片段。
+    标签过滤是预期能力，但当前仅按标签搜索会失败，查询与标签同时提供时不会应用标签。修复前请勿依赖标签来限制结果。
   </Tab>
   <Tab>
     将文本片段追加到知识库中的现有文档。片段会自动嵌入，并在后续搜索中可用。
@@ -170,18 +170,19 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 ## 输出
 
-| 输出 | 类型 | 描述 |
-|---|---|---|
-| `results` | json | 匹配的块数组（搜索）或确认数据（写入操作） |
-| `query` | string | 使用的查询 |
-| `totalResults` | number | 返回的结果数量 |
+| 操作 | 输出 |
+|---|---|
+| Search | `results`（匹配分块）、`query`、`totalResults` |
+| Upload Chunk | `message`、`data.chunkId`、`data.content`、`data.chunkIndex`，以及 `documentId`、`documentName`、`cost` |
+| Create Document | `message` 和包含 `documentId`、`documentName`、`type`、`enabled`、`createdAt`、`updatedAt` 的 `data` |
+
+在 Create Document 后使用 `<knowledge.data.documentId>`。写入确认信息不在 `results` 中。
 
 ## 最佳实践
 
-- **使用标签过滤器限定搜索范围** -- 标签让你可以按主题、客户或类别划分知识库，而无需创建单独的知识库。
 - **保持块聚焦** -- 更短、主题连贯的块比冗长、多主题的文本能产生更好的相似度匹配。
 - **与 Agent 块配合使用** -- 将搜索结果传入 Agent 的上下文，以构建 RAG 管道。
 
-<Callout type="info">
-  搜索查询字段是可选的。当你只需要匹配特定标签的文档时，将查询留空，并改用标签过滤器。
+<Callout type="warning">
+  当前标签过滤不可靠：仅按标签搜索会失败，查询加标签的搜索不会按标签过滤。请参阅[知识库](/knowledgebase)。使用非空查询并检查返回文档；标签不是访问控制边界。
 </Callout>

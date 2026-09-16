@@ -70,18 +70,7 @@ if (bar_index > last_bar_index - 100) {
 
 ## 品种信息
 
-`syminfo` 对象提供当前品种的详细信息：
-
-| 属性 | 描述 |
-|----------|-------------|
-| `syminfo.ticker` | 品种名称（例如：`"BTCUSDT"`） |
-| `syminfo.tickerid` | 完整代码 ID |
-| `syminfo.description` | 品种描述 |
-| `syminfo.type` | 资产类型（例如：`"crypto"`、`"stock"`） |
-| `syminfo.currency` | 报价货币 |
-| `syminfo.basecurrency` | 基础货币 |
-| `syminfo.mintick` | 最小价格变动单位 |
-| `syminfo.timezone` | 交易所时区 |
+Studio 使用提供的 OHLCV K 线运行 PineTS，不会填充 `syminfo`。访问 `syminfo.mintick` 或 `syminfo.ticker` 等属性会报错。对于最小计算增量等所需的品种专用值，请使用显式指标输入。
 
 ## 特殊值
 

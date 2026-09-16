@@ -5,7 +5,7 @@ description: Trabajar con variables de flujo de trabajo y de entorno.
 
 import { Card, Cards } from 'fumadocs-ui/components/card'
 
-TradingGoose admite dos sistemas de variables complementarios. Las **variables de entorno** almacenan valores de configuración y secretos (claves de API, tokens, URL de bases de datos) que permanecen fuera de las definiciones del flujo de trabajo y se resuelven en el momento de la ejecución. Las **variables de flujo de trabajo** actúan como un almacén de datos global dentro de un único flujo de trabajo y permiten que cualquier bloque lea y escriba el estado compartido durante una ejecución.
+TradingGoose admite dos sistemas de variables complementarios. Las **variables de entorno** almacenan configuración y secretos (claves de API, tokens, URL de bases de datos) fuera de las definiciones del flujo de trabajo y se resuelven al ejecutarlo. Las **variables de flujo de trabajo** mantienen estado compartido durante una ejecución: define sus valores iniciales en el panel Variables, referéncialas desde los bloques y actualízalas con un bloque Variables.
 
 En conjunto cubren tanto la configuración externa como el flujo de datos interno. Las variables de entorno mantienen los secretos seguros y portables entre flujos de trabajo, mientras que las variables de flujo de trabajo permiten que los bloques se pasen datos entre sí sin conexiones directas.
 
@@ -16,7 +16,7 @@ En conjunto cubren tanto la configuración externa como el flujo de datos intern
     Gestiona claves de API, tokens y otros secretos a nivel personal o de espacio de trabajo. Se referencian con la sintaxis de doble llave y se resuelven cuando se ejecuta un flujo de trabajo.
   </Card>
   <Card title="Variables de flujo de trabajo" href="/variables/workflow-variables">
-    Almacén global de pares clave-valor con ámbito de un único flujo de trabajo. Crea, lee y actualiza variables desde cualquier bloque para compartir estado en el flujo de trabajo.
+    Valores compartidos durante una ejecución del flujo de trabajo. Define los valores iniciales en el panel Variables y usa un bloque Variables para las asignaciones durante la ejecución.
   </Card>
 </Cards>
 
@@ -25,7 +25,7 @@ En conjunto cubren tanto la configuración externa como el flujo de datos intern
 | | Variables de entorno | Variables de flujo de trabajo |
 |---|---|---|
 | **Ámbito** | Personal o de todo el espacio de trabajo | Un solo flujo de trabajo |
-| **Duración** | Persistente en todas las ejecuciones | Persiste entre ejecuciones a menos que se restablezca |
+| **Duración** | Persistente en todas las ejecuciones | Los cambios duran solo la ejecución actual; cada nueva ejecución carga los valores iniciales guardados |
 | **Uso típico** | Claves de API, tokens, configuración | Paso de datos entre bloques, estado |
-| **Sintaxis de acceso** | `{{VARIABLE_NAME}}` | `<variable_name>` mediante menú desplegable |
-| **Quién puede editar** | Página de configuración (se aplican permisos) | Panel de variables en el editor |
+| **Sintaxis de acceso** | `{{VARIABLE_NAME}}` | `<variable.name>` mediante menú desplegable |
+| **Dónde editar** | Página Environment (se aplican permisos) | Panel/widget Workflow Variables; bloque Variables para cambios durante la ejecución |

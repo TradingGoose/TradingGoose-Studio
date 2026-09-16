@@ -18,22 +18,24 @@ Puedes añadir etiquetas personalizadas a cualquier documento de tu base de cono
 - **Etiquetas descriptivas**: Usa nombres de etiquetas claros y significativos
 - **Limpieza periódica**: Elimina periódicamente las etiquetas que no uses o que estén obsoletas
 
-## Uso de etiquetas en bloques Knowledge
+## API de búsqueda y bloques Knowledge
 
-Las etiquetas se vuelven potentes cuando se combinan con el bloque Knowledge en tus flujos de trabajo. Puedes filtrar tus búsquedas a contenido etiquetado específico, lo que garantiza que tus agentes de IA reciban la información más relevante. En la configuración del bloque Knowledge, añade filtros de etiquetas para limitar los resultados de búsqueda a los documentos que coincidan con las etiquetas especificadas.
+La API de búsqueda acepta filtros de etiquetas de documentos mediante `filters`, un registro de nombres y valores de etiquetas. Admite búsquedas solo por etiquetas, solo vectoriales y combinadas.
+
+**Limitación actual del bloque:** El bloque Knowledge envía `tagFilters` en lugar del campo `filters` de la API. Una solicitud del bloque solo con etiquetas falla la validación; una solicitud con consulta y etiquetas se ejecuta sin los filtros de etiquetas. Hasta que se corrija este contrato, usa el bloque para búsquedas solo con consulta y no dependas de sus campos de etiquetas para restringir contenido. Los modos siguientes describen el comportamiento de la API cuando los filtros se envían correctamente.
 
 ## Modos de búsqueda
 
-El bloque Knowledge admite tres modos de búsqueda diferentes según lo que proporciones:
+La API de búsqueda selecciona el modo según la consulta y los filtros proporcionados. Todos los modos devuelven fragmentos, no documentos completos. `topK` tiene un valor predeterminado de 10 y acepta 1-100; varios fragmentos pueden pertenecer al mismo documento. La búsqueda no enumera todos los documentos.
 
 ### 1. Búsqueda solo por etiquetas
 Cuando **solo proporcionas etiquetas** (sin consulta de búsqueda):
-- **Recuperación directa**: Obtiene todos los documentos que tienen las etiquetas especificadas
+- **Recuperación limitada**: Obtiene hasta `topK` fragmentos de documentos con las etiquetas especificadas
 - **Sin búsqueda vectorial**: Los resultados se basan únicamente en la coincidencia de etiquetas
 - **Rendimiento rápido**: Recuperación rápida sin procesamiento semántico
-- **Coincidencia exacta**: Solo se devuelven los documentos que tienen todas las etiquetas especificadas
+- **Coincidencia exacta**: Los fragmentos devueltos pertenecen a documentos que cumplen todos los filtros de etiquetas especificados
 
-**Caso de uso**: Cuando necesitas todos los documentos de una categoría o proyecto específico
+**Caso de uso**: Cuando necesitas un conjunto limitado de fragmentos de una categoría o proyecto específico
 
 ### 2. Solo búsqueda vectorial
 Cuando **solo proporcionas una consulta de búsqueda** (sin etiquetas):
@@ -63,36 +65,34 @@ Cuando **proporcionas tanto etiquetas como una consulta de búsqueda**:
 #### Parámetros de búsqueda vectorial
 - **Complejidad de la consulta**: Las preguntas en lenguaje natural funcionan mejor
 - **Límites de resultados**: Configura cuántos fragmentos recuperar
-- **Umbral de relevancia**: Establece puntuaciones mínimas de similitud
-- **Ventana de contexto**: Ajusta el tamaño del fragmento para tu caso de uso
+- **Umbral de relevancia**: Se selecciona internamente; no hay un umbral de similitud configurable por el usuario
+- **Tamaño del fragmento**: Se configura durante el procesamiento de documentos, no como parámetro de búsqueda
 
 ## Integración con flujos de trabajo
 
 ### Configuración del bloque de conocimiento
 1. **Seleccionar base de conocimiento**: Elige qué base de conocimiento buscar
-2. **Agregar etiquetas**: Especifica etiquetas de filtrado (opcional)
-3. **Ingresar consulta**: Agrega tu consulta de búsqueda (opcional)
-4. **Configurar resultados**: Establece el número de fragmentos a recuperar
-5. **Probar búsqueda**: Previsualiza los resultados antes de usar en el flujo de trabajo
+2. **Ingresar consulta**: Proporciona una consulta mientras exista la limitación de filtros del bloque
+3. **Configurar resultados**: Establece el número de fragmentos que recuperar (1-100, predeterminado: 10)
+4. **Mapear resultados**: Referencia explícitamente los fragmentos devueltos en las entradas o prompts posteriores
+5. **Probar búsqueda**: Inspecciona los resultados antes de depender de ellos
 
 ### Uso dinámico de etiquetas
-- **Etiquetas variables**: Usa variables de flujo de trabajo como valores de etiquetas
+- **Etiquetas variables**: Un cliente de la API puede enviar valores resueltos dinámicamente mediante `filters`; sigue aplicándose la limitación del bloque Knowledge descrita arriba
 - **Filtrado condicional**: Aplica distintas etiquetas según la lógica del flujo de trabajo
 - **Búsqueda según el contexto**: Ajusta las etiquetas según el contexto de la conversación
 - **Filtrado en varios pasos**: Refina las búsquedas a través de los pasos del flujo de trabajo
 
 ### Optimización del rendimiento
 - **Filtrado eficiente**: El filtrado por etiquetas se realiza antes de la búsqueda vectorial para mejorar el rendimiento
-- **Almacenamiento en caché**: Las combinaciones de etiquetas usadas con frecuencia se almacenan en caché para mayor velocidad
-- **Procesamiento en paralelo**: Varias búsquedas por etiquetas pueden ejecutarse de forma simultánea
-- **Gestión de recursos**: Optimización automática de los recursos de búsqueda
+- **Límites de resultados**: Solicita solo los fragmentos necesarios para mantener manejable el contexto posterior
 
 ## Primeros pasos con las etiquetas
 
 1. **Planifica la estructura de tus etiquetas**: Define convenciones de nombres coherentes
 2. **Empieza a etiquetar**: Agrega etiquetas relevantes a tus documentos existentes
 3. **Prueba combinaciones**: Experimenta con combinaciones de etiquetas y consultas de búsqueda
-4. **Integra en tus flujos de trabajo**: Usa el bloque Knowledge con tu estrategia de etiquetado
+4. **Integra en tus flujos de trabajo**: Verifica que el cliente envíe el campo `filters` de la API; no dependas de los campos de etiquetas del bloque, que actualmente no funcionan
 5. **Refina con el tiempo**: Ajusta tu enfoque de etiquetado según los resultados de búsqueda
 
 Las etiquetas transforman tu base de conocimiento de un simple almacén de documentos en un sistema de inteligencia organizado con precisión y totalmente consultable, que tus flujos de trabajo de IA pueden recorrer con precisión quirúrgica.

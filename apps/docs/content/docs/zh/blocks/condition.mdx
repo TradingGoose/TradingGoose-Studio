@@ -109,10 +109,9 @@ import { ShowcaseCard } from '@/components/ui/showcase-card'
 
 条件评估后，你可以访问其输出：
 
-- **`<condition.result>`**：条件评估的布尔结果
-- **`<condition.matched_condition>`**：匹配到的条件 ID
-- **`<condition.content>`**：评估结果的描述
-- **`<condition.path>`**：所选路由目标的详细信息
+- **`<condition.conditionResult>`**: 是否选中了已连接的路径（包括 Else），并非首个表达式的真假值。
+- **`<condition.selectedOption>`**：匹配到的条件 ID
+- **`<condition.selectedPath>`**：所选路由目标的详细信息
 
 ## 高级功能
 
@@ -125,13 +124,13 @@ import { ShowcaseCard } from '@/components/ui/showcase-card'
 <user.email>.endsWith('@company.com')
 
 // Array operations
-<api.tags>.includes('urgent')
+<api.data.tags>.includes('urgent')
 
 // Mathematical operations
 <agent.confidence> * 100 > 85
 
 // Date comparisons
-new Date(<api.created_at>) > new Date('2024-01-01')
+new Date(<api.data.created_at>) > new Date('2024-01-01')
 ```
 
 ### 多条件评估
@@ -151,11 +150,7 @@ true
 
 ### 错误处理
 
-条件会自动处理：
-- 未定义或 null 值，进行安全求值
-- 类型不匹配，采用适当的回退
-- 无效表达式，记录错误日志
-- 缺失变量，使用默认值
+无效表达式和不安全的属性访问可能导致块失败。请显式校验可选属性，例如 API data 为对象时使用 `((<api.data>)?.tags ?? []).includes('urgent')`。Condition 不支持普通块的错误路径恢复。如校验需要可恢复的异常，请在上游 Function 块中校验并连接其错误路径。
 
 ## 输入与输出
 
@@ -176,16 +171,13 @@ true
   <Tab>
     <ul className="list-disc space-y-2 pl-6">
       <li>
-        <strong>condition.result</strong>：条件评估的布尔结果
+        <strong>condition.conditionResult</strong>: 选中已连接的路径（包括 Else）时为 true
       </li>
       <li>
-        <strong>condition.matched_condition</strong>：匹配条件的 ID
+        <strong>condition.selectedOption</strong>：匹配条件的 ID
       </li>
       <li>
-        <strong>condition.content</strong>：评估结果的描述
-      </li>
-      <li>
-        <strong>condition.path</strong>：所选路由目标的详情
+        <strong>condition.selectedPath</strong>：所选路由目标的详情
       </li>
     </ul>
   </Tab>
@@ -212,7 +204,7 @@ true
   <h4 className="font-medium">场景：根据优先级路由支持工单</h4>
   <ol className="list-decimal pl-5 text-sm">
     <li>API 块获取支持工单数据</li>
-    <li>条件检查 `<api.priority>` 是否等于 'high'</li>
+    <li>条件检查 `<api.data.priority>` 是否等于 'high'</li>
     <li>高优先级工单 → 带升级工具的智能体</li>
     <li>普通优先级工单 → 标准支持智能体</li>
   </ol>
@@ -236,7 +228,7 @@ true
   <h4 className="font-medium">场景：根据用户类型个性化引导</h4>
   <ol className="list-decimal pl-5 text-sm">
     <li>函数块处理用户注册数据</li>
-    <li>条件检查 `<user.account_type>` === 'enterprise'</li>
+    <li>条件检查 `<function.result.account_type>` === 'enterprise'</li>
     <li>企业用户 → 高级设置工作流</li>
     <li>个人用户 → 简单引导工作流</li>
   </ol>

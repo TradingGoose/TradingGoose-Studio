@@ -179,13 +179,7 @@ Agent 块通过统一的推理接口支持多个 LLM 提供商。其模型选择
 
 ### 记忆 + Agent：对话历史
 
-使用 `Memory` 块，并配合一致的 `id`（例如 `chat`），在各次运行之间持久保存消息，并把该历史记录纳入 Agent 的提示词中。
-
-- 在 Agent 之前添加用户消息
-- 读取对话历史以获取上下文
-- Agent 运行后追加其回复
-
-详见 [`Memory`](/blocks/memory) 块参考文档。
+Agent 的 Memories 字段可使用来自 `<memory.memories>` 的已有消息数组。但 Memory 块的 Add 操作当前会失败，因此保存用户消息 → Agent → 保存回复的流程尚不可用。设计跨运行对话持久化前，请先阅读 [Memory 当前限制](/blocks/memory)。
 
 ## 输入与输出
 
@@ -250,12 +244,12 @@ Agent 块通过统一的推理接口支持多个 LLM 提供商。其模型选择
 <div className="mb-4 rounded-md border p-4">
   <h4 className="font-medium">场景：利用数据库访问处理客户咨询</h4>
   <ol className="list-decimal pl-5 text-sm">
-    <li>用户通过 API 块提交支持工单</li>
+    <li>用户通过 API 触发器提交支持工单</li>
     <li>Agent 在 Postgres 中检查订单/订阅，并在知识库中搜索指导</li>
     <li>如果需要升级，Agent 会创建包含相关上下文的 Linear 问题</li>
     <li>Agent 起草清晰的电子邮件回复</li>
     <li>Gmail 将回复发送给客户</li>
-    <li>对话保存到 Memory，以便为后续消息保留历史记录</li>
+    <li>使用持久存储保留后续对话历史；Memory Add 当前不可用</li>
   </ol>
 </div>
 

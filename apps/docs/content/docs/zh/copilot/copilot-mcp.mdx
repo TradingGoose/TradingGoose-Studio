@@ -69,7 +69,7 @@ irm https://www.tradinggoose.ai/mcp/setup/codex | iex
 
 将命令中的 `https://www.tradinggoose.ai` 替换为你的 Studio 部署的公开源。在该部署上登录并批准访问。其 `NEXT_PUBLIC_APP_URL` 必须与外部可访问的源一致，因为安装程序会用它生成审批链接和 MCP 端点。
 
-MCP 身份验证使用**个人 TradingGoose API 密钥**。工作区 API 密钥，或内置助手托管推理所用的 `COPILOT_API_KEY`，均无法通过此端点的身份验证。
+MCP 身份验证使用**个人 TradingGoose API 密钥**。工作区 API 密钥，或在 **Admin > Services > Copilot API** 中配置、供内置助手托管推理使用的 Copilot 服务 API 密钥，均无法通过此端点的身份验证。
 
 ## 手动配置
 

@@ -48,7 +48,7 @@ El bloque Loop es un contenedor que ejecuta repetidamente los bloques que contie
   <Tab>
     **Bucle While** -- evalúa una condición **antes** de cada iteración. Si la condición es falsa en la primera comprobación, el cuerpo nunca se ejecuta.
 
-    Los bucles While y Do-While **no tienen un límite de iteraciones integrado**. Dependen de que la condición se vuelva falsa (o del tiempo de espera del flujo de trabajo) para detenerse.
+    While y Do-While no tienen un límite propio, pero la ejecución está limitada por el tiempo máximo del flujo y por las 500 pasadas de planificación del ejecutor. Una pasada no equivale a una iteración; el total completado depende del grafo.
   </Tab>
   <Tab>
     **Bucle Do-While** -- ejecuta el cuerpo al menos una vez y luego evalúa la condición **después** de cada iteración. Útil cuando necesitas al menos una pasada antes de comprobar.
@@ -119,4 +119,4 @@ Cuando el bucle finaliza, los bloques posteriores pueden acceder a:
 
 - **Establece un número razonable de iteraciones** para los bucles For a fin de evitar flujos de trabajo de larga duración. El valor predeterminado es 5.
 - **Usa ForEach para las colecciones** — se ajusta automáticamente a la longitud de la colección y te proporciona `currentItem`.
-- **Actualiza siempre tu variable de condición** dentro de los bucles While/Do-While. Olvidar cambiar la variable de la que depende la condición genera un bucle infinito (limitado únicamente por el tiempo de espera del flujo de trabajo).
+- **Actualiza siempre tu variable de condición** dentro de los bucles While/Do-While. Olvidar cambiar la variable de la que depende la condición genera un bucle infinito (limitado por las pasadas del ejecutor y el tiempo máximo del flujo).

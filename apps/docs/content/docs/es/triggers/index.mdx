@@ -7,7 +7,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 
 ## Disparadores principales
 
-Elige un disparador por flujo de trabajo para definir cómo se inicia:
+Un flujo puede tener varios puntos de entrada. API, Chat, Input Form y Manual admiten un bloque de cada tipo por flujo; no es un límite de un disparador en total. Elige el punto de entrada para las ejecuciones del editor.
 
 <Cards>
   <Card title="API" href="/triggers/api">
@@ -43,10 +43,8 @@ Elige un disparador por flujo de trabajo para definir cómo se inicia:
 
 ## Uso de disparadores
 
-1. Coloca el bloque de disparador en la ranura de inicio.
+1. Añade el bloque disparador al lienzo.
 2. Configura el esquema o la autenticación requeridos.
 3. Conecta el bloque con el resto del flujo de trabajo.
 
-> Los despliegues impulsan cada disparador. Actualiza el flujo de trabajo, vuelve a desplegarlo y todos los puntos de entrada de los disparadores aplican la nueva instantánea. Más información en [Ejecución → Instantáneas de despliegue](/execution).
-
-Los bloques Starter heredados se conservan en los flujos existentes, pero ya no aparecen en las compilaciones nuevas.
+> Las ejecuciones del editor usan el flujo guardado actual. API externa, Chat publicado, programación y webhooks usan la instantánea desplegada. Un flujo secundario hereda el destino live/deployed del principal. Vuelve a desplegar los cambios destinados a entradas externas. Consulta [Ejecución → Instantáneas de despliegue](/execution).

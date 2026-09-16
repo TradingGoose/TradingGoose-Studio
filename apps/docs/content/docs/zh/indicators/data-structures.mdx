@@ -57,8 +57,8 @@ const e = array.new_string(2, '');
 | `array.lastindexof(arr, value)` | 值最后一次出现的索引 |
 | `array.includes(arr, value)` | 检查是否包含值 |
 | `array.binary_search(arr, value)` | 二分查找（已排序数组） |
-| `array.every(arr, fn)` | 如果所有元素都匹配谓词则为 true |
-| `array.some(arr, fn)` | 如果任一元素匹配谓词则为 true |
+| `array.every(arr)` | 所有元素均为真值且不是 `na` 时返回 true；不接受谓词函数 |
+| `array.some(arr)` | 任一元素为真值且不是 `na` 时返回 true；不接受谓词函数 |
 
 ### 统计
 
@@ -74,7 +74,7 @@ const e = array.new_string(2, '');
 | `array.variance(arr)` | 方差 |
 | `array.covariance(arr1, arr2)` | 协方差 |
 | `array.range(arr)` | 极差（最大值 - 最小值） |
-| `array.percentrank(arr, value)` | 百分位排名 |
+| `array.percentrank(arr, index)` | 从零开始的索引所对应元素的百分位排名 |
 
 ---
 
@@ -126,10 +126,10 @@ matrix.set(m, 2, 2, 1);         // Identity matrix
 | **访问** | `get`, `set`, `row`, `col` |
 | **大小** | `rows`, `columns`, `elements_count` |
 | **修改** | `add_row`, `add_col`, `remove_row`, `remove_col`, `swap_rows`, `swap_columns`, `fill`, `reverse` |
-| **变换** | `transpose`, `reshape`, `slice`, `submatrix`, `concat`, `copy` |
+| **变换** | `transpose`, `reshape`, `submatrix`, `concat`, `copy` |
 | **算术** | `mult`, `pow`, `diff` |
 | **线性代数** | `det`, `inv`, `pinv`, `eigenvalues`, `eigenvectors`, `rank`, `trace` |
-| **统计** | `sum`, `avg`, `min`, `max`, `median`, `mode`, `stdev`, `variance` |
+| **统计** | `sum`, `avg`, `min`, `max`, `median`, `mode` |
 | **布尔测试** | `is_square`, `is_identity`, `is_diagonal`, `is_symmetric`, `is_triangular`, `is_zero`, `is_binary`, `is_stochastic` |
 
 ---

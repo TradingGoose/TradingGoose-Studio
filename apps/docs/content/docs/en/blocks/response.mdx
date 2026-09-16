@@ -68,7 +68,6 @@ The Response block finalizes workflow execution:
 ## When You Need Response Blocks
 
 - **API Endpoints**: When your workflow is called via API, Response blocks format the return data
-- **Webhooks**: Return confirmation or data back to the calling system
 - **Testing**: See formatted results when testing your workflow
 
 ## Two Ways to Build Responses
@@ -157,15 +156,9 @@ Headers are configured as key-value pairs:
 
 ### Webhook Confirmation
 
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Scenario: Acknowledge webhook receipt and processing</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>Webhook trigger receives external system data</li>
-    <li>Workflow processes the incoming data</li>
-    <li>Response block returns confirmation with processing status</li>
-    <li>External system receives acknowledgment</li>
-  </ol>
-</div>
+<Callout type="warning">
+  Response does not control webhook acknowledgments. Webhook endpoints enqueue the workflow and acknowledge the request before execution finishes. Response can shape workflow output, but its status, headers, and body are not returned as that webhook acknowledgment.
+</Callout>
 
 ### Error Response Handling
 
@@ -208,9 +201,6 @@ Headers are configured as key-value pairs:
       </li>
       <li>
         <strong>response.headers</strong>: Headers included in response
-      </li>
-      <li>
-        <strong>response.success</strong>: Boolean indicating successful completion
       </li>
     </ul>
   </Tab>
@@ -258,4 +248,3 @@ Use the `<variable.name>` syntax to dynamically insert workflow variables into y
 - **Include relevant metadata**: Add timestamps and version information to help with debugging and monitoring
 - **Handle errors gracefully**: Use conditional logic in your workflow to set appropriate error responses with descriptive messages
 - **Validate variable references**: Ensure all referenced variables exist and contain the expected data types before the Response block executes
-

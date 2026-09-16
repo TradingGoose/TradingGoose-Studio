@@ -179,13 +179,7 @@ Con un formato de respuesta válido, haga referencia a cada campo del esquema di
 
 ### Memoria + Agente: Historial de conversación
 
-Use un bloque `Memory` con un `id` consistente (por ejemplo, `chat`) para persistir mensajes entre ejecuciones, e incluya ese historial en el prompt del Agente.
-
-- Agregue el mensaje del usuario antes del Agente
-- Lea el historial de conversación para obtener contexto
-- Añada la respuesta del Agente después de que se ejecute
-
-Consulte la referencia del bloque [`Memory`](/blocks/memory) para obtener más detalles.
+Un Agent puede usar un arreglo de mensajes existente de `<memory.memories>` en el campo Memories. Sin embargo, Add del bloque Memory falla actualmente, por lo que el flujo guardar mensaje → Agent → guardar respuesta no es operativo. Revisa la [limitación de Memory](/blocks/memory) antes de diseñar persistencia entre ejecuciones.
 
 ## Entradas y salidas
 
@@ -250,12 +244,12 @@ Consulte la referencia del bloque [`Memory`](/blocks/memory) para obtener más d
 <div className="mb-4 rounded-md border p-4">
   <h4 className="font-medium">Escenario: Gestionar consultas de clientes con acceso a la base de datos</h4>
   <ol className="list-decimal pl-5 text-sm">
-    <li>El usuario envía un ticket de soporte mediante el bloque API</li>
+    <li>El usuario envía un ticket de soporte mediante el disparador API</li>
     <li>El agente consulta pedidos/suscripciones en Postgres y busca en la base de conocimiento para obtener orientación</li>
     <li>Si se necesita escalar, el agente crea un issue en Linear con el contexto relevante</li>
     <li>El agente redacta una respuesta de correo clara</li>
     <li>Gmail envía la respuesta al cliente</li>
-    <li>La conversación se guarda en Memory para mantener el historial de mensajes futuros</li>
+    <li>Usa almacenamiento persistente para el historial; Memory Add no está disponible actualmente</li>
   </ol>
 </div>
 

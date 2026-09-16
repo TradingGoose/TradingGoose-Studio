@@ -13,14 +13,14 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 | **Clave** | `editor_indicator` |
 | **Categoría** | Editor |
 
-El Editor de indicadores es donde escribes y perfeccionas indicadores PineTS personalizados. Ofrece un editor de código Monaco completo con compatibilidad con TypeScript, una hoja de referencia integrada para los globales de PineTS y verificación en el servidor para validar el script antes de guardar. Usa el widget [Lista de indicadores](/widgets/list-indicator) para explorar, crear e importar indicadores; el editor es el espacio de trabajo principal para escribir su lógica.
+El Editor de indicadores es donde escribes y perfeccionas indicadores PineTS personalizados. Ofrece un editor de código Monaco completo con compatibilidad con TypeScript, una hoja de referencia integrada para los globales de PineTS y verificación local en el navegador para validar el script antes de guardar. Usa el widget [Lista de indicadores](/widgets/list-indicator) para explorar, crear e importar indicadores; el editor es el espacio de trabajo principal para escribir su lógica.
 
 ## Características
 
 - **Editor de código Monaco** con resaltado de sintaxis TypeScript, autocompletado y las definiciones de tipos de PineTS cargadas automáticamente.
 - **Barra de hoja de referencia** agrupada por categoría (data, technical-analysis, input, plot y más). Pasa el cursor sobre cualquier símbolo para ver su firma, descripción y ejemplos de uso.
-- **Botón Verificar** ejecuta el indicador en el servidor con datos simulados e informa el número de plots y marcadores producidos, además de cualquier advertencia sobre estilos o tipos de plot no compatibles.
-- **Botón Exportar** en la barra de encabezado descarga el indicador guardado actual como JSON de exportación de TradingGoose. Guarda primero si el editor tiene cambios sin guardar.
+- **Botón Verificar** ejecuta el indicador en tu navegador con datos simulados e informa el número de plots y marcadores producidos, además de cualquier advertencia sobre estilos o tipos de plot no compatibles.
+- **Botón Exportar** en la barra de encabezado descarga el borrador actual del editor como JSON de exportación de TradingGoose, incluidos los cambios de código sin guardar. No es necesario guardar antes.
 - **Botón Guardar** persiste el código PineTS e infiere automáticamente `inputMeta` a partir de las llamadas `input.*` del script para que el gráfico pueda renderizar los controles de entrada.
 - **Barra de indicaciones Wand** permite describir la lógica del indicador en lenguaje natural y transmite el código PineTS generado directamente al editor.
 - **Desplegable de variables de entorno** se activa al escribir el patrón `{{` y permite referenciar secretos del espacio de trabajo en el código del indicador.
@@ -31,7 +31,7 @@ El Editor de indicadores es donde escribes y perfeccionas indicadores PineTS per
 1. Añade el widget a un espacio de trabajo desde el selector de widgets.
 2. Selecciona un indicador existente en el menú desplegable del encabezado, o créalo primero en el widget [Lista de indicadores](/widgets/list-indicator).
 3. Escribe código PineTS en el editor. Usa los globales directamente -- `close`, `ta.sma`, `input.int`, `plot` -- sin un prefijo `$`.
-4. Haz clic en el botón **Verificar** (icono de marca de verificación) para ejecutar una simulación en el servidor. Corrige los errores o advertencias que aparezcan.
+4. Haz clic en el botón **Verificar** (icono de marca de verificación) para ejecutar una simulación local en el navegador. Corrige los errores o advertencias que aparezcan.
 5. Haz clic en el botón **Guardar** para persistir el indicador. El gráfico tomará el código actualizado en el siguiente renderizado.
 
 ### Atajos de teclado

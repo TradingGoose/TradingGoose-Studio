@@ -28,7 +28,7 @@ import { Callout } from 'fumadocs-ui/components/callout'
     type="input_trigger"
     hideHeader
     subBlocks={[
-      { "id": "inputFormat", "title": "输入格式", "type": "short-input", "layout": "full", "description": "定义表单字段的名称、类型和默认值" }
+      { "id": "inputFormat", "title": "输入格式", "type": "input-format", "layout": "full", "description": "定义表单字段的名称、类型和默认值" }
     ]}
   />
 </ShowcaseCard>
@@ -38,7 +38,10 @@ import { Callout } from 'fumadocs-ui/components/callout'
 - **string** — 文本值
 - **number** — 数值
 - **boolean** — 真/假值
-- **json** — JSON 对象
+- **object** — JSON 对象
+- **array** — JSON 数组
+- **listingIdentity** — 结构化的交易标的/上市身份
+- **files** — 已上传文件值
 
 ### 输出模式
 

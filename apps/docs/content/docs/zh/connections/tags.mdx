@@ -4,112 +4,47 @@ title: 标签
 
 import { Callout } from 'fumadocs-ui/components/callout'
 
-连接标签是来自已连接区块的可用数据的可视化表示，提供了一种简便方法，可在区块之间以及工作流中前序区块的输出之间引用数据。
+连接标签用于引用上游区块的值。将来源连接到工作流路径后，在支持的输入字段中键入单个 `<`，即可打开引用下拉菜单。选择输出以插入完整标签。输入结束符 `>` 会结束未完成的引用；不要输入 `<>` 来打开下拉菜单。
 
-### 什么是连接标签？
+## 语法
 
-连接标签是区块连接时出现的交互元素。它们表示可以从一个区块流向另一个区块的数据，并允许您：
-
-- 可视化来自源区块的可用数据
-- 在目标区块中引用特定数据字段
-- 在区块之间创建动态数据流
-
-<Callout type="info">
-  连接标签让您轻松查看前序区块的可用数据，并在当前区块中使用它，而无需记住复杂的数据结构。
-</Callout>
-
-## 使用连接标签
-
-在工作流中，使用连接标签有两种主要方式：
-
-<div className="my-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-  <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-800">
-    <h3 className="mb-2 text-lg font-medium">拖放</h3>
-    <div className="text-sm text-gray-600 dark:text-gray-400">
-      点击连接标签并将其拖入目标区块的输入字段。将出现一个下拉菜单，
-      显示可用值。
-    </div>
-    <ol className="mt-2 list-decimal pl-5 text-sm text-gray-600 dark:text-gray-400">
-      <li>将鼠标悬停在连接标签上以查看可用数据</li>
-      <li>点击并将标签拖到输入字段</li>
-      <li>从下拉菜单中选择特定数据字段</li>
-      <li>引用将自动插入</li>
-    </ol>
-  </div>
-
-  <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-800">
-    <h3 className="mb-2 text-lg font-medium">尖括号语法</h3>
-    <div className="text-sm text-gray-600 dark:text-gray-400">
-      在输入字段中键入 <code>&lt;&gt;</code> 以查看可用连接值的下拉菜单，
-      来自前序区块。
-    </div>
-    <ol className="mt-2 list-decimal pl-5 text-sm text-gray-600 dark:text-gray-400">
-      <li>在您想要使用连接数据的任何输入字段中点击</li>
-      <li>
-        键入 <code>&lt;&gt;</code> 以触发连接下拉菜单
-      </li>
-      <li>浏览并选择您要引用的数据</li>
-      <li>继续键入或从下拉菜单中选择以完成引用</li>
-    </ol>
-  </div>
-</div>
-
-## 标签语法
-
-连接标签使用简单的语法来引用数据：
-
-```
+```text
 <blockName.path.to.data>
 ```
 
-其中：
+使用下拉菜单显示的实际区块名称或区块 ID。引用中的名称会经过规范化，从下拉菜单选择可避免猜测拼写。
 
-- `blockName` 是源块的名称（或其 ID）
-- `path.to.data` 是指向特定数据字段的点分隔路径
+- `<agent.content>`：名为 Agent 的智能体输出的文本。
+- `<api.data.users[0].name>`：API 响应正文中的字段。
+- `<function.result.total>`：Function 返回值中的字段。
 
-例如：
+## 系统引用
 
-- `<agent1.content>` - 引用名为 "agent1" 的块的 content 字段
-- `<api2.data.users[0].name>` - 引用名为 "api2" 的块的 data 字段中 users 数组里第一个用户的 name
+| 引用 | 含义 |
+|---|---|
+| `<start.input>` | 本次运行所选触发器的输入，前提是该字段存在 |
+| `<start.fieldName>` | 所选触发器暴露的字段 |
+| `<variable.myVar>` | 当前工作流变量值 |
+| `<loop.currentItem>` | 循环内部当前的 ForEach 项目 |
+| `<loop.index>` | 从零开始的循环迭代索引 |
+| `<loop.items>` | 完整 ForEach 集合 |
+| `<parallel.currentItem>` | 并行实例当前的集合项目 |
+| `<parallel.index>` | 从零开始的并行实例索引 |
+| `<parallel.items>` | 完整并行集合 |
 
-### 特殊引用类型
+系统前缀只有 `start`、`variable`、`loop` 和 `parallel`。`api`、`chat` 和 `manual` 等名称不是通用触发器别名，必须指向实际区块。Manual 触发器没有输入字段。
 
-除块引用外，解析器还支持几种特殊前缀：
+对应容器完成后，使用 `<loop.results>` 或 `<parallel.results>`。处理集合时使用 `currentItem`，不要使用 `item`。
 
-- **触发器别名**：`<start.input>`、`<api.fieldName>`、`<chat.input>`、`<manual.input>` - 对触发器块输出的简写引用
-- **变量**：`<variable.myVar>` - 按名称引用工作流变量
-- **循环**：`<loop.item>`、`<loop.index>` - 引用循环中的当前项或索引
-- **并行**：`<parallel.item>`、`<parallel.index>` - 引用并行执行中的当前项或索引
+## 示例
 
-## 动态标签引用
-
-连接标签在运行时求值，这意味着：
-
-1. 它们始终引用执行上下文中最新的数据
-2. 它们可用于表达式，并与静态文本组合
-3. 它们可以嵌套在其他数据结构中
-4. 支持使用方括号表示法进行数组索引（例如 `items[0]`）
-
-### 示例
-
-```javascript
-// Reference in text
-"The user's name is <userBlock.name>"
-
-// Reference in JSON
-{
-  "userName": "<userBlock.name>",
-  "orderTotal": <apiBlock.data.total>
-}
-
-// Using trigger aliases
-"User said: <start.input>"
-
-// Using loop references inside a loop
-"Processing item <loop.index>: <loop.item.name>"
+```text
+Processing item <loop.index>: <loop.currentItem.name>
+User message: <start.input>
 ```
 
-<Callout type="warning">
-  在数值上下文中使用连接标签时，请确保引用的数据确实是数字，
-  以避免类型转换问题。
+标签在执行时解析，支持嵌套属性和数组索引。算术运算应放在 Function 或条件表达式中；普通文本字段不会因为包含标签而执行 JavaScript。
+
+<Callout>
+  选择路径前，请查看[数据结构](/connections/data-structure)和实际区块输出。API 正文位于 `data` 下，Function 返回值位于 `result` 下。
 </Callout>

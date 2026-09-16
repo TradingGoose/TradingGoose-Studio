@@ -81,7 +81,12 @@ Every workspace has one **Owner** (the person who created it) plus any number of
 ### Workspace Admin  
 - Has the same workspace-management permissions as the owner, including workspace deletion
 - Cannot remove the workspace owner
-- Can be removed from the workspace by the owner or other admins
+- Can be removed from the workspace by the owner or other admins, unless they are its configured personal billing owner
+
+### Personal Billing Owner
+- Billing ownership is separate from workspace ownership
+- When a workspace is billed to a user, that user must retain Admin permission and cannot be removed
+- Reassign billing before removing that user or reducing their permission below Admin
 
 Owners and admins cannot delete their last accessible workspace. TradingGoose does not currently provide a workspace-ownership transfer action.
 

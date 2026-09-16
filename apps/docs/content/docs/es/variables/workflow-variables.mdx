@@ -6,7 +6,7 @@ import { Callout } from 'fumadocs-ui/components/callout'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
 
-Las variables en TradingGoose funcionan como un almacén global de datos al que puede acceder y modificar cualquier bloque de tu flujo de trabajo, lo que te permite almacenar y compartir datos en todo el flujo de trabajo con variables globales. Ofrecen una forma potente de compartir información entre distintas partes del flujo de trabajo, mantener el estado y crear aplicaciones más dinámicas.
+Las variables de flujo de trabajo contienen datos compartidos durante una ejecución. Define sus valores iniciales en el panel Variables, léelas desde los bloques con `<variable.name>` y actualízalas mediante un [bloque Variables](/blocks/variables). Las asignaciones durante la ejecución no persisten entre ejecuciones.
 
 <Callout type="info">
   Las variables te permiten almacenar y compartir datos en todo el flujo de trabajo, lo que facilita
@@ -36,11 +36,11 @@ La función Variables sirve como almacén central de datos de tu flujo de trabaj
 
 ## Crear variables
 
-Puedes crear y gestionar variables desde el panel Variables de la barra lateral. Cada variable tiene:
+Crea y gestiona variables en el panel Variables del flujo de trabajo o en el [widget Workflow Variables](/widgets/workflow-variables). Cada variable tiene:
 
 - **Nombre**: Un identificador único para referenciar la variable
-- **Valor**: Los datos almacenados en la variable (admite varios tipos de datos)
-- **Descripción** (opcional): Una nota que explica el propósito de la variable
+- **Tipo**: `plain` (texto sin formato), `number`, `boolean`, `object`, `array` o `listingIdentity`
+- **Valor inicial**: El valor guardado para inicializar cada ejecución; las variables nuevas usan texto `plain` vacío
 
 ## Acceder a las variables
 
@@ -113,8 +113,8 @@ Las variables de TradingGoose pueden almacenar distintos tipos de datos:
 Cuando accedes a una variable desde un bloque, puedes:
 
 - **Leer su valor**: Usa el valor actual de la variable en la lógica de tu bloque
-- **Modificarla**: Actualiza el valor de la variable según el procesamiento de tu bloque
-- **Usarla en expresiones**: Incluye variables en expresiones y cálculos
+- **Modificarla**: Asigna un valor nuevo con un bloque Variables
+- **Usarla en expresiones**: Calcula en código Function o en una expresión de condición; los campos de valor de Variables no evalúan operaciones aritméticas
 
 ## Ámbito de las variables
 
@@ -122,13 +122,15 @@ Las variables de TradingGoose tienen ámbito global, lo que significa:
 
 - Son accesibles desde cualquier bloque de tu flujo de trabajo
 - Los cambios en las variables persisten durante toda la ejecución del flujo de trabajo
-- Las variables conservan sus valores entre ejecuciones, salvo que se restablezcan de forma explícita
+- Cada ejecución nueva carga los valores iniciales guardados del estado activo o desplegado del flujo de trabajo; las asignaciones de ejecuciones anteriores no se guardan
+
+Las instancias Parallel comparten estas variables, por lo que las escrituras concurrentes pueden sobrescribirse. Usa salidas por instancia y agrega los resultados del contenedor cuando necesites aislamiento. Para conservar estado entre ejecuciones, usa almacenamiento persistente.
 
 ## Prácticas recomendadas
 
 - **Usa nombres descriptivos**: Elige nombres de variables que indiquen con claridad qué representa la variable. Por ejemplo, usa `userPreferences` en lugar de `up`.
-- **Documenta tus variables**: Añade descripciones a tus variables para que otros miembros del equipo entiendan su propósito y uso.
-- **Ten en cuenta el ámbito de las variables**: Recuerda que las variables son globales y cualquier bloque puede modificarlas. Diseña tu flujo de trabajo teniendo esto en cuenta para evitar comportamientos inesperados.
+- **Documenta tus variables**: Explica su propósito en las notas del flujo de trabajo; el editor de variables no tiene un campo de descripción separado.
+- **Ten en cuenta el ámbito de las variables**: Se comparten durante la ejecución. Conecta los bloques para imponer el orden cuando una lectura dependa de una asignación anterior.
 - **Inicializa las variables al principio**: Configura e inicializa tus variables al inicio del flujo de trabajo para que estén disponibles cuando se necesiten.
 - **Gestiona las variables ausentes**: Considera siempre el caso en que una variable aún no exista o tenga un valor inesperado. Añade la validación adecuada en tus bloques.
 - **Limita el número de variables**: Mantén un número de variables manejable. Demasiadas variables pueden hacer que el flujo de trabajo sea difícil de entender y mantener.

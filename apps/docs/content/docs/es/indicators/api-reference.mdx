@@ -111,17 +111,13 @@ Referencia completa de todas las funciones de PineTS compatibles en TradingGoose
 | `ta.highestbars(source, length)` | Barras desde el máximo |
 | `ta.lowest(source, length)` | Mínimo en N barras |
 | `ta.lowestbars(source, length)` | Barras desde el mínimo |
-| `ta.max(a, b)` | Máximo |
 | `ta.median(source, length)` | Mediana |
-| `ta.min(a, b)` | Mínimo |
 | `ta.mode(source, length)` | Moda |
 | `ta.percentile_linear_interpolation(source, len, pct)` | Percentil (lineal) |
 | `ta.percentile_nearest_rank(source, len, pct)` | Percentil (rango más cercano) |
 | `ta.percentrank(source, length)` | Rango percentil |
-| `ta.pivot_point_levels(type, anchor)` | Niveles de puntos pivote |
 | `ta.pivothigh(source, left, right)` | Pivote alto |
 | `ta.pivotlow(source, left, right)` | Pivote bajo |
-| `ta.rci(source, length)` | Índice de correlación de rangos |
 | `ta.valuewhen(condition, source, occurrence)` | Valor cuando la condición |
 
 ## math (28 funciones + 4 constantes)
@@ -133,7 +129,7 @@ Referencia completa de todas las funciones de PineTS compatibles en TradingGoose
 | `math.ceil(x)` | Redondear hacia arriba |
 | `math.floor(x)` | Redondear hacia abajo |
 | `math.round(x, precision?)` | Redondear |
-| `math.round_to_mintick(x)` | Redondear al tick mínimo |
+| `math.round_to_mintick(x)` | No disponible en Studio: requiere `syminfo.mintick`; redondea usando una entrada explícita |
 | `math.sign(x)` | Signo |
 | `math.max(a, b)` | Máximo |
 | `math.min(a, b)` | Mínimo |
@@ -159,10 +155,10 @@ Referencia completa de todas las funciones de PineTS compatibles en TradingGoose
 | `plotarrow(series, title?, options?)` | Marcadores de flecha |
 | `plotbar(o, h, l, c, title?, options?)` | Barras OHLC |
 | `plotcandle(o, h, l, c, title?, options?)` | Velas |
-| `hline(price, title?, options?)` | Línea horizontal |
+| `hline(price, title?, color?, linestyle?, linewidth?, editable?, display?)` | Línea horizontal |
 | `fill(plot1, plot2, color?)` | Relleno entre gráficos |
-| `bgcolor(color, offset?, options?)` | Color de fondo |
-| `barcolor(color, offset?, options?)` | Color de barra |
+| `bgcolor(color, offset?, options?)` | No se renderiza en Studio; produce una advertencia de estilo no compatible |
+| `barcolor(color, offset?, options?)` | No se renderiza en Studio; usa la opción `color` de un plot |
 
 ## array (52 métodos)
 
@@ -181,7 +177,7 @@ Referencia completa de todas las funciones de PineTS compatibles en TradingGoose
 
 `new`, `get`, `put`, `put_all`, `contains`, `remove`, `keys`, `values`, `size`, `clear`, `copy`
 
-## matrix (50 métodos)
+## matrix
 
 | Categoría | Funciones |
 |----------|-----------|
@@ -190,7 +186,7 @@ Referencia completa de todas las funciones de PineTS compatibles en TradingGoose
 | **Modificar** | `add_row`, `add_col`, `remove_row`, `remove_col`, `swap_rows`, `swap_columns`, `fill`, `reverse`, `concat`, `copy` |
 | **Aritmética** | `mult`, `pow`, `diff`, `kron` |
 | **Álgebra lineal** | `det`, `inv`, `pinv`, `eigenvalues`, `eigenvectors`, `rank`, `trace`, `transpose` |
-| **Estadística** | `sum`, `avg`, `min`, `max`, `median`, `mode`, `stdev`, `variance` |
+| **Estadística** | `sum`, `avg`, `min`, `max`, `median`, `mode` |
 | **Booleano** | `is_square`, `is_identity`, `is_diagonal`, `is_antidiagonal`, `is_triangular`, `is_symmetric`, `is_antisymmetric`, `is_stochastic`, `is_binary`, `is_zero` |
 | **Ordenar** | `sort` |
 
@@ -202,12 +198,9 @@ Referencia completa de todas las funciones de PineTS compatibles en TradingGoose
 
 `log.info(msg)`, `log.warning(msg)`, `log.error(msg)`
 
-## request (2 funciones)
+## request (no compatible)
 
-| Función | Descripción |
-|----------|-------------|
-| `request.security(symbol, timeframe, expression)` | Datos de múltiples marcos temporales |
-| `request.security_lower_tf(expression)` | Datos del marco temporal inferior |
+TradingGoose no admite `request.security` ni `request.security_lower_tf`. La verificación del indicador y la compilación en el servidor rechazan estas llamadas. Usa los datos proporcionados por el gráfico u obtén la serie necesaria en un workflow.
 
 ## trigger (extensión de TradingGoose)
 

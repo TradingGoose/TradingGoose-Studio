@@ -43,10 +43,10 @@ At runtime the block:
 1. Resolves all mapped values from the parent workflow's current state.
 2. Invokes the child workflow's executor, passing the resolved inputs.
 3. Waits for the child to finish.
-4. Returns `success`, `childWorkflowName`, and the full `result` from the child execution.
+4. Returns `success: true`, `childWorkflowName`, and `result` containing the child's final output.
 
 <Callout type="info">
-  The dropdown only shows workflows in your workspace that are different from the current one. You cannot call a workflow recursively.
+  The child inherits the parent execution target: editor/live runs use the child's current saved graph, while deployed runs use its deployed version. Deploy child changes before relying on them in a deployed parent. The selector excludes the current workflow; nested child calls have a maximum depth of 10.
 </Callout>
 
 ## Configuration
@@ -86,13 +86,12 @@ At runtime the block:
 
 | Output | Type | Description |
 |---|---|---|
-| `success` | boolean | Whether the child workflow completed successfully |
+| `success` | boolean | `true` on the normal success path |
 | `childWorkflowName` | string | Name of the executed child workflow |
-| `result` | json | The full execution result from the child workflow |
-| `error` | string | Error message if the child workflow failed |
+| `result` | json | The child's final output, not its full execution record |
 
 ## Best Practices
 
 - **Design child workflows with clear Input Form Triggers** -- name fields descriptively so the mapping UI is easy to use in the parent.
 - **Keep child workflows focused** -- a child workflow should do one thing well, making it reusable across multiple parents.
-- **Check the `success` output** -- use a Condition block after the Workflow block to handle failures gracefully.
+- **Connect the error path** -- a failed child throws a block error instead of returning `success: false` to normal downstream blocks. Attach recovery to the Workflow block's error output.

@@ -111,17 +111,13 @@ TradingGoose 中所有受支持 PineTS 函数的完整参考，按命名空间�
 | `ta.highestbars(source, length)` | 自最高点以来的 K 线数 |
 | `ta.lowest(source, length)` | N 根 K 线内的最低值 |
 | `ta.lowestbars(source, length)` | 自最低点以来的 K 线数 |
-| `ta.max(a, b)` | 最大值 |
 | `ta.median(source, length)` | 中位数 |
-| `ta.min(a, b)` | 最小值 |
 | `ta.mode(source, length)` | 众数 |
 | `ta.percentile_linear_interpolation(source, len, pct)` | 百分位数（线性） |
 | `ta.percentile_nearest_rank(source, len, pct)` | 百分位数（最近秩） |
 | `ta.percentrank(source, length)` | 百分位排名 |
-| `ta.pivot_point_levels(type, anchor)` | 枢轴点水平 |
 | `ta.pivothigh(source, left, right)` | 枢轴高点 |
 | `ta.pivotlow(source, left, right)` | 枢轴低点 |
-| `ta.rci(source, length)` | 秩相关指数 |
 | `ta.valuewhen(condition, source, occurrence)` | 条件成立时的值 |
 
 ## math (28 个函数 + 4 个常量)
@@ -133,7 +129,7 @@ TradingGoose 中所有受支持 PineTS 函数的完整参考，按命名空间�
 | `math.ceil(x)` | 向上取整 |
 | `math.floor(x)` | 向下取整 |
 | `math.round(x, precision?)` | 四舍五入 |
-| `math.round_to_mintick(x)` | 舍入到最小变动价位 |
+| `math.round_to_mintick(x)` | Studio 中不可用：需要 `syminfo.mintick`；请改用显式输入进行舍入 |
 | `math.sign(x)` | 符号 |
 | `math.max(a, b)` | 最大值 |
 | `math.min(a, b)` | 最小值 |
@@ -159,10 +155,10 @@ TradingGoose 中所有受支持 PineTS 函数的完整参考，按命名空间�
 | `plotarrow(series, title?, options?)` | 箭头标记 |
 | `plotbar(o, h, l, c, title?, options?)` | OHLC 柱线 |
 | `plotcandle(o, h, l, c, title?, options?)` | K线图 |
-| `hline(price, title?, options?)` | 水平线 |
+| `hline(price, title?, color?, linestyle?, linewidth?, editable?, display?)` | 水平线 |
 | `fill(plot1, plot2, color?)` | 在绘图之间填充 |
-| `bgcolor(color, offset?, options?)` | 背景色 |
-| `barcolor(color, offset?, options?)` | 柱线颜色 |
+| `bgcolor(color, offset?, options?)` | Studio 不渲染此输出，并会报告不支持的样式警告 |
+| `barcolor(color, offset?, options?)` | Studio 不渲染此输出；请改用绘图的 `color` 选项 |
 
 ## array (52 个方法)
 
@@ -181,7 +177,7 @@ TradingGoose 中所有受支持 PineTS 函数的完整参考，按命名空间�
 
 `new`, `get`, `put`, `put_all`, `contains`, `remove`, `keys`, `values`, `size`, `clear`, `copy`
 
-## matrix（50 个方法）
+## matrix
 
 | 类别 | 函数 |
 |----------|-----------|
@@ -190,7 +186,7 @@ TradingGoose 中所有受支持 PineTS 函数的完整参考，按命名空间�
 | **修改** | `add_row`, `add_col`, `remove_row`, `remove_col`, `swap_rows`, `swap_columns`, `fill`, `reverse`, `concat`, `copy` |
 | **算术** | `mult`, `pow`, `diff`, `kron` |
 | **线性代数** | `det`, `inv`, `pinv`, `eigenvalues`, `eigenvectors`, `rank`, `trace`, `transpose` |
-| **统计** | `sum`, `avg`, `min`, `max`, `median`, `mode`, `stdev`, `variance` |
+| **统计** | `sum`, `avg`, `min`, `max`, `median`, `mode` |
 | **布尔** | `is_square`, `is_identity`, `is_diagonal`, `is_antidiagonal`, `is_triangular`, `is_symmetric`, `is_antisymmetric`, `is_stochastic`, `is_binary`, `is_zero` |
 | **排序** | `sort` |
 
@@ -202,12 +198,9 @@ TradingGoose 中所有受支持 PineTS 函数的完整参考，按命名空间�
 
 `log.info(msg)`, `log.warning(msg)`, `log.error(msg)`
 
-## request（2 个函数）
+## request（不支持）
 
-| 函数 | 描述 |
-|----------|-------------|
-| `request.security(symbol, timeframe, expression)` | 多时间周期数据 |
-| `request.security_lower_tf(expression)` | 低时间周期数据 |
+TradingGoose 不支持 `request.security` 和 `request.security_lower_tf`。指标验证和服务端编译会拒绝这些调用。请使用图表提供的数据，或在工作流中获取所需的数据序列。
 
 ## trigger（TradingGoose 扩展）
 

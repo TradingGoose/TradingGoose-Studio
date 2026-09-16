@@ -16,19 +16,23 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   icon={true}
 />
 
-El bloque Memoria almacena y recupera mensajes de conversación que persisten entre ejecuciones del flujo de trabajo. Está diseñado para funcionar junto con los bloques Agent, y les da a tus agentes un contexto conversacional de largo plazo que sobrevive entre ejecuciones.
+El bloque Memoria está diseñado para almacenar y recuperar mensajes entre ejecuciones y proporcionar historial a los bloques Agent. Su operación Add no está disponible actualmente; las operaciones de lectura y eliminación permiten gestionar registros existentes.
+
+<Callout type="warning">
+  Add Memory no está disponible actualmente mediante el bloque: la solicitud omite `type` y `workflowId`, obligatorios para el endpoint, y guardar un mensaje falla. Configurar ID, Role y Content no resuelve esta incompatibilidad. No dependas de este bloque para guardar nuevas conversaciones hasta que se corrija.
+</Callout>
 
 ## Descripción general
 
 <Steps>
   <Step>
-    <strong>Agregar memoria</strong>: Almacena un mensaje con un rol (user, assistant o system) bajo un ID de memoria con nombre
+    <strong>Agregar memoria</strong>: No disponible actualmente; está previsto para almacenar un mensaje bajo un ID de memoria
   </Step>
   <Step>
     <strong>Obtener memoria</strong>: Recupera una entrada de memoria por su ID
   </Step>
   <Step>
-    <strong>Obtener todas las memorias</strong>: Recupera todas las memorias almacenadas del flujo de trabajo actual
+    <strong>Obtener todas las memorias</strong>: Obtiene hasta 50 registros de memoria del flujo actual
   </Step>
   <Step>
     <strong>Eliminar memoria</strong>: Elimina una entrada de memoria por su ID
@@ -39,11 +43,7 @@ El bloque Memoria almacena y recupera mensajes de conversación que persisten en
 
 Las entradas de memoria se almacenan como mensajes estilo chat con tres campos obligatorios: un **ID** que delimita el alcance de la memoria, un **Role** (`user`, `assistant` o `system`) y el texto de **Content**. Cuando después recuperes memorias y las pases a la entrada Memories de un bloque Agent, el agente las verá como turnos previos de la conversación -- lo que habilita un diálogo de varios turnos entre ejecuciones distintas.
 
-Un flujo de trabajo conversacional típico usa tres bloques Memoria alrededor de un Agent:
-
-1. **Memoria (Add, role: user)** -- guarda el mensaje entrante del usuario antes de que se ejecute el Agent
-2. **Agent** -- procesa el mensaje con las memorias recuperadas como contexto
-3. **Memoria (Add, role: assistant)** -- guarda la respuesta del Agent después de que se ejecute
+El patrón previsto Add → Agent → Add está bloqueado por la limitación actual de Add. Get Memory permite leer registros existentes; pasa el arreglo de mensajes devuelto al campo Memories del Agent.
 
 <Callout type="info">
   Los ID de memoria delimitan el alcance de la conversación. Usa el mismo ID entre ejecuciones para construir un historial de conversación continuo, o usa ID distintos para mantener hilos separados.
@@ -53,7 +53,7 @@ Un flujo de trabajo conversacional típico usa tres bloques Memoria alrededor de
 
 <Tabs items={['Agregar memoria', 'Obtener memoria', 'Obtener todas las memorias', 'Eliminar memoria']}>
   <Tab>
-    Almacena un mensaje nuevo en el almacén de memoria.
+    No disponible actualmente. A continuación se muestran los campos de configuración previstos, pero completarlos no corrige la incompatibilidad de la solicitud descrita arriba.
 
     | Campo | Obligatorio | Descripción |
     |---|---|---|
@@ -69,7 +69,7 @@ Un flujo de trabajo conversacional típico usa tres bloques Memoria alrededor de
     | **ID** | Sí | El identificador de memoria que se va a recuperar |
   </Tab>
   <Tab>
-    Devuelve todas las entradas de memoria del flujo de trabajo actual. No se requieren campos adicionales.
+    Devuelve hasta 50 registros de memoria del flujo actual. El bloque no ofrece paginación; no es una exportación del historial completo.
   </Tab>
   <Tab>
     Elimina una entrada de memoria por ID.
@@ -140,13 +140,16 @@ Un flujo de trabajo conversacional típico usa tres bloques Memoria alrededor de
 
 ## Salidas
 
-| Salida | Tipo | Descripción |
-|---|---|---|
-| `memories` | json | Los datos de memoria recuperados (arreglo de mensajes) |
-| `id` | string | El identificador de memoria sobre el que se operó |
+| Operación | Salida |
+|---|---|
+| Get Memory | `memories`: arreglo de mensajes del ID seleccionado; `message`: texto de estado |
+| Get All Memories | `memories`: hasta 50 registros con forma `{ key, type, data }`; `message`: texto de estado |
+| Delete Memory | `message`: confirmación de eliminación |
+| Add Memory | Falla actualmente; consulta la limitación anterior |
+
+Get All Memories no devuelve un único arreglo plano de mensajes. Selecciona `data` del registro deseado antes de usar su conversación como memoria del Agent. No se devuelve un `id` independiente en el nivel superior.
 
 ## Buenas prácticas
 
 - **Usa IDs consistentes** -- el ID de memoria es la clave que agrupa los mensajes en una conversación. Usa un identificador estable (como un ID de usuario o un ID de sesión) para que las memorias se acumulen correctamente entre ejecuciones.
-- **Almacena ambos lados de la conversación** -- agrega un mensaje de rol `user` antes del Agent y un mensaje de rol `assistant` después, para que se conserve el diálogo completo.
 - **Limpia cuando sea necesario** -- usa la operación Delete para borrar conversaciones obsoletas y evitar un crecimiento ilimitado de la memoria.

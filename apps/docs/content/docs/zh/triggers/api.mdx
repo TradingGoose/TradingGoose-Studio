@@ -29,7 +29,7 @@ API 触发器会将你的工作流开放为安全的 HTTP 端点。向该端点�
     color="#2F55FF"
     hideHeader
     subBlocks={[
-      { "id": "inputFormat", "title": "输入格式", "type": "short-input", "layout": "full", "description": "定义 API 端点接受的 JSON 输入结构" }
+      { "id": "inputFormat", "title": "输入格式", "type": "input-format", "layout": "full", "description": "定义 API 端点接受的 JSON 输入结构" }
     ]}
   />
 </ShowcaseCard>
@@ -39,7 +39,9 @@ API 触发器会将你的工作流开放为安全的 HTTP 端点。向该端点�
 - **string** — 文本值
 - **number** — 数值
 - **boolean** — 真/假值
-- **json** — JSON 对象
+- **object** — JSON 对象
+- **array** — JSON 数组
+- **listingIdentity** — 结构化的交易标的/上市身份
 - **files** — 文件上传（通过 `<api.fieldName[0].url>`、`<api.fieldName[0].name>` 等访问）
 
 ### 输出引用

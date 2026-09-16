@@ -120,16 +120,15 @@ Results from all parallel instances are automatically collected:
 
 ```javascript
 // In a Function block after the parallel
-const allResults = input.parallel.results;
-// Returns: [result1, result2, result3, ...]
+const allResults = <parallel.results>;
+return allResults;
 ```
 
 ### Instance Isolation
 
-Each parallel instance runs independently:
-- Separate variable scopes
-- No shared state between instances
-- Failures in one instance don't affect others
+Block outputs and the current item are tracked per instance, but workflow variables are shared across instances. Concurrent writes to the same variable can race; return per-item outputs and aggregate them after the Parallel block.
+
+Uncaught block failures can fail execution; parallelism is not an error-isolation guarantee. Connect error paths inside the container when recovery is required.
 
 ### Limitations
 
@@ -144,7 +143,7 @@ Each parallel instance runs independently:
   While parallel execution is faster, be mindful of:
   - API rate limits when making concurrent requests
   - Memory usage with large datasets
-  - Maximum of 20 concurrent instances to prevent resource exhaustion
+  - Count-based execution is capped at 20 instances; collection-based execution creates an instance for every item and does not use this cap. Batch large collections explicitly.
 </Callout>
 
 ## Parallel vs Loop
@@ -155,7 +154,7 @@ Understanding when to use each:
 |---------|----------|------|
 | Execution | Concurrent | Sequential |
 | Speed | Faster for independent operations | Slower but ordered |
-| Order | No guaranteed order | Maintains order |
+| Order | Completion order varies; results follow instance index | Maintains order |
 | Use case | Independent operations | Dependent operations |
 | Resource usage | Higher | Lower |
 

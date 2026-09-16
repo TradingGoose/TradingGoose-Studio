@@ -7,7 +7,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 
 ## 核心触发器
 
-每个工作流选择一个触发器，以定义其启动方式：
+一个工作流可以有多个触发入口。API、Chat、Input Form 和 Manual 每种类型在同一工作流中最多各有一个块，并非总共只能有一个触发器。编辑器运行时请选择入口。
 
 <Cards>
   <Card title="API" href="/triggers/api">
@@ -43,10 +43,8 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 
 ## 使用触发器
 
-1. 将触发器模块放入起始槽位。
+1. 将触发器块添加到画布。
 2. 配置所需的结构或认证。
 3. 将该模块连接到工作流的其余部分。
 
-> 部署驱动所有触发器。更新工作流并重新部署后，所有触发入口都会采用新快照。详见 [执行 → 部署快照](/execution)。
-
-旧版 Starter 模块仍可用于现有流程，但不会出现在新建中。
+> 编辑器运行使用当前已保存工作流。外部 API、已发布 Chat、定时和 webhook 运行使用已部署快照。子工作流继承父工作流的 live/deployed 目标。需要将变更应用到外部入口时，请重新部署。详见[执行 → 部署快照](/execution)。

@@ -60,7 +60,7 @@ El bloque Evaluator procesa el contenido mediante una evaluación con IA:
 1. **Recibir contenido** - Toma el contenido de entrada de bloques anteriores de tu flujo de trabajo
 2. **Aplicar métricas** - Evalúa el contenido según las métricas personalizadas que definas
 3. **Generar puntuaciones** - El modelo de IA asigna puntuaciones numéricas a cada métrica
-4. **Proporcionar resumen** - Devuelve una evaluación detallada con puntuaciones y explicaciones
+4. **Devolver puntuaciones** - Devuelve valores numéricos con los nombres de métricas en minúsculas; no devuelve un resumen narrativo independiente.
 
 ## Opciones de configuración
 
@@ -188,10 +188,7 @@ Tu clave de API del proveedor de LLM seleccionado. Se almacena de forma segura y
   <Tab>
     <ul className="list-disc space-y-2 pl-6">
       <li>
-        <strong>Puntuaciones de las métricas</strong>: puntuaciones numéricas para cada métrica definida
-      </li>
-      <li>
-        <strong>Resumen de la evaluación</strong>: evaluación detallada con explicaciones
+        <strong>Puntuaciones de métricas</strong>: Salidas numéricas con los nombres de métricas en minúsculas
       </li>
       <li>
         <strong>Acceso</strong>: disponible en los bloques posteriores al evaluador

@@ -75,12 +75,12 @@ Copilot admite exactamente seis modelos de OpenRouter. Studio envía cada slug c
 
     1. Inicia sesión en [tradinggoose.ai](https://tradinggoose.ai) y abre **Configuración > Claves de API del servicio**.
     2. En la tarjeta **Copilot**, haz clic en **Crear** para generar una nueva clave de API. Cópiala de inmediato: solo se muestra una vez.
-    3. Define la variable de entorno `COPILOT_API_KEY` en tu implementación autoalojada con el valor copiado.
-    4. Reinicia la aplicación. El panel global de Copilot ahora se conectará mediante la clave.
+    3. En tu implementación autoalojada, inicia sesión como administrador del sistema y abre **Admin > Services > Copilot API**.
+    4. Introduce el valor copiado en **API Key** y guarda. Mantén el valor predeterminado de **Base URL**, salvo que uses otro endpoint del servicio Copilot. Studio lee esta configuración guardada del servicio; no se configura mediante una variable de entorno.
   </Step>
 </Steps>
 
-La variable `COPILOT_API_KEY` anterior conecta el asistente integrado con la inferencia gestionada. [Copilot MCP](/copilot/copilot-mcp#installation) usa una clave de API personal de TradingGoose obtenida mediante su propio flujo de aprobación en el navegador.
+La clave de API del servicio Copilot anterior conecta el asistente integrado con la inferencia gestionada. [Copilot MCP](/copilot/copilot-mcp#installation) usa una clave de API personal de TradingGoose obtenida mediante su propio flujo de aprobación en el navegador.
 
 <Callout type="warn">
   Las claves de API del servicio Copilot otorgan acceso a la inferencia gestionada. Guárdalas de forma segura y rótalas si se ven comprometidas. Puedes eliminar una clave de servicio desde **Ajustes > Claves de API de servicio**; la eliminación revoca el acceso de inmediato.

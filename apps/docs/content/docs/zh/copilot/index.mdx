@@ -74,12 +74,12 @@ Copilot 仅支持六个 OpenRouter 模型。Studio 会原样发送每个 OpenRou
 
     1. 登录 [tradinggoose.ai](https://tradinggoose.ai)，打开 **Settings > Service API Keys**。
     2. 在 **Copilot** 卡片中点击 **Create** 生成新的 API 密钥。请立即复制——它只显示一次。
-    3. 在自托管部署中将 `COPILOT_API_KEY` 环境变量设置为刚才复制的值。
-    4. 重启应用。全局 Copilot 面板现在将通过该密钥连接。
+    3. 在自托管部署中以系统管理员身份登录，打开 **Admin > Services > Copilot API**。
+    4. 将复制的值填入 **API Key** 并保存。除非使用其他 Copilot 服务端点，否则保留 **Base URL** 的默认值。Studio 读取此处保存的服务配置，而不是通过环境变量配置。
   </Step>
 </Steps>
 
-上述 `COPILOT_API_KEY` 用于将内置助手连接到托管推理服务。[Copilot MCP](/copilot/copilot-mcp#installation) 使用通过其自有浏览器授权流程获取的个人 TradingGoose API 密钥。
+上述 Copilot 服务 API 密钥用于将内置助手连接到托管推理服务。[Copilot MCP](/copilot/copilot-mcp#installation) 使用通过其自有浏览器授权流程获取的个人 TradingGoose API 密钥。
 
 <Callout type="warn">
   Copilot 服务 API 密钥可访问托管推理。请妥善保管，一旦泄露立即轮换。你可以在 **Settings > Service API Keys** 中删除服务密钥；删除后访问权限会立即撤销。

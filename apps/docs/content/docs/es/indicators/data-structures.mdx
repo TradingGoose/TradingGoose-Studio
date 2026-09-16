@@ -57,8 +57,8 @@ const e = array.new_string(2, '');
 | `array.lastindexof(arr, value)` | Último índice del valor |
 | `array.includes(arr, value)` | Comprobar si contiene el valor |
 | `array.binary_search(arr, value)` | Búsqueda binaria (array ordenado) |
-| `array.every(arr, fn)` | Verdadero si todos cumplen el predicado |
-| `array.some(arr, fn)` | Verdadero si alguno cumple el predicado |
+| `array.every(arr)` | Verdadero si todos los elementos son verdaderos en contexto booleano y no son `na`; no acepta un predicado |
+| `array.some(arr)` | Verdadero si algún elemento es verdadero en contexto booleano y no es `na`; no acepta un predicado |
 
 ### Estadísticas
 
@@ -74,7 +74,7 @@ const e = array.new_string(2, '');
 | `array.variance(arr)` | Varianza |
 | `array.covariance(arr1, arr2)` | Covarianza |
 | `array.range(arr)` | Rango (máx. - mín.) |
-| `array.percentrank(arr, value)` | Rango percentil |
+| `array.percentrank(arr, index)` | Rango percentil del elemento en el índice indicado, empezando en cero |
 
 ---
 
@@ -108,7 +108,7 @@ const allKeys = map.keys(m);               // ['ema', 'sma']
 
 ---
 
-## Matriz (50 métodos)
+## Matriz
 
 Estructuras de datos 2D para operaciones matemáticas avanzadas:
 
@@ -126,10 +126,10 @@ matrix.set(m, 2, 2, 1);         // Identity matrix
 | **Acceso** | `get`, `set`, `row`, `col` |
 | **Tamaño** | `rows`, `columns`, `elements_count` |
 | **Modificar** | `add_row`, `add_col`, `remove_row`, `remove_col`, `swap_rows`, `swap_columns`, `fill`, `reverse` |
-| **Transformar** | `transpose`, `reshape`, `slice`, `submatrix`, `concat`, `copy` |
+| **Transformar** | `transpose`, `reshape`, `submatrix`, `concat`, `copy` |
 | **Aritmética** | `mult`, `pow`, `diff` |
 | **Álgebra lineal** | `det`, `inv`, `pinv`, `eigenvalues`, `eigenvectors`, `rank`, `trace` |
-| **Estadísticas** | `sum`, `avg`, `min`, `max`, `median`, `mode`, `stdev`, `variance` |
+| **Estadísticas** | `sum`, `avg`, `min`, `max`, `median`, `mode` |
 | **Pruebas booleanas** | `is_square`, `is_identity`, `is_diagonal`, `is_symmetric`, `is_triangular`, `is_zero`, `is_binary`, `is_stochastic` |
 
 ---

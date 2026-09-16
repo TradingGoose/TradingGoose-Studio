@@ -22,7 +22,7 @@ description: math 命名空间中的数学运算和常量
 | `math.ceil(x)` | 向上取整 |
 | `math.floor(x)` | 向下取整 |
 | `math.round(x, precision?)` | 四舍五入到最接近的整数（或精度） |
-| `math.round_to_mintick(x)` | 舍入到交易品种的最小变动价位 |
+| `math.round_to_mintick(x)` | Studio 中不可用：需要 `syminfo.mintick`；请改用显式输入进行舍入 |
 | `math.sign(x)` | 值的符号（-1、0 或 1） |
 | `math.max(a, b)` | 两个值的最大值 |
 | `math.min(a, b)` | 两个值的最小值 |
@@ -65,9 +65,10 @@ indicator('Volatility Ratio');
 
 const atr = ta.atr(14);
 const avgAtr = ta.sma(atr, 50);
-const ratio = atr / math.max(avgAtr, syminfo.mintick);
+const minAtr = input.float(0.000001, 'Minimum ATR', 0.000001);
+const ratio = atr / math.max(avgAtr, minAtr);
 const logRatio = math.log(ratio);
 
 plot(logRatio, 'Log Volatility Ratio');
-hline(0, { linestyle: hline.style_dashed });
+hline(0, 'Zero', '#787B86', hline.style_dashed);
 ```

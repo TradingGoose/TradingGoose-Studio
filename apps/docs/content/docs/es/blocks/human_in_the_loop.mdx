@@ -1,102 +1,12 @@
 ---
 title: Humano en el bucle
-description: Pausa la ejecución del flujo de trabajo y espera la aprobación
-  humana antes de continuar
+description: Disponibilidad actual de los flujos con aprobación humana
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout'
-import { Step, Steps } from 'fumadocs-ui/components/steps'
-import { BlockInfoCard } from "@/components/ui/block-info-card"
-import { BlockConfigPreview } from "@/components/ui/block-config-preview"
-import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard
-  type="human_in_the_loop"
-  color="#10B981"
-  icon={true}
-/>
-
-El bloque Humano en el bucle pausa un flujo de trabajo en ejecución y espera a que una persona revise, proporcione información o apruebe antes de que continúe la ejecución. Es el mecanismo principal para añadir supervisión humana a las canalizaciones automatizadas.
-
-## Descripción general
-
-<Steps>
-  <Step>
-    <strong>Pausar la ejecución</strong>: El flujo de trabajo se detiene en este bloque y entra en un estado de espera
-  </Step>
-  <Step>
-    <strong>Presentar el contexto</strong>: Se muestran datos de visualización estructurados al revisor para que pueda tomar una decisión informada
-  </Step>
-  <Step>
-    <strong>Notificar a los aprobadores</strong>: Opcionalmente, envía un mensaje de Slack, correo electrónico u otra notificación con la URL de revisión
-  </Step>
-  <Step>
-    <strong>Recopilar la entrada y reanudar</strong>: El aprobador completa el formulario de reanudación y el flujo de trabajo continúa con su entrada disponible en las etapas posteriores
-  </Step>
-</Steps>
-
-## Cómo funciona
-
-Cuando el ejecutor llega a un bloque Humano en el bucle:
-
-1. **Renderiza los datos de visualización** -- Los campos `builderData` se evalúan (incluyendo cualquier referencia `<variable.name>`) y se presentan como un resumen estructurado para el revisor.
-2. **Genera una URL de reanudación** -- Se crean una URL única y un endpoint de API. La URL abre una interfaz de revisión; el endpoint acepta un `POST` programático para reanudar.
-3. **Envía notificaciones** -- Si se configura una herramienta de notificación (Slack, Email, etc.), la URL de reanudación se envía automáticamente.
-4. **Espera** -- La ejecución se suspende. Ningún bloque posterior se ejecuta hasta que el revisor actúe.
-5. **Reanuda** -- Una vez que el revisor envía el formulario de reanudación, el flujo de trabajo continúa donde lo dejó. Cualquier campo que el revisor haya completado está disponible como salidas del bloque.
-
-<Callout type="info">
-  El bloque genera dos valores después de pausarse: **url** (el enlace a la interfaz de revisión) y **resumeEndpoint** (una URL de API que puedes invocar con `curl` o cualquier cliente HTTP para reanudar de forma programática).
+<Callout type="warning">
+  Humano en el bucle no está disponible actualmente. Existe la configuración del bloque, pero el ejecutor no implementa la suspensión para aprobación, las URL de revisión, las notificaciones ni la reanudación. Ejecutar este bloque falla; no crea una solicitud de aprobación.
 </Callout>
 
-## Configuración
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="Humano en el bucle"
-    type="human_in_the_loop"
-    color="#10B981"
-    hideHeader
-    subBlocks={[
-        {
-            "id": "builderData",
-            "type": "response-format",
-            "title": "Datos mostrados",
-            "description": "Define la estructura de los datos de tu respuesta. Usa <variable.name> en los nombres de campo para hacer referencia a las variables del flujo de trabajo."
-        },
-        {
-            "id": "notification",
-            "type": "tool-input",
-            "title": "Notificación (Enviar URL)",
-            "description": "Configura herramientas de notificación para avisar a los aprobadores (p. ej., Slack, Email)"
-        },
-        {
-            "id": "inputFormat",
-            "type": "input-format",
-            "title": "Formulario de reanudación",
-            "description": "Define los campos que el aprobador puede completar al reanudar"
-        }
-    ]}
-  />
-</ShowcaseCard>
-
-### Campos
-
-| Campo | Propósito |
-|---|---|
-| **Datos mostrados** | Datos estructurados de clave-valor que se muestran al revisor. Haz referencia a las variables anteriores con la sintaxis `<block.output>`. |
-| **Notificación** | Adjunta una herramienta (Slack, Email, etc.) que se activará cuando el bloque se pause, enviando la URL de reanudación a las personas adecuadas. |
-| **Formulario de reanudación** | Define los campos de entrada que el aprobador debe completar antes de que se reanude el flujo de trabajo. Estos pasan a ser salidas del bloque. |
-
-## Salidas
-
-| Salida | Tipo | Descripción |
-|---|---|---|
-| `url` | string | URL de la interfaz de revisión donde el aprobador puede actuar |
-| `resumeEndpoint` | string | Endpoint de API para reanudar el flujo de trabajo mediante HTTP POST |
-
-## Buenas prácticas
-
-- **Configura siempre una notificación** para que los aprobadores sepan que un flujo de trabajo les está esperando. Sin ella, la URL de reanudación debe compartirse manualmente.
-- **Mantén los datos mostrados enfocados** -- incluye solo la información que el revisor necesita para tomar una decisión.
-- **Diseña el formulario de reanudación con cuidado** -- los bloques posteriores dependerán de los campos que definas aquí, así que nómbralos con claridad.
+No uses este bloque como un paso de aprobación funcional. Las instrucciones de aprobación y reanudación se documentarán cuando la función de ejecución esté disponible.

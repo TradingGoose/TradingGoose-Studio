@@ -16,10 +16,10 @@ import { Callout } from 'fumadocs-ui/components/callout'
 | `plotarrow(series, title?, options?)` | Traza marcadores de flecha |
 | `plotbar(open, high, low, close, title?, options?)` | Traza barras OHLC |
 | `plotcandle(open, high, low, close, title?, options?)` | Traza velas |
-| `hline(price, title?, options?)` | Dibuja una línea horizontal en un nivel de precio fijo |
+| `hline(price, title?, color?, linestyle?, linewidth?, editable?, display?)` | Dibuja una línea horizontal en un nivel de precio fijo |
 | `fill(plot1, plot2, color?)` | Rellena el área entre dos trazados |
-| `bgcolor(color, offset?, options?)` | Establece el color de fondo de las barras |
-| `barcolor(color, offset?, options?)` | Establece el color de las barras |
+| `bgcolor(color, offset?, options?)` | No se renderiza en Studio; produce una advertencia de estilo no compatible |
+| `barcolor(color, offset?, options?)` | No se renderiza en Studio; usa la opción `color` de un plot |
 
 ## Estilos de trazado
 
@@ -40,6 +40,8 @@ Usa las constantes `plot.style_*` para controlar cómo se representan los datos:
 | `plot.style_cross` | Marcadores de cruz |
 
 ### Estilos de línea (para `plot` y `hline`)
+
+PineTS acepta estas constantes, pero Studio actualmente no conserva `linestyle` al renderizar los plots. Los estilos discontinuos y punteados se muestran como líneas continuas.
 
 | Estilo | Descripción |
 |-------|-------------|
@@ -156,11 +158,7 @@ if (ta.crossunder(fast, slow)) {
 
 ### Colores de fondo y barras
 
-```javascript
-// Highlight bars based on condition
-bgcolor(ta.crossover(fast, slow) ? '#00FF0020' : na);
-barcolor(close > open ? '#26A69A' : '#EF5350');
-```
+Studio no renderiza la salida de `bgcolor()` ni de `barcolor()`; estas llamadas producen advertencias de estilo no compatible. Para visualizar una condición, usa la opción `color` de un `plot()` o `plotshape()` compatible.
 
 <Callout type="info">
   Los colores se pueden especificar como cadenas hexadecimales (p. ej., `'#FF0000'`) o usando el espacio de nombres `color` (p. ej., `color.red`). Añade dos dígitos hexadecimales para la transparencia alfa (p. ej., `'#FF000080'` para 50 % de opacidad).

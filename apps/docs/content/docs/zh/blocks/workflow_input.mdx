@@ -43,10 +43,10 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 1. 从父工作流的当前状态解析所有映射值。
 2. 调用子工作流的执行器，并传入解析后的输入。
 3. 等待子工作流完成。
-4. 从子工作流执行中返回 `success`、`childWorkflowName` 以及完整的 `result`。
+4. 返回 `success: true`、`childWorkflowName`，以及包含子工作流最终输出的 `result`。
 
 <Callout type="info">
-  下拉列表仅显示你工作区中与当前工作流不同的工作流。你无法递归调用工作流。
+  子工作流继承父工作流的执行目标：编辑器/live 运行使用子工作流当前保存的结构，已部署运行使用其已部署版本。在已部署父工作流中依赖子工作流更新前，请先部署子工作流。选择器排除当前工作流；嵌套调用的最大深度为 10。
 </Callout>
 
 ## 配置
@@ -86,13 +86,12 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 | 输出 | 类型 | 说明 |
 |---|---|---|
-| `success` | boolean | 子工作流是否成功完成 |
+| `success` | boolean | 正常成功路径上为 `true` |
 | `childWorkflowName` | string | 所执行子工作流的名称 |
-| `result` | json | 子工作流的完整执行结果 |
-| `error` | string | 子工作流失败时的错误信息 |
+| `result` | json | 子工作流的最终输出，不是完整执行记录 |
 
 ## 最佳实践
 
 - **设计具有清晰输入表单触发器的子工作流** -- 以描述性方式命名字段，以便在父工作流中轻松使用映射界面。
 - **保持子工作流专注** -- 子工作流应做好一件事，使其可在多个父工作流中复用。
-- **检查 `success` 输出** -- 在工作流块之后使用条件块，以妥善处理失败。
+- **连接错误路径** -- 子工作流失败会抛出块错误，不会向正常下游返回 `success: false`。请将恢复逻辑连接到 Workflow 块的错误输出。

@@ -31,12 +31,15 @@ The Chat trigger creates a conversational interface for your workflow. Deploy yo
       { "id": "identifier", "title": "Identifier", "type": "short-input", "required": true, "placeholder": "company-name", "description": "Public path segment used for the published chat URL" },
       { "id": "title", "title": "Chat Title", "type": "short-input", "required": true, "placeholder": "Customer Support Assistant" },
       { "id": "description", "title": "Description", "type": "long-input", "placeholder": "A brief description of what this chat does" },
+      { "id": "selectedOutputBlocks", "title": "Chat Output", "type": "checkbox-list", "required": true, "options": [], "description": "Select which workflow outputs are returned to the user" },
       { "id": "authType", "title": "Access Control", "type": "dropdown", "defaultValue": "public", "options": [{ "label": "Public Access", "id": "public" }, { "label": "Password Protected", "id": "password" }, { "label": "Email Access", "id": "email" }, { "label": "SSO Access", "id": "sso" }] },
       { "id": "welcomeMessage", "title": "Welcome Message", "type": "long-input", "placeholder": "Hi! How can I help you today?" },
       { "id": "imageUrl", "title": "Chat Logo", "type": "short-input", "placeholder": "URL to logo image" }
     ]}
   />
 </ShowcaseCard>
+
+Select at least one **Chat Output** before publishing. This required setting determines which block outputs the chat returns; publication fails if it is empty. Run the workflow in the editor to verify the selected outputs. For Password access, configure a password; Email and SSO access require an allowed-email list.
 
 ### Output Schema
 

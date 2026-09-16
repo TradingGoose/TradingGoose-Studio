@@ -124,16 +124,15 @@ Los resultados de todas las instancias paralelas se recopilan automáticamente:
 
 ```javascript
 // In a Function block after the parallel
-const allResults = input.parallel.results;
-// Returns: [result1, result2, result3, ...]
+const allResults = <parallel.results>;
+return allResults;
 ```
 
 ### Aislamiento de instancias
 
-Cada instancia paralela se ejecuta de forma independiente:
-- Ámbitos de variables separados
-- Sin estado compartido entre instancias
-- Los fallos en una instancia no afectan a las demás
+Las salidas de bloques y el elemento actual se registran por instancia, pero las variables del flujo de trabajo se comparten. Las escrituras simultáneas pueden entrar en conflicto; devuelve salidas por elemento y agrégalas después del bloque Parallel.
+
+Los errores de bloque no gestionados pueden hacer fallar la ejecución; el paralelismo no garantiza aislamiento de errores. Conecta rutas de error dentro del contenedor cuando necesites recuperación.
 
 ### Limitaciones
 
@@ -148,7 +147,7 @@ Cada instancia paralela se ejecuta de forma independiente:
   Aunque la ejecución paralela es más rápida, ten en cuenta:
   - Los límites de frecuencia de la API al hacer solicitudes simultáneas
   - El uso de memoria con conjuntos de datos grandes
-  - Un máximo de 20 instancias simultáneas para evitar el agotamiento de recursos
+  - La ejecución por cantidad tiene un máximo de 20 instancias; la ejecución por colección crea una instancia por elemento y no usa ese límite. Divide las colecciones grandes en lotes.
 </Callout>
 
 ## Paralelo vs bucle
@@ -159,7 +158,7 @@ Cómo saber cuándo usar cada uno:
 |---------|----------|------|
 | Ejecución | Concurrente | Secuencial |
 | Velocidad | Más rápido para operaciones independientes | Más lento pero ordenado |
-| Orden | Sin orden garantizado | Mantiene el orden |
+| Orden | La finalización varía; los resultados siguen el índice | Mantiene el orden |
 | Caso de uso | Operaciones independientes | Operaciones dependientes |
 | Uso de recursos | Mayor | Menor |
 

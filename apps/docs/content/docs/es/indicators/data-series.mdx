@@ -71,18 +71,7 @@ El objeto `barstate` proporciona indicadores sobre la posición de la barra actu
 
 ## Información del símbolo
 
-El objeto `syminfo` proporciona detalles sobre el símbolo actual:
-
-| Propiedad | Descripción |
-|----------|-------------|
-| `syminfo.ticker` | Nombre del símbolo (ej., `"BTCUSDT"`) |
-| `syminfo.tickerid` | ID completo del ticker |
-| `syminfo.description` | Descripción del símbolo |
-| `syminfo.type` | Tipo de activo (ej., `"crypto"`, `"stock"`) |
-| `syminfo.currency` | Moneda de cotización |
-| `syminfo.basecurrency` | Moneda base |
-| `syminfo.mintick` | Incremento mínimo de precio |
-| `syminfo.timezone` | Zona horaria del exchange |
+Studio ejecuta PineTS con barras OHLCV proporcionadas y no rellena `syminfo`. Acceder a propiedades como `syminfo.mintick` o `syminfo.ticker` producirá un error. Usa entradas explícitas del indicador para los valores específicos del símbolo que necesites, como un incremento mínimo de cálculo.
 
 ## Valores especiales
 

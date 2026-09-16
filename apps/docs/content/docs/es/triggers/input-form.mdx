@@ -28,7 +28,7 @@ Usa un activador de formulario de entrada cuando un flujo de trabajo deba inicia
     type="input_trigger"
     hideHeader
     subBlocks={[
-      { "id": "inputFormat", "title": "Formato de entrada", "type": "short-input", "layout": "full", "description": "Define campos del formulario con nombre, tipo y valor predeterminado" }
+      { "id": "inputFormat", "title": "Formato de entrada", "type": "input-format", "layout": "full", "description": "Define campos del formulario con nombre, tipo y valor predeterminado" }
     ]}
   />
 </ShowcaseCard>
@@ -38,7 +38,10 @@ Añade campos en el constructor de formato de entrada. Tipos admitidos:
 - **string** — Valores de texto
 - **number** — Valores numéricos
 - **boolean** — Valores verdadero/falso
-- **json** — Objetos JSON
+- **object** — Objetos JSON
+- **array** — Arreglos JSON
+- **listingIdentity** — Identidad estructurada de un instrumento/listado
+- **files** — Valores de archivos cargados
 
 ### Esquema de salida
 

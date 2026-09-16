@@ -5,23 +5,28 @@ title: Cost Calculation
 import { Accordion, Accordions } from 'fumadocs-ui/components/accordion'
 import { Callout } from 'fumadocs-ui/components/callout'
 
-TradingGoose calculates workflow costs from the configured execution charge and any metered model usage. Both values can be adjusted by the effective tier of the workspace's configured user or organization billing owner.
+TradingGoose meters workflow execution, model usage, and Function/custom-tool runtime. Charges use the configuration and effective tier of the workspace's user or organization billing owner.
 
 ## How Costs Are Calculated
 
-When billing is enabled, a workflow can have two cost components:
+When billing is enabled, usage can include three cost components:
 
 - **Execution charge**: the instance's configured workflow charge multiplied by the current tier's workflow execution multiplier.
 - **AI model usage**: the provider-model cost recorded by each execution span, multiplied by the current tier's workflow model-cost multiplier.
+- **Function runtime**: the configured per-second Function charge multiplied by execution time in seconds and the tier's Function execution multiplier. This is accrued separately for Function/custom-tool execution, including runtime attempts that fail.
 
 ```javascript
 executionCost = configuredWorkflowCharge * tierWorkflowExecutionMultiplier
 adjustedModelCost = recordedModelCost * tierWorkflowModelCostMultiplier
-totalCost = executionCost + sum(adjustedModelCost)
+workflowLogSubtotal = executionCost + sum(adjustedModelCost)
+functionCost = (executionTimeMs / 1000) * configuredFunctionChargePerSecond * tierFunctionExecutionMultiplier
+totalMeteredCost = workflowLogSubtotal + sum(functionCost)
 ```
 
+This formula is illustrative. Each Function runtime charge is rounded to six decimal places. The workflow log's cost total is its execution/model subtotal; separately accrued Function charges also contribute to the billing owner's usage. They are not an AI-model charge and can apply to non-AI workflows.
+
 <Callout type="info">
-  When billing is disabled, the execution charge is zero and recorded model costs use a multiplier of one. Billing-tier configuration, rather than fixed values in this guide, is the source of truth for charges and multipliers.
+  When billing is disabled, the workflow execution charge is zero, Function runtime charges are not accrued, and recorded model costs use a multiplier of one. Billing configuration, rather than fixed values in this guide, is the source of truth for charges and multipliers.
 </Callout>
 
 ## Model Breakdown in Logs
@@ -32,7 +37,7 @@ The log detail sidebar includes a model breakdown section that shows:
 - **Token Usage**: Input and output token counts for each model
 - **Cost Breakdown**: Input, output, and total cost for each model
 - **Models Used**: Which models contributed to the execution cost
-- **Total Cost**: Aggregate cost for the entire workflow execution
+- **Total Cost**: The workflow log's execution/model subtotal; check usage for separately accrued Function runtime charges
 
 ## Pricing and Limits
 

@@ -31,12 +31,15 @@ import { Callout } from 'fumadocs-ui/components/callout'
       { "id": "identifier", "title": "标识符", "type": "short-input", "required": true, "placeholder": "company-name", "description": "已发布聊天 URL 所用的公共路径段" },
       { "id": "title", "title": "聊天标题", "type": "short-input", "required": true, "placeholder": "客户支持助手" },
       { "id": "description", "title": "描述", "type": "long-input", "placeholder": "简要说明此聊天的功能" },
+      { "id": "selectedOutputBlocks", "title": "Chat Output", "type": "checkbox-list", "required": true, "options": [], "description": "Select which workflow outputs are returned to the user" },
       { "id": "authType", "title": "访问控制", "type": "dropdown", "defaultValue": "public", "options": [{ "label": "公开访问", "id": "public" }, { "label": "密码保护", "id": "password" }, { "label": "邮箱访问", "id": "email" }, { "label": "SSO 访问", "id": "sso" }] },
       { "id": "welcomeMessage", "title": "欢迎消息", "type": "long-input", "placeholder": "你好！今天有什么可以帮您？" },
       { "id": "imageUrl", "title": "聊天 Logo", "type": "short-input", "placeholder": "Logo 图片 URL" }
     ]}
   />
 </ShowcaseCard>
+
+发布前请至少选择一个 **Chat Output**。该必填设置决定聊天返回哪些块输出；为空时发布会失败。请先在编辑器中运行工作流并验证所选输出。Password 访问需配置密码；Email 和 SSO 访问需配置允许的邮箱列表。
 
 ### 输出结构
 

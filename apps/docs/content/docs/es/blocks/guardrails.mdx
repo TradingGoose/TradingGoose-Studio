@@ -54,7 +54,7 @@ El bloque Guardrails te permite:
     <strong>Detectar alucinaciones</strong>: Usa RAG + puntuación del LLM para validar las salidas de la IA frente al contenido de la base de conocimiento
   </Step>
   <Step>
-    <strong>Detectar PII</strong>: Identifica y, opcionalmente, enmascara información de identificación personal en más de 40 tipos de entidades
+    <strong>Detectar PII</strong>: Identifica y, opcionalmente, enmascara información de identificación personal en los tipos de entidades admitidos
   </Step>
 </Steps>
 
@@ -107,7 +107,7 @@ Usa la generación aumentada por recuperación (RAG) con puntuación del LLM par
 - **Modelo**: Elige el LLM para la puntuación (requiere razonamiento sólido; se recomiendan GPT-4o y Claude 3.7 Sonnet)
 - **Clave de API**: Autenticación para el proveedor de LLM seleccionado (se oculta automáticamente en modelos alojados/Ollama)
 - **Umbral de confianza**: Puntuación mínima para aprobar (0-10, predeterminado: 3)
-- **Top K** (Avanzado): Número de fragmentos de la base de conocimiento que se recuperarán (predeterminado: 10)
+- **Top K** (Avanzado): Número de fragmentos de la base de conocimiento que se recuperarán (predeterminado: 5)
 
 **Salida:**
 - `passed`: `true` si la puntuación de confianza ≥ umbral
@@ -123,7 +123,7 @@ Usa la generación aumentada por recuperación (RAG) con puntuación del LLM par
 
 ### Detección de PII
 
-Detecta información de identificación personal mediante Microsoft Presidio. Admite más de 40 tipos de entidades en varios países e idiomas.
+Detecta información de identificación personal mediante Microsoft Presidio. Admite los tipos de entidades seleccionables en varios países e idiomas.
 
 **Cómo funciona:**
 1. Escanea el contenido en busca de entidades de PII mediante coincidencia de patrones y NLP
@@ -142,12 +142,12 @@ Detecta información de identificación personal mediante Microsoft Presidio. Ad
   - **Australia**: ABN, ACN, TFN, Medicare
   - **India**: Aadhaar, PAN, Pasaporte, Número de votante
 - **Modo**:
-  - **Detectar**: Solo identifica la PII (predeterminado)
+  - **Block**: Detecta PII y establece `passed` en `false` si la encuentra (predeterminado). Conecta un bloque Condition para aplicar la decisión.
   - **Enmascarar**: Reemplaza la PII detectada por valores enmascarados
 - **Idioma**: Idioma de detección (predeterminado: inglés)
 
 **Salida:**
-- `passed`: `false` si se detecta algún tipo de PII seleccionado
+- `passed`: en modo Block, `false` si se detecta PII seleccionada; en modo Mask, `true` tras enmascarar, aunque haya entidades detectadas
 - `detectedEntities`: Arreglo de PII detectada con tipo, ubicación y confianza
 - `maskedText`: Contenido con PII enmascarada (solo si mode = "Mask")
 - `error`: Mensaje de error si la validación falla
@@ -164,8 +164,8 @@ Detecta información de identificación personal mediante Microsoft Presidio. Ad
 
 El contenido de entrada a validar. Normalmente proviene de:
 - Salidas del bloque Agent: `<agent.content>`
-- Resultados del bloque Function: `<function.output>`
-- Respuestas de API: `<api.output>`
+- Resultados del bloque Function: `<function.result>`
+- Respuestas de API: `<api.data>`
 - Cualquier otra salida de bloque
 
 ### Tipo de validación

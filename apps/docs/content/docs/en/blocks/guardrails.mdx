@@ -54,7 +54,7 @@ The Guardrails block enables you to:
     <strong>Detect Hallucinations</strong>: Use RAG + LLM scoring to validate AI outputs against knowledge base content
   </Step>
   <Step>
-    <strong>Detect PII</strong>: Identify and optionally mask personally identifiable information across 40+ entity types
+    <strong>Detect PII</strong>: Identify and optionally mask personally identifiable information across the supported entity types
   </Step>
 </Steps>
 
@@ -107,7 +107,7 @@ Uses Retrieval-Augmented Generation (RAG) with LLM scoring to detect when AI-gen
 - **Model**: Choose LLM for scoring (requires strong reasoning - GPT-4o, Claude 3.7 Sonnet recommended)
 - **API Key**: Authentication for selected LLM provider (auto-hidden for hosted/Ollama models)
 - **Confidence Threshold**: Minimum score to pass (0-10, default: 3)
-- **Top K** (Advanced): Number of knowledge base chunks to retrieve (default: 10)
+- **Top K** (Advanced): Number of knowledge base chunks to retrieve (default: 5)
 
 **Output:**
 - `passed`: `true` if confidence score ≥ threshold
@@ -123,7 +123,7 @@ Uses Retrieval-Augmented Generation (RAG) with LLM scoring to detect when AI-gen
 
 ### PII Detection
 
-Detects personally identifiable information using Microsoft Presidio. Supports 40+ entity types across multiple countries and languages.
+Detects personally identifiable information using Microsoft Presidio. Supports the selectable entity types across multiple countries and languages.
 
 **How It Works:**
 1. Scans content for PII entities using pattern matching and NLP
@@ -142,12 +142,12 @@ Detects personally identifiable information using Microsoft Presidio. Supports 4
   - **Australia**: ABN, ACN, TFN, Medicare
   - **India**: Aadhaar, PAN, Passport, Voter number
 - **Mode**: 
-  - **Detect**: Only identify PII (default)
+  - **Block**: Detect PII and set `passed` to `false` when found (default). Connect a Condition block to enforce the decision.
   - **Mask**: Replace detected PII with masked values
 - **Language**: Detection language (default: English)
 
 **Output:**
-- `passed`: `false` if any selected PII types are detected
+- `passed`: in Block mode, `false` when selected PII is found; in Mask mode, `true` after masking, even when entities are detected
 - `detectedEntities`: Array of detected PII with type, location, and confidence
 - `maskedText`: Content with PII masked (only if mode = "Mask")
 - `error`: Error message if validation fails
@@ -164,8 +164,8 @@ Detects personally identifiable information using Microsoft Presidio. Supports 4
 
 The input content to validate. This typically comes from:
 - Agent block outputs: `<agent.content>`
-- Function block results: `<function.output>`
-- API responses: `<api.output>`
+- Function block results: `<function.result>`
+- API responses: `<api.data>`
 - Any other block output
 
 ### Validation Type
@@ -259,4 +259,3 @@ Additional outputs by type:
 <Callout type="info">
   Guardrails validation happens synchronously in your workflow. For hallucination detection, choose faster models (like GPT-4o-mini) if latency is critical.
 </Callout>
-

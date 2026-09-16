@@ -29,7 +29,7 @@ Los indicadores son scripts personalizados de análisis técnico que se ejecutan
     **Calcula** con más de 57 funciones integradas de análisis técnico (`ta.*`), operaciones matemáticas, arrays y mucho más
   </Step>
   <Step>
-    **Visualiza** con `plot()`, `plotshape()`, `fill()`, `bgcolor()` y otras funciones de representación en el gráfico
+    **Visualiza** con `plot()`, `plotshape()`, `fill()` y otras funciones de representación en el gráfico
   </Step>
   <Step>
     **Activa flujos de trabajo** llamando a `trigger()` cuando se cumplen las condiciones: conecta los indicadores con tus canalizaciones de automatización
@@ -48,8 +48,8 @@ const oversold = input.int(30, 'Oversold');
 const rsi = ta.rsi(close, length);
 
 plot(rsi, 'RSI', { color: '#2962FF' });
-hline(overbought, { color: '#FF0000', linestyle: hline.style_dashed });
-hline(oversold, { color: '#00FF00', linestyle: hline.style_dashed });
+hline(overbought, 'Overbought', '#FF0000', hline.style_dashed);
+hline(oversold, 'Oversold', '#00FF00', hline.style_dashed);
 
 // Trigger a workflow when RSI crosses below oversold
 if (ta.crossunder(rsi, oversold)) {

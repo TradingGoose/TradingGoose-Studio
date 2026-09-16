@@ -179,13 +179,7 @@ With a valid response format, reference each schema field directly, such as `<ag
 
 ### Memory + Agent: Conversation History
 
-Use a `Memory` block with a consistent `id` (for example, `chat`) to persist messages between runs, and include that history in the Agent's prompt.
-
-- Add the user's message before the Agent
-- Read the conversation history for context
-- Append the Agent's reply after it runs
-
-See the [`Memory`](/blocks/memory) block reference for details.
+An Agent can use an existing message array from `<memory.memories>` in its Memories field. However, the Memory block's Add operation currently fails, so the usual save-user-message → Agent → save-reply flow is not operational. See the [Memory limitation](/blocks/memory) before designing cross-run conversation persistence.
 
 ## Inputs and Outputs
 
@@ -250,12 +244,12 @@ See the [`Memory`](/blocks/memory) block reference for details.
 <div className="mb-4 rounded-md border p-4">
   <h4 className="font-medium">Scenario: Handle customer inquiries with database access</h4>
   <ol className="list-decimal pl-5 text-sm">
-    <li>User submits a support ticket via the API block</li>
+    <li>User submits a support ticket via the API trigger</li>
     <li>Agent checks orders/subscriptions in Postgres and searches the knowledge base for guidance</li>
     <li>If escalation is needed, the Agent creates a Linear issue with relevant context</li>
     <li>Agent drafts a clear email reply</li>
     <li>Gmail sends the reply to the customer</li>
-    <li>Conversation is saved to Memory to maintain history for future messages</li>
+    <li>Use persistent storage for future conversation history; Memory Add is currently unavailable</li>
   </ol>
 </div>
 

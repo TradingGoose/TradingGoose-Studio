@@ -105,10 +105,9 @@ Conditions use JavaScript syntax and can reference input values from previous bl
 
 After a condition evaluates, you can access its outputs:
 
-- **`<condition.result>`**: Boolean result of the condition evaluation
-- **`<condition.matched_condition>`**: ID of the condition that was matched
-- **`<condition.content>`**: Description of the evaluation result
-- **`<condition.path>`**: Details of the chosen routing destination
+- **`<condition.conditionResult>`**: Whether a connected route was selected, including Else; not the truth value of the first expression.
+- **`<condition.selectedOption>`**: ID of the condition that was matched
+- **`<condition.selectedPath>`**: Details of the chosen routing destination
 
 ## Advanced Features
 
@@ -121,13 +120,13 @@ Use JavaScript operators and functions in conditions:
 <user.email>.endsWith('@company.com')
 
 // Array operations
-<api.tags>.includes('urgent')
+<api.data.tags>.includes('urgent')
 
 // Mathematical operations
 <agent.confidence> * 100 > 85
 
 // Date comparisons
-new Date(<api.created_at>) > new Date('2024-01-01')
+new Date(<api.data.created_at>) > new Date('2024-01-01')
 ```
 
 ### Multiple Condition Evaluation
@@ -147,11 +146,7 @@ true
 
 ### Error Handling
 
-Conditions automatically handle:
-- Undefined or null values with safe evaluation
-- Type mismatches with appropriate fallbacks
-- Invalid expressions with error logging
-- Missing variables with default values
+Invalid expressions and unsafe property access can fail the block. Validate optional properties explicitly, for example `((<api.data>)?.tags ?? []).includes('urgent')` when the API data is an object. Condition blocks do not support the normal block error-path recovery. If validation needs recoverable exceptions, perform it in an upstream Function block with an error path.
 
 ## Inputs and Outputs
 
@@ -172,16 +167,13 @@ Conditions automatically handle:
   <Tab>
     <ul className="list-disc space-y-2 pl-6">
       <li>
-        <strong>condition.result</strong>: Boolean result of condition evaluation
+        <strong>condition.conditionResult</strong>: True when a connected route is selected, including Else
       </li>
       <li>
-        <strong>condition.matched_condition</strong>: ID of the matched condition
+        <strong>condition.selectedOption</strong>: ID of the matched condition
       </li>
       <li>
-        <strong>condition.content</strong>: Description of evaluation result
-      </li>
-      <li>
-        <strong>condition.path</strong>: Details of chosen routing destination
+        <strong>condition.selectedPath</strong>: Details of chosen routing destination
       </li>
     </ul>
   </Tab>
@@ -208,7 +200,7 @@ Conditions automatically handle:
   <h4 className="font-medium">Scenario: Route support tickets based on priority</h4>
   <ol className="list-decimal pl-5 text-sm">
     <li>API block fetches support ticket data</li>
-    <li>Condition checks if `<api.priority>` equals 'high'</li>
+    <li>Condition checks if `<api.data.priority>` equals 'high'</li>
     <li>High priority tickets → Agent with escalation tools</li>
     <li>Normal priority tickets → Standard support agent</li>
   </ol>
@@ -232,7 +224,7 @@ Conditions automatically handle:
   <h4 className="font-medium">Scenario: Personalize onboarding based on user type</h4>
   <ol className="list-decimal pl-5 text-sm">
     <li>Function block processes user registration data</li>
-    <li>Condition checks if `<user.account_type>` === 'enterprise'</li>
+    <li>Condition checks if `<function.result.account_type>` === 'enterprise'</li>
     <li>Enterprise users → Advanced setup workflow</li>
     <li>Individual users → Simple onboarding workflow</li>
   </ol>

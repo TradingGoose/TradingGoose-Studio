@@ -15,13 +15,13 @@ TradingGoose's execution engine processes workflows intelligently by analyzing d
 
 Multiple blocks run concurrently when they don't depend on each other. This parallel execution dramatically improves performance without requiring manual configuration.
 
-For example, if a Start block connects to both a Customer Support agent and a Deep Researcher agent, both agent blocks execute simultaneously, maximizing efficiency.
+For example, if a Manual Trigger connects to both a Customer Support agent and a Deep Researcher agent, both agent blocks can execute concurrently.
 
-### Automatic Output Combination
+### Dependencies and Explicit Data Mapping
 
-When blocks have multiple dependencies, the execution engine automatically waits for all dependencies to complete, then provides their combined outputs to the next block. No manual combining required.
+When blocks have multiple active dependencies, the execution engine waits for those dependencies to complete. Connections determine scheduling; they do not automatically merge outputs into an input object or insert content into an Agent prompt.
 
-For example, a Function block connected to two upstream agent blocks will wait for both to finish, then receive their combined outputs for processing.
+For example, a Function block connected to agents named `support` and `research` can explicitly combine their outputs with `return { support: <support.content>, research: <research.content> };`. Similarly, reference Knowledge search results explicitly in the downstream Agent prompt. There is no automatically injected `input` object in Function code.
 
 ### Smart Routing
 
@@ -35,7 +35,7 @@ TradingGoose provides different types of blocks that serve specific purposes in 
 
 <Cards>
   <Card title="Triggers" href="/triggers">
-    **Starter blocks** initiate workflows and **Webhook blocks** respond to external events. Every workflow needs a trigger to begin execution.
+    **Trigger blocks** define entrypoints such as Manual, API, Input Form, Chat, and external events. A workflow can have multiple entrypoints; each execution starts from a selected trigger.
   </Card>
   
   <Card title="Processing Blocks" href="/blocks">
@@ -70,7 +70,7 @@ Deploy workflows as HTTP endpoints that can be called programmatically from your
 Respond to events from external services like GitHub, Stripe, or custom systems in real-time.
 
 ### Chat Interface
-Create conversational interfaces hosted on custom subdomains for user-facing AI applications.
+Publish conversational interfaces at `/chat/{identifier}` on your deployment's origin for user-facing AI applications.
 
 <Callout type="info">
   Learn more about each trigger type in the [Triggers section](/triggers) of the documentation.
@@ -93,9 +93,9 @@ When workflows run, TradingGoose provides real-time visibility into the executio
 
 Understanding these core principles will help you build better workflows:
 
-1. **Dependency-Based Execution**: Blocks only run when all their dependencies have completed
+1. **Dependency-Based Execution**: Blocks run when their active-path dependencies are satisfied
 2. **Automatic Parallelization**: Independent blocks run concurrently without configuration
-3. **Smart Data Flow**: Outputs flow automatically to connected blocks
+3. **Explicit Data Mapping**: Reference upstream outputs in block inputs or prompts; connections alone do not insert the data
 4. **Error Handling**: Failed blocks stop their execution path but don't affect independent paths
 5. **State Persistence**: All block outputs and execution details are preserved for debugging
 

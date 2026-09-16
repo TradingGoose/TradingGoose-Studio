@@ -44,8 +44,8 @@ indicator('RSI Trigger Example');
 
 const rsi = ta.rsi(close, 14);
 plot(rsi, 'RSI');
-hline(70, { linestyle: hline.style_dashed });
-hline(30, { linestyle: hline.style_dashed });
+hline(70, 'Overbought', '#FF0000', hline.style_dashed);
+hline(30, 'Oversold', '#00FF00', hline.style_dashed);
 
 // Fire when RSI crosses above 70 (overbought)
 if (ta.crossover(rsi, 70)) {
@@ -135,5 +135,5 @@ Invalid trigger calls produce warnings (not errors) so your indicator continues 
 | `indicator_trigger_invalid_time` | Bar open time is unavailable |
 
 <Callout type="info">
-  The `trigger()` API is a TradingGoose-specific extension. It does not exist in standard Pine Script or PineTS. Indicators with `trigger()` calls work normally in all environments — the trigger simply has no effect outside of TradingGoose.
+  The `trigger()` API is a TradingGoose-specific extension. It does not exist in standard Pine Script or PineTS. Stock PineTS throws `trigger is not defined` when it reaches these calls. Remove or adapt them before running an exported indicator outside TradingGoose.
 </Callout>

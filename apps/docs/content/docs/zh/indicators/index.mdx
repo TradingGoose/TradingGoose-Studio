@@ -29,7 +29,7 @@ import { Step, Steps } from 'fumadocs-ui/components/steps'
     使用 57+ 个内置技术分析函数（`ta.*`）、数学运算、数组等进行**计算**
   </Step>
   <Step>
-    使用 `plot()`、`plotshape()`、`fill()`、`bgcolor()` 及其他图表渲染函数进行**可视化**
+    使用 `plot()`、`plotshape()`、`fill()` 及其他图表渲染函数进行**可视化**
   </Step>
   <Step>
     在条件满足时调用 `trigger()` **触发工作流** — 将指标接入你的自动化流水线
@@ -48,8 +48,8 @@ const oversold = input.int(30, 'Oversold');
 const rsi = ta.rsi(close, length);
 
 plot(rsi, 'RSI', { color: '#2962FF' });
-hline(overbought, { color: '#FF0000', linestyle: hline.style_dashed });
-hline(oversold, { color: '#00FF00', linestyle: hline.style_dashed });
+hline(overbought, 'Overbought', '#FF0000', hline.style_dashed);
+hline(oversold, 'Oversold', '#00FF00', hline.style_dashed);
 
 // Trigger a workflow when RSI crosses below oversold
 if (ta.crossunder(rsi, oversold)) {

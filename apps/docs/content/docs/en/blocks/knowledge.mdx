@@ -41,11 +41,11 @@ The Knowledge block connects your workflow to a knowledge base, enabling retriev
     | Field | Required | Description |
     |---|---|---|
     | **Knowledge Base** | Yes | The knowledge base to search |
-    | **Search Query** | No | Natural-language query. Optional when using tag filters alone. |
+    | **Search Query** | Yes for working searches | Natural-language query; see the tag-filter limitation below. |
     | **Number of Results** | No | How many chunks to return (default: 10) |
     | **Tag Filters** | No | Narrow results to documents that match specific tags |
 
-    The search query is optional -- you can filter purely by tags to retrieve all chunks under a certain category.
+    Tag filtering is an intended capability, but currently tag-only searches fail and query-plus-tag searches do not apply the tags. Do not rely on tags to restrict results until this is fixed.
   </Tab>
   <Tab>
     Appends a text chunk to an existing document inside the knowledge base. The chunk is automatically embedded and becomes available for future searches.
@@ -170,18 +170,19 @@ The Knowledge block connects your workflow to a knowledge base, enabling retriev
 
 ## Outputs
 
-| Output | Type | Description |
-|---|---|---|
-| `results` | json | Array of matching chunks (search) or confirmation data (write operations) |
-| `query` | string | The query that was used |
-| `totalResults` | number | Count of results returned |
+| Operation | Output |
+|---|---|
+| Search | `results` (matching chunks), `query`, `totalResults` |
+| Upload Chunk | `message`, `data.chunkId`, `data.content`, `data.chunkIndex`, plus `documentId`, `documentName`, and `cost` |
+| Create Document | `message` and `data` containing `documentId`, `documentName`, `type`, `enabled`, `createdAt`, and `updatedAt` |
+
+Use `<knowledge.data.documentId>` after Create Document. Write confirmations are not returned in `results`.
 
 ## Best Practices
 
-- **Use tag filters to scope searches** -- tags let you partition a knowledge base by topic, customer, or category without creating separate bases.
 - **Keep chunks focused** -- shorter, topically coherent chunks produce better similarity matches than long, multi-topic text.
 - **Pair with an Agent block** -- pipe the search results into an Agent's context to build a RAG pipeline.
 
-<Callout type="info">
-  The search query field is optional. When you only need documents that match certain tags, leave the query empty and use tag filters instead.
+<Callout type="warning">
+  Tag filtering is currently unreliable: tag-only searches fail, and query-plus-tag searches are not tag-filtered. See [Knowledgebase](/knowledgebase). Use a non-empty query and inspect returned documents; tags are not an access-control boundary.
 </Callout>

@@ -4,113 +4,47 @@ title: Tags
 
 import { Callout } from 'fumadocs-ui/components/callout'
 
-Connection tags are visual representations of the data available from connected blocks, providing an easy way to reference data between blocks and outputs from previous blocks in your workflow.
+Connection tags reference values from upstream blocks. Connect the source to the workflow path, then type a single `<` in a supported input field to open the available-reference dropdown. Select an output to insert the complete tag. Typing the closing `>` closes the unfinished reference; do not type `<>` to open the dropdown.
 
-### What Are Connection Tags?
+## Syntax
 
-Connection tags are interactive elements that appear when blocks are connected. They represent the data that can flow from one block to another and allow you to:
-
-- Visualize available data from source blocks
-- Reference specific data fields in destination blocks
-- Create dynamic data flows between blocks
-
-<Callout type="info">
-  Connection tags make it easy to see what data is available from previous blocks and use it in your
-  current block without having to remember complex data structures.
-</Callout>
-
-## Using Connection Tags
-
-There are two primary ways to use connection tags in your workflows:
-
-<div className="my-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-  <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-800">
-    <h3 className="mb-2 text-lg font-medium">Drag and Drop</h3>
-    <div className="text-sm text-gray-600 dark:text-gray-400">
-      Click on a connection tag and drag it into input fields of destination blocks. A dropdown will
-      appear showing available values.
-    </div>
-    <ol className="mt-2 list-decimal pl-5 text-sm text-gray-600 dark:text-gray-400">
-      <li>Hover over a connection tag to see available data</li>
-      <li>Click and drag the tag to an input field</li>
-      <li>Select the specific data field from the dropdown</li>
-      <li>The reference is inserted automatically</li>
-    </ol>
-  </div>
-
-  <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-800">
-    <h3 className="mb-2 text-lg font-medium">Angle Bracket Syntax</h3>
-    <div className="text-sm text-gray-600 dark:text-gray-400">
-      Type <code>&lt;&gt;</code> in input fields to see a dropdown of available connection values
-      from previous blocks.
-    </div>
-    <ol className="mt-2 list-decimal pl-5 text-sm text-gray-600 dark:text-gray-400">
-      <li>Click in any input field where you want to use connected data</li>
-      <li>
-        Type <code>&lt;&gt;</code> to trigger the connection dropdown
-      </li>
-      <li>Browse and select the data you want to reference</li>
-      <li>Continue typing or select from the dropdown to complete the reference</li>
-    </ol>
-  </div>
-</div>
-
-## Tag Syntax
-
-Connection tags use a simple syntax to reference data:
-
-```
+```text
 <blockName.path.to.data>
 ```
 
-Where:
+Use the actual block name shown in the dropdown or its block ID. Names are normalized for references; selecting a dropdown entry avoids guessing the spelling.
 
-- `blockName` is the name of the source block (or its ID)
-- `path.to.data` is the dot-separated path to the specific data field
+- `<agent.content>`: text from an Agent named Agent.
+- `<api.data.users[0].name>`: a field in an API response body.
+- `<function.result.total>`: a field in a Function return value.
 
-For example:
+## System references
 
-- `<agent1.content>` - References the content field from a block named "agent1"
-- `<api2.data.users[0].name>` - References the name of the first user in the users array from the data field of a block named "api2"
+| Reference | Meaning |
+|---|---|
+| `<start.input>` | The selected runtime trigger's input, when that field exists |
+| `<start.fieldName>` | A field exposed by the selected trigger |
+| `<variable.myVar>` | Current workflow variable value |
+| `<loop.currentItem>` | Current ForEach item inside the loop |
+| `<loop.index>` | Zero-based loop iteration index |
+| `<loop.items>` | Full ForEach collection |
+| `<parallel.currentItem>` | Current collection item inside a parallel instance |
+| `<parallel.index>` | Zero-based parallel instance index |
+| `<parallel.items>` | Full parallel collection |
 
-### Special Reference Types
+The system prefixes are `start`, `variable`, `loop`, and `parallel`. Names such as `api`, `chat`, and `manual` are not universal trigger aliases: they must identify an actual block. A Manual trigger has no input fields.
 
-In addition to block references, the resolver supports several special prefixes:
+Use `<loop.results>` or `<parallel.results>` after the corresponding container finishes. Use `currentItem`, not `item`, within collection processing.
 
-- **Trigger aliases**: `<start.input>`, `<api.fieldName>`, `<chat.input>`, `<manual.input>` - shorthand references to trigger block outputs
-- **Variables**: `<variable.myVar>` - references workflow variables by name
-- **Loops**: `<loop.item>`, `<loop.index>` - references the current item or index within a loop
-- **Parallels**: `<parallel.item>`, `<parallel.index>` - references the current item or index within a parallel execution
+## Examples
 
-## Dynamic Tag References
-
-Connection tags are evaluated at runtime, which means:
-
-1. They always reference the most current data from the execution context
-2. They can be used in expressions and combined with static text
-3. They can be nested within other data structures
-4. Array indexing is supported using bracket notation (e.g., `items[0]`)
-
-### Examples
-
-```javascript
-// Reference in text
-"The user's name is <userBlock.name>"
-
-// Reference in JSON
-{
-  "userName": "<userBlock.name>",
-  "orderTotal": <apiBlock.data.total>
-}
-
-// Using trigger aliases
-"User said: <start.input>"
-
-// Using loop references inside a loop
-"Processing item <loop.index>: <loop.item.name>"
+```text
+Processing item <loop.index>: <loop.currentItem.name>
+User message: <start.input>
 ```
 
-<Callout type="warning">
-  When using connection tags in numeric contexts, make sure the referenced data is actually a number
-  to avoid type conversion issues.
+Tags are resolved at execution time. They support nested properties and array indexes. Arithmetic belongs in a Function or a condition expression; ordinary text fields do not become JavaScript evaluators just because they contain a tag.
+
+<Callout>
+  Check [Data Structure](/connections/data-structure) and the actual block output before choosing a path. API bodies live under `data`; Function return values live under `result`.
 </Callout>

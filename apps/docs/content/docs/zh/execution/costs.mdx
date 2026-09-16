@@ -5,23 +5,28 @@ title: 费用计算
 import { Accordion, Accordions } from 'fumadocs-ui/components/accordion'
 import { Callout } from 'fumadocs-ui/components/callout'
 
-TradingGoose 根据配置的执行费用和任何按量计费的模型使用量来计算工作流费用。这两个数值都可以根据工作区所配置的用户或组织账单负责人的生效层级进行调整。
+TradingGoose 计量工作流执行、模型使用量以及 Function/自定义工具运行时间。费用根据工作区用户或组织账单负责人的计费配置和生效层级计算。
 
 ## 费用如何计算
 
-当计费启用时，工作流可以有两个费用构成：
+启用计费时，用量可包含三类费用：
 
 - **执行费用**：实例配置的工作流费用乘以当前层级的工作流执行乘数。
 - **AI 模型使用量**：每个执行跨度记录的提供商模型费用乘以当前层级的工作流模型费用乘数。
+- **Function 运行费用**：配置的每秒 Function 费用乘以运行秒数和当前层级的 Function 执行乘数。Function/自定义工具运行费用单独累计，运行后失败的尝试也可能计费。
 
 ```javascript
 executionCost = configuredWorkflowCharge * tierWorkflowExecutionMultiplier
 adjustedModelCost = recordedModelCost * tierWorkflowModelCostMultiplier
-totalCost = executionCost + sum(adjustedModelCost)
+workflowLogSubtotal = executionCost + sum(adjustedModelCost)
+functionCost = (executionTimeMs / 1000) * configuredFunctionChargePerSecond * tierFunctionExecutionMultiplier
+totalMeteredCost = workflowLogSubtotal + sum(functionCost)
 ```
 
+此公式用于说明计算方式。每次 Function 运行费用保留六位小数。工作流日志的费用总额是执行与模型费用小计；单独累计的 Function 费用也会计入账单负责人的用量。它不是 AI 模型费用，无 AI 的工作流也可能产生此项费用。
+
 <Callout type="info">
-  当计费被禁用时，执行费用为零，记录的模型费用按乘数 1 计算。费用和乘数应以计费层级配置为准，而不是本指南中的固定值。
+  禁用计费时，工作流执行费用为零，不累计 Function 运行费用，记录的模型费用按乘数 1 计算。费用和乘数应以计费配置为准，而不是本指南中的固定值。
 </Callout>
 
 ## 日志中的模型明细
@@ -32,7 +37,7 @@ totalCost = executionCost + sum(adjustedModelCost)
 - **Token 使用量**：每个模型的输入和输出 token 数量
 - **费用明细**：每个模型的输入、输出和总费用
 - **使用的模型**：哪些模型计入了执行费用
-- **总费用**：整个工作流执行的汇总费用
+- **总费用**：日志中的执行/模型费用小计；单独累计的 Function 运行费用请在用量中查看
 
 ## 价格与限制
 

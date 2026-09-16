@@ -59,7 +59,7 @@ The API block processes HTTP requests through a structured approach:
 1. **Configure Request** - Set URL, method, headers, and body parameters
 2. **Execute Request** - Send HTTP request to the specified endpoint
 3. **Process Response** - Handle response data, status codes, and headers
-4. **Error Handling** - Manage timeouts, retries, and error conditions
+4. **Error Handling** - Route failed requests through an explicit error path
 
 ## Configuration Options
 
@@ -132,31 +132,24 @@ Build URLs dynamically using variables from previous blocks:
 
 ```javascript
 // In a Function block before the API
-const userId = <start.userId>;
-const apiUrl = `https://api.example.com/users/${userId}/profile`;
+const { userId } = <start>;
+return `https://api.example.com/users/${encodeURIComponent(userId)}/profile`;
 ```
 
 ### Request Retries
 
-The API block automatically handles:
-- Network timeouts with exponential backoff
-- Rate limit responses (429 status codes)
-- Server errors (5xx status codes) with retry logic
-- Connection failures with reconnection attempts
+The API block does not automatically retry timeouts, connection failures, HTTP 429, or 5xx responses. Failed requests raise a block error. Connect the block's error path to recovery logic; implement bounded retries and backoff explicitly in the workflow when needed. Only retry requests that are safe to repeat.
 
 ### Response Validation
 
-Validate API responses before processing:
+Connect a Function block to the API block's normal output to validate a successful response. Connect failure recovery to the API block's error path, not a Condition after its normal output. Set the API URL to `<function.result>` when using the URL-building Function above.
 
 ```javascript
-// In a Function block after the API
-if (<api.status> === 200) {
-  const data = <api.data>;
-  // Process successful response
-} else {
-  // Handle error response
-  console.error(`API Error: ${<api.status>}`);
+const data = <api.data>;
+if (!data || typeof data !== 'object') {
+  throw new Error('Expected an object response');
 }
+return data;
 ```
 
 ## Inputs and Outputs

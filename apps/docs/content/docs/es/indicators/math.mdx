@@ -22,7 +22,7 @@ El espacio de nombres `math` proporciona constantes matemáticas, operaciones b�
 | `math.ceil(x)` | Redondear hacia arriba al entero más cercano |
 | `math.floor(x)` | Redondear hacia abajo al entero más cercano |
 | `math.round(x, precision?)` | Redondear al entero más cercano (o precisión) |
-| `math.round_to_mintick(x)` | Redondear al tick mínimo del símbolo |
+| `math.round_to_mintick(x)` | No disponible en Studio: requiere `syminfo.mintick`; redondea usando una entrada explícita |
 | `math.sign(x)` | Signo del valor (-1, 0 o 1) |
 | `math.max(a, b)` | Máximo de dos valores |
 | `math.min(a, b)` | Mínimo de dos valores |
@@ -65,9 +65,10 @@ indicator('Volatility Ratio');
 
 const atr = ta.atr(14);
 const avgAtr = ta.sma(atr, 50);
-const ratio = atr / math.max(avgAtr, syminfo.mintick);
+const minAtr = input.float(0.000001, 'Minimum ATR', 0.000001);
+const ratio = atr / math.max(avgAtr, minAtr);
 const logRatio = math.log(ratio);
 
 plot(logRatio, 'Log Volatility Ratio');
-hline(0, { linestyle: hline.style_dashed });
+hline(0, 'Zero', '#787B86', hline.style_dashed);
 ```

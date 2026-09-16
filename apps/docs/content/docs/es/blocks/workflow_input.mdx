@@ -44,10 +44,10 @@ En tiempo de ejecución, el bloque:
 1. Resuelve todos los valores mapeados desde el estado actual del flujo de trabajo principal.
 2. Invoca al ejecutor del flujo de trabajo secundario, pasando las entradas resueltas.
 3. Espera a que el secundario termine.
-4. Devuelve `success`, `childWorkflowName` y el `result` completo de la ejecución del secundario.
+4. Devuelve `success: true`, `childWorkflowName` y `result` con la salida final del flujo secundario.
 
 <Callout type="info">
-  El menú desplegable solo muestra los flujos de trabajo de tu espacio de trabajo que son diferentes del actual. No puedes invocar un flujo de trabajo de forma recursiva.
+  El flujo secundario hereda el destino de ejecución del principal: las ejecuciones del editor usan su grafo guardado actual y las desplegadas usan su versión desplegada. Despliega los cambios del secundario antes de usarlos desde un principal desplegado. El selector excluye el flujo actual; las llamadas anidadas tienen una profundidad máxima de 10.
 </Callout>
 
 ## Configuración
@@ -87,13 +87,12 @@ En tiempo de ejecución, el bloque:
 
 | Salida | Tipo | Descripción |
 |---|---|---|
-| `success` | boolean | Indica si el flujo de trabajo secundario se completó correctamente |
+| `success` | boolean | `true` en la ruta normal de éxito |
 | `childWorkflowName` | string | Nombre del flujo de trabajo secundario ejecutado |
-| `result` | json | El resultado completo de la ejecución del flujo de trabajo secundario |
-| `error` | string | Mensaje de error si el flujo de trabajo secundario falló |
+| `result` | json | La salida final del secundario, no su registro completo de ejecución |
 
 ## Buenas prácticas
 
 - **Diseña flujos de trabajo secundarios con disparadores de formulario de entrada claros** -- nombra los campos de forma descriptiva para que la interfaz de asignación sea fácil de usar en el flujo principal.
 - **Mantén los flujos de trabajo secundarios enfocados** -- un flujo de trabajo secundario debe hacer bien una sola cosa, lo que lo hace reutilizable en varios flujos principales.
-- **Revisa la salida `success`** -- usa un bloque Condition después del bloque Workflow para gestionar los fallos de forma controlada.
+- **Conecta la ruta de error** -- un secundario fallido genera un error de bloque; no devuelve `success: false` a la ruta normal. Conecta la recuperación a la salida de error de Workflow.

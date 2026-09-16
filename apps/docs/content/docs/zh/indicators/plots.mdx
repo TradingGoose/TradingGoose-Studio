@@ -15,10 +15,10 @@ import { Callout } from 'fumadocs-ui/components/callout'
 | `plotarrow(series, title?, options?)` | 绘制箭头标记 |
 | `plotbar(open, high, low, close, title?, options?)` | 绘制OHLC柱 |
 | `plotcandle(open, high, low, close, title?, options?)` | 绘制K线图 |
-| `hline(price, title?, options?)` | 在固定价格水平绘制水平线 |
+| `hline(price, title?, color?, linestyle?, linewidth?, editable?, display?)` | 在固定价格水平绘制水平线 |
 | `fill(plot1, plot2, color?)` | 填充两个绘图之间的区域 |
-| `bgcolor(color, offset?, options?)` | 设置柱的背景颜色 |
-| `barcolor(color, offset?, options?)` | 设置柱颜色 |
+| `bgcolor(color, offset?, options?)` | Studio 不渲染此输出，并会报告不支持的样式警告 |
+| `barcolor(color, offset?, options?)` | Studio 不渲染此输出；请改用绘图的 `color` 选项 |
 
 ## 绘图样式
 
@@ -39,6 +39,8 @@ import { Callout } from 'fumadocs-ui/components/callout'
 | `plot.style_cross` | 十字标记 |
 
 ### 线条样式（用于 `plot` 和 `hline`）
+
+PineTS 接受这些常量，但 Studio 目前渲染绘图时不会保留 `linestyle`。虚线和点线样式会显示为实线。
 
 | 样式 | 说明 |
 |-------|-------------|
@@ -155,11 +157,7 @@ if (ta.crossunder(fast, slow)) {
 
 ### 背景色与柱颜色
 
-```javascript
-// Highlight bars based on condition
-bgcolor(ta.crossover(fast, slow) ? '#00FF0020' : na);
-barcolor(close > open ? '#26A69A' : '#EF5350');
-```
+Studio 不渲染 `bgcolor()` 或 `barcolor()` 的输出，这些调用会产生不支持的样式警告。要可视化某个条件，请改用受支持的 `plot()` 或 `plotshape()` 的 `color` 选项。
 
 <Callout type="info">
   颜色可以使用十六进制字符串指定（例如 `'#FF0000'`），也可以使用 `color` 命名空间（例如 `color.red`）。添加两位十六进制数字表示 alpha 透明度（例如 `'#FF000080'` 表示 50% 不透明度）。

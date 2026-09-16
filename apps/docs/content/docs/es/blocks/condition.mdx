@@ -110,10 +110,9 @@ Las condiciones usan sintaxis de JavaScript y pueden hacer referencia a valores 
 
 Después de que se evalúa una condición, puedes acceder a sus salidas:
 
-- **`<condition.result>`**: Resultado booleano de la evaluación de la condición
-- **`<condition.matched_condition>`**: ID de la condición que coincidió
-- **`<condition.content>`**: Descripción del resultado de la evaluación
-- **`<condition.path>`**: Detalles del destino de enrutamiento elegido
+- **`<condition.conditionResult>`**: Indica si se seleccionó una ruta conectada, incluida Else; no es el valor de la primera expresión.
+- **`<condition.selectedOption>`**: ID de la condición que coincidió
+- **`<condition.selectedPath>`**: Detalles del destino de enrutamiento elegido
 
 ## Funciones avanzadas
 
@@ -126,13 +125,13 @@ Usa operadores y funciones de JavaScript en las condiciones:
 <user.email>.endsWith('@company.com')
 
 // Array operations
-<api.tags>.includes('urgent')
+<api.data.tags>.includes('urgent')
 
 // Mathematical operations
 <agent.confidence> * 100 > 85
 
 // Date comparisons
-new Date(<api.created_at>) > new Date('2024-01-01')
+new Date(<api.data.created_at>) > new Date('2024-01-01')
 ```
 
 ### Evaluación de múltiples condiciones
@@ -152,11 +151,7 @@ true
 
 ### Manejo de errores
 
-Las condiciones gestionan automáticamente:
-- Valores indefinidos o nulos con evaluación segura
-- Incompatibilidades de tipo con alternativas adecuadas
-- Expresiones no válidas con registro de errores
-- Variables ausentes con valores predeterminados
+Las expresiones no válidas y los accesos inseguros a propiedades pueden hacer fallar el bloque. Valida las propiedades opcionales explícitamente, por ejemplo `((<api.data>)?.tags ?? []).includes('urgent')` si data es un objeto. Condition no admite la recuperación por la ruta de error normal. Para validaciones con excepciones recuperables, usa un bloque Function anterior con una ruta de error.
 
 ## Entradas y salidas
 
@@ -177,16 +172,13 @@ Las condiciones gestionan automáticamente:
   <Tab>
     <ul className="list-disc space-y-2 pl-6">
       <li>
-        <strong>condition.result</strong>: Resultado booleano de la evaluación de la condición
+        <strong>condition.conditionResult</strong>: True cuando se selecciona una ruta conectada, incluida Else
       </li>
       <li>
-        <strong>condition.matched_condition</strong>: ID de la condición coincidente
+        <strong>condition.selectedOption</strong>: ID de la condición coincidente
       </li>
       <li>
-        <strong>condition.content</strong>: Descripción del resultado de la evaluación
-      </li>
-      <li>
-        <strong>condition.path</strong>: Detalles del destino de enrutamiento elegido
+        <strong>condition.selectedPath</strong>: Detalles del destino de enrutamiento elegido
       </li>
     </ul>
   </Tab>
@@ -213,7 +205,7 @@ Las condiciones gestionan automáticamente:
   <h4 className="font-medium">Escenario: Enrutar tickets de soporte según la prioridad</h4>
   <ol className="list-decimal pl-5 text-sm">
     <li>El API block obtiene los datos de los tickets de soporte</li>
-    <li>La condición comprueba si `<api.priority>` es igual a 'high'</li>
+    <li>La condición comprueba si `<api.data.priority>` es igual a 'high'</li>
     <li>Tickets de alta prioridad → Agente con escalation tools</li>
     <li>Tickets de prioridad normal → Agente de soporte estándar</li>
   </ol>
@@ -237,7 +229,7 @@ Las condiciones gestionan automáticamente:
   <h4 className="font-medium">Escenario: Personalizar la incorporación según el tipo de usuario</h4>
   <ol className="list-decimal pl-5 text-sm">
     <li>Function block procesa los datos de registro del usuario</li>
-    <li>La condición comprueba si `<user.account_type>` === 'enterprise'</li>
+    <li>La condición comprueba si `<function.result.account_type>` === 'enterprise'</li>
     <li>Usuarios empresariales → workflow de configuración avanzada</li>
     <li>Usuarios individuales → workflow de incorporación simple</li>
   </ol>

@@ -68,7 +68,6 @@ El bloque Response finaliza la ejecución del flujo de trabajo:
 ## Cuándo necesitas bloques Response
 
 - **Endpoints de API**: cuando se llama a tu flujo de trabajo mediante API, los bloques Response formatean los datos de retorno
-- **Webhooks**: devuelven una confirmación o datos al sistema que realiza la llamada
 - **Pruebas**: consulta los resultados formateados al probar tu flujo de trabajo
 
 ## Dos formas de crear respuestas
@@ -157,15 +156,9 @@ Los encabezados se configuran como pares clave-valor:
 
 ### Confirmación de webhook
 
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Escenario: Confirmar la recepción y el procesamiento de un webhook</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>El trigger de webhook recibe datos de un sistema externo</li>
-    <li>El workflow procesa los datos entrantes</li>
-    <li>El bloque Response devuelve una confirmación con el estado del procesamiento</li>
-    <li>El sistema externo recibe la confirmación</li>
-  </ol>
-</div>
+<Callout type="warning">
+  Response no controla las confirmaciones de webhook. Los endpoints encolan el flujo y confirman la solicitud antes de que termine. Response puede dar formato a la salida, pero su estado, encabezados y cuerpo no se devuelven como confirmación del webhook.
+</Callout>
 
 ### Manejo de respuestas de error
 
@@ -208,9 +201,6 @@ Los encabezados se configuran como pares clave-valor:
       </li>
       <li>
         <strong>response.headers</strong>: encabezados incluidos en la respuesta
-      </li>
-      <li>
-        <strong>response.success</strong>: booleano que indica la finalización correcta
       </li>
     </ul>
   </Tab>

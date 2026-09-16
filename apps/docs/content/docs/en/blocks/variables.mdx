@@ -3,131 +3,46 @@ title: Variables
 description: Set and manage workflow-scoped variables
 ---
 
-import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { Callout } from 'fumadocs-ui/components/callout'
-import { Step, Steps } from 'fumadocs-ui/components/steps'
-import { BlockConfigPreview } from '@/components/ui/block-config-preview'
-import { ShowcaseCard } from '@/components/ui/showcase-card'
 
-<BlockInfoCard
-  type="variables"
-  color="#8B5CF6"
-/>
+The Variables block updates variables already defined in the workflow. Assignments change the current execution's values; they do not save new initial values or persist runtime state between runs.
 
-The Variables block updates workflow variables during execution. Variables must first be initialized in your workflow's Variables section, then you can use this block to update their values as your workflow runs.
+## Configure assignments
 
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="Variables"
-    type="variables"
-    color="#8B5CF6"
-    hideHeader
-    subBlocks={[
-      { "id": "variables", "title": "Variable Assignments", "type": "variables-input", "layout": "full", "description": "Select workflow variables and update their values during execution. Access them anywhere using <variable.variableName> syntax." }
-    ]}
-  />
-</ShowcaseCard>
+1. Create the variables in the workflow's Variables panel, with names, types, and initial values.
+2. Add a Variables block and select each variable to update.
+3. Supply a literal value or an exact reference to an upstream output.
 
-<Callout>
-  Access variables anywhere in your workflow using `<variable.variableName>` syntax.
+For example, after an API block returns a customer profile:
+
+```text
+customerEmail = <api.data.email>
+userId = <api.data.id>
+userTier = <api.data.tier>
+```
+
+Use the actual source block's name. In plain-text value fields, enter text without surrounding quotation marks.
+
+## Calculations
+
+The Variables block converts values to the selected variable type; it does not evaluate JavaScript expressions. A numeric assignment such as `<variable.retryCount> + 1` becomes text such as `0 + 1` and fails numeric conversion.
+
+Calculate in a Function block first:
+
+```typescript
+return <variable.retryCount> + 1;
+```
+
+Then assign `retryCount` to `<function.result>` in the Variables block. Use the same pattern for a loop counter such as `itemsProcessed`.
+
+## Read values and outputs
+
+- Read the latest value anywhere in the run with `<variable.retryCount>` or `<variable.customerEmail>`.
+- Block outputs contain the assigned names directly, for example `<variables.retryCount>`. There is no `assignments` wrapper.
+- For a retry workflow, connect the failed block's **error path** to your recovery logic. A normal success connection does not handle a thrown failure.
+
+<Callout type="warning">
+  Workflow variables are shared across parallel instances. Concurrent assignments can overwrite each other. Keep per-item data in block outputs and aggregate the Parallel results instead of using shared variables as isolated instance state.
 </Callout>
 
-## Overview
-
-The Variables block enables you to:
-
-<Steps>
-  <Step>
-    <strong>Update workflow variables</strong>: Change variable values during execution
-  </Step>
-  <Step>
-    <strong>Store dynamic data</strong>: Capture block outputs into variables
-  </Step>
-  <Step>
-    <strong>Maintain state</strong>: Track counters, flags, and intermediate results
-  </Step>
-</Steps>
-
-## How to Use Variables
-
-### 1. Initialize in Workflow Variables
-
-First, create your variables in the workflow's Variables section (accessible from the workflow settings):
-
-```
-customerEmail = ""
-retryCount = 0
-currentStatus = "pending"
-```
-
-### 2. Update with Variables Block
-
-Use the Variables block to update these values during execution:
-
-```
-customerEmail = <api.email>
-retryCount = <variable.retryCount> + 1
-currentStatus = "processing"
-```
-
-### 3. Access Anywhere
-
-Reference variables in any block:
-
-```
-Agent prompt: "Send email to <variable.customerEmail>"
-Condition: <variable.retryCount> < 5
-API body: {"status": "<variable.currentStatus>"}
-```
-
-## Example Use Cases
-
-### Loop Counter and State
-
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Scenario: Track progress through loop iterations</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>Initialize in workflow: `itemsProcessed = 0`, `lastResult = ""`</li>
-    <li>Loop iterates over items</li>
-    <li>Inside loop: Agent processes current item</li>
-    <li>Inside loop: Variables updates `itemsProcessed = <variable.itemsProcessed> + 1`</li>
-    <li>Inside loop: Variables updates `lastResult = <agent.content>`</li>
-    <li>Next iteration: Access `<variable.lastResult>` to compare with current result</li>
-  </ol>
-</div>
-
-### Retry Logic
-
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Scenario: Track API retry attempts</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>Initialize in workflow: `retryCount = 0`</li>
-    <li>API block attempts request</li>
-    <li>If failed, Variables increments: `retryCount = <variable.retryCount> + 1`</li>
-    <li>Condition checks if `<variable.retryCount>` \< 3 to retry or fail</li>
-  </ol>
-</div>
-
-### Dynamic Configuration
-
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Scenario: Store user context for workflow</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>Initialize in workflow: `userId = ""`, `userTier = ""`</li>
-    <li>API fetches user profile</li>
-    <li>Variables stores: `userId = <api.id>`, `userTier = <api.tier>`</li>
-    <li>Agent personalizes response using `<variable.userTier>`</li>
-    <li>API uses `<variable.userId>` for logging</li>
-  </ol>
-</div>
-
-## Outputs
-
-- **`<variables.assignments>`**: JSON object with all variable assignments from this block
-
-## Best Practices
-
-- **Initialize in workflow settings**: Always create variables in the workflow Variables section before using them
-- **Update dynamically**: Use Variables blocks to update values based on block outputs or calculations
-- **Use in loops**: Perfect for tracking state across iterations
-- **Name descriptively**: Use clear names like `currentIndex`, `totalProcessed`, or `lastError`
+Use persistent storage for state that must survive across runs.
