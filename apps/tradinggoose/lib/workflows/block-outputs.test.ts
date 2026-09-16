@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getBlock } from '@/blocks'
-import { getBlockOutputPaths, getBlockOutputType } from './block-outputs'
+import { ResponseBlock } from '@/blocks/blocks/response'
+import { getBlockOutputPaths, getBlockOutputType, readBlockOutputs } from './block-outputs'
 
 vi.mock('@/blocks', () => ({ getBlock: vi.fn() }))
 vi.mock('@/triggers', () => ({ getTrigger: vi.fn() }))
@@ -32,6 +33,39 @@ const outputs = {
 describe('block output schema traversal', () => {
   beforeEach(() => {
     vi.mocked(getBlock).mockReturnValue({ outputs } as unknown as ReturnType<typeof getBlock>)
+  })
+
+  it('exposes the actual Response block envelope through canonical object properties', () => {
+    vi.mocked(getBlock).mockReturnValue(ResponseBlock)
+    expect(getBlockOutputPaths('response')).toEqual([
+      'response',
+      'response.data',
+      'response.status',
+      'response.headers',
+    ])
+    expect(getBlockOutputType('response', 'response')).toBe('object')
+    expect(getBlockOutputType('response', 'response.data')).toBe('json')
+    expect(getBlockOutputType('response', 'response.status')).toBe('number')
+  })
+
+  it.each([
+    ['api_trigger', [], []],
+    ['input_trigger', 'invalid', []],
+    ['api_trigger', undefined, ['default']],
+    ['generic_webhook', [], ['default']],
+    ['generic_webhook', 'invalid', ['default']],
+    ['generic_webhook', [{ name: 'answer', type: 'boolean' }], ['answer']],
+    ['human_in_the_loop', [{ name: 'answer', type: 'boolean' }], ['default', 'answer']],
+    ['human_in_the_loop', [], ['default']],
+  ])('preserves static and dynamic output rules for %s with %j', (blockType, value, keys) => {
+    vi.mocked(getBlock).mockReturnValue({
+      ...ResponseBlock,
+      subBlocks: [{ id: 'inputFormat', type: 'input-format', title: 'Fields', layout: 'full' }],
+      outputs: { default: { type: 'string' } },
+    })
+    expect(Object.keys(readBlockOutputs(blockType as string, { inputFormat: { value } }))).toEqual(
+      keys
+    )
   })
 
   it('exposes object values and recursively declared properties without schema metadata', () => {

@@ -2,10 +2,11 @@ import { describe, expect, it, vi } from 'vitest'
 
 vi.unmock('@/blocks/registry')
 
+import { resolveOutputType } from '@/blocks/utils'
 import { getTrigger } from '@/triggers'
 import { PortfolioStateTriggerBlock } from '@/triggers/blocks/portfolio_state_trigger'
 import { portfolioStateTrigger } from '@/triggers/portfolio/trigger'
-import { getBlockOutputPaths, getBlockOutputType, resolveBlockRuntimeState } from './block-outputs'
+import { getBlockOutputPaths, getBlockOutputType, readBlockOutputs } from './block-outputs'
 import { listWorkflowRunTriggers, resolveWorkflowRunTrigger } from './triggers'
 
 const block = (type: string, extra: Record<string, unknown> = {}) => ({
@@ -105,13 +106,7 @@ describe('workflow run trigger resolution', () => {
         detail: { type: 'object', description: 'Portfolio detail snapshot.' },
       },
     })
-    const runtime = resolveBlockRuntimeState({
-      blockType: 'portfolio_state_trigger',
-      blockConfig: PortfolioStateTriggerBlock,
-      subBlocks: {},
-      triggerMode: true,
-    })
-    expect(runtime.outputs).toEqual({
+    expect(resolveOutputType(readBlockOutputs('portfolio_state_trigger', {}, true))).toEqual({
       input: 'string',
       event: 'string',
       portfolio: { identity: 'object', detail: 'object' },
