@@ -15,9 +15,17 @@ import {
   settlePendingExecutionOwner,
   wakePendingExecution,
 } from '@/lib/execution/pending-execution'
+import { readWorkflowExecutionEventState } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
+import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import type { ExecutionTrigger, WorkflowState } from '@/lib/logs/types'
+import {
+  completeWorkflowCheckpointChild,
+  readWorkflowCheckpointChildren,
+  readWorkflowCheckpointSnapshot,
+  recoverWorkflowCheckpointSegment,
+} from '@/lib/workflows/human-in-the-loop/service'
 import { cancelPendingWorkflowExecution } from '@/lib/workflows/queued-execution-cancellation'
 import { markDocumentProcessingJobFailed } from './knowledge-processing'
 import { executePendingExecutionJob } from './pending-execution-job'
@@ -42,7 +50,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value))
 }
 
-function getExecutionTriggerType(row: PendingExecutionClaim): ExecutionTrigger['type'] {
+function getExecutionTriggerType(
+  row: Pick<PendingExecutionClaim, 'executionType' | 'payload'>
+): ExecutionTrigger['type'] {
   if (row.executionType === 'webhook' || row.executionType === 'monitor') return 'webhook'
   if (row.executionType === 'schedule') return 'schedule'
 
@@ -59,7 +69,7 @@ function getExecutionTriggerType(row: PendingExecutionClaim): ExecutionTrigger['
   return 'manual'
 }
 
-function getWorkflowState(row: PendingExecutionClaim): WorkflowState {
+function getWorkflowState(row: Pick<PendingExecutionClaim, 'payload'>): WorkflowState {
   if (row.payload.executionTarget === 'live' && isRecord(row.payload.workflowData)) {
     return row.payload.workflowData as unknown as WorkflowState
   }
@@ -144,7 +154,7 @@ async function finalizePendingExecutionRunFailure(
     workflowId: row.workflowId,
     error,
   })
-  await finalizePendingExecutionFailure(row, message, durationMs)
+  if (await finalizePendingExecutionFailure(row, message, durationMs)) return undefined
   return message
 }
 
@@ -209,10 +219,14 @@ export const pendingExecutionTask = task<
   run: executePendingExecution,
 })
 
-async function terminalizeWorkflowExecution(
-  row: PendingExecutionClaim,
+export async function terminalizeWorkflowExecution(
+  row: Pick<
+    PendingExecutionClaim,
+    'id' | 'executionType' | 'source' | 'workflowId' | 'workspaceId' | 'userId' | 'payload'
+  >,
   durationMs: number,
-  message: string
+  message: string,
+  billable = true
 ) {
   if (!isTierLimitedPendingExecution(row)) return
   if (!row.workflowId || !row.workspaceId) {
@@ -224,15 +238,43 @@ async function terminalizeWorkflowExecution(
     return
   }
 
-  const existingLog = await getWorkflowExecutionLog(row.id)
+  const executionId =
+    typeof row.payload.resumeExecutionId === 'string' ? row.payload.resumeExecutionId : row.id
+  const existingLog = await getWorkflowExecutionLog(executionId)
   if (existingLog?.endedAt) {
+    const terminal = await readWorkflowExecutionEventState({
+      pendingExecutionId: executionId,
+      workflowId: row.workflowId,
+    })
+    if (terminal?.status === 'completed' || terminal?.status === 'failed') {
+      await completeWorkflowCheckpointChild({
+        childExecutionId: executionId,
+        input: { ...terminal.result },
+      })
+    }
     return
   }
+  const snapshot =
+    row.source === 'human_in_the_loop' || row.payload.resumeExecutionId
+      ? await readWorkflowCheckpointSnapshot(executionId)
+      : null
+  const progress = snapshot
+    ? buildTraceSpans({
+        success: false,
+        output: {},
+        logs: snapshot.executor.context.blockLogs,
+        metadata: snapshot.executor.context.metadata,
+      })
+    : null
 
   const loggingSession = new LoggingSession(
     row.workflowId,
-    row.id,
-    getExecutionTriggerType(row),
+    executionId,
+    snapshot
+      ? snapshot.triggerType === 'api-endpoint'
+        ? 'api'
+        : snapshot.triggerType
+      : getExecutionTriggerType(row),
     row.id.slice(0, 8),
     existingLog?.id
   )
@@ -249,11 +291,21 @@ async function terminalizeWorkflowExecution(
   }
 
   await loggingSession.completeWithError({
-    totalDurationMs: Math.max(1, Math.round(durationMs)),
+    totalDurationMs: Math.max(1, Math.round(durationMs + (progress?.totalDuration ?? 0))),
     error: { message },
     workspaceId: row.workspaceId,
     actorUserId: row.userId,
-    billable: true,
+    billable,
+    ...(progress ? { traceSpans: progress.traceSpans } : {}),
+  })
+  await completeWorkflowCheckpointChild({
+    childExecutionId: executionId,
+    input: {
+      success: false,
+      output: {},
+      error: message,
+      ...(progress ? { traceSpans: progress.traceSpans } : {}),
+    },
   })
 }
 
@@ -267,22 +319,34 @@ async function mapWithConcurrency<T>(
   }
 }
 
-async function cancelPendingExecutionDescendants(
+export async function cancelPendingExecutionDescendants(
   parentExecutionId: string,
   visited = new Set<string>()
 ) {
   if (visited.has(parentExecutionId)) return
   visited.add(parentExecutionId)
   const children = await listChildPendingWorkflowExecutions(parentExecutionId)
-
-  await mapWithConcurrency(children, DESCENDANT_CANCELLATION_CONCURRENCY, async (child) => {
-    if (visited.has(child.id)) return
-    await cancelPendingExecutionDescendants(child.id, visited)
+  const pausedChildren = await readWorkflowCheckpointChildren(parentExecutionId)
+  for (const child of pausedChildren) {
+    if (visited.has(child.id) || children.some((queued) => queued.id === child.id)) continue
     await cancelPendingWorkflowExecution({
       pendingExecutionId: child.id,
       userId: child.userId,
       wake: false,
+      descendantCancellation: true,
     })
+    await cancelPendingExecutionDescendants(child.id, visited)
+  }
+
+  await mapWithConcurrency(children, DESCENDANT_CANCELLATION_CONCURRENCY, async (child) => {
+    if (visited.has(child.id)) return
+    await cancelPendingWorkflowExecution({
+      pendingExecutionId: child.id,
+      userId: child.userId,
+      wake: false,
+      descendantCancellation: true,
+    })
+    await cancelPendingExecutionDescendants(child.id, visited)
     let cancellation: Awaited<ReturnType<typeof cancelPendingExecutionTriggerRun>>
     try {
       cancellation = await cancelPendingExecutionTriggerRun(child)
@@ -320,12 +384,28 @@ export async function finalizePendingExecutionFailure(
   message: string,
   durationMs: number
 ) {
+  if (
+    row.executionType !== 'document' &&
+    (await recoverWorkflowCheckpointSegment({
+      executionId:
+        typeof row.payload.resumeExecutionId === 'string' ? row.payload.resumeExecutionId : row.id,
+      userId: row.userId,
+      workflowId: row.workflowId,
+      checkpointRevision:
+        typeof row.payload.checkpointRevision === 'number' ? row.payload.checkpointRevision : 0,
+    }))
+  ) {
+    await settlePendingExecutionOwner(row, { wake: false })
+    return true
+  }
   if (row.executionType === 'document') {
     await markDocumentProcessingJobFailed(row.payload, message)
   }
 
   await terminalizeWorkflowExecution(row, durationMs, message)
 
-  await cancelPendingExecutionDescendants(row.id)
+  await cancelPendingExecutionDescendants(
+    typeof row.payload.resumeExecutionId === 'string' ? row.payload.resumeExecutionId : row.id
+  )
   await settlePendingExecutionOwner(row, { wake: false })
 }

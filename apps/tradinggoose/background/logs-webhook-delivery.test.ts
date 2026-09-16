@@ -164,6 +164,8 @@ describe('logsWebhookDelivery task', () => {
       buildLogRow({
         finalOutput: { orderId: 'order-1' },
         traceSpans: [{ id: 'span-1' }],
+        checkpoint: { encryptedSnapshot: 'private-checkpoint-ciphertext', revision: 2 },
+        pause: { url: '/review/execution-1', revision: 2 },
       }),
     ])
     mockSelectQueue.push([{ status: 'in_progress' }])
@@ -199,6 +201,9 @@ describe('logsWebhookDelivery task', () => {
       })
     )
     expect(body.data.traceSpans).toBeUndefined()
+    expect(body.data).not.toHaveProperty('checkpoint')
+    expect(body.data).not.toHaveProperty('pause')
+    expect(String(request.body)).not.toContain('private-checkpoint-ciphertext')
     expect(mockTaskTrigger).not.toHaveBeenCalled()
   })
 

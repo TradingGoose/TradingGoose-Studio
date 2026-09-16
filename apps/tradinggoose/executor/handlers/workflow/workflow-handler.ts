@@ -20,6 +20,7 @@ type WorkflowTraceSpan = TraceSpan & {
 
 type QueuedWorkflowExecutionResult = {
   success?: boolean
+  status?: 'paused'
   output?: Record<string, unknown>
   error?: string
   traceSpans?: TraceSpan[]
@@ -31,7 +32,7 @@ type QueueWorkflowResponse = {
 }
 
 type JobStatusResponse = {
-  status?: 'queued' | 'processing' | 'completed' | 'failed'
+  status?: 'queued' | 'processing' | 'paused' | 'completed' | 'failed'
   output?: QueuedWorkflowExecutionResult
   error?: string
 }
@@ -90,6 +91,23 @@ export class WorkflowBlockHandler implements BlockHandler {
     }
 
     const childWorkflowInput = this.resolveChildWorkflowInput(inputs)
+    const pausePointId = context.currentVirtualBlockId ?? block.id
+    if (context.resumeInputs?.has(pausePointId)) {
+      const childResult = context.resumeInputs.get(
+        pausePointId
+      ) as QueuedWorkflowExecutionResult & {
+        childWorkflowName?: string
+      }
+      context.resumeInputs.delete(pausePointId)
+      const childWorkflowName = childResult.childWorkflowName ?? 'Child workflow'
+      if (!childResult.success)
+        throw new Error(childResult.error ?? 'Child workflow execution failed')
+      return this.mapChildOutputToParent(
+        childResult,
+        childWorkflowName,
+        this.transformChildWorkflowSpans(childResult.traceSpans, childWorkflowName)
+      )
+    }
 
     return {
       kind: 'deferred',
@@ -117,6 +135,22 @@ export class WorkflowBlockHandler implements BlockHandler {
             headers,
             shouldCancelExecution: context.shouldCancelExecution,
           })
+          if (childResult.status === 'paused') {
+            return {
+              kind: 'paused',
+              pausePoint: {
+                id: pausePointId,
+                blockId: block.id,
+                blockName: block.metadata?.name ?? 'Workflow',
+                kind: 'child',
+                childExecutionId: queueResponse.taskId,
+                childWorkflowId: workflowId,
+                childWorkflowName,
+                displayData: childResult.output ?? {},
+                inputFormat: [],
+              },
+            }
+          }
           const childTraceSpans = this.transformChildWorkflowSpans(
             childResult.traceSpans,
             childWorkflowName
@@ -280,6 +314,9 @@ export class WorkflowBlockHandler implements BlockHandler {
 
       const body = (await response.json()) as JobStatusResponse
 
+      if (body.status === 'paused') {
+        return { ...body.output, status: 'paused' }
+      }
       if (body.status === 'completed') {
         return body.output ?? {}
       }

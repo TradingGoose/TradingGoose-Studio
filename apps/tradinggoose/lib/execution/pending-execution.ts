@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { db } from '@tradinggoose/db'
 import { pendingExecution, workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { ApiError, idempotencyKeys, runs, tasks, timeout } from '@trigger.dev/sdk'
-import { and, asc, eq, lte, sql } from 'drizzle-orm'
+import { and, asc, eq, lte, ne, sql } from 'drizzle-orm'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
 import {
   resolveServerExecutionBillingContext,
@@ -27,6 +27,8 @@ export type PendingExecutionType = 'workflow' | 'webhook' | 'schedule' | 'monito
 
 export type PendingExecutionPayload = Record<string, unknown>
 
+export type PendingExecutionTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
 type PendingExecutionInsert = {
   executionType: PendingExecutionType
   pendingExecutionId: string
@@ -37,6 +39,9 @@ type PendingExecutionInsert = {
   orderingKey?: string | null
   payload: PendingExecutionPayload
   requestId?: string
+  beforeEnqueue?: (tx: PendingExecutionTransaction) => Promise<boolean>
+  /** Reserved for a validated checkpoint transition, never copied from request payloads. */
+  continuation?: boolean
 }
 
 type PendingExecutionHandle = {
@@ -379,6 +384,9 @@ export async function enqueuePendingExecution(
         'Execution mode changed during admission. Retry the request.'
       )
     }
+    if (params.beforeEnqueue && !(await params.beforeEnqueue(tx))) {
+      return { mode: 'skipped' as const, inserted: false }
+    }
     const execution = {
       id: params.pendingExecutionId,
       executionType: params.executionType,
@@ -430,15 +438,15 @@ export async function enqueuePendingExecution(
     if (limits.maxPendingAgeSeconds !== null) {
       const staleBefore = new Date(Date.now() - limits.maxPendingAgeSeconds * 1000)
 
-      await tx
-        .delete(pendingExecution)
-        .where(
-          and(
-            eq(pendingExecution.billingScopeId, billingScopeId),
-            eq(pendingExecution.status, 'pending'),
-            lte(pendingExecution.createdAt, staleBefore)
-          )
+      await tx.delete(pendingExecution).where(
+        and(
+          eq(pendingExecution.billingScopeId, billingScopeId),
+          eq(pendingExecution.status, 'pending'),
+          // A continuation owns an existing paused execution, not an expiring new request.
+          ne(pendingExecution.source, 'human_in_the_loop'),
+          lte(pendingExecution.createdAt, staleBefore)
         )
+      )
     }
 
     const [existingRow] = await tx
@@ -473,7 +481,7 @@ export async function enqueuePendingExecution(
       }
     }
 
-    if (limits.maxPendingCount !== null) {
+    if (limits.maxPendingCount !== null && !params.continuation) {
       const [countRow] = await tx
         .select({ count: sql<number>`count(*)` })
         .from(pendingExecution)
@@ -500,6 +508,10 @@ export async function enqueuePendingExecution(
     })
     return queueResult(true)
   })
+
+  if (queueResult.mode === 'skipped') {
+    return { pendingExecutionId: params.pendingExecutionId, inserted: false }
+  }
 
   if (queueResult.mode === 'local') {
     if (queueResult.inserted) startLocalPendingExecution(params)

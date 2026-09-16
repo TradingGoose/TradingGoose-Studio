@@ -483,7 +483,14 @@ export const useConsoleStore = create<ConsoleStore>()(
                 return {
                   ...entry,
                   ...(event.type === 'execution:error' ? { error: event.data.error } : {}),
-                  success: event.type === 'execution:completed',
+                  ...(event.type === 'execution:paused'
+                    ? {
+                        warning: 'Workflow paused for review',
+                        output: event.data.result.output,
+                      }
+                    : {}),
+                  success:
+                    event.type === 'execution:completed' || event.type === 'execution:paused',
                   endedAt: event.timestamp,
                   durationMs: calculateDurationMs(entry.startedAt, event.timestamp),
                   isRunning: false,

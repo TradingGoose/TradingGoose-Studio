@@ -261,7 +261,7 @@ const synthesizeTraceSpans = (executionData: unknown): TraceSpan[] | undefined =
   return synthesizedTraceSpans.length > 0 ? synthesizedTraceSpans : undefined
 }
 
-const buildPublicWorkflowLogExecutionData = (
+export const buildPublicWorkflowLogExecutionData = (
   row: Pick<RawLogRow, 'executionData'>
 ): WorkflowLog['executionData'] | undefined => {
   if (!isRecord(row.executionData)) {

@@ -7,6 +7,11 @@ import { createLogger } from '@/lib/logs/console/logger'
 import type { TraceSpan } from '@/lib/logs/types'
 import { getBlock } from '@/blocks'
 import type { BlockOutput } from '@/blocks/types'
+import {
+  type ExecutorCheckpoint,
+  restoreExecutionContext,
+  saveExecutionContext,
+} from '@/executor/checkpoint'
 import { BlockType, isWorkflowBlockType } from '@/executor/consts'
 import {
   AgentBlockHandler,
@@ -15,6 +20,7 @@ import {
   EvaluatorBlockHandler,
   FunctionBlockHandler,
   GenericBlockHandler,
+  HumanInTheLoopBlockHandler,
   LoopBlockHandler,
   ParallelBlockHandler,
   ResponseBlockHandler,
@@ -37,8 +43,10 @@ import type {
   ExecutionContextExtensions,
   ExecutionResult,
   NormalizedBlockOutput,
+  PausedBlockExecution,
   StreamingExecution,
 } from '@/executor/types'
+import { isPausedBlockExecution } from '@/executor/types'
 import { VirtualBlockUtils } from '@/executor/utils/virtual-blocks'
 import type { SerializedBlock, SerializedParallel, SerializedWorkflow } from '@/serializer/types'
 
@@ -116,6 +124,8 @@ export type ExecutorOptions = {
   workflowInput?: any
   workflowVariables?: Record<string, any>
   contextExtensions: ExecutionContextExtensions
+  checkpoint?: ExecutorCheckpoint
+  resumeInputs?: Map<string, Record<string, unknown>>
 }
 
 /**
@@ -138,6 +148,8 @@ export class Executor {
   private actualWorkflow: SerializedWorkflow
   private isCancelled = false
   private isChildExecution = false
+  private checkpoint?: ExecutorCheckpoint
+  private resumeInputs?: Map<string, Record<string, unknown>>
 
   /**
    * Updates block output with streamed content, handling both structured and unstructured responses
@@ -200,6 +212,8 @@ export class Executor {
     this.workflowVariables = options.workflowVariables || {}
     this.contextExtensions = options.contextExtensions
     this.isChildExecution = options.contextExtensions.isChildExecution || false
+    this.checkpoint = options.checkpoint
+    this.resumeInputs = options.resumeInputs
 
     this.validateWorkflow()
 
@@ -234,6 +248,7 @@ export class Executor {
       new WorkflowBlockHandler(),
       new VariablesBlockHandler(),
       new WaitBlockHandler(),
+      new HumanInTheLoopBlockHandler(),
       new GenericBlockHandler(),
     ]
   }
@@ -265,7 +280,7 @@ export class Executor {
    */
   async execute(workflowId: string, triggerBlockId: string): Promise<ExecutionResult> {
     const startTime = new Date()
-    let finalOutput: NormalizedBlockOutput = {}
+    let finalOutput: NormalizedBlockOutput = this.checkpoint?.finalOutput ?? {}
 
     // Track workflow execution start
     trackWorkflowTelemetry('workflow_execution_started', {
@@ -277,11 +292,19 @@ export class Executor {
 
     this.validateWorkflow(triggerBlockId)
 
-    const context = this.createExecutionContext(workflowId, startTime, triggerBlockId)
+    const context = this.checkpoint
+      ? {
+          ...restoreExecutionContext(this.checkpoint.context),
+          workflow: this.actualWorkflow,
+          onExecutionEvent: this.contextExtensions.onExecutionEvent,
+          shouldCancelExecution: this.contextExtensions.shouldCancelExecution,
+          resumeInputs: this.resumeInputs ?? new Map(),
+        }
+      : this.createExecutionContext(workflowId, startTime, triggerBlockId)
 
     try {
       let hasMoreLayers = true
-      let iteration = 0
+      let iteration = this.checkpoint?.iteration ?? 0
       const maxIterations = 500 // Safety limit for infinite loops
 
       while (hasMoreLayers && iteration < maxIterations && !(await this.shouldStopExecution())) {
@@ -300,6 +323,28 @@ export class Executor {
             break
           }
 
+          if (context.pausePoints?.length) {
+            context.metadata.duration += Date.now() - startTime.getTime()
+            return {
+              success: true,
+              status: 'paused',
+              output: {},
+              pausePoints: context.pausePoints,
+              checkpoint: {
+                workflow: this.actualWorkflow,
+                currentBlockStates: this.initialBlockStates,
+                context: saveExecutionContext(context),
+                iteration: iteration + 1,
+                finalOutput,
+              },
+              logs: context.blockLogs,
+              metadata: {
+                duration: context.metadata.duration,
+                startTime: context.metadata.startTime,
+              },
+            }
+          }
+
           // Process loop iterations - this will activate external paths when loops complete
           await this.loopManager.processLoopIterations(context)
 
@@ -315,6 +360,10 @@ export class Executor {
         }
 
         iteration++
+      }
+
+      if (hasMoreLayers && iteration >= maxIterations && !this.isCancelled) {
+        throw new Error('Workflow execution exceeded the 500-layer safety limit')
       }
 
       // Handle cancellation
@@ -345,7 +394,7 @@ export class Executor {
 
       const endTime = new Date()
       context.metadata.endTime = endTime.toISOString()
-      const duration = endTime.getTime() - startTime.getTime()
+      const duration = context.metadata.duration + endTime.getTime() - startTime.getTime()
 
       trackWorkflowTelemetry('workflow_execution_completed', {
         workflowId,
@@ -627,6 +676,8 @@ export class Executor {
       edges: this.contextExtensions.edges || [],
       onExecutionEvent: this.contextExtensions.onExecutionEvent,
       shouldCancelExecution: this.contextExtensions.shouldCancelExecution,
+      pausePoints: [],
+      resumeInputs: new Map(),
     }
 
     Object.entries(this.initialBlockStates).forEach(([blockId, output]) => {
@@ -1412,12 +1463,22 @@ export class Executor {
     const results: NormalizedBlockOutput[] = []
     const errors: Error[] = []
     const deferredResultIndexes: number[] = []
+    const pausedBlockIds = new Set<string>()
 
-    settledResults.forEach((result) => {
+    const recordPause = (index: number, pause: PausedBlockExecution) => {
+      pausedBlockIds.add(blockIds[index])
+      context.pausePoints ??= []
+      context.pausePoints.push(pause.pausePoint)
+      results[index] = {}
+    }
+
+    settledResults.forEach((result, index) => {
       if (result.status === 'fulfilled') {
         if (isDeferredBlockExecution(result.value)) {
           deferredResultIndexes.push(results.length)
           results.push({ status: 102, result: 'Deferred block execution pending' })
+        } else if (isPausedBlockExecution(result.value)) {
+          recordPause(index, result.value)
         } else {
           results.push(result.value)
         }
@@ -1449,6 +1510,10 @@ export class Executor {
           const resultIndex = deferredResultIndexes[waitedIndex]
 
           if (waitedResult.status === 'fulfilled') {
+            if (isPausedBlockExecution(waitedResult.value)) {
+              recordPause(resultIndex, waitedResult.value)
+              return
+            }
             results[resultIndex] =
               typeof waitedResult.value === 'object' && waitedResult.value !== null
                 ? waitedResult.value
@@ -1467,24 +1532,16 @@ export class Executor {
       await deferredWaitTask()
     }
 
-    // If there were any errors, log them but don't throw immediately
-    // This allows successful blocks to complete their streaming
-    if (errors.length > 0) {
-      logger.warn(
-        `Layer execution completed with ${errors.length} failed blocks out of ${blockIds.length} total`
-      )
+    // Error-path handlers return normal outputs. Any remaining rejection is
+    // unhandled and must fail the run, even if another branch succeeded or paused.
+    if (errors.length > 0) throw errors[0]
 
-      // Only throw if ALL blocks failed
-      if (errors.length === blockIds.length) {
-        throw errors[0] // Throw the first error if all blocks failed
-      }
-    }
-
-    blockIds.forEach((blockId) => {
+    const completedBlockIds = blockIds.filter((blockId) => !pausedBlockIds.has(blockId))
+    completedBlockIds.forEach((blockId) => {
       context.executedBlocks.add(blockId)
     })
 
-    this.pathTracker.updateExecutionPaths(blockIds, context)
+    this.pathTracker.updateExecutionPaths(completedBlockIds, context)
 
     return results
   }
@@ -1501,7 +1558,7 @@ export class Executor {
   private async executeBlock(
     blockId: string,
     sharedContext: ExecutionContext
-  ): Promise<NormalizedBlockOutput | DeferredBlockExecution> {
+  ): Promise<NormalizedBlockOutput | DeferredBlockExecution | PausedBlockExecution> {
     // Check if this is a virtual block ID for parallel execution
     let actualBlockId = blockId
     let parallelInfo:
@@ -1863,12 +1920,15 @@ export class Executor {
       const startTime = performance.now()
       const rawOutput = await handler.execute(block, inputs, context)
 
+      if (isPausedBlockExecution(rawOutput)) return rawOutput
+
       if (isDeferredBlockExecution(rawOutput)) {
         return {
           kind: 'deferred',
           wait: async () => {
             try {
               const deferredOutput = await rawOutput.wait()
+              if (isPausedBlockExecution(deferredOutput)) return deferredOutput
               const output: NormalizedBlockOutput =
                 typeof deferredOutput === 'object' && deferredOutput !== null
                   ? deferredOutput

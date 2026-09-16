@@ -1,6 +1,8 @@
 import type { TraceSpan } from '@/lib/logs/types'
 import type { WorkflowExecutionEventInput } from '@/lib/workflows/execution-events'
+import type { WorkflowPausePoint } from '@/lib/workflows/human-in-the-loop/types'
 import type { BlockOutput } from '@/blocks/types'
+import type { ExecutorCheckpoint } from '@/executor/checkpoint'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 import type { TriggerType } from '@/services/queue'
 
@@ -188,6 +190,8 @@ export interface ExecutionContext {
 
   onExecutionEvent?: (event: WorkflowExecutionEventInput) => Promise<void>
   shouldCancelExecution?: () => Promise<boolean>
+  pausePoints?: WorkflowPausePoint[]
+  resumeInputs?: Map<string, Record<string, unknown>>
 }
 
 /**
@@ -216,6 +220,10 @@ export interface ExecutionContextExtensions {
  */
 export interface ExecutionResult {
   success: boolean // Whether the workflow executed successfully
+  status?: 'paused'
+  pausePoints?: WorkflowPausePoint[]
+  /** Internal executor state. Strip before emitting events or returning to clients. */
+  checkpoint?: ExecutorCheckpoint
   output: NormalizedBlockOutput // Final output data from the workflow
   error?: string // Error message if execution failed
   logs?: BlockLog[] // Execution logs for all blocks
@@ -233,26 +241,16 @@ export interface StreamingExecution {
 
 export interface DeferredBlockExecution {
   kind: 'deferred'
-  wait: () => Promise<BlockOutput>
+  wait: () => Promise<BlockOutput | PausedBlockExecution>
 }
 
-/**
- * Interface for a block executor component.
- */
-export interface BlockExecutor {
-  /**
-   * Determines if this executor can process the given block.
-   */
-  canExecute(block: SerializedBlock): boolean
+export interface PausedBlockExecution {
+  kind: 'paused'
+  pausePoint: WorkflowPausePoint
+}
 
-  /**
-   * Executes the block with the given inputs and context.
-   */
-  execute(
-    block: SerializedBlock,
-    inputs: Record<string, any>,
-    context: ExecutionContext
-  ): Promise<BlockOutput | StreamingExecution | DeferredBlockExecution>
+export function isPausedBlockExecution(value: unknown): value is PausedBlockExecution {
+  return typeof value === 'object' && value !== null && 'kind' in value && value.kind === 'paused'
 }
 
 /**
@@ -280,50 +278,5 @@ export interface BlockHandler {
     block: SerializedBlock,
     inputs: Record<string, any>,
     context: ExecutionContext
-  ): Promise<BlockOutput | StreamingExecution | DeferredBlockExecution>
-}
-
-/**
- * Definition of a tool that can be invoked by blocks.
- *
- * @template P - Parameter type for the tool
- * @template O - Output type from the tool
- */
-export interface Tool<P = any, O = Record<string, any>> {
-  id: string // Unique identifier for the tool
-  name: string // Display name of the tool
-  description: string // Description of what the tool does
-  version: string // Version string for the tool
-
-  // Parameter definitions for the tool
-  params: {
-    [key: string]: {
-      type: string // Data type of the parameter
-      required?: boolean // Whether the parameter is required
-      description?: string // Description of the parameter
-      default?: any // Default value if not provided
-    }
-  }
-
-  // HTTP request configuration for API tools
-  request?: {
-    url?: string | ((params: P) => string) // URL or function to generate URL
-    method?: string // HTTP method to use
-    headers?: (params: P) => Record<string, string> // Function to generate request headers
-    body?: (params: P) => Record<string, any> // Function to generate request body
-  }
-
-  // Function to transform API response to tool output
-  transformResponse?: (response: any) => Promise<{
-    success: boolean
-    output: O
-    error?: string
-  }>
-}
-
-/**
- * Registry of available tools indexed by ID.
- */
-export interface ToolRegistry {
-  [key: string]: Tool
+  ): Promise<BlockOutput | StreamingExecution | DeferredBlockExecution | PausedBlockExecution>
 }

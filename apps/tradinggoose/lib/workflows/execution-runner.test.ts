@@ -1,4 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type {
+  WorkflowCheckpointSnapshot,
+  WorkflowPausePoint,
+} from '@/lib/workflows/human-in-the-loop/types'
 import { TriggerUtils } from '@/lib/workflows/triggers'
 import type { WorkflowExecutionBlueprint } from './execution-runner'
 import { loadWorkflowExecutionBlueprint, runPreparedWorkflowExecution } from './execution-runner'
@@ -29,12 +33,23 @@ const mocks = vi.hoisted(() => {
     getPersonalAndWorkspaceEnv,
     loggingSessionConstructor: vi.fn(),
     updateWorkflowRunCounts: vi.fn(),
+    saveWorkflowCheckpoint: vi.fn(),
+    completeWorkflowCheckpointChild: vi.fn(),
+    dispatchWorkflowPauseNotifications: vi.fn(),
   }
 })
 
 vi.mock('@tradinggoose/db', () => ({ db: { select: mocks.dbSelect } }))
 vi.mock('@tradinggoose/db/schema', () => ({ workflow: {} }))
 vi.mock('drizzle-orm', () => ({ eq: vi.fn() }))
+
+vi.mock('@/lib/workflows/human-in-the-loop/service', () => ({
+  saveWorkflowCheckpoint: mocks.saveWorkflowCheckpoint,
+  completeWorkflowCheckpointChild: mocks.completeWorkflowCheckpointChild,
+}))
+vi.mock('@/lib/workflows/human-in-the-loop/notifications', () => ({
+  dispatchWorkflowPauseNotifications: mocks.dispatchWorkflowPauseNotifications,
+}))
 
 vi.mock('@/lib/billing', () => ({
   checkServerSideUsageLimits: mocks.checkServerSideUsageLimits,
@@ -129,6 +144,15 @@ const blueprint: WorkflowExecutionBlueprint = {
   },
 }
 
+const baseRunParams = {
+  blueprint,
+  actorUserId: 'user-1',
+  triggerType: 'manual' as const,
+  workflowInput: {},
+  executionId: 'execution-1',
+  triggerTarget: { kind: 'block' as const, blockId: 'trigger' },
+}
+
 describe('runPreparedWorkflowExecution', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -148,19 +172,16 @@ describe('runPreparedWorkflowExecution', () => {
       workspaceEncrypted: {},
     })
     mocks.updateWorkflowRunCounts.mockResolvedValue(undefined)
+    mocks.saveWorkflowCheckpoint.mockResolvedValue({ revision: 2 })
+    mocks.completeWorkflowCheckpointChild.mockResolvedValue(undefined)
+    mocks.dispatchWorkflowPauseNotifications.mockResolvedValue(undefined)
   })
 
   it('threads required workspace and workflow log context into executor runs without resetting workflow depth', async () => {
     const result = await runPreparedWorkflowExecution({
-      blueprint,
-      actorUserId: 'user-1',
+      ...baseRunParams,
       triggerType: 'webhook',
       workflowInput: { symbol: 'AAPL' },
-      executionId: 'execution-1',
-      triggerTarget: {
-        kind: 'block',
-        blockId: 'trigger',
-      },
       contextExtensions: {
         workspaceId: 'spoofed-workspace',
         workflowLogId: 'spoofed-log',
@@ -173,7 +194,8 @@ describe('runPreparedWorkflowExecution', () => {
       'workflow-1',
       'execution-1',
       'webhook',
-      'executio'
+      'executio',
+      undefined
     )
     expect(mocks.start).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -213,17 +235,7 @@ describe('runPreparedWorkflowExecution', () => {
       workspaceEncrypted: { WORKSPACE_KEY: 'encrypted-workspace' },
     })
 
-    await runPreparedWorkflowExecution({
-      blueprint,
-      actorUserId: 'user-1',
-      triggerType: 'manual',
-      workflowInput: {},
-      executionId: 'execution-1',
-      triggerTarget: {
-        kind: 'block',
-        blockId: 'trigger',
-      },
-    })
+    await runPreparedWorkflowExecution(baseRunParams)
 
     expect(mocks.complete).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -241,17 +253,7 @@ describe('runPreparedWorkflowExecution', () => {
       message: 'Usage limit exceeded',
     })
 
-    const result = await runPreparedWorkflowExecution({
-      blueprint,
-      actorUserId: 'user-1',
-      triggerType: 'manual',
-      workflowInput: {},
-      executionId: 'execution-1',
-      triggerTarget: {
-        kind: 'block',
-        blockId: 'trigger',
-      },
-    })
+    const result = await runPreparedWorkflowExecution(baseRunParams)
 
     expect(mocks.start).toHaveBeenCalled()
     expect(mocks.execute).not.toHaveBeenCalled()
@@ -273,11 +275,8 @@ describe('runPreparedWorkflowExecution', () => {
 
   it('reports missing trigger blocks as dispatch failures', async () => {
     const result = await runPreparedWorkflowExecution({
-      blueprint,
-      actorUserId: 'user-1',
+      ...baseRunParams,
       triggerType: 'webhook',
-      workflowInput: {},
-      executionId: 'execution-1',
       triggerTarget: {
         kind: 'block',
         blockId: 'missing',
@@ -292,19 +291,9 @@ describe('runPreparedWorkflowExecution', () => {
   it('does not rewrite successful executions as failed when terminal success logging fails', async () => {
     mocks.complete.mockRejectedValueOnce(new Error('log completion failed'))
 
-    await expect(
-      runPreparedWorkflowExecution({
-        blueprint,
-        actorUserId: 'user-1',
-        triggerType: 'manual',
-        workflowInput: {},
-        executionId: 'execution-1',
-        triggerTarget: {
-          kind: 'block',
-          blockId: 'trigger',
-        },
-      })
-    ).rejects.toThrow('log completion failed')
+    await expect(runPreparedWorkflowExecution(baseRunParams)).rejects.toThrow(
+      'log completion failed'
+    )
 
     expect(mocks.execute).toHaveBeenCalled()
     expect(mocks.completeWithError).not.toHaveBeenCalled()
@@ -317,11 +306,8 @@ describe('runPreparedWorkflowExecution', () => {
     })
 
     await runPreparedWorkflowExecution({
-      blueprint,
-      actorUserId: 'user-1',
-      triggerType: 'manual',
+      ...baseRunParams,
       workflowInput: { symbol: 'AAPL' },
-      executionId: 'execution-1',
       triggerTarget: {
         kind: 'trigger',
         triggerType: 'api',
@@ -344,11 +330,7 @@ describe('runPreparedWorkflowExecution', () => {
 
     await expect(
       runPreparedWorkflowExecution({
-        blueprint,
-        actorUserId: 'user-1',
-        triggerType: 'manual',
-        workflowInput: {},
-        executionId: 'execution-1',
+        ...baseRunParams,
         triggerTarget: {
           kind: 'trigger',
           triggerType: 'manual',
@@ -367,11 +349,7 @@ describe('runPreparedWorkflowExecution', () => {
     })
 
     await runPreparedWorkflowExecution({
-      blueprint,
-      actorUserId: 'user-1',
-      triggerType: 'manual',
-      workflowInput: {},
-      executionId: 'execution-1',
+      ...baseRunParams,
       triggerTarget: {
         kind: 'trigger',
         triggerType: 'manual',
@@ -383,6 +361,185 @@ describe('runPreparedWorkflowExecution', () => {
         hasResponseBlock: true,
       })
     )
+  })
+
+  const pausePoint: WorkflowPausePoint = {
+    id: 'review',
+    blockId: 'review',
+    blockName: 'Review',
+    kind: 'human',
+    displayData: { order: 'AAPL' },
+    inputFormat: [{ name: 'approved', type: 'boolean', required: true }],
+  }
+  const snapshot = {
+    blueprint,
+    workflowInput: { symbol: 'AAPL' },
+    triggerType: 'manual',
+    workflowLogId: 'original-log',
+    encryptedEnvVars: { TOKEN: 'encrypted-original' },
+    executor: {
+      workflow: { blocks: [], connections: [], loops: {}, parallels: {} },
+      currentBlockStates: { upstream: { result: 'already-ran' } },
+      iteration: 3,
+      finalOutput: { result: 'already-ran' },
+      context: {
+        triggerBlockId: 'saved-trigger',
+        workflowDepth: 2,
+        environmentVariables: { TOKEN: 'decrypted-original' },
+        workflowVariables: { risk: { value: 5 } },
+        executedBlocks: ['upstream'],
+        blockLogs: [{ blockId: 'upstream', success: true }],
+      },
+    },
+  } as unknown as WorkflowCheckpointSnapshot
+  const runParams = {
+    ...baseRunParams,
+    workflowInput: snapshot.workflowInput,
+  }
+  const pausedResult = {
+    success: true,
+    status: 'paused',
+    logs: [],
+    checkpoint: snapshot.executor,
+    pausePoints: [pausePoint],
+  }
+
+  it('persists a pause before notifying without terminal logging, run counts, or exposing private snapshots', async () => {
+    const onExecutionEvent = vi.fn().mockResolvedValue(undefined)
+    mocks.execute.mockResolvedValueOnce({
+      ...pausedResult,
+      output: { secret: 'private-output' },
+    })
+
+    const result = await runPreparedWorkflowExecution({
+      ...runParams,
+      contextExtensions: { onExecutionEvent },
+    })
+
+    expect(mocks.saveWorkflowCheckpoint).toHaveBeenCalledWith(
+      expect.objectContaining({
+        executionId: 'execution-1',
+        workflowId: 'workflow-1',
+        workspaceId: 'workspace-1',
+        userId: 'user-1',
+        pausePoints: [pausePoint],
+        snapshot: expect.objectContaining({
+          blueprint,
+          executor: snapshot.executor,
+          workflowLogId: 'workflow-log-1',
+        }),
+      })
+    )
+    expect(mocks.saveWorkflowCheckpoint.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.dispatchWorkflowPauseNotifications.mock.invocationCallOrder[0]
+    )
+    expect(result.result).toMatchObject({
+      success: true,
+      status: 'paused',
+      output: { revision: 2 },
+    })
+    expect(result.result).not.toHaveProperty('checkpoint')
+    expect(result.result).not.toHaveProperty('pausePoints')
+    expect(JSON.stringify(result.result)).not.toContain('decrypted-original')
+    expect(JSON.stringify(result.result)).not.toContain('private-output')
+    expect(onExecutionEvent).toHaveBeenCalledExactlyOnceWith({
+      type: 'execution:paused',
+      data: { result: result.result },
+    })
+    expect(mocks.complete).not.toHaveBeenCalled()
+    expect(mocks.completeWithError).not.toHaveBeenCalled()
+    expect(mocks.updateWorkflowRunCounts).not.toHaveBeenCalled()
+  })
+
+  it('preserves a saved pause when notification or event delivery fails', async () => {
+    mocks.execute.mockResolvedValueOnce(pausedResult)
+    mocks.dispatchWorkflowPauseNotifications.mockRejectedValueOnce(new Error('notification down'))
+    const onExecutionEvent = vi.fn().mockRejectedValue(new Error('stream down'))
+
+    const result = await runPreparedWorkflowExecution({
+      ...runParams,
+      contextExtensions: { onExecutionEvent },
+    })
+
+    expect(result.result.status).toBe('paused')
+    expect(mocks.saveWorkflowCheckpoint).toHaveBeenCalledTimes(1)
+    expect(mocks.dispatchWorkflowPauseNotifications).toHaveBeenCalledTimes(1)
+    expect(mocks.completeWithError).not.toHaveBeenCalled()
+  })
+
+  it('persists child waits without running queue recovery inside the execution failure boundary', async () => {
+    const childPoint: WorkflowPausePoint = {
+      ...pausePoint,
+      kind: 'child',
+      childExecutionId: 'child-execution',
+      childWorkflowId: 'child-workflow',
+    }
+    mocks.execute.mockResolvedValueOnce({
+      ...pausedResult,
+      pausePoints: [childPoint],
+    })
+    const result = await runPreparedWorkflowExecution(runParams)
+
+    expect(result.result.status).toBe('paused')
+    expect(mocks.saveWorkflowCheckpoint).toHaveBeenCalledWith(
+      expect.objectContaining({ pausePoints: [childPoint] })
+    )
+    expect(mocks.completeWorkflowCheckpointChild).not.toHaveBeenCalled()
+    expect(mocks.complete).not.toHaveBeenCalled()
+    expect(mocks.completeWithError).not.toHaveBeenCalled()
+  })
+
+  it('resumes the saved executor and original log without reloading inputs, secrets, or workflow state', async () => {
+    const resume = { snapshot, pausePoints: [{ ...pausePoint, input: { approved: true } }] }
+    await runPreparedWorkflowExecution({ ...runParams, resume })
+
+    expect(mocks.start).not.toHaveBeenCalled()
+    expect(mocks.loggingSessionConstructor).toHaveBeenCalledWith(
+      'workflow-1',
+      'execution-1',
+      'manual',
+      'executio',
+      'original-log'
+    )
+    expect(mocks.getPersonalAndWorkspaceEnv).not.toHaveBeenCalled()
+    expect(mocks.decryptSecret).not.toHaveBeenCalled()
+    expect(mocks.executorConstructor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        checkpoint: snapshot.executor,
+        workflow: snapshot.executor.workflow,
+        currentBlockStates: snapshot.executor.currentBlockStates,
+        envVarValues: { TOKEN: 'decrypted-original' },
+        workflowVariables: snapshot.executor.context.workflowVariables,
+        resumeInputs: new Map([['review', { approved: true }]]),
+        contextExtensions: expect.objectContaining({
+          userId: 'user-1',
+          executionId: 'execution-1',
+          workflowLogId: 'original-log',
+          workflowDepth: 2,
+        }),
+      })
+    )
+    expect(mocks.execute).toHaveBeenCalledExactlyOnceWith('workflow-1', 'saved-trigger')
+    expect(mocks.complete).toHaveBeenCalledTimes(1)
+    expect(mocks.updateWorkflowRunCounts).toHaveBeenCalledExactlyOnceWith('workflow-1')
+  })
+
+  it('terminalizes a failed resumed execution once with the original logs', async () => {
+    mocks.execute.mockRejectedValueOnce(new Error('downstream failed'))
+    const result = await runPreparedWorkflowExecution({
+      ...runParams,
+      resume: { snapshot, pausePoints: [pausePoint] },
+    })
+
+    expect(result.result).toMatchObject({
+      success: false,
+      error: 'downstream failed',
+      logs: snapshot.executor.context.blockLogs,
+    })
+    expect(mocks.start).not.toHaveBeenCalled()
+    expect(mocks.complete).not.toHaveBeenCalled()
+    expect(mocks.completeWithError).toHaveBeenCalledTimes(1)
+    expect(mocks.updateWorkflowRunCounts).not.toHaveBeenCalled()
   })
 })
 

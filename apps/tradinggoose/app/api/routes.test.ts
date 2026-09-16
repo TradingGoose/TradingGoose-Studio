@@ -776,6 +776,45 @@ describe('Airtable payload durability', () => {
     expect(enqueueExecutionMock).not.toHaveBeenCalled()
   })
 
+  it('preserves a paused batch while admitting independent later Airtable events', async () => {
+    queueTenPages()
+    runWorkflowMock.mockResolvedValue({
+      result: { success: true, status: 'paused', output: { reviewUrl: '/review/execution-a' } },
+    })
+
+    await expect(execute()).resolves.toMatchObject({
+      success: true,
+      status: 'paused',
+      executionId: 'execution-a',
+      output: { reviewUrl: '/review/execution-a' },
+    })
+
+    expect(runWorkflowMock).toHaveBeenCalledOnce()
+    expect(enqueueExecutionMock).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        pendingExecutionId: 'webhook_execution:webhook-1:airtable:remote:10',
+        executionType: 'webhook',
+      })
+    )
+    expect(enqueueExecutionMock.mock.calls[0][0].payload).not.toHaveProperty('airtablePollStage')
+    expect(loggingCompleteMock).not.toHaveBeenCalled()
+    expect(loggingFailureMock).not.toHaveBeenCalled()
+  })
+
+  it('does not terminally log a paused batch when later-page admission fails', async () => {
+    queueTenPages()
+    runWorkflowMock.mockResolvedValue({
+      result: { success: true, status: 'paused', output: {} },
+    })
+    enqueueExecutionMock.mockRejectedValueOnce(new Error('admission unavailable'))
+
+    await expect(execute()).rejects.toThrow('admission unavailable')
+
+    expect(runWorkflowMock).toHaveBeenCalledOnce()
+    expect(loggingCompleteMock).not.toHaveBeenCalled()
+    expect(loggingFailureMock).not.toHaveBeenCalled()
+  })
+
   it('logs an empty producing batch before admitting its continuation', async () => {
     queueTenPages([])
 

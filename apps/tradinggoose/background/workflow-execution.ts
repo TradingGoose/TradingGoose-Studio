@@ -6,10 +6,12 @@ import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { getMonitorProviderForTriggerId, isMonitorTriggerId } from '@/lib/monitors/sources'
 import { createWorkflowExecutionTerminalEventInput } from '@/lib/workflows/execution-events'
 import {
+  runPreparedWorkflowExecution,
   runWorkflowExecution,
   type WorkflowExecutionBlueprint,
   type WorkflowTriggerTarget,
 } from '@/lib/workflows/execution-runner'
+import { claimWorkflowCheckpoint } from '@/lib/workflows/human-in-the-loop/service'
 import type { TriggerType } from '@/services/queue'
 import { disableMonitor } from './monitor-disable'
 
@@ -33,6 +35,8 @@ export type WorkflowExecutionPayload = {
   selectedOutputs?: string[]
   triggerData?: Record<string, unknown>
   metadata?: Record<string, any>
+  resumeExecutionId?: string
+  checkpointRevision?: number
 }
 
 function resolveWorkflowTriggerTargetType(triggerType: TriggerType): WorkflowTriggerTargetType {
@@ -55,23 +59,41 @@ export function isWorkflowExecutionPayload(
 
 export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
   const workflowId = payload.workflowId
-  const executionId = payload.executionId ?? uuidv4()
+  const jobId = payload.executionId ?? uuidv4()
+  const resumed =
+    payload.resumeExecutionId && payload.checkpointRevision
+      ? await claimWorkflowCheckpoint({
+          executionId: payload.resumeExecutionId,
+          revision: payload.checkpointRevision,
+          jobId,
+        })
+      : null
+  if (payload.resumeExecutionId && !resumed)
+    return { success: true, skipped: 'checkpoint_already_claimed' }
+  if (resumed && (resumed.workflowId !== workflowId || resumed.userId !== payload.userId)) {
+    throw new Error('Resume execution scope does not match its checkpoint')
+  }
+  const executionId = resumed?.executionId ?? jobId
   const requestId = executionId.slice(0, 8)
+  const savedContext = resumed?.snapshot.executor.context
   const eventWriter =
-    payload.stream === true
+    payload.stream === true || savedContext?.stream === true
       ? await createWorkflowExecutionEventWriter({
           pendingExecutionId: executionId,
           workflowId,
         })
       : null
-  const executionTarget = payload.executionTarget ?? 'deployed'
+  const executionTarget =
+    resumed?.snapshot.blueprint.executionTarget ?? payload.executionTarget ?? 'deployed'
   const isLiveExecution = executionTarget === 'live'
-  const isChildExecution = payload.metadata?.source === 'workflow_block'
-  const triggerType = payload.triggerType ?? 'manual'
-  const triggerTarget: WorkflowTriggerTarget = payload.triggerBlockId
+  const isChildExecution =
+    payload.metadata?.source === 'workflow_block' || (savedContext?.workflowDepth ?? 0) > 0
+  const triggerType = resumed?.snapshot.triggerType ?? payload.triggerType ?? 'manual'
+  const triggerBlockId = savedContext?.triggerBlockId ?? payload.triggerBlockId
+  const triggerTarget: WorkflowTriggerTarget = triggerBlockId
     ? {
         kind: 'block',
-        blockId: payload.triggerBlockId,
+        blockId: triggerBlockId,
       }
     : {
         kind: 'trigger',
@@ -93,17 +115,18 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
 
   try {
     const triggerData =
-      payload.metadata === undefined
+      resumed?.snapshot.triggerData ??
+      (payload.metadata === undefined
         ? payload.triggerData
-        : { ...(payload.triggerData ?? {}), queuedExecution: payload.metadata }
-    const { result, dispatchFailureReason } = await runWorkflowExecution({
+        : { ...(payload.triggerData ?? {}), queuedExecution: payload.metadata })
+    const runParams = {
       workflowId,
       actorUserId: payload.userId,
       requestId,
       executionId,
       executionTarget,
       triggerType,
-      workflowInput: payload.input ?? {},
+      workflowInput: resumed?.snapshot.workflowInput ?? payload.input ?? {},
       workflowContext:
         payload.workspaceId || (isLiveExecution && payload.workflowVariables)
           ? {
@@ -117,18 +140,25 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
       contextExtensions: {
         workflowDepth: payload.workflowDepth ?? 0,
         isChildExecution,
-        stream: payload.stream === true,
-        selectedOutputs: payload.selectedOutputs ?? [],
-        shouldCancelExecution: () => isPendingWorkflowExecutionCancellationRequested(executionId),
+        stream: payload.stream === true || savedContext?.stream === true,
+        selectedOutputs: savedContext?.selectedOutputs ?? payload.selectedOutputs ?? [],
+        shouldCancelExecution: () => isPendingWorkflowExecutionCancellationRequested(jobId),
         ...(eventWriter
           ? {
-              onExecutionEvent: async (event) => {
+              onExecutionEvent: async (event: Parameters<typeof eventWriter.write>[0]) => {
                 await eventWriter.write(event)
               },
             }
           : {}),
       },
-    })
+    }
+    const { result, dispatchFailureReason } = resumed
+      ? await runPreparedWorkflowExecution({
+          ...runParams,
+          blueprint: resumed.snapshot.blueprint,
+          resume: resumed,
+        })
+      : await runWorkflowExecution(runParams)
     if (dispatchFailureReason && isMonitorTriggerId(triggerData?.source)) {
       const monitorId = (triggerData.monitor as { id?: unknown } | null | undefined)?.id
       if (typeof monitorId === 'string') {
@@ -158,7 +188,8 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
       },
     }
 
-    await eventWriter?.write(createWorkflowExecutionTerminalEventInput(queuedResult))
+    if (result.status !== 'paused')
+      await eventWriter?.write(createWorkflowExecutionTerminalEventInput(queuedResult))
 
     logger.info(`[${requestId}] Workflow execution completed: ${workflowId}`, {
       success: result.success,

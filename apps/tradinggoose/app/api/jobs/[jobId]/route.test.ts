@@ -39,6 +39,7 @@ vi.mock('@tradinggoose/db/schema', () => ({
   pendingExecution: {
     id: 'pendingExecution.id',
     userId: 'pendingExecution.userId',
+    workspaceId: 'pendingExecution.workspaceId',
     status: 'pendingExecution.status',
     createdAt: 'pendingExecution.createdAt',
     processingStartedAt: 'pendingExecution.processingStartedAt',
@@ -144,6 +145,37 @@ describe('GET /api/jobs/[jobId]', () => {
     })
   })
 
+  it('rejects unscoped workspace keys before looking up jobs', async () => {
+    checkHybridAuthMock.mockResolvedValue({
+      success: true,
+      userId: 'user-1',
+      authType: 'api_key',
+      apiKeyType: 'workspace',
+    })
+    const response = await GET(new Request('http://localhost/api/jobs/job-1') as any, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    })
+    expect(response.status).toBe(403)
+    expect(queryChain.where).not.toHaveBeenCalled()
+  })
+
+  it('binds pending and paused job lookups to the API key workspace', async () => {
+    checkHybridAuthMock.mockResolvedValue({
+      success: true,
+      userId: 'user-1',
+      authType: 'api_key',
+      apiKeyType: 'workspace',
+      workspaceId: 'workspace-1',
+    })
+    limitMock.mockResolvedValueOnce([]).mockResolvedValueOnce([])
+    const response = await GET(new Request('http://localhost/api/jobs/job-1') as any, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    })
+    expect(response.status).toBe(404)
+    expect(eqMock).toHaveBeenCalledWith('pendingExecution.workspaceId', 'workspace-1')
+    expect(eqMock).toHaveBeenCalledWith('workflowExecutionLogs.workspaceId', 'workspace-1')
+  })
+
   it('requires authentication', async () => {
     checkHybridAuthMock.mockResolvedValue({
       success: false,
@@ -209,6 +241,40 @@ describe('GET /api/jobs/[jobId]', () => {
     expect(body.output.executionId).toBeUndefined()
     expect(body.output.executedAt).toBeUndefined()
     expect(body.output.metadata.queuedExecution).toBeUndefined()
+  })
+
+  it('returns a paused result from an open log without exposing checkpoint internals or completion metadata', async () => {
+    limitMock.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      {
+        ...createWorkflowResult({ source: 'workflow_execute_api' }),
+        endedAt: null,
+        executionData: {
+          pause: { url: '/review', resumeEndpoint: '/api/resume/workflow-1/job-1', revision: 2 },
+          encryptedEnvVars: { TOKEN: 'private' },
+          checkpoint: { private: true },
+          traceSpans: [{ input: 'private' }],
+        },
+      },
+    ])
+
+    const response = await GET(new Request('http://localhost/api/jobs/job-1') as any, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    })
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body).toMatchObject({
+      success: true,
+      status: 'paused',
+      output: {
+        success: true,
+        status: 'paused',
+        output: { url: '/review', revision: 2 },
+      },
+    })
+    expect(body.metadata).not.toHaveProperty('completedAt')
+    expect(JSON.stringify(body)).not.toContain('private')
+    expect(body.output).not.toHaveProperty('traceSpans')
   })
 
   it('does not treat successful workflow output with error property as failed', async () => {

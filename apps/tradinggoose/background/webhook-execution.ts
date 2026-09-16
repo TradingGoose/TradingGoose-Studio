@@ -373,7 +373,7 @@ export async function executeWebhookJob(
       },
       triggerData,
     })
-    logger.info(`[${requestId}] Webhook execution completed`, {
+    logger.info(`[${requestId}] Webhook execution ${result.status ?? 'completed'}`, {
       success: result.success,
       workflowId: payload.workflowId,
       provider: payload.provider,
@@ -385,6 +385,7 @@ export async function executeWebhookJob(
 
     return {
       success: result.success,
+      status: result.status,
       workflowId: payload.workflowId,
       executionId,
       output: result.output,

@@ -26,6 +26,7 @@ type MemoryExecutionEventStream = {
 type WorkflowExecutionResultState =
   | { status: 'pending' | 'processing'; result: null; failureReason: null }
   | { status: 'completed' | 'failed'; result: ExecutionResult; failureReason: string | null }
+  | { status: 'paused'; result: ExecutionResult; failureReason: null }
 
 type WorkflowExecutionEventState = WorkflowExecutionResultState & {
   events: WorkflowExecutionEventEntry[]
@@ -207,7 +208,15 @@ export async function readWorkflowExecutionAccessContext(params: {
 export function createWorkflowExecutionResultFromLog(
   row: WorkflowExecutionLogStateRow
 ): WorkflowExecutionResultState {
+  const executionData = isRecord(row.executionData) ? row.executionData : {}
   if (!row.endedAt) {
+    if (isRecord(executionData.pause)) {
+      return {
+        status: 'paused',
+        result: { success: true, status: 'paused', output: executionData.pause },
+        failureReason: null,
+      }
+    }
     return {
       status: 'processing',
       result: null,
@@ -215,7 +224,6 @@ export function createWorkflowExecutionResultFromLog(
     }
   }
 
-  const executionData = isRecord(row.executionData) ? row.executionData : {}
   const finalOutput = readFinalOutput(executionData)
   const queuedExecution = readQueuedExecutionMetadata(executionData)
   const traceSpans = Array.isArray(executionData.traceSpans) ? executionData.traceSpans : []
@@ -246,6 +254,9 @@ export function createWorkflowExecutionResultFromLog(
 }
 
 function createWorkflowExecutionStateFromTerminalEvent(event: WorkflowExecutionTerminalEvent) {
+  if (event.type === 'execution:paused') {
+    return { status: 'paused' as const, result: event.data.result, failureReason: null }
+  }
   if (event.type === 'execution:completed') {
     return {
       status: 'completed' as const,
@@ -266,6 +277,7 @@ function createWorkflowExecutionStateFromTerminalEvent(event: WorkflowExecutionT
 function findTerminalEvent(entries: WorkflowExecutionEventEntry[]) {
   for (let index = entries.length - 1; index >= 0; index -= 1) {
     const entry = entries[index]
+    if (entry?.event.type === 'execution:started') return null
     if (entry && isTerminalWorkflowExecutionEvent(entry.event)) {
       return entry.event
     }
@@ -397,18 +409,28 @@ export async function readWorkflowExecutionEventState(params: {
       )
       .limit(1),
   ])
-  const terminalEvent = findTerminalEvent(events)
+  // A prior segment can publish a delayed pause event after approval has already
+  // resumed the run. The durable log, not that stale event, owns current status.
+  const logData = isRecord(logRow?.executionData) ? logRow.executionData : {}
+  const pause = isRecord(logData.pause) && !logRow?.endedAt ? logData.pause : null
+  const visibleEvents = events.filter(
+    ({ event }) =>
+      event.type !== 'execution:paused' ||
+      !logRow ||
+      (pause && event.data.result.output.revision === pause.revision)
+  )
+  const terminalEvent = findTerminalEvent(visibleEvents)
   if (terminalEvent) {
     return {
       ...createWorkflowExecutionStateFromTerminalEvent(terminalEvent),
-      events: params.afterEventId === undefined ? [] : events,
+      events: params.afterEventId === undefined ? [] : visibleEvents,
     }
   }
 
   if (logRow) {
     return {
       ...createWorkflowExecutionResultFromLog(logRow),
-      events: params.afterEventId === undefined ? [] : events,
+      events: params.afterEventId === undefined ? [] : visibleEvents,
     }
   }
 

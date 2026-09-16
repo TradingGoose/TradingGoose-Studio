@@ -106,7 +106,18 @@ describe('v1 log detail route', () => {
         startedAt: new Date('2026-04-23T00:00:00.000Z'),
         endedAt: null,
         totalDurationMs: null,
-        executionData: {},
+        executionData: {
+          checkpoint: {
+            revision: 2,
+            encryptedSnapshot: 'secret-checkpoint-ciphertext',
+            pausePoints: [{ id: 'internal-pause-point' }],
+            activeJobId: null,
+          },
+          pause: { url: '/review/execution-1', revision: 2 },
+          environment: { userId: 'user-1', variables: { TOKEN: 'internal-variable' } },
+          finalOutput: { visible: 'output' },
+          traceSpans: [],
+        },
         cost: null,
         files: null,
         createdAt: new Date('2026-04-23T00:00:00.000Z'),
@@ -163,5 +174,24 @@ describe('v1 log detail route', () => {
         },
       },
     })
+  })
+
+  it('never returns stored checkpoint secrets or private execution state', async () => {
+    const { GET } = await import('./route')
+    const response = await GET(new NextRequest('http://localhost/api/v1/logs/log-1'), {
+      params: Promise.resolve({ id: 'log-1' }),
+    })
+
+    expect(response.status).toBe(200)
+    const body = await response.json()
+    expect(body.data.executionData).toEqual({
+      finalOutput: { visible: 'output' },
+      enhanced: true,
+    })
+    expect(JSON.stringify(body)).not.toMatch(
+      /secret-checkpoint-ciphertext|internal-variable|internal-pause-point/
+    )
+    expect(body.data.executionData).not.toHaveProperty('checkpoint')
+    expect(body.data.executionData).not.toHaveProperty('environment')
   })
 })

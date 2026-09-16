@@ -211,7 +211,9 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
     })
 
     if (result.success) {
-      logger.info(`[${requestId}] Workflow ${payload.workflowId} executed successfully`)
+      logger.info(
+        `[${requestId}] Workflow ${payload.workflowId} ${result.status ?? 'executed successfully'}`
+      )
 
       const nextRunAt = await calculateNextRunTime(payload, scheduleBlocks, payload.timezone)
 

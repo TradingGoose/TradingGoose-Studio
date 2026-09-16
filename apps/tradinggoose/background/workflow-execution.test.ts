@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   runWorkflowExecutionMock,
+  runPreparedWorkflowExecutionMock,
+  claimWorkflowCheckpointMock,
   buildTraceSpansMock,
   createWorkflowExecutionEventWriterMock,
   writeExecutionEventMock,
@@ -12,6 +14,8 @@ const {
   disableMonitorMock,
 } = vi.hoisted(() => ({
   runWorkflowExecutionMock: vi.fn(),
+  runPreparedWorkflowExecutionMock: vi.fn(),
+  claimWorkflowCheckpointMock: vi.fn(),
   buildTraceSpansMock: vi.fn(),
   createWorkflowExecutionEventWriterMock: vi.fn(),
   writeExecutionEventMock: vi.fn(),
@@ -30,6 +34,10 @@ vi.mock('@/lib/execution/pending-execution', () => ({
 
 vi.mock('@/lib/workflows/execution-runner', () => ({
   runWorkflowExecution: runWorkflowExecutionMock,
+  runPreparedWorkflowExecution: runPreparedWorkflowExecutionMock,
+}))
+vi.mock('@/lib/workflows/human-in-the-loop/service', () => ({
+  claimWorkflowCheckpoint: claimWorkflowCheckpointMock,
 }))
 
 vi.mock('@/lib/logs/execution/trace-spans/trace-spans', () => ({
@@ -47,6 +55,14 @@ vi.mock('./monitor-disable', () => ({
 }))
 
 import { executeWorkflowJob } from './workflow-execution'
+
+const workflowJob = { workflowId: 'workflow-1', userId: 'user-1' }
+const resumeJob = {
+  ...workflowJob,
+  executionId: 'resume-job-2',
+  resumeExecutionId: 'original-execution',
+  checkpointRevision: 2,
+}
 
 describe('executeWorkflowJob', () => {
   beforeEach(() => {
@@ -66,56 +82,39 @@ describe('executeWorkflowJob', () => {
     })
     writeExecutionEventMock.mockResolvedValue(undefined)
     isPendingWorkflowExecutionCancellationRequestedMock.mockResolvedValue(false)
-  })
-
-  it('marks queued workflow-block executions as child executions', async () => {
-    await executeWorkflowJob({
-      workflowId: 'workflow-1',
-      userId: 'user-1',
-      metadata: {
-        source: 'workflow_block',
-        parentBlockId: 'block-1',
-      },
+    claimWorkflowCheckpointMock.mockResolvedValue(null)
+    runPreparedWorkflowExecutionMock.mockResolvedValue({
+      result: { success: true, output: { resumed: true }, logs: [] },
     })
-
-    expect(runWorkflowExecutionMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        workflowId: 'workflow-1',
-        actorUserId: 'user-1',
-        contextExtensions: expect.objectContaining({
-          workflowDepth: 0,
-          isChildExecution: true,
-          shouldCancelExecution: expect.any(Function),
-        }),
-      })
-    )
   })
 
-  it('does not mark non-child queued workflow executions as child executions', async () => {
-    await executeWorkflowJob({
-      workflowId: 'workflow-1',
-      userId: 'user-1',
-      metadata: {
-        source: 'workflow_queue',
-      },
-    })
+  it.each([
+    { source: 'workflow_block', parentBlockId: 'block-1', isChildExecution: true },
+    { source: 'workflow_queue', isChildExecution: false },
+  ])(
+    'classifies queued $source executions correctly',
+    async ({ isChildExecution, ...metadata }) => {
+      await executeWorkflowJob({ ...workflowJob, metadata })
 
-    expect(runWorkflowExecutionMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        contextExtensions: expect.objectContaining({
-          workflowDepth: 0,
-          isChildExecution: false,
-          stream: false,
-        }),
-      })
-    )
-    expect(createWorkflowExecutionEventWriterMock).not.toHaveBeenCalled()
-  })
+      expect(runWorkflowExecutionMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workflowId: 'workflow-1',
+          actorUserId: 'user-1',
+          contextExtensions: expect.objectContaining({
+            workflowDepth: 0,
+            isChildExecution,
+            shouldCancelExecution: expect.any(Function),
+            stream: false,
+          }),
+        })
+      )
+      expect(createWorkflowExecutionEventWriterMock).not.toHaveBeenCalled()
+    }
+  )
 
   it('enables chunk streaming only when requested by the queued payload', async () => {
     await executeWorkflowJob({
-      workflowId: 'workflow-1',
-      userId: 'user-1',
+      ...workflowJob,
       stream: true,
       selectedOutputs: ['agent-1_content'],
     })
@@ -145,8 +144,7 @@ describe('executeWorkflowJob', () => {
     }
 
     await executeWorkflowJob({
-      workflowId: 'workflow-1',
-      userId: 'user-1',
+      ...workflowJob,
       workspaceId: 'workspace-1',
       input: { symbol: 'AAPL' },
       triggerType: 'manual',
@@ -180,8 +178,7 @@ describe('executeWorkflowJob', () => {
 
   it('preserves manual queued starts when no explicit trigger block is supplied', async () => {
     await executeWorkflowJob({
-      workflowId: 'workflow-1',
-      userId: 'user-1',
+      ...workflowJob,
       triggerType: 'manual',
       metadata: {
         source: 'workflow_queue',
@@ -200,11 +197,7 @@ describe('executeWorkflowJob', () => {
   })
 
   it('checks queued cancellation state through the execution id', async () => {
-    await executeWorkflowJob({
-      workflowId: 'workflow-1',
-      userId: 'user-1',
-      executionId: 'execution-1',
-    })
+    await executeWorkflowJob({ ...workflowJob, executionId: 'execution-1' })
 
     const call = runWorkflowExecutionMock.mock.calls[0]?.[0] as any
     await call.contextExtensions.shouldCancelExecution()
@@ -224,8 +217,7 @@ describe('executeWorkflowJob', () => {
     })
 
     await executeWorkflowJob({
-      workflowId: 'workflow-1',
-      userId: 'user-1',
+      ...workflowJob,
       triggerType: 'webhook',
       triggerBlockId: 'trigger-1',
       triggerData: {
@@ -242,5 +234,126 @@ describe('executeWorkflowJob', () => {
         workflowId: 'workflow-1',
       })
     )
+  })
+
+  const resumed = {
+    executionId: 'original-execution',
+    workflowId: 'workflow-1',
+    userId: 'user-1',
+    snapshot: {
+      blueprint: {
+        workflowId: 'workflow-1',
+        executionTarget: 'deployed',
+        workflowContext: { workspaceId: 'original-workspace', variables: {} },
+        workflowData: { blocks: {}, edges: [], loops: {}, parallels: {} },
+      },
+      workflowInput: { original: true },
+      triggerType: 'webhook',
+      triggerData: { originalSource: 'webhook' },
+      workflowLogId: 'original-log',
+      executor: {
+        context: {
+          triggerBlockId: 'saved-trigger',
+          workflowDepth: 2,
+          stream: true,
+          selectedOutputs: ['saved-output'],
+        },
+      },
+    },
+    pausePoints: [{ id: 'review', input: { approved: true } }],
+  }
+
+  it('resumes webhook checkpoints with the saved trigger and original execution identity', async () => {
+    claimWorkflowCheckpointMock.mockResolvedValueOnce(resumed)
+    await executeWorkflowJob({
+      ...resumeJob,
+      input: { changed: true },
+      triggerType: 'manual',
+      executionTarget: 'live',
+      workflowData: { blocks: { changed: {} }, edges: [], loops: {}, parallels: {} },
+      selectedOutputs: ['changed-output'],
+    })
+
+    expect(claimWorkflowCheckpointMock).toHaveBeenCalledExactlyOnceWith({
+      executionId: 'original-execution',
+      revision: 2,
+      jobId: 'resume-job-2',
+    })
+    expect(runWorkflowExecutionMock).not.toHaveBeenCalled()
+    expect(runPreparedWorkflowExecutionMock).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        blueprint: resumed.snapshot.blueprint,
+        resume: resumed,
+        actorUserId: 'user-1',
+        executionId: 'original-execution',
+        executionTarget: 'deployed',
+        workflowInput: { original: true },
+        triggerType: 'webhook',
+        triggerTarget: { kind: 'block', blockId: 'saved-trigger' },
+        triggerData: { originalSource: 'webhook' },
+        contextExtensions: expect.objectContaining({
+          stream: true,
+          isChildExecution: true,
+          selectedOutputs: ['saved-output'],
+        }),
+      })
+    )
+    expect(createWorkflowExecutionEventWriterMock).toHaveBeenCalledWith({
+      pendingExecutionId: 'original-execution',
+      workflowId: 'workflow-1',
+    })
+    const params = runPreparedWorkflowExecutionMock.mock.calls[0][0]
+    await params.contextExtensions.shouldCancelExecution()
+    expect(isPendingWorkflowExecutionCancellationRequestedMock).toHaveBeenCalledWith('resume-job-2')
+  })
+
+  it('does not execute a revision that another job already claimed', async () => {
+    await expect(executeWorkflowJob(resumeJob)).resolves.toEqual({
+      success: true,
+      skipped: 'checkpoint_already_claimed',
+    })
+    expect(runWorkflowExecutionMock).not.toHaveBeenCalled()
+    expect(runPreparedWorkflowExecutionMock).not.toHaveBeenCalled()
+    expect(createWorkflowExecutionEventWriterMock).not.toHaveBeenCalled()
+  })
+
+  it.each([{ workflowId: 'another-workflow' }, { userId: 'another-user' }])(
+    'rejects a claimed checkpoint with mismatched ownership %j',
+    async (mismatch) => {
+      claimWorkflowCheckpointMock.mockResolvedValueOnce({ ...resumed, ...mismatch })
+      await expect(executeWorkflowJob(resumeJob)).rejects.toThrow(
+        'Resume execution scope does not match its checkpoint'
+      )
+      expect(runPreparedWorkflowExecutionMock).not.toHaveBeenCalled()
+      expect(createWorkflowExecutionEventWriterMock).not.toHaveBeenCalled()
+    }
+  )
+
+  it('does not duplicate the pause event emitted by the runner or emit terminal completion', async () => {
+    const pausedResult = {
+      success: true,
+      status: 'paused',
+      output: { revision: 2, url: '/review' },
+      logs: [],
+    }
+    runWorkflowExecutionMock.mockImplementationOnce(async (params) => {
+      await params.contextExtensions.onExecutionEvent({
+        type: 'execution:paused',
+        data: { result: pausedResult },
+      })
+      return { result: pausedResult }
+    })
+
+    const result = await executeWorkflowJob({
+      ...workflowJob,
+      executionId: 'execution-1',
+      stream: true,
+    })
+
+    expect(result).toMatchObject({ status: 'paused' })
+    expect(writeExecutionEventMock.mock.calls.map(([event]) => event.type)).toEqual([
+      'execution:started',
+      'execution:paused',
+    ])
   })
 })

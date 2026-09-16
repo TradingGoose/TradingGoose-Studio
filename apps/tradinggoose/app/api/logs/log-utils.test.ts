@@ -35,6 +35,13 @@ describe('serializeWorkflowLog executionData', () => {
       buildRow({
         executionData: {
           environment: { userId: 'user-1' },
+          checkpoint: {
+            revision: 3,
+            encryptedSnapshot: 'private-encrypted-checkpoint',
+            pausePoints: [{ id: 'private-point' }],
+            activeJobId: null,
+          },
+          pause: { url: '/review/execution-1', revision: 3 },
           tokenBreakdown: { total: 100 },
           models: { model: { total: 1 } },
           traceSpans: [
@@ -66,6 +73,9 @@ describe('serializeWorkflowLog executionData', () => {
       enhanced: true,
     })
     expect(executionData).not.toHaveProperty('environment')
+    expect(executionData).not.toHaveProperty('checkpoint')
+    expect(executionData).not.toHaveProperty('pause')
+    expect(JSON.stringify(log)).not.toContain('private-encrypted-checkpoint')
     expect(executionData).not.toHaveProperty('tokenBreakdown')
     expect(executionData).not.toHaveProperty('models')
     expect(executionData).not.toHaveProperty('totalDuration')

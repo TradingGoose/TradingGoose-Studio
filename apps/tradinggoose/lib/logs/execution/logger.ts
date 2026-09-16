@@ -278,8 +278,7 @@ export class ExecutionLogger {
         ? (existingExecutionData.environment as Record<string, unknown>)
         : {}
 
-    const mergedExecutionData = {
-      ...existingExecutionData,
+    const completedExecutionData = {
       ...(variables ? { environment: { ...existingEnvironment, variables } } : {}),
       traceSpans,
       finalOutput,
@@ -301,7 +300,7 @@ export class ExecutionLogger {
         endedAt: new Date(endedAt),
         totalDurationMs,
         files: executionFiles.length > 0 ? executionFiles : null,
-        executionData: mergedExecutionData,
+        executionData: sql`(coalesce(${workflowExecutionLogs.executionData}, '{}'::jsonb) || ${JSON.stringify(completedExecutionData)}::jsonb) - 'checkpoint' - 'pause'`,
         cost: {
           total: costSummary.totalCost,
           baseExecutionCharge: costSummary.baseExecutionCharge,

@@ -546,6 +546,82 @@ describe('/api/workflows/[id]/execute', () => {
     }
   })
 
+  it.each([false, true])(
+    'returns the pause contract without waiting or formatting an earlier Response block (response=%s)',
+    async (hasResponse) => {
+      readWorkflowExecutionEventStateMock.mockResolvedValueOnce({
+        status: 'paused',
+        failureReason: null,
+        events: [],
+        result: {
+          success: true,
+          status: 'paused',
+          output: { url: '/review', revision: 2 },
+          checkpoint: { secret: true },
+          logs: [],
+        },
+      })
+      workflowHasResponseBlockMock.mockReturnValue(hasResponse)
+      const { POST } = await import('./route')
+
+      const response = await POST(
+        new NextRequest('https://example.com/api/workflows/workflow-1/execute', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': 'key-1' },
+          body: JSON.stringify({ symbol: 'AAPL' }),
+        }),
+        { params: Promise.resolve({ id: 'workflow-1' }) }
+      )
+
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toEqual({
+        success: true,
+        status: 'paused',
+        output: { url: '/review', revision: 2 },
+      })
+      expect(createHttpResponseFromBlockMock).not.toHaveBeenCalled()
+      expect(readWorkflowExecutionEventStateMock).toHaveBeenCalledTimes(1)
+      expect(cancelPendingWorkflowExecutionMock).not.toHaveBeenCalled()
+    }
+  )
+
+  it('preserves paused status and review data in the public API stream formatter', async () => {
+    const { POST } = await import('./route')
+    await POST(
+      new NextRequest('https://example.com/api/workflows/workflow-1/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': 'key-1' },
+        body: JSON.stringify({ input: {}, stream: true }),
+      }),
+      { params: Promise.resolve({ id: 'workflow-1' }) }
+    )
+    const formatEvent = openWorkflowExecutionEventStreamMock.mock.calls[0][0].formatEvent
+    const formatted = formatEvent({
+      eventId: 2,
+      event: {
+        type: 'execution:paused',
+        executionId: 'execution-1',
+        workflowId: 'workflow-1',
+        timestamp: new Date().toISOString(),
+        data: {
+          result: {
+            success: true,
+            status: 'paused',
+            output: { url: '/review', revision: 2 },
+            checkpoint: { secret: true },
+            logs: [],
+          },
+        },
+      },
+    })
+    const text = Array.isArray(formatted) ? formatted.join('') : formatted
+
+    expect(text).toContain('"status":"paused"')
+    expect(text).toContain('"url":"/review"')
+    expect(text).not.toContain('checkpoint')
+    expect(text).not.toContain('secret')
+  })
+
   it('streams queued API executions through the public execute endpoint', async () => {
     loadDeployedWorkflowStateMock.mockResolvedValue({
       blocks: {
