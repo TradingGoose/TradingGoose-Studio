@@ -7,20 +7,15 @@ export const memoryAddTool: ToolConfig<any, MemoryResponse> = {
   description: 'Add a new memory to the database or append to existing memory with the same ID.',
   version: '1.0.0',
 
+  execution: { workspace: { required: true, access: 'write' } },
+
   params: {
-    conversationId: {
-      type: 'string',
-      required: false,
-      visibility: 'user-or-llm',
-      description:
-        'Conversation identifier (e.g., user-123, session-abc). If a memory with this conversationId already exists, the new message will be appended to it.',
-    },
     id: {
       type: 'string',
-      required: false,
+      required: true,
       visibility: 'user-or-llm',
       description:
-        'Legacy parameter for conversation identifier. Use conversationId instead. Provided for backwards compatibility.',
+        'Conversation identifier within the current workflow. Reusing the ID appends the message to that conversation.',
     },
     role: {
       type: 'string',
@@ -43,50 +38,42 @@ export const memoryAddTool: ToolConfig<any, MemoryResponse> = {
       'Content-Type': 'application/json',
     }),
     body: (params) => {
-      const workspaceId = params._context?.workspaceId
-      if (!workspaceId) {
-        throw new Error('workspaceId is required in execution context')
+      const workflowId = params._context?.workflowId
+      if (!workflowId) {
+        throw new Error('workflowId is required in execution context')
       }
 
-      const conversationId = params.conversationId || params.id
-      if (!conversationId) {
-        throw new Error('conversationId or id is required')
+      if (!params.id) {
+        throw new Error('id is required')
       }
-      const key = conversationId
 
-      const body: Record<string, any> = {
-        key,
-        workspaceId,
+      return {
+        key: params.id,
+        type: 'agent',
+        workflowId,
         data: {
           role: params.role,
           content: params.content,
         },
       }
-
-      return body
     },
   },
 
   transformResponse: async (response): Promise<MemoryResponse> => {
-    const result = await response.json()
-    const data = result.data || result
-
-    const memories = Array.isArray(data.data) ? data.data : [data.data]
+    const { data } = await response.json()
 
     return {
       success: true,
       output: {
-        memories,
+        memories: data.data,
       },
     }
   },
 
   outputs: {
-    success: { type: 'boolean', description: 'Whether the memory was added successfully' },
     memories: {
       type: 'array',
       description: 'Array of memory objects including the new or updated memory',
     },
-    error: { type: 'string', description: 'Error message if operation failed' },
   },
 }
