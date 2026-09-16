@@ -32,7 +32,15 @@ interface MetadataSnapshot {
   scheduleTimezoneDefault?: string
   portfolioDelivery?: string
   portfolioInstructions: string[]
+  portfolioOutputKeys: string[]
+  portfolioPropertyKeys: string[]
   portfolioMonitorOutputs: string[]
+  portfolioPageMatchesSource: boolean
+  portfolioSchema: Array<{
+    name: string
+    type: string
+    children?: Array<{ name: string; type: string }>
+  }>
 }
 
 let metadata: MetadataSnapshot
@@ -46,6 +54,8 @@ beforeAll(() => {
       getTriggerDocConfigs,
       loadToolDocSources,
     } = await import('./scripts/doc-gen/runtime-metadata')
+    const { renderTriggerPage } = await import('./scripts/doc-gen/render-trigger-page')
+    const { readFileSync } = await import('node:fs')
     const sources = await loadToolDocSources(process.cwd())
     const byType = new Map(sources.map((source) => [source.config.type, source]))
     const triggers = getTriggerDocConfigs()
@@ -76,6 +86,7 @@ beforeAll(() => {
     const history = byType.get('trading_order_history')
     const detail = byType.get('trading_order_detail')
     const portfolio = byTriggerId.get('portfolio_state_trigger')
+    const portfolioPage = renderTriggerPage('portfolio', [portfolio])
     console.log(JSON.stringify({
       toolTypes: getToolDocConfigs().map((config) => config.type),
       builtInTypes: getBlockDocConfigs().map((config) => config.type),
@@ -124,9 +135,13 @@ beforeAll(() => {
       )?.defaultValue,
       portfolioDelivery: portfolio?.delivery,
       portfolioInstructions: portfolio?.instructions ?? [],
-      portfolioMonitorOutputs: Object.keys(portfolio?.outputs.monitor ?? {}).filter(
-        (key) => key !== 'type' && key !== 'description'
+      portfolioOutputKeys: Object.keys(portfolio.outputs.portfolio),
+      portfolioPropertyKeys: Object.keys(portfolio.outputs.portfolio.properties),
+      portfolioMonitorOutputs: Object.keys(portfolio.outputs.monitor.properties),
+      portfolioPageMatchesSource: portfolioPage === readFileSync(
+        './apps/docs/content/docs/en/triggers/portfolio.mdx', 'utf8'
       ),
+      portfolioSchema: JSON.parse(portfolioPage.match(/fields=\\{(\\[[\\s\\S]*?\\])\\}/)[1]),
     }))
   `
   metadata = JSON.parse(
@@ -204,6 +219,11 @@ describe('runtime documentation metadata', () => {
     expect(metadata.scheduleTimezoneDefault).toBe('UTC')
     expect(metadata.portfolioDelivery).toBe('polling')
     expect(metadata.portfolioInstructions).toHaveLength(4)
+  })
+
+  it('renders canonical portfolio object properties from the runtime contract', () => {
+    expect(metadata.portfolioOutputKeys).toEqual(['type', 'description', 'properties'])
+    expect(metadata.portfolioPropertyKeys).toEqual(['identity', 'detail'])
     expect(metadata.portfolioMonitorOutputs).toEqual([
       'id',
       'workflowId',
@@ -212,5 +232,19 @@ describe('runtime documentation metadata', () => {
       'serviceId',
       'accountId',
     ])
+    expect(metadata.portfolioSchema.find((field) => field.name === 'portfolio')).toMatchObject({
+      name: 'portfolio',
+      type: 'object',
+      children: [
+        { name: 'identity', type: 'object' },
+        { name: 'detail', type: 'object' },
+      ],
+    })
+    expect(metadata.portfolioSchema.find((field) => field.name === 'monitor')).toMatchObject({
+      name: 'monitor',
+      type: 'object',
+      children: metadata.portfolioMonitorOutputs.map((name) => ({ name, type: 'string' })),
+    })
+    expect(metadata.portfolioPageMatchesSource).toBe(true)
   })
 })
