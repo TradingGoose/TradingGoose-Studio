@@ -41,28 +41,6 @@ export function isScheduleExecutionPayload(value: unknown): value is ScheduleExe
   )
 }
 
-async function updateScheduleNextRun(params: {
-  scheduleId: string
-  now: Date
-  nextRunAt?: Date
-  failedCount?: number
-  status?: 'active' | 'disabled'
-  lastRanAt?: Date
-  lastFailedAt?: Date
-}) {
-  await db
-    .update(workflowSchedule)
-    .set({
-      updatedAt: params.now,
-      ...(params.nextRunAt ? { nextRunAt: params.nextRunAt } : {}),
-      ...(params.lastRanAt ? { lastRanAt: params.lastRanAt } : {}),
-      ...(typeof params.failedCount === 'number' ? { failedCount: params.failedCount } : {}),
-      ...(params.lastFailedAt ? { lastFailedAt: params.lastFailedAt } : {}),
-      ...(params.status ? { status: params.status } : {}),
-    })
-    .where(eq(workflowSchedule.id, params.scheduleId))
-}
-
 export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
   const executionId = payload.executionId
   const requestId = executionId.slice(0, 8)
@@ -74,12 +52,27 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
     executionId,
   })
 
-  let nextRunAt: Date | undefined
+  let cron: Cron | undefined
   let failure: { error: unknown } | undefined
+  const updateScheduleNextRun = async (
+    fields: {
+      failedCount?: number
+      status?: 'active' | 'disabled'
+      lastRanAt?: Date
+      lastFailedAt?: Date
+    } = {}
+  ) => {
+    const nextRunAt = cron?.nextRun()
+    await db
+      .update(workflowSchedule)
+      .set({ updatedAt: now, ...(nextRunAt ? { nextRunAt } : {}), ...fields })
+      .where(eq(workflowSchedule.id, payload.scheduleId))
+  }
+
   try {
     const utcOffset = await resolveTimezoneOffsetMinutes(payload.timezone)
-    nextRunAt = new Cron(payload.cronExpression, { utcOffset }).nextRun() ?? undefined
-    if (!nextRunAt) throw new Error('Schedule has no future occurrences')
+    cron = new Cron(payload.cronExpression, { utcOffset })
+    if (!cron.nextRun()) throw new Error('Schedule has no future occurrences')
     const [workflowRecord] = await db
       .select()
       .from(workflow)
@@ -137,11 +130,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
     })
 
     if (dispatchFailureReason === 'usage_limit_exceeded') {
-      await updateScheduleNextRun({
-        scheduleId: payload.scheduleId,
-        now,
-        nextRunAt,
-      })
+      await updateScheduleNextRun()
       return
     }
 
@@ -150,13 +139,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
         `[${requestId}] Workflow ${payload.workflowId} ${result.status ?? 'executed successfully'}`
       )
 
-      await updateScheduleNextRun({
-        scheduleId: payload.scheduleId,
-        now,
-        nextRunAt,
-        lastRanAt: now,
-        failedCount: 0,
-      })
+      await updateScheduleNextRun({ lastRanAt: now, failedCount: 0 })
 
       return
     }
@@ -175,9 +158,6 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
     )
   }
   await updateScheduleNextRun({
-    scheduleId: payload.scheduleId,
-    now,
-    nextRunAt,
     failedCount,
     lastFailedAt: now,
     status: shouldDisable ? 'disabled' : 'active',

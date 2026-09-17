@@ -8,7 +8,7 @@ import {
 const mocks = vi.hoisted(() => ({
   runPreparedWorkflowExecution: vi.fn(),
   loadWorkflowExecutionBlueprint: vi.fn(),
-  nextRunAt: new Date('2026-09-16T13:00:00.000Z'),
+  nextRunAt: new Date('2026-09-16T12:04:00.000Z'),
   set: vi.fn(),
   updateWhere: vi.fn(),
   delete: vi.fn(),
@@ -41,7 +41,14 @@ vi.mock('@/lib/timezone/timezone-resolver', () => ({
 }))
 vi.mock('@/lib/workflows/execution-runner', () => ({
   loadWorkflowExecutionBlueprint: mocks.loadWorkflowExecutionBlueprint,
-  runPreparedWorkflowExecution: mocks.runPreparedWorkflowExecution,
+  runPreparedWorkflowExecution: async (...args: unknown[]) => {
+    try {
+      return await mocks.runPreparedWorkflowExecution(...args)
+    } finally {
+      // This run crosses the next two-minute schedule occurrence before settling.
+      vi.setSystemTime(new Date('2026-09-16T12:02:05.000Z'))
+    }
+  },
 }))
 
 const payload = {
@@ -50,7 +57,7 @@ const payload = {
   workflowId: 'workflow-1',
   blockId: 'trigger-1',
   timezone: 'UTC',
-  cronExpression: '0 * * * *',
+  cronExpression: '*/2 * * * *',
   now: '2026-09-16T12:00:00.000Z',
   failedCount: 2,
 } satisfies ScheduleExecutionPayload
@@ -149,6 +156,7 @@ describe('executeScheduleJob', () => {
     await expect(executeScheduleJob(payload)).rejects.toBe(error)
     expect(mocks.set).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({
+        nextRunAt: mocks.nextRunAt,
         failedCount: 3,
         status: 'disabled',
         lastFailedAt: new Date(payload.now),
