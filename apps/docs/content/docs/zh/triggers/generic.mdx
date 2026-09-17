@@ -22,7 +22,7 @@ import { Callout } from 'fumadocs-ui/components/callout'
 
 ## 设置说明
 
-<div class="mb-3"><strong>1.</strong> 复制 webhook URL，并在外部服务或 API 中使用。</div><div class="mb-3"><strong>2.</strong> 将服务配置为向此 URL 发送 webhook。</div><div class="mb-3"><strong>3.</strong> 该 webhook 可接收任意 HTTP 方法（GET、POST、PUT、DELETE 等）。</div><div class="mb-3"><strong>4.</strong> 所有请求数据（请求头、请求体、查询参数）都将可在工作流中使用。</div><div class="mb-3"><strong>5.</strong> 如果启用了身份验证，请在请求中通过自定义请求头或 "Authorization: Bearer TOKEN" 携带令牌。</div><div class="mb-3"><strong>6.</strong> 当 payload 中包含 "event"、"id" 和 "data" 等常见字段时，系统会自动提取。</div>
+<div class="mb-3"><strong>1.</strong> 复制 webhook URL，并在外部服务或 API 中使用。</div><div class="mb-3"><strong>2.</strong> 将服务配置为向此 URL 发送 webhook。</div><div class="mb-3"><strong>3.</strong> 只有 HTTP POST 请求可以触发工作流。GET 仅用于服务提供方的验证质询；不支持 PUT、PATCH 和 DELETE。</div><div class="mb-3"><strong>4.</strong> 所有请求数据（请求头、请求体、查询参数）都将可在工作流中使用。</div><div class="mb-3"><strong>5.</strong> 如果启用了身份验证，请在请求中通过自定义请求头或 "Authorization: Bearer TOKEN" 携带令牌。</div><div class="mb-3"><strong>6.</strong> 当 payload 中包含 "event"、"id" 和 "data" 等常见字段时，系统会自动提取。</div>
 
 ## 配置
 

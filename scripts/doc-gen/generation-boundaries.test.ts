@@ -275,6 +275,19 @@ describe('documentation regeneration boundaries', () => {
     runGenerator('triggers', triggerDocsDir)
     const first = snapshot(triggerDocsDir)
 
+    for (const [locale, postOnly] of [
+      ['en', 'Only HTTP POST requests can trigger the workflow.'],
+      ['es', 'Solo las solicitudes HTTP POST pueden activar el flujo de trabajo.'],
+      ['zh', '只有 HTTP POST 请求可以触发工作流。'],
+    ]) {
+      const page = fs.readFileSync(
+        path.join(rootDir, `apps/docs/content/docs/${locale}/triggers/generic.mdx`),
+        'utf8'
+      )
+      expect(page).toContain(postOnly)
+      expect(() => remark().use(remarkMdx).parse(page)).not.toThrow()
+      if (locale === 'en') expect(first['generic.mdx']).toBe(page)
+    }
     expect(first['schedule.mdx']).toContain('**schedule-based** trigger')
     expect(first['schedule.mdx']).not.toContain('STALE SCHEDULE CONTENT')
     expect(first['schedule.mdx']).toContain('does not declare additional output fields')
