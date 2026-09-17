@@ -16,8 +16,6 @@ const EXECUTION_OUTCOME_OPTIONS = [
   { value: 'running', label: 'Running' },
   { value: 'success', label: 'Success' },
   { value: 'error', label: 'Error' },
-  { value: 'skipped', label: 'Skipped' },
-  { value: 'unknown', label: 'Unknown' },
 ]
 
 const TRIGGER_OPTIONS = [

@@ -165,19 +165,18 @@ const buildRow = ({
   endedAt: new Date('2026-04-23T00:05:00.000Z'),
   totalDurationMs: 300000,
   executionData: {
-    blockExecutions: [
+    traceSpans: [
       {
         id: `block-execution-${id}`,
         blockId: `block-${id}`,
-        blockName: `Block ${id}`,
-        blockType: 'http',
-        startedAt: '2026-04-23T00:00:00.000Z',
-        endedAt: '2026-04-23T00:05:00.000Z',
-        durationMs: 300000,
+        name: `Block ${id}`,
+        type: 'http',
+        startTime: '2026-04-23T00:00:00.000Z',
+        endTime: '2026-04-23T00:05:00.000Z',
+        duration: 300000,
         status: 'success',
-        inputData: { symbol: 'AAPL' },
-        outputData: { rows: 42 },
-        metadata: {},
+        input: { symbol: 'AAPL' },
+        output: { rows: 42 },
       },
     ],
     trigger: {
@@ -237,10 +236,9 @@ const stringifySql = (value: unknown): string => {
   if (!value || typeof value !== 'object') return ''
 
   const node = value as Record<string, any>
-  return [
-    Array.isArray(node.strings) ? node.strings.join('') : '',
-    ...(Array.isArray(node.values) ? node.values.map(stringifySql) : []),
-  ].join(' ')
+  return Array.isArray(node.strings)
+    ? node.strings.map((part, index) => part + stringifySql(node.values?.[index])).join('')
+    : ''
 }
 
 const hasInArrayFilter = (conditions: Array<Record<string, any>>, field: string, value: string) =>
@@ -337,7 +335,7 @@ describe('logs route', () => {
     expect(mockOffset).toHaveBeenCalledWith(50)
 
     const listSelect = mockSelect.mock.calls.at(-1)?.[0] as unknown as Record<string, unknown>
-    expect(listSelect).toHaveProperty('outcome')
+    expect(listSelect).not.toHaveProperty('outcome')
     expect(listSelect).not.toHaveProperty('executionData')
     expect(listSelect).not.toHaveProperty('files')
 
@@ -347,19 +345,21 @@ describe('logs route', () => {
     expect(body.data[0]?.files).toBeUndefined()
   })
 
-  it('derives SQL outcome from nested trace span statuses', async () => {
+  it('derives SQL outcome only from canonical completion state and level', async () => {
     const { GET } = await import('./route')
-    const response = await GET(new NextRequest('http://localhost/api/logs?workspaceId=workspace-1'))
+    const response = await GET(
+      new NextRequest('http://localhost/api/logs?workspaceId=workspace-1&outcomes=success')
+    )
 
     expect(response.status).toBe(200)
-    const listSelect = mockSelect.mock.calls.at(-1)?.[0] as unknown as Record<string, unknown>
-    const outcomeSql = stringifySql(listSelect.outcome)
+    const outcomeFilter = getLatestWhereConditions().find(
+      (condition) => condition.type === 'inArray' && condition.value.includes('success')
+    )
+    const outcomeSql = stringifySql(outcomeFilter?.field)
 
-    expect(outcomeSql).toContain('WITH RECURSIVE trace_spans')
-    expect(outcomeSql).toContain("trace_spans.span->'children'")
-    expect(outcomeSql).toContain("trace_spans.span->'status'")
-    expect(outcomeSql).not.toContain('**.status')
-    expect(outcomeSql).not.toContain('jsonb_path_query')
+    expect(outcomeSql.replace(/\s+/g, ' ').trim()).toBe(
+      "CASE WHEN workflowExecutionLogs.endedAt IS NULL THEN 'running' WHEN workflowExecutionLogs.level = 'error' THEN 'error' ELSE 'success' END"
+    )
   })
 
   it('returns 400 when listing filter arrays contain malformed entries', async () => {

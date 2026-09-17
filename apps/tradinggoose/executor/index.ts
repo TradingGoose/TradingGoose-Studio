@@ -301,6 +301,7 @@ export class Executor {
           resumeInputs: this.resumeInputs ?? new Map(),
         }
       : this.createExecutionContext(workflowId, startTime, triggerBlockId)
+    const previousDuration = context.metadata.duration
 
     try {
       let hasMoreLayers = true
@@ -324,7 +325,7 @@ export class Executor {
           }
 
           if (context.pausePoints?.length) {
-            context.metadata.duration += Date.now() - startTime.getTime()
+            context.metadata.duration = previousDuration + Date.now() - startTime.getTime()
             return {
               success: true,
               status: 'paused',
@@ -366,11 +367,14 @@ export class Executor {
         throw new Error('Workflow execution exceeded the 500-layer safety limit')
       }
 
+      const endTime = new Date()
+      const duration = previousDuration + endTime.getTime() - startTime.getTime()
+
       // Handle cancellation
       if (this.isCancelled) {
         trackWorkflowTelemetry('workflow_execution_cancelled', {
           workflowId,
-          duration: Date.now() - startTime.getTime(),
+          duration,
           blockCount: this.actualWorkflow.blocks.length,
           executedBlockCount: context.executedBlocks.size,
           startTime: startTime.toISOString(),
@@ -381,7 +385,7 @@ export class Executor {
           output: finalOutput,
           error: 'Workflow execution was cancelled',
           metadata: {
-            duration: Date.now() - startTime.getTime(),
+            duration,
             startTime: context.metadata.startTime!,
             workflowConnections: this.actualWorkflow.connections.map((conn: any) => ({
               source: conn.source,
@@ -391,10 +395,6 @@ export class Executor {
           logs: context.blockLogs,
         }
       }
-
-      const endTime = new Date()
-      context.metadata.endTime = endTime.toISOString()
-      const duration = context.metadata.duration + endTime.getTime() - startTime.getTime()
 
       trackWorkflowTelemetry('workflow_execution_completed', {
         workflowId,
@@ -410,9 +410,9 @@ export class Executor {
         success: true,
         output: finalOutput,
         metadata: {
-          duration: duration,
+          duration,
           startTime: context.metadata.startTime!,
-          endTime: context.metadata.endTime!,
+          endTime: endTime.toISOString(),
           workflowConnections: this.actualWorkflow.connections.map((conn: any) => ({
             source: conn.source,
             target: conn.target,
@@ -422,11 +422,12 @@ export class Executor {
       }
     } catch (error: any) {
       logger.error('Workflow execution failed:', this.sanitizeError(error))
+      const duration = previousDuration + Date.now() - startTime.getTime()
 
       // Track workflow execution failure
       trackWorkflowTelemetry('workflow_execution_failed', {
         workflowId,
-        duration: Date.now() - startTime.getTime(),
+        duration,
         error: this.extractErrorMessage(error),
         executedBlockCount: context.executedBlocks.size,
         blockLogs: context.blockLogs.length,
@@ -437,7 +438,7 @@ export class Executor {
         output: finalOutput,
         error: this.extractErrorMessage(error),
         metadata: {
-          duration: Date.now() - startTime.getTime(),
+          duration,
           startTime: context.metadata.startTime!,
           workflowConnections: this.actualWorkflow.connections.map((conn: any) => ({
             source: conn.source,
@@ -1820,18 +1821,6 @@ export class Executor {
           executed: true,
           executionTime: blockLog.durationMs,
         })
-
-        const failureEndTime = context.metadata.endTime ?? new Date().toISOString()
-        if (!context.metadata.endTime) {
-          context.metadata.endTime = failureEndTime
-        }
-        const failureDuration = context.metadata.startTime
-          ? Math.max(
-              0,
-              new Date(failureEndTime).getTime() - new Date(context.metadata.startTime).getTime()
-            )
-          : (context.metadata.duration ?? 0)
-        context.metadata.duration = failureDuration
 
         if (hasErrorPath) {
           return errorOutput

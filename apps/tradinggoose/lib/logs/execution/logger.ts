@@ -122,7 +122,7 @@ export class ExecutionLogger {
             environment,
             trigger,
             traceSpans: [],
-            finalOutput: { error: message },
+            finalOutput: {},
             errorMessage: message,
           },
         })

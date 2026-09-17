@@ -131,18 +131,6 @@ function readFinalOutput(executionData: unknown): Record<string, unknown> {
   return executionData.finalOutput
 }
 
-function readLogFailureReason(row: WorkflowExecutionLogStateRow) {
-  const executionData = isRecord(row.executionData) ? row.executionData : {}
-  if (typeof executionData.errorMessage === 'string' && executionData.errorMessage.length > 0) {
-    return executionData.errorMessage
-  }
-
-  const finalOutput = readFinalOutput(row.executionData)
-  return typeof finalOutput.error === 'string' && finalOutput.error.length > 0
-    ? finalOutput.error
-    : 'Workflow execution failed'
-}
-
 function readQueuedExecutionMetadata(executionData: Record<string, unknown>) {
   const trigger = isRecord(executionData.trigger) ? executionData.trigger : {}
   const data = isRecord(trigger.data) ? trigger.data : {}
@@ -229,7 +217,8 @@ export function createWorkflowExecutionResultFromLog(
   const traceSpans = Array.isArray(executionData.traceSpans) ? executionData.traceSpans : []
   const hasResponseBlock = executionData.hasResponseBlock === true
   const failed = row.level === 'error'
-  const failureReason = failed ? readLogFailureReason(row) : null
+  const failureReason =
+    failed && typeof executionData.errorMessage === 'string' ? executionData.errorMessage : null
   const metadata = {
     duration: row.totalDurationMs ?? 0,
     startTime: row.startedAt.toISOString(),

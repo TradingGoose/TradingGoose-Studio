@@ -36,20 +36,6 @@ const readTimestamp = (value: unknown): string | null => {
   return String(value)
 }
 
-function readExecutionErrorIdentity(
-  executionData: Record<string, unknown>
-): Record<string, unknown> | null {
-  const record = readRecord(executionData.errorDetails)
-  if (!record) return null
-
-  const summary = {
-    ...(readString(record.blockId) ? { blockId: record.blockId } : {}),
-    ...(readString(record.blockName) ? { blockName: record.blockName } : {}),
-    ...(readString(record.blockType) ? { blockType: record.blockType } : {}),
-  }
-  return Object.keys(summary).length > 0 ? summary : null
-}
-
 function buildExecutionTraceSummary(traceSpans: unknown): Record<string, unknown> | null {
   if (!Array.isArray(traceSpans) || traceSpans.length === 0) return null
 
@@ -111,27 +97,21 @@ function buildExecutionLogPayload(
 ): Record<string, unknown> {
   const executionData = readRecord(log.executionData)
   const traceSummary = executionData && buildExecutionTraceSummary(executionData.traceSpans)
-  const errorSummary = executionData && readExecutionErrorIdentity(executionData)
   const selectedExecutionData =
     executionData && mode === 'explicit'
       ? {
           ...(executionData.traceSpans !== undefined
             ? { traceSpans: executionData.traceSpans }
             : {}),
-          ...(executionData.errorDetails !== undefined
-            ? { errorDetails: executionData.errorDetails }
-            : {}),
           ...(executionData.errorMessage !== undefined
             ? { errorMessage: executionData.errorMessage }
             : {}),
-          ...(executionData.error !== undefined ? { error: executionData.error } : {}),
           ...(executionData.finalOutput !== undefined
             ? { finalOutput: executionData.finalOutput }
             : {}),
         }
       : {
           ...(traceSummary ? { traceSummary } : {}),
-          ...(errorSummary ? { errorSummary } : {}),
         }
 
   return {

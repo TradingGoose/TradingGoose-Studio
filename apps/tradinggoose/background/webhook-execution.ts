@@ -154,12 +154,11 @@ async function logWebhookFailure(params: {
     triggerData: params.triggerData,
   })
 
-  await loggingSession.completeWithError({
+  await loggingSession.complete({
     endedAt: new Date().toISOString(),
     totalDurationMs: 0,
-    error: {
-      message: params.error.message || 'Webhook execution failed',
-    },
+    success: false,
+    failureReason: params.error.message || 'Webhook execution failed',
     traceSpans: [],
   })
 }

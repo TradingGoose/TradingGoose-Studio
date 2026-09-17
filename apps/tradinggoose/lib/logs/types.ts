@@ -7,28 +7,6 @@ export type { WorkflowState, Loop, Parallel, DeploymentStatus }
 export type WorkflowEdge = Edge
 export type { NormalizedBlockOutput, BlockLog }
 
-export interface PricingInfo {
-  input: number
-  output: number
-  cachedInput?: number
-  updatedAt: string
-}
-
-export interface TokenUsage {
-  prompt: number
-  completion: number
-  total: number
-}
-
-export interface CostBreakdown {
-  input: number
-  output: number
-  total: number
-  tokens: TokenUsage
-  model: string
-  pricing: PricingInfo
-}
-
 export interface ToolCall {
   id?: string
   name: string
@@ -94,13 +72,6 @@ export interface ExecutionTrigger {
   timestamp: string
 }
 
-export interface ExecutionStatus {
-  status: 'running' | 'completed' | 'failed' | 'cancelled'
-  startedAt: string
-  endedAt?: string
-  durationMs?: number
-}
-
 export interface WorkflowExecutionSnapshot {
   id: string
   workflowId: string | null
@@ -142,12 +113,8 @@ export interface WorkflowExecutionLog {
     environment?: ExecutionEnvironment
     trigger?: ExecutionTrigger
     traceSpans?: TraceSpan[]
-    errorDetails?: {
-      blockId: string
-      blockName: string
-      error: string
-      stackTrace?: string
-    }
+    errorMessage?: string
+    finalOutput?: unknown
   }
   // Top-level cost information
   cost?: {
@@ -217,93 +184,7 @@ export interface TraceSpan {
   providerTiming?: ProviderTiming
 }
 
-export interface WorkflowExecutionSummary {
-  id: string
-  workflowId: string | null
-  workspaceId: string
-  workflowName: string
-  executionId: string
-  trigger: ExecutionTrigger['type']
-  status: ExecutionStatus['status']
-  startedAt: string
-  endedAt: string
-  durationMs: number
-
-  costSummary: {
-    total: number
-    inputCost: number
-    outputCost: number
-    tokens: number
-  }
-  stateSnapshotId: string
-  errorSummary?: {
-    blockId: string
-    blockName: string
-    message: string
-  }
-}
-
-export interface WorkflowExecutionDetail extends WorkflowExecutionSummary {
-  environment: ExecutionEnvironment
-  triggerData: ExecutionTrigger
-  blockExecutions: BlockExecutionSummary[]
-  traceSpans: TraceSpan[]
-  workflowState: WorkflowState
-}
-
-export interface BlockExecutionSummary {
-  id: string
-  blockId: string
-  blockName: string
-  blockType: string
-  startedAt: string
-  endedAt: string
-  durationMs: number
-  status: 'success' | 'error' | 'skipped'
-  errorMessage?: string
-  cost?: CostBreakdown
-  inputSummary: {
-    parameterCount: number
-    hasComplexData: boolean
-  }
-  outputSummary: {
-    hasOutput: boolean
-    outputType: string
-    hasError: boolean
-  }
-}
-
-export interface PaginatedResponse<T> {
-  data: T[]
-  pagination: {
-    page: number
-    pageSize: number
-    total: number
-    totalPages: number
-    hasNext: boolean
-    hasPrevious: boolean
-  }
-}
-
-export type WorkflowExecutionsResponse = PaginatedResponse<WorkflowExecutionSummary>
-export type BlockExecutionsResponse = PaginatedResponse<BlockExecutionSummary>
-
-export interface WorkflowExecutionFilters {
-  workflowIds?: string[]
-  folderIds?: string[]
-  triggers?: ExecutionTrigger['type'][]
-  status?: ExecutionStatus['status'][]
-  startDate?: string
-  endDate?: string
-  search?: string
-  minDuration?: number
-  maxDuration?: number
-  minCost?: number
-  maxCost?: number
-  hasErrors?: boolean
-}
-
-export type WorkflowLogOutcome = 'running' | 'success' | 'error' | 'skipped' | 'unknown'
+export type WorkflowLogOutcome = 'running' | 'success' | 'error'
 
 export interface WorkflowLogWorkflowSummary {
   id: string
@@ -348,24 +229,10 @@ export interface WorkflowLog {
   }>
   cost?: CostMetadata
   executionData?: ToolCallMetadata & {
+    errorMessage?: string
+    finalOutput?: unknown
     traceSpans?: TraceSpan[]
     blockInput?: Record<string, unknown>
-    blockExecutions?: Array<{
-      id: string
-      blockId: string
-      blockName: string
-      blockType: string
-      startedAt: string
-      endedAt: string
-      durationMs: number
-      status: 'success' | 'error' | 'skipped'
-      errorMessage?: string
-      errorStackTrace?: string
-      inputData: unknown
-      outputData: unknown
-      cost?: CostMetadata
-      metadata: Record<string, unknown>
-    }>
   }
 }
 
@@ -375,18 +242,6 @@ export interface LogsResponse {
   page: number
   pageSize: number
   totalPages: number
-}
-
-export interface PaginationParams {
-  page: number
-  pageSize: number
-  sortBy?: 'startedAt' | 'durationMs' | 'totalCost' | 'blockCount'
-  sortOrder?: 'asc' | 'desc'
-}
-
-export interface LogsQueryParams extends WorkflowExecutionFilters, PaginationParams {
-  includeBlockSummary?: boolean
-  includeWorkflowState?: boolean
 }
 
 export interface LogsError {

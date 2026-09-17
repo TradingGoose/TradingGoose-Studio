@@ -51,7 +51,7 @@ function projectCheckpoint(row: ExecutionLog): WorkflowCheckpointView {
     status: row.endedAt
       ? row.level !== 'error'
         ? 'completed'
-        : data.finalOutput?.error === PENDING_EXECUTION_CANCELLATION_ERROR
+        : data.errorMessage === PENDING_EXECUTION_CANCELLATION_ERROR
           ? 'cancelled'
           : 'failed'
       : data.pause

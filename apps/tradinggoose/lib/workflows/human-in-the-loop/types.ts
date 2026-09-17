@@ -54,7 +54,7 @@ export type WorkflowCheckpointLogData = Record<string, unknown> & {
   checkpoint?: StoredWorkflowCheckpoint
   pause?: ReturnType<typeof workflowPauseLinks> & { revision: number }
   environment?: { userId?: string; [key: string]: unknown }
-  finalOutput?: Record<string, unknown>
+  errorMessage?: string
 }
 
 export type WorkflowCheckpointStatus =

@@ -11,7 +11,6 @@ const mocks = vi.hoisted(() => {
   const execute = vi.fn()
   const start = vi.fn()
   const complete = vi.fn()
-  const completeWithError = vi.fn()
   const checkServerSideUsageLimits = vi.fn()
   const decryptSecret = vi.fn()
   const getPersonalAndWorkspaceEnv = vi.fn()
@@ -24,7 +23,6 @@ const mocks = vi.hoisted(() => {
     execute,
     start,
     complete,
-    completeWithError,
     checkServerSideUsageLimits,
     dbRowsQueue,
     dbSelect: vi.fn(() => dbChain),
@@ -70,7 +68,6 @@ vi.mock('@/lib/logs/execution/logging-session', () => ({
     return {
       start: mocks.start,
       complete: mocks.complete,
-      completeWithError: mocks.completeWithError,
     }
   }),
 }))
@@ -168,7 +165,6 @@ describe('runPreparedWorkflowExecution', () => {
       logs: [],
     })
     mocks.complete.mockResolvedValue(undefined)
-    mocks.completeWithError.mockResolvedValue(undefined)
     mocks.checkServerSideUsageLimits.mockResolvedValue({ isExceeded: false })
     mocks.decryptSecret.mockImplementation(async (value: string) => ({ decrypted: value }))
     mocks.getPersonalAndWorkspaceEnv.mockResolvedValue({
@@ -222,14 +218,14 @@ describe('runPreparedWorkflowExecution', () => {
         }),
       })
     )
-    expect(mocks.complete).toHaveBeenCalledWith(
+    expect(mocks.complete).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({
         totalDurationMs: 12,
         finalOutput: { result: 'ok' },
+        success: true,
         workflowInput: { symbol: 'AAPL' },
       })
     )
-    expect(mocks.completeWithError).not.toHaveBeenCalled()
     expect(mocks.cancelPendingExecutionDescendants).not.toHaveBeenCalled()
     expect(result.result.success).toBe(true)
     expect(result.result.output).toEqual({ result: 'ok' })
@@ -263,11 +259,10 @@ describe('runPreparedWorkflowExecution', () => {
 
     expect(mocks.start).toHaveBeenCalled()
     expect(mocks.execute).not.toHaveBeenCalled()
-    expect(mocks.completeWithError).toHaveBeenCalledWith(
+    expect(mocks.complete).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({
-        error: expect.objectContaining({
-          message: 'Usage limit exceeded',
-        }),
+        success: false,
+        failureReason: 'Usage limit exceeded',
       })
     )
     expect(result.result).toEqual(
@@ -303,7 +298,9 @@ describe('runPreparedWorkflowExecution', () => {
     )
 
     expect(mocks.execute).toHaveBeenCalled()
-    expect(mocks.completeWithError).not.toHaveBeenCalled()
+    expect(mocks.complete).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ success: true })
+    )
   })
 
   it('resolves queued child API triggers through the child input-trigger path', async () => {
@@ -455,7 +452,6 @@ describe('runPreparedWorkflowExecution', () => {
       data: { result: result.result },
     })
     expect(mocks.complete).not.toHaveBeenCalled()
-    expect(mocks.completeWithError).not.toHaveBeenCalled()
     expect(mocks.updateWorkflowRunCounts).not.toHaveBeenCalled()
     expect(mocks.cancelPendingExecutionDescendants).not.toHaveBeenCalled()
   })
@@ -473,7 +469,7 @@ describe('runPreparedWorkflowExecution', () => {
     expect(result.result.status).toBe('paused')
     expect(mocks.saveWorkflowCheckpoint).toHaveBeenCalledTimes(1)
     expect(mocks.dispatchWorkflowPauseNotifications).toHaveBeenCalledTimes(1)
-    expect(mocks.completeWithError).not.toHaveBeenCalled()
+    expect(mocks.complete).not.toHaveBeenCalled()
   })
 
   it('persists child waits without running queue recovery inside the execution failure boundary', async () => {
@@ -495,7 +491,6 @@ describe('runPreparedWorkflowExecution', () => {
     )
     expect(mocks.completeWorkflowCheckpointChild).not.toHaveBeenCalled()
     expect(mocks.complete).not.toHaveBeenCalled()
-    expect(mocks.completeWithError).not.toHaveBeenCalled()
   })
 
   it('resumes the saved executor and original log without reloading inputs, secrets, or workflow state', async () => {
@@ -564,11 +559,11 @@ describe('runPreparedWorkflowExecution', () => {
 
       expect(result.result).toMatchObject(failure)
       expect(mocks.start).toHaveBeenCalledTimes(resumed ? 0 : 1)
-      const terminalize = thrown ? mocks.completeWithError : mocks.complete
-      expect(terminalize).toHaveBeenCalledTimes(1)
-      expect(thrown ? mocks.complete : mocks.completeWithError).not.toHaveBeenCalled()
+      expect(mocks.complete).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ success: false, failureReason: failure.error })
+      )
       expect(mocks.cancelPendingExecutionDescendants).toHaveBeenCalledExactlyOnceWith('execution-1')
-      expect(terminalize.mock.invocationCallOrder[0]).toBeLessThan(
+      expect(mocks.complete.mock.invocationCallOrder[0]).toBeLessThan(
         mocks.cancelPendingExecutionDescendants.mock.invocationCallOrder[0]
       )
       expect(mocks.cancelPendingExecutionDescendants.mock.invocationCallOrder[0]).toBeLessThan(
@@ -589,7 +584,6 @@ describe('runPreparedWorkflowExecution', () => {
       })
     ).rejects.toThrow('cleanup failed')
     expect(mocks.complete).toHaveBeenCalledTimes(1)
-    expect(mocks.completeWithError).not.toHaveBeenCalled()
     expect(mocks.completeWorkflowCheckpointChild).not.toHaveBeenCalled()
   })
 })

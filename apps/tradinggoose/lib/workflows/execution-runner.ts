@@ -361,7 +361,6 @@ export async function runPreparedWorkflowExecution(params: {
     params.contextExtensions?.isChildExecution === true ||
     (params.resume?.snapshot.executor.context.workflowDepth ?? 0) > 0
   let result: ExecutionResult
-  let executionError: { message: string } | undefined
   let dispatchFailureReason: WorkflowDispatchFailureReason | undefined
   try {
     if (params.startupError) {
@@ -507,7 +506,6 @@ export async function runPreparedWorkflowExecution(params: {
     }
   } catch (error: any) {
     const message = error.message || 'Workflow execution failed'
-    executionError = { message }
     dispatchFailureReason =
       error instanceof WorkflowUsageLimitError
         ? 'usage_limit_exceeded'
@@ -524,30 +522,19 @@ export async function runPreparedWorkflowExecution(params: {
 
   const { traceSpans, totalDuration } = buildTraceSpans(result)
 
-  if (executionError) {
-    await loggingSession.completeWithError({
-      totalDurationMs: totalDuration,
-      error: executionError,
-      traceSpans,
-      workspaceId,
-      actorUserId: params.actorUserId,
-      variables: encryptedEnvVars,
-    })
-  } else {
-    await loggingSession.complete({
-      totalDurationMs: totalDuration,
-      finalOutput: result.output,
-      success: result.success,
-      failureReason: result.error,
-      traceSpans,
-      workflowInput: params.workflowInput,
-      workspaceId,
-      actorUserId: params.actorUserId,
-      hasResponseBlock:
-        result.logs?.some((log) => log.success && log.blockType === 'response') === true,
-      variables: encryptedEnvVars,
-    })
-  }
+  await loggingSession.complete({
+    totalDurationMs: totalDuration,
+    finalOutput: result.output,
+    success: result.success,
+    failureReason: result.error,
+    traceSpans,
+    workflowInput: params.workflowInput,
+    workspaceId,
+    actorUserId: params.actorUserId,
+    hasResponseBlock:
+      result.logs?.some((log) => log.success && log.blockType === 'response') === true,
+    variables: encryptedEnvVars,
+  })
 
   if (!result.success) {
     const { cancelPendingExecutionDescendants } = await import(

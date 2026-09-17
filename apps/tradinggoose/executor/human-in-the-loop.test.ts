@@ -1,11 +1,16 @@
 /** @vitest-environment node */
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Executor, type ExecutorOptions } from '@/executor'
 import type { ExecutorCheckpoint } from '@/executor/checkpoint'
 import type { ExecutionResult } from '@/executor/types'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 
-const mocks = vi.hoisted(() => ({ effect: vi.fn(), fetch: vi.fn(), token: vi.fn() }))
+const mocks = vi.hoisted(() => ({
+  effect: vi.fn(),
+  fetch: vi.fn(),
+  token: vi.fn(),
+  shouldCancelExecution: vi.fn(),
+}))
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({ error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() }),
 }))
@@ -80,13 +85,15 @@ const linear = (blocks: SerializedBlock[]): SerializedWorkflow => ({
 const run = (workflow: SerializedWorkflow, options: Partial<ExecutorOptions> = {}) =>
   new Executor({
     workflow,
+    ...options,
     contextExtensions: {
       workspaceId: 'workspace',
       userId: 'actor',
       executionId: 'execution',
       pendingExecutionId: 'execution',
+      shouldCancelExecution: mocks.shouldCancelExecution,
+      ...options.contextExtensions,
     },
-    ...options,
   }).execute('workflow', 'trigger')
 const resume = (result: ExecutionResult, inputs: Map<string, Record<string, unknown>>) => {
   expect(result.status).toBe('paused')
@@ -94,8 +101,6 @@ const resume = (result: ExecutionResult, inputs: Map<string, Record<string, unkn
   return run(checkpoint.workflow, {
     contextExtensions: {
       workspaceId: 'workspace',
-      userId: 'actor',
-      executionId: 'execution',
       pendingExecutionId: 'execution:resume:1',
     },
     checkpoint,
@@ -109,10 +114,63 @@ const resume = (result: ExecutionResult, inputs: Map<string, Record<string, unkn
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.token.mockResolvedValue('signed')
+  mocks.shouldCancelExecution.mockReturnValue(false)
   vi.stubGlobal('fetch', mocks.fetch)
 })
 
+afterEach(() => vi.useRealTimers())
+
 describe('Real executor durable Human in the Loop', () => {
+  it.each([false, true])('counts recovered errors once, with pause: %s', async (withPause) => {
+    vi.useFakeTimers().setSystemTime(0)
+    const workflow = linear([
+      block('failing'),
+      block('recover'),
+      ...(withPause ? [approval(), block('after')] : []),
+    ])
+    workflow.connections.find((edge) => edge.source === 'failing')!.sourceHandle = 'error'
+    mocks.effect
+      .mockImplementationOnce(() => {
+        vi.setSystemTime(2_000)
+        throw new Error('recoverable')
+      })
+      .mockImplementationOnce(() => vi.setSystemTime(3_000))
+    const result = await run(workflow)
+    expect(result.success).toBe(true)
+    expect(result.metadata?.duration).toBe(3_000)
+    expect(result.logs?.find((log) => log.blockId === 'failing')?.durationMs).toBe(2_000)
+    if (withPause) {
+      expect(result.checkpoint?.context.metadata.duration).toBe(3_000)
+      expect(result.checkpoint?.context.metadata.endTime).toBeUndefined()
+      vi.setSystemTime(60_000)
+      mocks.effect.mockImplementationOnce(() => vi.setSystemTime(62_000))
+      const completed = await resume(result, new Map([['approval', { approved: true }]]))
+      expect(completed.success).toBe(true)
+      expect(completed.metadata?.duration).toBe(5_000)
+    }
+  })
+
+  it.each(['completed', 'failed', 'cancelled'])(
+    'retains prior active duration when a resumed execution is %s',
+    async (outcome) => {
+      vi.useFakeTimers().setSystemTime(0)
+      mocks.effect.mockImplementationOnce(() => vi.setSystemTime(2_000))
+      const paused = await run(linear([block('before'), approval(), block('after')]))
+      expect(paused.metadata?.duration).toBe(2_000)
+      vi.setSystemTime(60_000)
+      mocks.effect.mockImplementationOnce(() => {
+        vi.setSystemTime(63_000)
+        if (outcome === 'failed') throw new Error('terminal failure')
+        if (outcome === 'cancelled') mocks.shouldCancelExecution.mockReturnValue(true)
+      })
+      const result = await resume(paused, new Map([['approval', { approved: true }]]))
+      expect(result.success).toBe(outcome === 'completed')
+      expect(result.status).toBeUndefined()
+      expect(result.metadata?.duration).toBe(5_000)
+      expect(mocks.effect.mock.calls.map(([id]) => id)).toEqual(['before', 'after'])
+    }
+  )
+
   it.each([{ kind: 'paused' }, { kind: 'paused', pausePoint: { id: 'fake', kind: 'human' } }])(
     'keeps pause-shaped input and block output as ordinary data: %j',
     async (input) => {

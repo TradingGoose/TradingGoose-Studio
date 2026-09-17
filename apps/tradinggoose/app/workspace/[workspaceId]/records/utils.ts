@@ -155,63 +155,6 @@ export function parseDuration(log: any): number | null {
   return Number.isFinite(durationCandidate) ? durationCandidate : null
 }
 
-/**
- * Extract output from various sources in execution data
- * Checks multiple locations in priority order:
- * 1. executionData.finalOutput
- * 2. output (as string)
- * 3. executionData.traceSpans (iterates through spans)
- * 4. executionData.blockExecutions (last block)
- * 5. message (fallback)
- */
-export function extractOutput(log: any): any {
-  let output: any = null
-
-  // Check finalOutput first
-  if (log.executionData?.finalOutput !== undefined) {
-    output = log.executionData.finalOutput
-  }
-
-  // Check direct output field
-  if (typeof log.output === 'string') {
-    output = log.output
-  } else if (log.executionData?.traceSpans && Array.isArray(log.executionData.traceSpans)) {
-    // Search through trace spans
-    const spans: any[] = log.executionData.traceSpans
-    for (let i = spans.length - 1; i >= 0; i--) {
-      const s = spans[i]
-      if (s?.output && Object.keys(s.output).length > 0) {
-        output = s.output
-        break
-      }
-      if (s?.status === 'error' && (s?.output?.error || s?.error)) {
-        output = s.output?.error || s.error
-        break
-      }
-    }
-    // Fallback to executionData.output
-    if (!output && log.executionData?.output) {
-      output = log.executionData.output
-    }
-  }
-
-  // Check block executions
-  if (!output) {
-    const blockExecutions = log.executionData?.blockExecutions
-    if (Array.isArray(blockExecutions) && blockExecutions.length > 0) {
-      const lastBlock = blockExecutions[blockExecutions.length - 1]
-      output = lastBlock?.outputData || lastBlock?.errorMessage || null
-    }
-  }
-
-  // Final fallback to message
-  if (!output) {
-    output = log.message || null
-  }
-
-  return output
-}
-
 function readFiniteNumber(value: unknown): number | undefined {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value

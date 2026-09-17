@@ -290,9 +290,10 @@ export async function terminalizeWorkflowExecution(
     })
   }
 
-  await loggingSession.completeWithError({
-    totalDurationMs: Math.max(1, Math.round(durationMs + (progress?.totalDuration ?? 0))),
-    error: { message },
+  await loggingSession.complete({
+    totalDurationMs: Math.max(0, Math.round(durationMs + (progress?.totalDuration ?? 0))),
+    success: false,
+    failureReason: message,
     workspaceId: row.workspaceId,
     actorUserId: row.userId,
     billable,

@@ -405,7 +405,7 @@ describe('durable workflow checkpoint lifecycle', () => {
     const { checkpoint: _checkpoint, pause: _pause, ...completedData } = state.log.executionData
     state.log.executionData = completedData
     state.log.level = 'error'
-    state.log.executionData.finalOutput = { error: 'Workflow execution was cancelled' }
+    state.log.executionData.errorMessage = 'Workflow execution was cancelled'
     expect(await readWorkflowCheckpoint('execution', 'workflow')).toMatchObject({
       status: 'cancelled',
       revision: 0,

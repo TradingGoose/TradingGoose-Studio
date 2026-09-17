@@ -56,7 +56,8 @@ it('prefers a finalized error log and otherwise uses pending state', async () =>
     endedAt: new Date('2026-08-20T12:10:00.000Z'),
     totalDurationMs: 600_000,
     executionData: {
-      finalOutput: { error: 'Workflow execution time limit exceeded' },
+      errorMessage: 'Workflow execution time limit exceeded',
+      finalOutput: { error: 'ordinary block output' },
     },
   })
 
@@ -71,6 +72,7 @@ it('prefers a finalized error log and otherwise uses pending state', async () =>
     result: {
       success: false,
       error: 'Workflow execution time limit exceeded',
+      output: { error: 'ordinary block output' },
     },
     events: [],
   })
