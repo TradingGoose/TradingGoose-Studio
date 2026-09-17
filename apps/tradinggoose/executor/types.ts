@@ -114,6 +114,7 @@ export interface ExecutionContext {
   workspaceId: string // Workspace ID for file storage scoping
   userId?: string // Authenticated acting user for internal server-to-server calls
   executionId?: string // Unique execution ID for file storage scoping
+  pendingExecutionId?: string // Active queue attempt that owns execution capacity
   workflowLogId?: string
   submissionSource?: ExecutionSubmissionSource
   triggerType?: TriggerType
@@ -204,6 +205,7 @@ export interface ExecutionContextExtensions {
   onExecutionEvent?: (event: WorkflowExecutionEventInput) => Promise<void>
   shouldCancelExecution?: () => Promise<boolean>
   executionId?: string
+  pendingExecutionId?: string // Active queue attempt that owns execution capacity
   workspaceId: string
   userId?: string
   workflowLogId?: string
@@ -244,13 +246,9 @@ export interface DeferredBlockExecution {
   wait: () => Promise<BlockOutput | PausedBlockExecution>
 }
 
-export interface PausedBlockExecution {
-  kind: 'paused'
-  pausePoint: WorkflowPausePoint
-}
-
-export function isPausedBlockExecution(value: unknown): value is PausedBlockExecution {
-  return typeof value === 'object' && value !== null && 'kind' in value && value.kind === 'paused'
+/** Internal control result, never inferred from workflow data. */
+export class PausedBlockExecution {
+  constructor(readonly pausePoint: WorkflowPausePoint) {}
 }
 
 /**

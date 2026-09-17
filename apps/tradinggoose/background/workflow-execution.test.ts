@@ -94,13 +94,14 @@ describe('executeWorkflowJob', () => {
   ])(
     'classifies queued $source executions correctly',
     async ({ isChildExecution, ...metadata }) => {
-      await executeWorkflowJob({ ...workflowJob, metadata })
+      await executeWorkflowJob({ ...workflowJob, executionId: 'initial-execution', metadata })
 
       expect(runWorkflowExecutionMock).toHaveBeenCalledWith(
         expect.objectContaining({
           workflowId: 'workflow-1',
           actorUserId: 'user-1',
           contextExtensions: expect.objectContaining({
+            pendingExecutionId: 'initial-execution',
             workflowDepth: 0,
             isChildExecution,
             shouldCancelExecution: expect.any(Function),
@@ -294,6 +295,7 @@ describe('executeWorkflowJob', () => {
         contextExtensions: expect.objectContaining({
           stream: true,
           isChildExecution: true,
+          pendingExecutionId: 'resume-job-2',
           selectedOutputs: ['saved-output'],
         }),
       })

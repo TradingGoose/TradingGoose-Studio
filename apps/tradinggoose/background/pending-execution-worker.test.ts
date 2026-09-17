@@ -135,7 +135,7 @@ const processingRow = (overrides: Partial<PendingExecutionClaim> = {}): PendingE
 function queuedChildScenario() {
   const parent = processingRow()
   const child = processingRow({ id: 'child-1', source: 'workflow_block' })
-  mocks.listChildPendingWorkflowExecutions.mockImplementation(async (id) =>
+  mocks.listChildPendingWorkflowExecutions.mockImplementation(async ({ executionId: id }) =>
     id === child.id ? [] : [child]
   )
   return { parent, child }
@@ -446,7 +446,9 @@ describe('pending execution worker', () => {
         input: expect.objectContaining({ success: false, error: 'Permission revoked' }),
       })
     )
-    expect(mocks.listChildPendingWorkflowExecutions).toHaveBeenCalledWith('original')
+    expect(mocks.listChildPendingWorkflowExecutions).toHaveBeenCalledWith({
+      executionId: 'original',
+    })
     expect(mocks.settlePendingExecutionOwner).toHaveBeenCalledWith(row, { wake: false })
   })
 
@@ -516,7 +518,7 @@ describe('pending execution worker', () => {
       const child = processingRow({ id: 'child', source: 'workflow_block' })
       const grandchild = { id: 'grandchild', userId: 'user-1' }
       const cancelled: string[] = []
-      mocks.listChildPendingWorkflowExecutions.mockImplementation(async (id) =>
+      mocks.listChildPendingWorkflowExecutions.mockImplementation(async ({ executionId: id }) =>
         kind === 'queued' && id === parent.id ? [child] : []
       )
       mocks.readWorkflowCheckpointChildren.mockImplementation(async (id) => {

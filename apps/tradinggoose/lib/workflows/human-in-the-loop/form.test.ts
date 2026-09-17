@@ -21,8 +21,9 @@ describe('human review form contract', () => {
         { name: 'submission' },
         { name: 'resume' },
         { name: '_pauseMetadata' },
+        { name: 'kind' },
       ])
-    ).toHaveLength(3)
+    ).toHaveLength(4)
   })
 
   it('requires canonical file descriptors, not invented URL-only file objects', () => {
@@ -51,7 +52,6 @@ describe('human review form contract', () => {
     [{ name: 'resumeEndpoint' }],
     [{ name: 'response' }],
     [{ name: 'error' }],
-    [{ name: 'kind' }],
     [{ name: 'stream' }],
     [{ name: 'execution' }],
     [{ name: 'url' }],

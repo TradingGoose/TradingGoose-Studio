@@ -138,6 +138,7 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
       triggerTarget,
       triggerData,
       contextExtensions: {
+        pendingExecutionId: jobId,
         workflowDepth: payload.workflowDepth ?? 0,
         isChildExecution,
         stream: payload.stream === true || savedContext?.stream === true,

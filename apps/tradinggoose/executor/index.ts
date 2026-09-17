@@ -43,10 +43,9 @@ import type {
   ExecutionContextExtensions,
   ExecutionResult,
   NormalizedBlockOutput,
-  PausedBlockExecution,
   StreamingExecution,
 } from '@/executor/types'
-import { isPausedBlockExecution } from '@/executor/types'
+import { PausedBlockExecution } from '@/executor/types'
 import { VirtualBlockUtils } from '@/executor/utils/virtual-blocks'
 import type { SerializedBlock, SerializedParallel, SerializedWorkflow } from '@/serializer/types'
 
@@ -295,6 +294,7 @@ export class Executor {
     const context = this.checkpoint
       ? {
           ...restoreExecutionContext(this.checkpoint.context),
+          pendingExecutionId: this.contextExtensions.pendingExecutionId,
           workflow: this.actualWorkflow,
           onExecutionEvent: this.contextExtensions.onExecutionEvent,
           shouldCancelExecution: this.contextExtensions.shouldCancelExecution,
@@ -646,6 +646,7 @@ export class Executor {
       workspaceId,
       userId: this.contextExtensions.userId,
       executionId: this.contextExtensions.executionId,
+      pendingExecutionId: this.contextExtensions.pendingExecutionId,
       workflowLogId: this.contextExtensions.workflowLogId,
       submissionSource: this.contextExtensions.submissionSource,
       triggerType: this.contextExtensions.triggerType,
@@ -1477,7 +1478,7 @@ export class Executor {
         if (isDeferredBlockExecution(result.value)) {
           deferredResultIndexes.push(results.length)
           results.push({ status: 102, result: 'Deferred block execution pending' })
-        } else if (isPausedBlockExecution(result.value)) {
+        } else if (result.value instanceof PausedBlockExecution) {
           recordPause(index, result.value)
         } else {
           results.push(result.value)
@@ -1510,7 +1511,7 @@ export class Executor {
           const resultIndex = deferredResultIndexes[waitedIndex]
 
           if (waitedResult.status === 'fulfilled') {
-            if (isPausedBlockExecution(waitedResult.value)) {
+            if (waitedResult.value instanceof PausedBlockExecution) {
               recordPause(resultIndex, waitedResult.value)
               return
             }
@@ -1718,7 +1719,6 @@ export class Executor {
         blockLog.durationMs = Math.round(executionTime)
         blockLog.endedAt = new Date().toISOString()
 
-        this.integrateChildWorkflowLogs(block, output)
         context.blockLogs.push(blockLog)
 
         if (shouldLogToConsole) {
@@ -1920,7 +1920,7 @@ export class Executor {
       const startTime = performance.now()
       const rawOutput = await handler.execute(block, inputs, context)
 
-      if (isPausedBlockExecution(rawOutput)) return rawOutput
+      if (rawOutput instanceof PausedBlockExecution) return rawOutput
 
       if (isDeferredBlockExecution(rawOutput)) {
         return {
@@ -1928,7 +1928,7 @@ export class Executor {
           wait: async () => {
             try {
               const deferredOutput = await rawOutput.wait()
-              if (isPausedBlockExecution(deferredOutput)) return deferredOutput
+              if (deferredOutput instanceof PausedBlockExecution) return deferredOutput
               const output: NormalizedBlockOutput =
                 typeof deferredOutput === 'object' && deferredOutput !== null
                   ? deferredOutput
@@ -2252,24 +2252,6 @@ export class Executor {
         durationMs: 0,
       }
       context.blockLogs.push(initBlockLog)
-    }
-  }
-
-  /**
-   * Preserves child workflow trace spans for proper nesting
-   */
-  private integrateChildWorkflowLogs(block: SerializedBlock, output: NormalizedBlockOutput): void {
-    if (!isWorkflowBlockType(block.metadata?.id)) {
-      return
-    }
-
-    if (!output || typeof output !== 'object' || !output.childTraceSpans) {
-      return
-    }
-
-    const childTraceSpans = output.childTraceSpans as TraceSpan[]
-    if (!Array.isArray(childTraceSpans) || childTraceSpans.length === 0) {
-      return
     }
   }
 }

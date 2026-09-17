@@ -80,6 +80,7 @@ describe('executeScheduleJob', () => {
       expect(mocks.runPreparedWorkflowExecution).toHaveBeenCalledExactlyOnceWith(
         expect.objectContaining({
           executionId: 'execution-1',
+          contextExtensions: { pendingExecutionId: 'execution-1' },
           actorUserId: 'actor-1',
           triggerType: 'schedule',
           triggerTarget: { kind: 'block', blockId: 'trigger-1' },

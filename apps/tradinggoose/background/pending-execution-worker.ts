@@ -325,7 +325,7 @@ export async function cancelPendingExecutionDescendants(
 ) {
   if (visited.has(parentExecutionId)) return
   visited.add(parentExecutionId)
-  const children = await listChildPendingWorkflowExecutions(parentExecutionId)
+  const children = await listChildPendingWorkflowExecutions({ executionId: parentExecutionId })
   const pausedChildren = await readWorkflowCheckpointChildren(parentExecutionId)
   for (const child of pausedChildren) {
     if (visited.has(child.id) || children.some((queued) => queued.id === child.id)) continue

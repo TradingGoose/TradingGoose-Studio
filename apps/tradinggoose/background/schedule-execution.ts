@@ -199,6 +199,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       requestId,
       executionId,
       triggerType: 'schedule',
+      contextExtensions: { pendingExecutionId: executionId },
       workflowInput: {
         _context: {
           workflowId: payload.workflowId,

@@ -183,7 +183,7 @@ describe('POST /api/workflows/[id]/queue', () => {
     expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
   })
 
-  it('queues a child workflow execution authenticated with an internal JWT', async () => {
+  it('queues a child workflow with its signed logical parent and active capacity owner', async () => {
     checkSessionOrInternalAuthMock.mockResolvedValue({
       success: true,
       userId: 'user-1',
@@ -192,6 +192,7 @@ describe('POST /api/workflows/[id]/queue', () => {
         source: 'workflow_block',
         parentWorkflowId: 'parent-1',
         parentExecutionId: 'execution-1',
+        parentPendingExecutionId: 'execution-1:resume:2',
         parentBlockId: 'block-1',
       },
     })
@@ -204,6 +205,7 @@ describe('POST /api/workflows/[id]/queue', () => {
           executionTarget: 'live',
           triggerType: 'manual',
           workflowDepth: 2,
+          parentPendingExecutionId: 'untrusted-body-owner',
         }),
         headers: {
           'Content-Type': 'application/json',
@@ -230,6 +232,7 @@ describe('POST /api/workflows/[id]/queue', () => {
             source: 'workflow_block',
             parentWorkflowId: 'parent-1',
             parentExecutionId: 'execution-1',
+            parentPendingExecutionId: 'execution-1:resume:2',
             parentBlockId: 'block-1',
           },
         }),

@@ -141,12 +141,13 @@ async function hasWorkflowExecutionLog(
   return Boolean(log)
 }
 
-function getParentExecutionId(row: Pick<PendingExecutionRow, 'payload' | 'source'>) {
+function getParentPendingExecutionId(row: Pick<PendingExecutionRow, 'payload' | 'source'>) {
   if (row.source !== WORKFLOW_BLOCK_SOURCE || !isPendingExecutionPayload(row.payload)) return null
   const metadata = row.payload.metadata
   if (!isPendingExecutionPayload(metadata)) return null
-  return typeof metadata.parentExecutionId === 'string' && metadata.parentExecutionId.length > 0
-    ? metadata.parentExecutionId
+  return typeof metadata.parentPendingExecutionId === 'string' &&
+    metadata.parentPendingExecutionId.length > 0
+    ? metadata.parentPendingExecutionId
     : null
 }
 
@@ -155,8 +156,8 @@ const usesParentExecutionCapacity = (
   row: Pick<PendingExecutionRow, 'payload' | 'source'>,
   activeExecutionIds: ReadonlySet<string>
 ) => {
-  const parentExecutionId = getParentExecutionId(row)
-  return parentExecutionId !== null && activeExecutionIds.has(parentExecutionId)
+  const parentPendingExecutionId = getParentPendingExecutionId(row)
+  return parentPendingExecutionId !== null && activeExecutionIds.has(parentPendingExecutionId)
 }
 
 export function isTierLimitedPendingExecution(
@@ -622,7 +623,7 @@ async function claimNextPendingExecutionWithStore(
     .orderBy(
       sql`case when ${pendingExecution.source} = ${WORKFLOW_BLOCK_SOURCE} and exists (
         select 1 from ${pendingExecution} as "parent_pending_execution"
-        where "parent_pending_execution"."id" = ${pendingExecution.payload}->'metadata'->>'parentExecutionId'
+        where "parent_pending_execution"."id" = ${pendingExecution.payload}->'metadata'->>'parentPendingExecutionId'
           and "parent_pending_execution"."billing_scope_id" = ${billingScopeId}
           and "parent_pending_execution"."status" = 'processing'
       ) then 0 when ${pendingExecution.source} = ${WORKFLOW_BLOCK_SOURCE} then 1 else 2 end`,
@@ -715,14 +716,14 @@ function getPendingExecutionCapacityOwnerId(
 ) {
   let owner = row
   const visited = new Set([row.id])
-  let parentExecutionId = getParentExecutionId(owner)
+  let parentPendingExecutionId = getParentPendingExecutionId(owner)
 
-  while (parentExecutionId) {
-    const parent = activeRowsById.get(parentExecutionId)
+  while (parentPendingExecutionId) {
+    const parent = activeRowsById.get(parentPendingExecutionId)
     if (!parent || visited.has(parent.id)) break
     owner = parent
     visited.add(parent.id)
-    parentExecutionId = getParentExecutionId(parent)
+    parentPendingExecutionId = getParentPendingExecutionId(parent)
   }
 
   return owner.id
@@ -845,7 +846,7 @@ export async function settlePendingExecutionOwner(
   row: Pick<PendingExecutionClaim, 'id'>,
   options: { wake?: boolean }
 ) {
-  if ((await listChildPendingWorkflowExecutions(row.id)).length === 0) {
+  if ((await listChildPendingWorkflowExecutions({ pendingExecutionId: row.id })).length === 0) {
     await completePendingExecution({ pendingExecutionId: row.id, wake: options.wake })
     return
   }
@@ -869,14 +870,20 @@ function asPendingExecutionClaim(row: typeof pendingExecution.$inferSelect): Pen
   } as PendingExecutionClaim
 }
 
-export async function listChildPendingWorkflowExecutions(parentExecutionId: string) {
+export async function listChildPendingWorkflowExecutions(
+  parent: { executionId: string } | { pendingExecutionId: string }
+) {
+  const [key, id] =
+    'executionId' in parent
+      ? ['parentExecutionId', parent.executionId]
+      : ['parentPendingExecutionId', parent.pendingExecutionId]
   const rows = await db
     .select()
     .from(pendingExecution)
     .where(
       and(
         eq(pendingExecution.executionType, 'workflow'),
-        sql<boolean>`${pendingExecution.payload}->'metadata'->>'parentExecutionId' = ${parentExecutionId}`
+        sql<boolean>`${pendingExecution.payload}->'metadata'->>${key} = ${id}`
       )
     )
     .orderBy(asc(pendingExecution.createdAt), asc(pendingExecution.id))
@@ -895,9 +902,9 @@ export async function completePendingExecution(params: {
     .returning({
       billingScopeId: pendingExecution.billingScopeId,
       billingScopeType: pendingExecution.billingScopeType,
-      parentExecutionId: sql<
+      parentPendingExecutionId: sql<
         string | null
-      >`case when ${pendingExecution.source} = ${WORKFLOW_BLOCK_SOURCE} then ${pendingExecution.payload}->'metadata'->>'parentExecutionId' else null end`,
+      >`case when ${pendingExecution.source} = ${WORKFLOW_BLOCK_SOURCE} then ${pendingExecution.payload}->'metadata'->>'parentPendingExecutionId' else null end`,
     })
 
   if (deleted?.billingScopeId && params.wake !== false) {
@@ -907,8 +914,8 @@ export async function completePendingExecution(params: {
     })
   }
 
-  if (deleted?.parentExecutionId) {
-    await completeOwnerWithoutChildren(deleted.parentExecutionId, { wake: params.wake })
+  if (deleted?.parentPendingExecutionId) {
+    await completeOwnerWithoutChildren(deleted.parentPendingExecutionId, { wake: params.wake })
   }
 }
 
@@ -918,6 +925,6 @@ async function completeOwnerWithoutChildren(
 ) {
   const owner = await getProcessingPendingExecution(pendingExecutionId)
   if (typeof owner?.payload.ownerCompletedAt !== 'string') return
-  if ((await listChildPendingWorkflowExecutions(pendingExecutionId)).length > 0) return
+  if ((await listChildPendingWorkflowExecutions({ pendingExecutionId })).length > 0) return
   await completePendingExecution({ pendingExecutionId, wake: options.wake })
 }

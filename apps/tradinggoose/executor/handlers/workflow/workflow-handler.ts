@@ -2,9 +2,15 @@ import { generateInternalToken, type InternalWorkflowExecutionContext } from '@/
 import { createLogger } from '@/lib/logs/console/logger'
 import type { TraceSpan } from '@/lib/logs/types'
 import { getBaseUrl } from '@/lib/urls/utils'
-import type { BlockOutput } from '@/blocks/types'
-import { BlockType } from '@/executor/consts'
-import type { BlockHandler, DeferredBlockExecution, ExecutionContext } from '@/executor/types'
+import { isWorkflowBlockType } from '@/executor/consts'
+import {
+  type BlockHandler,
+  type DeferredBlockExecution,
+  type ExecutionContext,
+  type ExecutionResult,
+  type NormalizedBlockOutput,
+  PausedBlockExecution,
+} from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
 
 const logger = createLogger('WorkflowBlockHandler')
@@ -13,16 +19,10 @@ const MAX_WORKFLOW_DEPTH = 10
 const CHILD_WORKFLOW_POLL_INTERVAL_MS = 1_000
 const CHILD_WORKFLOW_WAIT_TIMEOUT_MS = 30 * 60 * 1000
 
-type WorkflowTraceSpan = TraceSpan & {
-  metadata?: Record<string, unknown>
-  children?: WorkflowTraceSpan[]
-}
-
-type QueuedWorkflowExecutionResult = {
-  success?: boolean
-  status?: 'paused'
-  output?: Record<string, unknown>
-  error?: string
+type QueuedWorkflowExecutionResult = Pick<
+  ExecutionResult,
+  'success' | 'status' | 'output' | 'error'
+> & {
   traceSpans?: TraceSpan[]
 }
 
@@ -31,17 +31,14 @@ type QueueWorkflowResponse = {
   workflowName: string
 }
 
-type JobStatusResponse = {
-  status?: 'queued' | 'processing' | 'paused' | 'completed' | 'failed'
-  output?: QueuedWorkflowExecutionResult
-  error?: string
-}
+type JobStatusResponse =
+  | { status: 'queued' | 'processing' }
+  | { status: 'paused' | 'completed' | 'failed'; output: QueuedWorkflowExecutionResult }
 
 type ChildWorkflowHeaders = () => Promise<Record<string, string>>
 
 type ChildWorkflowWaitOptions = {
   taskId: string
-  childWorkflowName: string
   headers: ChildWorkflowHeaders
   shouldCancelExecution?: () => Promise<boolean>
 }
@@ -52,32 +49,20 @@ const readResponseErrorMessage = async (response: Response, defaultMessage: stri
   try {
     const body = await response.json()
     if (typeof body?.error === 'string') return body.error
-    if (typeof body?.message === 'string') return body.message
   } catch {}
   return defaultMessage
 }
 
 export class WorkflowBlockHandler implements BlockHandler {
-  private safeParse(input: unknown): unknown {
-    if (typeof input !== 'string') return input
-    try {
-      return JSON.parse(input)
-    } catch {
-      return input
-    }
-  }
-
   canHandle(block: SerializedBlock): boolean {
-    return (
-      block.metadata?.id === BlockType.WORKFLOW || block.metadata?.id === BlockType.WORKFLOW_INPUT
-    )
+    return isWorkflowBlockType(block.metadata?.id)
   }
 
   async execute(
     block: SerializedBlock,
     inputs: Record<string, any>,
     context: ExecutionContext
-  ): Promise<BlockOutput | DeferredBlockExecution> {
+  ): Promise<NormalizedBlockOutput | DeferredBlockExecution> {
     logger.info(`Executing workflow block: ${block.id}`)
 
     const workflowId = inputs.workflowId
@@ -96,17 +81,10 @@ export class WorkflowBlockHandler implements BlockHandler {
       const childResult = context.resumeInputs.get(
         pausePointId
       ) as QueuedWorkflowExecutionResult & {
-        childWorkflowName?: string
+        childWorkflowName: string
       }
       context.resumeInputs.delete(pausePointId)
-      const childWorkflowName = childResult.childWorkflowName ?? 'Child workflow'
-      if (!childResult.success)
-        throw new Error(childResult.error ?? 'Child workflow execution failed')
-      return this.mapChildOutputToParent(
-        childResult,
-        childWorkflowName,
-        this.transformChildWorkflowSpans(childResult.traceSpans, childWorkflowName)
-      )
+      return this.mapChildOutputToParent(childResult, childResult.childWorkflowName)
     }
 
     return {
@@ -117,9 +95,13 @@ export class WorkflowBlockHandler implements BlockHandler {
             source: 'workflow_block',
             parentWorkflowId: context.workflowId,
             parentExecutionId: context.executionId,
+            parentPendingExecutionId: context.pendingExecutionId,
             parentBlockId: block.id,
           }
-          const headers = () => this.buildHeaders(context, workflowExecution)
+          const headers = async () => ({
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${await generateInternalToken(context.userId, { workflowExecution })}`,
+          })
           const queueResponse = await this.queueChildWorkflowExecution({
             headers,
             workflowId,
@@ -131,63 +113,30 @@ export class WorkflowBlockHandler implements BlockHandler {
           const childWorkflowName = queueResponse.workflowName
           const childResult = await this.waitForQueuedWorkflowResult({
             taskId: queueResponse.taskId,
-            childWorkflowName,
             headers,
             shouldCancelExecution: context.shouldCancelExecution,
           })
           if (childResult.status === 'paused') {
-            return {
-              kind: 'paused',
-              pausePoint: {
-                id: pausePointId,
-                blockId: block.id,
-                blockName: block.metadata?.name ?? 'Workflow',
-                kind: 'child',
-                childExecutionId: queueResponse.taskId,
-                childWorkflowId: workflowId,
-                childWorkflowName,
-                displayData: childResult.output ?? {},
-                inputFormat: [],
-              },
-            }
+            return new PausedBlockExecution({
+              id: pausePointId,
+              blockId: block.id,
+              blockName: block.metadata?.name ?? 'Workflow',
+              kind: 'child',
+              childExecutionId: queueResponse.taskId,
+              childWorkflowId: workflowId,
+              childWorkflowName,
+              displayData: childResult.output,
+              inputFormat: [],
+            })
           }
-          const childTraceSpans = this.transformChildWorkflowSpans(
-            childResult.traceSpans,
-            childWorkflowName
-          )
-
-          const mappedResult = this.mapChildOutputToParent(
-            childResult,
-            childWorkflowName,
-            childTraceSpans
-          )
-
-          return mappedResult
+          return this.mapChildOutputToParent(childResult, childWorkflowName)
         } catch (error: any) {
           logger.error(`Error executing child workflow ${workflowId}:`, error)
 
-          const originalError = error?.message || 'Unknown error'
-
-          if (originalError.startsWith('Error in child workflow')) {
-            throw error
-          }
-
-          const errorPrefix = error?.childWorkflowName
-            ? `Error in child workflow "${error.childWorkflowName}"`
-            : `Error executing child workflow ${workflowId}`
-          const wrappedError = new Error(`${errorPrefix}: ${originalError}`) as Error & {
-            childTraceSpans?: WorkflowTraceSpan[]
-            childWorkflowName?: string
-          }
-
-          if (Array.isArray(error?.childTraceSpans)) {
-            wrappedError.childTraceSpans = error.childTraceSpans
-          }
-          if (error?.childWorkflowName) {
-            wrappedError.childWorkflowName = error.childWorkflowName
-          }
-
-          throw wrappedError
+          if (error?.childWorkflowName) throw error
+          throw new Error(
+            `Error executing child workflow ${workflowId}: ${error?.message || 'Unknown error'}`
+          )
         }
       },
     }
@@ -195,10 +144,14 @@ export class WorkflowBlockHandler implements BlockHandler {
 
   private resolveChildWorkflowInput(inputs: Record<string, any>): Record<string, any> {
     if (inputs.inputMapping !== undefined && inputs.inputMapping !== null) {
-      const normalized = this.safeParse(inputs.inputMapping)
-      if (normalized && typeof normalized === 'object' && !Array.isArray(normalized)) {
-        return normalized as Record<string, any>
-      }
+      try {
+        const normalized =
+          typeof inputs.inputMapping === 'string'
+            ? JSON.parse(inputs.inputMapping)
+            : inputs.inputMapping
+        if (normalized && typeof normalized === 'object' && !Array.isArray(normalized))
+          return normalized
+      } catch {}
       return {}
     }
 
@@ -207,22 +160,6 @@ export class WorkflowBlockHandler implements BlockHandler {
     }
 
     return {}
-  }
-
-  private async buildHeaders(
-    context: Pick<ExecutionContext, 'userId'>,
-    workflowExecution: InternalWorkflowExecutionContext
-  ): Promise<Record<string, string>> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    }
-
-    if (typeof window === 'undefined') {
-      const token = await generateInternalToken(context.userId, { workflowExecution })
-      headers.Authorization = `Bearer ${token}`
-    }
-
-    return headers
   }
 
   private async queueChildWorkflowExecution(params: {
@@ -286,7 +223,6 @@ export class WorkflowBlockHandler implements BlockHandler {
 
   private async waitForQueuedWorkflowResult({
     taskId,
-    childWorkflowName,
     headers,
     shouldCancelExecution,
   }: ChildWorkflowWaitOptions): Promise<QueuedWorkflowExecutionResult> {
@@ -314,29 +250,8 @@ export class WorkflowBlockHandler implements BlockHandler {
 
       const body = (await response.json()) as JobStatusResponse
 
-      if (body.status === 'paused') {
-        return { ...body.output, status: 'paused' }
-      }
-      if (body.status === 'completed') {
-        return body.output ?? {}
-      }
-
-      if (body.status === 'failed') {
-        const error = new Error(
-          body.output?.error || body.error || 'Child workflow execution failed'
-        ) as Error & {
-          childTraceSpans?: WorkflowTraceSpan[]
-          childWorkflowName?: string
-        }
-        error.childWorkflowName = childWorkflowName
-        if (Array.isArray(body.output?.traceSpans)) {
-          error.childTraceSpans = this.transformChildWorkflowSpans(
-            body.output.traceSpans,
-            childWorkflowName
-          )
-        }
-        throw error
-      }
+      if (body.status === 'paused' || body.status === 'completed' || body.status === 'failed')
+        return body.output
 
       await sleep(CHILD_WORKFLOW_POLL_INTERVAL_MS)
     }
@@ -345,82 +260,24 @@ export class WorkflowBlockHandler implements BlockHandler {
     throw new Error('Child workflow execution timed out')
   }
 
-  private transformChildWorkflowSpans(
-    spans: TraceSpan[] | undefined,
-    childWorkflowName: string
-  ): WorkflowTraceSpan[] {
-    if (!Array.isArray(spans) || spans.length === 0) {
-      return []
-    }
-
-    return this.processChildWorkflowSpans(spans).map((span) =>
-      this.transformSpanForChildWorkflow(span, childWorkflowName)
-    )
-  }
-
-  private transformSpanForChildWorkflow(
-    span: WorkflowTraceSpan,
-    childWorkflowName: string
-  ): WorkflowTraceSpan {
-    const metadata: Record<string, unknown> = {
-      ...(span.metadata ?? {}),
-      isFromChildWorkflow: true,
-      childWorkflowName,
-    }
-
-    const transformedChildren = Array.isArray(span.children)
-      ? span.children.map((childSpan) =>
-          this.transformSpanForChildWorkflow(childSpan, childWorkflowName)
-        )
-      : undefined
-
-    return {
-      ...span,
-      metadata,
-      ...(transformedChildren ? { children: transformedChildren } : {}),
-    }
-  }
-
-  private processChildWorkflowSpans(spans: TraceSpan[]): WorkflowTraceSpan[] {
-    const processed: WorkflowTraceSpan[] = []
-
-    spans.forEach((span) => {
-      if (this.isSyntheticWorkflowWrapper(span)) {
-        if (Array.isArray(span.children)) {
-          processed.push(...this.processChildWorkflowSpans(span.children))
-        }
-        return
-      }
-
-      const workflowSpan: WorkflowTraceSpan = {
-        ...span,
-      }
-
-      if (Array.isArray(workflowSpan.children)) {
-        workflowSpan.children = this.processChildWorkflowSpans(workflowSpan.children as TraceSpan[])
-      }
-
-      processed.push(workflowSpan)
-    })
-
-    return processed
-  }
-
-  private isSyntheticWorkflowWrapper(span: TraceSpan | undefined): boolean {
-    if (!span || span.type !== 'workflow') return false
-    return !span.blockId
-  }
-
   private mapChildOutputToParent(
     childResult: QueuedWorkflowExecutionResult,
-    childWorkflowName: string,
-    childTraceSpans: WorkflowTraceSpan[]
-  ): BlockOutput {
+    childWorkflowName: string
+  ): NormalizedBlockOutput {
+    const childTraceSpans = childResult.traceSpans ?? []
+    if (!childResult.success) {
+      throw Object.assign(
+        new Error(
+          `Error in child workflow "${childWorkflowName}": ${childResult.error ?? 'Child workflow execution failed'}`
+        ),
+        { childWorkflowName, childTraceSpans }
+      )
+    }
     return {
       success: true,
       childWorkflowName,
-      result: childResult.output || {},
+      result: childResult.output,
       childTraceSpans,
-    } as Record<string, any>
+    }
   }
 }

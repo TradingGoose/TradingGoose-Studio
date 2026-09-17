@@ -27,6 +27,7 @@ type SavedContext = Omit<
   | 'parallelExecutions'
   | 'parallelBlockMapping'
   | 'onExecutionEvent'
+  | 'pendingExecutionId'
   | 'shouldCancelExecution'
   | 'pausePoints'
   | 'resumeInputs'
@@ -68,6 +69,7 @@ export function saveExecutionContext(context: ExecutionContext): SavedContext {
   const {
     workflow: _workflow,
     onExecutionEvent: _onExecutionEvent,
+    pendingExecutionId: _pendingExecutionId,
     shouldCancelExecution: _shouldCancelExecution,
     pausePoints: _pausePoints,
     resumeInputs: _resumeInputs,

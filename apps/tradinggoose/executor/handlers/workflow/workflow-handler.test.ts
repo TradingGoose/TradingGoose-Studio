@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { generateInternalToken } from '@/lib/auth/internal'
+import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
+import type { TraceSpan } from '@/lib/logs/types'
+import { createMockContext } from '@/executor/__test-utils__/executor-mocks'
 import { BlockType } from '@/executor/consts'
 import { WorkflowBlockHandler } from '@/executor/handlers/workflow/workflow-handler'
-import type { ExecutionContext } from '@/executor/types'
+import type { DeferredBlockExecution, ExecutionContext } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
 
 vi.mock('@/lib/auth/internal', () => ({
@@ -15,6 +18,37 @@ vi.mock('@/lib/urls/utils', () => ({
 
 global.fetch = vi.fn()
 
+const childSpan: TraceSpan = {
+  id: 'child-function',
+  name: 'Child function',
+  type: 'function',
+  duration: 1,
+  startTime: '2026-09-17T00:00:00.000Z',
+  endTime: '2026-09-17T00:00:00.001Z',
+}
+const childTraceSpans = [{ ...childSpan, id: 'wrapper', type: 'workflow', children: [childSpan] }]
+
+function expectCanonicalChildTrace(output: Record<string, any>) {
+  const { traceSpans } = buildTraceSpans({
+    success: !output.error,
+    output,
+    logs: [
+      {
+        blockId: 'parent-block',
+        blockType: 'workflow_input',
+        blockName: 'Child Workflow',
+        startedAt: childSpan.startTime,
+        endedAt: childSpan.endTime,
+        durationMs: 1,
+        success: !output.error,
+        output,
+      },
+    ],
+  })
+  expect(traceSpans[0].children).toMatchObject([childSpan])
+  expect(traceSpans[0].children).toHaveLength(1)
+}
+
 describe('WorkflowBlockHandler', () => {
   let handler: WorkflowBlockHandler
   let mockBlock: SerializedBlock
@@ -22,6 +56,7 @@ describe('WorkflowBlockHandler', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(global.fetch).mockReset()
     handler = new WorkflowBlockHandler()
 
     mockBlock = {
@@ -35,28 +70,12 @@ describe('WorkflowBlockHandler', () => {
     }
 
     mockContext = {
-      workflowId: 'parent-workflow-id',
-      workspaceId: 'test-workspace-id',
+      ...createMockContext({ workflowId: 'parent-workflow-id' }),
       userId: 'user-1',
       executionId: 'execution-1',
+      pendingExecutionId: 'execution-1',
       workflowDepth: 0,
       triggerType: 'manual',
-      blockStates: new Map(),
-      blockLogs: [],
-      metadata: { duration: 0 },
-      environmentVariables: {},
-      decisions: { router: new Map(), condition: new Map() },
-      loopIterations: new Map(),
-      loopItems: new Map(),
-      completedLoops: new Set(),
-      executedBlocks: new Set(),
-      activeExecutionPath: new Set(),
-      workflow: {
-        version: '1.0',
-        blocks: [],
-        connections: [],
-        loops: {},
-      },
     }
   })
 
@@ -85,128 +104,119 @@ describe('WorkflowBlockHandler', () => {
     ).toBe(true)
   })
 
-  it('queues the child workflow and maps the completed result', async () => {
-    vi.mocked(generateInternalToken)
-      .mockResolvedValueOnce('queue-token')
-      .mockResolvedValueOnce('poll-token')
-    const fetchMock = vi.mocked(global.fetch)
-    fetchMock
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            taskId: 'job-1',
-            workflowName: 'Child Workflow',
-          }),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
+  it.each(['execution-1', 'execution-1:resume:2'])(
+    'queues the child workflow under active capacity owner %s',
+    async (pendingExecutionId) => {
+      mockContext.pendingExecutionId = pendingExecutionId
+      vi.mocked(generateInternalToken)
+        .mockResolvedValueOnce('queue-token')
+        .mockResolvedValueOnce('poll-token')
+      const fetchMock = vi.mocked(global.fetch)
+      fetchMock
+        .mockResolvedValueOnce(Response.json({ taskId: 'job-1', workflowName: 'Child Workflow' }))
+        .mockResolvedValueOnce(
+          Response.json({
             status: 'completed',
-            output: {
-              success: true,
-              output: { value: 42 },
-              traceSpans: [],
-            },
+            output: { success: true, output: { value: 42 }, traceSpans: childTraceSpans },
+          })
+        )
+
+      const deferred = await handler.execute(
+        mockBlock,
+        { workflowId: 'child-workflow-id', input: { symbol: 'AAPL' } },
+        mockContext
+      )
+
+      expect(typeof deferred).toBe('object')
+      expect((deferred as { kind?: string }).kind).toBe('deferred')
+
+      const result = await (deferred as { wait: () => Promise<Record<string, unknown>> }).wait()
+
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        1,
+        'http://localhost:3000/api/workflows/child-workflow-id/queue',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer queue-token',
+            'Content-Type': 'application/json',
           }),
-      } as Response)
-
-    const deferred = await handler.execute(
-      mockBlock,
-      { workflowId: 'child-workflow-id', input: { symbol: 'AAPL' } },
-      mockContext
-    )
-
-    expect(typeof deferred).toBe('object')
-    expect((deferred as { kind?: string }).kind).toBe('deferred')
-
-    const result = await (deferred as { wait: () => Promise<Record<string, unknown>> }).wait()
-
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      1,
-      'http://localhost:3000/api/workflows/child-workflow-id/queue',
-      expect.objectContaining({
-        method: 'POST',
-        headers: expect.objectContaining({
-          Authorization: 'Bearer queue-token',
-          'Content-Type': 'application/json',
-        }),
+        })
+      )
+      const queueBody = JSON.parse((fetchMock.mock.calls[0]?.[1] as RequestInit).body as string)
+      expect(queueBody).toMatchObject({
+        input: { symbol: 'AAPL' },
+        executionTarget: 'live',
+        triggerType: 'api',
+        workflowDepth: 1,
       })
-    )
-    const queueBody = JSON.parse((fetchMock.mock.calls[0]?.[1] as RequestInit).body as string)
-    expect(queueBody).toMatchObject({
-      input: { symbol: 'AAPL' },
-      executionTarget: 'live',
-      triggerType: 'api',
-      workflowDepth: 1,
-    })
-    expect(queueBody).not.toHaveProperty('parentWorkflowId')
-    expect(queueBody).not.toHaveProperty('parentExecutionId')
-    expect(queueBody).not.toHaveProperty('parentBlockId')
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
-      'http://localhost:3000/api/jobs/job-1',
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer poll-token',
-          'Content-Type': 'application/json',
-        }),
-        cache: 'no-store',
+      expect(queueBody).not.toHaveProperty('parentWorkflowId')
+      expect(queueBody).not.toHaveProperty('parentExecutionId')
+      expect(queueBody).not.toHaveProperty('parentPendingExecutionId')
+      expect(queueBody).not.toHaveProperty('parentBlockId')
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        2,
+        'http://localhost:3000/api/jobs/job-1',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer poll-token',
+            'Content-Type': 'application/json',
+          }),
+          cache: 'no-store',
+        })
+      )
+      expect(result).toEqual({
+        success: true,
+        childWorkflowName: 'Child Workflow',
+        result: { value: 42 },
+        childTraceSpans,
       })
-    )
-    expect(result).toEqual({
-      success: true,
-      childWorkflowName: 'Child Workflow',
-      result: { value: 42 },
-      childTraceSpans: [],
-    })
-    expect(generateInternalToken).toHaveBeenCalledWith('user-1', {
-      workflowExecution: {
-        source: 'workflow_block',
-        parentWorkflowId: 'parent-workflow-id',
-        parentExecutionId: 'execution-1',
-        parentBlockId: 'workflow-block-1',
-      },
-    })
-    expect(generateInternalToken).toHaveBeenCalledTimes(2)
-  })
+      expectCanonicalChildTrace(result)
+      expect(generateInternalToken).toHaveBeenCalledWith('user-1', {
+        workflowExecution: {
+          source: 'workflow_block',
+          parentWorkflowId: 'parent-workflow-id',
+          parentExecutionId: 'execution-1',
+          parentPendingExecutionId: pendingExecutionId,
+          parentBlockId: 'workflow-block-1',
+        },
+      })
+      expect(generateInternalToken).toHaveBeenCalledTimes(2)
+    }
+  )
 
-  it('wraps failed child workflow executions', async () => {
-    const fetchMock = vi.mocked(global.fetch)
-    fetchMock
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            taskId: 'job-2',
-            workflowName: 'Child Workflow',
-          }),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            status: 'failed',
-            error: 'Child failed',
-            output: {
-              success: false,
-              error: 'Child failed',
-              traceSpans: [],
-            },
-          }),
-      } as Response)
-
-    const deferred = await handler.execute(
-      mockBlock,
-      { workflowId: 'child-workflow-id' },
-      mockContext
-    )
-
-    await expect(
-      (deferred as { wait: () => Promise<Record<string, unknown>> }).wait()
-    ).rejects.toThrow('Error in child workflow "Child Workflow": Child failed')
-  })
+  it.each([false, true])(
+    'preserves failed child traces and name (resumed: %s)',
+    async (resumed) => {
+      const fetchMock = vi.mocked(global.fetch)
+      const failedResult = {
+        success: false,
+        output: {},
+        error: 'Child failed',
+        traceSpans: childTraceSpans,
+      }
+      fetchMock
+        .mockResolvedValueOnce(Response.json({ taskId: 'job-2', workflowName: 'Child Workflow' }))
+        .mockResolvedValueOnce(
+          Response.json({ status: 'failed', error: 'Child failed', output: failedResult })
+        )
+      if (resumed)
+        mockContext.resumeInputs = new Map([
+          [mockBlock.id, { ...failedResult, childWorkflowName: 'Child Workflow' }],
+        ])
+      const error = await handler
+        .execute(mockBlock, { workflowId: 'child-workflow-id' }, mockContext)
+        .then((result) => (result as DeferredBlockExecution).wait())
+        .catch((error) => error)
+      expect(error).toMatchObject({
+        message: 'Error in child workflow "Child Workflow": Child failed',
+        childWorkflowName: 'Child Workflow',
+        childTraceSpans,
+      })
+      expect(fetchMock).toHaveBeenCalledTimes(resumed ? 0 : 2)
+      expectCanonicalChildTrace({ error: error.message, childTraceSpans: error.childTraceSpans })
+    }
+  )
 
   it('cancels queued child workflows when the parent is cancelled', async () => {
     vi.mocked(generateInternalToken)
@@ -214,15 +224,8 @@ describe('WorkflowBlockHandler', () => {
       .mockResolvedValueOnce('cancel-token')
     const fetchMock = vi.mocked(global.fetch)
     fetchMock
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            taskId: 'job-3',
-            workflowName: 'Child Workflow',
-          }),
-      } as Response)
-      .mockResolvedValueOnce({ ok: true } as Response)
+      .mockResolvedValueOnce(Response.json({ taskId: 'job-3', workflowName: 'Child Workflow' }))
+      .mockResolvedValueOnce(Response.json({ success: true, status: 'cancelling' }))
 
     const deferred = await handler.execute(
       mockBlock,
@@ -258,19 +261,9 @@ describe('WorkflowBlockHandler', () => {
     nowSpy.mockImplementation(() => now)
     const fetchMock = vi.mocked(global.fetch)
     fetchMock
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            taskId: 'job-4',
-            workflowName: 'Child Workflow',
-          }),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ status: 'processing' }),
-      } as Response)
-      .mockResolvedValueOnce({ ok: true } as Response)
+      .mockResolvedValueOnce(Response.json({ taskId: 'job-4', workflowName: 'Child Workflow' }))
+      .mockResolvedValueOnce(Response.json({ status: 'processing' }))
+      .mockResolvedValueOnce(Response.json({ success: true, status: 'cancelling' }))
 
     try {
       const deferred = await handler.execute(

@@ -79,6 +79,7 @@ describe('executePortfolioMonitorJob', () => {
         actorUserId: payload.monitor.actorUserId,
         requestId: 'executio',
         executionId: payload.executionId,
+        contextExtensions: { pendingExecutionId: payload.executionId },
         triggerType: 'webhook',
         workflowInput: {
           input: 'Portfolio state condition matched for Paper portfolio',

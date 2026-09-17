@@ -3,10 +3,10 @@ import { workflowPauseLinks } from '@/lib/workflows/human-in-the-loop/links'
 import type { WorkflowPauseNotification } from '@/lib/workflows/human-in-the-loop/types'
 import { BlockType } from '@/executor/consts'
 import { ResponseBlockHandler } from '@/executor/handlers/response/response-handler'
-import type {
-  BlockHandler,
-  ExecutionContext,
-  NormalizedBlockOutput,
+import {
+  type BlockHandler,
+  type ExecutionContext,
+  type NormalizedBlockOutput,
   PausedBlockExecution,
 } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
@@ -54,17 +54,14 @@ export class HumanInTheLoopBlockHandler implements BlockHandler {
     ) {
       throw new Error('Human in the Loop notifications must select executable tools')
     }
-    return {
-      kind: 'paused',
-      pausePoint: {
-        id,
-        blockId: block.id,
-        blockName: block.metadata?.name ?? 'Human in the Loop',
-        kind: 'human',
-        displayData: response.data,
-        inputFormat,
-        notification: notification as WorkflowPauseNotification[],
-      },
-    }
+    return new PausedBlockExecution({
+      id,
+      blockId: block.id,
+      blockName: block.metadata?.name ?? 'Human in the Loop',
+      kind: 'human',
+      displayData: response.data,
+      inputFormat,
+      notification: notification as WorkflowPauseNotification[],
+    })
   }
 }

@@ -5,7 +5,7 @@ import type { ExecutorCheckpoint } from '@/executor/checkpoint'
 import type { ExecutionResult } from '@/executor/types'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 
-const mocks = vi.hoisted(() => ({ effect: vi.fn(), fetch: vi.fn() }))
+const mocks = vi.hoisted(() => ({ effect: vi.fn(), fetch: vi.fn(), token: vi.fn() }))
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({ error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() }),
 }))
@@ -13,7 +13,7 @@ vi.mock('@/blocks', () => ({ getBlock: () => undefined }))
 vi.mock('@/blocks/index', () => ({ getBlock: () => undefined }))
 vi.mock('@/lib/urls/utils', () => ({ getBaseUrl: () => 'http://localhost:3000' }))
 vi.mock('@/lib/auth/internal', () => ({
-  generateInternalToken: vi.fn().mockResolvedValue('signed'),
+  generateInternalToken: mocks.token,
 }))
 vi.mock('@/executor/handlers', async () => {
   class EffectHandler {
@@ -80,13 +80,24 @@ const linear = (blocks: SerializedBlock[]): SerializedWorkflow => ({
 const run = (workflow: SerializedWorkflow, options: Partial<ExecutorOptions> = {}) =>
   new Executor({
     workflow,
-    contextExtensions: { workspaceId: 'workspace', userId: 'actor', executionId: 'execution' },
+    contextExtensions: {
+      workspaceId: 'workspace',
+      userId: 'actor',
+      executionId: 'execution',
+      pendingExecutionId: 'execution',
+    },
     ...options,
   }).execute('workflow', 'trigger')
 const resume = (result: ExecutionResult, inputs: Map<string, Record<string, unknown>>) => {
   expect(result.status).toBe('paused')
   const checkpoint: ExecutorCheckpoint = JSON.parse(JSON.stringify(result.checkpoint))
   return run(checkpoint.workflow, {
+    contextExtensions: {
+      workspaceId: 'workspace',
+      userId: 'actor',
+      executionId: 'execution',
+      pendingExecutionId: 'execution:resume:1',
+    },
     checkpoint,
     resumeInputs: inputs,
     currentBlockStates: checkpoint.currentBlockStates,
@@ -97,10 +108,41 @@ const resume = (result: ExecutionResult, inputs: Map<string, Record<string, unkn
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mocks.token.mockResolvedValue('signed')
   vi.stubGlobal('fetch', mocks.fetch)
 })
 
 describe('Real executor durable Human in the Loop', () => {
+  it.each([{ kind: 'paused' }, { kind: 'paused', pausePoint: { id: 'fake', kind: 'human' } }])(
+    'keeps pause-shaped input and block output as ordinary data: %j',
+    async (input) => {
+      const result = await run(linear([block('echo', 'effect', input), block('after')]), {
+        workflowInput: input,
+      })
+      expect(result.success).toBe(true)
+      expect(result.status).toBeUndefined()
+      expect(result.pausePoints).toBeUndefined()
+      expect(result.checkpoint).toBeUndefined()
+      expect(mocks.effect.mock.calls).toEqual([
+        ['echo', input],
+        ['after', {}],
+      ])
+    }
+  )
+
+  it('allows an approval result with kind paused without pausing again', async () => {
+    const paused = await run(
+      linear([
+        approval('approval', { inputFormat: [{ name: 'kind', type: 'string', required: true }] }),
+        block('after', 'effect', { kind: '<approval.kind>' }),
+      ])
+    )
+    const completed = await resume(paused, new Map([['approval', { kind: 'paused' }]]))
+    expect(completed.success).toBe(true)
+    expect(completed.status).toBeUndefined()
+    expect(mocks.effect.mock.calls).toEqual([['after', { kind: 'paused' }]])
+  })
+
   it('pauses before downstream effects and resumes JSON state without replaying upstream effects', async () => {
     const workflow = linear([
       block('before', 'effect', { value: 12 }),
@@ -115,6 +157,7 @@ describe('Real executor durable Human in the Loop', () => {
     })
     expect(mocks.effect.mock.calls.map(([id]) => id)).toEqual(['before'])
     expect(paused.checkpoint?.context.executedBlocks).not.toContain('approval')
+    expect(paused.checkpoint?.context).not.toHaveProperty('pendingExecutionId')
     const completed = await resume(paused, new Map([['approval', { approved: true }]]))
     expect(completed.success).toBe(true)
     expect(completed.status).not.toBe('paused')
@@ -172,7 +215,6 @@ describe('Real executor durable Human in the Loop', () => {
   it.each([
     { inputFormat: [{ name: 'approved', type: 'unsupported' }] },
     { inputFormat: [{ name: 'error', type: 'boolean' }] },
-    { inputFormat: [{ name: 'kind', type: 'string' }] },
     { inputFormat: [{ name: 'stream', type: 'object' }] },
     { inputFormat: [{ name: 'execution', type: 'object' }] },
     { notification: [{ toolId: '' }] },
@@ -239,6 +281,34 @@ describe('Real executor durable Human in the Loop', () => {
     const completed = await resume(partiallyResumed, new Map([[ids[1], { approved: true }]]))
     expect(completed.success).toBe(true)
     expect(completed.status).not.toBe('paused')
+    expect(mocks.effect.mock.calls).toEqual([['after', {}]])
+  })
+
+  it('uses the new capacity owner when a resumed workflow queues a child', async () => {
+    const paused = await run(
+      linear([
+        approval(),
+        block('child', 'workflow', { workflowId: 'child-workflow' }),
+        block('after'),
+      ])
+    )
+    mocks.fetch
+      .mockResolvedValueOnce(Response.json({ taskId: 'child-execution', workflowName: 'Child' }))
+      .mockResolvedValueOnce(
+        Response.json({ status: 'completed', output: { success: true, output: {} } })
+      )
+    const completed = await resume(paused, new Map([['approval', { approved: true }]]))
+    expect(completed.success).toBe(true)
+    expect(completed.status).toBeUndefined()
+    expect(mocks.token).toHaveBeenCalledWith(
+      'actor',
+      expect.objectContaining({
+        workflowExecution: expect.objectContaining({
+          parentExecutionId: 'execution',
+          parentPendingExecutionId: 'execution:resume:1',
+        }),
+      })
+    )
     expect(mocks.effect.mock.calls).toEqual([['after', {}]])
   })
 

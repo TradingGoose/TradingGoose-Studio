@@ -366,6 +366,7 @@ export async function executeWebhookJob(
       requestId,
       executionId,
       triggerType: 'webhook',
+      contextExtensions: { pendingExecutionId: executionId },
       workflowInput: input || {},
       triggerTarget: {
         kind: 'block',

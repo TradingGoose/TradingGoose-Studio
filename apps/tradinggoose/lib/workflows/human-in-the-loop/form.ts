@@ -10,7 +10,6 @@ const RESERVED_NAMES = new Set([
   'url',
   'resumeEndpoint',
   'error',
-  'kind',
   'stream',
   'execution',
   'response',
