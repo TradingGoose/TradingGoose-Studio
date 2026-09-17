@@ -159,7 +159,6 @@ async function logWebhookFailure(params: {
     totalDurationMs: 0,
     error: {
       message: params.error.message || 'Webhook execution failed',
-      stackTrace: params.error.stack,
     },
     traceSpans: [],
   })

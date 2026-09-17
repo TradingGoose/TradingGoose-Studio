@@ -1833,30 +1833,6 @@ export class Executor {
           : (context.metadata.duration ?? 0)
         context.metadata.duration = failureDuration
 
-        const failureMetadata = {
-          ...context.metadata,
-          endTime: failureEndTime,
-          duration: failureDuration,
-          workflowConnections: this.actualWorkflow.connections.map((conn) => ({
-            source: conn.source,
-            target: conn.target,
-          })),
-        }
-
-        const upstreamExecutionResult = (error as { executionResult?: ExecutionResult } | null)
-          ?.executionResult
-        const executionResultPayload: ExecutionResult = {
-          success: false,
-          output: upstreamExecutionResult?.output ?? errorOutput,
-          error: upstreamExecutionResult?.error ?? this.extractErrorMessage(error),
-          logs: [...context.blockLogs],
-          metadata: {
-            ...failureMetadata,
-            ...(upstreamExecutionResult?.metadata ?? {}),
-            workflowConnections: failureMetadata.workflowConnections,
-          },
-        }
-
         if (hasErrorPath) {
           return errorOutput
         }
@@ -1886,7 +1862,6 @@ export class Executor {
         })
 
         const executionError = new Error(errorMessage)
-        ;(executionError as any).executionResult = executionResultPayload
         if (Array.isArray((error as { childTraceSpans?: TraceSpan[] } | null)?.childTraceSpans)) {
           ;(executionError as any).childTraceSpans = (
             error as { childTraceSpans?: TraceSpan[] }

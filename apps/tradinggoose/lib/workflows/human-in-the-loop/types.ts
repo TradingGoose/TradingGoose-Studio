@@ -1,4 +1,5 @@
 import type { WorkflowExecutionBlueprint } from '@/lib/workflows/execution-runner'
+import type { workflowPauseLinks } from '@/lib/workflows/human-in-the-loop/links'
 import type { WorkflowFieldType } from '@/lib/workflows/value-types'
 import type { ExecutorCheckpoint } from '@/executor/checkpoint'
 import type { TriggerType } from '@/services/queue'
@@ -51,7 +52,7 @@ export interface StoredWorkflowCheckpoint {
 
 export type WorkflowCheckpointLogData = Record<string, unknown> & {
   checkpoint?: StoredWorkflowCheckpoint
-  pause?: { url: string; revision: number }
+  pause?: ReturnType<typeof workflowPauseLinks> & { revision: number }
   environment?: { userId?: string; [key: string]: unknown }
   finalOutput?: Record<string, unknown>
 }

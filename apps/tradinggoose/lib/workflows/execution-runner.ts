@@ -361,6 +361,8 @@ export async function runPreparedWorkflowExecution(params: {
     params.contextExtensions?.isChildExecution === true ||
     (params.resume?.snapshot.executor.context.workflowDepth ?? 0) > 0
   let result: ExecutionResult
+  let executionError: { message: string } | undefined
+  let dispatchFailureReason: WorkflowDispatchFailureReason | undefined
   try {
     if (params.startupError) {
       throw params.startupError
@@ -467,6 +469,7 @@ export async function runPreparedWorkflowExecution(params: {
       const { checkpoint: nextCheckpoint, pausePoints, ...publicResult } = result
       const saved = await saveWorkflowCheckpoint({
         executionId,
+        pendingExecutionId: contextExtensions.pendingExecutionId,
         workflowId: params.blueprint.workflowId,
         workspaceId,
         userId: params.actorUserId,
@@ -504,59 +507,54 @@ export async function runPreparedWorkflowExecution(params: {
     }
   } catch (error: any) {
     const message = error.message || 'Workflow execution failed'
-    const dispatchFailureReason =
+    executionError = { message }
+    dispatchFailureReason =
       error instanceof WorkflowUsageLimitError
         ? 'usage_limit_exceeded'
         : error instanceof WorkflowTriggerBlockError
           ? 'missing_trigger_block'
           : undefined
-    result = (error?.executionResult as ExecutionResult | undefined) || {
+    result = {
       success: false,
       output: {},
       error: message,
       logs: params.resume?.snapshot.executor.context.blockLogs ?? [],
     }
-    const { traceSpans, totalDuration } = buildTraceSpans(result)
+  }
 
+  const { traceSpans, totalDuration } = buildTraceSpans(result)
+
+  if (executionError) {
     await loggingSession.completeWithError({
-      endedAt: new Date().toISOString(),
-      totalDurationMs: totalDuration || 0,
-      error: {
-        message,
-        stackTrace: error.stack,
-      },
+      totalDurationMs: totalDuration,
+      error: executionError,
       traceSpans,
       workspaceId,
       actorUserId: params.actorUserId,
       variables: encryptedEnvVars,
     })
-    if (isChildExecution)
-      await completeWorkflowCheckpointChild({ childExecutionId: executionId, input: { ...result } })
-    return {
-      executionId,
-      result,
-      workflowData: params.blueprint.workflowData,
+  } else {
+    await loggingSession.complete({
+      totalDurationMs: totalDuration,
+      finalOutput: result.output,
+      success: result.success,
+      failureReason: result.error,
+      traceSpans,
+      workflowInput: params.workflowInput,
       workspaceId,
-      dispatchFailureReason,
-    }
+      actorUserId: params.actorUserId,
+      hasResponseBlock:
+        result.logs?.some((log) => log.success && log.blockType === 'response') === true,
+      variables: encryptedEnvVars,
+    })
   }
 
-  const { traceSpans, totalDuration } = buildTraceSpans(result)
-
-  await loggingSession.complete({
-    endedAt: new Date().toISOString(),
-    totalDurationMs: totalDuration || 0,
-    finalOutput: result.output === undefined ? {} : result.output,
-    success: result.success,
-    failureReason: result.error,
-    traceSpans: traceSpans || [],
-    workflowInput: params.workflowInput,
-    workspaceId,
-    actorUserId: params.actorUserId,
-    hasResponseBlock:
-      result.logs?.some((log) => log.success && log.blockType === 'response') === true,
-    variables: encryptedEnvVars,
-  })
+  if (!result.success) {
+    const { cancelPendingExecutionDescendants } = await import(
+      '@/background/pending-execution-worker'
+    )
+    await cancelPendingExecutionDescendants(executionId)
+  }
   if (isChildExecution)
     await completeWorkflowCheckpointChild({
       childExecutionId: executionId,
@@ -568,6 +566,7 @@ export async function runPreparedWorkflowExecution(params: {
     result,
     workflowData: params.blueprint.workflowData,
     workspaceId,
+    dispatchFailureReason,
   }
 }
 

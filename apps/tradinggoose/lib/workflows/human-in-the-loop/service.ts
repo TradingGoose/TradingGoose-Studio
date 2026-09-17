@@ -4,6 +4,7 @@ import { and, eq, isNull, sql } from 'drizzle-orm'
 import { authorizeWorkflowScope } from '@/lib/auth/workflow-scope'
 import {
   enqueuePendingExecution,
+  isPendingWorkflowExecutionCancellationRequested,
   PENDING_EXECUTION_CANCELLATION_ERROR,
 } from '@/lib/execution/pending-execution'
 import { readWorkflowExecutionEventState } from '@/lib/execution/workflow-execution-events'
@@ -66,6 +67,7 @@ function projectCheckpoint(row: ExecutionLog): WorkflowCheckpointView {
 
 export async function saveWorkflowCheckpoint(args: {
   executionId: string
+  pendingExecutionId?: string
   workflowId: string
   workspaceId: string
   userId: string
@@ -93,6 +95,11 @@ export async function saveWorkflowCheckpoint(args: {
     ) {
       throw new WorkflowCheckpointError('Checkpoint execution scope does not match')
     }
+    if (
+      args.pendingExecutionId &&
+      (await isPendingWorkflowExecutionCancellationRequested(args.pendingExecutionId, tx))
+    )
+      throw new WorkflowCheckpointError(PENDING_EXECUTION_CANCELLATION_ERROR)
     const previous = data.checkpoint
     if (previous && data.pause)
       return { revision: previous.revision, pausePoints: previous.pausePoints }
@@ -111,7 +118,7 @@ export async function saveWorkflowCheckpoint(args: {
         executionData: {
           ...data,
           checkpoint,
-          pause: { url: workflowPauseLinks(args.workflowId, args.executionId).url, revision },
+          pause: { ...workflowPauseLinks(args.workflowId, args.executionId), revision },
         },
       })
       .where(eq(workflowExecutionLogs.id, row.id))

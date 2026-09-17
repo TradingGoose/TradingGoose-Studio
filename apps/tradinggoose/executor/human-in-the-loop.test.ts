@@ -312,6 +312,30 @@ describe('Real executor durable Human in the Loop', () => {
     expect(mocks.effect.mock.calls).toEqual([['after', {}]])
   })
 
+  it('returns a terminal failure when a sibling fails after a child pauses', async () => {
+    const workflow = linear([
+      block('child', 'workflow', { workflowId: 'child-workflow' }),
+      block('after'),
+    ])
+    workflow.blocks.push(block('sibling'))
+    workflow.connections.push({ source: 'trigger', target: 'sibling' })
+    mocks.effect.mockImplementationOnce(() => {
+      throw new Error('sibling failed')
+    })
+    mocks.fetch
+      .mockResolvedValueOnce(Response.json({ taskId: 'child-execution', workflowName: 'Child' }))
+      .mockResolvedValueOnce(
+        Response.json({ status: 'paused', output: { success: true, status: 'paused' } })
+      )
+    const result = await run(workflow)
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('sibling failed')
+    expect(result.status).not.toBe('paused')
+    expect(result.checkpoint).toBeUndefined()
+    expect(mocks.fetch).toHaveBeenCalledTimes(2)
+    expect(mocks.effect.mock.calls.map(([id]) => id)).toEqual(['sibling'])
+  })
+
   it('resumes a paused child result without queueing that child a second time', async () => {
     mocks.fetch
       .mockResolvedValueOnce(Response.json({ taskId: 'child-execution', workflowName: 'Child' }))

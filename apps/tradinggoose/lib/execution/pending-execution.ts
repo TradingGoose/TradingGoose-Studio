@@ -827,8 +827,11 @@ async function reconcilePendingExecutionCapacity(
   }
 }
 
-export async function isPendingWorkflowExecutionCancellationRequested(pendingExecutionId: string) {
-  const [row] = await db
+export async function isPendingWorkflowExecutionCancellationRequested(
+  pendingExecutionId: string,
+  connection: Pick<typeof db, 'select'> = db
+) {
+  const [row] = await connection
     .select({
       payload: pendingExecution.payload,
     })

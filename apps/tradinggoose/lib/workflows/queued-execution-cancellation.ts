@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { pendingExecution, workflowExecutionLogs } from '@tradinggoose/db/schema'
-import { and, eq, or, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { authorizeWorkflowScope } from '@/lib/auth/workflow-scope'
 import {
   isPendingExecutionPayload,
@@ -68,6 +68,32 @@ export async function cancelPendingWorkflowExecution(params: {
     )
     .limit(1)
 
+  const executionId =
+    isPendingExecutionPayload(row?.payload) && typeof row.payload.resumeExecutionId === 'string'
+      ? row.payload.resumeExecutionId
+      : params.pendingExecutionId
+  const cancellation = {
+    payload: sql`${pendingExecution.payload} || jsonb_build_object('cancelRequestedAt', ${new Date().toISOString()})`,
+    updatedAt: new Date(),
+  }
+  let processingCancellationRequested = false
+  if (row?.status === 'processing' && row.workflowId) {
+    if (!params.descendantCancellation) {
+      const access = await authorizeWorkflowScope(
+        { success: true, userId: params.userId },
+        row.workflowId,
+        'write'
+      )
+      if (!access.ok || access.workspaceId !== row.workspaceId) return { status: 'not_found' }
+    }
+    const cancellingRows = await db
+      .update(pendingExecution)
+      .set(cancellation)
+      .where(and(eq(pendingExecution.id, row.id), eq(pendingExecution.status, 'processing')))
+      .returning({ id: pendingExecution.id })
+    processingCancellationRequested = cancellingRows.length > 0
+  }
+
   if (
     !row ||
     !row.workflowId ||
@@ -79,17 +105,24 @@ export async function cancelPendingWorkflowExecution(params: {
       .from(workflowExecutionLogs)
       .where(
         and(
-          or(
-            eq(workflowExecutionLogs.executionId, params.pendingExecutionId),
-            sql`${workflowExecutionLogs.executionData}->'checkpoint'->>'activeJobId' = ${params.pendingExecutionId}`
-          ),
+          eq(workflowExecutionLogs.executionId, executionId),
           sql`${workflowExecutionLogs.executionData}->'environment'->>'userId' = ${params.userId}`,
           ...(params.workspaceId ? [eq(workflowExecutionLogs.workspaceId, params.workspaceId)] : [])
         )
       )
       .limit(1)
-    if (log?.workflowId && (log.executionData as WorkflowCheckpointLogData).checkpoint) {
-      if (!params.descendantCancellation) {
+    if (
+      log?.workflowId &&
+      (row?.status === 'processing' || (log.executionData as WorkflowCheckpointLogData).checkpoint)
+    ) {
+      if (
+        !params.descendantCancellation &&
+        !(
+          row?.status === 'processing' &&
+          row.workflowId === log.workflowId &&
+          row.workspaceId === log.workspaceId
+        )
+      ) {
         const access = await authorizeWorkflowScope(
           { success: true, userId: params.userId },
           log.workflowId,
@@ -107,18 +140,17 @@ export async function cancelPendingWorkflowExecution(params: {
         if (!current || current.endedAt) return null
         const data = current.executionData as WorkflowCheckpointLogData
         const checkpoint = data.checkpoint
-        if (!checkpoint) return null
-        if (checkpoint.activeJobId) {
+        const activeJobId = checkpoint?.activeJobId
+        if (activeJobId) {
+          if (processingCancellationRequested && activeJobId === row?.id) return { active: true }
           const active = await tx
             .update(pendingExecution)
-            .set({
-              payload: sql`${pendingExecution.payload} || jsonb_build_object('cancelRequestedAt', ${new Date().toISOString()})`,
-              updatedAt: new Date(),
-            })
-            .where(eq(pendingExecution.id, checkpoint.activeJobId))
+            .set(cancellation)
+            .where(eq(pendingExecution.id, activeJobId))
             .returning({ id: pendingExecution.id })
           if (active.length) return { active: true }
         }
+        if (!checkpoint) return processingCancellationRequested ? { active: true } : null
         const { pause: _pause, ...cancelledData } = data
         await tx
           .update(workflowExecutionLogs)
@@ -155,20 +187,9 @@ export async function cancelPendingWorkflowExecution(params: {
       }
       return { status: 'cancelling' }
     }
-    if (!row || !row.workflowId) {
-      return readWorkflowExecutionCancellationResult({
-        executionId: params.pendingExecutionId,
-        userId: params.userId,
-        workspaceId: params.workspaceId,
-      })
-    }
   }
 
-  if (row.status === 'pending') {
-    const cancellationPayload = {
-      ...(isPendingExecutionPayload(row.payload) ? row.payload : {}),
-      cancelRequestedAt: new Date().toISOString(),
-    }
+  if (row?.workflowId && row.status === 'pending') {
     const claimed = await db.transaction(async (tx) => {
       await tx.execute(
         sql`select pg_advisory_xact_lock(${PENDING_EXECUTION_LOCK_NAMESPACE}, hashtext(${row.billingScopeId}))`
@@ -176,10 +197,9 @@ export async function cancelPendingWorkflowExecution(params: {
       const [claimedRow] = await tx
         .update(pendingExecution)
         .set({
+          ...cancellation,
           status: 'processing',
           processingStartedAt: new Date(),
-          payload: cancellationPayload,
-          updatedAt: new Date(),
         })
         .where(and(eq(pendingExecution.id, row.id), eq(pendingExecution.status, 'pending')))
         .returning({
@@ -193,62 +213,42 @@ export async function cancelPendingWorkflowExecution(params: {
       return claimedRow
     })
 
-    if (!claimed) {
-      return readWorkflowExecutionCancellationResult({
-        executionId: params.pendingExecutionId,
-        userId: params.userId,
-        workspaceId: params.workspaceId,
-      })
-    }
-    if (!claimed.workflowId || !claimed.workspaceId) {
-      throw new Error(`Queued workflow execution ${claimed.id} is missing workflow scope`)
-    }
+    if (claimed) {
+      if (!claimed.workflowId || !claimed.workspaceId) {
+        throw new Error(`Queued workflow execution ${claimed.id} is missing workflow scope`)
+      }
+      try {
+        const { terminalizeWorkflowExecution } = await import(
+          '@/background/pending-execution-worker'
+        )
+        if (!isPendingExecutionPayload(claimed.payload)) {
+          throw new Error(`Queued workflow execution ${claimed.id} has an invalid payload`)
+        }
+        await terminalizeWorkflowExecution(
+          { ...claimed, executionType: 'workflow', payload: claimed.payload },
+          0,
+          PENDING_EXECUTION_CANCELLATION_ERROR,
+          typeof claimed.payload.resumeExecutionId === 'string'
+        )
+      } catch (error) {
+        await db
+          .update(pendingExecution)
+          .set({ ...cancellation, status: 'pending', processingStartedAt: null })
+          .where(
+            and(eq(pendingExecution.id, claimed.id), eq(pendingExecution.status, 'processing'))
+          )
+        throw error
+      }
 
-    try {
-      const { terminalizeWorkflowExecution } = await import('@/background/pending-execution-worker')
-      const payload = isPendingExecutionPayload(claimed.payload) ? claimed.payload : {}
-      await terminalizeWorkflowExecution(
-        { ...claimed, executionType: 'workflow', payload },
-        0,
-        PENDING_EXECUTION_CANCELLATION_ERROR,
-        typeof payload.resumeExecutionId === 'string'
-      )
-    } catch (error) {
-      await db
-        .update(pendingExecution)
-        .set({
-          status: 'pending',
-          processingStartedAt: null,
-          payload: cancellationPayload,
-          updatedAt: new Date(),
-        })
-        .where(and(eq(pendingExecution.id, claimed.id), eq(pendingExecution.status, 'processing')))
-      throw error
-    }
-
-    await settlePendingExecutionOwner(claimed, { wake: params.wake })
-    return { status: 'cancelling' }
-  }
-
-  if (row.status === 'processing') {
-    const cancelRequestedAt = new Date().toISOString()
-
-    const cancellingRows = await db
-      .update(pendingExecution)
-      .set({
-        payload: sql`${pendingExecution.payload} || jsonb_build_object('cancelRequestedAt', ${cancelRequestedAt})`,
-        updatedAt: new Date(),
-      })
-      .where(and(eq(pendingExecution.id, row.id), eq(pendingExecution.status, 'processing')))
-      .returning({ id: pendingExecution.id })
-
-    if (cancellingRows.length > 0) {
+      await settlePendingExecutionOwner(claimed, { wake: params.wake })
       return { status: 'cancelling' }
     }
   }
 
+  if (processingCancellationRequested) return { status: 'cancelling' }
+
   return readWorkflowExecutionCancellationResult({
-    executionId: params.pendingExecutionId,
+    executionId,
     userId: params.userId,
     workspaceId: params.workspaceId,
   })

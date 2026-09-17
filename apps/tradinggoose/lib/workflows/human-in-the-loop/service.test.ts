@@ -10,6 +10,7 @@ const state = vi.hoisted(() => ({
   enqueue: vi.fn(),
   authorize: vi.fn(),
   readChild: vi.fn(),
+  isCancellationRequested: vi.fn(),
   children: [] as Record<string, any>[],
 }))
 
@@ -99,6 +100,7 @@ vi.mock('@tradinggoose/db', () => {
 })
 vi.mock('@/lib/execution/pending-execution', () => ({
   enqueuePendingExecution: state.enqueue,
+  isPendingWorkflowExecutionCancellationRequested: state.isCancellationRequested,
   PENDING_EXECUTION_CANCELLATION_ERROR: 'Workflow execution was cancelled',
 }))
 vi.mock('@/lib/auth/workflow-scope', () => ({ authorizeWorkflowScope: state.authorize }))
@@ -109,11 +111,11 @@ vi.mock('@/lib/utils-server', () => ({
   encryptSecret: async (value: string) => ({ encrypted: `encrypted:${value}` }),
   decryptSecret: async (value: string) => ({ decrypted: value.slice('encrypted:'.length) }),
 }))
-vi.mock('@/lib/workflows/human-in-the-loop/links', () => ({
-  workflowPauseLinks: () => ({ url: 'https://studio.test/resume/workflow/execution' }),
-}))
+vi.mock('@/lib/urls/utils', () => ({ getBaseUrl: () => 'https://studio.test' }))
 
 import { db } from '@tradinggoose/db'
+import { workflowExecutionLogs } from '@tradinggoose/db/schema'
+import { createPublicExecutionResult } from '@/lib/workflows/execution-result'
 import {
   claimWorkflowCheckpoint,
   completeWorkflowCheckpointChild,
@@ -147,9 +149,10 @@ const childPoint = (): WorkflowPausePoint => ({
   childExecutionId: 'child-execution',
   childWorkflowId: 'child-workflow',
 })
-const save = (points = [point('first')]) =>
+const save = (points = [point('first')], pendingExecutionId = 'execution') =>
   saveWorkflowCheckpoint({
     executionId: 'execution',
+    pendingExecutionId,
     workflowId: 'workflow',
     workspaceId: 'workspace',
     userId: 'original',
@@ -187,6 +190,7 @@ describe('durable workflow checkpoint lifecycle', () => {
     state.dispatchFails = false
     state.authorize.mockResolvedValue({ ok: true, userId: 'original', workspaceId: 'workspace' })
     state.readChild.mockResolvedValue(null)
+    state.isCancellationRequested.mockResolvedValue(false)
     state.enqueue.mockImplementation(async (args) => {
       const ready = await db.transaction(args.beforeEnqueue)
       if (ready && !state.admitted.includes(args.pendingExecutionId))
@@ -206,6 +210,46 @@ describe('durable workflow checkpoint lifecycle', () => {
     expect(JSON.stringify(view)).not.toContain('notification')
     expect(JSON.stringify(view)).not.toContain('reviewerId')
     expect(state.log.executionData.checkpoint?.pausePoints[0].reviewerId).toBe('reviewer')
+  })
+
+  it.each([false, true])(
+    'rejects a pause when cancellation wins the log lock (resumed: %s)',
+    async (resumed) => {
+      if (resumed) {
+        await save()
+        await submit()
+        await claim()
+      }
+      const pendingExecutionId = resumed ? 'execution:resume:1' : 'execution'
+      state.isCancellationRequested.mockResolvedValueOnce(true)
+      await expect(save([point('first')], pendingExecutionId)).rejects.toThrow(
+        'Workflow execution was cancelled'
+      )
+      expect(state.isCancellationRequested).toHaveBeenLastCalledWith(
+        pendingExecutionId,
+        expect.objectContaining({ select: expect.any(Function) })
+      )
+      expect(state.log.executionData).not.toHaveProperty('pause')
+      expect(state.log.executionData.checkpoint?.revision).toBe(resumed ? 1 : undefined)
+    }
+  )
+
+  it('reconstructs complete public pause links from the saved checkpoint log', async () => {
+    const { createWorkflowExecutionResultFromLog } = await vi.importActual<
+      typeof import('@/lib/execution/workflow-execution-events')
+    >('@/lib/execution/workflow-execution-events')
+    await save()
+    const [row] = await db.select().from(workflowExecutionLogs)
+    const { result } = createWorkflowExecutionResultFromLog(row)
+    expect(createPublicExecutionResult(result!)).toEqual({
+      success: true,
+      status: 'paused',
+      output: {
+        url: 'https://studio.test/resume/workflow/execution',
+        resumeEndpoint: 'https://studio.test/api/resume/workflow/execution',
+        revision: 1,
+      },
+    })
   })
 
   it('waits for every pause point and admits one job using the original execution actor', async () => {

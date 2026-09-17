@@ -45,10 +45,7 @@ export interface SessionCompleteParams {
 export interface SessionErrorCompleteParams {
   endedAt?: string
   totalDurationMs?: number
-  error?: {
-    message?: string
-    stackTrace?: string
-  }
+  error: { message: string }
   traceSpans?: TraceSpan[]
   workspaceId?: string
   actorUserId?: string | null
@@ -57,7 +54,6 @@ export interface SessionErrorCompleteParams {
 }
 
 export class LoggingSession {
-  private trigger?: ExecutionTrigger
   private environment?: ExecutionEnvironment
 
   constructor(
@@ -71,7 +67,7 @@ export class LoggingSession {
   async start(params: SessionStartParams): Promise<string> {
     const { userId, workspaceId, workflowState, triggerData } = params
 
-    this.trigger = createTriggerObject(this.triggerType, triggerData)
+    const trigger = createTriggerObject(this.triggerType, triggerData)
     this.environment = createEnvironmentObject(
       this.workflowId,
       this.executionId,
@@ -83,7 +79,7 @@ export class LoggingSession {
     const { workflowLog } = await executionLogger.startWorkflowExecution({
       workflowId: this.workflowId,
       executionId: this.executionId,
-      trigger: this.trigger,
+      trigger,
       environment: this.environment,
       workflowState,
       workflowSummary,
@@ -243,7 +239,7 @@ export class LoggingSession {
     }
   }
 
-  async completeWithError(params: SessionErrorCompleteParams = {}): Promise<void> {
+  async completeWithError(params: SessionErrorCompleteParams): Promise<void> {
     try {
       const {
         endedAt,
@@ -270,19 +266,8 @@ export class LoggingSession {
               })
             ).workflowExecutionChargeUsd
 
-      const costSummary = {
-        totalCost: workflowExecutionChargeUsd,
-        totalInputCost: 0,
-        totalOutputCost: 0,
-        totalTokens: 0,
-        totalPromptTokens: 0,
-        totalCompletionTokens: 0,
-        baseExecutionCharge: workflowExecutionChargeUsd,
-        modelCost: 0,
-        models: {},
-      }
-
-      const message = error?.message || 'Execution failed before starting blocks'
+      const costSummary = calculateCostSummary([], workflowExecutionChargeUsd)
+      const message = error.message
 
       const hasProvidedSpans = Array.isArray(traceSpans) && traceSpans.length > 0
 

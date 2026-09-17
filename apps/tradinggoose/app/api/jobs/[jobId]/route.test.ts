@@ -269,7 +269,7 @@ describe('GET /api/jobs/[jobId]', () => {
       output: {
         success: true,
         status: 'paused',
-        output: { url: '/review', revision: 2 },
+        output: { url: '/review', resumeEndpoint: '/api/resume/workflow-1/job-1', revision: 2 },
       },
     })
     expect(body.metadata).not.toHaveProperty('completedAt')

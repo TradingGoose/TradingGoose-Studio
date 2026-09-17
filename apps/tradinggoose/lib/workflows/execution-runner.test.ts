@@ -35,6 +35,7 @@ const mocks = vi.hoisted(() => {
     updateWorkflowRunCounts: vi.fn(),
     saveWorkflowCheckpoint: vi.fn(),
     completeWorkflowCheckpointChild: vi.fn(),
+    cancelPendingExecutionDescendants: vi.fn(),
     dispatchWorkflowPauseNotifications: vi.fn(),
   }
 })
@@ -42,6 +43,9 @@ const mocks = vi.hoisted(() => {
 vi.mock('@tradinggoose/db', () => ({ db: { select: mocks.dbSelect } }))
 vi.mock('@tradinggoose/db/schema', () => ({ workflow: {} }))
 vi.mock('drizzle-orm', () => ({ eq: vi.fn() }))
+vi.mock('@/background/pending-execution-worker', () => ({
+  cancelPendingExecutionDescendants: mocks.cancelPendingExecutionDescendants,
+}))
 
 vi.mock('@/lib/workflows/human-in-the-loop/service', () => ({
   saveWorkflowCheckpoint: mocks.saveWorkflowCheckpoint,
@@ -174,6 +178,7 @@ describe('runPreparedWorkflowExecution', () => {
     mocks.updateWorkflowRunCounts.mockResolvedValue(undefined)
     mocks.saveWorkflowCheckpoint.mockResolvedValue({ revision: 2 })
     mocks.completeWorkflowCheckpointChild.mockResolvedValue(undefined)
+    mocks.cancelPendingExecutionDescendants.mockResolvedValue(undefined)
     mocks.dispatchWorkflowPauseNotifications.mockResolvedValue(undefined)
   })
 
@@ -225,6 +230,7 @@ describe('runPreparedWorkflowExecution', () => {
       })
     )
     expect(mocks.completeWithError).not.toHaveBeenCalled()
+    expect(mocks.cancelPendingExecutionDescendants).not.toHaveBeenCalled()
     expect(result.result.success).toBe(true)
     expect(result.result.output).toEqual({ result: 'ok' })
   })
@@ -271,6 +277,7 @@ describe('runPreparedWorkflowExecution', () => {
       })
     )
     expect(result.dispatchFailureReason).toBe('usage_limit_exceeded')
+    expect(mocks.cancelPendingExecutionDescendants).toHaveBeenCalledExactlyOnceWith('execution-1')
   })
 
   it('reports missing trigger blocks as dispatch failures', async () => {
@@ -413,12 +420,13 @@ describe('runPreparedWorkflowExecution', () => {
 
     const result = await runPreparedWorkflowExecution({
       ...runParams,
-      contextExtensions: { onExecutionEvent },
+      contextExtensions: { onExecutionEvent, pendingExecutionId: 'execution-1' },
     })
 
     expect(mocks.saveWorkflowCheckpoint).toHaveBeenCalledWith(
       expect.objectContaining({
         executionId: 'execution-1',
+        pendingExecutionId: 'execution-1',
         workflowId: 'workflow-1',
         workspaceId: 'workspace-1',
         userId: 'user-1',
@@ -449,6 +457,7 @@ describe('runPreparedWorkflowExecution', () => {
     expect(mocks.complete).not.toHaveBeenCalled()
     expect(mocks.completeWithError).not.toHaveBeenCalled()
     expect(mocks.updateWorkflowRunCounts).not.toHaveBeenCalled()
+    expect(mocks.cancelPendingExecutionDescendants).not.toHaveBeenCalled()
   })
 
   it('preserves a saved pause when notification or event delivery fails', async () => {
@@ -491,7 +500,11 @@ describe('runPreparedWorkflowExecution', () => {
 
   it('resumes the saved executor and original log without reloading inputs, secrets, or workflow state', async () => {
     const resume = { snapshot, pausePoints: [{ ...pausePoint, input: { approved: true } }] }
-    await runPreparedWorkflowExecution({ ...runParams, resume })
+    await runPreparedWorkflowExecution({
+      ...runParams,
+      resume,
+      contextExtensions: { pendingExecutionId: 'execution-1:resume:2' },
+    })
 
     expect(mocks.start).not.toHaveBeenCalled()
     expect(mocks.loggingSessionConstructor).toHaveBeenCalledWith(
@@ -514,6 +527,7 @@ describe('runPreparedWorkflowExecution', () => {
         contextExtensions: expect.objectContaining({
           userId: 'user-1',
           executionId: 'execution-1',
+          pendingExecutionId: 'execution-1:resume:2',
           workflowLogId: 'original-log',
           workflowDepth: 2,
         }),
@@ -524,22 +538,59 @@ describe('runPreparedWorkflowExecution', () => {
     expect(mocks.updateWorkflowRunCounts).toHaveBeenCalledExactlyOnceWith('workflow-1')
   })
 
-  it('terminalizes a failed resumed execution once with the original logs', async () => {
-    mocks.execute.mockRejectedValueOnce(new Error('downstream failed'))
-    const result = await runPreparedWorkflowExecution({
-      ...runParams,
-      resume: { snapshot, pausePoints: [pausePoint] },
-    })
+  it.each([
+    { resumed: false, thrown: false },
+    { resumed: false, thrown: true },
+    { resumed: true, thrown: false },
+    { resumed: true, thrown: true },
+  ])(
+    'cancels descendants after terminal failure and before notifying its parent: %j',
+    async ({ resumed, thrown }) => {
+      const failure = {
+        success: false,
+        error: 'downstream failed',
+        logs: resumed ? snapshot.executor.context.blockLogs : [],
+      }
+      if (thrown) mocks.execute.mockRejectedValueOnce(new Error(failure.error))
+      else mocks.execute.mockResolvedValueOnce(failure)
+      const result = await runPreparedWorkflowExecution({
+        ...runParams,
+        contextExtensions: {
+          isChildExecution: true,
+          pendingExecutionId: resumed ? 'execution-1:resume:2' : 'execution-1',
+        },
+        ...(resumed ? { resume: { snapshot, pausePoints: [pausePoint] } } : {}),
+      })
 
-    expect(result.result).toMatchObject({
-      success: false,
-      error: 'downstream failed',
-      logs: snapshot.executor.context.blockLogs,
-    })
-    expect(mocks.start).not.toHaveBeenCalled()
-    expect(mocks.complete).not.toHaveBeenCalled()
-    expect(mocks.completeWithError).toHaveBeenCalledTimes(1)
-    expect(mocks.updateWorkflowRunCounts).not.toHaveBeenCalled()
+      expect(result.result).toMatchObject(failure)
+      expect(mocks.start).toHaveBeenCalledTimes(resumed ? 0 : 1)
+      const terminalize = thrown ? mocks.completeWithError : mocks.complete
+      expect(terminalize).toHaveBeenCalledTimes(1)
+      expect(thrown ? mocks.complete : mocks.completeWithError).not.toHaveBeenCalled()
+      expect(mocks.cancelPendingExecutionDescendants).toHaveBeenCalledExactlyOnceWith('execution-1')
+      expect(terminalize.mock.invocationCallOrder[0]).toBeLessThan(
+        mocks.cancelPendingExecutionDescendants.mock.invocationCallOrder[0]
+      )
+      expect(mocks.cancelPendingExecutionDescendants.mock.invocationCallOrder[0]).toBeLessThan(
+        mocks.completeWorkflowCheckpointChild.mock.invocationCallOrder[0]
+      )
+      expect(mocks.saveWorkflowCheckpoint).not.toHaveBeenCalled()
+      expect(mocks.updateWorkflowRunCounts).not.toHaveBeenCalled()
+    }
+  )
+
+  it('propagates cleanup failures for worker recovery without terminalizing twice', async () => {
+    mocks.execute.mockResolvedValueOnce({ success: false, error: 'sibling failed', logs: [] })
+    mocks.cancelPendingExecutionDescendants.mockRejectedValueOnce(new Error('cleanup failed'))
+    await expect(
+      runPreparedWorkflowExecution({
+        ...baseRunParams,
+        contextExtensions: { isChildExecution: true },
+      })
+    ).rejects.toThrow('cleanup failed')
+    expect(mocks.complete).toHaveBeenCalledTimes(1)
+    expect(mocks.completeWithError).not.toHaveBeenCalled()
+    expect(mocks.completeWorkflowCheckpointChild).not.toHaveBeenCalled()
   })
 })
 
