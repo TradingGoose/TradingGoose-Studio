@@ -66,6 +66,7 @@ describe('URL-selected documentation locale', () => {
 
   it.each([
     ['/en', 'en'],
+    ['/en/widgets?tab=usage', 'en'],
     ['/es?x=1', 'es'],
     ['/zh/tools/github?x=1', 'zh'],
   ])('keeps explicit %s canonical regardless of the saved language', (path, locale) => {
