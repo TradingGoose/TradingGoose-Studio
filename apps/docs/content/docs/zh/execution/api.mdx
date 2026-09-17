@@ -147,6 +147,8 @@ data: {"event":"final","data":{"success":true,"output":{"content":"..."},"metada
     - `details` - 响应详细级别：`basic`、`full`（默认：basic）
     - `includeTraceSpans` - 当 `details=full` 时包含 trace span（默认：false）
     - `includeFinalOutput` - 当 `details=full` 时包含最终输出（默认：false）
+
+    在 `details=full` 时，只有启用上述任一包含选项，才会通过 `errorMessage` 返回失败详情。
   </Tab>
   <Tab value="Response">
 
@@ -407,6 +409,7 @@ Webhook 订阅管理不属于 API 密钥日志 API 的一部分。应用程序�
       }
     },
     "files": null,
+    "errorMessage": "...", // 仅在执行失败且 includeFinalOutput=true 或 includeTraceSpans=true 时包含
     "finalOutput": {...},  // Only if includeFinalOutput=true
     "traceSpans": [...],   // Only if includeTraceSpans=true
     "rateLimits": {...},   // Only if includeRateLimits=true

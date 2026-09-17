@@ -147,6 +147,8 @@ Consulta los registros de ejecución de flujos de trabajo con amplias opciones d
     - `details` - Nivel de detalle de la respuesta: `basic`, `full` (predeterminado: basic)
     - `includeTraceSpans` - Incluir spans de traza cuando `details=full` (predeterminado: false)
     - `includeFinalOutput` - Incluir la salida final cuando `details=full` (predeterminado: false)
+
+    Con `details=full`, los detalles del error aparecen en `errorMessage` solo si se activa alguna de estas dos opciones de inclusión.
   </Tab>
   <Tab value="Respuesta">
 
@@ -407,6 +409,7 @@ Cuando se completa una ejecución del flujo de trabajo, TradingGoose envía una 
       }
     },
     "files": null,
+    "errorMessage": "...", // Solo en errores, si includeFinalOutput=true o includeTraceSpans=true
     "finalOutput": {...},  // Only if includeFinalOutput=true
     "traceSpans": [...],   // Only if includeTraceSpans=true
     "rateLimits": {...},   // Only if includeRateLimits=true

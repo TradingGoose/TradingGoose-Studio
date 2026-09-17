@@ -146,6 +146,8 @@ Query workflow execution logs with extensive filtering options.
     - `details` - Response detail level: `basic`, `full` (default: basic)
     - `includeTraceSpans` - Include trace spans when `details=full` (default: false)
     - `includeFinalOutput` - Include final output when `details=full` (default: false)
+
+    With `details=full`, failure details appear in `errorMessage` only when either include option is enabled.
   </Tab>
   <Tab value="Response">
     ```jsonc
@@ -358,6 +360,8 @@ Webhook-subscription management is not part of the API-key Logs API. The applica
 - `active`: Whether a newly created subscription starts active (default: `true`)
 
 ### Webhook Payload
+
+Failure details appear in `data.errorMessage` only when `includeFinalOutput` or `includeTraceSpans` is enabled.
 
 When a workflow execution completes, TradingGoose sends a POST request to your webhook URL:
 
