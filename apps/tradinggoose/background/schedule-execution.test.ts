@@ -1,5 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { executeScheduleJob, type ScheduleExecutionPayload } from './schedule-execution'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  executeScheduleJob,
+  isScheduleExecutionPayload,
+  type ScheduleExecutionPayload,
+} from './schedule-execution'
 
 const mocks = vi.hoisted(() => ({
   runPreparedWorkflowExecution: vi.fn(),
@@ -32,19 +36,12 @@ vi.mock('@/lib/api-key/service', () => ({ getApiKeyOwnerUserId: async () => 'act
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({ info: mocks.info, warn: vi.fn(), error: vi.fn() }),
 }))
-vi.mock('@/lib/schedules/utils', () => ({
-  getSubBlockValue: () => 'hourly',
-  getScheduleTimeValues: () => ({}),
-  calculateNextRunTime: () => mocks.nextRunAt,
-}))
 vi.mock('@/lib/timezone/timezone-resolver', () => ({
   resolveTimezoneOffsetMinutes: async () => 0,
 }))
-vi.mock('@/lib/workflows/db-helpers', () => ({ loadDeployedWorkflowState: vi.fn() }))
 vi.mock('@/lib/workflows/execution-runner', () => ({
   loadWorkflowExecutionBlueprint: mocks.loadWorkflowExecutionBlueprint,
   runPreparedWorkflowExecution: mocks.runPreparedWorkflowExecution,
-  WorkflowUsageLimitError: class WorkflowUsageLimitError extends Error {},
 }))
 
 const payload = {
@@ -53,6 +50,7 @@ const payload = {
   workflowId: 'workflow-1',
   blockId: 'trigger-1',
   timezone: 'UTC',
+  cronExpression: '0 * * * *',
   now: '2026-09-16T12:00:00.000Z',
   failedCount: 2,
 } satisfies ScheduleExecutionPayload
@@ -60,11 +58,31 @@ const payload = {
 describe('executeScheduleJob', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.useFakeTimers({ now: new Date(payload.now) })
     mocks.set.mockReturnValue({ where: mocks.updateWhere })
     mocks.updateWhere.mockResolvedValue(undefined)
     mocks.loadWorkflowExecutionBlueprint.mockResolvedValue({
       workflowContext: { workspaceId: 'workspace-1' },
       workflowData: { blocks: { 'trigger-1': {} } },
+    })
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it.each(['executionId', 'cronExpression'])(
+    'requires canonical queued schedule field %s',
+    (field) => {
+      expect(isScheduleExecutionPayload({ ...payload, [field]: undefined })).toBe(false)
+    }
+  )
+
+  it('records invalid cron without inventing a replacement next run date', async () => {
+    await expect(executeScheduleJob({ ...payload, cronExpression: 'invalid' })).rejects.toThrow()
+    expect(mocks.runPreparedWorkflowExecution).not.toHaveBeenCalled()
+    expect(mocks.set).toHaveBeenCalledExactlyOnceWith({
+      updatedAt: new Date(payload.now),
+      failedCount: 3,
+      status: 'disabled',
+      lastFailedAt: new Date(payload.now),
     })
   })
 
@@ -111,5 +129,30 @@ describe('executeScheduleJob', () => {
       failedCount: 3,
       status: 'disabled',
     })
+  })
+
+  it('reschedules usage-limited dispatches without counting an execution failure', async () => {
+    mocks.runPreparedWorkflowExecution.mockResolvedValue({
+      result: { success: false, error: 'Usage limit exceeded', output: {} },
+      dispatchFailureReason: 'usage_limit_exceeded',
+    })
+    await executeScheduleJob(payload)
+    expect(mocks.set).toHaveBeenCalledExactlyOnceWith({
+      updatedAt: new Date(payload.now),
+      nextRunAt: mocks.nextRunAt,
+    })
+  })
+
+  it('propagates descendant cleanup errors after bookkeeping so the worker can recover', async () => {
+    const error = new Error('descendant cleanup failed')
+    mocks.runPreparedWorkflowExecution.mockRejectedValueOnce(error)
+    await expect(executeScheduleJob(payload)).rejects.toBe(error)
+    expect(mocks.set).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        failedCount: 3,
+        status: 'disabled',
+        lastFailedAt: new Date(payload.now),
+      })
+    )
   })
 })
