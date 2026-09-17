@@ -3,10 +3,23 @@ import { NextRequest } from 'next/server'
 import { getRequestLocale } from '@/lib/locale-request'
 import { source } from '@/lib/source'
 
+const chineseSegmenter = new Intl.Segmenter('zh', { granularity: 'word' })
+
 const search = createFromSource(source, {
   localeMap: {
-    // Orama does not support `zh`; keep the existing generic tokenizer mapping.
-    zh: 'english',
+    zh: {
+      tokenizer: {
+        language: 'chinese',
+        normalizationCache: new Map(),
+        tokenize: (text) => [
+          ...new Set(
+            [...chineseSegmenter.segment(text.normalize('NFKC').toLowerCase())]
+              .filter((part) => part.isWordLike)
+              .map((part) => part.segment)
+          ),
+        ],
+      },
+    },
   },
 })
 

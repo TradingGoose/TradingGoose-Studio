@@ -62,7 +62,7 @@ import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
 1. **初始化** —— 循环计数器从 1 开始。对于 `forEach` 循环，会解析集合（JSON、变量引用或表达式）。
 2. **检查是否继续** —— `for`/`forEach` 将计数器与集合长度或迭代次数进行比较。`while`/`doWhile` 使用与 Condition 块相同的引擎计算条件表达式。
 3. **激活子节点** —— 连接到循环内部起始句柄的块会被放入活动执行路径。
-4. **收集结果** —— 每次迭代的输出会汇总到 `loop.results` 中。
+4. **收集结果** —— For 和 For Each 每次迭代的输出会汇总到容器的 `results` 输出中。
 5. **递增并重复** —— 计数器递增，然后重新执行第 2 步。循环结束时，连接到循环出口句柄的块会被激活。
 
 ## 迭代变量
@@ -75,11 +75,11 @@ import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
 | `loop.currentItem` | any | 当前项（ForEach 循环）或循环上下文（While 循环） |
 | `loop.items` | array/object | 正在迭代的完整集合（仅限 ForEach） |
 
-循环完成后，下游块可以访问：
+For 或 For Each 循环完成后，下游块可以访问 `results`。在引用下拉菜单中选择容器的输出，并将 `loop-id` 替换为该容器的实际 ID。While 和 Do While 的完成输出不包含 `results`。
 
 | 变量 | 类型 | 说明 |
 |---|---|---|
-| `loop.results` | array | 所有迭代输出的有序数组 |
+| `<loop-id.results>` | array | 按迭代顺序分组的子块输出 |
 
 ## 配置
 
@@ -97,13 +97,13 @@ import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
 1. 一个 API 块获取客户记录列表。
 2. 一个 ForEach 循环遍历每个客户。
 3. 循环内，一个 Agent 分析客户数据，一个 Function 存储结果。
-4. 循环结束后，一个 Response 块返回聚合后的 `loop.results`。
+4. 循环结束后，一个 Response 块通过 `<loop-id.results>` 返回聚合结果。
 
 ### 迭代优化
 
 1. 一个 For 循环设置为 5 次迭代，生成内容变体。
 2. 循环内，一个 Agent 生成草稿，一个 Evaluator 为其评分。
-3. 循环结束后，一个 Function 从 `loop.results` 中选择得分最高的变体。
+3. 循环结束后，一个 Function 从 `<loop-id.results>` 中选择得分最高的变体。
 
 ## 限制
 

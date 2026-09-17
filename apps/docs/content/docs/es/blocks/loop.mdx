@@ -62,7 +62,7 @@ El `LoopBlockHandler` del ejecutor gestiona el control de iteraciones:
 1. **Inicializar** -- el contador del bucle comienza en 1. En los bucles `forEach`, se resuelve la colección (JSON, referencias a variables o expresiones).
 2. **Comprobar la continuación** -- `for`/`forEach` comparan el contador con la longitud de la colección o el número de iteraciones. `while`/`doWhile` evalúan la expresión de condición usando el mismo motor que el bloque Condición.
 3. **Activar los elementos secundarios** -- los bloques conectados al controlador de inicio interno del bucle se colocan en la ruta de ejecución activa.
-4. **Recopilar resultados** -- las salidas de cada iteración se agregan en `loop.results`.
+4. **Recopilar resultados** -- las salidas de cada iteración de For y For Each se agregan en la salida `results` del contenedor.
 5. **Incrementar y repetir** -- el contador avanza y el paso 2 se ejecuta de nuevo. Cuando el bucle finaliza, se activan los bloques conectados al controlador de salida del bucle.
 
 ## Variables de iteración
@@ -75,11 +75,11 @@ Dentro del cuerpo del bucle, están disponibles las siguientes variables:
 | `loop.currentItem` | any | El elemento actual (bucles ForEach) o el contexto del bucle (bucles While) |
 | `loop.items` | array/object | La colección completa que se itera (solo ForEach) |
 
-Cuando el bucle finaliza, los bloques posteriores pueden acceder a:
+Cuando un bucle For o For Each finaliza, los bloques posteriores pueden acceder a `results`. Selecciona la salida del contenedor en el menú de referencias y sustituye `loop-id` por su ID real. While y Do While no incluyen `results` en su salida final.
 
 | Variable | Tipo | Descripción |
 |---|---|---|
-| `loop.results` | array | Array ordenado con todas las salidas de las iteraciones |
+| `<loop-id.results>` | array | Salidas de los bloques hijos agrupadas por iteración, en orden |
 
 ## Configuración
 
@@ -97,13 +97,13 @@ Cuando el bucle finaliza, los bloques posteriores pueden acceder a:
 1. Un bloque de API obtiene una lista de registros de clientes.
 2. Un bucle ForEach itera sobre cada cliente.
 3. Dentro del bucle, un Agent analiza los datos del cliente y una Function almacena el resultado.
-4. Después del bucle, un bloque Response devuelve el `loop.results` agregado.
+4. Después del bucle, un bloque Response devuelve los resultados agregados mediante `<loop-id.results>`.
 
 ### Refinamiento iterativo
 
 1. Un bucle For configurado con 5 iteraciones genera variaciones de contenido.
 2. Dentro del bucle, un Agent produce un borrador y un Evaluator lo puntúa.
-3. Después del bucle, una Function selecciona la variación con la puntuación más alta de `loop.results`.
+3. Después del bucle, una Function selecciona la variación con la puntuación más alta de `<loop-id.results>`.
 
 ## Limitaciones
 

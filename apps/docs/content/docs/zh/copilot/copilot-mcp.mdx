@@ -13,7 +13,7 @@ Copilot MCP 允许你的编码代理使用 TradingGoose 的服务端 Copilot 工
   MCP 变更会直接按你账户的权限生效。内置 Copilot 的受限模式和 Studio 审批提示不适用于外部 MCP 调用。当你希望在执行前审核操作时，请配置可信客户端并使用其自身的审批控制。
 </Callout>
 
-## 安装
+## 安装 [#installation]
 
 安装你首选的编码代理，并确保终端中可用 **Node.js 18 或更高版本**。设置命令会配置 TradingGoose 连接；它不会安装编码代理本身。
 
@@ -71,7 +71,7 @@ irm https://www.tradinggoose.ai/mcp/setup/codex | iex
 
 MCP 身份验证使用**个人 TradingGoose API 密钥**。工作区 API 密钥，或在 **Admin > Services > Copilot API** 中配置、供内置助手托管推理使用的 Copilot 服务 API 密钥，均无法通过此端点的身份验证。
 
-## 手动配置
+## 手动配置 [#manual-configuration]
 
 对于没有安装程序目标的客户端，请使用 login 命令获取端点和授权标头：
 

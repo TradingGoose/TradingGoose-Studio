@@ -50,6 +50,8 @@ const result = await client.executeWorkflow('workflow-id', {
 
 对于没有 Response 块的非流式工作流，`executeWorkflow()` 返回 `WorkflowExecutionResult`，包含 `success`、`output`、可选的 `error` 以及可选的计时元数据（`duration`、`startTime` 和 `endTime`）。
 
+等待人工审核时，结果包含 `success: true`、`status: 'paused'`，审核详情位于 `output`。执行完成后，结果中不包含 `status`。
+
 带有 Response 块的工作流则返回该块配置的 JSON 主体、HTTP 状态和标头。TypeScript 客户端会解码并返回成功的 JSON 主体，但不会暴露响应标头，并将非 2xx 的自定义状态视为 `TradingGooseError`。将预期的 body 类型作为方法的类型参数传入——例如 `executeWorkflow<MyResponse>('workflow-id')`——或在状态或标头很重要时直接使用 [Execution API](/execution/api)。
 
 有关完整示例和文件上传行为，请参阅 [TypeScript SDK 包 README](https://github.com/TradingGoose/TradingGoose-Studio/blob/staging/packages/ts-sdk/README.md)。

@@ -53,6 +53,8 @@ El streaming hace que la Execution API devuelva `text/event-stream`. El SDK de v
 
 `execute_workflow()` y `execute_with_retry()` devuelven `WorkflowExecutionResponse`, definido como `WorkflowExecutionResult | Dict[str, Any]`. Para un flujo de trabajo sin un bloque Response, `WorkflowExecutionResult` contiene `success`, `output`, `error` opcional y metadatos de temporización opcionales (`duration`, `startTime` y `endTime`).
 
+Mientras espera una revisión humana, el mismo modelo de resultado tiene `success=True`, `status="paused"` y los detalles de la revisión en `output`. Las ejecuciones completadas tienen `status=None`.
+
 Un flujo de trabajo con un bloque Response, en cambio, devuelve el cuerpo JSON configurado, el estado HTTP y los encabezados de ese bloque. Para una respuesta 2xx exitosa, el cliente de Python devuelve como diccionarios los cuerpos que no coinciden con la envoltura de ejecución estándar. No expone los encabezados de la respuesta y trata un estado personalizado que no sea 2xx como `TradingGooseError`; usa la [Execution API](/execution/api) directamente cuando el estado o los encabezados importen.
 
 Consulta el [README del paquete Python SDK](https://github.com/TradingGoose/TradingGoose-Studio/blob/staging/packages/python-sdk/README.md) para ver ejemplos completos y el comportamiento de carga de archivos.

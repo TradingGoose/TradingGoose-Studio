@@ -18,7 +18,13 @@ const source = loader({
             title: `${slug}-${locale}`,
             description: `description-${locale}`,
             body: () => null,
-            structuredData: { headings: [], contents: [] },
+            structuredData: {
+              headings: [],
+              contents:
+                locale === 'zh' && slug === 'guide'
+                  ? [{ content: '知识库检索、条件分支和工作流变量支持 TradingGoose API。' }]
+                  : [],
+            },
           },
         }))
       ),
@@ -136,12 +142,20 @@ describe('locale-aware documentation output', () => {
     })
   }
 
-  test.each(i18n.languages)(
-    'explicit %s search locale wins over a stale cookie',
-    async (locale) => {
+  test.each([
+    ['en', 'zh', 'en', 'guide'],
+    ['es', 'zh', 'es', 'guide'],
+    ['zh', 'es', 'zh', 'guide'],
+    ['fr', 'es', 'es', 'guide'],
+    ...['知识', '条件', '工作流变量', 'TradingGoose API'].map((query) => ['', 'zh', 'zh', query]),
+  ])(
+    'search locale=%s cookie=%s selects only %s results for %s',
+    async (requestedLocale, savedLocale, locale, query) => {
+      const params = new URLSearchParams({ query })
+      if (requestedLocale) params.set('locale', requestedLocale)
       const response = await search(
-        new NextRequest(`https://docs.tradinggoose.ai/api/search?query=guide&locale=${locale}`, {
-          headers: { cookie: `FD_LOCALE=${locale === 'zh' ? 'es' : 'zh'}` },
+        new NextRequest(`https://docs.tradinggoose.ai/api/search?${params}`, {
+          headers: { cookie: `FD_LOCALE=${savedLocale}` },
         })
       )
       const results = await response.json()
@@ -152,18 +166,6 @@ describe('locale-aware documentation output', () => {
       )
     }
   )
-
-  test('an unsupported search locale falls back to the saved locale', async () => {
-    const response = await search(
-      new NextRequest('https://docs.tradinggoose.ai/api/search?query=guide&locale=fr', {
-        headers: { cookie: 'FD_LOCALE=es' },
-      })
-    )
-    expect(response.headers.get('content-language')).toBe('es')
-    const results = await response.json()
-    expect(results.length).toBeGreaterThan(0)
-    expect(results.every((result: { url: string }) => result.url === '/es/guide')).toBe(true)
-  })
 
   test('LLM query locales override saved preference and generate locale-specific export links', async () => {
     const request = new NextRequest('https://docs.tradinggoose.ai/llms.txt?locale=es', {

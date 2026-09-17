@@ -195,6 +195,7 @@ interface WorkflowExecutionResult {
   success: boolean;
   output: any;
   error?: string;
+  status?: 'paused';
   metadata?: {
     duration?: number;
     startTime?: string;
@@ -204,6 +205,8 @@ interface WorkflowExecutionResult {
 ```
 
 This is the normal non-streaming response for a workflow without a Response block. A Response block can return any JSON body; use the generic `executeWorkflow<TResponse>()` result type for that body.
+
+An execution waiting for human review returns `success: true`, `status: 'paused'`, and review details in `output`. Completed executions omit `status`.
 
 ### WorkflowStatus
 

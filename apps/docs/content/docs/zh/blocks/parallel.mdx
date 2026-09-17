@@ -88,9 +88,9 @@ Parallel 块让你可以：
 
 ### 访问结果
 
-并行块完成后，你可以访问聚合结果：
+并行块完成后，在引用下拉菜单中选择它的 `results` 输出，并将 `parallel-id` 替换为该容器的实际 ID：
 
-- **`<parallel.results>`**：所有并行实例的结果数组
+- **`<parallel-id.results>`**：按实例索引排序的所有并行实例结果数组
 
 ## 示例用例
 
@@ -124,7 +124,7 @@ Parallel 块让你可以：
 
 ```javascript
 // In a Function block after the parallel
-const allResults = <parallel.results>;
+const allResults = <parallel-id.results>;
 return allResults;
 ```
 
@@ -194,7 +194,7 @@ return allResults;
   <Tab>
     <ul className="list-disc space-y-2 pl-6">
       <li>
-        <strong>parallel.results</strong>：所有实例结果的数组
+        <strong>results</strong>：所有实例结果的数组
       </li>
       <li>
         <strong>访问</strong>：在并行块之后的块中可用

@@ -50,6 +50,8 @@ Streaming makes the Execution API return `text/event-stream`. The preview SDK do
 
 For a non-streaming workflow without a Response block, `executeWorkflow()` returns `WorkflowExecutionResult` with `success`, `output`, optional `error`, and optional timing metadata (`duration`, `startTime`, and `endTime`).
 
+While awaiting human review, the result has `success: true`, `status: 'paused'`, and review details in `output`. Completed executions omit `status`.
+
 A workflow with a Response block instead returns that block's configured JSON body, HTTP status, and headers. The TypeScript client decodes and returns a successful JSON body, but it does not expose the response headers and treats a non-2xx custom status as `TradingGooseError`. Supply the expected body type as the method's type parameter—for example, `executeWorkflow<MyResponse>('workflow-id')`—or use the [Execution API](/execution/api) directly when the status or headers matter.
 
 See the [TypeScript SDK package README](https://github.com/TradingGoose/TradingGoose-Studio/blob/staging/packages/ts-sdk/README.md) for complete examples and file-upload behavior.

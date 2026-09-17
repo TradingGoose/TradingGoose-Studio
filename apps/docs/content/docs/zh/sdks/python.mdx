@@ -53,6 +53,8 @@ result = client.execute_workflow(
 
 `execute_workflow()` 和 `execute_with_retry()` 返回 `WorkflowExecutionResponse`，定义为 `WorkflowExecutionResult | Dict[str, Any]`。对于没有 Response 块的工作流，`WorkflowExecutionResult` 包含 `success`、`output`、可选的 `error`，以及可选的计时元数据（`duration`、`startTime` 和 `endTime`）。
 
+等待人工审核时，返回的仍是同一个结果模型，其中 `success=True`、`status="paused"`，审核详情位于 `output`。执行完成后，`status=None`。
+
 带有 Response 块的工作流则返回该块配置的 JSON 正文、HTTP 状态和标头。对于成功的 2xx 响应，Python 客户端会以字典形式返回不符合标准执行信封的响应体。它不会暴露响应标头，并将非 2xx 的自定义状态视为 `TradingGooseError`；当状态或标头很重要时，请直接使用 [Execution API](/execution/api)。
 
 完整示例和文件上传行为请参阅 [Python SDK 包 README](https://github.com/TradingGoose/TradingGoose-Studio/blob/staging/packages/python-sdk/README.md)。

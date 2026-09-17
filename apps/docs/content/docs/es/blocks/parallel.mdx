@@ -88,9 +88,9 @@ Elige entre dos tipos de ejecución paralela:
 
 ### Acceder a los resultados
 
-Cuando un bloque paralelo finaliza, puedes acceder a los resultados agregados:
+Cuando un bloque paralelo finaliza, selecciona su salida `results` en el menú de referencias. Sustituye `parallel-id` por el ID real del contenedor:
 
-- **`<parallel.results>`**: arreglo de resultados de todas las instancias paralelas
+- **`<parallel-id.results>`**: arreglo de resultados de todas las instancias paralelas, ordenado por índice de instancia
 
 ## Casos de uso de ejemplo
 
@@ -124,7 +124,7 @@ Los resultados de todas las instancias paralelas se recopilan automáticamente:
 
 ```javascript
 // In a Function block after the parallel
-const allResults = <parallel.results>;
+const allResults = <parallel-id.results>;
 return allResults;
 ```
 
@@ -194,7 +194,7 @@ Cómo saber cuándo usar cada uno:
   <Tab>
     <ul className="list-disc space-y-2 pl-6">
       <li>
-        <strong>parallel.results</strong>: Array con los resultados de todas las instancias
+        <strong>results</strong>: Array con los resultados de todas las instancias
       </li>
       <li>
         <strong>Acceso</strong>: Disponible en bloques después del paralelo

@@ -7,13 +7,13 @@ import type * as PageTree from 'fumadocs-core/page-tree'
 import { useSidebar } from 'fumadocs-ui/contexts/sidebar'
 import { useTreeContext, useTreePath } from 'fumadocs-ui/contexts/tree'
 import { Sidebar as SidebarIcon } from 'lucide-react'
+import { getDocsPathname } from '@/lib/i18n'
 import {
   findFolderPathBySegments,
   getFolderHref,
   getFolderSlug,
   getPageSlug,
   humanizeSlug,
-  supportedLanguages,
 } from '@/lib/page-tree'
 import { cn } from '../../../lib/cn'
 import { isTabActive } from '../../../lib/is-active'
@@ -135,7 +135,10 @@ export function DocsBreadcrumb({ icon, label, href = '/', className }: DocsBread
   const path = useTreePath() ?? []
   const pathname = usePathname()
 
-  const slugSegments = useMemo(() => getSlugSegments(pathname), [pathname])
+  const slugSegments = useMemo(
+    () => getDocsPathname(pathname).split('/').filter(Boolean),
+    [pathname]
+  )
 
   const nodes = useMemo(() => {
     const filtered = path.filter(
@@ -210,15 +213,4 @@ function nodeKey(node: Exclude<PageTree.Node, PageTree.Separator>, index: number
   const slug = node.type === 'folder' ? getFolderSlug(node) : undefined
   if (slug) return `${slug}-${index}`
   return `crumb-${index}`
-}
-
-function getSlugSegments(pathname: string) {
-  const parts = pathname.split('/').filter(Boolean)
-  if (parts.length === 0) return parts
-
-  if (supportedLanguages.includes(parts[0] as (typeof supportedLanguages)[number])) {
-    return parts.slice(1)
-  }
-
-  return parts
 }

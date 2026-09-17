@@ -184,11 +184,14 @@ class WorkflowExecutionResult:
     output: Any
     error: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+    status: Optional[Literal["paused"]] = None
 
 WorkflowExecutionResponse = Union[WorkflowExecutionResult, Dict[str, Any]]
 ```
 
 `WorkflowExecutionResult` is the normal non-streaming response for a workflow without a Response block. A successful Response block whose body does not match that standard envelope returns its custom JSON object as the dictionary branch of `WorkflowExecutionResponse`.
+
+An execution waiting for human review returns the same result model with `success=True`, `status="paused"`, and review details in `output`. Completed executions omit the API status field, so `result.status` is `None`.
 
 ### WorkflowStatus
 

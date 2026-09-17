@@ -34,7 +34,7 @@ import { Callout } from 'fumadocs-ui/components/callout'
 
 系统前缀只有 `start`、`variable`、`loop` 和 `parallel`。`api`、`chat` 和 `manual` 等名称不是通用触发器别名，必须指向实际区块。Manual 触发器没有输入字段。
 
-对应容器完成后，使用 `<loop.results>` 或 `<parallel.results>`。处理集合时使用 `currentItem`，不要使用 `item`。
+For 或 For Each 循环或 Parallel 容器完成后，在引用下拉菜单中选择该容器的 `results` 输出。使用容器的实际 ID：例如 `<loop-id.results>` 或 `<parallel-id.results>`，将 `loop-id` 或 `parallel-id` 替换为该容器的 ID。保留前缀 `loop` 和 `parallel` 指向当前迭代上下文，而不是已完成的容器。While 和 Do While 的完成输出不包含 `results`。处理集合时使用 `currentItem`，不要使用 `item`。
 
 ## 示例
 

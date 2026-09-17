@@ -50,6 +50,8 @@ El streaming hace que la API de ejecución devuelva `text/event-stream`. El SDK 
 
 Para un flujo de trabajo sin streaming y sin un bloque Response, `executeWorkflow()` devuelve `WorkflowExecutionResult` con `success`, `output`, `error` opcional y metadatos de temporización opcionales (`duration`, `startTime` e `endTime`).
 
+Mientras espera una revisión humana, el resultado tiene `success: true`, `status: 'paused'` y los detalles de la revisión en `output`. Las ejecuciones completadas omiten `status`.
+
 Un flujo de trabajo con un bloque Response, en cambio, devuelve el cuerpo JSON, el estado HTTP y los encabezados configurados de ese bloque. El cliente TypeScript decodifica y devuelve un cuerpo JSON correcto, pero no expone los encabezados de respuesta y trata un estado personalizado que no sea 2xx como `TradingGooseError`. Proporcione el tipo de cuerpo esperado como parámetro de tipo del método —por ejemplo, `executeWorkflow<MyResponse>('workflow-id')`— o use la [API de ejecución](/execution/api) directamente cuando el estado o los encabezados sean importantes.
 
 Consulte el [README del paquete SDK de TypeScript](https://github.com/TradingGoose/TradingGoose-Studio/blob/staging/packages/ts-sdk/README.md) para obtener ejemplos completos y el comportamiento de carga de archivos.

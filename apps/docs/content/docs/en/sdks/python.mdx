@@ -53,6 +53,8 @@ Streaming makes the Execution API return `text/event-stream`. The preview SDK do
 
 `execute_workflow()` and `execute_with_retry()` return `WorkflowExecutionResponse`, defined as `WorkflowExecutionResult | Dict[str, Any]`. For a workflow without a Response block, `WorkflowExecutionResult` contains `success`, `output`, optional `error`, and optional timing metadata (`duration`, `startTime`, and `endTime`).
 
+While awaiting human review, the same result model has `success=True`, `status="paused"`, and review details in `output`. Completed executions have `status=None`.
+
 A workflow with a Response block instead returns that block's configured JSON body, HTTP status, and headers. For a successful 2xx response, the Python client returns bodies that do not match the standard execution envelope as dictionaries. It does not expose the response headers and treats a non-2xx custom status as `TradingGooseError`; use the [Execution API](/execution/api) directly when the status or headers matter.
 
 See the [Python SDK package README](https://github.com/TradingGoose/TradingGoose-Studio/blob/staging/packages/python-sdk/README.md) for complete examples and file-upload behavior.
