@@ -4,8 +4,8 @@ TradingGoose SDK for Python
 Repository-local preview client for executing TradingGoose workflows programmatically.
 """
 
-from typing import Any, Dict, Optional, Union
-from dataclasses import dataclass
+from typing import Any, Dict, Literal, Optional, Union
+from dataclasses import dataclass, fields
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 import time
@@ -16,7 +16,6 @@ import requests
 
 
 __version__ = "0.1.0"
-_WORKFLOW_EXECUTION_RESULT_KEYS = frozenset({"success", "output", "error", "metadata"})
 __all__ = [
     "TradingGooseClient",
     "TradingGooseError",
@@ -54,6 +53,7 @@ class WorkflowExecutionResult:
     output: Any
     error: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+    status: Optional[Literal["paused"]] = None
 
 
 WorkflowExecutionResponse = Union[WorkflowExecutionResult, Dict[str, Any]]
@@ -112,6 +112,18 @@ class TradingGooseClient:
             'Content-Type': 'application/json',
         })
         self._rate_limit_info: Optional[RateLimitInfo] = None
+
+    def _read_response(self, response: requests.Response) -> Any:
+        if not 200 <= response.status_code < 300:
+            try:
+                error_data = response.json()
+                error_message = error_data.get('error', f'HTTP {response.status_code}: {response.reason}')
+                error_code = error_data.get('code')
+            except ValueError:
+                error_message = f'HTTP {response.status_code}: {response.reason}'
+                error_code = None
+            raise TradingGooseError(error_message, error_code, response.status_code)
+        return response.json()
     
     def _convert_files_to_base64(self, value: Any) -> Any:
         """
@@ -119,7 +131,6 @@ class TradingGooseClient:
         Recursively processes nested dicts and lists.
         """
         import base64
-        import io
 
         # Check if this is a file-like object
         if hasattr(value, 'read') and callable(value.read):
@@ -185,8 +196,6 @@ class TradingGooseClient:
         """
         url = f"{self.base_url}/api/workflows/{workflow_id}/execute"
 
-        headers = self._session.headers.copy()
-
         try:
             # Convert any file objects in the input to base64 format
             converted_input = self._convert_files_to_base64(input_data or {})
@@ -194,7 +203,6 @@ class TradingGooseClient:
             response = self._session.post(
                 url,
                 json={'input': converted_input},
-                headers=headers,
                 timeout=timeout,
                 allow_redirects=False,
             )
@@ -215,31 +223,16 @@ class TradingGooseClient:
                     429
                 )
 
-            if not 200 <= response.status_code < 300:
-                try:
-                    error_data = response.json()
-                    error_message = error_data.get('error', f'HTTP {response.status_code}: {response.reason}')
-                    error_code = error_data.get('code')
-                except (ValueError, KeyError):
-                    error_message = f'HTTP {response.status_code}: {response.reason}'
-                    error_code = None
-
-                raise TradingGooseError(error_message, error_code, response.status_code)
-
-            result_data = response.json()
+            result_data = self._read_response(response)
 
             if (
                 isinstance(result_data, dict)
                 and isinstance(result_data.get('success'), bool)
                 and 'output' in result_data
-                and set(result_data).issubset(_WORKFLOW_EXECUTION_RESULT_KEYS)
+                and result_data.keys() <= {field.name for field in fields(WorkflowExecutionResult)}
+                and ('status' not in result_data or result_data['status'] == 'paused')
             ):
-                return WorkflowExecutionResult(
-                    success=result_data['success'],
-                    output=result_data['output'],
-                    error=result_data.get('error'),
-                    metadata=result_data.get('metadata')
-                )
+                return WorkflowExecutionResult(**result_data)
 
             return result_data
 
@@ -266,23 +259,12 @@ class TradingGooseClient:
         try:
             response = self._session.get(url, allow_redirects=False)
 
-            if not 200 <= response.status_code < 300:
-                try:
-                    error_data = response.json()
-                    error_message = error_data.get('error', f'HTTP {response.status_code}: {response.reason}')
-                    error_code = error_data.get('code')
-                except (ValueError, KeyError):
-                    error_message = f'HTTP {response.status_code}: {response.reason}'
-                    error_code = None
-                
-                raise TradingGooseError(error_message, error_code, response.status_code)
-            
-            status_data = response.json()
+            status_data = self._read_response(response)
             
             return WorkflowStatus(
-                is_deployed=status_data.get('isDeployed', False),
-                deployed_at=status_data.get('deployedAt'),
-                needs_redeployment=status_data.get('needsRedeployment', False)
+                is_deployed=status_data['isDeployed'],
+                deployed_at=status_data['deployedAt'],
+                needs_redeployment=status_data['needsRedeployment']
             )
             
         except requests.RequestException as e:
@@ -444,24 +426,13 @@ class TradingGooseClient:
 
             self._update_rate_limit_info(response)
 
-            if not 200 <= response.status_code < 300:
-                try:
-                    error_data = response.json()
-                    error_message = error_data.get('error', f'HTTP {response.status_code}: {response.reason}')
-                    error_code = error_data.get('code')
-                except (ValueError, KeyError):
-                    error_message = f'HTTP {response.status_code}: {response.reason}'
-                    error_code = None
-
-                raise TradingGooseError(error_message, error_code, response.status_code)
-
-            data = response.json()
+            data = self._read_response(response)
 
             return UsageLimits(
-                success=data.get('success', True),
-                rate_limit=data.get('rateLimit', {}),
-                usage=data.get('usage', {}),
-                storage=data.get('storage', {})
+                success=data['success'],
+                rate_limit=data['rateLimit'],
+                usage=data['usage'],
+                storage=data['storage']
             )
 
         except requests.RequestException as e:

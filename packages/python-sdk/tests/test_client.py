@@ -106,27 +106,36 @@ def test_context_manager(mock_close):
     mock_close.assert_called_once()
 
 
+@pytest.mark.parametrize("status", [None, "paused"])
+@pytest.mark.parametrize("method", ["execute_workflow", "execute_with_retry"])
 @patch('tradinggoose.requests.Session.post')
-def test_sync_execution_returns_result(mock_post):
-    """Test sync execution returns WorkflowExecutionResult."""
+def test_sync_execution_returns_result(mock_post, status, method):
+    """Completed and paused executions retain the same typed result envelope."""
+    output = (
+        {"url": "/resume/workflow-id/execution-id", "revision": 1}
+        if status else {"result": "completed"}
+    )
     mock_response = Mock()
     mock_response.ok = True
     mock_response.status_code = 200
     mock_response.json.return_value = {
         "success": True,
-        "output": {"result": "completed"}
+        "output": output,
+        **({"status": status} if status else {}),
     }
     mock_response.headers.get.return_value = None
     mock_post.return_value = mock_response
 
     client = TradingGooseClient(api_key="test-api-key")
-    result = client.execute_workflow(
+    result = getattr(client, method)(
         "workflow-id",
         input_data={"message": "Hello"},
     )
 
+    assert isinstance(result, WorkflowExecutionResult)
     assert result.success is True
-    assert result.output == {"result": "completed"}
+    assert result.output == output
+    assert result.status == status
     assert not hasattr(result, 'task_id')
     _, kwargs = mock_post.call_args
     assert kwargs["json"] == {"input": {"message": "Hello"}}
@@ -189,13 +198,14 @@ def test_response_block_body_is_returned(mock_post):
     assert result == {"message": "accepted"}
 
 
+@pytest.mark.parametrize("custom_fields", [{"custom": "preserve-me"}, {"status": "accepted"}])
 @patch('tradinggoose.requests.Session.post')
-def test_response_block_body_with_execution_keys_is_preserved(mock_post):
+def test_response_block_body_with_execution_keys_is_preserved(mock_post, custom_fields):
     """Test that extra custom fields prevent response-envelope normalization."""
     custom_body = {
         "success": True,
         "output": {"id": 7},
-        "custom": "preserve-me",
+        **custom_fields,
     }
     mock_response = Mock()
     mock_response.ok = True
@@ -444,3 +454,18 @@ def test_get_usage_limits_unauthorized(mock_get):
     with pytest.raises(TradingGooseError) as exc_info:
         client.get_usage_limits()
     assert "Invalid API key" in str(exc_info.value)
+
+
+@pytest.mark.parametrize("method,args", [
+    ("get_workflow_status", ("workflow-id",)),
+    ("get_usage_limits", ()),
+])
+@patch('tradinggoose.requests.Session.get')
+def test_required_response_fields_are_not_fabricated(mock_get, method, args):
+    response = Mock(status_code=200)
+    response.headers.get.return_value = None
+    response.json.return_value = {}
+    mock_get.return_value = response
+    client = TradingGooseClient(api_key="test-api-key")
+    with pytest.raises(KeyError):
+        getattr(client, method)(*args)

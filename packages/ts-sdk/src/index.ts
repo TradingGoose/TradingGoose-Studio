@@ -1,4 +1,4 @@
-import fetch from 'node-fetch'
+import fetch, { type Response } from 'node-fetch'
 
 export interface TradingGooseConfig {
   apiKey: string
@@ -9,6 +9,7 @@ export interface WorkflowExecutionResult {
   success: boolean
   output: any
   error?: string
+  status?: 'paused'
   metadata?: {
     duration?: number
     startTime?: string
@@ -117,6 +118,21 @@ export class TradingGooseClient {
     this.baseUrl = normalizeBaseUrl(config.baseUrl || 'https://www.tradinggoose.ai')
   }
 
+  private async readResponse<TResult>(response: Response): Promise<TResult> {
+    if (!response.ok) {
+      const errorData = (await response.json().catch(() => ({}))) as {
+        error?: string
+        code?: string
+      }
+      throw new TradingGooseError(
+        errorData.error || `HTTP ${response.status}: ${response.statusText}`,
+        errorData.code,
+        response.status
+      )
+    }
+    return (await response.json()) as TResult
+  }
+
   /**
    * Convert File objects in input to API format (base64)
    * Recursively processes nested objects and arrays
@@ -205,17 +221,7 @@ export class TradingGooseClient {
         )
       }
 
-      if (!response.ok) {
-        const errorData = (await response.json().catch(() => ({}))) as unknown as any
-        throw new TradingGooseError(
-          errorData.error || `HTTP ${response.status}: ${response.statusText}`,
-          errorData.code,
-          response.status
-        )
-      }
-
-      const result = await response.json()
-      return result as TResult
+      return await this.readResponse<TResult>(response)
     } catch (error: any) {
       if (error instanceof TradingGooseError) {
         throw error
@@ -246,17 +252,7 @@ export class TradingGooseClient {
         redirect: 'manual',
       })
 
-      if (!response.ok) {
-        const errorData = (await response.json().catch(() => ({}))) as unknown as any
-        throw new TradingGooseError(
-          errorData.error || `HTTP ${response.status}: ${response.statusText}`,
-          errorData.code,
-          response.status
-        )
-      }
-
-      const result = await response.json()
-      return result as WorkflowStatus
+      return await this.readResponse<WorkflowStatus>(response)
     } catch (error: any) {
       if (error instanceof TradingGooseError) {
         throw error
@@ -352,7 +348,7 @@ export class TradingGooseClient {
    * Update rate limit info from response headers
    * @private
    */
-  private updateRateLimitInfo(response: any): void {
+  private updateRateLimitInfo(response: Response): void {
     const limit = response.headers.get('x-ratelimit-limit')
     const remaining = response.headers.get('x-ratelimit-remaining')
     const reset = response.headers.get('x-ratelimit-reset')
@@ -387,17 +383,7 @@ export class TradingGooseClient {
 
       this.updateRateLimitInfo(response)
 
-      if (!response.ok) {
-        const errorData = (await response.json().catch(() => ({}))) as unknown as any
-        throw new TradingGooseError(
-          errorData.error || `HTTP ${response.status}: ${response.statusText}`,
-          errorData.code,
-          response.status
-        )
-      }
-
-      const result = await response.json()
-      return result as UsageLimits
+      return await this.readResponse<UsageLimits>(response)
     } catch (error: any) {
       if (error instanceof TradingGooseError) {
         throw error

@@ -133,33 +133,41 @@ describe('TradingGooseClient', () => {
       ).resolves.toEqual({ success: true, output: {} })
     })
 
-    it('should return WorkflowExecutionResult', async () => {
-      const fetchMock = await getFetchMock()
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn().mockResolvedValue({
-          success: true,
-          output: { result: 'completed' },
-        }),
-        headers: {
-          get: vi.fn().mockReturnValue(null),
-        },
+    it.each([undefined, 'paused'] as const)(
+      'returns a typed result with status %s',
+      async (status) => {
+        const fetchMock = await getFetchMock()
+        const output = status
+          ? { url: '/resume/workflow-id/execution-id', revision: 1 }
+          : { result: 'completed' }
+        const mockResponse = {
+          ok: true,
+          status: 200,
+          json: vi.fn().mockResolvedValue({
+            success: true,
+            output,
+            ...(status && { status }),
+          }),
+          headers: {
+            get: vi.fn().mockReturnValue(null),
+          },
+        }
+        fetchMock.mockResolvedValue(mockResponse as any)
+
+        const result = await client.executeWorkflow('workflow-id', {
+          input: { message: 'Hello' },
+        })
+
+        expect(result).toHaveProperty('success', true)
+        expect(result.output).toEqual(output)
+        expect(result.status).toBe(status)
+        expect(result).not.toHaveProperty('taskId')
+        expect(JSON.parse(fetchMock.mock.calls[0][1]?.body as string)).toEqual({
+          input: { message: 'Hello' },
+        })
+        expect(fetchMock.mock.calls[0][1]).toMatchObject({ redirect: 'manual' })
       }
-      fetchMock.mockResolvedValue(mockResponse as any)
-
-      const result = await client.executeWorkflow('workflow-id', {
-        input: { message: 'Hello' },
-      })
-
-      expect(result).toHaveProperty('success', true)
-      expect(result).toHaveProperty('output')
-      expect(result).not.toHaveProperty('taskId')
-      expect(JSON.parse(fetchMock.mock.calls[0][1]?.body as string)).toEqual({
-        input: { message: 'Hello' },
-      })
-      expect(fetchMock.mock.calls[0][1]).toMatchObject({ redirect: 'manual' })
-    })
+    )
 
     it('should keep workflow fields isolated inside the input envelope', async () => {
       const fetchMock = await getFetchMock()
