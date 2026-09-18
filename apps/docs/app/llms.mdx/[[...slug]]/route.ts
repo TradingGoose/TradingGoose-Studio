@@ -22,5 +22,5 @@ export async function GET(
   const page = source.getPage(pathLocale ? slug.slice(1) : slug, locale)
   if (!page) return new Response('Documentation page not found', { status: 404, headers })
 
-  return new Response(await getLLMText(page), { headers })
+  return new Response(getLLMText(page), { headers })
 }

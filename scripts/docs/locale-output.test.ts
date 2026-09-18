@@ -1,7 +1,9 @@
+import path from 'node:path'
 import { describe, expect, mock, test } from 'bun:test'
 import { StructuredData } from '../../apps/docs/components/structured-data'
 import { i18n } from '../../apps/docs/lib/i18n'
 import { loader } from '../../apps/docs/node_modules/fumadocs-core/dist/source/index.js'
+import { createMdxPlugin } from '../../apps/docs/node_modules/fumadocs-mdx/dist/bun/index.js'
 import { NextRequest } from '../../apps/docs/node_modules/next/server'
 import { renderToStaticMarkup } from '../../apps/docs/node_modules/react-dom/server'
 
@@ -17,6 +19,10 @@ const source = loader({
           data: {
             title: `${slug}-${locale}`,
             description: `description-${locale}`,
+            _exports: { llmText: `Compiled ${slug}-${locale} body` },
+            get content(): string {
+              throw new Error('Exports must not read or parse source files at request time')
+            },
             body: () => null,
             structuredData: {
               headings: [],
@@ -34,6 +40,7 @@ const source = loader({
         data: {
           title: 'English-only content',
           description: 'Not translated',
+          _exports: { llmText: 'Compiled English-only body' },
           body: () => null,
           structuredData: { headings: [], contents: [] },
         },
@@ -54,6 +61,29 @@ const { GET: fullText } = await import('../../apps/docs/app/llms-full.txt/route'
 const { GET: pageText } = await import('../../apps/docs/app/llms.mdx/[[...slug]]/route')
 
 describe('locale-aware documentation output', () => {
+  test('Fumadocs compilation exports Markdown before JSX transformations', async () => {
+    const docsDir = path.resolve(import.meta.dir, '../../apps/docs')
+    const result = await Bun.build({
+      entrypoints: [path.join(docsDir, 'content/docs/en/connections/tags.mdx')],
+      plugins: [createMdxPlugin({ configPath: path.join(docsDir, 'source.config.ts') })],
+      target: 'bun',
+      write: false,
+    })
+    expect(result.success).toBe(true)
+    const url = URL.createObjectURL(result.outputs[0])
+    try {
+      const { llmText } = await import(url)
+      expect(llmText).toContain('```text\n<blockName.path.to.data>\n```')
+      expect(llmText).toMatch(/\| Reference\s+\| Meaning\s+\|/)
+      expect(llmText).toContain('<Callout>')
+      expect(llmText).toContain('[Data Structure](/connections/data-structure)')
+      expect(llmText).not.toContain('export let')
+      expect(llmText).not.toContain('title: Tags')
+    } finally {
+      URL.revokeObjectURL(url)
+    }
+  })
+
   test.each(i18n.languages)(
     'metadata uses the explicit %s locale in canonical URLs',
     async (lang) => {
@@ -125,6 +155,7 @@ describe('locale-aware documentation output', () => {
       const responses = [
         await manifest(request),
         await fullText(request),
+        await fullText(request),
         await pageText(request, { params: Promise.resolve({ slug: ['guide'] }) }),
       ]
 
@@ -135,6 +166,7 @@ describe('locale-aware documentation output', () => {
         expect(response.headers.get('vary')).toBe('Cookie, Accept-Language')
         const text = await response.text()
         expect(text).toContain(`guide-${locale}`)
+        if (response !== responses[0]) expect(text).toContain(`Compiled guide-${locale} body`)
         expect(text).not.toContain('guide-en')
         expect(text).not.toContain('English-only content')
         expect(text).toContain(`/${locale}/guide`)
