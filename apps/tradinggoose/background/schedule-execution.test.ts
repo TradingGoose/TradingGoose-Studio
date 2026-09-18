@@ -13,18 +13,22 @@ const mocks = vi.hoisted(() => ({
   updateWhere: vi.fn(),
   delete: vi.fn(),
   info: vi.fn(),
+  logRows: [] as Record<string, unknown>[],
 }))
 
 vi.mock('@tradinggoose/db', () => ({
   workflow: { id: 'workflow.id' },
   workflowSchedule: { id: 'workflowSchedule.id' },
   db: {
-    select: () => ({
+    select: (fields?: Record<string, unknown>) => ({
       from: () => ({
         where: () => ({
-          limit: async () => [
-            { id: 'workflow-1', workspaceId: 'workspace-1', pinnedApiKeyId: 'key-1' },
-          ],
+          limit: async () =>
+            fields
+              ? 'level' in fields
+                ? mocks.logRows
+                : []
+              : [{ id: 'workflow-1', workspaceId: 'workspace-1', pinnedApiKeyId: 'key-1' }],
         }),
       }),
     }),
@@ -33,6 +37,10 @@ vi.mock('@tradinggoose/db', () => ({
   },
 }))
 vi.mock('@/lib/api-key/service', () => ({ getApiKeyOwnerUserId: async () => 'actor-1' }))
+vi.mock('@/lib/redis', () => ({
+  getRedisClient: () => null,
+  getRedisStorageMode: () => 'redis',
+}))
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({ info: mocks.info, warn: vi.fn(), error: vi.fn() }),
 }))
@@ -63,6 +71,7 @@ describe('executeScheduleJob', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers({ now: new Date(payload.now) })
+    mocks.logRows = []
     mocks.set.mockReturnValue({ where: mocks.updateWhere })
     mocks.updateWhere.mockResolvedValue(undefined)
     mocks.loadWorkflowExecutionBlueprint.mockResolvedValue({
@@ -108,14 +117,21 @@ describe('executeScheduleJob', () => {
     })
   })
 
-  it.each([undefined, 'paused'] as const)(
-    'advances an accepted schedule without disabling it when status is %s',
-    async (status) => {
+  it.each([
+    [undefined, undefined],
+    ['paused', undefined],
+    [undefined, new Error('Schedule update unavailable')],
+  ] as const)(
+    'does not count a workflow failure for status %s and schedule update error %s',
+    async (status, updateError) => {
       mocks.runPreparedWorkflowExecution.mockResolvedValue({
         result: { success: true, status, output: {} },
       })
+      if (updateError) mocks.updateWhere.mockRejectedValueOnce(updateError)
 
-      await expect(executeScheduleJob(payload)).resolves.toBeUndefined()
+      const execution = executeScheduleJob(payload)
+      if (updateError) await expect(execution).rejects.toBe(updateError)
+      else await expect(execution).resolves.toBeUndefined()
 
       expect(mocks.runPreparedWorkflowExecution).toHaveBeenCalledExactlyOnceWith(
         expect.objectContaining({
@@ -165,17 +181,40 @@ describe('executeScheduleJob', () => {
     })
   })
 
-  it('propagates descendant cleanup errors after bookkeeping so the worker can recover', async () => {
-    const error = new Error('descendant cleanup failed')
-    mocks.runPreparedWorkflowExecution.mockRejectedValueOnce(error)
-    await expect(executeScheduleJob(payload)).rejects.toBe(error)
-    expect(mocks.set).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({
-        nextRunAt: mocks.nextRunAt,
-        failedCount: 3,
-        status: 'disabled',
-        lastFailedAt: new Date(payload.now),
+  it.each([
+    ['info', payload.cronExpression],
+    ['error', payload.cronExpression],
+    ['info', payload.now],
+    [undefined, payload.cronExpression],
+  ] as const)(
+    'uses the durable %s outcome after execution throws for %s',
+    async (level, cronExpression) => {
+      const error = new Error(level ? 'Ledger unavailable' : 'descendant cleanup failed')
+      mocks.runPreparedWorkflowExecution.mockImplementationOnce(async () => {
+        if (level) {
+          mocks.logRows = [
+            {
+              level,
+              startedAt: new Date(payload.now),
+              endedAt: new Date(payload.now),
+              totalDurationMs: 0,
+              executionData: { finalOutput: { executed: true } },
+            },
+          ]
+        }
+        throw error
       })
-    )
-  })
+
+      await expect(executeScheduleJob({ ...payload, cronExpression })).rejects.toBe(error)
+      expect(mocks.runPreparedWorkflowExecution).toHaveBeenCalledTimes(1)
+      expect(mocks.set).toHaveBeenCalledExactlyOnceWith({
+        updatedAt: new Date(payload.now),
+        nextRunAt: cronExpression === payload.now ? null : mocks.nextRunAt,
+        ...(level === 'info'
+          ? { lastRanAt: new Date(payload.now), failedCount: 0 }
+          : { lastFailedAt: new Date(payload.now), failedCount: 3, status: 'disabled' }),
+        ...(cronExpression === payload.now ? { status: 'disabled' } : {}),
+      })
+    }
+  )
 })

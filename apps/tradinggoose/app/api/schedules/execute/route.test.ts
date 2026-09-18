@@ -94,6 +94,9 @@ vi.mock('@/lib/workflows/execution-runner', () => ({
   }),
   runPreparedWorkflowExecution: state.run,
 }))
+vi.mock('@/lib/execution/workflow-execution-events', () => ({
+  readWorkflowExecutionEventState: async () => null,
+}))
 
 const request = {} as NextRequest
 const occurrence = new Date('2026-09-17T12:00:00Z')

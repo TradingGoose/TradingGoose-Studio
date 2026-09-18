@@ -2,6 +2,7 @@ import { db, workflow, workflowSchedule } from '@tradinggoose/db'
 import type { Cron } from 'croner'
 import { eq } from 'drizzle-orm'
 import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
+import { readWorkflowExecutionEventState } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
 import { createScheduleCron } from '@/lib/schedules/utils'
 import {
@@ -54,6 +55,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
   })
 
   let cron: Cron | undefined
+  let executionSucceeded = false
   let failure: { error: unknown } | undefined
   const updateScheduleNextRun = async (
     fields: {
@@ -138,23 +140,25 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       return
     }
 
-    if (result.success) {
+    executionSucceeded = result.success
+    if (executionSucceeded) {
       logger.info(
         `[${requestId}] Workflow ${payload.workflowId} ${result.status ?? 'executed successfully'}`
       )
-
-      await updateScheduleNextRun({ lastRanAt: now, failedCount: 0 })
-
-      return
+    } else {
+      logger.warn(`[${requestId}] Workflow ${payload.workflowId} execution failed`)
     }
-
-    logger.warn(`[${requestId}] Workflow ${payload.workflowId} execution failed`)
   } catch (error) {
     logger.error(`[${requestId}] Error executing scheduled workflow ${payload.workflowId}`, error)
     failure = { error }
+    const execution = await readWorkflowExecutionEventState({
+      pendingExecutionId: executionId,
+      workflowId: payload.workflowId,
+    })
+    executionSucceeded = execution?.status === 'completed'
   }
 
-  const failedCount = (payload.failedCount ?? 0) + 1
+  const failedCount = executionSucceeded ? 0 : (payload.failedCount ?? 0) + 1
   const shouldDisable = failedCount >= MAX_CONSECUTIVE_FAILURES
   if (shouldDisable) {
     logger.warn(
@@ -163,8 +167,9 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
   }
   await updateScheduleNextRun({
     failedCount,
-    lastFailedAt: now,
-    status: shouldDisable ? 'disabled' : 'active',
+    ...(executionSucceeded
+      ? { lastRanAt: now }
+      : { lastFailedAt: now, status: shouldDisable ? 'disabled' : 'active' }),
   })
   if (failure) throw failure.error
 }
