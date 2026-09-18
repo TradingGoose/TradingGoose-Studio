@@ -60,13 +60,17 @@ curl -X POST \
 
 如果工作流包含 Response 块，成功执行时会改用该块配置的 JSON 正文、HTTP 状态和响应头。非流式请求为排队执行最多等待 25 秒；超时返回 HTTP `504`。
 
-使用 `stream: true` 时，响应的内容类型为 `text/event-stream`，并带有 `X-Execution-Id` 响应头。每条 SSE 消息都在其 `data` 字段中携带 JSON：
+使用 `stream: true` 时，响应的内容类型为 `text/event-stream`，并带有 `X-Execution-Id` 响应头。SSE 事件的数据为 JSON，但结束标记 `[DONE]` 是字面文本，不是 JSON：
 
 ```text
 data: {"blockId":"summarize","chunk":"Partial output"}
 
 data: {"event":"final","data":{"success":true,"output":{"content":"..."},"metadata":{"duration":842}}}
+
+data: [DONE]
 ```
+
+调用 `JSON.parse` 前，先检查 `data` 字段是否等于 `[DONE]`；如果是，就停止读取，不要将该标记作为 JSON 解析。
 
 错误使用相同的信封结构，其中包含 `"event":"error"` 和一条 `error` 消息。
 

@@ -48,6 +48,20 @@ describe('documentation references', () => {
   })
 
   test.each(i18n.languages)(
+    '%s API stream examples distinguish JSON events from the end marker',
+    (locale) => {
+      const messages = [...pages.get(`/${locale}/execution/api`)!.matchAll(/^data: (.+)$/gm)].map(
+        ([, data]) => data
+      )
+      expect(messages.at(-1)).toBe('[DONE]')
+      expect(messages.slice(0, -1).map((data) => JSON.parse(data))).toMatchObject([
+        { blockId: 'summarize' },
+        { event: 'final' },
+      ])
+    }
+  )
+
+  test.each(i18n.languages)(
     '%s completed-container examples use actual container IDs',
     (locale) => {
       const tags = pages.get(`/${locale}/connections/tags`)!

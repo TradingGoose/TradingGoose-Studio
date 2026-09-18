@@ -60,13 +60,17 @@ Without a Response block, a non-streaming request returns the public execution r
 
 If the workflow contains a Response block, a successful execution instead uses that block's configured JSON body, HTTP status, and headers. Non-streaming requests wait up to 25 seconds for the queued execution; a timeout returns HTTP `504`.
 
-With `stream: true`, the response has content type `text/event-stream` and an `X-Execution-Id` header. Every SSE message carries JSON in its `data` field:
+With `stream: true`, the response has content type `text/event-stream` and an `X-Execution-Id` header. SSE event payloads are JSON, except for the literal `[DONE]` end marker:
 
 ```text
 data: {"blockId":"summarize","chunk":"Partial output"}
 
 data: {"event":"final","data":{"success":true,"output":{"content":"..."},"metadata":{"duration":842}}}
+
+data: [DONE]
 ```
+
+Check whether the `data` field equals `[DONE]` before calling `JSON.parse`; if it does, stop reading without parsing the marker.
 
 Errors use the same envelope with `"event":"error"` and an `error` message.
 

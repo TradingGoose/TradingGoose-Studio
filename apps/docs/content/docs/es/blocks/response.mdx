@@ -15,7 +15,7 @@ import { ShowcaseCard } from '@/components/ui/showcase-card'
   color="#2F55FF"
 />
 
-El bloque Response es el paso final de tu flujo de trabajo: da formato a una respuesta estructurada y la envía de vuelta a las llamadas a la API. Es como la sentencia "return" de todo tu flujo de trabajo: empaqueta los resultados y los devuelve.
+El bloque Response da formato a una respuesta estructurada para las llamadas a la API. Normalmente se coloca al final de una rama para preparar sus resultados; no es una sentencia "return" que detenga todo el flujo de trabajo.
 
 <ShowcaseCard>
   <BlockConfigPreview
@@ -34,7 +34,7 @@ El bloque Response es el paso final de tu flujo de trabajo: da formato a una res
 </ShowcaseCard>
 
 <Callout type="info">
-  Los bloques Response son bloques terminales: finalizan la ejecución del flujo de trabajo y no pueden conectarse a otros bloques.
+  Coloca normalmente el bloque Response al final de una rama. Preparar su respuesta no detiene por sí solo otras rutas conectadas del flujo de trabajo.
 </Callout>
 
 ## Descripción general
@@ -49,7 +49,7 @@ El bloque Response te permite:
     <strong>Definir códigos de estado</strong>: Configura los códigos de estado HTTP adecuados según los resultados del flujo de trabajo
   </Step>
   <Step>
-    <strong>Controlar encabezados</strong>: Añade encabezados personalizados para respuestas de API y webhooks
+    <strong>Controlar encabezados</strong>: Añade encabezados personalizados para respuestas de API
   </Step>
   <Step>
     <strong>Transformar datos</strong>: Convierte variables del flujo de trabajo en formatos de respuesta aptos para el cliente
@@ -58,12 +58,12 @@ El bloque Response te permite:
 
 ## Cómo funciona
 
-El bloque Response finaliza la ejecución del flujo de trabajo:
+El bloque Response prepara la respuesta de la API:
 
 1. **Recopilar datos** - Reúne variables y salidas de bloques anteriores
 2. **Formatear la respuesta** - Estructura los datos según tu configuración
 3. **Definir los detalles HTTP** - Aplica códigos de estado y encabezados
-4. **Enviar la respuesta** - Devuelve la respuesta formateada al llamador de la API
+4. **Devolver los datos** - Produce el objeto `response` que la API puede usar como respuesta HTTP cuando termina la ejecución
 
 ## Cuándo necesitas bloques Response
 
@@ -210,10 +210,10 @@ Los encabezados se configuran como pares clave-valor:
         <strong>Respuesta HTTP</strong>: respuesta completa enviada al llamador de la API
       </li>
       <li>
-        <strong>Terminación del workflow</strong>: finaliza la ejecución del workflow
+        <strong>Ejecución</strong>: no detiene otras rutas conectadas del workflow
       </li>
       <li>
-        <strong>Acceso</strong>: los bloques Response son terminales - sin bloques posteriores
+        <strong>Ubicación</strong>: normalmente al final de una rama
       </li>
     </ul>
   </Tab>

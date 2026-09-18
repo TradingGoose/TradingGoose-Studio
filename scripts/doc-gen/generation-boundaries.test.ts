@@ -120,6 +120,9 @@ describe('documentation regeneration boundaries', () => {
     expect(first['knowledge.mdx']).toContain('### Create Document')
     expect(first['knowledge.mdx']).toContain('Available in Advanced mode.')
     expect(first['response.mdx']).toContain('| `response.data` | json |')
+    expect(first['response.mdx']).toContain(
+      'The block does not stop other connected workflow paths by itself.'
+    )
     expect(first['function.mdx']).toContain('| `result` | json |')
     expect(first['agent.mdx']).not.toContain('"defaultValue": undefined')
     expect(first['loop.mdx']).toContain('"id": "doWhile"')

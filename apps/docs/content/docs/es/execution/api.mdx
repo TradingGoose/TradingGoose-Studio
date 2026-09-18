@@ -60,13 +60,17 @@ Sin un bloque Response, una solicitud sin streaming devuelve el resultado públi
 
 Si el flujo de trabajo contiene un bloque Response, una ejecución exitosa en su lugar utiliza el cuerpo JSON, el estado HTTP y los encabezados configurados de ese bloque. Las solicitudes sin streaming esperan hasta 25 segundos por la ejecución en cola; un tiempo de espera agotado devuelve HTTP `504`.
 
-Con `stream: true`, la respuesta tiene el tipo de contenido `text/event-stream` y un encabezado `X-Execution-Id`. Cada mensaje SSE lleva JSON en su campo `data`:
+Con `stream: true`, la respuesta tiene el tipo de contenido `text/event-stream` y un encabezado `X-Execution-Id`. Los datos de los eventos SSE son JSON, excepto el marcador de fin literal `[DONE]`:
 
 ```text
 data: {"blockId":"summarize","chunk":"Partial output"}
 
 data: {"event":"final","data":{"success":true,"output":{"content":"..."},"metadata":{"duration":842}}}
+
+data: [DONE]
 ```
+
+Antes de llamar a `JSON.parse`, comprueba si el campo `data` es exactamente `[DONE]`; en ese caso, deja de leer sin intentar analizar el marcador como JSON.
 
 Los errores utilizan el mismo sobre con `"event":"error"` y un mensaje `error`.
 
