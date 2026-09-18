@@ -8,15 +8,24 @@ const state = vi.hoisted(() => ({
   dispatchFails: false,
   admitted: [] as string[],
   enqueue: vi.fn(),
-  authorize: vi.fn(),
   readChild: vi.fn(),
   isCancellationRequested: vi.fn(),
   settleUsage: vi.fn(),
   notifyUsage: vi.fn(),
   children: [] as Record<string, any>[],
+  authorizationRows: new Map<object, Record<string, unknown>[]>(),
 }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
+  workflow: { id: 'id', workspaceId: 'workspaceId' },
+  workspace: { id: 'id', ownerId: 'ownerId' },
+  permissions: {
+    permissionType: 'permissionType',
+    userId: 'userId',
+    entityType: 'entityType',
+    entityId: 'entityId',
+  },
+  user: {},
   workflowExecutionLogs: {
     id: 'id',
     executionId: 'executionId',
@@ -54,10 +63,17 @@ vi.mock('@tradinggoose/db', () => {
   const rows = () => [state.log, ...state.children]
   const store = {
     select: () => {
+      let table: object
       let predicate = (_row: Record<string, unknown>) => true
-      const read = () => rows().filter(predicate)
+      const read = () =>
+        (table === workflowExecutionLogs ? rows() : state.authorizationRows.get(table)!).filter(
+          predicate
+        )
       const chain = {
-        from: () => chain,
+        from: (value: object) => {
+          table = value
+          return chain
+        },
         where: (value: typeof predicate) => {
           predicate = value
           return chain
@@ -105,7 +121,7 @@ vi.mock('@/lib/execution/pending-execution', () => ({
   isPendingWorkflowExecutionCancellationRequested: state.isCancellationRequested,
   PENDING_EXECUTION_CANCELLATION_ERROR: 'Workflow execution was cancelled',
 }))
-vi.mock('@/lib/auth/workflow-scope', () => ({ authorizeWorkflowScope: state.authorize }))
+vi.mock('@/lib/auth/hybrid', () => ({ AuthType: { API_KEY: 'api_key' } }))
 vi.mock('@/lib/execution/workflow-execution-events', () => ({
   readWorkflowExecutionEventState: state.readChild,
 }))
@@ -122,7 +138,7 @@ vi.mock('@/lib/logs/execution/logger', () => ({
 }))
 
 import { db } from '@tradinggoose/db'
-import { workflowExecutionLogs } from '@tradinggoose/db/schema'
+import { permissions, workflow, workflowExecutionLogs, workspace } from '@tradinggoose/db/schema'
 import { createPublicExecutionResult } from '@/lib/workflows/execution-result'
 import {
   claimWorkflowCheckpoint,
@@ -193,10 +209,13 @@ describe('durable workflow checkpoint lifecycle', () => {
       executionData: { environment: { userId: 'original' }, preserved: 'metadata' },
     }
     state.children = []
+    state.authorizationRows.clear()
+    state.authorizationRows.set(workflow, [{ id: 'workflow', workspaceId: 'workspace' }])
+    state.authorizationRows.set(workspace, [{ id: 'workspace', ownerId: 'original' }])
+    state.authorizationRows.set(permissions, [])
     state.lock = Promise.resolve()
     state.admitted = []
     state.dispatchFails = false
-    state.authorize.mockResolvedValue({ ok: true, userId: 'original', workspaceId: 'workspace' })
     state.readChild.mockResolvedValue(null)
     state.isCancellationRequested.mockResolvedValue(false)
     state.settleUsage.mockResolvedValue(undefined)
@@ -419,13 +438,42 @@ describe('durable workflow checkpoint lifecycle', () => {
     expect((await submit('first', { approved: false }, 2)).status).toBe('queued')
   })
 
-  it('refuses resumed execution after the original actor loses access', async () => {
-    await save()
-    await submit()
-    state.authorize.mockResolvedValue({ ok: false, status: 403 })
-    await expect(claim()).rejects.toThrow('no longer has workflow access')
-    expect((await readWorkflowCheckpoint('execution', 'workflow'))?.status).toBe('queued')
-  })
+  it.each(['owner', 'write', 'read', 'none'])(
+    'authorizes %s access on the claim connection without borrowing from an exhausted pool',
+    async (permission) => {
+      await save()
+      await submit()
+      state.authorizationRows.set(workspace, [
+        { id: 'workspace', ownerId: permission === 'owner' ? 'original' : 'other' },
+      ])
+      if (permission === 'read' || permission === 'write') {
+        state.authorizationRows.set(permissions, [
+          {
+            userId: 'original',
+            entityType: 'workspace',
+            entityId: 'workspace',
+            permissionType: permission,
+          },
+        ])
+      }
+      const pool = vi.spyOn(db, 'select').mockImplementation(() => {
+        throw new Error('No pool connections available outside the claim transaction')
+      })
+      try {
+        if (permission === 'owner' || permission === 'write') {
+          await expect(claim()).resolves.toMatchObject({ userId: 'original', snapshot })
+        } else {
+          await expect(claim()).rejects.toThrow('no longer has workflow access')
+        }
+        expect(pool).not.toHaveBeenCalled()
+      } finally {
+        pool.mockRestore()
+      }
+      if (permission === 'read' || permission === 'none') {
+        expect((await readWorkflowCheckpoint('execution', 'workflow'))?.status).toBe('queued')
+      }
+    }
+  )
 
   it('uses existing terminal log state after logger cleanup without reviving a checkpoint', async () => {
     state.log.endedAt = new Date()

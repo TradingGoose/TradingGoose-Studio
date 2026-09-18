@@ -160,7 +160,8 @@ export async function claimWorkflowCheckpoint(args: {
     const access = await authorizeWorkflowScope(
       { success: true, userId: data.environment?.userId },
       row.workflowId,
-      'write'
+      'write',
+      tx
     )
     if (!access.ok || access.workspaceId !== row.workspaceId)
       throw new WorkflowCheckpointError(

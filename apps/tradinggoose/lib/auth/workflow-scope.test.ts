@@ -1,3 +1,4 @@
+import { db } from '@tradinggoose/db'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthType } from '@/lib/auth/hybrid'
 import { authorizeWorkflowScope } from './workflow-scope'
@@ -50,7 +51,7 @@ describe('Authenticated workflow scope', () => {
       workspaceId: 'workspace-1',
       workflowId: 'workflow-1',
     })
-    expect(mocks.access).toHaveBeenCalledWith('workspace-1', 'member-1')
+    expect(mocks.access).toHaveBeenCalledWith('workspace-1', 'member-1', db)
   })
 
   it('rejects read-only users on writes and cross-workspace access', async () => {
@@ -104,6 +105,6 @@ describe('Authenticated workflow scope', () => {
         'read'
       )
     ).toMatchObject({ ok: true })
-    expect(mocks.access).toHaveBeenCalledWith('workspace-1', 'user-1')
+    expect(mocks.access).toHaveBeenCalledWith('workspace-1', 'user-1', db)
   })
 })
