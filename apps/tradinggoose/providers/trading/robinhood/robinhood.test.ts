@@ -75,7 +75,7 @@ const brokerOrder = {
   cumulative_quantity: '0.5',
   average_price: '123.45',
   time_in_force: 'gfd',
-  dollar_based_amount: { amount: '25.50' },
+  dollar_based_amount: '25.50',
   created_at: '2026-09-18T14:00:00Z',
 }
 const toolNames = () => sdk.callTool.mock.calls.map(([request]) => request.name)
@@ -94,8 +94,9 @@ beforeEach(() => {
           order: {
             ...brokerOrder,
             ...args,
+            symbol: '',
             ...(args.dollar_amount
-              ? { quantity: null, dollar_based_amount: { amount: args.dollar_amount } }
+              ? { quantity: null, dollar_based_amount: args.dollar_amount }
               : {}),
           },
         })
@@ -203,6 +204,34 @@ describe('Robinhood trading accounts and portfolio', () => {
 })
 
 describe('Robinhood order review and placement', () => {
+  it('preserves the broker ID when a placement acknowledgement has an empty symbol', async () => {
+    // Shape captured live: https://nexustrade.io/blog/robinhood-agentic-trading-mcp-review-20260708
+    const result = await submitRobinhoodOrder(order)
+    expect(normalizeRobinhoodOrder(result)).toMatchObject({
+      id: brokerOrder.id,
+      symbol: order.base,
+      status: 'accepted',
+      raw: { id: brokerOrder.id, quantity: String(order.quantity) },
+    })
+    expect(toolNames()).toEqual(['review_equity_order', 'place_equity_order'])
+  })
+
+  it.each([
+    { id: undefined },
+    { id: '' },
+    { state: undefined },
+    { symbol: 'MSFT' },
+    { side: 'sell' },
+    { ref_id: 'different-order' },
+    { dollar_based_amount: { amount: '25.50' } },
+  ])('rejects an invalid or contradictory placement acknowledgement %j', async (override) => {
+    sdk.callTool
+      .mockImplementationOnce(sdk.callTool.getMockImplementation()!)
+      .mockResolvedValueOnce(envelope({ order: { ...brokerOrder, ...override } }))
+    await expect(submitRobinhoodOrder(order)).rejects.toMatchObject({ submissionUnknown: true })
+    expect(placements()).toHaveLength(1)
+  })
+
   it('returns review warnings during preview without placing an order', async () => {
     sdk.callTool.mockImplementation(async ({ arguments: args }) =>
       envelope({ ...args, order_checks: { warning: 'Insufficient buying power' } })
@@ -328,14 +357,18 @@ describe('Robinhood persisted order detail', () => {
       provider: 'robinhood',
       submissionSource: 'manual',
       request: { accountId: 'PERSISTED-ACCOUNT', clientOrderId: order.clientOrderId },
-      normalizedOrder: { id: 'broker-order' },
+      response: { orderId: brokerOrder.id },
     }
     sdk.callTool.mockResolvedValue({
       content: [
         {
           type: 'text',
           text: JSON.stringify({
-            data: { orders: [{ ...brokerOrder, type: 'market', trigger: 'stop' }] },
+            data: {
+              orders: [
+                { ...brokerOrder, type: 'market', trigger: 'stop', dollar_based_amount: '5.04' },
+              ],
+            },
           }),
         },
       ],
@@ -359,7 +392,8 @@ describe('Robinhood persisted order detail', () => {
       filledQuantity: 0.5,
       remainingQuantity: 1.5,
       averageFillPrice: 123.45,
-      notional: 25.5,
+      notional: 5.04,
+      raw: { quantity: '2', dollar_based_amount: '5.04' },
     })
     expect(sdk.close).toHaveBeenCalledOnce()
   })

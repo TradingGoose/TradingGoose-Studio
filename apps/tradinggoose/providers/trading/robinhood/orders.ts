@@ -18,7 +18,7 @@ import type {
 import { listingIdentityToTradingSymbol } from '@/providers/trading/utils'
 
 // MCP tool schemas: alphillips-lab/robinhoodmcp, src/robinhoodmcp/client.py.
-// Review/place envelopes: abiemann/RobinhoodEquityTradingAgent, connector_contract.py/order_intents.py.
+// Live response capture: https://nexustrade.io/blog/robinhood-agentic-trading-mcp-review-20260708
 const orderSchema = z.object({
   id: z.string().min(1),
   symbol: z.string().min(1),
@@ -29,7 +29,7 @@ const orderSchema = z.object({
   ref_id: z.string().optional(),
   quantity: robinhoodNumber.nullish(),
   cumulative_quantity: robinhoodNumber.nullish(),
-  dollar_based_amount: z.object({ amount: robinhoodNumber }).nullish(),
+  dollar_based_amount: robinhoodNumber.nullish(),
   price: robinhoodNumber.nullish(),
   stop_price: robinhoodNumber.nullish(),
   average_price: robinhoodNumber.nullish(),
@@ -37,6 +37,8 @@ const orderSchema = z.object({
   created_at: z.string().optional(),
   last_transaction_at: z.string().nullish(),
 })
+// Placement acknowledges the order before Robinhood populates its symbol.
+const placementSchema = orderSchema.extend({ symbol: z.string() })
 const reviewSchema = z
   .object({
     symbol: z.string(),
@@ -127,15 +129,15 @@ export async function submitRobinhoodOrder(params: TradingOrderInput): Promise<u
       })
     }
     const data = await call('place_equity_order', { ...args, ref_id: refId })
-    const order = orderSchema.parse(data.order)
+    const order = placementSchema.parse(data.order)
     if (
-      order.symbol !== args.symbol ||
+      (order.symbol !== '' && order.symbol !== args.symbol) ||
       order.side !== args.side ||
       (order.ref_id && order.ref_id !== refId)
     ) {
       throw new Error('Robinhood returned a different order than requested.')
     }
-    return data.order
+    return { ...(data.order as Record<string, unknown>), symbol: order.symbol || args.symbol }
   })
 }
 
@@ -182,7 +184,7 @@ export function normalizeRobinhoodOrder(
       order.quantity == null || order.cumulative_quantity == null
         ? null
         : Math.max(0, order.quantity - order.cumulative_quantity),
-    notional: order.dollar_based_amount?.amount,
+    notional: order.dollar_based_amount,
     limitPrice: order.price,
     stopPrice: order.stop_price,
     averageFillPrice: order.average_price,
@@ -195,29 +197,26 @@ export async function robinhoodOrderDetailRequest(
   params: TradingOrderDetailInput
 ): Promise<TradingOrderDetailResult> {
   const accountId = z.string().min(1).parse(history.request?.accountId)
-  const providerOrderId = z
-    .string()
-    .min(1)
-    .parse(history.normalizedOrder?.id ?? history.response?.orderId)
+  const providerOrderId = z.string().min(1).parse(history.response?.orderId)
   return withRobinhoodTradingClient(params.accessToken, async (call) => {
     // Single-order mode still returns orders[] and enforces the owning account upstream.
     const data = await call('get_equity_orders', {
       account_number: accountId,
       order_id: providerOrderId,
     })
-    const { orders } = z.object({ orders: z.array(orderSchema).max(1) }).parse(data)
-    const order = orders.find((candidate) => candidate.id === providerOrderId)
-    if (!order) throw new Error('Robinhood order was not found in the selected account.')
+    const { orders } = z.object({ orders: z.array(z.unknown()).length(1) }).parse(data)
+    const order = normalizeRobinhoodOrder(orders[0])
+    if (order.id !== providerOrderId)
+      throw new Error('Robinhood order was not found in the selected account.')
     return {
       providerOrderId,
       orderDetail: {
-        ...normalizeRobinhoodOrder(order),
+        ...order,
         appOrderId: history.id,
         provider: 'robinhood',
         providerOrderId,
         environment: 'live',
         clientOrderId: history.request?.clientOrderId,
-        raw: (data.orders as unknown[])[0],
       },
     }
   })
