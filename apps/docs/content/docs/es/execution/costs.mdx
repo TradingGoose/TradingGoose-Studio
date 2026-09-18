@@ -11,8 +11,8 @@ TradingGoose mide la ejecución de flujos de trabajo, el uso de modelos y el tie
 
 Cuando la facturación está habilitada, el uso puede incluir tres componentes de costo:
 
-- **Cargo de ejecución**: el cargo de flujo de trabajo configurado en la instancia, multiplicado por el multiplicador de ejecución de flujos de trabajo del nivel actual.
-- **Uso de modelos de IA**: el costo del modelo del proveedor registrado por cada span de ejecución, multiplicado por el multiplicador de costo de modelos del nivel actual.
+- **Cargo de ejecución**: el cargo de flujo de trabajo configurado multiplicado por el multiplicador de ejecución del nivel, según la cotización guardada para esa ejecución.
+- **Uso de modelos de IA**: el costo del modelo del proveedor registrado por cada span de ejecución, multiplicado por el multiplicador de costo de modelos del nivel guardado en esa cotización.
 - **Tiempo de ejecución de Function**: el cargo por segundo configurado, multiplicado por el tiempo de ejecución en segundos y el multiplicador de Function del nivel. Se acumula por separado para Function/herramientas personalizadas, incluidos los intentos de ejecución que fallan.
 
 ```javascript
@@ -25,8 +25,10 @@ totalMeteredCost = workflowLogSubtotal + sum(functionCost)
 
 Esta fórmula es ilustrativa. Cada cargo de Function se redondea a seis decimales. El total del registro del flujo de trabajo es el subtotal de ejecución/modelos; los cargos de Function acumulados por separado también contribuyen al uso del responsable de facturación. No son cargos de modelos de IA y pueden aplicarse a flujos de trabajo sin IA.
 
+El trabajo de modelos ya realizado se contabiliza al guardar un punto de control de human-in-the-loop. Reanudar o cancelar no vuelve a cobrar ese mismo trabajo: cada ejecución lógica reutiliza su cotización de ejecución/modelos y aplica el cargo base de ejecución una sola vez. Los costos de un flujo hijo se contabilizan en su propio registro, sin volver a cobrarlos mediante las trazas anidadas del padre.
+
 <Callout type="info">
-  Cuando la facturación está deshabilitada, el cargo de ejecución del flujo de trabajo es cero, no se acumulan cargos de Function y los costos de modelos registrados usan un multiplicador de uno. La configuración de facturación, y no los valores fijos de esta guía, es la fuente de verdad para los cargos y los multiplicadores.
+  Para las ejecuciones cuya cotización se guarda por primera vez con la facturación deshabilitada, el cargo base es cero y los costos de modelos registrados usan un multiplicador de uno. Mientras la facturación está deshabilitada, no se acumula uso facturable adicional de flujos de trabajo ni de Function; las cotizaciones guardadas anteriormente no se modifican. La configuración de facturación, y no los valores fijos de esta guía, es la fuente de verdad para los cargos y los multiplicadores.
 </Callout>
 
 ## Desglose de modelos en los registros
