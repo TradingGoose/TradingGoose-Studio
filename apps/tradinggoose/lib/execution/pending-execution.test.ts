@@ -1709,11 +1709,19 @@ describe('cancelPendingWorkflowExecution', () => {
     }
   )
 
-  it.each(['paused', 'processing'])(
+  it.each(['paused', 'pending', 'processing'] as const)(
     'rejects %s cancellation before writes when workflow access is revoked',
     async (status) => {
       selectLimitMock.mockResolvedValueOnce(
-        status === 'processing' ? [createPendingRow({ id: 'paused-1:resume:1', status })] : []
+        status === 'paused'
+          ? []
+          : [
+              createPendingRow({
+                id: 'paused-1:resume:1',
+                status,
+                payload: { resumeExecutionId: 'paused-1' },
+              }),
+            ]
       )
       selectLimitMock.mockResolvedValue([checkpoint()])
       authorizeWorkflowScopeMock.mockResolvedValueOnce({ ok: false, status: 403 })
@@ -1829,24 +1837,34 @@ describe('cancelPendingWorkflowExecution', () => {
     expect(eqMock).toHaveBeenCalledWith('workflowExecutionLogs.workspaceId', 'workspace-bound')
   })
 
-  it.each([false, true])(
-    'cancels queued workflows through the shared finalizer (resuming: %s)',
-    async (resuming) => {
+  it.each([
+    { resuming: false, direct: true },
+    { resuming: true, direct: true },
+    { resuming: true, direct: false },
+  ])(
+    'cancels queued workflows without execution capacity (resuming: $resuming, direct: $direct)',
+    async ({ resuming, direct }) => {
       const payload = {
         triggerType: 'manual',
-        ...(resuming ? { resumeExecutionId: 'original' } : {}),
+        ...(resuming ? { resumeExecutionId: 'paused-1' } : {}),
       }
       const row = createPendingRow({
         source: resuming ? 'human_in_the_loop' : 'workflow_api',
         payload,
       })
-      selectLimitMock.mockResolvedValueOnce([row])
+      selectLimitMock.mockResolvedValueOnce(direct ? [row] : [])
+      if (resuming) {
+        const paused = checkpoint({ activeJobId: row.id })
+        selectLimitMock.mockResolvedValueOnce([paused])
+        txSelectLimitMock.mockResolvedValueOnce([paused])
+        updateReturningMock.mockResolvedValueOnce([row])
+      }
       updateReturningMock.mockResolvedValueOnce([row])
       deleteReturningMock.mockResolvedValueOnce([{ billingScopeId: 'scope-1' }])
 
       await expect(
         cancelPendingWorkflowExecution({
-          pendingExecutionId: 'pending-1',
+          pendingExecutionId: direct ? row.id : 'paused-1',
           userId: 'user-1',
           wake: false,
         })
@@ -1866,11 +1884,84 @@ describe('cancelPendingWorkflowExecution', () => {
         deleteReturningMock.mock.invocationCallOrder[0]
       )
       expect(idempotencyCreateMock).not.toHaveBeenCalled()
+      expect(resolveServerExecutionBillingTierForScopeMock).not.toHaveBeenCalled()
       expect(getTriggerExecutionStateMock).not.toHaveBeenCalled()
       expect(executePendingExecutionJobMock).not.toHaveBeenCalled()
       expect(triggerMock).not.toHaveBeenCalled()
+      if (resuming) {
+        expect(authorizeWorkflowScopeMock).toHaveBeenCalledOnce()
+        expect(txSelectChain.for).toHaveBeenCalledWith('update')
+        expect(updateChain.set.mock.calls[0]?.[0]).toHaveProperty('payload')
+        expect(cancelPendingExecutionDescendantsMock).toHaveBeenCalledExactlyOnceWith('paused-1')
+        expect(terminalizeWorkflowExecutionMock.mock.invocationCallOrder[0]).toBeLessThan(
+          cancelPendingExecutionDescendantsMock.mock.invocationCallOrder[0]
+        )
+        expect(cancelPendingExecutionDescendantsMock.mock.invocationCallOrder[0]).toBeLessThan(
+          deleteReturningMock.mock.invocationCallOrder[0]
+        )
+      }
     }
   )
+
+  it.each(['before flag', 'after flag'])(
+    'retains asynchronous cancellation when a queued resume starts %s',
+    async (started) => {
+      const row = createPendingRow({
+        id: 'paused-1:resume:1',
+        payload: { resumeExecutionId: 'paused-1' },
+      })
+      const paused = checkpoint({ activeJobId: row.id })
+      selectLimitMock.mockResolvedValueOnce([row]).mockResolvedValueOnce([paused])
+      txSelectLimitMock.mockResolvedValueOnce([paused])
+      updateReturningMock.mockResolvedValueOnce([
+        { ...row, status: started === 'before flag' ? 'processing' : 'pending' },
+      ])
+      if (started === 'after flag') updateReturningMock.mockResolvedValueOnce([])
+
+      await expect(
+        cancelPendingWorkflowExecution({ pendingExecutionId: row.id, userId: 'user-1' })
+      ).resolves.toEqual({ status: 'cancelling', pendingExecutionId: row.id })
+      expect(updateChain.set.mock.calls[0]?.[0]).toHaveProperty('payload')
+      expect(terminalizeWorkflowExecutionMock).not.toHaveBeenCalled()
+      expect(deleteReturningMock).not.toHaveBeenCalled()
+      expect(cancelPendingExecutionDescendantsMock).toHaveBeenCalledExactlyOnceWith('paused-1')
+    }
+  )
+
+  it('keeps a cancelled pending resume retryable when its shared finalizer fails', async () => {
+    const row = createPendingRow({
+      id: 'paused-1:resume:1',
+      source: 'human_in_the_loop',
+      payload: { resumeExecutionId: 'paused-1' },
+    })
+    const paused = checkpoint({ activeJobId: row.id })
+    selectLimitMock.mockResolvedValueOnce([]).mockResolvedValueOnce([paused])
+    txSelectLimitMock.mockResolvedValueOnce([paused])
+    updateReturningMock.mockResolvedValueOnce([row]).mockResolvedValueOnce([row])
+    terminalizeWorkflowExecutionMock.mockRejectedValueOnce(new Error('execution log unavailable'))
+    const params = { pendingExecutionId: 'paused-1', userId: 'user-1', wake: false }
+
+    await expect(cancelPendingWorkflowExecution(params)).rejects.toThrow(
+      'execution log unavailable'
+    )
+    expect(updateChain.set).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        payload: expect.anything(),
+        status: 'pending',
+        processingStartedAt: null,
+      })
+    )
+    expect(deleteReturningMock).not.toHaveBeenCalled()
+    expect(cancelPendingExecutionDescendantsMock).not.toHaveBeenCalled()
+
+    selectLimitMock.mockResolvedValueOnce([]).mockResolvedValueOnce([paused])
+    txSelectLimitMock.mockResolvedValueOnce([paused])
+    updateReturningMock.mockResolvedValueOnce([row]).mockResolvedValueOnce([row])
+    deleteReturningMock.mockResolvedValueOnce([{ billingScopeId: 'scope-1' }])
+    await expect(cancelPendingWorkflowExecution(params)).resolves.toEqual({ status: 'cancelling' })
+    expect(terminalizeWorkflowExecutionMock).toHaveBeenCalledTimes(2)
+    expect(deleteReturningMock).toHaveBeenCalledOnce()
+  })
 
   it('rejects malformed queued payloads instead of finalizing an invented empty payload', async () => {
     const row = { ...createPendingRow(), payload: [] }

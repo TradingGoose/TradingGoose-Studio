@@ -10,34 +10,9 @@ import {
 } from '@/lib/execution/pending-execution'
 import type { WorkflowCheckpointLogData } from '@/lib/workflows/human-in-the-loop/types'
 
-export type PendingExecutionCancellationResult =
+type PendingExecutionCancellationResult =
   | { status: 'not_found' }
   | { status: 'cancelling' | 'finished'; pendingExecutionId?: string }
-
-async function readWorkflowExecutionCancellationResult(params: {
-  executionId: string
-  userId: string
-  workspaceId?: string
-}): Promise<PendingExecutionCancellationResult> {
-  const [logRow] = await db
-    .select({
-      endedAt: workflowExecutionLogs.endedAt,
-    })
-    .from(workflowExecutionLogs)
-    .where(
-      and(
-        eq(workflowExecutionLogs.executionId, params.executionId),
-        sql`${workflowExecutionLogs.executionData}->'environment'->>'userId' = ${params.userId}`,
-        ...(params.workspaceId ? [eq(workflowExecutionLogs.workspaceId, params.workspaceId)] : [])
-      )
-    )
-    .limit(1)
-
-  if (logRow?.endedAt) {
-    return { status: 'finished' }
-  }
-  return { status: 'not_found' }
-}
 
 export async function cancelPendingWorkflowExecution(params: {
   pendingExecutionId: string
@@ -47,7 +22,7 @@ export async function cancelPendingWorkflowExecution(params: {
   descendantCancellation?: boolean
   wake?: boolean
 }): Promise<PendingExecutionCancellationResult> {
-  const [row] = await db
+  let [row] = await db
     .select({
       id: pendingExecution.id,
       billingScopeId: pendingExecution.billingScopeId,
@@ -71,11 +46,23 @@ export async function cancelPendingWorkflowExecution(params: {
     isPendingExecutionPayload(row?.payload) && typeof row.payload.resumeExecutionId === 'string'
       ? row.payload.resumeExecutionId
       : params.pendingExecutionId
+  const executionLogScope = and(
+    eq(workflowExecutionLogs.executionId, executionId),
+    sql`${workflowExecutionLogs.executionData}->'environment'->>'userId' = ${params.userId}`,
+    ...(params.workspaceId ? [eq(workflowExecutionLogs.workspaceId, params.workspaceId)] : [])
+  )
+  const cancelDescendants = async () => {
+    if (params.descendantCancellation) return
+    const { cancelPendingExecutionDescendants } = await import(
+      '@/background/pending-execution-worker'
+    )
+    await cancelPendingExecutionDescendants(executionId)
+  }
   const cancellation = {
     payload: sql`${pendingExecution.payload} || jsonb_build_object('cancelRequestedAt', ${new Date().toISOString()})`,
     updatedAt: new Date(),
   }
-  let processingCancellationId: string | undefined
+  let cancellationOwnerId: string | undefined
   if (row?.status === 'processing' && row.workflowId) {
     if (!params.descendantCancellation) {
       const access = await authorizeWorkflowScope(
@@ -90,7 +77,7 @@ export async function cancelPendingWorkflowExecution(params: {
       .set(cancellation)
       .where(and(eq(pendingExecution.id, row.id), eq(pendingExecution.status, 'processing')))
       .returning({ id: pendingExecution.id })
-    processingCancellationId = cancellingRows[0]?.id
+    cancellationOwnerId = cancellingRows[0]?.id
   }
 
   if (
@@ -99,17 +86,7 @@ export async function cancelPendingWorkflowExecution(params: {
     row.status === 'processing' ||
     (isPendingExecutionPayload(row.payload) && row.payload.resumeExecutionId)
   ) {
-    const [log] = await db
-      .select()
-      .from(workflowExecutionLogs)
-      .where(
-        and(
-          eq(workflowExecutionLogs.executionId, executionId),
-          sql`${workflowExecutionLogs.executionData}->'environment'->>'userId' = ${params.userId}`,
-          ...(params.workspaceId ? [eq(workflowExecutionLogs.workspaceId, params.workspaceId)] : [])
-        )
-      )
-      .limit(1)
+    const [log] = await db.select().from(workflowExecutionLogs).where(executionLogScope).limit(1)
     if (
       log?.workflowId &&
       (row?.status === 'processing' || (log.executionData as WorkflowCheckpointLogData).checkpoint)
@@ -141,18 +118,23 @@ export async function cancelPendingWorkflowExecution(params: {
         const checkpoint = data.checkpoint
         const activeJobId = checkpoint?.activeJobId
         if (activeJobId) {
-          if (activeJobId === processingCancellationId)
+          if (activeJobId === cancellationOwnerId)
             return { active: true, pendingExecutionId: activeJobId }
-          const active = await tx
+          const [active] = await tx
             .update(pendingExecution)
             .set(cancellation)
             .where(eq(pendingExecution.id, activeJobId))
-            .returning({ id: pendingExecution.id })
-          if (active.length) return { active: true, pendingExecutionId: activeJobId }
+            .returning()
+          if (active)
+            return {
+              active: true,
+              pendingExecutionId: activeJobId,
+              queued: active.status === 'pending' ? active : undefined,
+            }
         }
         if (!checkpoint)
-          return processingCancellationId
-            ? { active: true, pendingExecutionId: processingCancellationId }
+          return cancellationOwnerId
+            ? { active: true, pendingExecutionId: cancellationOwnerId }
             : null
         const { pause: _pause, ...cancelledData } = data
         await tx
@@ -161,34 +143,34 @@ export async function cancelPendingWorkflowExecution(params: {
             executionData: { ...cancelledData, checkpoint: { ...checkpoint, activeJobId: null } },
           })
           .where(eq(workflowExecutionLogs.id, current.id))
-        return { active: false, pendingExecutionId: processingCancellationId }
+        return { active: false, pendingExecutionId: cancellationOwnerId }
       })
-      if (!decision) return { status: 'finished', pendingExecutionId: processingCancellationId }
-      if (!decision.active) {
-        const { terminalizeWorkflowExecution } = await import(
-          '@/background/pending-execution-worker'
-        )
-        await terminalizeWorkflowExecution(
-          {
-            id: log.executionId,
-            executionType: 'workflow',
-            source: 'human_in_the_loop',
-            workflowId: log.workflowId,
-            workspaceId: log.workspaceId,
-            userId: params.userId,
-            payload: { resumeExecutionId: log.executionId },
-          },
-          0,
-          PENDING_EXECUTION_CANCELLATION_ERROR
-        )
+      if (!decision) return { status: 'finished', pendingExecutionId: cancellationOwnerId }
+      if (decision.queued) {
+        row = decision.queued
+        cancellationOwnerId = decision.pendingExecutionId
+      } else {
+        if (!decision.active) {
+          const { terminalizeWorkflowExecution } = await import(
+            '@/background/pending-execution-worker'
+          )
+          await terminalizeWorkflowExecution(
+            {
+              id: log.executionId,
+              executionType: 'workflow',
+              source: 'human_in_the_loop',
+              workflowId: log.workflowId,
+              workspaceId: log.workspaceId,
+              userId: params.userId,
+              payload: { resumeExecutionId: log.executionId },
+            },
+            0,
+            PENDING_EXECUTION_CANCELLATION_ERROR
+          )
+        }
+        await cancelDescendants()
+        return { status: 'cancelling', pendingExecutionId: decision.pendingExecutionId }
       }
-      if (!params.descendantCancellation) {
-        const { cancelPendingExecutionDescendants } = await import(
-          '@/background/pending-execution-worker'
-        )
-        await cancelPendingExecutionDescendants(log.executionId)
-      }
-      return { status: 'cancelling', pendingExecutionId: decision.pendingExecutionId }
     }
   }
 
@@ -243,17 +225,21 @@ export async function cancelPendingWorkflowExecution(params: {
         throw error
       }
 
+      if (cancellationOwnerId) await cancelDescendants()
       await settlePendingExecutionOwner(claimed, { wake: params.wake })
       return { status: 'cancelling' }
     }
   }
 
-  if (processingCancellationId)
-    return { status: 'cancelling', pendingExecutionId: processingCancellationId }
+  if (cancellationOwnerId) {
+    await cancelDescendants()
+    return { status: 'cancelling', pendingExecutionId: cancellationOwnerId }
+  }
 
-  return readWorkflowExecutionCancellationResult({
-    executionId,
-    userId: params.userId,
-    workspaceId: params.workspaceId,
-  })
+  const [log] = await db
+    .select({ endedAt: workflowExecutionLogs.endedAt })
+    .from(workflowExecutionLogs)
+    .where(executionLogScope)
+    .limit(1)
+  return { status: log?.endedAt ? 'finished' : 'not_found' }
 }
