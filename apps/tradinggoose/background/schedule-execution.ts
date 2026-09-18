@@ -65,13 +65,17 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
     const nextRunAt = cron?.nextRun()
     await db
       .update(workflowSchedule)
-      .set({ updatedAt: now, ...(nextRunAt ? { nextRunAt } : {}), ...fields })
+      .set({
+        updatedAt: now,
+        ...(cron ? { nextRunAt } : {}),
+        ...fields,
+        ...(cron && !nextRunAt ? { status: 'disabled' } : {}),
+      })
       .where(eq(workflowSchedule.id, payload.scheduleId))
   }
 
   try {
     cron = new Cron(payload.cronExpression, { utcOffset: payload.utcOffset })
-    if (!cron.nextRun()) throw new Error('Schedule has no future occurrences')
     const [workflowRecord] = await db
       .select()
       .from(workflow)

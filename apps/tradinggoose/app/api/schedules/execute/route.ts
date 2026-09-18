@@ -77,7 +77,12 @@ export async function GET(request: NextRequest) {
 
           if (!schedule.cronExpression) throw new Error('Schedule cron expression is required')
           const utcOffset = await resolveTimezoneOffsetMinutes(schedule.timezone)
-          const validation = validateCronExpression(schedule.cronExpression, utcOffset)
+          // Validate the accepted occurrence, not whether it has a successor.
+          const validation = validateCronExpression(
+            schedule.cronExpression,
+            utcOffset,
+            new Date(schedule.nextRunAt!.getTime() - 1)
+          )
           if (!validation.isValid) throw new Error(validation.error)
 
           const pendingExecutionId = `schedule_execution:${schedule.id}:${schedule.nextRunAt!.toISOString()}`
@@ -87,7 +92,7 @@ export async function GET(request: NextRequest) {
             workflowId: schedule.workflowId,
             blockId: schedule.blockId,
             cronExpression: schedule.cronExpression,
-            failedCount: schedule.failedCount || 0,
+            failedCount: schedule.failedCount,
             utcOffset,
             now: now.toISOString(),
           }

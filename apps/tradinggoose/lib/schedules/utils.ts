@@ -10,11 +10,13 @@ const logger = createLogger('ScheduleUtils')
  * Validates a cron expression and returns validation results
  * @param cronExpression - The cron expression to validate
  * @param utcOffsetMinutes - Optional UTC offset in minutes (e.g., -420). Defaults to 0
+ * @param after - Optional reference time; defaults to now when creating a schedule
  * @returns Validation result with isValid flag, error message, and next run date
  */
 export function validateCronExpression(
   cronExpression: string,
-  utcOffsetMinutes = 0
+  utcOffsetMinutes = 0,
+  after?: Date
 ): {
   isValid: boolean
   error?: string
@@ -30,7 +32,7 @@ export function validateCronExpression(
   try {
     // Validate using explicit UTC offset for deterministic scheduling
     const cron = new Cron(cronExpression, { utcOffset: utcOffsetMinutes })
-    const nextRun = cron.nextRun()
+    const nextRun = cron.nextRun(after)
 
     if (!nextRun) {
       return {

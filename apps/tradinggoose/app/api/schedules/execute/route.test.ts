@@ -1,6 +1,11 @@
 /** @vitest-environment node */
 import type { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  calculateNextRunTime,
+  getScheduleTimeValues,
+  validateCronExpression,
+} from '@/lib/schedules/utils'
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { executeScheduleJob, isScheduleExecutionPayload } from '@/background/schedule-execution'
 import { GET } from './route'
@@ -183,6 +188,61 @@ describe('schedule admission', () => {
       expect(state.set).not.toHaveBeenCalled()
     }
   )
+
+  it.each([
+    ['success', 0],
+    ['success', 60_000],
+    ['paused', 60_000],
+    ['failure', 60_000],
+    ['exception', 60_000],
+    ['usage_limit_exceeded', 60_000],
+    ['timezone_recovery', 60_000],
+  ] as const)('settles an accepted one-time occurrence: %s, %d ms late', async (outcome, delay) => {
+    vi.setSystemTime(occurrence.getTime() - 60_000)
+    const cronExpression = occurrence.toISOString()
+    const values = getScheduleTimeValues({
+      type: 'schedule',
+      subBlocks: { cronExpression: { value: cronExpression } },
+    })
+    const nextRunAt = calculateNextRunTime('custom', values, undefined, -240)
+    expect(validateCronExpression(cronExpression, -240)).toEqual({
+      isValid: true,
+      nextRun: nextRunAt,
+    })
+    state.schedules[0].cronExpression = cronExpression
+    state.schedules[0].nextRunAt = nextRunAt
+    expect(await (await GET(request)).json()).toMatchObject({ executedCount: 0 })
+
+    vi.setSystemTime(nextRunAt.getTime() + delay)
+    if (outcome === 'timezone_recovery') {
+      state.resolveOffset.mockRejectedValueOnce(new Error('Timezone unavailable'))
+      expect(await (await GET(request)).json()).toMatchObject({ executedCount: 0 })
+      expect(state.enqueue).not.toHaveBeenCalled()
+      expect(state.schedules[0]).toMatchObject({ failedCount: 1, nextRunAt })
+    }
+    expect(await (await GET(request)).json()).toMatchObject({ executedCount: 1 })
+    const payload = state.enqueue.mock.calls[0][0].payload
+    expect(payload.executionId).toBe(`schedule_execution:schedule-1:${nextRunAt.toISOString()}`)
+    const failed = outcome === 'failure' || outcome === 'exception'
+    state.run.mockResolvedValueOnce({
+      result: { success: !failed, status: outcome === 'paused' ? 'paused' : undefined, output: {} },
+      dispatchFailureReason: outcome === 'usage_limit_exceeded' ? outcome : undefined,
+    })
+    if (outcome === 'exception') {
+      state.run.mockReset().mockRejectedValueOnce(new Error('Execution failed'))
+      await expect(executeScheduleJob(payload)).rejects.toThrow('Execution failed')
+    } else {
+      await executeScheduleJob(payload)
+    }
+    expect(state.run).toHaveBeenCalledTimes(1)
+    expect(state.schedules[0]).toMatchObject({
+      nextRunAt: null,
+      status: 'disabled',
+      failedCount: failed ? 2 : outcome === 'usage_limit_exceeded' ? 1 : 0,
+    })
+    expect(await (await GET(request)).json()).toMatchObject({ executedCount: 0 })
+    expect(state.enqueue).toHaveBeenCalledTimes(1)
+  })
 
   it('keeps a timezone outage retryable and counts only distinct accepted executions', async () => {
     const error = new Error('Timezone service unavailable')
