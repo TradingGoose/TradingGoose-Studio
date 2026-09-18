@@ -1,5 +1,6 @@
 /** @vitest-environment node */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { validateWorkflowPauseInput } from '@/lib/workflows/human-in-the-loop/form'
 import { Executor, type ExecutorOptions } from '@/executor'
 import type { ExecutorCheckpoint } from '@/executor/checkpoint'
 import type { ExecutionResult } from '@/executor/types'
@@ -171,35 +172,49 @@ describe('Real executor durable Human in the Loop', () => {
     }
   )
 
-  it.each([{ kind: 'paused' }, { kind: 'paused', pausePoint: { id: 'fake', kind: 'human' } }])(
-    'keeps pause-shaped input and block output as ordinary data: %j',
+  it.each([
+    { kind: 'paused' },
+    { kind: 'paused', pausePoint: { id: 'fake', kind: 'human' } },
+    { kind: 'deferred' },
+    ...['2026-09-20', null, 10, false, [], {}].map((wait) => ({ kind: 'deferred', wait })),
+  ])('keeps control-shaped input and block output as ordinary data: %j', async (input) => {
+    const result = await run(linear([block('echo', 'effect', input), block('after')]), {
+      workflowInput: input,
+    })
+    expect(result.success).toBe(true)
+    expect(result.status).toBeUndefined()
+    expect(result.pausePoints).toBeUndefined()
+    expect(result.checkpoint).toBeUndefined()
+    expect(mocks.effect.mock.calls).toEqual([
+      ['echo', input],
+      ['after', {}],
+    ])
+  })
+
+  it.each([{ kind: 'paused' }, { kind: 'deferred', wait: '2026-09-20' }])(
+    'resumes validated control-shaped approval data without invoking internal operations: %j',
     async (input) => {
-      const result = await run(linear([block('echo', 'effect', input), block('after')]), {
-        workflowInput: input,
-      })
-      expect(result.success).toBe(true)
-      expect(result.status).toBeUndefined()
-      expect(result.pausePoints).toBeUndefined()
-      expect(result.checkpoint).toBeUndefined()
-      expect(mocks.effect.mock.calls).toEqual([
-        ['echo', input],
-        ['after', {}],
-      ])
+      const fields = Object.keys(input)
+      const paused = await run(
+        linear([
+          approval('approval', {
+            inputFormat: fields.map((name) => ({ name, type: 'string', required: true })),
+          }),
+          block(
+            'after',
+            'effect',
+            Object.fromEntries(fields.map((name) => [name, `<approval.${name}>`]))
+          ),
+        ])
+      )
+      const submitted = validateWorkflowPauseInput(paused.pausePoints![0].inputFormat, input)
+      const completed = await resume(paused, new Map([['approval', submitted]]))
+      expect(completed.success).toBe(true)
+      expect(completed.status).toBeUndefined()
+      expect(completed.logs?.find((log) => log.blockId === 'approval')?.output).toMatchObject(input)
+      expect(mocks.effect.mock.calls).toEqual([['after', input]])
     }
   )
-
-  it('allows an approval result with kind paused without pausing again', async () => {
-    const paused = await run(
-      linear([
-        approval('approval', { inputFormat: [{ name: 'kind', type: 'string', required: true }] }),
-        block('after', 'effect', { kind: '<approval.kind>' }),
-      ])
-    )
-    const completed = await resume(paused, new Map([['approval', { kind: 'paused' }]]))
-    expect(completed.success).toBe(true)
-    expect(completed.status).toBeUndefined()
-    expect(mocks.effect.mock.calls).toEqual([['after', { kind: 'paused' }]])
-  })
 
   it('pauses before downstream effects and resumes JSON state without replaying upstream effects', async () => {
     const workflow = linear([

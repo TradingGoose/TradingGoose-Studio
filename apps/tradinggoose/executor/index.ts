@@ -112,7 +112,8 @@ function isDeferredBlockExecution(value: unknown): value is DeferredBlockExecuti
     value !== null &&
     'kind' in value &&
     value.kind === 'deferred' &&
-    'wait' in value
+    'wait' in value &&
+    typeof value.wait === 'function'
   )
 }
 
