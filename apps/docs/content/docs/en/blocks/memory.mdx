@@ -1,86 +1,22 @@
 ---
 title: Memory
-description: Persist conversation messages across workflow executions
+description: Add memory store
 ---
 
-import { Callout } from 'fumadocs-ui/components/callout'
-import { Step, Steps } from 'fumadocs-ui/components/steps'
-import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
 import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 
+
 <BlockInfoCard
   type="memory"
   color="#F64F9E"
-  icon={true}
 />
 
-The Memory block stores and retrieves conversation messages that persist across workflow executions. It is designed to work alongside Agent blocks, giving your agents long-term conversational context that survives between runs.
-
-## Overview
-
-<Steps>
-  <Step>
-    <strong>Add Memory</strong>: Store a message with a role (user, assistant, or system) under a named memory ID
-  </Step>
-  <Step>
-    <strong>Get Memory</strong>: Retrieve a single memory entry by its ID
-  </Step>
-  <Step>
-    <strong>Get All Memories</strong>: Fetch every stored memory for the current workflow
-  </Step>
-  <Step>
-    <strong>Delete Memory</strong>: Remove a memory entry by ID
-  </Step>
-</Steps>
-
-## How It Works
-
-Memory entries are stored as chat-style messages with three required fields: an **ID** to scope the memory, a **Role** (`user`, `assistant`, or `system`), and the **Content** text. When you later retrieve memories and pass them into an Agent block's Memories input, the agent sees them as prior conversation turns -- enabling multi-turn dialogue across separate executions.
-
-A typical conversational workflow uses three Memory blocks around an Agent:
-
-1. **Memory (Add, role: user)** -- save the incoming user message before the Agent runs
-2. **Agent** -- processes the message with retrieved memories as context
-3. **Memory (Add, role: assistant)** -- save the Agent's response after it runs
-
-<Callout type="info">
-  Memory IDs scope the conversation. Use the same ID across executions to build a continuous conversation history, or use different IDs to maintain separate threads.
-</Callout>
-
-## Operations
-
-<Tabs items={['Add Memory', 'Get Memory', 'Get All Memories', 'Delete Memory']}>
-  <Tab>
-    Stores a new message in the memory store.
-
-    | Field | Required | Description |
-    |---|---|---|
-    | **ID** | Yes | Memory identifier -- groups messages into a conversation |
-    | **Role** | Yes | `user`, `assistant`, or `system` |
-    | **Content** | Yes | The message text to store |
-  </Tab>
-  <Tab>
-    Retrieves all messages stored under a specific memory ID.
-
-    | Field | Required | Description |
-    |---|---|---|
-    | **ID** | Yes | The memory identifier to retrieve |
-  </Tab>
-  <Tab>
-    Returns every memory entry for the current workflow. No additional fields required.
-  </Tab>
-  <Tab>
-    Removes a memory entry by ID.
-
-    | Field | Required | Description |
-    |---|---|---|
-    | **ID** | Yes | The memory identifier to delete |
-  </Tab>
-</Tabs>
 
 ## Configuration
+
+### Add Memory
 
 <ShowcaseCard>
   <BlockConfigPreview
@@ -95,11 +31,24 @@ A typical conversational workflow uses three Memory blocks around an Agent:
             "title": "Operation",
             "layout": "full",
             "placeholder": "Select operation",
+            "defaultValue": "add",
             "options": [
-                { "label": "Add Memory", "id": "add" },
-                { "label": "Get All Memories", "id": "getAll" },
-                { "label": "Get Memory", "id": "get" },
-                { "label": "Delete Memory", "id": "delete" }
+                {
+                    "id": "add",
+                    "label": "Add Memory"
+                },
+                {
+                    "id": "getAll",
+                    "label": "Get All Memories"
+                },
+                {
+                    "id": "get",
+                    "label": "Get Memory"
+                },
+                {
+                    "id": "delete",
+                    "label": "Delete Memory"
+                }
             ]
         },
         {
@@ -108,8 +57,7 @@ A typical conversational workflow uses three Memory blocks around an Agent:
             "title": "ID",
             "layout": "full",
             "placeholder": "Enter memory identifier",
-            "required": true,
-            "condition": { "field": "operation", "value": "add" }
+            "required": true
         },
         {
             "id": "role",
@@ -119,11 +67,19 @@ A typical conversational workflow uses three Memory blocks around an Agent:
             "placeholder": "Select agent role",
             "required": true,
             "options": [
-                { "label": "User", "id": "user" },
-                { "label": "Assistant", "id": "assistant" },
-                { "label": "System", "id": "system" }
-            ],
-            "condition": { "field": "operation", "value": "add" }
+                {
+                    "id": "user",
+                    "label": "User"
+                },
+                {
+                    "id": "assistant",
+                    "label": "Assistant"
+                },
+                {
+                    "id": "system",
+                    "label": "System"
+                }
+            ]
         },
         {
             "id": "content",
@@ -131,22 +87,263 @@ A typical conversational workflow uses three Memory blocks around an Agent:
             "title": "Content",
             "layout": "full",
             "placeholder": "Enter message content",
-            "required": true,
-            "condition": { "field": "operation", "value": "add" }
+            "required": true
         }
     ]}
   />
 </ShowcaseCard>
 
-## Outputs
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Add Memory (<code>memory_add</code>)</div>
 
-| Output | Type | Description |
-|---|---|---|
-| `memories` | json | The retrieved memory data (messages array) |
-| `id` | string | The memory identifier that was operated on |
+Add a new memory to the database or append to existing memory with the same ID.
 
-## Best Practices
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
-- **Use consistent IDs** -- the memory ID is the key that groups messages into a conversation. Use a stable identifier (such as a user ID or session ID) so memories accumulate correctly across runs.
-- **Store both sides of the conversation** -- add a `user` role message before the Agent and an `assistant` role message after it so the full dialogue is preserved.
-- **Clean up when needed** -- use the Delete operation to clear stale conversations and prevent unbounded memory growth.
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `id` | string | Yes | Conversation identifier within the current workflow. Reusing the ID appends the message to that conversation. |
+| `role` | string | Yes | Role for agent memory \(user, assistant, or system\) |
+| `content` | string | Yes | Content for agent memory |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `memories` | array | Array of memory objects including the new or updated memory |
+
+</div>
+
+
+
+---
+
+### Get All Memories
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Memory"
+    type="memory"
+    color="#F64F9E"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "placeholder": "Select operation",
+            "defaultValue": "getAll",
+            "options": [
+                {
+                    "id": "add",
+                    "label": "Add Memory"
+                },
+                {
+                    "id": "getAll",
+                    "label": "Get All Memories"
+                },
+                {
+                    "id": "get",
+                    "label": "Get Memory"
+                },
+                {
+                    "id": "delete",
+                    "label": "Delete Memory"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get All Memories (<code>memory_get_all</code>)</div>
+
+Retrieve up to 50 conversations stored in the current workflow.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+This operation has no direct parameters.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `memories` | array | Up to 50 conversation objects with keys, types, and message data |
+| `message` | string | Success or error message |
+
+</div>
+
+
+
+---
+
+### Get Memory
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Memory"
+    type="memory"
+    color="#F64F9E"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "placeholder": "Select operation",
+            "defaultValue": "get",
+            "options": [
+                {
+                    "id": "add",
+                    "label": "Add Memory"
+                },
+                {
+                    "id": "getAll",
+                    "label": "Get All Memories"
+                },
+                {
+                    "id": "get",
+                    "label": "Get Memory"
+                },
+                {
+                    "id": "delete",
+                    "label": "Delete Memory"
+                }
+            ]
+        },
+        {
+            "id": "id",
+            "type": "short-input",
+            "title": "ID",
+            "layout": "full",
+            "placeholder": "Enter memory identifier to retrieve",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Memory (<code>memory_get</code>)</div>
+
+Retrieve a specific memory by its ID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `id` | string | Yes | Identifier for the memory to retrieve |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `memories` | array | Array of memory data for the requested ID |
+| `message` | string | Success or error message |
+
+</div>
+
+
+
+---
+
+### Delete Memory
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Memory"
+    type="memory"
+    color="#F64F9E"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "placeholder": "Select operation",
+            "defaultValue": "delete",
+            "options": [
+                {
+                    "id": "add",
+                    "label": "Add Memory"
+                },
+                {
+                    "id": "getAll",
+                    "label": "Get All Memories"
+                },
+                {
+                    "id": "get",
+                    "label": "Get Memory"
+                },
+                {
+                    "id": "delete",
+                    "label": "Delete Memory"
+                }
+            ]
+        },
+        {
+            "id": "id",
+            "type": "short-input",
+            "title": "ID",
+            "layout": "full",
+            "placeholder": "Enter memory identifier to delete",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Delete Memory (<code>memory_delete</code>)</div>
+
+Delete a specific memory by its ID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `id` | string | Yes | Identifier for the memory to delete |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `message` | string | Success or error message |
+
+</div>
+
+
+
+---
+
+## Input
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `operation` | string | No | Operation to perform |
+| `id` | string | No | Memory identifier |
+| `role` | string | No | Agent role. Shown when operation is 'add'. |
+| `content` | string | No | Memory content. Shown when operation is 'add'. |
+
+## Output
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `memories` | array | Conversation messages for Add/Get, or key/type/data records for Get All \(up to 50\) |
+| `message` | string | Operation confirmation for Get, Get All, or Delete |
+
+
+## Usage Instructions
+
+Persist conversation messages across runs of the same workflow. Add Memory appends a user, assistant, or system message under an ID; Get Memory returns that conversation. Get All Memories returns up to 50 records, each with key, type, and data. All operations require access to the workflow workspace; writes require write permission.
+
+
+
+## Notes
+
+- Category: `blocks`
+- Type: `memory`

@@ -76,6 +76,7 @@ export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecut
     requestId,
     executionId,
     triggerType: 'webhook',
+    contextExtensions: { pendingExecutionId: executionId },
     workflowInput,
     executionTarget: 'deployed',
     workflowContext: { workspaceId: payload.monitor.workspaceId },
@@ -110,6 +111,7 @@ export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecut
 
   return {
     success: result.success,
+    status: result.status,
     workflowId: payload.monitor.workflowId,
     executionId,
     output: result.output,

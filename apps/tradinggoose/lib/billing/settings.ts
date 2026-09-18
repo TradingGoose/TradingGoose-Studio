@@ -21,8 +21,10 @@ export const DEFAULT_BILLING_SETTINGS = {
   enterpriseContactUrl: null,
 } as const
 
-export async function getBillingSettings(): Promise<BillingSettingsRecord | null> {
-  const rows = await db
+export async function getBillingSettings(
+  store: Pick<typeof db, 'select'> = db
+): Promise<BillingSettingsRecord | null> {
+  const rows = await store
     .select()
     .from(systemBillingSettings)
     .where(eq(systemBillingSettings.id, GLOBAL_BILLING_SETTINGS_ID))
@@ -34,10 +36,10 @@ export async function isBillingConfigurationReady(): Promise<boolean> {
   return Boolean(await getDefaultBillingTier())
 }
 
-export async function getResolvedBillingSettings() {
+export async function getResolvedBillingSettings(store: Pick<typeof db, 'select'> = db) {
   const [settings, systemSettings] = await Promise.all([
-    getBillingSettings(),
-    getSystemSettingsRecord(),
+    getBillingSettings(store),
+    getSystemSettingsRecord(store),
   ])
   const systemFlags = resolveSystemSettingsFlags(systemSettings)
   const stripeConfigured = hasStripeSecretKey()

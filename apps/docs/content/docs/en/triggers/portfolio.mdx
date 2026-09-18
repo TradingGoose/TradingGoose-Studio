@@ -1,0 +1,107 @@
+---
+title: Portfolio Trigger
+description: Trigger workflow from portfolio monitor state changes
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+
+<BlockInfoCard
+  type="portfolio"
+  color=""
+/>
+
+Trigger workflow from portfolio monitor state changes
+
+<Callout type="info">
+  This is a **polling-based** trigger. TradingGoose checks the source for matching changes on a regular interval.
+</Callout>
+
+
+## Setup Instructions
+
+- Open `/workspace/[workspaceId]/monitor` and create a portfolio monitor.
+- Select the broker account, portfolio condition, and workflow target.
+- Choose `edge` to run only when the condition changes from false to true, or `while_true` to run repeatedly while it remains true, subject to the cooldown.
+- The polling interval defaults to 60 seconds and accepts 15–3600 seconds. The cooldown defaults to 300 seconds and accepts 0–86400 seconds.
+
+## Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "input",
+          "type": "string",
+          "description": "Human-readable summary naming the portfolio whose condition matched."
+      },
+      {
+          "name": "event",
+          "type": "string",
+          "description": "Always `portfolio_state_condition_matched`."
+      },
+      {
+          "name": "portfolio",
+          "type": "object",
+          "description": "Monitored portfolio identity and the detail snapshot that matched.",
+          "children": [
+              {
+                  "name": "identity",
+                  "type": "object",
+                  "description": "Trading portfolio identity."
+              },
+              {
+                  "name": "detail",
+                  "type": "object",
+                  "description": "Portfolio detail snapshot."
+              }
+          ]
+      },
+      {
+          "name": "monitor",
+          "type": "object",
+          "description": "Identifiers for the monitor, target workflow, provider, service, and account.",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "Portfolio monitor ID."
+              },
+              {
+                  "name": "workflowId",
+                  "type": "string",
+                  "description": "Target workflow ID."
+              },
+              {
+                  "name": "blockId",
+                  "type": "string",
+                  "description": "Target trigger block ID."
+              },
+              {
+                  "name": "providerId",
+                  "type": "string",
+                  "description": "Trading provider ID."
+              },
+              {
+                  "name": "serviceId",
+                  "type": "string",
+                  "description": "Connected trading service ID."
+              },
+              {
+                  "name": "accountId",
+                  "type": "string",
+                  "description": "Monitored broker account ID."
+              }
+          ]
+      },
+      {
+          "name": "condition",
+          "type": "json",
+          "description": "Matched portfolio fire condition."
+      }
+  ]}
+/>

@@ -24,7 +24,15 @@ import { generateRuntimeCSP } from './lib/security/csp'
 
 const logger = createLogger('Proxy')
 const handleI18nRouting = createMiddleware(routing)
-const MCP_INSTALL_TARGETS = new Set(['codex', 'cursor', 'claude', 'opencode', 'all'])
+const MCP_INSTALL_TARGETS = new Set([
+  'codex',
+  'cursor',
+  'claude',
+  'opencode',
+  'antigravity',
+  'gemini',
+  'all',
+])
 
 const SUSPICIOUS_UA_PATTERNS = [
   /^\s*$/,

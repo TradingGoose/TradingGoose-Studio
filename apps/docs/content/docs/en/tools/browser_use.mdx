@@ -41,72 +41,72 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Model",
             "options": [
                 {
-                    "label": "Browser Use LLM",
-                    "id": "browser-use-llm"
+                    "id": "browser-use-llm",
+                    "label": "Browser Use LLM"
                 },
                 {
-                    "label": "GPT-4o",
-                    "id": "gpt-4o"
+                    "id": "gpt-4o",
+                    "label": "GPT-4o"
                 },
                 {
-                    "label": "GPT-4o Mini",
-                    "id": "gpt-4o-mini"
+                    "id": "gpt-4o-mini",
+                    "label": "GPT-4o Mini"
                 },
                 {
-                    "label": "GPT-4.1",
-                    "id": "gpt-4.1"
+                    "id": "gpt-4.1",
+                    "label": "GPT-4.1"
                 },
                 {
-                    "label": "GPT-4.1 Mini",
-                    "id": "gpt-4.1-mini"
+                    "id": "gpt-4.1-mini",
+                    "label": "GPT-4.1 Mini"
                 },
                 {
-                    "label": "O3",
-                    "id": "o3"
+                    "id": "o3",
+                    "label": "O3"
                 },
                 {
-                    "label": "O4 Mini",
-                    "id": "o4-mini"
+                    "id": "o4-mini",
+                    "label": "O4 Mini"
                 },
                 {
-                    "label": "Gemini 2.5 Flash",
-                    "id": "gemini-2.5-flash"
+                    "id": "gemini-2.5-flash",
+                    "label": "Gemini 2.5 Flash"
                 },
                 {
-                    "label": "Gemini 2.5 Pro",
-                    "id": "gemini-2.5-pro"
+                    "id": "gemini-2.5-pro",
+                    "label": "Gemini 2.5 Pro"
                 },
                 {
-                    "label": "Gemini 3 Pro Preview",
-                    "id": "gemini-3-pro-preview"
+                    "id": "gemini-3.1-pro-preview",
+                    "label": "Gemini 3.1 Pro Preview"
                 },
                 {
-                    "label": "Gemini Flash Latest",
-                    "id": "gemini-flash-latest"
+                    "id": "gemini-flash-latest",
+                    "label": "Gemini Flash Latest"
                 },
                 {
-                    "label": "Gemini Flash Lite Latest",
-                    "id": "gemini-flash-lite-latest"
+                    "id": "gemini-flash-lite-latest",
+                    "label": "Gemini Flash Lite Latest"
                 },
                 {
-                    "label": "Claude 3.7 Sonnet",
-                    "id": "claude-3-7-sonnet-20250219"
+                    "id": "claude-3-7-sonnet-20250219",
+                    "label": "Claude 3.7 Sonnet"
                 },
                 {
-                    "label": "Claude Sonnet 4",
-                    "id": "claude-sonnet-4-20250514"
+                    "id": "claude-sonnet-4-20250514",
+                    "label": "Claude Sonnet 4"
                 },
                 {
-                    "label": "Claude Sonnet 4.5",
-                    "id": "claude-sonnet-4-5-20250929"
+                    "id": "claude-sonnet-4-5-20250929",
+                    "label": "Claude Sonnet 4.5"
                 },
                 {
-                    "label": "Claude Opus 4.5",
-                    "id": "claude-opus-4-5-20251101"
+                    "id": "claude-opus-4-5-20251101",
+                    "label": "Claude Opus 4.5"
                 },
                 {
-                    "label": "Llama 4 Maverick",
-                    "id": "llama-4-maverick-17b-128e-instruct"
+                    "id": "llama-4-maverick-17b-128e-instruct",
+                    "label": "Llama 4 Maverick"
                 }
             ]
         },
@@ -146,7 +146,6 @@ Runs a browser automation task using BrowserUse
 | --------- | ---- | -------- | ----------- |
 | `task` | string | Yes | What should the browser agent do |
 | `variables` | json | No | Optional variables to use as secrets \(format: \{key: value\}\) |
-| `format` | string | No | No description |
 | `save_browser_data` | boolean | No | Whether to save browser data |
 | `model` | string | No | LLM model to use \(default: gpt-4o\) |
 | `apiKey` | string | Yes | API key for BrowserUse API |
@@ -159,6 +158,7 @@ Runs a browser automation task using BrowserUse
 | `id` | string | Task execution identifier |
 | `success` | boolean | Task completion status |
 | `output` | json | Task output data |
+| `steps` | json | Execution steps taken |
 
 
 ## Usage Instructions

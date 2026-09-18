@@ -1,0 +1,352 @@
+---
+title: Activador de Circleback
+description: Activa el flujo de trabajo cuando una reunión se procesa y está
+  lista en Circleback
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="circleback"
+  color=""
+/>
+
+Activa el flujo de trabajo cuando una reunión se procesa y está lista en Circleback
+
+<Callout type="info">
+  Este es un activador **basado en webhook**. Configura el servicio externo para enviar eventos a la URL del webhook del flujo de trabajo.
+</Callout>
+
+<Cards>
+  <Card title="Usar como herramienta" href="/tools/circleback">
+    Consulta las acciones del flujo de trabajo, las operaciones y las entradas de la herramienta para Circleback.
+  </Card>
+</Cards>
+
+## Eventos
+
+### Reunión de Circleback completada
+
+Activa el flujo de trabajo cuando una reunión se procesa y está lista en Circleback
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>Nota:</strong> Necesitas acceso a las automatizaciones de Circleback para configurar webhooks.</div><div class="mb-3"><strong>1.</strong> En Circleback, haz clic en <strong>Automations</strong> en la barra lateral.</div><div class="mb-3"><strong>2.</strong> Crea una automatización nueva o edita una existente.</div><div class="mb-3"><strong>3.</strong> Añade un paso <strong>Send webhook request</strong> a tu automatización.</div><div class="mb-3"><strong>4.</strong> Pega la <strong>URL del webhook</strong> de arriba en el campo Endpoint.</div><div class="mb-3"><strong>5.</strong> Opcionalmente, copia el <strong>secreto de firma</strong> de Circleback y pégalo arriba para verificar las firmas del webhook.</div><div class="mb-3"><strong>6.</strong> Activa o desactiva qué incluir en la solicitud (Meeting notes, Action items, Transcript). Para este activador: <strong>All meeting data</strong>.</div><div class="mb-3"><strong>7.</strong> Haz clic en <strong>"Done"</strong> y guarda la automatización.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Reunión de Circleback completada"
+    type="circleback_meeting_completed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Secreto de firma",
+            "placeholder": "Pega el secreto de firma de Circleback (opcional)",
+            "description": "Valida que las entregas del webhook se originen en Circleback mediante HMAC-SHA256.",
+            "password": true,
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "id",
+          "type": "number",
+          "description": "ID de la reunión de Circleback"
+      },
+      {
+          "name": "name",
+          "type": "string",
+          "description": "Título/nombre de la reunión"
+      },
+      {
+          "name": "url",
+          "type": "string",
+          "description": "URL de la reunión virtual (Zoom, Google Meet, Teams, etc.)"
+      },
+      {
+          "name": "createdAt",
+          "type": "string",
+          "description": "Timestamp ISO8601 de creación de la reunión"
+      },
+      {
+          "name": "duration",
+          "type": "number",
+          "description": "Duración de la reunión en segundos"
+      },
+      {
+          "name": "recordingUrl",
+          "type": "string",
+          "description": "URL de la grabación (válida durante 24 horas, si está habilitada)"
+      },
+      {
+          "name": "tags",
+          "type": "array",
+          "description": "Array de cadenas de etiquetas"
+      },
+      {
+          "name": "icalUid",
+          "type": "string",
+          "description": "Identificador del evento de calendario"
+      },
+      {
+          "name": "attendees",
+          "type": "array",
+          "description": "Array de objetos de asistente con name y email"
+      },
+      {
+          "name": "notes",
+          "type": "string",
+          "description": "Notas de la reunión en formato Markdown"
+      },
+      {
+          "name": "actionItems",
+          "type": "array",
+          "description": "Array de objetos de elemento de acción con id, title, description, assignee, status"
+      },
+      {
+          "name": "transcript",
+          "type": "array",
+          "description": "Array de segmentos de transcripción con speaker, text y timestamp (en segundos)"
+      },
+      {
+          "name": "insights",
+          "type": "object",
+          "description": "Insights creados por el usuario indexados por nombre de insight; cada uno contiene un array de resultados de insight"
+      },
+      {
+          "name": "meeting",
+          "type": "object",
+          "description": "Objeto payload completo de la reunión"
+      }
+  ]}
+/>
+
+---
+
+### Notas de reunión de Circleback listas
+
+Activa el workflow cuando las notas de la reunión y los elementos de acción estén listos
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>Nota:</strong> Necesitas acceso a las automatizaciones de Circleback para configurar webhooks.</div><div class="mb-3"><strong>1.</strong> En Circleback, haz clic en <strong>Automations</strong> en la barra lateral.</div><div class="mb-3"><strong>2.</strong> Crea una automatización nueva o edita una existente.</div><div class="mb-3"><strong>3.</strong> Añade un paso <strong>Send webhook request</strong> a tu automatización.</div><div class="mb-3"><strong>4.</strong> Pega la <strong>Webhook URL</strong> de arriba en el campo Endpoint.</div><div class="mb-3"><strong>5.</strong> Opcionalmente, copia el <strong>Signing Secret</strong> de Circleback y pégalo arriba para verificar las firmas del webhook.</div><div class="mb-3"><strong>6.</strong> Activa o desactiva qué incluir en la solicitud (Meeting notes, Action items, Transcript). Para este trigger: <strong>Meeting notes and action items</strong>.</div><div class="mb-3"><strong>7.</strong> Haz clic en <strong>"Done"</strong> y guarda la automatización.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Notas de reunión de Circleback listas"
+    type="circleback_meeting_notes"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Secreto de firma",
+            "placeholder": "Pegar el secreto de firma de Circleback (opcional)",
+            "description": "Valida que las entregas de webhook procedan de Circleback mediante HMAC-SHA256.",
+            "password": true,
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "id",
+          "type": "number",
+          "description": "ID de la reunión de Circleback"
+      },
+      {
+          "name": "name",
+          "type": "string",
+          "description": "Título/nombre de la reunión"
+      },
+      {
+          "name": "url",
+          "type": "string",
+          "description": "URL de la reunión virtual (Zoom, Google Meet, Teams, etc.)"
+      },
+      {
+          "name": "createdAt",
+          "type": "string",
+          "description": "Marca de tiempo ISO8601 de creación de la reunión"
+      },
+      {
+          "name": "duration",
+          "type": "number",
+          "description": "Duración de la reunión en segundos"
+      },
+      {
+          "name": "recordingUrl",
+          "type": "string",
+          "description": "URL de la grabación (válida durante 24 horas, si está habilitada)"
+      },
+      {
+          "name": "tags",
+          "type": "array",
+          "description": "Array de cadenas de etiquetas"
+      },
+      {
+          "name": "icalUid",
+          "type": "string",
+          "description": "Identificador del evento de calendario"
+      },
+      {
+          "name": "attendees",
+          "type": "array",
+          "description": "Array de objetos de asistentes con nombre y correo electrónico"
+      },
+      {
+          "name": "notes",
+          "type": "string",
+          "description": "Notas de la reunión en formato Markdown"
+      },
+      {
+          "name": "actionItems",
+          "type": "array",
+          "description": "Array de objetos de elementos de acción con id, title, description, assignee, status"
+      },
+      {
+          "name": "transcript",
+          "type": "array",
+          "description": "Array de segmentos de transcripción con speaker, text y timestamp (en segundos)"
+      },
+      {
+          "name": "insights",
+          "type": "object",
+          "description": "Insights creados por el usuario, indexados por el nombre del insight; cada uno contiene un array de resultados de insight"
+      },
+      {
+          "name": "meeting",
+          "type": "object",
+          "description": "Objeto completo del payload de la reunión"
+      }
+  ]}
+/>
+
+---
+
+### Webhook de Circleback
+
+Activador de webhook genérico para todos los eventos de Circleback
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>Nota:</strong> Necesitas acceso a las automatizaciones de Circleback para configurar webhooks.</div><div class="mb-3"><strong>1.</strong> En Circleback, haz clic en <strong>Automations</strong> en la barra lateral.</div><div class="mb-3"><strong>2.</strong> Crea una automatización nueva o edita una existente.</div><div class="mb-3"><strong>3.</strong> Añade un paso <strong>Send webhook request</strong> a tu automatización.</div><div class="mb-3"><strong>4.</strong> Pega la <strong>URL del webhook</strong> de arriba en el campo Endpoint.</div><div class="mb-3"><strong>5.</strong> Opcionalmente, copia el <strong>secreto de firma</strong> de Circleback y pégalo arriba para verificar las firmas del webhook.</div><div class="mb-3"><strong>6.</strong> Activa o desactiva qué incluir en la solicitud (Meeting notes, Action items, Transcript). Para este activador: <strong>All events</strong>.</div><div class="mb-3"><strong>7.</strong> Haz clic en <strong>"Done"</strong> y guarda la automatización.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Circleback Webhook"
+    type="circleback_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Secreto de firma",
+            "placeholder": "Pega el secreto de firma de Circleback (opcional)",
+            "description": "Valida que las entregas del webhook procedan de Circleback mediante HMAC-SHA256.",
+            "password": true,
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "id",
+          "type": "number",
+          "description": "ID de la reunión de Circleback"
+      },
+      {
+          "name": "name",
+          "type": "string",
+          "description": "Título/nombre de la reunión"
+      },
+      {
+          "name": "url",
+          "type": "string",
+          "description": "URL de la reunión virtual (Zoom, Google Meet, Teams, etc.)"
+      },
+      {
+          "name": "createdAt",
+          "type": "string",
+          "description": "Marca de tiempo ISO8601 de creación de la reunión"
+      },
+      {
+          "name": "duration",
+          "type": "number",
+          "description": "Duración de la reunión en segundos"
+      },
+      {
+          "name": "recordingUrl",
+          "type": "string",
+          "description": "URL de la grabación (válida 24 horas, si está habilitada)"
+      },
+      {
+          "name": "tags",
+          "type": "array",
+          "description": "Array de cadenas de etiquetas"
+      },
+      {
+          "name": "icalUid",
+          "type": "string",
+          "description": "Identificador del evento de calendario"
+      },
+      {
+          "name": "attendees",
+          "type": "array",
+          "description": "Array de objetos de asistentes con name y email"
+      },
+      {
+          "name": "notes",
+          "type": "string",
+          "description": "Notas de la reunión en formato Markdown"
+      },
+      {
+          "name": "actionItems",
+          "type": "array",
+          "description": "Array de objetos de elementos de acción con id, title, description, assignee, status"
+      },
+      {
+          "name": "transcript",
+          "type": "array",
+          "description": "Array de segmentos de transcripción con speaker, text y timestamp (en segundos)"
+      },
+      {
+          "name": "insights",
+          "type": "object",
+          "description": "Insights creados por el usuario indexados por el nombre del insight; cada uno contiene un array de resultados de insight"
+      },
+      {
+          "name": "meeting",
+          "type": "object",
+          "description": "Objeto payload completo de la reunión"
+      }
+  ]}
+/>
+
+---

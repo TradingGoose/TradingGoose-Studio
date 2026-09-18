@@ -1,0 +1,53 @@
+---
+title: "MCP Server List"
+description: "Browse, select, create, rename, and delete the MCP servers in a workspace."
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card'
+import { Callout } from 'fumadocs-ui/components/callout'
+
+## Overview
+
+| Property | Value |
+|----------|-------|
+| **Key** | `list_mcp` |
+| **Category** | List |
+
+The MCP Server List shows the current workspace's MCP servers alphabetically. Select a server to publish its `mcpServerId` to a linked [MCP Editor](/widgets/editor-mcp); the list does not select the first server automatically.
+
+## Features
+
+- **Create** -- Editors can add a disabled Streamable HTTP server with blank connection settings, then configure it in the MCP Editor.
+- **Select** -- Click a server to highlight it and open it in a linked editor.
+- **Rename** -- Editors can rename a server inline. Press Enter or leave the field to save, or press Escape to cancel.
+- **Delete** -- Editors can permanently delete a server after confirmation. The final remaining server cannot be deleted from this widget.
+- **Workspace states** -- The widget shows dedicated loading, error, empty-workspace, and no-server states.
+
+The list does not show tools or connection settings. Use the MCP Editor to edit the URL, transport, headers, timeout, and enabled state, and to test the connection or refresh its tools.
+
+## Pair with the MCP Editor
+
+1. Add an **MCP Server List** and an **MCP Editor** to the dashboard.
+2. Assign both widgets the same pair color.
+3. Select a server in the list to open it in the editor.
+
+<Callout>
+  An unpaired gray widget keeps its own selection instead of synchronizing with another widget.
+</Callout>
+
+## Configuration
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `mcpServerId` | string \| null | Explicitly selected MCP server. The default is `null`. |
+
+## Related
+
+<Cards>
+  <Card title="MCP Editor" href="/widgets/editor-mcp">
+    Configure, test, and inspect the selected MCP server.
+  </Card>
+  <Card title="MCP Guide" href="/utilities/mcp">
+    Learn how Studio connects to MCP servers and exposes MCP tools to agents.
+  </Card>
+</Cards>

@@ -10,7 +10,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <BlockInfoCard
   type="discord"
-  color=""
+  color="#5865F2"
 />
 
 
@@ -22,7 +22,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="Discord"
     type="discord"
-    color=""
+    color="#5865F2"
     hideHeader
     subBlocks={[
         {
@@ -30,25 +30,25 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "discord_send_message",
             "options": [
                 {
-                    "label": "Send Message",
-                    "id": "discord_send_message"
+                    "id": "discord_send_message",
+                    "label": "Send Message"
                 },
                 {
-                    "label": "Get Channel Messages",
-                    "id": "discord_get_messages"
+                    "id": "discord_get_messages",
+                    "label": "Get Channel Messages"
                 },
                 {
-                    "label": "Get Server Information",
-                    "id": "discord_get_server"
+                    "id": "discord_get_server",
+                    "label": "Get Server Information"
                 },
                 {
-                    "label": "Get User Information",
-                    "id": "discord_get_user"
+                    "id": "discord_get_user",
+                    "label": "Get User Information"
                 }
-            ],
-            "defaultValue": "discord_send_message"
+            ]
         },
         {
             "id": "botToken",
@@ -89,14 +89,16 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "file-upload",
             "title": "Attachments",
             "layout": "full",
-            "placeholder": "Upload files to attach"
+            "placeholder": "Upload files to attach",
+            "required": false
         },
         {
             "id": "files",
             "type": "short-input",
             "title": "File Attachments",
             "layout": "full",
-            "placeholder": "Reference files from previous blocks"
+            "placeholder": "Reference files from previous blocks",
+            "required": false
         }
     ]}
   />
@@ -122,11 +124,7 @@ Send a message to a Discord channel
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Success or error message |
-| `id` | string | Author user ID |
-| `content` | string | Message content |
-| `channel_id` | string | Channel ID where message was sent |
-| `username` | string | Author username |
-| `avatar` | string | Author avatar hash |
+| `data` | object | Discord message data |
 
 </div>
 
@@ -140,7 +138,7 @@ Send a message to a Discord channel
   <BlockConfigPreview
     name="Discord"
     type="discord"
-    color=""
+    color="#5865F2"
     hideHeader
     subBlocks={[
         {
@@ -148,25 +146,25 @@ Send a message to a Discord channel
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "discord_get_messages",
             "options": [
                 {
-                    "label": "Send Message",
-                    "id": "discord_send_message"
+                    "id": "discord_send_message",
+                    "label": "Send Message"
                 },
                 {
-                    "label": "Get Channel Messages",
-                    "id": "discord_get_messages"
+                    "id": "discord_get_messages",
+                    "label": "Get Channel Messages"
                 },
                 {
-                    "label": "Get Server Information",
-                    "id": "discord_get_server"
+                    "id": "discord_get_server",
+                    "label": "Get Server Information"
                 },
                 {
-                    "label": "Get User Information",
-                    "id": "discord_get_user"
+                    "id": "discord_get_user",
+                    "label": "Get User Information"
                 }
-            ],
-            "defaultValue": "discord_get_messages"
+            ]
         },
         {
             "id": "botToken",
@@ -200,8 +198,7 @@ Send a message to a Discord channel
             "type": "short-input",
             "title": "Message Limit",
             "layout": "half",
-            "placeholder": "Number of messages (default: 10, max: 100)",
-            "max": 100
+            "placeholder": "Number of messages (default: 10, max: 100)"
         }
     ]}
   />
@@ -225,11 +222,7 @@ Retrieve messages from a Discord channel
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Success or error message |
-| `id` | string | Author user ID |
-| `content` | string | Message content |
-| `channel_id` | string | Channel ID |
-| `username` | string | Author username |
-| `avatar` | string | Author avatar hash |
+| `messages` | array | Array of Discord messages with full metadata |
 
 </div>
 
@@ -243,7 +236,7 @@ Retrieve messages from a Discord channel
   <BlockConfigPreview
     name="Discord"
     type="discord"
-    color=""
+    color="#5865F2"
     hideHeader
     subBlocks={[
         {
@@ -251,25 +244,25 @@ Retrieve messages from a Discord channel
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "discord_get_server",
             "options": [
                 {
-                    "label": "Send Message",
-                    "id": "discord_send_message"
+                    "id": "discord_send_message",
+                    "label": "Send Message"
                 },
                 {
-                    "label": "Get Channel Messages",
-                    "id": "discord_get_messages"
+                    "id": "discord_get_messages",
+                    "label": "Get Channel Messages"
                 },
                 {
-                    "label": "Get Server Information",
-                    "id": "discord_get_server"
+                    "id": "discord_get_server",
+                    "label": "Get Server Information"
                 },
                 {
-                    "label": "Get User Information",
-                    "id": "discord_get_user"
+                    "id": "discord_get_user",
+                    "label": "Get User Information"
                 }
-            ],
-            "defaultValue": "discord_get_server"
+            ]
         },
         {
             "id": "botToken",
@@ -310,13 +303,7 @@ Retrieve information about a Discord server (guild)
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Success or error message |
-| `id` | string | Server ID |
-| `name` | string | Server name |
-| `icon` | string | Server icon hash |
-| `description` | string | Server description |
-| `owner_id` | string | Server owner user ID |
-| `roles` | array | Server roles |
-| `channels` | array | Server channels |
+| `data` | object | Discord server \(guild\) information |
 
 </div>
 
@@ -330,7 +317,7 @@ Retrieve information about a Discord server (guild)
   <BlockConfigPreview
     name="Discord"
     type="discord"
-    color=""
+    color="#5865F2"
     hideHeader
     subBlocks={[
         {
@@ -338,25 +325,25 @@ Retrieve information about a Discord server (guild)
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "discord_get_user",
             "options": [
                 {
-                    "label": "Send Message",
-                    "id": "discord_send_message"
+                    "id": "discord_send_message",
+                    "label": "Send Message"
                 },
                 {
-                    "label": "Get Channel Messages",
-                    "id": "discord_get_messages"
+                    "id": "discord_get_messages",
+                    "label": "Get Channel Messages"
                 },
                 {
-                    "label": "Get Server Information",
-                    "id": "discord_get_server"
+                    "id": "discord_get_server",
+                    "label": "Get Server Information"
                 },
                 {
-                    "label": "Get User Information",
-                    "id": "discord_get_user"
+                    "id": "discord_get_user",
+                    "label": "Get User Information"
                 }
-            ],
-            "defaultValue": "discord_get_user"
+            ]
         },
         {
             "id": "botToken",
@@ -395,13 +382,7 @@ Retrieve information about a Discord user
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Success or error message |
-| `id` | string | User ID |
-| `username` | string | Username |
-| `discriminator` | string | User discriminator \(4-digit number\) |
-| `avatar` | string | User avatar hash |
-| `bot` | boolean | Whether user is a bot |
-| `system` | boolean | Whether user is a system user |
-| `email` | string | User email \(if available\) |
+| `data` | object | Discord user information |
 
 </div>
 

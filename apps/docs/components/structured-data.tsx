@@ -1,10 +1,10 @@
-import Script from 'next/script'
+import type { DocsLocale } from '@/lib/i18n'
 
 interface StructuredDataProps {
   title: string
   description: string
   url: string
-  lang: string
+  lang: DocsLocale
   dateModified?: string
   breadcrumb?: Array<{ name: string; url: string }>
 }
@@ -18,6 +18,7 @@ export function StructuredData({
   breadcrumb,
 }: StructuredDataProps) {
   const baseUrl = 'https://docs.tradinggoose.ai'
+  const rootUrl = `${baseUrl}/${lang}`
 
   const articleStructuredData = {
     '@context': 'https://schema.org',
@@ -30,12 +31,12 @@ export function StructuredData({
     author: {
       '@type': 'Organization',
       name: 'TradingGoose Team',
-      url: baseUrl,
+      url: rootUrl,
     },
     publisher: {
       '@type': 'Organization',
       name: 'TradingGoose',
-      url: baseUrl,
+      url: rootUrl,
       logo: {
         '@type': 'ImageObject',
         url: `${baseUrl}/static/logo.png`,
@@ -49,7 +50,7 @@ export function StructuredData({
     isPartOf: {
       '@type': 'WebSite',
       name: 'TradingGoose Documentation',
-      url: baseUrl,
+      url: rootUrl,
     },
     potentialAction: {
       '@type': 'ReadAction',
@@ -68,29 +69,6 @@ export function StructuredData({
     })),
   }
 
-  const websiteStructuredData = url === baseUrl && {
-    '@context': 'https://schema.org',
-    '@type': 'WebSite',
-    name: 'TradingGoose Documentation',
-    url: baseUrl,
-    description:
-      'Comprehensive documentation for TradingGoose visual workflow builder for AI applications. Create powerful AI agents, automation workflows, and data processing pipelines.',
-    publisher: {
-      '@type': 'Organization',
-      name: 'TradingGoose',
-      url: baseUrl,
-    },
-    potentialAction: {
-      '@type': 'SearchAction',
-      target: {
-        '@type': 'EntryPoint',
-        urlTemplate: `${baseUrl}/search?q={search_term_string}`,
-      },
-      'query-input': 'required name=search_term_string',
-    },
-    inLanguage: ['en', 'es', 'fr', 'de', 'ja', 'zh'],
-  }
-
   const faqStructuredData = title.toLowerCase().includes('faq') && {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
@@ -105,7 +83,7 @@ export function StructuredData({
     operatingSystem: 'Any',
     description:
       'Visual workflow builder for AI applications. Create powerful AI agents, automation workflows, and data processing pipelines by connecting blocks on a canvas—no coding required.',
-    url: baseUrl,
+    url: rootUrl,
     author: {
       '@type': 'Organization',
       name: 'TradingGoose Team',
@@ -126,46 +104,37 @@ export function StructuredData({
 
   return (
     <>
-      <Script
+      <script
         id='article-structured-data'
         type='application/ld+json'
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(articleStructuredData),
+          __html: JSON.stringify(articleStructuredData).replace(/</g, '\\u003c'),
         }}
       />
       {breadcrumbStructuredData && (
-        <Script
+        <script
           id='breadcrumb-structured-data'
           type='application/ld+json'
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify(breadcrumbStructuredData),
-          }}
-        />
-      )}
-      {websiteStructuredData && (
-        <Script
-          id='website-structured-data'
-          type='application/ld+json'
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(websiteStructuredData),
+            __html: JSON.stringify(breadcrumbStructuredData).replace(/</g, '\\u003c'),
           }}
         />
       )}
       {faqStructuredData && (
-        <Script
+        <script
           id='faq-structured-data'
           type='application/ld+json'
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify(faqStructuredData),
+            __html: JSON.stringify(faqStructuredData).replace(/</g, '\\u003c'),
           }}
         />
       )}
-      {url === baseUrl && (
-        <Script
+      {url === rootUrl && (
+        <script
           id='software-structured-data'
           type='application/ld+json'
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify(softwareStructuredData),
+            __html: JSON.stringify(softwareStructuredData).replace(/</g, '\\u003c'),
           }}
         />
       )}

@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   isScheduleExecutionPayload: vi.fn(),
   isWebhookExecutionPayload: vi.fn(),
   isWorkflowExecutionPayload: vi.fn(),
+  reconcileWorkflowCheckpointChildren: vi.fn(),
 }))
 
 vi.mock('./knowledge-processing', () => ({
@@ -36,6 +37,9 @@ vi.mock('./webhook-execution', () => ({
 vi.mock('./workflow-execution', () => ({
   executeWorkflowJob: mocks.executeWorkflowJob,
   isWorkflowExecutionPayload: mocks.isWorkflowExecutionPayload,
+}))
+vi.mock('@/lib/workflows/human-in-the-loop/service', () => ({
+  reconcileWorkflowCheckpointChildren: mocks.reconcileWorkflowCheckpointChildren,
 }))
 
 import { executePendingExecutionJob } from './pending-execution-job'
@@ -67,6 +71,7 @@ describe('pending execution job', () => {
     mocks.executeWebhookJob.mockResolvedValue(undefined)
     mocks.isWebhookExecutionPayload.mockReturnValue(false)
     mocks.isWorkflowExecutionPayload.mockReturnValue(false)
+    mocks.reconcileWorkflowCheckpointChildren.mockResolvedValue(undefined)
   })
 
   it('executes documents directly when Trigger is disabled', async () => {
@@ -134,5 +139,37 @@ describe('pending execution job', () => {
       ...payload,
       executionId: 'workflow-job-1',
     })
+  })
+
+  it.each(['workflow', 'webhook', 'schedule', 'monitor'] as const)(
+    'reconciles durable pauses for %s jobs even if the wrapper returns no status',
+    async (executionType) => {
+      mocks.isWorkflowExecutionPayload.mockReturnValue(true)
+      mocks.isWebhookExecutionPayload.mockReturnValue(true)
+      mocks.isScheduleExecutionPayload.mockReturnValue(true)
+      mocks.isMonitorExecutionPayload.mockReturnValue(true)
+      await executePendingExecutionJob(
+        { id: 'job', executionType, payload: { workflowId: 'workflow', userId: 'user' } },
+        { triggerRuntime: false }
+      )
+      expect(mocks.reconcileWorkflowCheckpointChildren).toHaveBeenCalledWith('job')
+    }
+  )
+
+  it('propagates reconciliation errors for worker recovery using the original resumed execution', async () => {
+    mocks.isWorkflowExecutionPayload.mockReturnValue(true)
+    mocks.reconcileWorkflowCheckpointChildren.mockRejectedValueOnce(new Error('Wake failed'))
+    await expect(
+      executePendingExecutionJob(
+        {
+          id: 'original:resume:1',
+          executionType: 'workflow',
+          payload: { workflowId: 'workflow', resumeExecutionId: 'original' },
+        },
+        { triggerRuntime: true }
+      )
+    ).rejects.toThrow('Wake failed')
+    expect(mocks.reconcileWorkflowCheckpointChildren).toHaveBeenCalledWith('original')
+    expect(mocks.executeWorkflowJob).toHaveBeenCalledOnce()
   })
 })

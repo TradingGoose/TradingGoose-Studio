@@ -72,7 +72,7 @@ switch (maType) {
 const bullColor = input.color('#00FF00', 'Bull Color');
 const bearColor = input.color('#FF0000', 'Bear Color');
 
-barcolor(close > open ? bullColor : bearColor);
+plot(close, 'Close', { color: close > open ? bullColor : bearColor });
 ```
 
 ## How Inputs Work

@@ -1,0 +1,50 @@
+---
+title: Descripción general
+description: Formas principales de iniciar flujos de trabajo de TradingGoose
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Disparadores principales
+
+Un flujo puede tener varios puntos de entrada. API, Chat, Input Form y Manual admiten un bloque de cada tipo por flujo; no es un límite de un disparador en total. Elige el punto de entrada para las ejecuciones del editor.
+
+<Cards>
+  <Card title="API" href="/triggers/api">
+    Endpoint HTTP que asigna cuerpos JSON a las entradas del flujo de trabajo
+  </Card>
+  <Card title="Chat" href="/triggers/chat">
+    Interfaz de chat desplegada con respuestas en streaming
+  </Card>
+  <Card title="Formulario de entrada" href="/triggers/input-form">
+    Entrada manual tipada usada en ejecuciones del editor y flujos de trabajo secundarios
+  </Card>
+  <Card title="Manual" href="/triggers/manual">
+    Ejecuciones bajo demanda sin datos adicionales
+  </Card>
+  <Card title="Programación" href="/triggers/schedule">
+    Ejecución basada en cron o intervalos
+  </Card>
+  <Card title="Webhook" href="/triggers/webhook">
+    Recibe cargas útiles de webhooks externos
+  </Card>
+</Cards>
+
+## Comparación rápida
+
+| Disparador | Condición de inicio |
+|---------|-----------------|
+| **API** | POST HTTP autenticado |
+| **Chat** | Mensaje de un despliegue de chat |
+| **Formulario de entrada** | Al enviar de forma manual en el editor o en el flujo de trabajo principal |
+| **Manual** | Botón Ejecutar en el editor |
+| **Programación** | Temporizador gestionado en el modal de programación |
+| **Webhook** | En solicitud HTTP entrante |
+
+## Uso de disparadores
+
+1. Añade el bloque disparador al lienzo.
+2. Configura el esquema o la autenticación requeridos.
+3. Conecta el bloque con el resto del flujo de trabajo.
+
+> Las ejecuciones del editor usan el flujo guardado actual. API externa, Chat publicado, programación y webhooks usan la instantánea desplegada. Un flujo secundario hereda el destino live/deployed del principal. Vuelve a desplegar los cambios destinados a entradas externas. Consulta [Ejecución → Instantáneas de despliegue](/execution).

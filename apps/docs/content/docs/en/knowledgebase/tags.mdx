@@ -18,22 +18,24 @@ You can add custom tags to any document in your knowledgebase to organize and ca
 - **Descriptive tags**: Use clear, meaningful tag names
 - **Regular cleanup**: Remove unused or outdated tags periodically
 
-## Using Tags in Knowledge Blocks
+## Search API and Knowledge Blocks
 
-Tags become powerful when combined with the Knowledge block in your workflows. You can filter your searches to specific tagged content, ensuring your AI agents get the most relevant information. In the Knowledge block configuration, add tag filters to narrow search results to documents matching your specified tags.
+The search API accepts document tag filters through its `filters` field, a record of tag names and values. It supports tag-only, vector-only, and combined searches.
+
+In Advanced mode, the Knowledge block accepts `tagFilters` rows with `tagName` and `tagValue` and converts them to the API's `filters` map. The block supports text equality only; unknown tags, malformed filters, and unsupported operators are rejected. Query-only, tag-only, and combined searches all use the modes below.
 
 ## Search Modes
 
-The Knowledge block supports three different search modes depending on what you provide:
+The search API selects a mode based on the query and filters provided. All modes return chunks, not complete documents. `topK` defaults to 10 and accepts 1-100; several returned chunks can belong to the same document. Search is not an exhaustive document-listing operation.
 
 ### 1. Tag-Only Search
 When you **only provide tags** (no search query):
-- **Direct retrieval**: Fetches all documents that have the specified tags
+- **Limited retrieval**: Fetches up to `topK` chunks from documents with the specified tags
 - **No vector search**: Results are based purely on tag matching
 - **Fast performance**: Quick retrieval without semantic processing
-- **Exact matching**: Only documents with all specified tags are returned
+- **Exact matching**: Returned chunks belong to documents matching all specified tag filters
 
-**Use case**: When you need all documents from a specific category or project
+**Use case**: When you need a limited set of chunks from a specific category or project
 
 ### 2. Vector Search Only
 When you **only provide a search query** (no tags):
@@ -63,36 +65,34 @@ When you **provide both tags and a search query**:
 #### Vector Search Parameters
 - **Query complexity**: Natural language questions work best
 - **Result limits**: Configure how many chunks to retrieve
-- **Relevance threshold**: Set minimum similarity scores
-- **Context window**: Adjust chunk size for your use case
+- **Relevance threshold**: Selected internally; there is no user-configurable similarity threshold
+- **Chunk size**: Configure during document processing, not as a search parameter
 
 ## Integration with Workflows
 
 ### Knowledge Block Configuration
 1. **Select knowledgebase**: Choose which knowledgebase to search
-2. **Add tags**: Specify filtering tags (optional)
-3. **Enter query**: Add your search query (optional)
-4. **Configure results**: Set number of chunks to retrieve
-5. **Test search**: Preview results before using in workflow
+2. **Choose search inputs**: Provide a query, text-equality tag filters in Advanced mode, or both
+3. **Configure results**: Set the number of chunks to retrieve (1-100, default: 10)
+4. **Map results**: Explicitly reference the returned chunks in downstream inputs or prompts
+5. **Test search**: Inspect the results before relying on them
 
 ### Dynamic Tag Usage
-- **Variable tags**: Use workflow variables as tag values
+- **Variable tags**: Use workflow references in the block's tag values; direct API clients send the resolved values through `filters`
 - **Conditional filtering**: Apply different tags based on workflow logic
 - **Context-aware search**: Adjust tags based on conversation context
 - **Multi-step filtering**: Refine searches through workflow steps
 
 ### Performance Optimization
 - **Efficient filtering**: Tag filtering happens before vector search for better performance
-- **Caching**: Frequently used tag combinations are cached for speed
-- **Parallel processing**: Multiple tag searches can run simultaneously
-- **Resource management**: Automatic optimization of search resources
+- **Result limits**: Request only the chunks you need to keep downstream context manageable
 
 ## Getting Started with Tags
 
 1. **Plan your tag structure**: Decide on consistent naming conventions
 2. **Start tagging**: Add relevant tags to your existing documents
 3. **Test combinations**: Experiment with tag + search query combinations
-4. **Integrate into workflows**: Use the Knowledge block with your tagging strategy
+4. **Integrate into workflows**: Configure the Knowledge block's tag filters and inspect the returned chunks; direct API clients use `filters`
 5. **Refine over time**: Adjust your tagging approach based on search results
 
 Tags transform your knowledgebase from a simple document store into a precisely organized, searchable intelligence system that your AI workflows can navigate with surgical precision.

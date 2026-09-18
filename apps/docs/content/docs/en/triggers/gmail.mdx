@@ -18,7 +18,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 Triggers when new emails are received in Gmail (requires Gmail credentials)
 
 <Callout type="info">
-  This is a **polling-based** trigger. TradingGoose automatically checks for new data on a regular interval.
+  This is a **polling-based** trigger. TradingGoose checks the source for matching changes on a regular interval.
 </Callout>
 
 <Cards>
@@ -27,6 +27,10 @@ Triggers when new emails are received in Gmail (requires Gmail credentials)
   </Card>
 </Cards>
 
+
+## Setup Instructions
+
+<div class="mb-3"><strong>1.</strong> Connect your Gmail account using OAuth credentials</div><div class="mb-3"><strong>2.</strong> Configure which Gmail labels to monitor (optional)</div><div class="mb-3"><strong>3.</strong> The system will automatically check for new emails and trigger your workflow</div>
 
 ## Configuration
 
@@ -41,6 +45,7 @@ Triggers when new emails are received in Gmail (requires Gmail credentials)
             "type": "oauth-input",
             "title": "Credentials",
             "description": "This trigger requires google email credentials to access your account.",
+            "provider": "google-email",
             "required": true
         },
         {
@@ -48,7 +53,8 @@ Triggers when new emails are received in Gmail (requires Gmail credentials)
             "type": "dropdown",
             "title": "Gmail Labels to Monitor",
             "placeholder": "Select Gmail labels to monitor for new emails",
-            "description": "Choose which Gmail labels to monitor. Leave empty to monitor all emails."
+            "description": "Choose which Gmail labels to monitor. Leave empty to monitor all emails.",
+            "required": false
         },
         {
             "id": "labelFilterBehavior",
@@ -56,14 +62,15 @@ Triggers when new emails are received in Gmail (requires Gmail credentials)
             "title": "Label Filter Behavior",
             "description": "Include only emails with selected labels, or exclude emails with selected labels",
             "required": true,
+            "defaultValue": "INCLUDE",
             "options": [
                 {
-                    "label": "INCLUDE",
-                    "id": "INCLUDE"
+                    "id": "INCLUDE",
+                    "label": "INCLUDE"
                 },
                 {
-                    "label": "EXCLUDE",
-                    "id": "EXCLUDE"
+                    "id": "EXCLUDE",
+                    "label": "EXCLUDE"
                 }
             ]
         },
@@ -72,25 +79,30 @@ Triggers when new emails are received in Gmail (requires Gmail credentials)
             "type": "short-input",
             "title": "Gmail Search Query",
             "placeholder": "subject:report OR from:important@example.com",
-            "description": "Optional Gmail search query to filter emails. Use the same format as Gmail search box (e.g., \"subject:invoice\", \"from:boss@company.com\", \"has:attachment\"). Leave empty to search all emails."
+            "description": "Optional Gmail search query to filter emails. Use the same format as Gmail search box (e.g., \"subject:invoice\", \"from:boss@company.com\", \"has:attachment\"). Leave empty to search all emails.",
+            "required": false
         },
         {
             "id": "markAsRead",
             "type": "switch",
             "title": "Mark as Read",
-            "description": "Automatically mark emails as read after processing"
+            "description": "Automatically mark emails as read after processing",
+            "required": false,
+            "defaultValue": false
         },
         {
             "id": "includeAttachments",
             "type": "switch",
             "title": "Include Attachments",
-            "description": "Download and include email attachments in the trigger payload"
+            "description": "Download and include email attachments in the trigger payload",
+            "required": false,
+            "defaultValue": false
         }
     ]}
   />
 </ShowcaseCard>
 
-#### Output Schema
+## Output Schema
 
 <SchemaTree
   title="Event Payload"
@@ -98,7 +110,6 @@ Triggers when new emails are received in Gmail (requires Gmail credentials)
       {
           "name": "email",
           "type": "object",
-          "description": "email",
           "children": [
               {
                   "name": "id",
@@ -169,5 +180,3 @@ Triggers when new emails are received in Gmail (requires Gmail credentials)
       }
   ]}
 />
-
-

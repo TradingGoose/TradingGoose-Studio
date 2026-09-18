@@ -1,0 +1,1022 @@
+---
+title: Zep
+description: Memoria a largo plazo para agentes de IA
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="zep"
+  color=""
+/>
+
+## Configuración
+
+### Crear hilo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "half",
+            "placeholder": "Selecciona una operación",
+            "defaultValue": "create_thread",
+            "options": [
+                {
+                    "id": "create_thread",
+                    "label": "Crear hilo"
+                },
+                {
+                    "id": "add_messages",
+                    "label": "Añadir mensajes"
+                },
+                {
+                    "id": "get_context",
+                    "label": "Obtener contexto"
+                },
+                {
+                    "id": "get_messages",
+                    "label": "Obtener mensajes"
+                },
+                {
+                    "id": "get_threads",
+                    "label": "Obtener hilos"
+                },
+                {
+                    "id": "delete_thread",
+                    "label": "Eliminar hilo"
+                },
+                {
+                    "id": "add_user",
+                    "label": "Añadir usuario"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_user_threads",
+                    "label": "Obtener hilos del usuario"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave API de Zep",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "threadId",
+            "type": "short-input",
+            "title": "ID de hilo",
+            "layout": "full",
+            "placeholder": "Introduce el identificador único del hilo",
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "ID de usuario",
+            "layout": "full",
+            "placeholder": "Introduce el identificador de usuario",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear hilo (<code>zep_create_thread</code>)</div>
+
+Inicia un nuevo hilo de conversación en Zep
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `threadId` | string | Sí | Identificador único del hilo |
+| `userId` | string | Sí | ID de usuario asociado al hilo |
+| `apiKey` | string | Sí | Tu clave API de Zep |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `threadId` | string | El ID del hilo |
+| `userId` | string | El ID de usuario |
+| `uuid` | string | UUID interno |
+| `createdAt` | string | Marca de tiempo de creación |
+| `projectUuid` | string | UUID del proyecto |
+
+</div>
+
+---
+
+### Añadir mensajes
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "half",
+            "placeholder": "Seleccionar una operación",
+            "defaultValue": "add_messages",
+            "options": [
+                {
+                    "id": "create_thread",
+                    "label": "Crear hilo"
+                },
+                {
+                    "id": "add_messages",
+                    "label": "Añadir mensajes"
+                },
+                {
+                    "id": "get_context",
+                    "label": "Obtener contexto"
+                },
+                {
+                    "id": "get_messages",
+                    "label": "Obtener mensajes"
+                },
+                {
+                    "id": "get_threads",
+                    "label": "Obtener hilos"
+                },
+                {
+                    "id": "delete_thread",
+                    "label": "Eliminar hilo"
+                },
+                {
+                    "id": "add_user",
+                    "label": "Añadir usuario"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_user_threads",
+                    "label": "Obtener hilos del usuario"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Zep",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "threadId",
+            "type": "short-input",
+            "title": "ID de hilo",
+            "layout": "full",
+            "placeholder": "Introduce un identificador de hilo único",
+            "required": true
+        },
+        {
+            "id": "messages",
+            "type": "code",
+            "title": "Mensajes",
+            "layout": "full",
+            "placeholder": "[{\"role\": \"user\", \"content\": \"Hello!\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Añadir mensajes (<code>zep_add_messages</code>)</div>
+
+Añade mensajes a un hilo existente
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `threadId` | string | Sí | ID del hilo al que añadir mensajes |
+| `messages` | json | Sí | Array de objetos de mensaje con role y content |
+| `apiKey` | string | Sí | Tu clave de API de Zep |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `context` | string | Contexto actualizado tras añadir mensajes |
+| `messageIds` | array | Array de UUID de los mensajes añadidos |
+| `threadId` | string | El ID del hilo |
+
+</div>
+
+---
+
+### Obtener contexto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "half",
+            "placeholder": "Seleccionar una operación",
+            "defaultValue": "get_context",
+            "options": [
+                {
+                    "id": "create_thread",
+                    "label": "Crear hilo"
+                },
+                {
+                    "id": "add_messages",
+                    "label": "Añadir mensajes"
+                },
+                {
+                    "id": "get_context",
+                    "label": "Obtener contexto"
+                },
+                {
+                    "id": "get_messages",
+                    "label": "Obtener mensajes"
+                },
+                {
+                    "id": "get_threads",
+                    "label": "Obtener hilos"
+                },
+                {
+                    "id": "delete_thread",
+                    "label": "Eliminar hilo"
+                },
+                {
+                    "id": "add_user",
+                    "label": "Añadir usuario"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_user_threads",
+                    "label": "Obtener hilos del usuario"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Zep",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "threadId",
+            "type": "short-input",
+            "title": "ID de hilo",
+            "layout": "full",
+            "placeholder": "Introduce un identificador de hilo único",
+            "required": true
+        },
+        {
+            "id": "mode",
+            "type": "dropdown",
+            "title": "Modo de contexto",
+            "layout": "half",
+            "placeholder": "Seleccionar modo de contexto",
+            "defaultValue": "summary",
+            "options": [
+                {
+                    "id": "summary",
+                    "label": "Resumen (lenguaje natural)"
+                },
+                {
+                    "id": "basic",
+                    "label": "Básico (hechos sin procesar)"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener contexto (<code>zep_get_context</code>)</div>
+
+Recupera el contexto del usuario de un hilo en modo resumen o básico
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `threadId` | string | Sí | ID del hilo del que obtener el contexto |
+| `mode` | string | No | Modo de contexto: "summary" \(lenguaje natural\) o "basic" \(hechos en bruto\) |
+| `minRating` | number | No | Puntuación mínima para filtrar los hechos relevantes |
+| `apiKey` | string | Sí | Tu clave de API de Zep |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `context` | string | La cadena de contexto \(summary o basic\) |
+| `facts` | array | Hechos extraídos |
+| `entities` | array | Entidades extraídas |
+| `summary` | string | Resumen de la conversación |
+
+</div>
+
+---
+
+### Obtener mensajes
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "half",
+            "placeholder": "Selecciona una operación",
+            "defaultValue": "get_messages",
+            "options": [
+                {
+                    "id": "create_thread",
+                    "label": "Crear hilo"
+                },
+                {
+                    "id": "add_messages",
+                    "label": "Añadir mensajes"
+                },
+                {
+                    "id": "get_context",
+                    "label": "Obtener contexto"
+                },
+                {
+                    "id": "get_messages",
+                    "label": "Obtener mensajes"
+                },
+                {
+                    "id": "get_threads",
+                    "label": "Obtener hilos"
+                },
+                {
+                    "id": "delete_thread",
+                    "label": "Eliminar hilo"
+                },
+                {
+                    "id": "add_user",
+                    "label": "Añadir usuario"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_user_threads",
+                    "label": "Obtener hilos del usuario"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Zep",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "threadId",
+            "type": "short-input",
+            "title": "ID del hilo",
+            "layout": "full",
+            "placeholder": "Introduce el identificador único del hilo",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "slider",
+            "title": "Límite de resultados",
+            "layout": "full",
+            "min": 1,
+            "max": 100,
+            "step": 1
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener mensajes (<code>zep_get_messages</code>)</div>
+
+Recuperar mensajes de un hilo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `threadId` | string | Sí | ID del hilo del que obtener mensajes |
+| `limit` | number | No | Número máximo de mensajes a devolver |
+| `cursor` | string | No | Cursor para paginación |
+| `lastn` | number | No | Número de mensajes más recientes a devolver \(sobrescribe limit y cursor\) |
+| `apiKey` | string | Sí | Tu clave de API de Zep |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `messages` | array | Array de objetos de mensaje |
+| `rowCount` | number | Número de mensajes en esta respuesta |
+| `totalCount` | number | Número total de mensajes en el hilo |
+
+</div>
+
+---
+
+### Obtener hilos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "half",
+            "placeholder": "Selecciona una operación",
+            "defaultValue": "get_threads",
+            "options": [
+                {
+                    "id": "create_thread",
+                    "label": "Crear hilo"
+                },
+                {
+                    "id": "add_messages",
+                    "label": "Añadir mensajes"
+                },
+                {
+                    "id": "get_context",
+                    "label": "Obtener contexto"
+                },
+                {
+                    "id": "get_messages",
+                    "label": "Obtener mensajes"
+                },
+                {
+                    "id": "get_threads",
+                    "label": "Obtener hilos"
+                },
+                {
+                    "id": "delete_thread",
+                    "label": "Eliminar hilo"
+                },
+                {
+                    "id": "add_user",
+                    "label": "Añadir usuario"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_user_threads",
+                    "label": "Obtener hilos del usuario"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Zep",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "slider",
+            "title": "Límite de resultados",
+            "layout": "full",
+            "min": 1,
+            "max": 100,
+            "step": 1
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener hilos (<code>zep_get_threads</code>)</div>
+
+Lista todos los hilos de conversación
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `pageSize` | number | No | Número de hilos que recuperar por página |
+| `pageNumber` | number | No | Número de página para la paginación |
+| `orderBy` | string | No | Campo por el que ordenar los resultados \(created_at, updated_at, user_id, thread_id\) |
+| `asc` | boolean | No | Dirección del orden: true para ascendente, false para descendente |
+| `apiKey` | string | Sí | Tu clave de API de Zep |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `threads` | array | Array de objetos de hilo |
+| `responseCount` | number | Número de hilos en esta respuesta |
+| `totalCount` | number | Número total de hilos disponibles |
+
+</div>
+
+---
+
+### Eliminar hilo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "half",
+            "placeholder": "Selecciona una operación",
+            "defaultValue": "delete_thread",
+            "options": [
+                {
+                    "id": "create_thread",
+                    "label": "Crear hilo"
+                },
+                {
+                    "id": "add_messages",
+                    "label": "Añadir mensajes"
+                },
+                {
+                    "id": "get_context",
+                    "label": "Obtener contexto"
+                },
+                {
+                    "id": "get_messages",
+                    "label": "Obtener mensajes"
+                },
+                {
+                    "id": "get_threads",
+                    "label": "Obtener hilos"
+                },
+                {
+                    "id": "delete_thread",
+                    "label": "Eliminar hilo"
+                },
+                {
+                    "id": "add_user",
+                    "label": "Añadir usuario"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_user_threads",
+                    "label": "Obtener hilos del usuario"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Zep",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "threadId",
+            "type": "short-input",
+            "title": "ID de hilo",
+            "layout": "full",
+            "placeholder": "Introduce el identificador único del hilo",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar hilo (<code>zep_delete_thread</code>)</div>
+
+Elimina un hilo de conversación de Zep
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `threadId` | string | Sí | ID del hilo que se va a eliminar |
+| `apiKey` | string | Sí | Tu clave de API de Zep |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `deleted` | boolean | Indica si se eliminó el hilo |
+
+</div>
+
+---
+
+### Añadir usuario
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "half",
+            "placeholder": "Selecciona una operación",
+            "defaultValue": "add_user",
+            "options": [
+                {
+                    "id": "create_thread",
+                    "label": "Crear hilo"
+                },
+                {
+                    "id": "add_messages",
+                    "label": "Añadir mensajes"
+                },
+                {
+                    "id": "get_context",
+                    "label": "Obtener contexto"
+                },
+                {
+                    "id": "get_messages",
+                    "label": "Obtener mensajes"
+                },
+                {
+                    "id": "get_threads",
+                    "label": "Obtener hilos"
+                },
+                {
+                    "id": "delete_thread",
+                    "label": "Eliminar hilo"
+                },
+                {
+                    "id": "add_user",
+                    "label": "Añadir usuario"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_user_threads",
+                    "label": "Obtener hilos del usuario"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Zep",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "ID de usuario",
+            "layout": "full",
+            "placeholder": "Introduce el identificador de usuario",
+            "required": true
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "layout": "half",
+            "placeholder": "user@example.com"
+        },
+        {
+            "id": "firstName",
+            "type": "short-input",
+            "title": "Nombre",
+            "layout": "half",
+            "placeholder": "John"
+        },
+        {
+            "id": "lastName",
+            "type": "short-input",
+            "title": "Apellido",
+            "layout": "half",
+            "placeholder": "Doe"
+        },
+        {
+            "id": "metadata",
+            "type": "code",
+            "title": "Metadatos",
+            "layout": "full",
+            "placeholder": "{\"key\": \"value\"}",
+            "language": "json"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Añadir usuario (<code>zep_add_user</code>)</div>
+
+Crea un nuevo usuario en Zep
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `userId` | string | Sí | Identificador único del usuario |
+| `email` | string | No | Dirección de correo del usuario |
+| `firstName` | string | No | Nombre del usuario |
+| `lastName` | string | No | Apellido del usuario |
+| `metadata` | json | No | Metadatos adicionales como objeto JSON |
+| `apiKey` | string | Sí | Tu clave de API de Zep |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `userId` | string | El ID de usuario |
+| `email` | string | Correo del usuario |
+| `firstName` | string | Nombre del usuario |
+| `lastName` | string | Apellido del usuario |
+| `uuid` | string | UUID interno |
+| `createdAt` | string | Marca de tiempo de creación |
+| `metadata` | object | Metadatos del usuario |
+
+</div>
+
+---
+
+### Obtener usuario
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "half",
+            "placeholder": "Selecciona una operación",
+            "defaultValue": "get_user",
+            "options": [
+                {
+                    "id": "create_thread",
+                    "label": "Crear hilo"
+                },
+                {
+                    "id": "add_messages",
+                    "label": "Añadir mensajes"
+                },
+                {
+                    "id": "get_context",
+                    "label": "Obtener contexto"
+                },
+                {
+                    "id": "get_messages",
+                    "label": "Obtener mensajes"
+                },
+                {
+                    "id": "get_threads",
+                    "label": "Obtener hilos"
+                },
+                {
+                    "id": "delete_thread",
+                    "label": "Eliminar hilo"
+                },
+                {
+                    "id": "add_user",
+                    "label": "Añadir usuario"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_user_threads",
+                    "label": "Obtener hilos del usuario"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Zep",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "ID de usuario",
+            "layout": "full",
+            "placeholder": "Introduce el identificador de usuario",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener usuario (<code>zep_get_user</code>)</div>
+
+Recuperar información del usuario de Zep
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `userId` | string | Sí | ID de usuario a recuperar |
+| `apiKey` | string | Sí | Tu clave de API de Zep |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `userId` | string | El ID de usuario |
+| `email` | string | Correo electrónico del usuario |
+| `firstName` | string | Nombre del usuario |
+| `lastName` | string | Apellido del usuario |
+| `uuid` | string | UUID interno |
+| `createdAt` | string | Marca de tiempo de creación |
+| `updatedAt` | string | Marca de tiempo de última actualización |
+| `metadata` | object | Metadatos del usuario |
+
+</div>
+
+---
+
+### Obtener hilos del usuario
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "half",
+            "placeholder": "Selecciona una operación",
+            "defaultValue": "get_user_threads",
+            "options": [
+                {
+                    "id": "create_thread",
+                    "label": "Crear hilo"
+                },
+                {
+                    "id": "add_messages",
+                    "label": "Añadir mensajes"
+                },
+                {
+                    "id": "get_context",
+                    "label": "Obtener contexto"
+                },
+                {
+                    "id": "get_messages",
+                    "label": "Obtener mensajes"
+                },
+                {
+                    "id": "get_threads",
+                    "label": "Obtener hilos"
+                },
+                {
+                    "id": "delete_thread",
+                    "label": "Eliminar hilo"
+                },
+                {
+                    "id": "add_user",
+                    "label": "Añadir usuario"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_user_threads",
+                    "label": "Obtener hilos del usuario"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Zep",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "ID de usuario",
+            "layout": "full",
+            "placeholder": "Introduce el identificador de usuario",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener hilos de usuario (<code>zep_get_user_threads</code>)</div>
+
+Lista todos los hilos de conversación de un usuario específico
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `userId` | string | Sí | ID de usuario del que obtener los hilos |
+| `limit` | number | No | Número máximo de hilos que devolver |
+| `apiKey` | string | Sí | Tu clave de API de Zep |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `threads` | array | Array de objetos de hilo de este usuario |
+| `userId` | string | El ID de usuario |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Zep para la gestión de memoria a largo plazo. Crea hilos, añade mensajes y recupera contexto con resúmenes e extracción de hechos impulsados por IA.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `zep`

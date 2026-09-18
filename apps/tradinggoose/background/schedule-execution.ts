@@ -1,21 +1,13 @@
 import { db, workflow, workflowSchedule } from '@tradinggoose/db'
-import { Cron } from 'croner'
-import { eq } from 'drizzle-orm'
-import { v4 as uuidv4 } from 'uuid'
+import type { Cron } from 'croner'
+import { and, eq, lte } from 'drizzle-orm'
 import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
+import { readWorkflowExecutionEventState } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  type BlockState,
-  calculateNextRunTime as calculateNextTime,
-  getScheduleTimeValues,
-  getSubBlockValue,
-} from '@/lib/schedules/utils'
-import { resolveTimezoneOffsetMinutes } from '@/lib/timezone/timezone-resolver'
-import { loadDeployedWorkflowState } from '@/lib/workflows/db-helpers'
+import { createScheduleCron } from '@/lib/schedules/utils'
 import {
   loadWorkflowExecutionBlueprint,
   runPreparedWorkflowExecution,
-  WorkflowUsageLimitError,
 } from '@/lib/workflows/execution-runner'
 
 const logger = createLogger('TriggerScheduleExecution')
@@ -25,12 +17,11 @@ const MAX_CONSECUTIVE_FAILURES = 3
 export type ScheduleExecutionPayload = {
   scheduleId: string
   workflowId: string
-  executionId?: string
+  executionId: string
   blockId: string
-  cronExpression?: string
-  lastRanAt?: string
+  cronExpression: string
   failedCount?: number
-  timezone: string
+  utcOffset: number
   now: string
 }
 
@@ -44,86 +35,52 @@ export function isScheduleExecutionPayload(value: unknown): value is ScheduleExe
     typeof candidate.scheduleId === 'string' &&
     typeof candidate.workflowId === 'string' &&
     typeof candidate.blockId === 'string' &&
-    typeof candidate.timezone === 'string' &&
+    typeof candidate.executionId === 'string' &&
+    typeof candidate.cronExpression === 'string' &&
+    typeof candidate.utcOffset === 'number' &&
+    Number.isFinite(candidate.utcOffset) &&
     typeof candidate.now === 'string'
   )
 }
 
-async function calculateNextRunTime(
-  schedule: { blockId: string; cronExpression?: string; lastRanAt?: string },
-  blocks: Record<string, BlockState>,
-  timezone: string
-): Promise<Date> {
-  const scheduleBlock = blocks[schedule.blockId]
-  if (!scheduleBlock) throw new Error(`Schedule trigger block ${schedule.blockId} not found`)
-
-  const scheduleType = getSubBlockValue(scheduleBlock, 'scheduleType')
-  const scheduleValues = getScheduleTimeValues(scheduleBlock)
-  const utcOffsetMinutes = await resolveTimezoneOffsetMinutes(timezone)
-
-  if (schedule.cronExpression) {
-    const cron = new Cron(schedule.cronExpression, {
-      utcOffset: utcOffsetMinutes,
-    })
-    const nextDate = cron.nextRun()
-    if (!nextDate) throw new Error('Invalid cron expression or no future occurrences')
-    return nextDate
+export async function settleScheduleOccurrence(
+  payload: ScheduleExecutionPayload,
+  outcome: 'success' | 'failure' | 'usage_limited',
+  cron: Cron | null = createScheduleCron(payload.cronExpression, payload.utcOffset)
+) {
+  const now = new Date(payload.now)
+  const nextRunAt = cron?.nextRun()
+  const failedCount = outcome === 'success' ? 0 : (payload.failedCount ?? 0) + 1
+  const shouldDisable = failedCount >= MAX_CONSECUTIVE_FAILURES
+  if (outcome === 'failure' && shouldDisable) {
+    logger.warn(
+      `[${payload.executionId.slice(0, 8)}] Disabling schedule for workflow ${payload.workflowId} after ${MAX_CONSECUTIVE_FAILURES} consecutive failures`
+    )
   }
-
-  const lastRanAt = schedule.lastRanAt ? new Date(schedule.lastRanAt) : null
-  return calculateNextTime(scheduleType, scheduleValues, lastRanAt, utcOffsetMinutes)
-}
-
-async function updateScheduleNextRun(params: {
-  scheduleId: string
-  now: Date
-  nextRunAt: Date
-  failedCount?: number
-  status?: 'active' | 'disabled'
-  lastRanAt?: Date
-  lastFailedAt?: Date
-}) {
   await db
     .update(workflowSchedule)
     .set({
-      updatedAt: params.now,
-      nextRunAt: params.nextRunAt,
-      ...(params.lastRanAt ? { lastRanAt: params.lastRanAt } : {}),
-      ...(typeof params.failedCount === 'number' ? { failedCount: params.failedCount } : {}),
-      ...(params.lastFailedAt ? { lastFailedAt: params.lastFailedAt } : {}),
-      ...(params.status ? { status: params.status } : {}),
+      updatedAt: now,
+      ...(cron ? { nextRunAt } : {}),
+      ...(outcome !== 'usage_limited' ? { failedCount } : {}),
+      ...(outcome === 'success' ? { lastRanAt: now } : {}),
+      ...(outcome === 'failure'
+        ? { lastFailedAt: now, status: shouldDisable ? 'disabled' : 'active' }
+        : {}),
+      ...(cron && !nextRunAt ? { status: 'disabled' } : {}),
     })
-    .where(eq(workflowSchedule.id, params.scheduleId))
-}
-
-async function resolveFallbackNextRunAt(params: {
-  payload: ScheduleExecutionPayload
-  workflowIsDeployed: boolean | null | undefined
-  blocks?: Record<string, BlockState>
-  now: Date
-}) {
-  if (params.blocks) {
-    return calculateNextRunTime(params.payload, params.blocks, params.payload.timezone)
-  }
-
-  if (params.workflowIsDeployed) {
-    try {
-      const deployedData = await loadDeployedWorkflowState(params.payload.workflowId)
-      return await calculateNextRunTime(
-        params.payload,
-        deployedData.blocks as Record<string, BlockState>,
-        params.payload.timezone
+    .where(
+      and(
+        eq(workflowSchedule.id, payload.scheduleId),
+        // A recovered checkpoint must not advance an already-settled or reconfigured occurrence.
+        lte(workflowSchedule.nextRunAt, now)
       )
-    } catch {}
-  }
-
-  return new Date(params.now.getTime() + 24 * 60 * 60 * 1000)
+    )
 }
 
 export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
-  const executionId = payload.executionId ?? uuidv4()
+  const executionId = payload.executionId
   const requestId = executionId.slice(0, 8)
-  const now = new Date(payload.now)
 
   logger.info(`[${requestId}] Starting schedule execution`, {
     scheduleId: payload.scheduleId,
@@ -131,28 +88,12 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
     executionId,
   })
 
-  const rescheduleSkippedExecution = async (blocks?: Record<string, BlockState>) => {
-    try {
-      const nextRunAt = await resolveFallbackNextRunAt({
-        payload,
-        workflowIsDeployed: true,
-        blocks,
-        now,
-      })
-      await updateScheduleNextRun({
-        scheduleId: payload.scheduleId,
-        now,
-        nextRunAt,
-      })
-    } catch (calcErr) {
-      logger.warn(
-        `[${requestId}] Unable to calculate nextRunAt while skipping schedule ${payload.scheduleId}`,
-        calcErr
-      )
-    }
-  }
+  let cron: Cron | null = null
+  let executionSucceeded = false
+  let failure: { error: unknown } | undefined
 
   try {
+    cron = createScheduleCron(payload.cronExpression, payload.utcOffset)
     const [workflowRecord] = await db
       .select()
       .from(workflow)
@@ -183,9 +124,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       workflowContext: workflowRecord,
       executionTarget: 'deployed',
     })
-    const scheduleBlocks = blueprint.workflowData.blocks as Record<string, BlockState>
-
-    if (!scheduleBlocks[payload.blockId]) {
+    if (!blueprint.workflowData.blocks[payload.blockId]) {
       logger.warn(
         `[${requestId}] Schedule trigger block ${payload.blockId} not found in deployed workflow ${payload.workflowId}. Removing schedule.`
       )
@@ -193,12 +132,13 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       return
     }
 
-    const { result } = await runPreparedWorkflowExecution({
+    const { result, dispatchFailureReason } = await runPreparedWorkflowExecution({
       blueprint,
       actorUserId,
       requestId,
       executionId,
       triggerType: 'schedule',
+      contextExtensions: { pendingExecutionId: executionId },
       workflowInput: {
         _context: {
           workflowId: payload.workflowId,
@@ -210,85 +150,29 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       },
     })
 
-    if (result.success) {
-      logger.info(`[${requestId}] Workflow ${payload.workflowId} executed successfully`)
-
-      const nextRunAt = await calculateNextRunTime(payload, scheduleBlocks, payload.timezone)
-
-      await updateScheduleNextRun({
-        scheduleId: payload.scheduleId,
-        now,
-        nextRunAt,
-        lastRanAt: now,
-        failedCount: 0,
-      })
-
+    if (dispatchFailureReason === 'usage_limit_exceeded') {
+      await settleScheduleOccurrence(payload, 'usage_limited', cron)
       return
     }
 
-    logger.warn(`[${requestId}] Workflow ${payload.workflowId} execution failed`)
-
-    const newFailedCount = (payload.failedCount || 0) + 1
-    const shouldDisable = newFailedCount >= MAX_CONSECUTIVE_FAILURES
-    const nextRunAt = await calculateNextRunTime(payload, scheduleBlocks, payload.timezone)
-
-    if (shouldDisable) {
-      logger.warn(
-        `[${requestId}] Disabling schedule for workflow ${payload.workflowId} after ${MAX_CONSECUTIVE_FAILURES} consecutive failures`
+    executionSucceeded = result.success
+    if (executionSucceeded) {
+      logger.info(
+        `[${requestId}] Workflow ${payload.workflowId} ${result.status ?? 'executed successfully'}`
       )
+    } else {
+      logger.warn(`[${requestId}] Workflow ${payload.workflowId} execution failed`)
     }
-
-    await updateScheduleNextRun({
-      scheduleId: payload.scheduleId,
-      now,
-      nextRunAt,
-      failedCount: newFailedCount,
-      lastFailedAt: now,
-      status: shouldDisable ? 'disabled' : 'active',
-    })
-  } catch (error: any) {
-    if (error instanceof WorkflowUsageLimitError) {
-      logger.warn(
-        `[${requestId}] Workspace billing subject has exceeded usage limits. Skipping scheduled execution.`,
-        {
-          workflowId: payload.workflowId,
-          message: error.message,
-        }
-      )
-      await rescheduleSkippedExecution()
-      return
-    }
-
+  } catch (error) {
     logger.error(`[${requestId}] Error executing scheduled workflow ${payload.workflowId}`, error)
-
-    const [workflowRecord] = await db
-      .select()
-      .from(workflow)
-      .where(eq(workflow.id, payload.workflowId))
-      .limit(1)
-
-    const nextRunAt = await resolveFallbackNextRunAt({
-      payload,
-      workflowIsDeployed: workflowRecord?.isDeployed,
-      now,
+    failure = { error }
+    const execution = await readWorkflowExecutionEventState({
+      pendingExecutionId: executionId,
+      workflowId: payload.workflowId,
     })
-
-    const newFailedCount = (payload.failedCount || 0) + 1
-    const shouldDisable = newFailedCount >= MAX_CONSECUTIVE_FAILURES
-
-    if (shouldDisable) {
-      logger.warn(
-        `[${requestId}] Disabling schedule for workflow ${payload.workflowId} after ${MAX_CONSECUTIVE_FAILURES} consecutive failures`
-      )
-    }
-
-    await updateScheduleNextRun({
-      scheduleId: payload.scheduleId,
-      now,
-      nextRunAt,
-      failedCount: newFailedCount,
-      lastFailedAt: now,
-      status: shouldDisable ? 'disabled' : 'active',
-    })
+    executionSucceeded = execution?.status === 'completed'
   }
+
+  await settleScheduleOccurrence(payload, executionSucceeded ? 'success' : 'failure', cron)
+  if (failure) throw failure.error
 }

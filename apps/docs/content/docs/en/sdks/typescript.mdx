@@ -1,36 +1,57 @@
 ---
 title: TypeScript SDK
-description: TypeScript/JavaScript client library for TradingGoose (coming soon)
+description: TypeScript and JavaScript client for TradingGoose workflows
 ---
 
-import { Callout } from 'fumadocs-ui/components/callout'
+## Development status
 
-<Callout type="warn">
-  The TypeScript SDK is under active development. This page will be updated when the SDK is released.
-</Callout>
+The TypeScript SDK is a repository-local preview for Node.js. `tradinggoose-ts-sdk` is not currently published to npm, so `npm install tradinggoose-ts-sdk` is unavailable. Repository contributors can build the package from [`packages/ts-sdk`](https://github.com/TradingGoose/TradingGoose-Studio/tree/staging/packages/ts-sdk).
 
-## Status
+For production integrations, use the supported [Execution API](/execution/api). The examples below describe the preview package when it is linked from repository source.
 
-The TypeScript SDK is being built to provide full type safety for executing TradingGoose workflows from Node.js and browser environments.
-
-## In the Meantime
-
-Use the [Execution API](/execution/api) directly with fetch:
+## Execute a workflow
 
 ```typescript
-const response = await fetch(
-  "https://tradinggoose.ai/api/workflows/WORKFLOW_ID/execute",
-  {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-API-Key": "YOUR_KEY",
-    },
-    body: JSON.stringify({ input: "your data" }),
-  }
-);
+import { TradingGooseClient } from 'tradinggoose-ts-sdk'
 
-const result = await response.json();
+const client = new TradingGooseClient({
+  apiKey: process.env.TRADINGGOOSE_API_KEY!,
+  baseUrl: 'https://www.tradinggoose.ai',
+})
+
+const result = await client.executeWorkflow('workflow-id', {
+  input: { message: 'Analyze this' },
+  timeout: 30000,
+})
 ```
 
-For streaming responses with Server-Sent Events, see the [Streaming section](/triggers/api#streaming-responses) of the API Trigger docs.
+`ExecutionOptions` contains an object-valued `input` and `timeout` (milliseconds, default `30000`).
+
+## Streaming limitation
+
+Streaming makes the Execution API return `text/event-stream`. The preview SDK does not expose streaming or selected-output options because it does not implement an SSE reader. Use the [Execution API](/execution/api) directly to consume SSE and select streamed block outputs.
+
+## Status and validation
+
+- `getWorkflowStatus(workflowId)` returns `WorkflowStatus`.
+- `validateWorkflow(workflowId)` returns whether the workflow is deployed.
+- `setApiKey(apiKey)` and `setBaseUrl(baseUrl)` update client configuration.
+
+## Retry and limits
+
+`executeWithRetry(workflowId, options, retryOptions)` retries only `RATE_LIMIT_EXCEEDED`. `RetryOptions` defaults to `maxRetries: 3`, `initialDelay: 1000` ms, `maxDelay: 30000` ms, and `backoffMultiplier: 2`. The current workflow endpoint does not emit `Retry-After`, so the client uses exponential backoff with ±25% jitter. A compatible deployment that supplies the header overrides that delay.
+
+- `getRateLimitInfo(): RateLimitInfo | null` normally returns `null` because the current workflow and usage endpoints do not emit rate-limit headers. A compatible deployment or proxy may supply `limit`, `remaining`, an ISO `reset` timestamp, and optional `retryAfter` in milliseconds.
+- `getUsageLimits(): Promise<UsageLimits>` exposes sync and async `isLimited`, `limit`, `remaining`, and `resetAt`, plus `authType`; usage `currentPeriodCost`, `limit`, and the billing-tier summary object; and storage `usedBytes`, `limitBytes`, and `percentUsed`.
+
+## Errors and results
+
+`TradingGooseError` preserves API `code` and HTTP `status`. The client uses `TIMEOUT`, `EXECUTION_ERROR`, `STATUS_ERROR`, `RATE_LIMIT_EXCEEDED`, and `USAGE_ERROR` for its own failure paths.
+
+For a non-streaming workflow without a Response block, `executeWorkflow()` returns `WorkflowExecutionResult` with `success`, `output`, optional `error`, and optional timing metadata (`duration`, `startTime`, and `endTime`).
+
+While awaiting human review, the result has `success: true`, `status: 'paused'`, and review details in `output`. Completed executions omit `status`.
+
+A workflow with a Response block instead returns that block's configured JSON body, HTTP status, and headers. The TypeScript client decodes and returns a successful JSON body, but it does not expose the response headers and treats a non-2xx custom status as `TradingGooseError`. Supply the expected body type as the method's type parameter—for example, `executeWorkflow<MyResponse>('workflow-id')`—or use the [Execution API](/execution/api) directly when the status or headers matter.
+
+See the [TypeScript SDK package README](https://github.com/TradingGoose/TradingGoose-Studio/blob/staging/packages/ts-sdk/README.md) for complete examples and file-upload behavior.

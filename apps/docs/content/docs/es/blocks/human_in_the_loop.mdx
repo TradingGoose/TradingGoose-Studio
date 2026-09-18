@@ -1,0 +1,30 @@
+---
+title: Humano en el bucle
+description: Pausa una ejecución hasta recibir la revisión humana
+---
+
+El bloque guarda un punto de control persistente y espera la respuesta de una persona con permiso de escritura en el espacio de trabajo. La capa de ejecución actual termina antes de la pausa. Todas las aprobaciones y esperas de flujos hijos de ese punto de control deben completarse antes de continuar.
+
+## Configuración
+
+| Campo | Uso |
+|---|---|
+| Display Data | Datos que verá la persona revisora; admite referencias a valores anteriores |
+| Notification | Herramientas opcionales para enviar `url` o `resumeEndpoint` después de guardar el punto de control |
+| Resume Form | Campos de entrada; sus nombres deben ser únicos y no pueden usar los nombres reservados `url`, `resumeEndpoint`, `response`, `error`, `stream` ni `execution` |
+
+## Revisión y reanudación
+
+Abre `url` para revisar la solicitud. El enlace requiere autenticación: conocerlo no concede permisos de aprobación. Al reanudar se conservan la versión del flujo, la identidad de ejecución, el actor, las variables, las salidas y la posición de bucles y ejecuciones paralelas, sin repetir bloques completados. Los campos enviados pasan a ser salidas de nivel superior de este bloque.
+
+Para usar la API, consulta `resumeEndpoint` con GET y envía POST con `Content-Type: application/json` y los campos `revision`, `pausePointId` e `input`. El endpoint es `/api/resume/[workflowId]/[executionId]`; acepta una sesión de usuario o una clave API con acceso al espacio de trabajo del flujo y valida `input` contra Resume Form. Usa la revisión actual del punto de control.
+
+Un fallo de notificación no omite la aprobación. Las ejecuciones pausadas pueden cancelarse mediante la API de trabajos.
+
+## Salidas
+
+| Campo | Descripción |
+|---|---|
+| `url` | Enlace a la interfaz de revisión |
+| `resumeEndpoint` | Endpoint de revisión y envío por API |
+| Campos de Resume Form | Valores enviados después de la reanudación |

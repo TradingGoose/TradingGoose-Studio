@@ -6,7 +6,7 @@ export const VariablesBlock: BlockConfig = {
   name: 'Variables',
   description: 'Set workflow-scoped variables',
   longDescription:
-    'Set workflow-scoped variables that can be accessed throughout the workflow using exact tags like <variable.riskLimit>. All Variables blocks share the same namespace, so later blocks can update previously set variables.',
+    'Create variables in the Workflow Variables widget, then select them here to update their values during execution. Supported types are plain, number, boolean, object, array, and listingIdentity. Reference a value with an exact tag such as <variable.riskLimit>. Updates apply to this execution, not future runs. All Variables blocks and parallel branches share the workflow variable namespace. Each assignment is also returned as a dynamically named top-level block output. An assignment to an unknown variable does not create a workflow variable.',
   bgColor: '#8B5CF6',
   bestPractices: `
   - Variables are workflow-scoped and persist throughout execution (but not between executions)
@@ -35,7 +35,7 @@ export const VariablesBlock: BlockConfig = {
   inputs: {
     variables: {
       type: 'json',
-      description: 'Array of variable objects with name and value properties',
+      description: 'Assignment entries with variableId, variableName, type, and value.',
     },
   },
   outputs: {

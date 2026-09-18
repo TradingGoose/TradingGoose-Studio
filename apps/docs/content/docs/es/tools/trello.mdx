@@ -1,0 +1,641 @@
+---
+title: Trello
+description: Gestionar tableros y tarjetas de Trello
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="trello"
+  color="#0052CC"
+/>
+
+## Configuración
+
+### Obtener listas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Trello"
+    type="trello"
+    color="#0052CC"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "trello_list_lists",
+            "options": [
+                {
+                    "id": "trello_list_lists",
+                    "label": "Obtener listas"
+                },
+                {
+                    "id": "trello_list_cards",
+                    "label": "Listar tarjetas"
+                },
+                {
+                    "id": "trello_create_card",
+                    "label": "Crear tarjeta"
+                },
+                {
+                    "id": "trello_update_card",
+                    "label": "Actualizar tarjeta"
+                },
+                {
+                    "id": "trello_get_actions",
+                    "label": "Obtener acciones"
+                },
+                {
+                    "id": "trello_add_comment",
+                    "label": "Añadir comentario"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Trello",
+            "placeholder": "Seleccionar cuenta de Trello",
+            "provider": "trello",
+            "required": true
+        },
+        {
+            "id": "boardId",
+            "type": "short-input",
+            "title": "Tablero",
+            "placeholder": "Introducir ID del tablero",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener listas (<code>trello_list_lists</code>)</div>
+
+Listar todas las listas de un tablero de Trello
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `boardId` | string | Sí | ID del tablero del que listar las listas |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `lists` | array | Array de objetos de lista con id, name, closed, pos e idBoard |
+| `count` | number | Número de listas devueltas |
+
+</div>
+
+---
+
+### Listar tarjetas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Trello"
+    type="trello"
+    color="#0052CC"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "trello_list_cards",
+            "options": [
+                {
+                    "id": "trello_list_lists",
+                    "label": "Obtener listas"
+                },
+                {
+                    "id": "trello_list_cards",
+                    "label": "Listar tarjetas"
+                },
+                {
+                    "id": "trello_create_card",
+                    "label": "Crear tarjeta"
+                },
+                {
+                    "id": "trello_update_card",
+                    "label": "Actualizar tarjeta"
+                },
+                {
+                    "id": "trello_get_actions",
+                    "label": "Obtener acciones"
+                },
+                {
+                    "id": "trello_add_comment",
+                    "label": "Añadir comentario"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Trello",
+            "placeholder": "Seleccionar cuenta de Trello",
+            "provider": "trello",
+            "required": true
+        },
+        {
+            "id": "boardId",
+            "type": "short-input",
+            "title": "Tablero",
+            "placeholder": "Introducir ID del tablero o buscar un tablero",
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "Lista (opcional)",
+            "placeholder": "Introducir ID de lista para filtrar tarjetas por lista"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar tarjetas (<code>trello_list_cards</code>)</div>
+
+Listar todas las tarjetas de un tablero de Trello
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `boardId` | string | Sí | ID del tablero del que listar las tarjetas |
+| `listId` | string | No | Opcional: filtrar tarjetas por ID de lista |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `cards` | array | Array de objetos de tarjeta con id, name, desc, url, ID de tablero/lista, etiquetas y fecha de vencimiento |
+| `count` | number | Número de tarjetas devueltas |
+
+</div>
+
+---
+
+### Crear tarjeta
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Trello"
+    type="trello"
+    color="#0052CC"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "trello_create_card",
+            "options": [
+                {
+                    "id": "trello_list_lists",
+                    "label": "Obtener listas"
+                },
+                {
+                    "id": "trello_list_cards",
+                    "label": "Listar tarjetas"
+                },
+                {
+                    "id": "trello_create_card",
+                    "label": "Crear tarjeta"
+                },
+                {
+                    "id": "trello_update_card",
+                    "label": "Actualizar tarjeta"
+                },
+                {
+                    "id": "trello_get_actions",
+                    "label": "Obtener acciones"
+                },
+                {
+                    "id": "trello_add_comment",
+                    "label": "Añadir comentario"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Trello",
+            "placeholder": "Seleccionar cuenta de Trello",
+            "provider": "trello",
+            "required": true
+        },
+        {
+            "id": "boardId",
+            "type": "short-input",
+            "title": "Tablero",
+            "placeholder": "Introducir ID del tablero o buscar un tablero",
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "Lista",
+            "placeholder": "Introducir ID de la lista o buscar una lista",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "Nombre de la tarjeta",
+            "placeholder": "Introducir nombre/título de la tarjeta",
+            "required": true
+        },
+        {
+            "id": "desc",
+            "type": "long-input",
+            "title": "Descripción",
+            "placeholder": "Introducir descripción de la tarjeta (opcional)"
+        },
+        {
+            "id": "pos",
+            "type": "dropdown",
+            "title": "Posición",
+            "options": [
+                {
+                    "id": "top",
+                    "label": "Arriba"
+                },
+                {
+                    "id": "bottom",
+                    "label": "Abajo"
+                }
+            ]
+        },
+        {
+            "id": "due",
+            "type": "datetime-input",
+            "title": "Fecha de vencimiento",
+            "placeholder": "YYYY-MM-DD o YYYY-MM-DDTHH:mm:ssZ"
+        },
+        {
+            "id": "labels",
+            "type": "short-input",
+            "title": "Etiquetas",
+            "placeholder": "ID de etiquetas separados por comas (opcional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear tarjeta (<code>trello_create_card</code>)</div>
+
+Crea una tarjeta nueva en un tablero de Trello
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `boardId` | string | Sí | ID del tablero donde crear la tarjeta |
+| `listId` | string | Sí | ID de la lista donde crear la tarjeta |
+| `name` | string | Sí | Nombre/título de la tarjeta |
+| `desc` | string | No | Descripción de la tarjeta |
+| `pos` | string | No | Posición de la tarjeta \(top, bottom o float positivo\) |
+| `due` | string | No | Fecha de vencimiento \(formato ISO 8601\) |
+| `labels` | string | No | Lista de IDs de etiquetas separados por comas |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `card` | object | El objeto de la tarjeta creada con id, name, desc, url y otras propiedades |
+
+</div>
+
+---
+
+### Actualizar tarjeta
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Trello"
+    type="trello"
+    color="#0052CC"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "trello_update_card",
+            "options": [
+                {
+                    "id": "trello_list_lists",
+                    "label": "Obtener listas"
+                },
+                {
+                    "id": "trello_list_cards",
+                    "label": "Listar tarjetas"
+                },
+                {
+                    "id": "trello_create_card",
+                    "label": "Crear tarjeta"
+                },
+                {
+                    "id": "trello_update_card",
+                    "label": "Actualizar tarjeta"
+                },
+                {
+                    "id": "trello_get_actions",
+                    "label": "Obtener acciones"
+                },
+                {
+                    "id": "trello_add_comment",
+                    "label": "Añadir comentario"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Trello",
+            "placeholder": "Seleccionar cuenta de Trello",
+            "provider": "trello",
+            "required": true
+        },
+        {
+            "id": "cardId",
+            "type": "short-input",
+            "title": "Tarjeta",
+            "placeholder": "Introduce el ID de la tarjeta o busca una tarjeta",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "Nuevo nombre de la tarjeta",
+            "placeholder": "Introduce el nuevo nombre de la tarjeta (déjalo vacío para mantener el actual)"
+        },
+        {
+            "id": "desc",
+            "type": "long-input",
+            "title": "Nueva descripción",
+            "placeholder": "Introduce la nueva descripción (déjala vacía para mantener la actual)"
+        },
+        {
+            "id": "closed",
+            "type": "switch",
+            "title": "Archivar tarjeta"
+        },
+        {
+            "id": "dueComplete",
+            "type": "switch",
+            "title": "Marcar fecha de vencimiento como completada"
+        },
+        {
+            "id": "idList",
+            "type": "short-input",
+            "title": "Mover a lista",
+            "placeholder": "Introduce el ID de la lista para mover la tarjeta"
+        },
+        {
+            "id": "due",
+            "type": "datetime-input",
+            "title": "Fecha de vencimiento",
+            "placeholder": "YYYY-MM-DD o YYYY-MM-DDTHH:mm:ssZ"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar tarjeta (<code>trello_update_card</code>)</div>
+
+Actualizar una tarjeta existente en Trello
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `cardId` | string | Sí | ID de la tarjeta a actualizar |
+| `name` | string | No | Nuevo nombre/título de la tarjeta |
+| `desc` | string | No | Nueva descripción de la tarjeta |
+| `closed` | boolean | No | Archivar/cerrar la tarjeta \(true\) o reabrirla \(false\) |
+| `idList` | string | No | Mover la tarjeta a otra lista |
+| `due` | string | No | Fecha de vencimiento \(formato ISO 8601\) |
+| `dueComplete` | boolean | No | Marcar la fecha de vencimiento como completada |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `card` | object | El objeto de la tarjeta actualizada con id, name, desc, url y otras propiedades |
+
+</div>
+
+---
+
+### Obtener acciones
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Trello"
+    type="trello"
+    color="#0052CC"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "trello_get_actions",
+            "options": [
+                {
+                    "id": "trello_list_lists",
+                    "label": "Obtener listas"
+                },
+                {
+                    "id": "trello_list_cards",
+                    "label": "Listar tarjetas"
+                },
+                {
+                    "id": "trello_create_card",
+                    "label": "Crear tarjeta"
+                },
+                {
+                    "id": "trello_update_card",
+                    "label": "Actualizar tarjeta"
+                },
+                {
+                    "id": "trello_get_actions",
+                    "label": "Obtener acciones"
+                },
+                {
+                    "id": "trello_add_comment",
+                    "label": "Añadir comentario"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Trello",
+            "placeholder": "Seleccionar cuenta de Trello",
+            "provider": "trello",
+            "required": true
+        },
+        {
+            "id": "boardId",
+            "type": "short-input",
+            "title": "ID del tablero",
+            "placeholder": "Introduce el ID del tablero para obtener las acciones del tablero"
+        },
+        {
+            "id": "cardId",
+            "type": "short-input",
+            "title": "ID de la tarjeta",
+            "placeholder": "Introduce el ID de la tarjeta para obtener las acciones de la tarjeta"
+        },
+        {
+            "id": "filter",
+            "type": "short-input",
+            "title": "Filtro de acciones",
+            "placeholder": "p. ej., commentCard,updateCard"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "50"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener acciones (<code>trello_get_actions</code>)</div>
+
+Obtener actividad/acciones de un tablero o una tarjeta
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `boardId` | string | No | ID del tablero del que obtener las acciones \(se requiere boardId o cardId\) |
+| `cardId` | string | No | ID de la tarjeta de la que obtener las acciones \(se requiere boardId o cardId\) |
+| `filter` | string | No | Filtrar acciones por tipo \(p. ej., "commentCard,updateCard,createCard" o "all"\) |
+| `limit` | number | No | Número máximo de acciones que devolver \(predeterminado: 50, máx.: 1000\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `actions` | array | Array de objetos de acción con type, date, member y data |
+| `count` | number | Número de acciones devueltas |
+
+</div>
+
+---
+
+### Añadir comentario
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Trello"
+    type="trello"
+    color="#0052CC"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "trello_add_comment",
+            "options": [
+                {
+                    "id": "trello_list_lists",
+                    "label": "Obtener listas"
+                },
+                {
+                    "id": "trello_list_cards",
+                    "label": "Listar tarjetas"
+                },
+                {
+                    "id": "trello_create_card",
+                    "label": "Crear tarjeta"
+                },
+                {
+                    "id": "trello_update_card",
+                    "label": "Actualizar tarjeta"
+                },
+                {
+                    "id": "trello_get_actions",
+                    "label": "Obtener acciones"
+                },
+                {
+                    "id": "trello_add_comment",
+                    "label": "Añadir comentario"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Trello",
+            "placeholder": "Seleccionar cuenta de Trello",
+            "provider": "trello",
+            "required": true
+        },
+        {
+            "id": "cardId",
+            "type": "short-input",
+            "title": "Tarjeta",
+            "placeholder": "Introducir ID de tarjeta o buscar una tarjeta",
+            "required": true
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Comentario",
+            "placeholder": "Introducir el comentario",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Añadir comentario (<code>trello_add_comment</code>)</div>
+
+Añadir un comentario a una tarjeta de Trello
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `cardId` | string | Sí | ID de la tarjeta en la que comentar |
+| `text` | string | Sí | Texto del comentario |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `comment` | object | El objeto del comentario creado, con id, text, date y member creator |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra con Trello para gestionar tableros y tarjetas. Lista tableros, lista tarjetas, crea tarjetas, actualiza tarjetas, obtén acciones y añade comentarios.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `trello`

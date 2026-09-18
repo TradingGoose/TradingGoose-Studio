@@ -6,7 +6,7 @@ import { Callout } from 'fumadocs-ui/components/callout'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
 
-Variables in TradingGoose act as a global store for data that can be accessed and modified by any block in your workflow, allowing you to store and share data across your workflow with global variables. They provide a powerful way to share information between different parts of your workflow, maintain state, and create more dynamic applications.
+Workflow variables hold shared data during one execution. Define their initial values in the workflow's Variables panel, read them from blocks with `<variable.name>`, and update them using a [Variables block](/blocks/variables). Runtime assignments do not persist between runs.
 
 <Callout type="info">
   Variables allow you to store and share data across your entire workflow, making it easy to
@@ -36,11 +36,11 @@ The Variables feature serves as a central data store for your workflow, enabling
 
 ## Creating Variables
 
-You can create and manage variables from the Variables panel in the sidebar. Each variable has:
+Create and manage variables in the workflow's Variables panel or the [Workflow Variables widget](/widgets/workflow-variables). Each variable has:
 
 - **Name**: A unique identifier used to reference the variable
-- **Value**: The data stored in the variable (supports various data types)
-- **Description** (optional): A note explaining the variable's purpose
+- **Type**: `plain` (plain text), `number`, `boolean`, `object`, `array`, or `listingIdentity`
+- **Initial value**: The saved value used to initialize each run; new variables default to empty `plain` text
 
 ## Accessing Variables
 
@@ -103,8 +103,8 @@ Variables in TradingGoose can store various types of data:
 When you access a variable from a block, you can:
 
 - **Read its value**: Use the variable's current value in your block's logic
-- **Modify it**: Update the variable's value based on your block's processing
-- **Use it in expressions**: Include variables in expressions and calculations
+- **Modify it**: Assign a new value using a Variables block
+- **Use it in expressions**: Calculate in Function code or a condition expression; Variables value fields do not evaluate arithmetic
 
 ## Variable Scope
 
@@ -112,13 +112,15 @@ Variables in TradingGoose have global scope, meaning:
 
 - They are accessible from any block in your workflow
 - Changes to variables persist throughout workflow execution
-- Variables maintain their values between runs, unless explicitly reset
+- Every new run loads saved initial values from its live or deployed workflow state; runtime assignments from previous runs are not saved
+
+Parallel instances share these variables, so concurrent writes can overwrite one another. Use per-instance block outputs and aggregate the container's results when isolation matters. For state that must survive separate runs, use persistent storage.
 
 ## Best Practices
 
 - **Use Descriptive Names**: Choose variable names that clearly indicate what the variable represents. For example, use `userPreferences` instead of `up`.
-- **Document Your Variables**: Add descriptions to your variables to help other team members understand their purpose and usage.
-- **Consider Variable Scope**: Remember that variables are global and can be modified by any block. Design your workflow with this in mind to prevent unexpected behavior.
+- **Document Your Variables**: Explain their purpose in workflow notes; the variable editor has no separate description field.
+- **Consider Variable Scope**: Variables are shared during the run. Connect blocks to enforce ordering where a read depends on an earlier assignment.
 - **Initialize Variables Early**: Set up and initialize your variables at the beginning of your workflow to ensure they're available when needed.
 - **Handle Missing Variables**: Always consider the case where a variable might not yet exist or might have an unexpected value. Add appropriate validation in your blocks.
 - **Limit Variable Count**: Keep the number of variables manageable. Too many variables can make your workflow difficult to understand and maintain.

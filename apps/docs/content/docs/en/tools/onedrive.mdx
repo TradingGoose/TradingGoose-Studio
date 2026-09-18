@@ -10,7 +10,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <BlockInfoCard
   type="onedrive"
-  color=""
+  color="#28A8EA"
 />
 
 
@@ -22,7 +22,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="OneDrive"
     type="onedrive"
-    color=""
+    color="#28A8EA"
     hideHeader
     subBlocks={[
         {
@@ -32,20 +32,20 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "layout": "full",
             "options": [
                 {
-                    "label": "Create Folder",
-                    "id": "create_folder"
+                    "id": "create_folder",
+                    "label": "Create Folder"
                 },
                 {
-                    "label": "Create File",
-                    "id": "create_file"
+                    "id": "create_file",
+                    "label": "Create File"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "upload"
+                    "id": "upload",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "List Files",
-                    "id": "list"
+                    "id": "list",
+                    "label": "List Files"
                 }
             ],
             "defaultValue": "create_folder"
@@ -94,14 +94,14 @@ Create a new folder in OneDrive
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `folderName` | string | Yes | Name of the folder to create |
-| `folderSelector` | string | No | Select the parent folder to create the folder in |
-| `manualFolderId` | string | No | Manually entered parent folder ID \(advanced mode\) |
+| `folderId` | string | No | Parent folder ID to create the folder in |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `success` | boolean | Whether the folder was created successfully |
+| `file` | object | The created folder object with metadata including id, name, webViewLink, and timestamps |
 
 </div>
 
@@ -115,7 +115,7 @@ Create a new folder in OneDrive
   <BlockConfigPreview
     name="OneDrive"
     type="onedrive"
-    color=""
+    color="#28A8EA"
     hideHeader
     subBlocks={[
         {
@@ -125,20 +125,20 @@ Create a new folder in OneDrive
             "layout": "full",
             "options": [
                 {
-                    "label": "Create Folder",
-                    "id": "create_folder"
+                    "id": "create_folder",
+                    "label": "Create Folder"
                 },
                 {
-                    "label": "Create File",
-                    "id": "create_file"
+                    "id": "create_file",
+                    "label": "Create File"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "upload"
+                    "id": "upload",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "List Files",
-                    "id": "list"
+                    "id": "list",
+                    "label": "List Files"
                 }
             ],
             "defaultValue": "create_file"
@@ -168,12 +168,12 @@ Create a new folder in OneDrive
             "required": true,
             "options": [
                 {
-                    "label": "Text File (.txt)",
-                    "id": "text/plain"
+                    "id": "text/plain",
+                    "label": "Text File (.txt)"
                 },
                 {
-                    "label": "Excel File (.xlsx)",
-                    "id": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "id": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "label": "Excel File (.xlsx)"
                 }
             ]
         },
@@ -182,7 +182,8 @@ Create a new folder in OneDrive
             "type": "long-input",
             "title": "Values",
             "layout": "full",
-            "placeholder": "Enter values as JSON array of arrays (e.g., [[\"A1\",\"B1\"],[\"A2\",\"B2\"]]) or an array of objects"
+            "placeholder": "Enter values as JSON array of arrays (e.g., [[\"A1\",\"B1\"],[\"A2\",\"B2\"]]) or an array of objects",
+            "description": "Shown when mimeType is 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'."
         },
         {
             "id": "content",
@@ -190,7 +191,7 @@ Create a new folder in OneDrive
             "title": "Text Content",
             "layout": "full",
             "placeholder": "Text content for the file",
-            "required": true
+            "description": "Shown when mimeType is 'text/plain'."
         },
         {
             "id": "folderSelector",
@@ -212,12 +213,26 @@ Create a new folder in OneDrive
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Create File (<code>onedrive_upload</code>)</div>
+
+Upload a file to OneDrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `fileName` | string | Yes | The name of the file to upload |
+| `file` | file | No | The file to upload \(binary\) |
+| `content` | string | No | The text content to upload \(if no file is provided\) |
+| `mimeType` | string | No | The MIME type of the file to create \(e.g., text/plain for .txt, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet for .xlsx\) |
+| `folderId` | string | No | Folder ID to upload the file to |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `file` | json | The OneDrive file object, including details such as id, name, size, and more. |
-| `files` | json | An array of OneDrive file objects, each containing details such as id, name, size, and more. |
+| `success` | boolean | Whether the file was uploaded successfully |
+| `file` | object | The uploaded file object with metadata including id, name, webViewLink, webContentLink, and timestamps |
 
 </div>
 
@@ -231,7 +246,7 @@ Create a new folder in OneDrive
   <BlockConfigPreview
     name="OneDrive"
     type="onedrive"
-    color=""
+    color="#28A8EA"
     hideHeader
     subBlocks={[
         {
@@ -241,20 +256,20 @@ Create a new folder in OneDrive
             "layout": "full",
             "options": [
                 {
-                    "label": "Create Folder",
-                    "id": "create_folder"
+                    "id": "create_folder",
+                    "label": "Create Folder"
                 },
                 {
-                    "label": "Create File",
-                    "id": "create_file"
+                    "id": "create_file",
+                    "label": "Create File"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "upload"
+                    "id": "upload",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "List Files",
-                    "id": "list"
+                    "id": "list",
+                    "label": "List Files"
                 }
             ],
             "defaultValue": "upload"
@@ -280,14 +295,16 @@ Create a new folder in OneDrive
             "type": "file-upload",
             "title": "File",
             "layout": "full",
-            "placeholder": "Upload a file"
+            "placeholder": "Upload a file",
+            "required": false
         },
         {
             "id": "fileReference",
             "type": "short-input",
             "title": "File",
             "layout": "full",
-            "placeholder": "Reference file from previous block (e.g., {{block_1.file}})"
+            "placeholder": "Reference file from previous block (e.g., {{block_1.file}})",
+            "required": false
         },
         {
             "id": "folderSelector",
@@ -321,14 +338,14 @@ Upload a file to OneDrive
 | `file` | file | No | The file to upload \(binary\) |
 | `content` | string | No | The text content to upload \(if no file is provided\) |
 | `mimeType` | string | No | The MIME type of the file to create \(e.g., text/plain for .txt, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet for .xlsx\) |
-| `folderSelector` | string | No | Select the folder to upload the file to |
-| `manualFolderId` | string | No | Manually entered folder ID \(advanced mode\) |
+| `folderId` | string | No | Folder ID to upload the file to |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `success` | boolean | Whether the file was uploaded successfully |
+| `file` | object | The uploaded file object with metadata including id, name, webViewLink, webContentLink, and timestamps |
 
 </div>
 
@@ -342,7 +359,7 @@ Upload a file to OneDrive
   <BlockConfigPreview
     name="OneDrive"
     type="onedrive"
-    color=""
+    color="#28A8EA"
     hideHeader
     subBlocks={[
         {
@@ -352,20 +369,20 @@ Upload a file to OneDrive
             "layout": "full",
             "options": [
                 {
-                    "label": "Create Folder",
-                    "id": "create_folder"
+                    "id": "create_folder",
+                    "label": "Create Folder"
                 },
                 {
-                    "label": "Create File",
-                    "id": "create_file"
+                    "id": "create_file",
+                    "label": "Create File"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "upload"
+                    "id": "upload",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "List Files",
-                    "id": "list"
+                    "id": "list",
+                    "label": "List Files"
                 }
             ],
             "defaultValue": "list"
@@ -405,8 +422,7 @@ Upload a file to OneDrive
             "type": "short-input",
             "title": "Results Per Page",
             "layout": "full",
-            "placeholder": "Number of results (default: 100, max: 1000)",
-            "max": 1000
+            "placeholder": "Number of results (default: 100, max: 1000)"
         }
     ]}
   />
@@ -421,8 +437,7 @@ List files and folders in OneDrive
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `folderSelector` | string | No | Select the folder to list files from |
-| `manualFolderId` | string | No | The manually entered folder ID \(advanced mode\) |
+| `folderId` | string | No | The folder ID to list files from |
 | `query` | string | No | A query to filter the files |
 | `pageSize` | number | No | The number of files to return |
 
@@ -432,6 +447,7 @@ List files and folders in OneDrive
 | --------- | ---- | ----------- |
 | `success` | boolean | Whether files were listed successfully |
 | `files` | array | Array of file and folder objects with metadata |
+| `nextPageToken` | string | Token for retrieving the next page of results \(optional\) |
 
 </div>
 

@@ -29,29 +29,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "query",
             "options": [
                 {
-                    "label": "Query (SELECT)",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Query (SELECT)"
                 },
                 {
-                    "label": "Insert Data",
-                    "id": "insert"
+                    "id": "insert",
+                    "label": "Insert Data"
                 },
                 {
-                    "label": "Update Data",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Data"
                 },
                 {
-                    "label": "Delete Data",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Data"
                 },
                 {
-                    "label": "Execute Raw SQL",
-                    "id": "execute"
+                    "id": "execute",
+                    "label": "Execute Raw SQL"
                 }
-            ],
-            "defaultValue": "query"
+            ]
         },
         {
             "id": "region",
@@ -94,7 +94,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "database",
             "type": "short-input",
             "title": "Database Name",
-            "placeholder": "your_database"
+            "placeholder": "your_database",
+            "required": false
         },
         {
             "id": "query",
@@ -131,6 +132,7 @@ Execute a SELECT query on Amazon RDS using the Data API
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
 | `rows` | array | Array of rows returned from the query |
+| `rowCount` | number | Number of rows returned |
 
 </div>
 
@@ -151,29 +153,29 @@ Execute a SELECT query on Amazon RDS using the Data API
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "insert",
             "options": [
                 {
-                    "label": "Query (SELECT)",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Query (SELECT)"
                 },
                 {
-                    "label": "Insert Data",
-                    "id": "insert"
+                    "id": "insert",
+                    "label": "Insert Data"
                 },
                 {
-                    "label": "Update Data",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Data"
                 },
                 {
-                    "label": "Delete Data",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Data"
                 },
                 {
-                    "label": "Execute Raw SQL",
-                    "id": "execute"
+                    "id": "execute",
+                    "label": "Execute Raw SQL"
                 }
-            ],
-            "defaultValue": "insert"
+            ]
         },
         {
             "id": "region",
@@ -216,7 +218,8 @@ Execute a SELECT query on Amazon RDS using the Data API
             "id": "database",
             "type": "short-input",
             "title": "Database Name",
-            "placeholder": "your_database"
+            "placeholder": "your_database",
+            "required": false
         },
         {
             "id": "table",
@@ -229,7 +232,7 @@ Execute a SELECT query on Amazon RDS using the Data API
             "id": "data",
             "type": "code",
             "title": "Data (JSON)",
-            "placeholder": "{\\n  \"name\": \"John Doe\",\\n  \"email\": \"john@example.com\",\\n  \"active\": true\\n}",
+            "placeholder": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"active\": true\n}",
             "language": "json",
             "required": true
         }
@@ -261,6 +264,7 @@ Insert data into an Amazon RDS table using the Data API
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
 | `rows` | array | Array of inserted rows |
+| `rowCount` | number | Number of rows inserted |
 
 </div>
 
@@ -281,29 +285,29 @@ Insert data into an Amazon RDS table using the Data API
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "update",
             "options": [
                 {
-                    "label": "Query (SELECT)",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Query (SELECT)"
                 },
                 {
-                    "label": "Insert Data",
-                    "id": "insert"
+                    "id": "insert",
+                    "label": "Insert Data"
                 },
                 {
-                    "label": "Update Data",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Data"
                 },
                 {
-                    "label": "Delete Data",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Data"
                 },
                 {
-                    "label": "Execute Raw SQL",
-                    "id": "execute"
+                    "id": "execute",
+                    "label": "Execute Raw SQL"
                 }
-            ],
-            "defaultValue": "update"
+            ]
         },
         {
             "id": "region",
@@ -346,7 +350,8 @@ Insert data into an Amazon RDS table using the Data API
             "id": "database",
             "type": "short-input",
             "title": "Database Name",
-            "placeholder": "your_database"
+            "placeholder": "your_database",
+            "required": false
         },
         {
             "id": "table",
@@ -359,7 +364,7 @@ Insert data into an Amazon RDS table using the Data API
             "id": "data",
             "type": "code",
             "title": "Update Data (JSON)",
-            "placeholder": "{\\n  \"name\": \"Jane Doe\",\\n  \"email\": \"jane@example.com\"\\n}",
+            "placeholder": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\"\n}",
             "language": "json",
             "required": true
         },
@@ -367,7 +372,7 @@ Insert data into an Amazon RDS table using the Data API
             "id": "conditions",
             "type": "code",
             "title": "Conditions (JSON)",
-            "placeholder": "{\\n  \"id\": 1\\n}",
+            "placeholder": "{\n  \"id\": 1\n}",
             "language": "json",
             "required": true
         }
@@ -400,6 +405,7 @@ Update data in an Amazon RDS table using the Data API
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
 | `rows` | array | Array of updated rows |
+| `rowCount` | number | Number of rows updated |
 
 </div>
 
@@ -420,29 +426,29 @@ Update data in an Amazon RDS table using the Data API
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "delete",
             "options": [
                 {
-                    "label": "Query (SELECT)",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Query (SELECT)"
                 },
                 {
-                    "label": "Insert Data",
-                    "id": "insert"
+                    "id": "insert",
+                    "label": "Insert Data"
                 },
                 {
-                    "label": "Update Data",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Data"
                 },
                 {
-                    "label": "Delete Data",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Data"
                 },
                 {
-                    "label": "Execute Raw SQL",
-                    "id": "execute"
+                    "id": "execute",
+                    "label": "Execute Raw SQL"
                 }
-            ],
-            "defaultValue": "delete"
+            ]
         },
         {
             "id": "region",
@@ -485,7 +491,8 @@ Update data in an Amazon RDS table using the Data API
             "id": "database",
             "type": "short-input",
             "title": "Database Name",
-            "placeholder": "your_database"
+            "placeholder": "your_database",
+            "required": false
         },
         {
             "id": "table",
@@ -498,7 +505,7 @@ Update data in an Amazon RDS table using the Data API
             "id": "conditions",
             "type": "code",
             "title": "Conditions (JSON)",
-            "placeholder": "{\\n  \"id\": 1\\n}",
+            "placeholder": "{\n  \"id\": 1\n}",
             "language": "json",
             "required": true
         }
@@ -530,6 +537,7 @@ Delete data from an Amazon RDS table using the Data API
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
 | `rows` | array | Array of deleted rows |
+| `rowCount` | number | Number of rows deleted |
 
 </div>
 
@@ -550,29 +558,29 @@ Delete data from an Amazon RDS table using the Data API
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "execute",
             "options": [
                 {
-                    "label": "Query (SELECT)",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Query (SELECT)"
                 },
                 {
-                    "label": "Insert Data",
-                    "id": "insert"
+                    "id": "insert",
+                    "label": "Insert Data"
                 },
                 {
-                    "label": "Update Data",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Data"
                 },
                 {
-                    "label": "Delete Data",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Data"
                 },
                 {
-                    "label": "Execute Raw SQL",
-                    "id": "execute"
+                    "id": "execute",
+                    "label": "Execute Raw SQL"
                 }
-            ],
-            "defaultValue": "execute"
+            ]
         },
         {
             "id": "region",
@@ -615,7 +623,8 @@ Delete data from an Amazon RDS table using the Data API
             "id": "database",
             "type": "short-input",
             "title": "Database Name",
-            "placeholder": "your_database"
+            "placeholder": "your_database",
+            "required": false
         },
         {
             "id": "query",
@@ -652,6 +661,7 @@ Execute raw SQL on Amazon RDS using the Data API
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
 | `rows` | array | Array of rows returned or affected |
+| `rowCount` | number | Number of rows affected |
 
 </div>
 

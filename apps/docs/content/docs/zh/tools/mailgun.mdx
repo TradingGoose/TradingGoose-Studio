@@ -1,0 +1,955 @@
+---
+title: Mailgun
+description: 使用 Mailgun 发送邮件并管理邮件列表
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="mailgun"
+  color="#E0E0E0"
+/>
+
+## 配置
+
+### 发送消息
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailgun"
+    type="mailgun"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "send_message",
+            "options": [
+                {
+                    "id": "send_message",
+                    "label": "发送消息"
+                },
+                {
+                    "id": "get_message",
+                    "label": "获取消息"
+                },
+                {
+                    "id": "list_messages",
+                    "label": "列出消息"
+                },
+                {
+                    "id": "create_mailing_list",
+                    "label": "创建邮件列表"
+                },
+                {
+                    "id": "get_mailing_list",
+                    "label": "获取邮件列表"
+                },
+                {
+                    "id": "add_list_member",
+                    "label": "添加列表成员"
+                },
+                {
+                    "id": "list_domains",
+                    "label": "列出域名"
+                },
+                {
+                    "id": "get_domain",
+                    "label": "获取域名"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Mailgun API 密钥",
+            "placeholder": "输入 Mailgun API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "mg.example.com",
+            "required": true
+        },
+        {
+            "id": "from",
+            "type": "short-input",
+            "title": "发件人邮箱",
+            "placeholder": "sender@example.com",
+            "required": true
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "收件人邮箱",
+            "placeholder": "recipient@example.com",
+            "required": true
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "主题",
+            "placeholder": "邮件主题",
+            "required": true
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "纯文本正文",
+            "placeholder": "纯文本邮件正文"
+        },
+        {
+            "id": "html",
+            "type": "code",
+            "title": "HTML 正文",
+            "placeholder": "<html><body>HTML 邮件正文</body></html>",
+            "language": "html"
+        },
+        {
+            "id": "cc",
+            "type": "short-input",
+            "title": "抄送",
+            "placeholder": "cc@example.com"
+        },
+        {
+            "id": "bcc",
+            "type": "short-input",
+            "title": "密送",
+            "placeholder": "bcc@example.com"
+        },
+        {
+            "id": "tags",
+            "type": "short-input",
+            "title": "标签",
+            "placeholder": "tag1, tag2"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">发送消息（<code>mailgun_send_message</code>）</div>
+
+使用 Mailgun API 发送邮件
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Mailgun API 密钥 |
+| `domain` | string | 是 | Mailgun 域名（例如 mg.example.com） |
+| `from` | string | 是 | 发件人邮箱地址 |
+| `to` | string | 是 | 收件人邮箱地址（多个地址用逗号分隔） |
+| `subject` | string | 是 | 邮件主题 |
+| `text` | string | 否 | 邮件纯文本正文 |
+| `html` | string | 否 | 邮件 HTML 正文 |
+| `cc` | string | 否 | 抄送邮箱地址（多个地址用逗号分隔） |
+| `bcc` | string | 否 | 密送邮箱地址（多个地址用逗号分隔） |
+| `tags` | string | 否 | 邮件标签（多个标签用逗号分隔） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 消息是否发送成功 |
+| `id` | string | 消息 ID |
+| `message` | string | Mailgun 返回的响应消息 |
+
+</div>
+
+---
+
+### 获取消息
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailgun"
+    type="mailgun"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_message",
+            "options": [
+                {
+                    "id": "send_message",
+                    "label": "发送消息"
+                },
+                {
+                    "id": "get_message",
+                    "label": "获取消息"
+                },
+                {
+                    "id": "list_messages",
+                    "label": "列出消息"
+                },
+                {
+                    "id": "create_mailing_list",
+                    "label": "创建邮件列表"
+                },
+                {
+                    "id": "get_mailing_list",
+                    "label": "获取邮件列表"
+                },
+                {
+                    "id": "add_list_member",
+                    "label": "添加列表成员"
+                },
+                {
+                    "id": "list_domains",
+                    "label": "列出域名"
+                },
+                {
+                    "id": "get_domain",
+                    "label": "获取域名"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Mailgun API 密钥",
+            "placeholder": "输入 Mailgun API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "mg.example.com",
+            "required": true
+        },
+        {
+            "id": "messageKey",
+            "type": "short-input",
+            "title": "消息密钥",
+            "placeholder": "消息存储密钥",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取消息 (<code>mailgun_get_message</code>)</div>
+
+根据存储键获取已存储的消息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Mailgun API 密钥 |
+| `domain` | string | 是 | Mailgun 域名 |
+| `messageKey` | string | 是 | 消息存储键 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 请求是否成功 |
+| `recipients` | string | 消息收件人 |
+| `from` | string | 发件人邮箱 |
+| `subject` | string | 消息主题 |
+| `bodyPlain` | string | 纯文本正文 |
+| `strippedText` | string | 剥离文本 |
+| `strippedSignature` | string | 剥离签名 |
+| `bodyHtml` | string | HTML 正文 |
+| `strippedHtml` | string | 剥离 HTML |
+| `attachmentCount` | number | 附件数量 |
+| `timestamp` | number | 消息时间戳 |
+| `messageHeaders` | json | 消息头 |
+| `contentIdMap` | json | 内容 ID 映射 |
+
+</div>
+
+---
+
+### 列出消息
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailgun"
+    type="mailgun"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "list_messages",
+            "options": [
+                {
+                    "id": "send_message",
+                    "label": "发送消息"
+                },
+                {
+                    "id": "get_message",
+                    "label": "获取消息"
+                },
+                {
+                    "id": "list_messages",
+                    "label": "列出消息"
+                },
+                {
+                    "id": "create_mailing_list",
+                    "label": "创建邮件列表"
+                },
+                {
+                    "id": "get_mailing_list",
+                    "label": "获取邮件列表"
+                },
+                {
+                    "id": "add_list_member",
+                    "label": "添加列表成员"
+                },
+                {
+                    "id": "list_domains",
+                    "label": "列出域名"
+                },
+                {
+                    "id": "get_domain",
+                    "label": "获取域名"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Mailgun API 密钥",
+            "placeholder": "输入你的 Mailgun API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "mg.example.com",
+            "required": true
+        },
+        {
+            "id": "event",
+            "type": "dropdown",
+            "title": "事件类型",
+            "defaultValue": "",
+            "options": [
+                {
+                    "id": "",
+                    "label": "全部事件"
+                },
+                {
+                    "id": "accepted",
+                    "label": "已接受"
+                },
+                {
+                    "id": "delivered",
+                    "label": "已送达"
+                },
+                {
+                    "id": "failed",
+                    "label": "失败"
+                },
+                {
+                    "id": "opened",
+                    "label": "已打开"
+                },
+                {
+                    "id": "clicked",
+                    "label": "已点击"
+                },
+                {
+                    "id": "unsubscribed",
+                    "label": "已退订"
+                },
+                {
+                    "id": "complained",
+                    "label": "已投诉"
+                },
+                {
+                    "id": "stored",
+                    "label": "已存储"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "100"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出消息（<code>mailgun_list_messages</code>）</div>
+
+列出通过 Mailgun 发送的消息的事件（日志）
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Mailgun API 密钥 |
+| `domain` | string | 是 | Mailgun 域名 |
+| `event` | string | 否 | 按事件类型筛选（accepted、delivered、failed、opened、clicked 等） |
+| `limit` | number | 否 | 返回的最大事件数（默认：100） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 请求是否成功 |
+| `items` | json | 事件项数组 |
+| `paging` | json | 分页信息 |
+
+</div>
+
+---
+
+### 创建邮件列表
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailgun"
+    type="mailgun"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "create_mailing_list",
+            "options": [
+                {
+                    "id": "send_message",
+                    "label": "发送消息"
+                },
+                {
+                    "id": "get_message",
+                    "label": "获取消息"
+                },
+                {
+                    "id": "list_messages",
+                    "label": "列出消息"
+                },
+                {
+                    "id": "create_mailing_list",
+                    "label": "创建邮件列表"
+                },
+                {
+                    "id": "get_mailing_list",
+                    "label": "获取邮件列表"
+                },
+                {
+                    "id": "add_list_member",
+                    "label": "添加列表成员"
+                },
+                {
+                    "id": "list_domains",
+                    "label": "列出域名"
+                },
+                {
+                    "id": "get_domain",
+                    "label": "获取域名"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Mailgun API 密钥",
+            "placeholder": "输入你的 Mailgun API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "address",
+            "type": "short-input",
+            "title": "列表地址",
+            "placeholder": "list@example.com",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "列表名称",
+            "placeholder": "我的邮件列表"
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "描述",
+            "placeholder": "邮件列表的描述"
+        },
+        {
+            "id": "accessLevel",
+            "type": "dropdown",
+            "title": "访问级别",
+            "defaultValue": "readonly",
+            "options": [
+                {
+                    "id": "readonly",
+                    "label": "只读"
+                },
+                {
+                    "id": "members",
+                    "label": "成员"
+                },
+                {
+                    "id": "everyone",
+                    "label": "所有人"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建邮件列表（<code>mailgun_create_mailing_list</code>）</div>
+
+创建新的邮件列表
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Mailgun API 密钥 |
+| `address` | string | 是 | 邮件列表地址（例如 list@example.com） |
+| `name` | string | 否 | 邮件列表名称 |
+| `description` | string | 否 | 邮件列表描述 |
+| `accessLevel` | string | 否 | 访问级别：readonly、members 或 everyone |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 列表是否创建成功 |
+| `message` | string | 响应消息 |
+| `list` | json | 已创建的邮件列表详情 |
+
+</div>
+
+---
+
+### 获取邮件列表
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailgun"
+    type="mailgun"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_mailing_list",
+            "options": [
+                {
+                    "id": "send_message",
+                    "label": "发送消息"
+                },
+                {
+                    "id": "get_message",
+                    "label": "获取消息"
+                },
+                {
+                    "id": "list_messages",
+                    "label": "列出消息"
+                },
+                {
+                    "id": "create_mailing_list",
+                    "label": "创建邮件列表"
+                },
+                {
+                    "id": "get_mailing_list",
+                    "label": "获取邮件列表"
+                },
+                {
+                    "id": "add_list_member",
+                    "label": "添加列表成员"
+                },
+                {
+                    "id": "list_domains",
+                    "label": "列出域名"
+                },
+                {
+                    "id": "get_domain",
+                    "label": "获取域名"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Mailgun API 密钥",
+            "placeholder": "输入你的 Mailgun API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "address",
+            "type": "short-input",
+            "title": "列表地址",
+            "placeholder": "list@example.com",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取邮件列表 (<code>mailgun_get_mailing_list</code>)</div>
+
+获取邮件列表的详细信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Mailgun API 密钥 |
+| `address` | string | 是 | 邮件列表地址 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 请求是否成功 |
+| `list` | json | 邮件列表详情 |
+
+</div>
+
+---
+
+### 添加列表成员
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailgun"
+    type="mailgun"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "add_list_member",
+            "options": [
+                {
+                    "id": "send_message",
+                    "label": "发送消息"
+                },
+                {
+                    "id": "get_message",
+                    "label": "获取消息"
+                },
+                {
+                    "id": "list_messages",
+                    "label": "列出消息"
+                },
+                {
+                    "id": "create_mailing_list",
+                    "label": "创建邮件列表"
+                },
+                {
+                    "id": "get_mailing_list",
+                    "label": "获取邮件列表"
+                },
+                {
+                    "id": "add_list_member",
+                    "label": "添加列表成员"
+                },
+                {
+                    "id": "list_domains",
+                    "label": "列出域名"
+                },
+                {
+                    "id": "get_domain",
+                    "label": "获取域名"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Mailgun API 密钥",
+            "placeholder": "输入你的 Mailgun API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "address",
+            "type": "short-input",
+            "title": "列表地址",
+            "placeholder": "list@example.com",
+            "required": true
+        },
+        {
+            "id": "memberAddress",
+            "type": "short-input",
+            "title": "成员邮箱",
+            "placeholder": "member@example.com",
+            "required": true
+        },
+        {
+            "id": "memberName",
+            "type": "short-input",
+            "title": "成员姓名",
+            "placeholder": "John Doe"
+        },
+        {
+            "id": "vars",
+            "type": "code",
+            "title": "自定义变量",
+            "placeholder": "{\"key\": \"value\"}",
+            "language": "json"
+        },
+        {
+            "id": "subscribed",
+            "type": "dropdown",
+            "title": "已订阅",
+            "defaultValue": "true",
+            "options": [
+                {
+                    "id": "true",
+                    "label": "是"
+                },
+                {
+                    "id": "false",
+                    "label": "否"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">添加列表成员 (<code>mailgun_add_list_member</code>)</div>
+
+向邮件列表添加成员
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Mailgun API 密钥 |
+| `listAddress` | string | 是 | 邮件列表地址 |
+| `address` | string | 是 | 成员邮箱地址 |
+| `name` | string | 否 | 成员姓名 |
+| `vars` | string | 否 | 自定义变量的 JSON 字符串 |
+| `subscribed` | boolean | 否 | 该成员是否已订阅 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 成员是否添加成功 |
+| `message` | string | 响应消息 |
+| `member` | json | 已添加成员的详情 |
+
+</div>
+
+---
+
+### 列出域名
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailgun"
+    type="mailgun"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "list_domains",
+            "options": [
+                {
+                    "id": "send_message",
+                    "label": "发送消息"
+                },
+                {
+                    "id": "get_message",
+                    "label": "获取消息"
+                },
+                {
+                    "id": "list_messages",
+                    "label": "列出消息"
+                },
+                {
+                    "id": "create_mailing_list",
+                    "label": "创建邮件列表"
+                },
+                {
+                    "id": "get_mailing_list",
+                    "label": "获取邮件列表"
+                },
+                {
+                    "id": "add_list_member",
+                    "label": "添加列表成员"
+                },
+                {
+                    "id": "list_domains",
+                    "label": "列出域名"
+                },
+                {
+                    "id": "get_domain",
+                    "label": "获取域名"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Mailgun API 密钥",
+            "placeholder": "输入你的 Mailgun API 密钥",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出域名 (<code>mailgun_list_domains</code>)</div>
+
+列出 Mailgun 账户中的所有域名
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Mailgun API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 请求是否成功 |
+| `totalCount` | number | 域名总数 |
+| `items` | json | 域名对象数组 |
+
+</div>
+
+---
+
+### 获取域名
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailgun"
+    type="mailgun"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_domain",
+            "options": [
+                {
+                    "id": "send_message",
+                    "label": "发送消息"
+                },
+                {
+                    "id": "get_message",
+                    "label": "获取消息"
+                },
+                {
+                    "id": "list_messages",
+                    "label": "列出消息"
+                },
+                {
+                    "id": "create_mailing_list",
+                    "label": "创建邮件列表"
+                },
+                {
+                    "id": "get_mailing_list",
+                    "label": "获取邮件列表"
+                },
+                {
+                    "id": "add_list_member",
+                    "label": "添加列表成员"
+                },
+                {
+                    "id": "list_domains",
+                    "label": "列出域名"
+                },
+                {
+                    "id": "get_domain",
+                    "label": "获取域名"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Mailgun API 密钥",
+            "placeholder": "输入 Mailgun API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "mg.example.com",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取域名 (<code>mailgun_get_domain</code>)</div>
+
+获取指定域名的详细信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Mailgun API 密钥 |
+| `domain` | string | 是 | 域名 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 请求是否成功 |
+| `domain` | json | 域名详情 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Mailgun 集成到工作流中。发送事务性邮件，管理邮件列表和成员，查看域名信息，并跟踪邮件事件。支持纯文本和 HTML 邮件、用于跟踪的标签，以及完整的列表管理。
+
+## 说明
+
+- 类别：`tools`
+- 类型：`mailgun`

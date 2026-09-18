@@ -1,0 +1,156 @@
+---
+title: Copilot MCP
+description: Conecta tu agente de programación a las herramientas de Copilot de
+  TradingGoose. Instala, autentícate y trabaja con tu espacio de trabajo de
+  Studio a través de MCP.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+Copilot MCP permite que tu agente de programación use las herramientas de Copilot del lado del servidor de TradingGoose para leer y editar tu espacio de trabajo. Tu agente aporta la conversación y el modelo; TradingGoose aporta las herramientas para flujos de trabajo, paneles, listas de seguimiento, indicadores, bases de conocimiento y otras entidades del espacio de trabajo.
+
+El instalador es compatible con **Claude Code, Cursor, OpenCode, Codex, Antigravity y Gemini CLI**. Otros clientes pueden conectarse a través de Streamable HTTP usando la [configuración manual](#manual-configuration) que se indica a continuación.
+
+<Callout type="warn">
+  Las mutaciones de MCP se aplican directamente con los permisos de tu cuenta. El modo Limitado del Copilot integrado y los avisos de aprobación de Studio no se aplican a las llamadas externas de MCP. Configura un cliente de confianza y usa sus propios controles de aprobación cuando quieras revisar las acciones antes de su ejecución.
+</Callout>
+
+## Instalación [#installation]
+
+Instala tu agente de programación preferido y asegúrate de que **Node.js 18 o superior** esté disponible en tu terminal. El comando de configuración establece la conexión con TradingGoose; no instala el agente de programación.
+
+### macOS y Linux
+
+```bash
+curl -fsSL https://www.tradinggoose.ai/mcp/setup | sh
+```
+
+### Windows PowerShell
+
+```powershell
+irm https://www.tradinggoose.ai/mcp/setup | iex
+```
+
+### Aprueba el acceso y selecciona los clientes
+
+1. Abre el enlace de aprobación que aparece en el terminal, inicia sesión en TradingGoose y aprueba el acceso a MCP.
+2. Vuelve al terminal y selecciona los agentes de programación que quieras configurar.
+3. Revisa el resultado de cada agente seleccionado. El instalador indica el archivo de configuración que actualizó, o el error si no se pudo configurar ese cliente.
+4. Reinicia el cliente o recarga sus conexiones MCP y, a continuación, comprueba que **TradingGoose** aparezca en su lista de servidores MCP.
+
+El instalador crea una clave de API personal y la guarda en `~/.tradinggoose/credentials.json`. Los comandos posteriores de configuración e inicio de sesión validan y reutilizan esa clave. Si se ha revocado, el instalador te pide que apruebes un nuevo inicio de sesión. La aprobación en el navegador caduca a los diez minutos.
+
+### Instalar para un cliente específico
+
+Añade un destino a `/mcp/setup` para omitir el selector de cliente. Por ejemplo, para configurar Codex:
+
+```bash
+curl -fsSL https://www.tradinggoose.ai/mcp/setup/codex | sh
+```
+
+```powershell
+irm https://www.tradinggoose.ai/mcp/setup/codex | iex
+```
+
+El instalador escribe una entrada de servidor a nivel de usuario llamada `TradingGoose`. Estos son los destinos admitidos y las ubicaciones de configuración predeterminadas; `~` significa tu directorio de inicio.
+
+| Cliente | Ruta de destino | Archivo de configuración predeterminado |
+|--------|-------------|----------------------------|
+| Claude Code | `/mcp/setup/claude` | `~/.claude.json` |
+| Cursor | `/mcp/setup/cursor` | `~/.cursor/mcp.json` |
+| OpenCode | `/mcp/setup/opencode` | `~/.config/opencode/opencode.json` |
+| Codex | `/mcp/setup/codex` | `~/.codex/config.toml` |
+| Antigravity | `/mcp/setup/antigravity` | `~/.gemini/config/mcp_config.json` |
+| Gemini CLI | `/mcp/setup/gemini` | `~/.gemini/settings.json` |
+
+Usa `/mcp/setup/all` para configurar los seis clientes. Un destino específico o `all` también funcionan sin el selector interactivo de cliente; aun así se necesita la aprobación en el navegador cuando no existe una credencial guardada válida.
+
+Para Claude Code, el instalador también comprueba `CLAUDE_CONFIG_DIR` cuando está definida. Para OpenCode, actualiza una configuración JSON o JSONC compatible existente si la hay. Conserva los ajustes no relacionados y reemplaza una entrada `TradingGoose` existente al reconfigurar ese cliente.
+
+### Studio autoalojado
+
+Reemplaza `https://www.tradinggoose.ai` en los comandos por el origen público de tu implementación de Studio. Inicia sesión y aprueba el acceso en esa implementación. Su `NEXT_PUBLIC_APP_URL` debe coincidir con el origen accesible desde el exterior, porque el instalador lo usa para el enlace de aprobación y el endpoint de MCP.
+
+La autenticación de MCP usa una **clave de API personal de TradingGoose**. Una clave de API de espacio de trabajo o la clave del servicio Copilot configurada en **Admin > Services > Copilot API** para la inferencia gestionada del asistente integrado no pueden autenticar este endpoint.
+
+## Configuración manual [#manual-configuration]
+
+Para un cliente que no tenga un destino de instalador, usa el comando de inicio de sesión para obtener el endpoint y el encabezado de autorización:
+
+```bash
+curl -fsSL https://www.tradinggoose.ai/mcp/login | sh
+```
+
+```powershell
+irm https://www.tradinggoose.ai/mcp/login | iex
+```
+
+El inicio de sesión autentica cuando es necesario e imprime los detalles de conexión. No escribe la configuración de MCP de un agente de programación.
+
+| Parámetro | Valor |
+|---------|-------|
+| Nombre del servidor | `TradingGoose` |
+| Transporte | Streamable HTTP |
+| Endpoint | `https://www.tradinggoose.ai/api/copilot/mcp` |
+| Encabezado de autorización | `Authorization: Bearer <personal-api-key>` |
+
+Usa el formato de configuración de tu cliente para un servidor MCP remoto y encabezados HTTP. Para Studio autoalojado, usa el endpoint que imprime el comando de inicio de sesión de esa implementación.
+
+La conexión identifica tu cuenta. Los ID de espacio de trabajo y de entidad van en cada llamada de herramienta, así que la misma conexión puede funcionar en todos los espacios de trabajo a los que tienes acceso. El endpoint gestiona las solicitudes MCP a través de `POST`; si lo abres directamente en un navegador, devuelve `405 Method Not Allowed`.
+
+<Callout type="warn">
+  El comando de inicio de sesión imprime el token personal, y la configuración lo almacena en la caché de credenciales y en las configuraciones de cliente seleccionadas. Mantén esos valores en privado. Esta es una clave de API personal, no una credencial restringida a un solo espacio de trabajo ni solo a MCP.
+</Callout>
+
+## Uso de Copilot MCP
+
+Después de conectarte, pide a tu agente que inspeccione las herramientas de TradingGoose disponibles e identifique el espacio de trabajo objetivo. Las instrucciones de inicialización del servidor enumeran los nombres, los ID y los permisos de los espacios de trabajo accesibles. El cliente descubre los nombres de las herramientas y los esquemas de entrada a través de `tools/list`.
+
+Algunas primeras solicitudes útiles:
+
+- "Enumera los flujos de trabajo de mi espacio de trabajo de investigación de TradingGoose y explica qué hace cada uno."
+- "Lee mi lista de seguimiento y resume sus secciones y símbolos."
+- "Inspecciona los últimos registros de este flujo de trabajo y explica por qué falló."
+- "Lee el diseño de mi panel y agrega un widget de lista de seguimiento."
+
+Para las ediciones, haz que el agente lea primero la entidad actual, conserve sus identificadores y siga el esquema de entrada de la herramienta de edición de destino. Algunas respuestas de lectura son documentos de inspección y no se pueden enviar sin cambios como ediciones. Las operaciones de listar y crear requieren un `workspaceId`; otras herramientas especifican sus propios campos de destino. Las operaciones de credenciales y entorno requieren `scope: "personal"` o `scope: "workspace"` con un `workspaceId`.
+
+### Capacidades disponibles
+
+| Área | Qué admiten las herramientas de MCP |
+|------|----------------------------|
+| Flujos de trabajo | Listar, leer, crear y renombrar flujos de trabajo; editar gráficos de flujos de trabajo, bloques individuales y variables; inspeccionar registros, salidas de bloques, referencias ascendentes y el estado del despliegue |
+| Paneles | Listar, leer, crear, renombrar y editar tus diseños; agregar o reemplazar paneles de widgets, editar la configuración de los widgets y descubrir los tipos de widget disponibles |
+| Entidades del espacio de trabajo | Listar, leer, crear, renombrar y editar listas de seguimiento, indicadores personalizados, habilidades, herramientas personalizadas y definiciones de servidores MCP |
+| Bases de conocimiento | Listar, leer, crear, renombrar, editar y consultar bases de conocimiento |
+| Monitores | Listar, leer y editar monitores existentes |
+| Entorno | Inspeccionar los nombres de variables disponibles y definir variables de entorno personales o del espacio de trabajo |
+| Referencia y conexiones | Buscar en la documentación y los listados, inspeccionar catálogos de bloques e indicadores, listar y leer archivos conectados de Google Drive, e inspeccionar los metadatos de credenciales disponibles y los nombres de variables de entorno |
+
+La disponibilidad de las herramientas y sus argumentos provienen del servidor conectado. Las operaciones sobre servicios conectados también dependen de la configuración del despliegue y de tus credenciales existentes.
+
+El conjunto de herramientas de MCP es un subconjunto del [Copilot integrado](/copilot). Puede consultar el estado del despliegue, pero no expone las acciones integradas `run_workflow` ni `deploy_workflow`, la ejecución genérica de integraciones, ni la interfaz de chat y planificación de Studio. Usa Studio para ejecutar o desplegar flujos de trabajo.
+
+Para que las herramientas de un servidor externo estén disponibles dentro de los bloques Agent de Studio, consulta la [guía de integración con MCP](/utilities/mcp) aparte.
+
+## Permisos y credenciales
+
+Los permisos normales de lectura y escritura del espacio de trabajo siguen aplicándose. Además, un espacio de trabajo debe permitir claves de API personales para que las herramientas de MCP puedan acceder a él. Las herramientas de diseño del panel operan sobre tus propios diseños. Consulta [Roles y permisos](/permissions) para conocer los niveles de acceso del espacio de trabajo.
+
+Para revocar el acceso, abre **Más → Claves de API** en la navegación del espacio de trabajo, selecciona **Personal** y elimina la clave creada por la configuración de MCP. Su nombre empieza por `TradingGoose Personal API Key (MCP setup)`. Revocarla desconecta a todos los clientes que usen esa clave. Eliminar solo el archivo de credenciales local no revoca la clave.
+
+Para desconectar un solo cliente, elimina su entrada de servidor MCP `TradingGoose`. Para volver a conectarte tras una revocación, vuelve a ejecutar la configuración del cliente deseado y aprueba una nueva clave.
+
+## Solución de problemas
+
+| Síntoma | Qué comprobar |
+|---------|---------------|
+| Falta Node o es demasiado antiguo | Instala Node.js 18 o posterior y asegúrate de que `node` esté disponible en la terminal que ejecuta la configuración. |
+| La configuración requiere una terminal interactiva | Usa una URL de destino como `/mcp/setup/cursor`, o ejecuta el comando interactivo desde una terminal. |
+| La aprobación del navegador caduca | Vuelve a ejecutar la configuración o el inicio de sesión y aprueba el nuevo enlace en un plazo de diez minutos. |
+| No se pueden verificar las credenciales guardadas | Comprueba la conectividad de Studio y vuelve a intentarlo. Un límite de velocidad o un error del servicio detiene la configuración sin reemplazar la clave guardada ni las configuraciones del cliente. |
+| Un cliente no está configurado | Lee el resultado de ese cliente en la salida del instalador. Comprueba el archivo indicado y sus permisos, y vuelve a ejecutar su comando de destino. |
+| MCP responde con HTTP 401 | Usa una clave personal válida emitida por el mismo despliegue de Studio. Vuelve a ejecutar la configuración después de revocar una clave antigua. |
+| Una herramienta informa de `access_denied` o `personal_api_keys_disabled` | Comprueba los permisos de tu espacio de trabajo y pregunta a un administrador del espacio de trabajo sobre su política de claves de API personales. |
+| La conexión se realiza correctamente pero una herramienta falla | Inspecciona la respuesta de error de la herramienta, confirma sus ID de destino y el alcance requerido, y comprueba las credenciales del servicio conectado. Una respuesta HTTP correcta puede contener igualmente un error de herramienta de MCP. |
+| MCP responde con HTTP 429 | Espera el intervalo `Retry-After` del servidor antes de volver a intentarlo. |

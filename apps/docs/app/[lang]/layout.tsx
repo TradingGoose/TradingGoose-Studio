@@ -1,13 +1,12 @@
 import type { ReactNode } from 'react'
 import { Analytics } from '@vercel/analytics/next'
-import { defineI18nUI } from 'fumadocs-ui/i18n'
-import { RootProvider } from 'fumadocs-ui/provider/next'
 import { Geist_Mono, Inter } from 'next/font/google'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
+import { DocsProvider } from '@/components/docs-provider'
 import { DocsLayout } from '@/components/layout/docs'
 import '../global.css'
-import { i18n } from '@/lib/i18n'
+import { isDocsLocale } from '@/lib/i18n'
 import { source } from '@/lib/source'
 
 const inter = Inter({
@@ -20,41 +19,20 @@ const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
 })
 
-const { provider } = defineI18nUI(i18n, {
-  translations: {
-    en: {
-      displayName: 'English',
-    },
-    zh: {
-      displayName: '简体中文',
-    },
-    es: {
-      displayName: 'Español',
-    },
-  },
-})
-
 type LayoutProps = {
   children: ReactNode
   params: Promise<{ lang: string }>
 }
 
-function isSupportedLang(lang: string): lang is (typeof i18n.languages)[number] {
-  return i18n.languages.includes(lang as (typeof i18n.languages)[number])
-}
-
 export default async function Layout({ children, params }: LayoutProps) {
   const { lang } = await params
 
-  if (!isSupportedLang(lang)) {
+  if (!isDocsLocale(lang)) {
     notFound()
   }
   const locale = lang
 
-  const tree =
-    source.pageTree[locale] ??
-    (i18n.defaultLanguage ? source.pageTree[i18n.defaultLanguage] : undefined) ??
-    Object.values(source.pageTree)[0]
+  const tree = source.pageTree[locale]
   if (!tree) {
     notFound()
   }
@@ -65,7 +43,7 @@ export default async function Layout({ children, params }: LayoutProps) {
     name: 'TradingGoose Documentation',
     description:
       'Comprehensive documentation for TradingGoose - the visual workflow builder for AI Agent Workflows.',
-    url: 'https://docs.tradinggoose.ai',
+    url: `https://docs.tradinggoose.ai/${locale}`,
     publisher: {
       '@type': 'Organization',
       name: 'TradingGoose',
@@ -80,7 +58,7 @@ export default async function Layout({ children, params }: LayoutProps) {
       '@type': 'SearchAction',
       target: {
         '@type': 'EntryPoint',
-        urlTemplate: 'https://docs.tradinggoose.ai/api/search?q={search_term_string}',
+        urlTemplate: `https://docs.tradinggoose.ai/api/search?locale=${locale}&query={search_term_string}`,
       },
       'query-input': 'required name=search_term_string',
     },
@@ -99,7 +77,7 @@ export default async function Layout({ children, params }: LayoutProps) {
         />
       </head>
       <body className='flex min-h-screen flex-col font-sans'>
-        <RootProvider i18n={provider(locale)}>
+        <DocsProvider locale={locale}>
           <DocsLayout
             tree={tree}
             i18n
@@ -107,7 +85,7 @@ export default async function Layout({ children, params }: LayoutProps) {
               enabled: true,
             }}
             nav={{
-              title: 'Documentations',
+              title: 'Documentation',
               url: `/${locale}`,
               logo: (
                 <div className='flex h-8 w-8 items-center justify-center rounded-md bg-fd-primary'>
@@ -129,7 +107,7 @@ export default async function Layout({ children, params }: LayoutProps) {
             {children}
           </DocsLayout>
           <Analytics />
-        </RootProvider>
+        </DocsProvider>
       </body>
     </html>
   )

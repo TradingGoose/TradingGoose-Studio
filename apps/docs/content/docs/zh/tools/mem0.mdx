@@ -1,0 +1,314 @@
+---
+title: Mem0
+description: 智能体记忆管理
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="mem0"
+  color=""
+/>
+
+## 配置
+
+### 添加记忆
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mem0"
+    type="mem0"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "half",
+            "placeholder": "选择操作",
+            "defaultValue": "add",
+            "options": [
+                {
+                    "id": "add",
+                    "label": "添加记忆"
+                },
+                {
+                    "id": "search",
+                    "label": "搜索记忆"
+                },
+                {
+                    "id": "get",
+                    "label": "获取记忆"
+                }
+            ]
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "用户 ID",
+            "layout": "full",
+            "placeholder": "输入用户标识",
+            "required": true,
+            "defaultValue": "userid"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Mem0 API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "messages",
+            "type": "code",
+            "title": "消息",
+            "layout": "full",
+            "placeholder": "JSON 数组，例如 [{\"role\": \"user\", \"content\": \"我喜欢 TradingGoose！\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">添加记忆（<code>mem0_add_memories</code>）</div>
+
+将记忆添加到 Mem0，实现持久化存储与检索
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `userId` | string | 是 | 与该记忆关联的用户 ID |
+| `messages` | json | 是 | 包含 role 和 content 的消息对象数组 |
+| `apiKey` | string | 是 | 你的 Mem0 API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `ids` | array | 已创建的记忆 ID 数组 |
+| `memories` | array | 已创建的记忆对象数组 |
+
+</div>
+
+---
+
+### 搜索记忆
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mem0"
+    type="mem0"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "half",
+            "placeholder": "选择操作",
+            "defaultValue": "search",
+            "options": [
+                {
+                    "id": "add",
+                    "label": "添加记忆"
+                },
+                {
+                    "id": "search",
+                    "label": "搜索记忆"
+                },
+                {
+                    "id": "get",
+                    "label": "获取记忆"
+                }
+            ]
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "用户 ID",
+            "layout": "full",
+            "placeholder": "输入用户标识符",
+            "required": true,
+            "defaultValue": "userid"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Mem0 API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "搜索查询",
+            "layout": "full",
+            "placeholder": "输入搜索查询以查找相关记忆",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "slider",
+            "title": "结果数量上限",
+            "layout": "full",
+            "min": 1,
+            "max": 50,
+            "step": 1
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索记忆（<code>mem0_search_memories</code>）</div>
+
+使用语义搜索在 Mem0 中查找记忆
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `userId` | string | 是 | 用于搜索记忆的用户 ID |
+| `query` | string | 是 | 用于查找相关记忆的搜索查询 |
+| `limit` | number | 否 | 返回结果的最大数量 |
+| `apiKey` | string | 是 | 你的 Mem0 API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `searchResults` | array | 搜索结果数组，包含记忆数据，每项含 id、data 和 score |
+| `ids` | array | 搜索结果中找到的记忆 ID 数组 |
+
+</div>
+
+---
+
+### 获取记忆
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mem0"
+    type="mem0"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "half",
+            "placeholder": "选择操作",
+            "defaultValue": "get",
+            "options": [
+                {
+                    "id": "add",
+                    "label": "添加记忆"
+                },
+                {
+                    "id": "search",
+                    "label": "搜索记忆"
+                },
+                {
+                    "id": "get",
+                    "label": "获取记忆"
+                }
+            ]
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "用户 ID",
+            "layout": "full",
+            "placeholder": "输入用户标识符",
+            "required": true,
+            "defaultValue": "userid"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入您的 Mem0 API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "memoryId",
+            "type": "short-input",
+            "title": "记忆 ID",
+            "layout": "full",
+            "placeholder": "要检索的特定记忆 ID"
+        },
+        {
+            "id": "startDate",
+            "type": "datetime-input",
+            "title": "开始日期",
+            "layout": "half",
+            "placeholder": "YYYY-MM-DD"
+        },
+        {
+            "id": "endDate",
+            "type": "datetime-input",
+            "title": "结束日期",
+            "layout": "half",
+            "placeholder": "YYYY-MM-DD"
+        },
+        {
+            "id": "limit",
+            "type": "slider",
+            "title": "结果限制",
+            "layout": "full",
+            "min": 1,
+            "max": 50,
+            "step": 1
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取记忆 (<code>mem0_get_memories</code>)</div>
+
+通过 ID 或筛选条件从 Mem0 检索记忆
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `userId` | string | 是 | 用于检索记忆的用户 ID |
+| `memoryId` | string | 否 | 要检索的特定记忆 ID |
+| `startDate` | string | 否 | 按 created_at 筛选的开始日期 \(格式: YYYY-MM-DD\) |
+| `endDate` | string | 否 | 按 created_at 筛选的结束日期 \(格式: YYYY-MM-DD\) |
+| `apiKey` | string | 是 | 您的 Mem0 API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `memories` | 数组 | 检索到的记忆对象数组 |
+| `ids` | 数组 | 检索到的记忆ID数组 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Mem0 集成到工作流中。可以添加、搜索和检索记忆。
+
+## 说明
+
+- 类别：`tools`
+- 类型：`mem0`

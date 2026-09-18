@@ -1,0 +1,259 @@
+---
+title: Disparador de Twilio Voice
+description: Dispara un flujo de trabajo cuando se reciben llamadas telefónicas
+  a través de Twilio Voice
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="twilio_voice"
+  color=""
+/>
+
+Dispara un flujo de trabajo cuando se reciben llamadas telefónicas a través de Twilio Voice
+
+<Callout type="info">
+  Este es un disparador basado en **webhook**. Configura el servicio externo para enviar eventos a la URL del webhook del flujo de trabajo.
+</Callout>
+
+<Cards>
+  <Card title="Usar como herramienta" href="/tools/twilio_voice">
+    Consulta las acciones, operaciones y entradas de herramienta del flujo de trabajo para Twilio Voice.
+  </Card>
+</Cards>
+
+## Instrucciones de configuración
+
+1. Introduce una respuesta TwiML arriba: indica a Twilio qué hacer cuando entra una llamada (p. ej., reproducir un mensaje, grabar, recopilar entrada). Nota: usa corchetes [Tag] en lugar de corchetes angulares para las etiquetas TwiML
+
+2. Ejemplo de TwiML para grabar con transcripción: [Response][Say]Please leave a message.[/Say][Record transcribe="true" maxLength="120"/][/Response]
+
+3. Ve a la página Phone Numbers de Twilio Console en https://console.twilio.com/us1/develop/phone-numbers/manage/incoming
+
+4. Selecciona el número de teléfono que quieres usar para las llamadas entrantes.
+
+5. Desplázate hasta la sección "Voice Configuration".
+
+6. En el campo "A CALL COMES IN", selecciona "Webhook" y pega la URL del webhook (de arriba).
+
+7. Asegúrate de que el método HTTP esté configurado en POST.
+
+8. Haz clic en "Save configuration".
+
+9. Cómo funciona: cuando entra una llamada, Twilio recibe tu respuesta TwiML de inmediato y ejecuta esas instrucciones. Tu flujo de trabajo se ejecuta en segundo plano con acceso a la información del llamante, el estado de la llamada y cualquier dato grabado o transcrito.
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Webhook de voz de Twilio"
+    type="twilio_voice_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "accountSid",
+            "type": "short-input",
+            "title": "SID de cuenta de Twilio",
+            "placeholder": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "description": "Tu SID de cuenta de Twilio de la consola de Twilio",
+            "required": true
+        },
+        {
+            "id": "authToken",
+            "type": "short-input",
+            "title": "Token de autenticación",
+            "placeholder": "Tu token de autenticación de Twilio",
+            "description": "Tu token de autenticación de Twilio para verificar la firma del webhook",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "twimlResponse",
+            "type": "long-input",
+            "title": "Respuesta TwiML",
+            "placeholder": "[Response][Say]Por favor, espere.[/Say][/Response]",
+            "description": "Instrucciones TwiML que se devuelven de inmediato a Twilio. Usa corchetes en lugar de ángulos (p. ej., [Response] en lugar de <Response>). Esto controla lo que ocurre cuando entra la llamada (p. ej., reproducir un mensaje, grabar, recopilar entrada). Tu workflow se ejecutará en segundo plano.",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "callSid",
+          "type": "string",
+          "description": "Identificador único de esta llamada"
+      },
+      {
+          "name": "accountSid",
+          "type": "string",
+          "description": "SID de cuenta de Twilio"
+      },
+      {
+          "name": "from",
+          "type": "string",
+          "description": "Número de teléfono del llamante (formato E.164)"
+      },
+      {
+          "name": "to",
+          "type": "string",
+          "description": "Número de teléfono del destinatario (tu número de Twilio)"
+      },
+      {
+          "name": "callStatus",
+          "type": "string",
+          "description": "Estado de la llamada (queued, ringing, in-progress, completed, etc.)"
+      },
+      {
+          "name": "direction",
+          "type": "string",
+          "description": "Dirección de la llamada: inbound o outbound"
+      },
+      {
+          "name": "apiVersion",
+          "type": "string",
+          "description": "Versión de la API de Twilio"
+      },
+      {
+          "name": "callerName",
+          "type": "string",
+          "description": "Nombre del identificador de llamadas si está disponible"
+      },
+      {
+          "name": "forwardedFrom",
+          "type": "string",
+          "description": "Número de teléfono que desvió esta llamada"
+      },
+      {
+          "name": "digits",
+          "type": "string",
+          "description": "Dígitos DTMF introducidos por el llamante (de <Gather>)"
+      },
+      {
+          "name": "speechResult",
+          "type": "string",
+          "description": "Resultado del reconocimiento de voz (si se usa <Gather> con voz)"
+      },
+      {
+          "name": "recordingUrl",
+          "type": "string",
+          "description": "URL de la grabación de la llamada si está disponible"
+      },
+      {
+          "name": "recordingSid",
+          "type": "string",
+          "description": "SID de la grabación si está disponible"
+      },
+      {
+          "name": "called",
+          "type": "string",
+          "description": "Número de teléfono al que se llamó (igual que \"to\")"
+      },
+      {
+          "name": "caller",
+          "type": "string",
+          "description": "Número de teléfono del llamante (igual que \"from\")"
+      },
+      {
+          "name": "toCity",
+          "type": "string",
+          "description": "Ciudad del número llamado"
+      },
+      {
+          "name": "toState",
+          "type": "string",
+          "description": "Estado/provincia del número llamado"
+      },
+      {
+          "name": "toZip",
+          "type": "string",
+          "description": "Código postal del número llamado"
+      },
+      {
+          "name": "toCountry",
+          "type": "string",
+          "description": "País del número llamado"
+      },
+      {
+          "name": "fromCity",
+          "type": "string",
+          "description": "Ciudad del llamante"
+      },
+      {
+          "name": "fromState",
+          "type": "string",
+          "description": "Estado/provincia del llamante"
+      },
+      {
+          "name": "fromZip",
+          "type": "string",
+          "description": "Código postal del llamante"
+      },
+      {
+          "name": "fromCountry",
+          "type": "string",
+          "description": "País del llamante"
+      },
+      {
+          "name": "calledCity",
+          "type": "string",
+          "description": "Ciudad del número llamado (igual que toCity)"
+      },
+      {
+          "name": "calledState",
+          "type": "string",
+          "description": "Estado del número llamado (igual que toState)"
+      },
+      {
+          "name": "calledZip",
+          "type": "string",
+          "description": "Código postal del número llamado (igual que toZip)"
+      },
+      {
+          "name": "calledCountry",
+          "type": "string",
+          "description": "País del número llamado (igual que toCountry)"
+      },
+      {
+          "name": "callerCity",
+          "type": "string",
+          "description": "Ciudad del llamante (igual que fromCity)"
+      },
+      {
+          "name": "callerState",
+          "type": "string",
+          "description": "Estado del llamante (igual que fromState)"
+      },
+      {
+          "name": "callerZip",
+          "type": "string",
+          "description": "Código postal del llamante (igual que fromZip)"
+      },
+      {
+          "name": "callerCountry",
+          "type": "string",
+          "description": "País del llamante (igual que fromCountry)"
+      },
+      {
+          "name": "callToken",
+          "type": "string",
+          "description": "Token de llamada de Twilio para autenticación"
+      },
+      {
+          "name": "raw",
+          "type": "string",
+          "description": "Payload completo y sin procesar del webhook de Twilio como cadena JSON"
+      }
+  ]}
+/>

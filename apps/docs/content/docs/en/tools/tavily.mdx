@@ -30,17 +30,17 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "tavily_search",
             "options": [
                 {
-                    "label": "Search",
-                    "id": "tavily_search"
+                    "id": "tavily_search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Extract Content",
-                    "id": "tavily_extract"
+                    "id": "tavily_extract",
+                    "label": "Extract Content"
                 }
-            ],
-            "defaultValue": "tavily_search"
+            ]
         },
         {
             "id": "apiKey",
@@ -73,7 +73,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 <div className="mt-6 border-t border-fd-border pt-4">
 <div className="text-base font-semibold mb-2">Search (<code>tavily_search</code>)</div>
 
-Perform AI-powered web searches using Tavily
+Perform AI-powered web searches using Tavily's search API. Returns structured results with titles, URLs, snippets, and optional raw content, optimized for relevance and accuracy.
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
@@ -88,9 +88,8 @@ Perform AI-powered web searches using Tavily
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `query` | string | The search query that was executed |
-| `title` | string | title output |
-| `url` | string | url output |
-| `snippet` | string | snippet output |
+| `results` | array | Search results with titles, URLs, and content snippets |
+| `response_time` | number | Time taken for the search request in seconds |
 
 </div>
 
@@ -112,17 +111,17 @@ Perform AI-powered web searches using Tavily
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "tavily_extract",
             "options": [
                 {
-                    "label": "Search",
-                    "id": "tavily_search"
+                    "id": "tavily_search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Extract Content",
-                    "id": "tavily_extract"
+                    "id": "tavily_extract",
+                    "label": "Extract Content"
                 }
-            ],
-            "defaultValue": "tavily_extract"
+            ]
         },
         {
             "id": "apiKey",
@@ -146,14 +145,15 @@ Perform AI-powered web searches using Tavily
             "type": "dropdown",
             "title": "Extract Depth",
             "layout": "full",
+            "defaultValue": "basic",
             "options": [
                 {
-                    "label": "basic",
-                    "id": "basic"
+                    "id": "basic",
+                    "label": "basic"
                 },
                 {
-                    "label": "advanced",
-                    "id": "advanced"
+                    "id": "advanced",
+                    "label": "advanced"
                 }
             ]
         }
@@ -164,7 +164,7 @@ Perform AI-powered web searches using Tavily
 <div className="mt-6 border-t border-fd-border pt-4">
 <div className="text-base font-semibold mb-2">Extract Content (<code>tavily_extract</code>)</div>
 
-Extract raw content from multiple web pages simultaneously using Tavily
+Extract raw content from multiple web pages simultaneously using Tavily's extraction API. Supports basic and advanced extraction depths with detailed error reporting for failed URLs.
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
@@ -178,7 +178,9 @@ Extract raw content from multiple web pages simultaneously using Tavily
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `url` | string | The URL that was extracted |
+| `results` | array | Successfully extracted content from URLs |
+| `failed_results` | array | URLs that failed to extract content |
+| `response_time` | number | Time taken for the extraction request in seconds |
 
 </div>
 

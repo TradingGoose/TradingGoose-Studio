@@ -1,0 +1,448 @@
+---
+title: GitHub
+description: 与 GitHub 交互，或通过 GitHub 事件触发工作流
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="github"
+  color=""
+/>
+
+<Cards>
+  <Card title="用作触发器" href="/triggers/github">
+    查看 GitHub 的触发事件、配置和事件负载。
+  </Card>
+</Cards>
+
+## 配置
+
+### 获取 PR 详情
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub"
+    type="github"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "github_pr",
+            "options": [
+                {
+                    "id": "github_pr",
+                    "label": "获取 PR 详情"
+                },
+                {
+                    "id": "github_comment",
+                    "label": "创建 PR 评论"
+                },
+                {
+                    "id": "github_repo_info",
+                    "label": "获取仓库信息"
+                },
+                {
+                    "id": "github_latest_commit",
+                    "label": "获取最新提交"
+                }
+            ]
+        },
+        {
+            "id": "owner",
+            "type": "short-input",
+            "title": "仓库所有者",
+            "layout": "half",
+            "placeholder": "例如 microsoft",
+            "required": true
+        },
+        {
+            "id": "repo",
+            "type": "short-input",
+            "title": "仓库名称",
+            "layout": "half",
+            "placeholder": "例如 vscode",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "GitHub 令牌",
+            "layout": "full",
+            "placeholder": "输入 GitHub 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "pullNumber",
+            "type": "short-input",
+            "title": "拉取请求编号",
+            "layout": "half",
+            "placeholder": "例如 123",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取 PR 详情 (<code>github_pr</code>)</div>
+
+获取 PR 详情，包括 diff 和变更文件
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `owner` | string | 是 | 仓库所有者 |
+| `repo` | string | 是 | 仓库名称 |
+| `pullNumber` | number | 是 | 拉取请求编号 |
+| `apiKey` | string | 是 | GitHub API 令牌 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `content` | 字符串 | 人类可读的 PR 摘要 |
+| `metadata` | 对象 | 包含文件更改的详细 PR 元数据 |
+
+</div>
+
+---
+
+### 创建 PR 评论
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub"
+    type="github"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "github_comment",
+            "options": [
+                {
+                    "id": "github_pr",
+                    "label": "获取 PR 详情"
+                },
+                {
+                    "id": "github_comment",
+                    "label": "创建 PR 评论"
+                },
+                {
+                    "id": "github_repo_info",
+                    "label": "获取仓库信息"
+                },
+                {
+                    "id": "github_latest_commit",
+                    "label": "获取最新提交"
+                }
+            ]
+        },
+        {
+            "id": "owner",
+            "type": "short-input",
+            "title": "仓库所有者",
+            "layout": "half",
+            "placeholder": "例如：microsoft",
+            "required": true
+        },
+        {
+            "id": "repo",
+            "type": "short-input",
+            "title": "仓库名称",
+            "layout": "half",
+            "placeholder": "例如：vscode",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "GitHub 令牌",
+            "layout": "full",
+            "placeholder": "输入 GitHub 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "评论",
+            "layout": "full",
+            "placeholder": "输入评论内容",
+            "required": true
+        },
+        {
+            "id": "pullNumber",
+            "type": "short-input",
+            "title": "拉取请求编号",
+            "layout": "half",
+            "placeholder": "例如：123",
+            "required": true
+        },
+        {
+            "id": "commentType",
+            "type": "dropdown",
+            "title": "评论类型",
+            "layout": "half",
+            "options": [
+                {
+                    "id": "pr_comment",
+                    "label": "常规 PR 评论"
+                },
+                {
+                    "id": "file_comment",
+                    "label": "文件特定评论"
+                }
+            ]
+        },
+        {
+            "id": "path",
+            "type": "short-input",
+            "title": "文件路径",
+            "layout": "half",
+            "placeholder": "例如：src/main.ts",
+            "description": "当 commentType 为 'file_comment' 时显示。"
+        },
+        {
+            "id": "line",
+            "type": "short-input",
+            "title": "行号",
+            "layout": "half",
+            "placeholder": "例如：42",
+            "description": "当 commentType 为 'file_comment' 时显示。"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建 PR 评论 (<code>github_comment</code>)</div>
+
+在 GitHub PR 上创建评论
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `owner` | string | 是 | 仓库所有者 |
+| `repo` | string | 是 | 仓库名称 |
+| `body` | string | 是 | 评论内容 |
+| `pullNumber` | number | 是 | 拉取请求编号 |
+| `path` | string | 否 | 审查评论的文件路径 |
+| `commentType` | string | 否 | 评论类型 \(pr_comment 或 file_comment\) |
+| `apiKey` | string | 是 | GitHub API 令牌 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `content` | string | 人类可读的评论确认 |
+| `metadata` | object | 评论元数据 |
+
+</div>
+
+---
+
+### 获取仓库信息
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub"
+    type="github"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "github_repo_info",
+            "options": [
+                {
+                    "id": "github_pr",
+                    "label": "获取 PR 详情"
+                },
+                {
+                    "id": "github_comment",
+                    "label": "创建 PR 评论"
+                },
+                {
+                    "id": "github_repo_info",
+                    "label": "获取仓库信息"
+                },
+                {
+                    "id": "github_latest_commit",
+                    "label": "获取最新提交"
+                }
+            ]
+        },
+        {
+            "id": "owner",
+            "type": "short-input",
+            "title": "仓库所有者",
+            "layout": "half",
+            "placeholder": "例如，microsoft",
+            "required": true
+        },
+        {
+            "id": "repo",
+            "type": "short-input",
+            "title": "仓库名称",
+            "layout": "half",
+            "placeholder": "例如，vscode",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "GitHub 令牌",
+            "layout": "full",
+            "placeholder": "输入 GitHub 令牌",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取仓库信息 (<code>github_repo_info</code>)</div>
+
+获取全面的 GitHub 仓库元数据，包括星标、复刻、议题和主要语言。支持公开和私有仓库，并提供可选的身份验证。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `owner` | string | 是 | 仓库所有者 \(用户或组织\) |
+| `repo` | string | 是 | 仓库名称 |
+| `apiKey` | string | 是 | GitHub 个人访问令牌 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `content` | string | 人类可读的仓库摘要 |
+| `metadata` | object | 仓库元数据 |
+
+</div>
+
+---
+
+### 获取最新提交
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub"
+    type="github"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "github_latest_commit",
+            "options": [
+                {
+                    "id": "github_pr",
+                    "label": "获取 PR 详情"
+                },
+                {
+                    "id": "github_comment",
+                    "label": "创建 PR 评论"
+                },
+                {
+                    "id": "github_repo_info",
+                    "label": "获取仓库信息"
+                },
+                {
+                    "id": "github_latest_commit",
+                    "label": "获取最新提交"
+                }
+            ]
+        },
+        {
+            "id": "owner",
+            "type": "short-input",
+            "title": "仓库所有者",
+            "layout": "half",
+            "placeholder": "例如：microsoft",
+            "required": true
+        },
+        {
+            "id": "repo",
+            "type": "short-input",
+            "title": "仓库名称",
+            "layout": "half",
+            "placeholder": "例如：vscode",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "GitHub 令牌",
+            "layout": "full",
+            "placeholder": "输入 GitHub 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "branch",
+            "type": "short-input",
+            "title": "分支名称",
+            "layout": "half",
+            "placeholder": "例如：main（留空则使用默认值）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取最新提交（<code>github_latest_commit</code>）</div>
+
+从 GitHub 仓库获取最新提交
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `owner` | string | 是 | 仓库所有者（用户或组织） |
+| `repo` | string | 是 | 仓库名称 |
+| `branch` | string | 否 | 分支名称（默认为仓库的默认分支） |
+| `apiKey` | string | 是 | GitHub API 令牌 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | string | 易于阅读的提交摘要 |
+| `metadata` | object | 提交元数据 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 GitHub 集成到工作流中。可获取 PR 详情、创建 PR 评论、获取仓库信息以及获取最新提交。可在触发器模式下使用，当创建 PR、对 PR 发表评论或推送提交时触发工作流。
+
+## 说明
+
+- 类别：`tools`
+- 类型：`github`

@@ -1,0 +1,75 @@
+---
+title: Historial de órdenes de trading
+description: Recupera los envíos de órdenes de trading registrados para un
+  intervalo de fechas.
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="trading_order_history"
+  color="#0f766e"
+/>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Historial de órdenes de trading"
+    type="trading_order_history"
+    color="#0f766e"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "startDate",
+            "type": "datetime-input",
+            "title": "Fecha de inicio",
+            "layout": "full",
+            "placeholder": "YYYY-MM-DDTHH:mm:ssZ",
+            "required": true
+        },
+        {
+            "id": "endDate",
+            "type": "datetime-input",
+            "title": "Fecha de fin",
+            "layout": "full",
+            "placeholder": "YYYY-MM-DDTHH:mm:ssZ",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `trading_order_history`
+
+Recupera los envíos de órdenes del workspace registrados en un intervalo de fecha y hora.
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `startDate` | string | Sí | Fecha y hora de inicio \(ISO 8601\). |
+| `endDate` | string | Sí | Fecha y hora de fin \(ISO 8601\). |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `history` | array | Lista ordenada de envíos de órdenes registrados. |
+| `count` | number | Número de registros devueltos. |
+| `workspaceId` | string | ID del workspace usado para el filtrado. |
+| `startDate` | string | Fecha y hora de inicio usada para el filtrado. |
+| `endDate` | string | Fecha y hora de fin usada para el filtrado. |
+
+## Instrucciones de uso
+
+Obtiene el historial de envíos de órdenes registrado por la herramienta Trading Action para el intervalo de fechas seleccionado.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `trading_order_history`

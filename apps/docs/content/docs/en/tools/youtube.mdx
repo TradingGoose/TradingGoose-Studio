@@ -30,29 +30,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "youtube_search",
             "options": [
                 {
-                    "label": "Search Videos",
-                    "id": "youtube_search"
+                    "id": "youtube_search",
+                    "label": "Search Videos"
                 },
                 {
-                    "label": "Get Video Details",
-                    "id": "youtube_video_details"
+                    "id": "youtube_video_details",
+                    "label": "Get Video Details"
                 },
                 {
-                    "label": "Get Channel Info",
-                    "id": "youtube_channel_info"
+                    "id": "youtube_channel_info",
+                    "label": "Get Channel Info"
                 },
                 {
-                    "label": "Get Playlist Items",
-                    "id": "youtube_playlist_items"
+                    "id": "youtube_playlist_items",
+                    "label": "Get Playlist Items"
                 },
                 {
-                    "label": "Get Video Comments",
-                    "id": "youtube_comments"
+                    "id": "youtube_comments",
+                    "label": "Get Video Comments"
                 }
-            ],
-            "defaultValue": "youtube_search"
+            ]
         },
         {
             "id": "apiKey",
@@ -101,9 +101,9 @@ Search for videos on YouTube using the YouTube Data API.
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `videoId` | string | YouTube video ID |
-| `title` | string | Video title |
-| `description` | string | Video description |
+| `items` | array | Array of YouTube videos matching the search query |
+| `totalResults` | number | Total number of search results available |
+| `nextPageToken` | string | Token for accessing the next page of results |
 
 </div>
 
@@ -125,29 +125,29 @@ Search for videos on YouTube using the YouTube Data API.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "youtube_video_details",
             "options": [
                 {
-                    "label": "Search Videos",
-                    "id": "youtube_search"
+                    "id": "youtube_search",
+                    "label": "Search Videos"
                 },
                 {
-                    "label": "Get Video Details",
-                    "id": "youtube_video_details"
+                    "id": "youtube_video_details",
+                    "label": "Get Video Details"
                 },
                 {
-                    "label": "Get Channel Info",
-                    "id": "youtube_channel_info"
+                    "id": "youtube_channel_info",
+                    "label": "Get Channel Info"
                 },
                 {
-                    "label": "Get Playlist Items",
-                    "id": "youtube_playlist_items"
+                    "id": "youtube_playlist_items",
+                    "label": "Get Playlist Items"
                 },
                 {
-                    "label": "Get Video Comments",
-                    "id": "youtube_comments"
+                    "id": "youtube_comments",
+                    "label": "Get Video Comments"
                 }
-            ],
-            "defaultValue": "youtube_video_details"
+            ]
         },
         {
             "id": "apiKey",
@@ -197,7 +197,7 @@ Get detailed information about a specific YouTube video.
 | `likeCount` | number | Number of likes |
 | `commentCount` | number | Number of comments |
 | `thumbnail` | string | Video thumbnail URL |
-| `items` | string | items output |
+| `tags` | array | Video tags |
 
 </div>
 
@@ -219,29 +219,29 @@ Get detailed information about a specific YouTube video.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "youtube_channel_info",
             "options": [
                 {
-                    "label": "Search Videos",
-                    "id": "youtube_search"
+                    "id": "youtube_search",
+                    "label": "Search Videos"
                 },
                 {
-                    "label": "Get Video Details",
-                    "id": "youtube_video_details"
+                    "id": "youtube_video_details",
+                    "label": "Get Video Details"
                 },
                 {
-                    "label": "Get Channel Info",
-                    "id": "youtube_channel_info"
+                    "id": "youtube_channel_info",
+                    "label": "Get Channel Info"
                 },
                 {
-                    "label": "Get Playlist Items",
-                    "id": "youtube_playlist_items"
+                    "id": "youtube_playlist_items",
+                    "label": "Get Playlist Items"
                 },
                 {
-                    "label": "Get Video Comments",
-                    "id": "youtube_comments"
+                    "id": "youtube_comments",
+                    "label": "Get Video Comments"
                 }
-            ],
-            "defaultValue": "youtube_channel_info"
+            ]
         },
         {
             "id": "apiKey",
@@ -295,6 +295,7 @@ Get detailed information about a YouTube channel.
 | `viewCount` | number | Total channel views |
 | `publishedAt` | string | Channel creation date |
 | `thumbnail` | string | Channel thumbnail URL |
+| `customUrl` | string | Channel custom URL |
 
 </div>
 
@@ -316,29 +317,29 @@ Get detailed information about a YouTube channel.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "youtube_playlist_items",
             "options": [
                 {
-                    "label": "Search Videos",
-                    "id": "youtube_search"
+                    "id": "youtube_search",
+                    "label": "Search Videos"
                 },
                 {
-                    "label": "Get Video Details",
-                    "id": "youtube_video_details"
+                    "id": "youtube_video_details",
+                    "label": "Get Video Details"
                 },
                 {
-                    "label": "Get Channel Info",
-                    "id": "youtube_channel_info"
+                    "id": "youtube_channel_info",
+                    "label": "Get Channel Info"
                 },
                 {
-                    "label": "Get Playlist Items",
-                    "id": "youtube_playlist_items"
+                    "id": "youtube_playlist_items",
+                    "label": "Get Playlist Items"
                 },
                 {
-                    "label": "Get Video Comments",
-                    "id": "youtube_comments"
+                    "id": "youtube_comments",
+                    "label": "Get Video Comments"
                 }
-            ],
-            "defaultValue": "youtube_playlist_items"
+            ]
         },
         {
             "id": "apiKey",
@@ -388,12 +389,9 @@ Get videos from a YouTube playlist.
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `videoId` | string | YouTube video ID |
-| `title` | string | Video title |
-| `description` | string | Video description |
-| `thumbnail` | string | Video thumbnail URL |
-| `publishedAt` | string | Date added to playlist |
-| `channelTitle` | string | Channel name |
+| `items` | array | Array of videos in the playlist |
+| `totalResults` | number | Total number of items in playlist |
+| `nextPageToken` | string | Token for accessing the next page of results |
 
 </div>
 
@@ -415,29 +413,29 @@ Get videos from a YouTube playlist.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "youtube_comments",
             "options": [
                 {
-                    "label": "Search Videos",
-                    "id": "youtube_search"
+                    "id": "youtube_search",
+                    "label": "Search Videos"
                 },
                 {
-                    "label": "Get Video Details",
-                    "id": "youtube_video_details"
+                    "id": "youtube_video_details",
+                    "label": "Get Video Details"
                 },
                 {
-                    "label": "Get Channel Info",
-                    "id": "youtube_channel_info"
+                    "id": "youtube_channel_info",
+                    "label": "Get Channel Info"
                 },
                 {
-                    "label": "Get Playlist Items",
-                    "id": "youtube_playlist_items"
+                    "id": "youtube_playlist_items",
+                    "label": "Get Playlist Items"
                 },
                 {
-                    "label": "Get Video Comments",
-                    "id": "youtube_comments"
+                    "id": "youtube_comments",
+                    "label": "Get Video Comments"
                 }
-            ],
-            "defaultValue": "youtube_comments"
+            ]
         },
         {
             "id": "apiKey",
@@ -470,14 +468,15 @@ Get videos from a YouTube playlist.
             "type": "dropdown",
             "title": "Sort Order",
             "layout": "full",
+            "defaultValue": "relevance",
             "options": [
                 {
-                    "label": "Most Relevant",
-                    "id": "relevance"
+                    "id": "relevance",
+                    "label": "Most Relevant"
                 },
                 {
-                    "label": "Most Recent",
-                    "id": "time"
+                    "id": "time",
+                    "label": "Most Recent"
                 }
             ]
         }
@@ -504,14 +503,9 @@ Get comments from a YouTube video.
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `commentId` | string | Comment ID |
-| `authorDisplayName` | string | Comment author name |
-| `authorChannelUrl` | string | Comment author channel URL |
-| `textDisplay` | string | Comment text \(HTML formatted\) |
-| `textOriginal` | string | Comment text \(plain text\) |
-| `likeCount` | number | Number of likes |
-| `publishedAt` | string | Comment publish date |
-| `updatedAt` | string | Comment last updated date |
+| `items` | array | Array of comments from the video |
+| `totalResults` | number | Total number of comments |
+| `nextPageToken` | string | Token for accessing the next page of results |
 
 </div>
 

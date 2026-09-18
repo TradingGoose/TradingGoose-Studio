@@ -5,7 +5,7 @@ description: Working with workflow and environment variables.
 
 import { Card, Cards } from 'fumadocs-ui/components/card'
 
-TradingGoose supports two complementary variable systems. **Environment variables** store configuration values and secrets (API keys, tokens, database URLs) that stay outside your workflow definitions and are resolved at execution time. **Workflow variables** act as a global data store inside a single workflow, letting any block read and write shared state during a run.
+TradingGoose supports two complementary variable systems. **Environment variables** store configuration values and secrets (API keys, tokens, database URLs) that stay outside your workflow definitions and are resolved at execution time. **Workflow variables** hold shared state within a run: define their initial values in the Variables panel, reference them from blocks, and update them with a Variables block.
 
 Together they cover both external configuration and internal data flow. Environment variables keep secrets safe and portable across workflows, while workflow variables let blocks pass data to each other without direct connections.
 
@@ -16,7 +16,7 @@ Together they cover both external configuration and internal data flow. Environm
     Manage API keys, tokens, and other secrets at the personal or workspace level. Referenced with double-brace syntax and resolved when a workflow runs.
   </Card>
   <Card title="Workflow Variables" href="/variables/workflow-variables">
-    Global key-value store scoped to a single workflow. Create, read, and update variables from any block to share state across your workflow.
+    Shared values scoped to one workflow execution. Define initial values in the Variables panel and use a Variables block for runtime assignments.
   </Card>
 </Cards>
 
@@ -25,7 +25,7 @@ Together they cover both external configuration and internal data flow. Environm
 | | Environment Variables | Workflow Variables |
 |---|---|---|
 | **Scope** | Personal or workspace-wide | Single workflow |
-| **Lifetime** | Persistent across all runs | Persists between runs unless reset |
+| **Lifetime** | Persistent across all runs | Runtime changes last only for the current run; new runs load saved initial values |
 | **Typical use** | API keys, tokens, config | Passing data between blocks, state |
-| **Access syntax** | `{{VARIABLE_NAME}}` | `<variable_name>` via dropdown |
-| **Who can edit** | Settings page (permissions apply) | Variables panel in the editor |
+| **Access syntax** | `{{VARIABLE_NAME}}` | `<variable.name>` via dropdown |
+| **Where to edit** | Environment page (permissions apply) | Workflow Variables panel/widget; Variables block for runtime changes |

@@ -28,27 +28,45 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "file-upload",
             "title": "Image File",
             "layout": "full",
-            "placeholder": "Upload an image file"
+            "placeholder": "Upload an image file",
+            "required": false
         },
         {
             "id": "imageFileReference",
             "type": "short-input",
             "title": "Image File Reference",
             "layout": "full",
-            "placeholder": "Reference an image from previous blocks"
+            "placeholder": "Reference an image from previous blocks",
+            "required": false
         },
         {
             "id": "imageUrl",
             "type": "short-input",
             "title": "Image URL (alternative)",
             "layout": "full",
-            "placeholder": "Or enter publicly accessible image URL"
+            "placeholder": "Or enter publicly accessible image URL",
+            "required": false
         },
         {
             "id": "model",
             "type": "dropdown",
             "title": "Vision Model",
-            "layout": "half"
+            "layout": "half",
+            "defaultValue": "gpt-4o",
+            "options": [
+                {
+                    "id": "gpt-4o",
+                    "label": "gpt-4o"
+                },
+                {
+                    "id": "claude-3-opus-20240229",
+                    "label": "claude-3-opus"
+                },
+                {
+                    "id": "claude-3-sonnet-20240229",
+                    "label": "claude-3-sonnet"
+                }
+            ]
         },
         {
             "id": "prompt",
@@ -94,8 +112,7 @@ Process and analyze images using advanced vision models. Capable of understandin
 | `content` | string | The analyzed content and description of the image |
 | `model` | string | The vision model that was used for analysis |
 | `tokens` | number | Total tokens used for the analysis |
-| `input_tokens` | number | Tokens used for input processing |
-| `output_tokens` | number | Tokens used for response generation |
+| `usage` | object | Detailed token usage breakdown |
 
 
 ## Usage Instructions

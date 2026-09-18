@@ -7,6 +7,11 @@ import { createLogger } from '@/lib/logs/console/logger'
 import type { TraceSpan } from '@/lib/logs/types'
 import { getBlock } from '@/blocks'
 import type { BlockOutput } from '@/blocks/types'
+import {
+  type ExecutorCheckpoint,
+  restoreExecutionContext,
+  saveExecutionContext,
+} from '@/executor/checkpoint'
 import { BlockType, isWorkflowBlockType } from '@/executor/consts'
 import {
   AgentBlockHandler,
@@ -15,6 +20,7 @@ import {
   EvaluatorBlockHandler,
   FunctionBlockHandler,
   GenericBlockHandler,
+  HumanInTheLoopBlockHandler,
   LoopBlockHandler,
   ParallelBlockHandler,
   ResponseBlockHandler,
@@ -39,6 +45,7 @@ import type {
   NormalizedBlockOutput,
   StreamingExecution,
 } from '@/executor/types'
+import { PausedBlockExecution } from '@/executor/types'
 import { VirtualBlockUtils } from '@/executor/utils/virtual-blocks'
 import type { SerializedBlock, SerializedParallel, SerializedWorkflow } from '@/serializer/types'
 
@@ -105,7 +112,8 @@ function isDeferredBlockExecution(value: unknown): value is DeferredBlockExecuti
     value !== null &&
     'kind' in value &&
     value.kind === 'deferred' &&
-    'wait' in value
+    'wait' in value &&
+    typeof value.wait === 'function'
   )
 }
 
@@ -116,6 +124,8 @@ export type ExecutorOptions = {
   workflowInput?: any
   workflowVariables?: Record<string, any>
   contextExtensions: ExecutionContextExtensions
+  checkpoint?: ExecutorCheckpoint
+  resumeInputs?: Map<string, Record<string, unknown>>
 }
 
 /**
@@ -138,6 +148,8 @@ export class Executor {
   private actualWorkflow: SerializedWorkflow
   private isCancelled = false
   private isChildExecution = false
+  private checkpoint?: ExecutorCheckpoint
+  private resumeInputs?: Map<string, Record<string, unknown>>
 
   /**
    * Updates block output with streamed content, handling both structured and unstructured responses
@@ -200,6 +212,8 @@ export class Executor {
     this.workflowVariables = options.workflowVariables || {}
     this.contextExtensions = options.contextExtensions
     this.isChildExecution = options.contextExtensions.isChildExecution || false
+    this.checkpoint = options.checkpoint
+    this.resumeInputs = options.resumeInputs
 
     this.validateWorkflow()
 
@@ -234,6 +248,7 @@ export class Executor {
       new WorkflowBlockHandler(),
       new VariablesBlockHandler(),
       new WaitBlockHandler(),
+      new HumanInTheLoopBlockHandler(),
       new GenericBlockHandler(),
     ]
   }
@@ -265,7 +280,7 @@ export class Executor {
    */
   async execute(workflowId: string, triggerBlockId: string): Promise<ExecutionResult> {
     const startTime = new Date()
-    let finalOutput: NormalizedBlockOutput = {}
+    let finalOutput: NormalizedBlockOutput = this.checkpoint?.finalOutput ?? {}
 
     // Track workflow execution start
     trackWorkflowTelemetry('workflow_execution_started', {
@@ -277,11 +292,21 @@ export class Executor {
 
     this.validateWorkflow(triggerBlockId)
 
-    const context = this.createExecutionContext(workflowId, startTime, triggerBlockId)
+    const context = this.checkpoint
+      ? {
+          ...restoreExecutionContext(this.checkpoint.context),
+          pendingExecutionId: this.contextExtensions.pendingExecutionId,
+          workflow: this.actualWorkflow,
+          onExecutionEvent: this.contextExtensions.onExecutionEvent,
+          shouldCancelExecution: this.contextExtensions.shouldCancelExecution,
+          resumeInputs: this.resumeInputs ?? new Map(),
+        }
+      : this.createExecutionContext(workflowId, startTime, triggerBlockId)
+    const previousDuration = context.metadata.duration
 
     try {
       let hasMoreLayers = true
-      let iteration = 0
+      let iteration = this.checkpoint?.iteration ?? 0
       const maxIterations = 500 // Safety limit for infinite loops
 
       while (hasMoreLayers && iteration < maxIterations && !(await this.shouldStopExecution())) {
@@ -298,6 +323,28 @@ export class Executor {
 
           if (await this.shouldStopExecution()) {
             break
+          }
+
+          if (context.pausePoints?.length) {
+            context.metadata.duration = previousDuration + Date.now() - startTime.getTime()
+            return {
+              success: true,
+              status: 'paused',
+              output: {},
+              pausePoints: context.pausePoints,
+              checkpoint: {
+                workflow: this.actualWorkflow,
+                currentBlockStates: this.initialBlockStates,
+                context: saveExecutionContext(context),
+                iteration: iteration + 1,
+                finalOutput,
+              },
+              logs: context.blockLogs,
+              metadata: {
+                duration: context.metadata.duration,
+                startTime: context.metadata.startTime,
+              },
+            }
           }
 
           // Process loop iterations - this will activate external paths when loops complete
@@ -317,11 +364,18 @@ export class Executor {
         iteration++
       }
 
+      if (hasMoreLayers && iteration >= maxIterations && !this.isCancelled) {
+        throw new Error('Workflow execution exceeded the 500-layer safety limit')
+      }
+
+      const endTime = new Date()
+      const duration = previousDuration + endTime.getTime() - startTime.getTime()
+
       // Handle cancellation
       if (this.isCancelled) {
         trackWorkflowTelemetry('workflow_execution_cancelled', {
           workflowId,
-          duration: Date.now() - startTime.getTime(),
+          duration,
           blockCount: this.actualWorkflow.blocks.length,
           executedBlockCount: context.executedBlocks.size,
           startTime: startTime.toISOString(),
@@ -332,7 +386,7 @@ export class Executor {
           output: finalOutput,
           error: 'Workflow execution was cancelled',
           metadata: {
-            duration: Date.now() - startTime.getTime(),
+            duration,
             startTime: context.metadata.startTime!,
             workflowConnections: this.actualWorkflow.connections.map((conn: any) => ({
               source: conn.source,
@@ -342,10 +396,6 @@ export class Executor {
           logs: context.blockLogs,
         }
       }
-
-      const endTime = new Date()
-      context.metadata.endTime = endTime.toISOString()
-      const duration = endTime.getTime() - startTime.getTime()
 
       trackWorkflowTelemetry('workflow_execution_completed', {
         workflowId,
@@ -361,9 +411,9 @@ export class Executor {
         success: true,
         output: finalOutput,
         metadata: {
-          duration: duration,
+          duration,
           startTime: context.metadata.startTime!,
-          endTime: context.metadata.endTime!,
+          endTime: endTime.toISOString(),
           workflowConnections: this.actualWorkflow.connections.map((conn: any) => ({
             source: conn.source,
             target: conn.target,
@@ -373,11 +423,12 @@ export class Executor {
       }
     } catch (error: any) {
       logger.error('Workflow execution failed:', this.sanitizeError(error))
+      const duration = previousDuration + Date.now() - startTime.getTime()
 
       // Track workflow execution failure
       trackWorkflowTelemetry('workflow_execution_failed', {
         workflowId,
-        duration: Date.now() - startTime.getTime(),
+        duration,
         error: this.extractErrorMessage(error),
         executedBlockCount: context.executedBlocks.size,
         blockLogs: context.blockLogs.length,
@@ -388,7 +439,7 @@ export class Executor {
         output: finalOutput,
         error: this.extractErrorMessage(error),
         metadata: {
-          duration: Date.now() - startTime.getTime(),
+          duration,
           startTime: context.metadata.startTime!,
           workflowConnections: this.actualWorkflow.connections.map((conn: any) => ({
             source: conn.source,
@@ -597,6 +648,7 @@ export class Executor {
       workspaceId,
       userId: this.contextExtensions.userId,
       executionId: this.contextExtensions.executionId,
+      pendingExecutionId: this.contextExtensions.pendingExecutionId,
       workflowLogId: this.contextExtensions.workflowLogId,
       submissionSource: this.contextExtensions.submissionSource,
       triggerType: this.contextExtensions.triggerType,
@@ -627,6 +679,8 @@ export class Executor {
       edges: this.contextExtensions.edges || [],
       onExecutionEvent: this.contextExtensions.onExecutionEvent,
       shouldCancelExecution: this.contextExtensions.shouldCancelExecution,
+      pausePoints: [],
+      resumeInputs: new Map(),
     }
 
     Object.entries(this.initialBlockStates).forEach(([blockId, output]) => {
@@ -1412,12 +1466,22 @@ export class Executor {
     const results: NormalizedBlockOutput[] = []
     const errors: Error[] = []
     const deferredResultIndexes: number[] = []
+    const pausedBlockIds = new Set<string>()
 
-    settledResults.forEach((result) => {
+    const recordPause = (index: number, pause: PausedBlockExecution) => {
+      pausedBlockIds.add(blockIds[index])
+      context.pausePoints ??= []
+      context.pausePoints.push(pause.pausePoint)
+      results[index] = {}
+    }
+
+    settledResults.forEach((result, index) => {
       if (result.status === 'fulfilled') {
         if (isDeferredBlockExecution(result.value)) {
           deferredResultIndexes.push(results.length)
           results.push({ status: 102, result: 'Deferred block execution pending' })
+        } else if (result.value instanceof PausedBlockExecution) {
+          recordPause(index, result.value)
         } else {
           results.push(result.value)
         }
@@ -1449,6 +1513,10 @@ export class Executor {
           const resultIndex = deferredResultIndexes[waitedIndex]
 
           if (waitedResult.status === 'fulfilled') {
+            if (waitedResult.value instanceof PausedBlockExecution) {
+              recordPause(resultIndex, waitedResult.value)
+              return
+            }
             results[resultIndex] =
               typeof waitedResult.value === 'object' && waitedResult.value !== null
                 ? waitedResult.value
@@ -1467,24 +1535,16 @@ export class Executor {
       await deferredWaitTask()
     }
 
-    // If there were any errors, log them but don't throw immediately
-    // This allows successful blocks to complete their streaming
-    if (errors.length > 0) {
-      logger.warn(
-        `Layer execution completed with ${errors.length} failed blocks out of ${blockIds.length} total`
-      )
+    // Error-path handlers return normal outputs. Any remaining rejection is
+    // unhandled and must fail the run, even if another branch succeeded or paused.
+    if (errors.length > 0) throw errors[0]
 
-      // Only throw if ALL blocks failed
-      if (errors.length === blockIds.length) {
-        throw errors[0] // Throw the first error if all blocks failed
-      }
-    }
-
-    blockIds.forEach((blockId) => {
+    const completedBlockIds = blockIds.filter((blockId) => !pausedBlockIds.has(blockId))
+    completedBlockIds.forEach((blockId) => {
       context.executedBlocks.add(blockId)
     })
 
-    this.pathTracker.updateExecutionPaths(blockIds, context)
+    this.pathTracker.updateExecutionPaths(completedBlockIds, context)
 
     return results
   }
@@ -1501,7 +1561,7 @@ export class Executor {
   private async executeBlock(
     blockId: string,
     sharedContext: ExecutionContext
-  ): Promise<NormalizedBlockOutput | DeferredBlockExecution> {
+  ): Promise<NormalizedBlockOutput | DeferredBlockExecution | PausedBlockExecution> {
     // Check if this is a virtual block ID for parallel execution
     let actualBlockId = blockId
     let parallelInfo:
@@ -1661,7 +1721,6 @@ export class Executor {
         blockLog.durationMs = Math.round(executionTime)
         blockLog.endedAt = new Date().toISOString()
 
-        this.integrateChildWorkflowLogs(block, output)
         context.blockLogs.push(blockLog)
 
         if (shouldLogToConsole) {
@@ -1764,42 +1823,6 @@ export class Executor {
           executionTime: blockLog.durationMs,
         })
 
-        const failureEndTime = context.metadata.endTime ?? new Date().toISOString()
-        if (!context.metadata.endTime) {
-          context.metadata.endTime = failureEndTime
-        }
-        const failureDuration = context.metadata.startTime
-          ? Math.max(
-              0,
-              new Date(failureEndTime).getTime() - new Date(context.metadata.startTime).getTime()
-            )
-          : (context.metadata.duration ?? 0)
-        context.metadata.duration = failureDuration
-
-        const failureMetadata = {
-          ...context.metadata,
-          endTime: failureEndTime,
-          duration: failureDuration,
-          workflowConnections: this.actualWorkflow.connections.map((conn) => ({
-            source: conn.source,
-            target: conn.target,
-          })),
-        }
-
-        const upstreamExecutionResult = (error as { executionResult?: ExecutionResult } | null)
-          ?.executionResult
-        const executionResultPayload: ExecutionResult = {
-          success: false,
-          output: upstreamExecutionResult?.output ?? errorOutput,
-          error: upstreamExecutionResult?.error ?? this.extractErrorMessage(error),
-          logs: [...context.blockLogs],
-          metadata: {
-            ...failureMetadata,
-            ...(upstreamExecutionResult?.metadata ?? {}),
-            workflowConnections: failureMetadata.workflowConnections,
-          },
-        }
-
         if (hasErrorPath) {
           return errorOutput
         }
@@ -1829,7 +1852,6 @@ export class Executor {
         })
 
         const executionError = new Error(errorMessage)
-        ;(executionError as any).executionResult = executionResultPayload
         if (Array.isArray((error as { childTraceSpans?: TraceSpan[] } | null)?.childTraceSpans)) {
           ;(executionError as any).childTraceSpans = (
             error as { childTraceSpans?: TraceSpan[] }
@@ -1863,12 +1885,15 @@ export class Executor {
       const startTime = performance.now()
       const rawOutput = await handler.execute(block, inputs, context)
 
+      if (rawOutput instanceof PausedBlockExecution) return rawOutput
+
       if (isDeferredBlockExecution(rawOutput)) {
         return {
           kind: 'deferred',
           wait: async () => {
             try {
               const deferredOutput = await rawOutput.wait()
+              if (deferredOutput instanceof PausedBlockExecution) return deferredOutput
               const output: NormalizedBlockOutput =
                 typeof deferredOutput === 'object' && deferredOutput !== null
                   ? deferredOutput
@@ -2192,24 +2217,6 @@ export class Executor {
         durationMs: 0,
       }
       context.blockLogs.push(initBlockLog)
-    }
-  }
-
-  /**
-   * Preserves child workflow trace spans for proper nesting
-   */
-  private integrateChildWorkflowLogs(block: SerializedBlock, output: NormalizedBlockOutput): void {
-    if (!isWorkflowBlockType(block.metadata?.id)) {
-      return
-    }
-
-    if (!output || typeof output !== 'object' || !output.childTraceSpans) {
-      return
-    }
-
-    const childTraceSpans = output.childTraceSpans as TraceSpan[]
-    if (!Array.isArray(childTraceSpans) || childTraceSpans.length === 0) {
-      return
     }
   }
 }

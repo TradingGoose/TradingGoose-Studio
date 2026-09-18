@@ -10,7 +10,7 @@ export const JiraServiceManagementBlock: BlockConfig<JsmResponse> = {
   authMode: AuthMode.OAuth,
   longDescription:
     'Integrate with Jira Service Management for IT service management. Create and manage service requests, handle customers and organizations, track SLAs, and manage queues.',
-  docsLink: 'https://docs.tradinggoose.ai/tools/jira-service-management',
+  docsLink: 'https://docs.tradinggoose.ai/tools/jira_service_management',
   category: 'tools',
   bgColor: '#E0E0E0',
   icon: JiraServiceManagementIcon,

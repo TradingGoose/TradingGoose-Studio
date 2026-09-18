@@ -30,53 +30,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "layout": "full",
             "placeholder": "Search by order ID, symbol, ticker, quote, or date",
             "required": true
-        },
-        {
-            "id": "provider",
-            "type": "dropdown",
-            "title": "Broker",
-            "layout": "full",
-            "placeholder": "Select the broker used for this order",
-            "required": true
-        },
-        {
-            "id": "environment",
-            "type": "dropdown",
-            "title": "Environment",
-            "layout": "half",
-            "placeholder": "Optional environment override",
-            "options": [
-                {
-                    "label": "Paper (Sandbox)",
-                    "id": "paper"
-                },
-                {
-                    "label": "Live Trading",
-                    "id": "live"
-                }
-            ]
-        },
-        {
-            "id": "accountId",
-            "type": "short-input",
-            "title": "Account ID",
-            "layout": "full",
-            "placeholder": "Optional Tradier account ID override",
-            "condition": {
-                "field": "provider",
-                "value": "tradier"
-            }
-        },
-        {
-            "id": "accountUrl",
-            "type": "short-input",
-            "title": "Account URL",
-            "layout": "full",
-            "placeholder": "Optional Robinhood account URL override",
-            "condition": {
-                "field": "provider",
-                "value": "robinhood"
-            }
         }
     ]}
   />
@@ -93,16 +46,6 @@ Retrieve all provider-available details for a previously recorded trading order 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `orderId` | string | Yes | Trading Goose order ID \(orderHistoryTable.id\) created when the order was submitted. |
-| `provider` | string | No | Expected provider for this order. Used for credential selection and mismatch validation. |
-| `environment` | string | No | Optional environment override \(paper or live\) for provider order-detail fetch. |
-| `credential` | string | No | OAuth credential id for the selected broker \(populated from selected account\). |
-| `tradierCredential` | string | No | Tradier OAuth credential id. |
-| `robinhoodCredential` | string | No | Robinhood OAuth credential id. |
-| `alpacaCredential` | string | No | Alpaca OAuth credential id. |
-| `apiKey` | string | No | Alpaca API key ID \(optional if using OAuth\). |
-| `apiSecret` | string | No | Alpaca API secret key \(optional if using OAuth\). |
-| `accountId` | string | No | Tradier account ID override if not present in stored order metadata. |
-| `accountUrl` | string | No | Robinhood account URL override if needed. |
 
 #### Output
 
@@ -112,6 +55,9 @@ Retrieve all provider-available details for a previously recorded trading order 
 | `provider` | string | Broker/provider of the order. |
 | `appOrderId` | string | Trading Goose order ID \(orderHistoryTable.id\). |
 | `providerOrderId` | string | Provider-native order ID used for the API lookup. |
+| `workspaceId` | string | Workspace that owns the recorded order. |
+| `logId` | string | Linked log ID, when one exists. |
+| `orderDetail` | json | Normalized order detail payload with raw provider response. |
 
 
 ## Usage Instructions

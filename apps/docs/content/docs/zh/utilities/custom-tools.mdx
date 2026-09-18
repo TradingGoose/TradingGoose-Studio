@@ -1,0 +1,107 @@
+---
+title: 自定义工具
+description: 创建工作区范围的工具，包含 JSON Schema 和 JavaScript 函数体，供 Agent 区块在工作流执行期间调用。
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+自定义工具用于定义可调用函数，Agent 区块可在运行时调用。每个已保存的工具包含 **标题**、描述其输入的 **JSON 函数 Schema**，以及工具被调用时运行的 **JavaScript 函数体**。标题作为实体元数据保存在函数 Schema 之外。
+
+Studio 在创建工具时会为其分配稳定的实体 ID。Agent 区块在内部以 `custom_<entityId>` 引用该实体，因此重命名标题不会更改已保存的引用。
+
+## 工具 Schema
+
+编辑器会在你编辑时校验函数 Schema。Schema 不包含工具标题或 `function.name` 字段；这些由上文所述的已保存实体标识替代。
+
+```json
+{
+  "type": "function",
+  "function": {
+    "description": "Add one quantity of a food item to the order.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "itemName": {
+          "type": "string",
+          "description": "The name of the food item to add to order"
+        }
+      },
+      "required": ["itemName"]
+    }
+  }
+}
+```
+
+- `type` 必须为 `"function"`。
+- `function.description` 告知 Agent 何时使用该工具。
+- `function.parameters` 是描述输入的标准 JSON Schema 对象。
+- `function.parameters.type` 必须为 `"object"`，且 `properties` 必须为对象。`required` 数组为可选。
+
+## 工具代码
+
+代码选项卡仅包含 `async function(params, environmentVariables)` 的函数体。不要包含函数包装器或 import。编辑器内提供两种引用约定：
+
+- **参数** — 用尖括号包裹参数名，例如 `<itemName>`。编辑器会根据 Schema 提供自动补全。
+- **环境变量** — 使用双花括号语法：`{{API_KEY}}`。
+
+当工具需要产生输出时，函数应 `return` 一个值。不支持外部导入；请使用 `fetch` 或内置 API。
+
+## 创建和编辑工具
+
+<Steps>
+  <Step>
+    在工作区仪表盘中打开 [自定义工具编辑器](/widgets/editor-custom-tool) 组件。
+  </Step>
+  <Step>
+    从下拉列表中选择现有工具，或通过 [自定义工具列表](/widgets/list-custom-tool) 组件新建工具。需要时可在列表中重命名标题；同一工作区内标题必须唯一。
+  </Step>
+  <Step>
+    在 **配置** 和 **代码** 选项卡之间切换，分别编辑 JSON schema 和 JavaScript 函数体。两个选项卡都提供 AI 生成功能，可根据自然语言提示生成内容。
+  </Step>
+  <Step>
+    点击组件标题栏中的 **保存** 按钮。编辑器会在保存前校验 schema。
+  </Step>
+</Steps>
+
+## 导入和导出
+
+自定义工具使用 TradingGoose 通用导出 JSON 格式。每条导出记录包含顶层 `title`、`schema` 和 `code`。从自定义工具编辑器导出工具，并从 [自定义工具列表](/widgets/list-custom-tool) 组件导入。导入的标题会被规范化，发生标题冲突时会自动重命名，以便导入无需手动清理即可完成。
+
+## Agent 如何调用自定义工具
+
+将自定义工具添加到 Agent 模块的工具列表后，Studio 会存储稳定的 `custom_<entityId>` 引用。运行时，已保存的标题会成为面向模型的工具名称；标题与 `function.description` 构成其描述，`function.parameters` 定义其输入 schema。Agent 根据这些信息以及对话上下文决定是否以及何时调用该工具，随后 Studio 使用解析后的参数执行 JavaScript 函数体。
+
+<Callout type="info">
+  Agent 区块不能将核心区块（API、Webhook、Function、Workflow、Memory）用作工具。工具列表中仅允许使用集成、MCP 工具和自定义工具。
+</Callout>
+
+## 自定义工具与 MCP
+
+| 特性 | 自定义工具 | MCP |
+|---------|-------------|-----|
+| **定义** | JSON schema 和 JS 函数体 | 实现模型上下文协议的外部服务器 |
+| **范围** | 每个工具一个函数 | 单个服务器可暴露多个工具 |
+| **代码执行** | 编辑器中的内联 JavaScript | 在远程 MCP 服务器上运行 |
+| **适用场景** | 快速、自包含的逻辑或 API 调用 | 连接标准化的第三方工具服务器 |
+
+有关使用 MCP 的外部工具集成，请参阅 [MCP 实用工具页面](/utilities/mcp)。
+
+<Callout type="warn">
+  自定义工具的作用域为工作区。成员需要工作区编辑权限才能创建、重命名、编辑、导入或删除自定义工具。删除自定义工具会同时删除其代码和配置。
+</Callout>
+
+## 相关内容
+
+<Cards>
+  <Card title="自定义工具编辑器" href="/widgets/editor-custom-tool">
+    用于编辑自定义工具的 schema 和代码的组件。
+  </Card>
+  <Card title="自定义工具列表" href="/widgets/list-custom-tool">
+    在工作区中浏览、创建和导入自定义工具。
+  </Card>
+  <Card title="MCP" href="/utilities/mcp">
+    通过模型上下文协议连接外部工具服务器。
+  </Card>
+</Cards>

@@ -22,7 +22,7 @@ The `math` namespace provides mathematical constants, basic operations, trigonom
 | `math.ceil(x)` | Round up to nearest integer |
 | `math.floor(x)` | Round down to nearest integer |
 | `math.round(x, precision?)` | Round to nearest integer (or precision) |
-| `math.round_to_mintick(x)` | Round to the symbol's minimum tick |
+| `math.round_to_mintick(x)` | Unavailable in Studio: requires `syminfo.mintick`; round using an explicit input instead |
 | `math.sign(x)` | Sign of value (-1, 0, or 1) |
 | `math.max(a, b)` | Maximum of two values |
 | `math.min(a, b)` | Minimum of two values |
@@ -65,9 +65,10 @@ indicator('Volatility Ratio');
 
 const atr = ta.atr(14);
 const avgAtr = ta.sma(atr, 50);
-const ratio = atr / math.max(avgAtr, syminfo.mintick);
+const minAtr = input.float(0.000001, 'Minimum ATR', 0.000001);
+const ratio = atr / math.max(avgAtr, minAtr);
 const logRatio = math.log(ratio);
 
 plot(logRatio, 'Log Volatility Ratio');
-hline(0, { linestyle: hline.style_dashed });
+hline(0, 'Zero', '#787B86', hline.style_dashed);
 ```

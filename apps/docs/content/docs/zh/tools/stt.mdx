@@ -1,0 +1,1244 @@
+---
+title: 语音转文字
+description: 使用 AI 将语音转换为文字
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="stt"
+  color=""
+/>
+
+## 配置
+
+### OpenAI Whisper
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="语音转文字"
+    type="stt"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "提供商",
+            "required": true,
+            "defaultValue": "whisper",
+            "options": [
+                {
+                    "id": "whisper",
+                    "label": "OpenAI Whisper"
+                },
+                {
+                    "id": "deepgram",
+                    "label": "Deepgram"
+                },
+                {
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
+                },
+                {
+                    "id": "assemblyai",
+                    "label": "AssemblyAI"
+                },
+                {
+                    "id": "gemini",
+                    "label": "Google Gemini"
+                }
+            ]
+        },
+        {
+            "id": "audioFile",
+            "type": "file-upload",
+            "title": "音频/视频文件",
+            "placeholder": "上传音频或视频文件",
+            "required": true
+        },
+        {
+            "id": "audioFileReference",
+            "type": "short-input",
+            "title": "音频/视频文件引用",
+            "placeholder": "引用上一模块的音频/视频",
+            "required": true
+        },
+        {
+            "id": "audioUrl",
+            "type": "short-input",
+            "title": "音频/视频 URL",
+            "placeholder": "或输入可公开访问的音频/视频 URL",
+            "required": false
+        },
+        {
+            "id": "language",
+            "type": "dropdown",
+            "title": "语言",
+            "required": true,
+            "defaultValue": "auto",
+            "options": [
+                {
+                    "id": "auto",
+                    "label": "自动检测"
+                },
+                {
+                    "id": "en",
+                    "label": "英语"
+                },
+                {
+                    "id": "es",
+                    "label": "西班牙语"
+                },
+                {
+                    "id": "fr",
+                    "label": "法语"
+                },
+                {
+                    "id": "de",
+                    "label": "德语"
+                },
+                {
+                    "id": "it",
+                    "label": "意大利语"
+                },
+                {
+                    "id": "pt",
+                    "label": "葡萄牙语"
+                },
+                {
+                    "id": "nl",
+                    "label": "荷兰语"
+                },
+                {
+                    "id": "ru",
+                    "label": "俄语"
+                },
+                {
+                    "id": "zh",
+                    "label": "中文"
+                },
+                {
+                    "id": "ja",
+                    "label": "日语"
+                },
+                {
+                    "id": "ko",
+                    "label": "韩语"
+                },
+                {
+                    "id": "ar",
+                    "label": "阿拉伯语"
+                },
+                {
+                    "id": "hi",
+                    "label": "印地语"
+                },
+                {
+                    "id": "pl",
+                    "label": "波兰语"
+                },
+                {
+                    "id": "tr",
+                    "label": "土耳其语"
+                },
+                {
+                    "id": "sv",
+                    "label": "瑞典语"
+                },
+                {
+                    "id": "da",
+                    "label": "丹麦语"
+                },
+                {
+                    "id": "no",
+                    "label": "挪威语"
+                },
+                {
+                    "id": "fi",
+                    "label": "芬兰语"
+                }
+            ]
+        },
+        {
+            "id": "timestamps",
+            "type": "dropdown",
+            "title": "时间戳",
+            "required": true,
+            "defaultValue": "none",
+            "options": [
+                {
+                    "id": "none",
+                    "label": "无"
+                },
+                {
+                    "id": "sentence",
+                    "label": "句子级"
+                },
+                {
+                    "id": "word",
+                    "label": "词级"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入 API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "模型",
+            "required": true,
+            "defaultValue": "whisper-1",
+            "options": [
+                {
+                    "id": "whisper-1",
+                    "label": "Whisper-1"
+                }
+            ]
+        },
+        {
+            "id": "translateToEnglish",
+            "type": "switch",
+            "title": "翻译为英语"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">OpenAI Whisper (<code>stt_whisper</code>)</div>
+
+使用 OpenAI Whisper 将音频转录为文本
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | 是 | STT 提供方 \(whisper\) |
+| `apiKey` | string | 是 | OpenAI API 密钥 |
+| `model` | string | 否 | 要使用的 Whisper 模型 \(默认：whisper-1\) |
+| `audioFile` | file | 否 | 要转录的音频或视频文件 |
+| `audioFileReference` | file | 否 | 引用先前区块中的音频/视频文件 |
+| `audioUrl` | string | 否 | 音频或视频文件的 URL |
+| `language` | string | 否 | 语言代码 \(例如 "en"、"es"、"fr"\) 或 "auto" 表示自动检测 |
+| `timestamps` | string | 否 | 时间戳粒度：none、sentence 或 word |
+| `translateToEnglish` | boolean | 否 | 将音频翻译为英语 |
+| `prompt` | string | 否 | 可选文本，用于引导模型风格或接续上一段音频。有助于专有名词和上下文。 |
+| `temperature` | number | 否 | 采样温度，范围为 0 到 1。值越高输出越随机，值越低越集中、确定性越强。 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `transcript` | string | 完整转录文本 |
+| `segments` | array | 带时间戳的片段 |
+| `language` | string | 检测到的或指定的语言 |
+| `duration` | number | 音频时长（秒） |
+
+</div>
+
+---
+
+### Deepgram
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="语音转文字"
+    type="stt"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "提供商",
+            "required": true,
+            "defaultValue": "deepgram",
+            "options": [
+                {
+                    "id": "whisper",
+                    "label": "OpenAI Whisper"
+                },
+                {
+                    "id": "deepgram",
+                    "label": "Deepgram"
+                },
+                {
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
+                },
+                {
+                    "id": "assemblyai",
+                    "label": "AssemblyAI"
+                },
+                {
+                    "id": "gemini",
+                    "label": "Google Gemini"
+                }
+            ]
+        },
+        {
+            "id": "audioFile",
+            "type": "file-upload",
+            "title": "音频/视频文件",
+            "placeholder": "上传音频或视频文件",
+            "required": true
+        },
+        {
+            "id": "audioFileReference",
+            "type": "short-input",
+            "title": "音频/视频文件引用",
+            "placeholder": "引用先前模块中的音频/视频",
+            "required": true
+        },
+        {
+            "id": "audioUrl",
+            "type": "short-input",
+            "title": "音频/视频 URL",
+            "placeholder": "或输入可公开访问的音频/视频 URL",
+            "required": false
+        },
+        {
+            "id": "language",
+            "type": "dropdown",
+            "title": "语言",
+            "required": true,
+            "defaultValue": "auto",
+            "options": [
+                {
+                    "id": "auto",
+                    "label": "自动检测"
+                },
+                {
+                    "id": "en",
+                    "label": "英语"
+                },
+                {
+                    "id": "es",
+                    "label": "西班牙语"
+                },
+                {
+                    "id": "fr",
+                    "label": "法语"
+                },
+                {
+                    "id": "de",
+                    "label": "德语"
+                },
+                {
+                    "id": "it",
+                    "label": "意大利语"
+                },
+                {
+                    "id": "pt",
+                    "label": "葡萄牙语"
+                },
+                {
+                    "id": "nl",
+                    "label": "荷兰语"
+                },
+                {
+                    "id": "ru",
+                    "label": "俄语"
+                },
+                {
+                    "id": "zh",
+                    "label": "中文"
+                },
+                {
+                    "id": "ja",
+                    "label": "日语"
+                },
+                {
+                    "id": "ko",
+                    "label": "韩语"
+                },
+                {
+                    "id": "ar",
+                    "label": "阿拉伯语"
+                },
+                {
+                    "id": "hi",
+                    "label": "印地语"
+                },
+                {
+                    "id": "pl",
+                    "label": "波兰语"
+                },
+                {
+                    "id": "tr",
+                    "label": "土耳其语"
+                },
+                {
+                    "id": "sv",
+                    "label": "瑞典语"
+                },
+                {
+                    "id": "da",
+                    "label": "丹麦语"
+                },
+                {
+                    "id": "no",
+                    "label": "挪威语"
+                },
+                {
+                    "id": "fi",
+                    "label": "芬兰语"
+                }
+            ]
+        },
+        {
+            "id": "timestamps",
+            "type": "dropdown",
+            "title": "时间戳",
+            "required": true,
+            "defaultValue": "none",
+            "options": [
+                {
+                    "id": "none",
+                    "label": "无"
+                },
+                {
+                    "id": "sentence",
+                    "label": "句子级"
+                },
+                {
+                    "id": "word",
+                    "label": "单词级"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "模型",
+            "required": true,
+            "defaultValue": "nova-3",
+            "options": [
+                {
+                    "id": "nova-3",
+                    "label": "Nova 3"
+                },
+                {
+                    "id": "nova-2",
+                    "label": "Nova 2"
+                },
+                {
+                    "id": "nova",
+                    "label": "Nova"
+                },
+                {
+                    "id": "whisper-large",
+                    "label": "Whisper Large"
+                },
+                {
+                    "id": "enhanced",
+                    "label": "Enhanced"
+                },
+                {
+                    "id": "base",
+                    "label": "Base"
+                }
+            ]
+        },
+        {
+            "id": "diarization",
+            "type": "switch",
+            "title": "说话人分离"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Deepgram (<code>stt_deepgram</code>)</div>
+
+使用 Deepgram 将音频转录为文本
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | 是 | STT 提供商 \(deepgram\) |
+| `apiKey` | string | 是 | Deepgram API 密钥 |
+| `model` | string | 否 | 要使用的 Deepgram 模型 \(nova-3、nova-2、whisper-large 等\) |
+| `audioFile` | file | 否 | 要转录的音频或视频文件 |
+| `audioFileReference` | file | 否 | 来自先前模块的音频/视频文件引用 |
+| `audioUrl` | string | 否 | 音频或视频文件的 URL |
+| `language` | string | 否 | 语言代码 \(例如 "en"、"es"、"fr"\) 或 "auto" 表示自动检测 |
+| `timestamps` | string | 否 | 时间戳粒度：none、sentence 或 word |
+| `diarization` | boolean | 否 | 启用说话人分离 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `transcript` | string | 完整转录文本 |
+| `segments` | array | 带说话人标签的时间戳片段 |
+| `language` | string | 检测到的或指定的语言 |
+| `duration` | number | 音频时长（秒） |
+| `confidence` | number | 总体置信度 |
+
+</div>
+
+---
+
+### ElevenLabs
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="语音转文本"
+    type="stt"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "提供商",
+            "required": true,
+            "defaultValue": "elevenlabs",
+            "options": [
+                {
+                    "id": "whisper",
+                    "label": "OpenAI Whisper"
+                },
+                {
+                    "id": "deepgram",
+                    "label": "Deepgram"
+                },
+                {
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
+                },
+                {
+                    "id": "assemblyai",
+                    "label": "AssemblyAI"
+                },
+                {
+                    "id": "gemini",
+                    "label": "Google Gemini"
+                }
+            ]
+        },
+        {
+            "id": "audioFile",
+            "type": "file-upload",
+            "title": "音频/视频文件",
+            "placeholder": "上传音频或视频文件",
+            "required": true
+        },
+        {
+            "id": "audioFileReference",
+            "type": "short-input",
+            "title": "音频/视频文件引用",
+            "placeholder": "引用先前模块中的音频/视频",
+            "required": true
+        },
+        {
+            "id": "audioUrl",
+            "type": "short-input",
+            "title": "音频/视频 URL",
+            "placeholder": "或输入可公开访问的音频/视频 URL",
+            "required": false
+        },
+        {
+            "id": "language",
+            "type": "dropdown",
+            "title": "语言",
+            "required": true,
+            "defaultValue": "auto",
+            "options": [
+                {
+                    "id": "auto",
+                    "label": "自动检测"
+                },
+                {
+                    "id": "en",
+                    "label": "英语"
+                },
+                {
+                    "id": "es",
+                    "label": "西班牙语"
+                },
+                {
+                    "id": "fr",
+                    "label": "法语"
+                },
+                {
+                    "id": "de",
+                    "label": "德语"
+                },
+                {
+                    "id": "it",
+                    "label": "意大利语"
+                },
+                {
+                    "id": "pt",
+                    "label": "葡萄牙语"
+                },
+                {
+                    "id": "nl",
+                    "label": "荷兰语"
+                },
+                {
+                    "id": "ru",
+                    "label": "俄语"
+                },
+                {
+                    "id": "zh",
+                    "label": "中文"
+                },
+                {
+                    "id": "ja",
+                    "label": "日语"
+                },
+                {
+                    "id": "ko",
+                    "label": "韩语"
+                },
+                {
+                    "id": "ar",
+                    "label": "阿拉伯语"
+                },
+                {
+                    "id": "hi",
+                    "label": "印地语"
+                },
+                {
+                    "id": "pl",
+                    "label": "波兰语"
+                },
+                {
+                    "id": "tr",
+                    "label": "土耳其语"
+                },
+                {
+                    "id": "sv",
+                    "label": "瑞典语"
+                },
+                {
+                    "id": "da",
+                    "label": "丹麦语"
+                },
+                {
+                    "id": "no",
+                    "label": "挪威语"
+                },
+                {
+                    "id": "fi",
+                    "label": "芬兰语"
+                }
+            ]
+        },
+        {
+            "id": "timestamps",
+            "type": "dropdown",
+            "title": "时间戳",
+            "required": true,
+            "defaultValue": "none",
+            "options": [
+                {
+                    "id": "none",
+                    "label": "无"
+                },
+                {
+                    "id": "sentence",
+                    "label": "句子级"
+                },
+                {
+                    "id": "word",
+                    "label": "词级"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "模型",
+            "required": true,
+            "defaultValue": "scribe_v1",
+            "options": [
+                {
+                    "id": "scribe_v1",
+                    "label": "Scribe v1"
+                },
+                {
+                    "id": "scribe_v1_experimental",
+                    "label": "Scribe v1 实验版"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">ElevenLabs (<code>stt_elevenlabs</code>)</div>
+
+使用 ElevenLabs 将音频转写为文本
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | 是 | STT 提供商 \(elevenlabs\) |
+| `apiKey` | string | 是 | ElevenLabs API 密钥 |
+| `model` | string | 否 | 要使用的 ElevenLabs 模型 \(scribe_v1、scribe_v1_experimental\) |
+| `audioFile` | file | 否 | 要转写的音频或视频文件 |
+| `audioFileReference` | file | 否 | 引用先前模块中的音频/视频文件 |
+| `audioUrl` | string | 否 | 音频或视频文件的 URL |
+| `language` | string | 否 | 语言代码 \(例如 "en"、"es"、"fr"\) 或 "auto" 表示自动检测 |
+| `timestamps` | string | 否 | 时间戳粒度：none、sentence 或 word |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `transcript` | string | 完整转写文本 |
+| `segments` | array | 带时间戳的片段 |
+| `language` | string | 检测到的或指定的语言 |
+| `duration` | number | 音频时长（秒） |
+| `confidence` | number | 总体置信度分数 |
+
+</div>
+
+---
+
+### AssemblyAI
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="语音转文字"
+    type="stt"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "提供商",
+            "required": true,
+            "defaultValue": "assemblyai",
+            "options": [
+                {
+                    "id": "whisper",
+                    "label": "OpenAI Whisper"
+                },
+                {
+                    "id": "deepgram",
+                    "label": "Deepgram"
+                },
+                {
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
+                },
+                {
+                    "id": "assemblyai",
+                    "label": "AssemblyAI"
+                },
+                {
+                    "id": "gemini",
+                    "label": "Google Gemini"
+                }
+            ]
+        },
+        {
+            "id": "audioFile",
+            "type": "file-upload",
+            "title": "音频/视频文件",
+            "placeholder": "上传音频或视频文件",
+            "required": true
+        },
+        {
+            "id": "audioFileReference",
+            "type": "short-input",
+            "title": "音频/视频文件引用",
+            "placeholder": "引用先前模块中的音频/视频",
+            "required": true
+        },
+        {
+            "id": "audioUrl",
+            "type": "short-input",
+            "title": "音频/视频 URL",
+            "placeholder": "或输入可公开访问的音频/视频 URL",
+            "required": false
+        },
+        {
+            "id": "language",
+            "type": "dropdown",
+            "title": "语言",
+            "required": true,
+            "defaultValue": "auto",
+            "options": [
+                {
+                    "id": "auto",
+                    "label": "自动检测"
+                },
+                {
+                    "id": "en",
+                    "label": "英语"
+                },
+                {
+                    "id": "es",
+                    "label": "西班牙语"
+                },
+                {
+                    "id": "fr",
+                    "label": "法语"
+                },
+                {
+                    "id": "de",
+                    "label": "德语"
+                },
+                {
+                    "id": "it",
+                    "label": "意大利语"
+                },
+                {
+                    "id": "pt",
+                    "label": "葡萄牙语"
+                },
+                {
+                    "id": "nl",
+                    "label": "荷兰语"
+                },
+                {
+                    "id": "ru",
+                    "label": "俄语"
+                },
+                {
+                    "id": "zh",
+                    "label": "中文"
+                },
+                {
+                    "id": "ja",
+                    "label": "日语"
+                },
+                {
+                    "id": "ko",
+                    "label": "韩语"
+                },
+                {
+                    "id": "ar",
+                    "label": "阿拉伯语"
+                },
+                {
+                    "id": "hi",
+                    "label": "印地语"
+                },
+                {
+                    "id": "pl",
+                    "label": "波兰语"
+                },
+                {
+                    "id": "tr",
+                    "label": "土耳其语"
+                },
+                {
+                    "id": "sv",
+                    "label": "瑞典语"
+                },
+                {
+                    "id": "da",
+                    "label": "丹麦语"
+                },
+                {
+                    "id": "no",
+                    "label": "挪威语"
+                },
+                {
+                    "id": "fi",
+                    "label": "芬兰语"
+                }
+            ]
+        },
+        {
+            "id": "timestamps",
+            "type": "dropdown",
+            "title": "时间戳",
+            "required": true,
+            "defaultValue": "none",
+            "options": [
+                {
+                    "id": "none",
+                    "label": "无"
+                },
+                {
+                    "id": "sentence",
+                    "label": "句子级"
+                },
+                {
+                    "id": "word",
+                    "label": "词级"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "模型",
+            "required": true,
+            "defaultValue": "best",
+            "options": [
+                {
+                    "id": "best",
+                    "label": "Best"
+                },
+                {
+                    "id": "nano",
+                    "label": "Nano"
+                }
+            ]
+        },
+        {
+            "id": "diarization",
+            "type": "switch",
+            "title": "说话人分离"
+        },
+        {
+            "id": "sentiment",
+            "type": "switch",
+            "title": "情感分析"
+        },
+        {
+            "id": "entityDetection",
+            "type": "switch",
+            "title": "实体检测"
+        },
+        {
+            "id": "piiRedaction",
+            "type": "switch",
+            "title": "PII 脱敏"
+        },
+        {
+            "id": "summarization",
+            "type": "switch",
+            "title": "自动摘要"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">AssemblyAI (<code>stt_assemblyai</code>)</div>
+
+使用 AssemblyAI 将音频转录为文本，支持高级 NLP 功能
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | 是 | STT 提供商 \(assemblyai\) |
+| `apiKey` | string | 是 | AssemblyAI API 密钥 |
+| `model` | string | 否 | 要使用的 AssemblyAI 模型 \(默认：best\) |
+| `audioFile` | file | 否 | 要转录的音频或视频文件 |
+| `audioFileReference` | file | 否 | 来自先前区块的音频/视频文件引用 |
+| `audioUrl` | string | 否 | 音频或视频文件的 URL |
+| `language` | string | 否 | 语言代码 \(例如 "en"、"es"、"fr"\) 或 "auto" 表示自动检测 |
+| `timestamps` | string | 否 | 时间戳粒度：none、sentence 或 word |
+| `diarization` | boolean | 否 | 启用说话人分离 |
+| `sentiment` | boolean | 否 | 启用情感分析 |
+| `entityDetection` | boolean | 否 | 启用实体检测 |
+| `piiRedaction` | boolean | 否 | 启用 PII 脱敏 |
+| `summarization` | boolean | 否 | 启用自动摘要 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `transcript` | string | 完整转录文本 |
+| `segments` | array | 带说话人标签的时间戳片段 |
+| `language` | string | 检测到或指定的语言 |
+| `duration` | number | 音频时长（秒） |
+| `confidence` | number | 总体置信度分数 |
+| `sentiment` | array | 情感分析结果 |
+| `entities` | array | 检测到的实体 |
+| `summary` | string | 自动生成的摘要 |
+
+</div>
+
+---
+
+### Google Gemini
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="语音转文字"
+    type="stt"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "提供商",
+            "required": true,
+            "defaultValue": "gemini",
+            "options": [
+                {
+                    "id": "whisper",
+                    "label": "OpenAI Whisper"
+                },
+                {
+                    "id": "deepgram",
+                    "label": "Deepgram"
+                },
+                {
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
+                },
+                {
+                    "id": "assemblyai",
+                    "label": "AssemblyAI"
+                },
+                {
+                    "id": "gemini",
+                    "label": "Google Gemini"
+                }
+            ]
+        },
+        {
+            "id": "audioFile",
+            "type": "file-upload",
+            "title": "音频/视频文件",
+            "placeholder": "上传音频或视频文件",
+            "required": true
+        },
+        {
+            "id": "audioFileReference",
+            "type": "short-input",
+            "title": "音频/视频文件引用",
+            "placeholder": "引用上一模块的音频/视频",
+            "required": true
+        },
+        {
+            "id": "audioUrl",
+            "type": "short-input",
+            "title": "音频/视频 URL",
+            "placeholder": "或输入可公开访问的音频/视频 URL",
+            "required": false
+        },
+        {
+            "id": "language",
+            "type": "dropdown",
+            "title": "语言",
+            "required": true,
+            "defaultValue": "auto",
+            "options": [
+                {
+                    "id": "auto",
+                    "label": "自动检测"
+                },
+                {
+                    "id": "en",
+                    "label": "英语"
+                },
+                {
+                    "id": "es",
+                    "label": "西班牙语"
+                },
+                {
+                    "id": "fr",
+                    "label": "法语"
+                },
+                {
+                    "id": "de",
+                    "label": "德语"
+                },
+                {
+                    "id": "it",
+                    "label": "意大利语"
+                },
+                {
+                    "id": "pt",
+                    "label": "葡萄牙语"
+                },
+                {
+                    "id": "nl",
+                    "label": "荷兰语"
+                },
+                {
+                    "id": "ru",
+                    "label": "俄语"
+                },
+                {
+                    "id": "zh",
+                    "label": "中文"
+                },
+                {
+                    "id": "ja",
+                    "label": "日语"
+                },
+                {
+                    "id": "ko",
+                    "label": "韩语"
+                },
+                {
+                    "id": "ar",
+                    "label": "阿拉伯语"
+                },
+                {
+                    "id": "hi",
+                    "label": "印地语"
+                },
+                {
+                    "id": "pl",
+                    "label": "波兰语"
+                },
+                {
+                    "id": "tr",
+                    "label": "土耳其语"
+                },
+                {
+                    "id": "sv",
+                    "label": "瑞典语"
+                },
+                {
+                    "id": "da",
+                    "label": "丹麦语"
+                },
+                {
+                    "id": "no",
+                    "label": "挪威语"
+                },
+                {
+                    "id": "fi",
+                    "label": "芬兰语"
+                }
+            ]
+        },
+        {
+            "id": "timestamps",
+            "type": "dropdown",
+            "title": "时间戳",
+            "required": true,
+            "defaultValue": "none",
+            "options": [
+                {
+                    "id": "none",
+                    "label": "无"
+                },
+                {
+                    "id": "sentence",
+                    "label": "句子级"
+                },
+                {
+                    "id": "word",
+                    "label": "词级"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入 API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "模型",
+            "required": true,
+            "defaultValue": "gemini-2.5-flash",
+            "options": [
+                {
+                    "id": "gemini-3.1-pro-preview",
+                    "label": "Gemini 3.1 Pro"
+                },
+                {
+                    "id": "gemini-2.5-pro",
+                    "label": "Gemini 2.5 Pro"
+                },
+                {
+                    "id": "gemini-2.5-flash",
+                    "label": "Gemini 2.5 Flash"
+                },
+                {
+                    "id": "gemini-2.5-flash-lite",
+                    "label": "Gemini 2.5 Flash Lite"
+                },
+                {
+                    "id": "gemini-2.0-flash-exp",
+                    "label": "Gemini 2.0 Flash"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Google Gemini (<code>stt_gemini</code>)</div>
+
+使用具备多模态能力的 Google Gemini 将音频转录为文本
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | 是 | STT 提供商 \(gemini\) |
+| `apiKey` | string | 是 | Google API 密钥 |
+| `model` | string | 否 | 要使用的 Gemini 模型 \(默认：gemini-2.5-flash\) |
+| `audioFile` | file | 否 | 要转录的音频或视频文件 |
+| `audioFileReference` | file | 否 | 对先前区块中音频/视频文件的引用 |
+| `audioUrl` | string | 否 | 音频或视频文件的 URL |
+| `language` | string | 否 | 语言代码 \(例如 "en"、"es"、"fr"\) 或 "auto" 表示自动检测 |
+| `timestamps` | string | 否 | 时间戳粒度：none、sentence 或 word |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `transcript` | string | 完整转录文本 |
+| `segments` | array | 带时间戳的分段 |
+| `language` | string | 检测到或指定的语言 |
+| `duration` | number | 音频时长（秒） |
+| `confidence` | number | 总体置信度分数 |
+
+</div>
+
+---
+
+## 使用说明
+
+使用领先的 AI 提供商将音频和视频文件转录为文本。支持多语言、时间戳和说话人分离。
+
+## 备注
+
+- 类别: `tools`
+- 类型: `stt`

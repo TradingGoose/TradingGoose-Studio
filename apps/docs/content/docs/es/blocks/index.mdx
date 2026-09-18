@@ -1,0 +1,130 @@
+---
+title: Descripción general
+description: Los componentes básicos de tus flujos de trabajo de IA
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+
+Los bloques son los componentes básicos que conectas entre sí para crear flujos de trabajo de IA. Piénsalos como módulos especializados que se encargan cada uno de una tarea específica: desde conversar con modelos de IA hasta realizar llamadas a API o procesar datos.
+
+## Tipos de bloques principales
+
+TradingGoose ofrece los tipos de bloques esenciales que cubren las funciones principales de los flujos de trabajo de IA:
+
+### Bloques de procesamiento
+- **[Agent](/blocks/agent)** - Conversa con modelos de IA (OpenAI, Anthropic, Google, modelos locales)
+- **[Function](/blocks/function)** - Ejecuta código JavaScript/TypeScript personalizado
+- **[API](/blocks/api)** - Conéctate a servicios externos mediante solicitudes HTTP
+
+### Bloques de lógica
+- **[Condition](/blocks/condition)** - Ramifica las rutas del flujo de trabajo según expresiones booleanas
+- **[Router](/blocks/router)** - Usa IA para enrutar solicitudes de forma inteligente hacia distintas rutas
+- **[Evaluator](/blocks/evaluator)** - Puntúa y evalúa la calidad del contenido mediante IA
+
+### Bloques de flujo de control
+- **[Variables](/blocks/variables)** - Define y gestiona variables con alcance de flujo de trabajo
+- **[Wait](/blocks/wait)** - Pausa la ejecución del flujo de trabajo durante un retardo de tiempo especificado
+
+### Bloques de salida
+- **[Response](/blocks/response)** - Da formato y devuelve los resultados finales de tu flujo de trabajo
+
+## Cómo funcionan los bloques
+
+Cada bloque tiene tres componentes principales:
+
+**Entradas**: Datos que llegan al bloque desde otros bloques o desde la entrada del usuario
+**Configuración**: Ajustes que controlan cómo se comporta el bloque
+**Salidas**: Datos que el bloque produce para que otros bloques los usen
+
+<Steps>
+  <Step>
+    <strong>Recibir entrada</strong>: El bloque recibe datos de los bloques conectados o de la entrada del usuario
+  </Step>
+  <Step>
+    <strong>Procesar</strong>: El bloque procesa la entrada según su configuración
+  </Step>
+  <Step>
+    <strong>Generar resultados</strong>: El bloque produce datos de salida para los siguientes bloques del flujo de trabajo
+  </Step>
+</Steps>
+
+## Conectar bloques
+
+Creas flujos de trabajo conectando bloques entre sí. La salida de un bloque se convierte en la entrada de otro:
+
+- **Arrastrar para conectar**: Arrastra desde un puerto de salida a un puerto de entrada
+- **Conexiones múltiples**: Una salida puede conectarse a varias entradas
+- **Rutas ramificadas**: Algunos bloques pueden dirigir a distintas rutas según las condiciones
+
+## Patrones comunes
+
+### Procesamiento secuencial
+Conecta bloques en cadena, donde cada bloque procesa la salida del anterior:
+
+```
+User Input → Agent → Function → Response
+```
+
+### Ramificación condicional
+Usa bloques Condition o Router para crear distintas rutas:
+
+```
+User Input → Router → Agent A (for questions)
+                   → Agent B (for commands)
+```
+
+### Control de calidad
+Usa bloques Evaluator para evaluar y filtrar las salidas:
+
+```
+Agent → Evaluator → Condition → Response (if good)
+                              → Agent (retry if bad)
+```
+
+## Configuración de bloques
+
+Cada tipo de bloque tiene opciones de configuración específicas:
+
+**Todos los bloques**:
+- Conexiones de entrada/salida
+- Comportamiento ante errores
+- Configuración de tiempo de espera de ejecución
+
+**Bloques de IA** (Agent, Router, Evaluator):
+- Selección de modelo (OpenAI, Anthropic, Google, local)
+- Claves de API y autenticación
+- Temperatura y otros parámetros del modelo
+- Prompts del sistema e instrucciones
+
+**Bloques de lógica** (Condition, Function):
+- Expresiones o código personalizados
+- Referencias a variables
+- Configuración del entorno de ejecución
+
+**Bloques de integración** (API, Response):
+- Configuración del endpoint
+- Encabezados y autenticación
+- Formato de solicitud/respuesta
+
+<Cards>
+  <Card title="Bloque Agent" href="/blocks/agent">
+    Conéctate a modelos de IA y crea respuestas inteligentes
+  </Card>
+  <Card title="Bloque Function" href="/blocks/function">
+    Ejecuta código personalizado para procesar y transformar datos
+  </Card>
+  <Card title="Bloque API" href="/blocks/api">
+    Integra servicios y API externos
+  </Card>
+  <Card title="Bloque Condition" href="/blocks/condition">
+    Crea lógica de ramificación según la evaluación de datos
+  </Card>
+  <Card title="Bloque Variables" href="/blocks/variables">
+    Define y gestiona variables con alcance de flujo de trabajo
+  </Card>
+  <Card title="Bloque Wait" href="/blocks/wait">
+    Pausa la ejecución del flujo de trabajo durante el tiempo especificado
+  </Card>
+</Cards>

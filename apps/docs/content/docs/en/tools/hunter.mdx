@@ -30,33 +30,33 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "hunter_domain_search",
             "options": [
                 {
-                    "label": "Domain Search",
-                    "id": "hunter_domain_search"
+                    "id": "hunter_domain_search",
+                    "label": "Domain Search"
                 },
                 {
-                    "label": "Email Finder",
-                    "id": "hunter_email_finder"
+                    "id": "hunter_email_finder",
+                    "label": "Email Finder"
                 },
                 {
-                    "label": "Email Verifier",
-                    "id": "hunter_email_verifier"
+                    "id": "hunter_email_verifier",
+                    "label": "Email Verifier"
                 },
                 {
-                    "label": "Discover Companies",
-                    "id": "hunter_discover"
+                    "id": "hunter_discover",
+                    "label": "Discover Companies"
                 },
                 {
-                    "label": "Find Company",
-                    "id": "hunter_companies_find"
+                    "id": "hunter_companies_find",
+                    "label": "Find Company"
                 },
                 {
-                    "label": "Email Count",
-                    "id": "hunter_email_count"
+                    "id": "hunter_email_count",
+                    "label": "Email Count"
                 }
-            ],
-            "defaultValue": "hunter_domain_search"
+            ]
         },
         {
             "id": "apiKey",
@@ -87,18 +87,19 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Email Type",
             "layout": "full",
+            "defaultValue": "all",
             "options": [
                 {
-                    "label": "All",
-                    "id": "all"
+                    "id": "all",
+                    "label": "All"
                 },
                 {
-                    "label": "Personal",
-                    "id": "personal"
+                    "id": "personal",
+                    "label": "Personal"
                 },
                 {
-                    "label": "Generic",
-                    "id": "generic"
+                    "id": "generic",
+                    "label": "Generic"
                 }
             ]
         },
@@ -107,22 +108,23 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Seniority Level",
             "layout": "full",
+            "defaultValue": "all",
             "options": [
                 {
-                    "label": "All",
-                    "id": "all"
+                    "id": "all",
+                    "label": "All"
                 },
                 {
-                    "label": "Junior",
-                    "id": "junior"
+                    "id": "junior",
+                    "label": "Junior"
                 },
                 {
-                    "label": "Senior",
-                    "id": "senior"
+                    "id": "senior",
+                    "label": "Senior"
                 },
                 {
-                    "label": "Executive",
-                    "id": "executive"
+                    "id": "executive",
+                    "label": "Executive"
                 }
             ]
         },
@@ -148,7 +150,6 @@ Returns all the email addresses found using one given domain name, with sources.
 | --------- | ---- | -------- | ----------- |
 | `domain` | string | Yes | Domain name to search for email addresses |
 | `limit` | number | No | Maximum email addresses to return \(default: 10\) |
-| `offset` | number | No | Number of email addresses to skip |
 | `type` | string | No | Filter for personal or generic emails |
 | `seniority` | string | No | Filter by seniority level: junior, senior, or executive |
 | `department` | string | No | Filter by specific departments \(e.g., sales, marketing\) |
@@ -177,6 +178,7 @@ Returns all the email addresses found using one given domain name, with sources.
 | `city` | string | City where the organization is located |
 | `postal_code` | string | Postal code of the organization |
 | `street` | string | Street address of the organization |
+| `emails` | array | Array of email addresses found for the domain, each containing value, type, confidence, sources, and person details |
 
 </div>
 
@@ -198,33 +200,33 @@ Returns all the email addresses found using one given domain name, with sources.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "hunter_email_finder",
             "options": [
                 {
-                    "label": "Domain Search",
-                    "id": "hunter_domain_search"
+                    "id": "hunter_domain_search",
+                    "label": "Domain Search"
                 },
                 {
-                    "label": "Email Finder",
-                    "id": "hunter_email_finder"
+                    "id": "hunter_email_finder",
+                    "label": "Email Finder"
                 },
                 {
-                    "label": "Email Verifier",
-                    "id": "hunter_email_verifier"
+                    "id": "hunter_email_verifier",
+                    "label": "Email Verifier"
                 },
                 {
-                    "label": "Discover Companies",
-                    "id": "hunter_discover"
+                    "id": "hunter_discover",
+                    "label": "Discover Companies"
                 },
                 {
-                    "label": "Find Company",
-                    "id": "hunter_companies_find"
+                    "id": "hunter_companies_find",
+                    "label": "Find Company"
                 },
                 {
-                    "label": "Email Count",
-                    "id": "hunter_email_count"
+                    "id": "hunter_email_count",
+                    "label": "Email Count"
                 }
-            ],
-            "defaultValue": "hunter_email_finder"
+            ]
         },
         {
             "id": "apiKey",
@@ -292,6 +294,7 @@ Finds the most likely email address for a person given their name and company do
 | `email` | string | The found email address |
 | `score` | number | Confidence score for the found email address |
 | `sources` | array | Array of sources where the email was found, each containing domain, uri, extracted_on, last_seen_on, and still_on_page |
+| `verification` | object | Verification information containing date and status |
 
 </div>
 
@@ -313,33 +316,33 @@ Finds the most likely email address for a person given their name and company do
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "hunter_email_verifier",
             "options": [
                 {
-                    "label": "Domain Search",
-                    "id": "hunter_domain_search"
+                    "id": "hunter_domain_search",
+                    "label": "Domain Search"
                 },
                 {
-                    "label": "Email Finder",
-                    "id": "hunter_email_finder"
+                    "id": "hunter_email_finder",
+                    "label": "Email Finder"
                 },
                 {
-                    "label": "Email Verifier",
-                    "id": "hunter_email_verifier"
+                    "id": "hunter_email_verifier",
+                    "label": "Email Verifier"
                 },
                 {
-                    "label": "Discover Companies",
-                    "id": "hunter_discover"
+                    "id": "hunter_discover",
+                    "label": "Discover Companies"
                 },
                 {
-                    "label": "Find Company",
-                    "id": "hunter_companies_find"
+                    "id": "hunter_companies_find",
+                    "label": "Find Company"
                 },
                 {
-                    "label": "Email Count",
-                    "id": "hunter_email_count"
+                    "id": "hunter_email_count",
+                    "label": "Email Count"
                 }
-            ],
-            "defaultValue": "hunter_email_verifier"
+            ]
         },
         {
             "id": "apiKey",
@@ -391,6 +394,7 @@ Verifies the deliverability of an email address and provides detailed verificati
 | `accept_all` | boolean | Whether the domain accepts all email addresses |
 | `block` | boolean | Whether the email is blocked |
 | `status` | string | Verification status: valid, invalid, accept_all, webmail, disposable, or unknown |
+| `sources` | array | Array of sources where the email was found |
 
 </div>
 
@@ -412,33 +416,33 @@ Verifies the deliverability of an email address and provides detailed verificati
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "hunter_discover",
             "options": [
                 {
-                    "label": "Domain Search",
-                    "id": "hunter_domain_search"
+                    "id": "hunter_domain_search",
+                    "label": "Domain Search"
                 },
                 {
-                    "label": "Email Finder",
-                    "id": "hunter_email_finder"
+                    "id": "hunter_email_finder",
+                    "label": "Email Finder"
                 },
                 {
-                    "label": "Email Verifier",
-                    "id": "hunter_email_verifier"
+                    "id": "hunter_email_verifier",
+                    "label": "Email Verifier"
                 },
                 {
-                    "label": "Discover Companies",
-                    "id": "hunter_discover"
+                    "id": "hunter_discover",
+                    "label": "Discover Companies"
                 },
                 {
-                    "label": "Find Company",
-                    "id": "hunter_companies_find"
+                    "id": "hunter_companies_find",
+                    "label": "Find Company"
                 },
                 {
-                    "label": "Email Count",
-                    "id": "hunter_email_count"
+                    "id": "hunter_email_count",
+                    "label": "Email Count"
                 }
-            ],
-            "defaultValue": "hunter_discover"
+            ]
         },
         {
             "id": "apiKey",
@@ -486,7 +490,9 @@ Returns companies matching a set of criteria using Hunter.io AI-powered search.
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `results` | array | Array of companies matching the search criteria, each containing domain, name, headcount, technologies, and email_count |
 
 </div>
 
@@ -508,33 +514,33 @@ Refer to the block outputs for this operation.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "hunter_companies_find",
             "options": [
                 {
-                    "label": "Domain Search",
-                    "id": "hunter_domain_search"
+                    "id": "hunter_domain_search",
+                    "label": "Domain Search"
                 },
                 {
-                    "label": "Email Finder",
-                    "id": "hunter_email_finder"
+                    "id": "hunter_email_finder",
+                    "label": "Email Finder"
                 },
                 {
-                    "label": "Email Verifier",
-                    "id": "hunter_email_verifier"
+                    "id": "hunter_email_verifier",
+                    "label": "Email Verifier"
                 },
                 {
-                    "label": "Discover Companies",
-                    "id": "hunter_discover"
+                    "id": "hunter_discover",
+                    "label": "Discover Companies"
                 },
                 {
-                    "label": "Find Company",
-                    "id": "hunter_companies_find"
+                    "id": "hunter_companies_find",
+                    "label": "Find Company"
                 },
                 {
-                    "label": "Email Count",
-                    "id": "hunter_email_count"
+                    "id": "hunter_email_count",
+                    "label": "Email Count"
                 }
-            ],
-            "defaultValue": "hunter_companies_find"
+            ]
         },
         {
             "id": "apiKey",
@@ -574,6 +580,7 @@ Enriches company data using domain name.
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `person` | object | Person information \(undefined for companies_find tool\) |
+| `company` | object | Company information including name, domain, industry, size, country, linkedin, and twitter |
 
 </div>
 
@@ -595,33 +602,33 @@ Enriches company data using domain name.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "hunter_email_count",
             "options": [
                 {
-                    "label": "Domain Search",
-                    "id": "hunter_domain_search"
+                    "id": "hunter_domain_search",
+                    "label": "Domain Search"
                 },
                 {
-                    "label": "Email Finder",
-                    "id": "hunter_email_finder"
+                    "id": "hunter_email_finder",
+                    "label": "Email Finder"
                 },
                 {
-                    "label": "Email Verifier",
-                    "id": "hunter_email_verifier"
+                    "id": "hunter_email_verifier",
+                    "label": "Email Verifier"
                 },
                 {
-                    "label": "Discover Companies",
-                    "id": "hunter_discover"
+                    "id": "hunter_discover",
+                    "label": "Discover Companies"
                 },
                 {
-                    "label": "Find Company",
-                    "id": "hunter_companies_find"
+                    "id": "hunter_companies_find",
+                    "label": "Find Company"
                 },
                 {
-                    "label": "Email Count",
-                    "id": "hunter_email_count"
+                    "id": "hunter_email_count",
+                    "label": "Email Count"
                 }
-            ],
-            "defaultValue": "hunter_email_count"
+            ]
         },
         {
             "id": "apiKey",
@@ -652,18 +659,19 @@ Enriches company data using domain name.
             "type": "dropdown",
             "title": "Email Type",
             "layout": "full",
+            "defaultValue": "all",
             "options": [
                 {
-                    "label": "All",
-                    "id": "all"
+                    "id": "all",
+                    "label": "All"
                 },
                 {
-                    "label": "Personal",
-                    "id": "personal"
+                    "id": "personal",
+                    "label": "Personal"
                 },
                 {
-                    "label": "Generic",
-                    "id": "generic"
+                    "id": "generic",
+                    "label": "Generic"
                 }
             ]
         }
@@ -693,6 +701,7 @@ Returns the total number of email addresses found for a domain or company.
 | `personal_emails` | number | Number of personal email addresses found |
 | `generic_emails` | number | Number of generic email addresses found |
 | `department` | object | Breakdown of email addresses by department \(executive, it, finance, management, sales, legal, support, hr, marketing, communication\) |
+| `seniority` | object | Breakdown of email addresses by seniority level \(junior, senior, executive\) |
 
 </div>
 

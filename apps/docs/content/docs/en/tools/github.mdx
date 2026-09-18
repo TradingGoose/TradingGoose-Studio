@@ -36,25 +36,25 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "github_pr",
             "options": [
                 {
-                    "label": "Get PR details",
-                    "id": "github_pr"
+                    "id": "github_pr",
+                    "label": "Get PR details"
                 },
                 {
-                    "label": "Create PR comment",
-                    "id": "github_comment"
+                    "id": "github_comment",
+                    "label": "Create PR comment"
                 },
                 {
-                    "label": "Get repository info",
-                    "id": "github_repo_info"
+                    "id": "github_repo_info",
+                    "label": "Get repository info"
                 },
                 {
-                    "label": "Get latest commit",
-                    "id": "github_latest_commit"
+                    "id": "github_latest_commit",
+                    "label": "Get latest commit"
                 }
-            ],
-            "defaultValue": "github_pr"
+            ]
         },
         {
             "id": "owner",
@@ -112,20 +112,7 @@ Fetch PR details including diff and files changed
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Human-readable PR summary |
-| `number` | number | Pull request number |
-| `title` | string | PR title |
-| `state` | string | PR state \(open/closed/merged\) |
-| `html_url` | string | GitHub web URL |
-| `diff_url` | string | Raw diff URL |
-| `created_at` | string | Creation timestamp |
-| `updated_at` | string | Last update timestamp |
-| `filename` | string | File path |
-| `additions` | number | Lines added |
-| `deletions` | number | Lines deleted |
-| `changes` | number | Total changes |
-| `patch` | string | File diff patch |
-| `blob_url` | string | GitHub blob URL |
-| `raw_url` | string | Raw file URL |
+| `metadata` | object | Detailed PR metadata including file changes |
 
 </div>
 
@@ -147,25 +134,25 @@ Fetch PR details including diff and files changed
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "github_comment",
             "options": [
                 {
-                    "label": "Get PR details",
-                    "id": "github_pr"
+                    "id": "github_pr",
+                    "label": "Get PR details"
                 },
                 {
-                    "label": "Create PR comment",
-                    "id": "github_comment"
+                    "id": "github_comment",
+                    "label": "Create PR comment"
                 },
                 {
-                    "label": "Get repository info",
-                    "id": "github_repo_info"
+                    "id": "github_repo_info",
+                    "label": "Get repository info"
                 },
                 {
-                    "label": "Get latest commit",
-                    "id": "github_latest_commit"
+                    "id": "github_latest_commit",
+                    "label": "Get latest commit"
                 }
-            ],
-            "defaultValue": "github_comment"
+            ]
         },
         {
             "id": "owner",
@@ -215,12 +202,12 @@ Fetch PR details including diff and files changed
             "layout": "half",
             "options": [
                 {
-                    "label": "General PR Comment",
-                    "id": "pr_comment"
+                    "id": "pr_comment",
+                    "label": "General PR Comment"
                 },
                 {
-                    "label": "File-specific Comment",
-                    "id": "file_comment"
+                    "id": "file_comment",
+                    "label": "File-specific Comment"
                 }
             ]
         },
@@ -229,14 +216,16 @@ Fetch PR details including diff and files changed
             "type": "short-input",
             "title": "File Path",
             "layout": "half",
-            "placeholder": "e.g., src/main.ts"
+            "placeholder": "e.g., src/main.ts",
+            "description": "Shown when commentType is 'file_comment'."
         },
         {
             "id": "line",
             "type": "short-input",
             "title": "Line Number",
             "layout": "half",
-            "placeholder": "e.g., 42"
+            "placeholder": "e.g., 42",
+            "description": "Shown when commentType is 'file_comment'."
         }
     ]}
   />
@@ -256,11 +245,7 @@ Create comments on GitHub PRs
 | `body` | string | Yes | Comment content |
 | `pullNumber` | number | Yes | Pull request number |
 | `path` | string | No | File path for review comment |
-| `position` | number | No | Line number for review comment |
 | `commentType` | string | No | Type of comment \(pr_comment or file_comment\) |
-| `line` | number | No | Line number for review comment |
-| `side` | string | No | Side of the diff \(LEFT or RIGHT\) |
-| `commitId` | string | No | The SHA of the commit to comment on |
 | `apiKey` | string | Yes | GitHub API token |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
@@ -268,6 +253,7 @@ Create comments on GitHub PRs
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Human-readable comment confirmation |
+| `metadata` | object | Comment metadata |
 
 </div>
 
@@ -289,25 +275,25 @@ Create comments on GitHub PRs
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "github_repo_info",
             "options": [
                 {
-                    "label": "Get PR details",
-                    "id": "github_pr"
+                    "id": "github_pr",
+                    "label": "Get PR details"
                 },
                 {
-                    "label": "Create PR comment",
-                    "id": "github_comment"
+                    "id": "github_comment",
+                    "label": "Create PR comment"
                 },
                 {
-                    "label": "Get repository info",
-                    "id": "github_repo_info"
+                    "id": "github_repo_info",
+                    "label": "Get repository info"
                 },
                 {
-                    "label": "Get latest commit",
-                    "id": "github_latest_commit"
+                    "id": "github_latest_commit",
+                    "label": "Get latest commit"
                 }
-            ],
-            "defaultValue": "github_repo_info"
+            ]
         },
         {
             "id": "owner",
@@ -356,11 +342,7 @@ Retrieve comprehensive GitHub repository metadata including stars, forks, issues
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Human-readable repository summary |
-| `name` | string | Repository name |
-| `description` | string | Repository description |
-| `stars` | number | Number of stars |
-| `forks` | number | Number of forks |
-| `openIssues` | number | Number of open issues |
+| `metadata` | object | Repository metadata |
 
 </div>
 
@@ -382,25 +364,25 @@ Retrieve comprehensive GitHub repository metadata including stars, forks, issues
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "github_latest_commit",
             "options": [
                 {
-                    "label": "Get PR details",
-                    "id": "github_pr"
+                    "id": "github_pr",
+                    "label": "Get PR details"
                 },
                 {
-                    "label": "Create PR comment",
-                    "id": "github_comment"
+                    "id": "github_comment",
+                    "label": "Create PR comment"
                 },
                 {
-                    "label": "Get repository info",
-                    "id": "github_repo_info"
+                    "id": "github_repo_info",
+                    "label": "Get repository info"
                 },
                 {
-                    "label": "Get latest commit",
-                    "id": "github_latest_commit"
+                    "id": "github_latest_commit",
+                    "label": "Get latest commit"
                 }
-            ],
-            "defaultValue": "github_latest_commit"
+            ]
         },
         {
             "id": "owner",
@@ -457,6 +439,7 @@ Retrieve the latest commit from a GitHub repository
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Human-readable commit summary |
+| `metadata` | object | Commit metadata |
 
 </div>
 

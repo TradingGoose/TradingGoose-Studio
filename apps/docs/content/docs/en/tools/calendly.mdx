@@ -10,7 +10,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
   type="calendly"
-  color=""
+  color="#006bff"
 />
 
 <Cards>
@@ -28,44 +28,44 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
   <BlockConfigPreview
     name="Calendly"
     type="calendly"
-    color=""
+    color="#006bff"
     hideHeader
     subBlocks={[
         {
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "calendly_get_current_user",
             "options": [
                 {
-                    "label": "Get Current User",
-                    "id": "calendly_get_current_user"
+                    "id": "calendly_get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "List Event Types",
-                    "id": "calendly_list_event_types"
+                    "id": "calendly_list_event_types",
+                    "label": "List Event Types"
                 },
                 {
-                    "label": "Get Event Type",
-                    "id": "calendly_get_event_type"
+                    "id": "calendly_get_event_type",
+                    "label": "Get Event Type"
                 },
                 {
-                    "label": "List Scheduled Events",
-                    "id": "calendly_list_scheduled_events"
+                    "id": "calendly_list_scheduled_events",
+                    "label": "List Scheduled Events"
                 },
                 {
-                    "label": "Get Scheduled Event",
-                    "id": "calendly_get_scheduled_event"
+                    "id": "calendly_get_scheduled_event",
+                    "label": "Get Scheduled Event"
                 },
                 {
-                    "label": "List Event Invitees",
-                    "id": "calendly_list_event_invitees"
+                    "id": "calendly_list_event_invitees",
+                    "label": "List Event Invitees"
                 },
                 {
-                    "label": "Cancel Event",
-                    "id": "calendly_cancel_event"
+                    "id": "calendly_cancel_event",
+                    "label": "Cancel Event"
                 }
-            ],
-            "defaultValue": "calendly_get_current_user"
+            ]
         },
         {
             "id": "apiKey",
@@ -94,15 +94,7 @@ Get information about the currently authenticated Calendly user
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `uri` | string | Canonical reference to the user |
-| `name` | string | User full name |
-| `slug` | string | Unique identifier for the user in URLs |
-| `email` | string | User email address |
-| `scheduling_url` | string | URL to the user |
-| `timezone` | string | User timezone |
-| `avatar_url` | string | URL to user avatar image |
-| `created_at` | string | ISO timestamp when user was created |
-| `updated_at` | string | ISO timestamp when user was last updated |
+| `resource` | object | Current user information |
 
 </div>
 
@@ -116,44 +108,44 @@ Get information about the currently authenticated Calendly user
   <BlockConfigPreview
     name="Calendly"
     type="calendly"
-    color=""
+    color="#006bff"
     hideHeader
     subBlocks={[
         {
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "calendly_list_event_types",
             "options": [
                 {
-                    "label": "Get Current User",
-                    "id": "calendly_get_current_user"
+                    "id": "calendly_get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "List Event Types",
-                    "id": "calendly_list_event_types"
+                    "id": "calendly_list_event_types",
+                    "label": "List Event Types"
                 },
                 {
-                    "label": "Get Event Type",
-                    "id": "calendly_get_event_type"
+                    "id": "calendly_get_event_type",
+                    "label": "Get Event Type"
                 },
                 {
-                    "label": "List Scheduled Events",
-                    "id": "calendly_list_scheduled_events"
+                    "id": "calendly_list_scheduled_events",
+                    "label": "List Scheduled Events"
                 },
                 {
-                    "label": "Get Scheduled Event",
-                    "id": "calendly_get_scheduled_event"
+                    "id": "calendly_get_scheduled_event",
+                    "label": "Get Scheduled Event"
                 },
                 {
-                    "label": "List Event Invitees",
-                    "id": "calendly_list_event_invitees"
+                    "id": "calendly_list_event_invitees",
+                    "label": "List Event Invitees"
                 },
                 {
-                    "label": "Cancel Event",
-                    "id": "calendly_cancel_event"
+                    "id": "calendly_cancel_event",
+                    "label": "Cancel Event"
                 }
-            ],
-            "defaultValue": "calendly_list_event_types"
+            ]
         },
         {
             "id": "apiKey",
@@ -185,8 +177,7 @@ Get information about the currently authenticated Calendly user
             "id": "count",
             "type": "short-input",
             "title": "Results Per Page",
-            "placeholder": "Number of results (default: 20, max: 100)",
-            "max": 100
+            "placeholder": "Number of results (default: 20, max: 100)"
         },
         {
             "id": "pageToken",
@@ -225,18 +216,8 @@ Retrieve a list of all event types for a user or organization
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `uri` | string | Canonical reference to the event type |
-| `name` | string | Event type name |
-| `active` | boolean | Whether the event type is active |
-| `booking_method` | string | Booking method \(e.g.,  |
-| `color` | string | Hex color code |
-| `created_at` | string | ISO timestamp of creation |
-| `description_html` | string | HTML formatted description |
-| `description_plain` | string | Plain text description |
-| `duration` | number | Duration in minutes |
-| `scheduling_url` | string | URL to scheduling page |
-| `slug` | string | Unique identifier for URLs |
-| `type` | string | Event type classification |
+| `collection` | array | Array of event type objects |
+| `pagination` | object | Pagination information |
 
 </div>
 
@@ -250,44 +231,44 @@ Retrieve a list of all event types for a user or organization
   <BlockConfigPreview
     name="Calendly"
     type="calendly"
-    color=""
+    color="#006bff"
     hideHeader
     subBlocks={[
         {
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "calendly_get_event_type",
             "options": [
                 {
-                    "label": "Get Current User",
-                    "id": "calendly_get_current_user"
+                    "id": "calendly_get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "List Event Types",
-                    "id": "calendly_list_event_types"
+                    "id": "calendly_list_event_types",
+                    "label": "List Event Types"
                 },
                 {
-                    "label": "Get Event Type",
-                    "id": "calendly_get_event_type"
+                    "id": "calendly_get_event_type",
+                    "label": "Get Event Type"
                 },
                 {
-                    "label": "List Scheduled Events",
-                    "id": "calendly_list_scheduled_events"
+                    "id": "calendly_list_scheduled_events",
+                    "label": "List Scheduled Events"
                 },
                 {
-                    "label": "Get Scheduled Event",
-                    "id": "calendly_get_scheduled_event"
+                    "id": "calendly_get_scheduled_event",
+                    "label": "Get Scheduled Event"
                 },
                 {
-                    "label": "List Event Invitees",
-                    "id": "calendly_list_event_invitees"
+                    "id": "calendly_list_event_invitees",
+                    "label": "List Event Invitees"
                 },
                 {
-                    "label": "Cancel Event",
-                    "id": "calendly_cancel_event"
+                    "id": "calendly_cancel_event",
+                    "label": "Cancel Event"
                 }
-            ],
-            "defaultValue": "calendly_get_event_type"
+            ]
         },
         {
             "id": "apiKey",
@@ -324,17 +305,7 @@ Get detailed information about a specific event type
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `uri` | string | Canonical reference to the event type |
-| `name` | string | Question text |
-| `active` | boolean | Whether the event type is active |
-| `booking_method` | string | Booking method |
-| `color` | string | Hex color code |
-| `created_at` | string | ISO timestamp of creation |
-| `type` | string | Question type \(text, single_select, multi_select, etc.\) |
-| `position` | number | Question order |
-| `enabled` | boolean | Whether question is enabled |
-| `required` | boolean | Whether question is required |
-| `items` | string | items output |
+| `resource` | object | Event type details |
 
 </div>
 
@@ -348,44 +319,44 @@ Get detailed information about a specific event type
   <BlockConfigPreview
     name="Calendly"
     type="calendly"
-    color=""
+    color="#006bff"
     hideHeader
     subBlocks={[
         {
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "calendly_list_scheduled_events",
             "options": [
                 {
-                    "label": "Get Current User",
-                    "id": "calendly_get_current_user"
+                    "id": "calendly_get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "List Event Types",
-                    "id": "calendly_list_event_types"
+                    "id": "calendly_list_event_types",
+                    "label": "List Event Types"
                 },
                 {
-                    "label": "Get Event Type",
-                    "id": "calendly_get_event_type"
+                    "id": "calendly_get_event_type",
+                    "label": "Get Event Type"
                 },
                 {
-                    "label": "List Scheduled Events",
-                    "id": "calendly_list_scheduled_events"
+                    "id": "calendly_list_scheduled_events",
+                    "label": "List Scheduled Events"
                 },
                 {
-                    "label": "Get Scheduled Event",
-                    "id": "calendly_get_scheduled_event"
+                    "id": "calendly_get_scheduled_event",
+                    "label": "Get Scheduled Event"
                 },
                 {
-                    "label": "List Event Invitees",
-                    "id": "calendly_list_event_invitees"
+                    "id": "calendly_list_event_invitees",
+                    "label": "List Event Invitees"
                 },
                 {
-                    "label": "Cancel Event",
-                    "id": "calendly_cancel_event"
+                    "id": "calendly_cancel_event",
+                    "label": "Cancel Event"
                 }
-            ],
-            "defaultValue": "calendly_list_scheduled_events"
+            ]
         },
         {
             "id": "apiKey",
@@ -431,12 +402,16 @@ Get detailed information about a specific event type
             "title": "Status",
             "options": [
                 {
-                    "label": "Active",
-                    "id": "active"
+                    "id": "",
+                    "label": "All"
                 },
                 {
-                    "label": "Canceled",
-                    "id": "canceled"
+                    "id": "active",
+                    "label": "Active"
+                },
+                {
+                    "id": "canceled",
+                    "label": "Canceled"
                 }
             ]
         },
@@ -444,8 +419,7 @@ Get detailed information about a specific event type
             "id": "count",
             "type": "short-input",
             "title": "Results Per Page",
-            "placeholder": "Number of results (default: 20, max: 100)",
-            "max": 100
+            "placeholder": "Number of results (default: 20, max: 100)"
         },
         {
             "id": "pageToken",
@@ -487,14 +461,8 @@ Retrieve a list of scheduled events for a user or organization
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `uri` | string | Canonical reference to the event |
-| `name` | string | Event name |
-| `status` | string | Event status \(active or canceled\) |
-| `start_time` | string | ISO timestamp of event start |
-| `end_time` | string | ISO timestamp of event end |
-| `event_type` | string | URI of the event type |
-| `type` | string | Location type \(e.g.,  |
-| `location` | string | Location description |
+| `collection` | array | Array of scheduled event objects |
+| `pagination` | object | Pagination information |
 
 </div>
 
@@ -508,44 +476,44 @@ Retrieve a list of scheduled events for a user or organization
   <BlockConfigPreview
     name="Calendly"
     type="calendly"
-    color=""
+    color="#006bff"
     hideHeader
     subBlocks={[
         {
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "calendly_get_scheduled_event",
             "options": [
                 {
-                    "label": "Get Current User",
-                    "id": "calendly_get_current_user"
+                    "id": "calendly_get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "List Event Types",
-                    "id": "calendly_list_event_types"
+                    "id": "calendly_list_event_types",
+                    "label": "List Event Types"
                 },
                 {
-                    "label": "Get Event Type",
-                    "id": "calendly_get_event_type"
+                    "id": "calendly_get_event_type",
+                    "label": "Get Event Type"
                 },
                 {
-                    "label": "List Scheduled Events",
-                    "id": "calendly_list_scheduled_events"
+                    "id": "calendly_list_scheduled_events",
+                    "label": "List Scheduled Events"
                 },
                 {
-                    "label": "Get Scheduled Event",
-                    "id": "calendly_get_scheduled_event"
+                    "id": "calendly_get_scheduled_event",
+                    "label": "Get Scheduled Event"
                 },
                 {
-                    "label": "List Event Invitees",
-                    "id": "calendly_list_event_invitees"
+                    "id": "calendly_list_event_invitees",
+                    "label": "List Event Invitees"
                 },
                 {
-                    "label": "Cancel Event",
-                    "id": "calendly_cancel_event"
+                    "id": "calendly_cancel_event",
+                    "label": "Cancel Event"
                 }
-            ],
-            "defaultValue": "calendly_get_scheduled_event"
+            ]
         },
         {
             "id": "apiKey",
@@ -582,14 +550,7 @@ Get detailed information about a specific scheduled event
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `uri` | string | Canonical reference to the event |
-| `name` | string | Event name |
-| `status` | string | Event status \(active or canceled\) |
-| `start_time` | string | ISO timestamp of event start |
-| `end_time` | string | ISO timestamp of event end |
-| `event_type` | string | URI of the event type |
-| `type` | string | Location type |
-| `location` | string | Location description |
+| `resource` | object | Scheduled event details |
 
 </div>
 
@@ -603,44 +564,44 @@ Get detailed information about a specific scheduled event
   <BlockConfigPreview
     name="Calendly"
     type="calendly"
-    color=""
+    color="#006bff"
     hideHeader
     subBlocks={[
         {
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "calendly_list_event_invitees",
             "options": [
                 {
-                    "label": "Get Current User",
-                    "id": "calendly_get_current_user"
+                    "id": "calendly_get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "List Event Types",
-                    "id": "calendly_list_event_types"
+                    "id": "calendly_list_event_types",
+                    "label": "List Event Types"
                 },
                 {
-                    "label": "Get Event Type",
-                    "id": "calendly_get_event_type"
+                    "id": "calendly_get_event_type",
+                    "label": "Get Event Type"
                 },
                 {
-                    "label": "List Scheduled Events",
-                    "id": "calendly_list_scheduled_events"
+                    "id": "calendly_list_scheduled_events",
+                    "label": "List Scheduled Events"
                 },
                 {
-                    "label": "Get Scheduled Event",
-                    "id": "calendly_get_scheduled_event"
+                    "id": "calendly_get_scheduled_event",
+                    "label": "Get Scheduled Event"
                 },
                 {
-                    "label": "List Event Invitees",
-                    "id": "calendly_list_event_invitees"
+                    "id": "calendly_list_event_invitees",
+                    "label": "List Event Invitees"
                 },
                 {
-                    "label": "Cancel Event",
-                    "id": "calendly_cancel_event"
+                    "id": "calendly_cancel_event",
+                    "label": "Cancel Event"
                 }
-            ],
-            "defaultValue": "calendly_list_event_invitees"
+            ]
         },
         {
             "id": "apiKey",
@@ -656,12 +617,16 @@ Get detailed information about a specific scheduled event
             "title": "Status",
             "options": [
                 {
-                    "label": "Active",
-                    "id": "active"
+                    "id": "",
+                    "label": "All"
                 },
                 {
-                    "label": "Canceled",
-                    "id": "canceled"
+                    "id": "active",
+                    "label": "Active"
+                },
+                {
+                    "id": "canceled",
+                    "label": "Canceled"
                 }
             ]
         },
@@ -682,8 +647,7 @@ Get detailed information about a specific scheduled event
             "id": "count",
             "type": "short-input",
             "title": "Results Per Page",
-            "placeholder": "Number of results (default: 20, max: 100)",
-            "max": 100
+            "placeholder": "Number of results (default: 20, max: 100)"
         },
         {
             "id": "pageToken",
@@ -722,14 +686,8 @@ Retrieve a list of invitees for a scheduled event
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `uri` | string | Canonical reference to the invitee |
-| `email` | string | Invitee email address |
-| `name` | string | Invitee full name |
-| `first_name` | string | Invitee first name |
-| `last_name` | string | Invitee last name |
-| `status` | string | Invitee status \(active or canceled\) |
-| `question` | string | Question text |
-| `answer` | string | Invitee answer |
+| `collection` | array | Array of invitee objects |
+| `pagination` | object | Pagination information |
 
 </div>
 
@@ -743,44 +701,44 @@ Retrieve a list of invitees for a scheduled event
   <BlockConfigPreview
     name="Calendly"
     type="calendly"
-    color=""
+    color="#006bff"
     hideHeader
     subBlocks={[
         {
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "calendly_cancel_event",
             "options": [
                 {
-                    "label": "Get Current User",
-                    "id": "calendly_get_current_user"
+                    "id": "calendly_get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "List Event Types",
-                    "id": "calendly_list_event_types"
+                    "id": "calendly_list_event_types",
+                    "label": "List Event Types"
                 },
                 {
-                    "label": "Get Event Type",
-                    "id": "calendly_get_event_type"
+                    "id": "calendly_get_event_type",
+                    "label": "Get Event Type"
                 },
                 {
-                    "label": "List Scheduled Events",
-                    "id": "calendly_list_scheduled_events"
+                    "id": "calendly_list_scheduled_events",
+                    "label": "List Scheduled Events"
                 },
                 {
-                    "label": "Get Scheduled Event",
-                    "id": "calendly_get_scheduled_event"
+                    "id": "calendly_get_scheduled_event",
+                    "label": "Get Scheduled Event"
                 },
                 {
-                    "label": "List Event Invitees",
-                    "id": "calendly_list_event_invitees"
+                    "id": "calendly_list_event_invitees",
+                    "label": "List Event Invitees"
                 },
                 {
-                    "label": "Cancel Event",
-                    "id": "calendly_cancel_event"
+                    "id": "calendly_cancel_event",
+                    "label": "Cancel Event"
                 }
-            ],
-            "defaultValue": "calendly_cancel_event"
+            ]
         },
         {
             "id": "apiKey",
@@ -824,9 +782,7 @@ Cancel a scheduled event
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `canceler_type` | string | Type of canceler \(host or invitee\) |
-| `canceled_by` | string | Name of person who canceled |
-| `reason` | string | Cancellation reason |
+| `resource` | object | Cancellation details |
 
 </div>
 

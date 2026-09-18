@@ -30,25 +30,25 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "x_write",
             "options": [
                 {
-                    "label": "Post a New Tweet",
-                    "id": "x_write"
+                    "id": "x_write",
+                    "label": "Post a New Tweet"
                 },
                 {
-                    "label": "Get Tweet Details",
-                    "id": "x_read"
+                    "id": "x_read",
+                    "label": "Get Tweet Details"
                 },
                 {
-                    "label": "Search Tweets",
-                    "id": "x_search"
+                    "id": "x_search",
+                    "label": "Search Tweets"
                 },
                 {
-                    "label": "Get User Profile",
-                    "id": "x_user"
+                    "id": "x_user",
+                    "label": "Get User Profile"
                 }
-            ],
-            "defaultValue": "x_write"
+            ]
         },
         {
             "id": "credential",
@@ -102,12 +102,7 @@ Post new tweets, reply to tweets, or create polls on X (Twitter)
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Tweet ID |
-| `text` | string | Tweet content text |
-| `createdAt` | string | Tweet creation timestamp |
-| `authorId` | string | ID of the tweet author |
-| `conversationId` | string | Conversation thread ID |
-| `mediaKeys` | array | Media attachment keys |
+| `tweet` | object | The newly created tweet data |
 
 </div>
 
@@ -129,25 +124,25 @@ Post new tweets, reply to tweets, or create polls on X (Twitter)
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "x_read",
             "options": [
                 {
-                    "label": "Post a New Tweet",
-                    "id": "x_write"
+                    "id": "x_write",
+                    "label": "Post a New Tweet"
                 },
                 {
-                    "label": "Get Tweet Details",
-                    "id": "x_read"
+                    "id": "x_read",
+                    "label": "Get Tweet Details"
                 },
                 {
-                    "label": "Search Tweets",
-                    "id": "x_search"
+                    "id": "x_search",
+                    "label": "Search Tweets"
                 },
                 {
-                    "label": "Get User Profile",
-                    "id": "x_user"
+                    "id": "x_user",
+                    "label": "Get User Profile"
                 }
-            ],
-            "defaultValue": "x_read"
+            ]
         },
         {
             "id": "credential",
@@ -170,14 +165,15 @@ Post new tweets, reply to tweets, or create polls on X (Twitter)
             "type": "dropdown",
             "title": "Include Replies",
             "layout": "full",
+            "defaultValue": "false",
             "options": [
                 {
-                    "label": "true",
-                    "id": "true"
+                    "id": "true",
+                    "label": "true"
                 },
                 {
-                    "label": "false",
-                    "id": "false"
+                    "id": "false",
+                    "label": "false"
                 }
             ]
         }
@@ -201,9 +197,8 @@ Read tweet details, including replies and conversation context
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Tweet ID |
-| `text` | string | Tweet content text |
-| `createdAt` | string | Tweet creation timestamp |
+| `tweet` | object | The main tweet data |
+| `context` | object | Conversation context including parent and root tweets |
 
 </div>
 
@@ -225,25 +220,25 @@ Read tweet details, including replies and conversation context
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "x_search",
             "options": [
                 {
-                    "label": "Post a New Tweet",
-                    "id": "x_write"
+                    "id": "x_write",
+                    "label": "Post a New Tweet"
                 },
                 {
-                    "label": "Get Tweet Details",
-                    "id": "x_read"
+                    "id": "x_read",
+                    "label": "Get Tweet Details"
                 },
                 {
-                    "label": "Search Tweets",
-                    "id": "x_search"
+                    "id": "x_search",
+                    "label": "Search Tweets"
                 },
                 {
-                    "label": "Get User Profile",
-                    "id": "x_user"
+                    "id": "x_user",
+                    "label": "Get User Profile"
                 }
-            ],
-            "defaultValue": "x_search"
+            ]
         },
         {
             "id": "credential",
@@ -273,14 +268,15 @@ Read tweet details, including replies and conversation context
             "type": "dropdown",
             "title": "Sort Order",
             "layout": "full",
+            "defaultValue": "recency",
             "options": [
                 {
-                    "label": "recency",
-                    "id": "recency"
+                    "id": "recency",
+                    "label": "recency"
                 },
                 {
-                    "label": "relevancy",
-                    "id": "relevancy"
+                    "id": "relevancy",
+                    "label": "relevancy"
                 }
             ]
         },
@@ -321,9 +317,9 @@ Search for tweets using keywords, hashtags, or advanced queries
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Tweet ID |
-| `text` | string | Tweet content |
-| `createdAt` | string | Creation timestamp |
+| `tweets` | array | Array of tweets matching the search query |
+| `includes` | object | Additional data including user profiles and media |
+| `meta` | object | Search metadata including result count and pagination tokens |
 
 </div>
 
@@ -345,25 +341,25 @@ Search for tweets using keywords, hashtags, or advanced queries
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "x_user",
             "options": [
                 {
-                    "label": "Post a New Tweet",
-                    "id": "x_write"
+                    "id": "x_write",
+                    "label": "Post a New Tweet"
                 },
                 {
-                    "label": "Get Tweet Details",
-                    "id": "x_read"
+                    "id": "x_read",
+                    "label": "Get Tweet Details"
                 },
                 {
-                    "label": "Search Tweets",
-                    "id": "x_search"
+                    "id": "x_search",
+                    "label": "Search Tweets"
                 },
                 {
-                    "label": "Get User Profile",
-                    "id": "x_user"
+                    "id": "x_user",
+                    "label": "Get User Profile"
                 }
-            ],
-            "defaultValue": "x_user"
+            ]
         },
         {
             "id": "credential",
@@ -400,13 +396,7 @@ Get user profile information
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | User ID |
-| `username` | string | Username without @ symbol |
-| `name` | string | Display name |
-| `description` | string | User bio/description |
-| `verified` | boolean | Whether the user is verified |
-| `followersCount` | number | Number of followers |
-| `followingCount` | number | Number of users following |
+| `user` | object | X user profile information |
 
 </div>
 

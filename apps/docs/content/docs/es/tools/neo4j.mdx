@@ -1,0 +1,899 @@
+---
+title: Neo4j
+description: Conectar a la base de datos de grafos Neo4j
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="neo4j"
+  color="#FFFFFF"
+/>
+
+## Configuración
+
+### Consulta (MATCH)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Neo4j"
+    type="neo4j"
+    color="#FFFFFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "query",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Consulta (MATCH)"
+                },
+                {
+                    "id": "create",
+                    "label": "Crear nodos/relaciones"
+                },
+                {
+                    "id": "merge",
+                    "label": "Merge (buscar o crear)"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar propiedades (SET)"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar nodos/relaciones"
+                },
+                {
+                    "id": "execute",
+                    "label": "Ejecutar Cypher"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "placeholder": "localhost o your.neo4j.host",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto",
+            "placeholder": "7687",
+            "required": true,
+            "defaultValue": "7687"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "placeholder": "neo4j",
+            "required": true,
+            "defaultValue": "neo4j"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Usuario",
+            "placeholder": "neo4j",
+            "required": true,
+            "defaultValue": "neo4j"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "placeholder": "Contraseña de la base de datos",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "encryption",
+            "type": "dropdown",
+            "title": "Cifrado",
+            "defaultValue": "disabled",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "Deshabilitado"
+                },
+                {
+                    "id": "enabled",
+                    "label": "Habilitado (TLS/SSL)"
+                }
+            ]
+        },
+        {
+            "id": "parameters",
+            "type": "code",
+            "title": "Parámetros",
+            "placeholder": "{\"name\": \"Alice\", \"minAge\": 21}",
+            "language": "json"
+        },
+        {
+            "id": "cypherQuery",
+            "type": "code",
+            "title": "Consulta Cypher",
+            "placeholder": "MATCH (n:Person) WHERE n.age > 21 RETURN n LIMIT 10",
+            "language": "plaintext",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Consulta (MATCH) (<code>neo4j_query</code>)</div>
+
+Ejecuta consultas MATCH para leer nodos y relaciones de la base de datos de grafos Neo4j. Para un mejor rendimiento y para evitar conjuntos de resultados grandes, incluye LIMIT en tu consulta (p. ej., "MATCH (n:User) RETURN n LIMIT 100") o usa LIMIT $limit con un parámetro limit.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Sí | Nombre de host o dirección IP del servidor Neo4j |
+| `port` | number | Sí | Puerto del servidor Neo4j \(valor predeterminado: 7687 para el protocolo Bolt\) |
+| `database` | string | Sí | Nombre de la base de datos a la que conectarse |
+| `username` | string | Sí | Nombre de usuario de Neo4j |
+| `password` | string | Sí | Contraseña de Neo4j |
+| `encryption` | string | No | Modo de cifrado de la conexión \(enabled, disabled\) |
+| `cypherQuery` | string | Sí | Consulta Cypher que ejecutar \(normalmente sentencias MATCH\) |
+| `parameters` | object | No | Parámetros de la consulta Cypher como objeto JSON. Úsalos para cualquier valor dinámico, incluido LIMIT \(p. ej., query: "MATCH \(n\) RETURN n LIMIT $limit", parameters: \{limit: 100\}\). |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `records` | array | Array de registros devueltos por la consulta |
+| `recordCount` | number | Número de registros devueltos |
+| `summary` | json | Resumen de ejecución de la consulta con tiempos y contadores |
+
+</div>
+
+---
+
+### Crear nodos/relaciones
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Neo4j"
+    type="neo4j"
+    color="#FFFFFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "create",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Consulta (MATCH)"
+                },
+                {
+                    "id": "create",
+                    "label": "Crear nodos/relaciones"
+                },
+                {
+                    "id": "merge",
+                    "label": "Fusionar (buscar o crear)"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar propiedades (SET)"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar nodos/relaciones"
+                },
+                {
+                    "id": "execute",
+                    "label": "Ejecutar Cypher"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "placeholder": "localhost o your.neo4j.host",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto",
+            "placeholder": "7687",
+            "required": true,
+            "defaultValue": "7687"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "placeholder": "neo4j",
+            "required": true,
+            "defaultValue": "neo4j"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Usuario",
+            "placeholder": "neo4j",
+            "required": true,
+            "defaultValue": "neo4j"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "placeholder": "Contraseña de la base de datos",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "encryption",
+            "type": "dropdown",
+            "title": "Cifrado",
+            "defaultValue": "disabled",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "Deshabilitado"
+                },
+                {
+                    "id": "enabled",
+                    "label": "Habilitado (TLS/SSL)"
+                }
+            ]
+        },
+        {
+            "id": "parameters",
+            "type": "code",
+            "title": "Parámetros",
+            "placeholder": "{\"name\": \"Alice\", \"minAge\": 21}",
+            "language": "json"
+        },
+        {
+            "id": "cypherQuery",
+            "type": "code",
+            "title": "Sentencia CREATE de Cypher",
+            "placeholder": "CREATE (n:Person {name: \"Alice\", age: 30})",
+            "language": "plaintext",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear nodos/relaciones (<code>neo4j_create</code>)</div>
+
+Ejecutar sentencias CREATE para añadir nuevos nodos y relaciones a la base de datos de grafos Neo4j
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Sí | Nombre de host o dirección IP del servidor Neo4j |
+| `port` | number | Sí | Puerto del servidor Neo4j \(valor predeterminado: 7687 para el protocolo Bolt\) |
+| `database` | string | Sí | Nombre de la base de datos a la que conectar |
+| `username` | string | Sí | Nombre de usuario de Neo4j |
+| `password` | string | Sí | Contraseña de Neo4j |
+| `encryption` | string | No | Modo de cifrado de la conexión \(enabled, disabled\) |
+| `cypherQuery` | string | Sí | Sentencia CREATE de Cypher que ejecutar |
+| `parameters` | object | No | Parámetros de la consulta Cypher como objeto JSON |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `summary` | json | Resumen de creación con contadores de nodos y relaciones creados |
+
+</div>
+
+---
+
+### Merge (buscar o crear)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Neo4j"
+    type="neo4j"
+    color="#FFFFFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "merge",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Consulta (MATCH)"
+                },
+                {
+                    "id": "create",
+                    "label": "Crear nodos/relaciones"
+                },
+                {
+                    "id": "merge",
+                    "label": "Merge (buscar o crear)"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar propiedades (SET)"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar nodos/relaciones"
+                },
+                {
+                    "id": "execute",
+                    "label": "Ejecutar Cypher"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "placeholder": "localhost o your.neo4j.host",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto",
+            "placeholder": "7687",
+            "required": true,
+            "defaultValue": "7687"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "placeholder": "neo4j",
+            "required": true,
+            "defaultValue": "neo4j"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Usuario",
+            "placeholder": "neo4j",
+            "required": true,
+            "defaultValue": "neo4j"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "placeholder": "Contraseña de la base de datos",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "encryption",
+            "type": "dropdown",
+            "title": "Cifrado",
+            "defaultValue": "disabled",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "Deshabilitado"
+                },
+                {
+                    "id": "enabled",
+                    "label": "Habilitado (TLS/SSL)"
+                }
+            ]
+        },
+        {
+            "id": "parameters",
+            "type": "code",
+            "title": "Parámetros",
+            "placeholder": "{\"name\": \"Alice\", \"minAge\": 21}",
+            "language": "json"
+        },
+        {
+            "id": "cypherQuery",
+            "type": "code",
+            "title": "Sentencia MERGE de Cypher",
+            "placeholder": "MERGE (n:Person {email: \"alice@example.com\"}) ON CREATE SET n.created = timestamp() RETURN n",
+            "language": "plaintext",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Merge (buscar o crear) (<code>neo4j_merge</code>)</div>
+
+Ejecutar sentencias MERGE para buscar o crear nodos y relaciones en Neo4j (operación upsert)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Sí | Nombre de host o dirección IP del servidor Neo4j |
+| `port` | number | Sí | Puerto del servidor Neo4j \(predeterminado: 7687 para el protocolo Bolt\) |
+| `database` | string | Sí | Nombre de la base de datos a la que conectarse |
+| `username` | string | Sí | Nombre de usuario de Neo4j |
+| `password` | string | Sí | Contraseña de Neo4j |
+| `encryption` | string | No | Modo de cifrado de la conexión \(enabled, disabled\) |
+| `cypherQuery` | string | Sí | Sentencia Cypher MERGE que ejecutar |
+| `parameters` | object | No | Parámetros de la consulta Cypher como objeto JSON |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `summary` | json | Resumen de merge con contadores de nodos/relaciones creados o coincidentes |
+
+</div>
+
+---
+
+### Actualizar propiedades (SET)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Neo4j"
+    type="neo4j"
+    color="#FFFFFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "update",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Consulta (MATCH)"
+                },
+                {
+                    "id": "create",
+                    "label": "Crear nodos/relaciones"
+                },
+                {
+                    "id": "merge",
+                    "label": "Merge (buscar o crear)"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar propiedades (SET)"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar nodos/relaciones"
+                },
+                {
+                    "id": "execute",
+                    "label": "Ejecutar Cypher"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "placeholder": "localhost o your.neo4j.host",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto",
+            "placeholder": "7687",
+            "required": true,
+            "defaultValue": "7687"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "placeholder": "neo4j",
+            "required": true,
+            "defaultValue": "neo4j"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Nombre de usuario",
+            "placeholder": "neo4j",
+            "required": true,
+            "defaultValue": "neo4j"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "placeholder": "Contraseña de la base de datos",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "encryption",
+            "type": "dropdown",
+            "title": "Cifrado",
+            "defaultValue": "disabled",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "Desactivado"
+                },
+                {
+                    "id": "enabled",
+                    "label": "Activado (TLS/SSL)"
+                }
+            ]
+        },
+        {
+            "id": "parameters",
+            "type": "code",
+            "title": "Parámetros",
+            "placeholder": "{\"name\": \"Alice\", \"minAge\": 21}",
+            "language": "json"
+        },
+        {
+            "id": "cypherQuery",
+            "type": "code",
+            "title": "Sentencia Cypher UPDATE",
+            "placeholder": "MATCH (n:Person {name: \"Alice\"}) SET n.age = 31, n.updated = timestamp()",
+            "language": "plaintext",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar propiedades (SET) (<code>neo4j_update</code>)</div>
+
+Ejecutar sentencias SET para actualizar las propiedades de nodos y relaciones existentes en Neo4j
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Sí | Nombre de host o dirección IP del servidor Neo4j |
+| `port` | number | Sí | Puerto del servidor Neo4j \(predeterminado: 7687 para el protocolo Bolt\) |
+| `database` | string | Sí | Nombre de la base de datos a la que conectarse |
+| `username` | string | Sí | Nombre de usuario de Neo4j |
+| `password` | string | Sí | Contraseña de Neo4j |
+| `encryption` | string | No | Modo de cifrado de la conexión \(enabled, disabled\) |
+| `cypherQuery` | string | Sí | Consulta Cypher con sentencias MATCH y SET para actualizar propiedades |
+| `parameters` | object | No | Parámetros de la consulta Cypher como objeto JSON |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `summary` | json | Resumen de la actualización con contadores de propiedades establecidas |
+
+</div>
+
+---
+
+### Eliminar nodos/relaciones
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Neo4j"
+    type="neo4j"
+    color="#FFFFFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "delete",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Consulta (MATCH)"
+                },
+                {
+                    "id": "create",
+                    "label": "Crear nodos/relaciones"
+                },
+                {
+                    "id": "merge",
+                    "label": "Fusionar (buscar o crear)"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar propiedades (SET)"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar nodos/relaciones"
+                },
+                {
+                    "id": "execute",
+                    "label": "Ejecutar Cypher"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "placeholder": "localhost o your.neo4j.host",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto",
+            "placeholder": "7687",
+            "required": true,
+            "defaultValue": "7687"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "placeholder": "neo4j",
+            "required": true,
+            "defaultValue": "neo4j"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Nombre de usuario",
+            "placeholder": "neo4j",
+            "required": true,
+            "defaultValue": "neo4j"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "placeholder": "Contraseña de tu base de datos",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "encryption",
+            "type": "dropdown",
+            "title": "Cifrado",
+            "defaultValue": "disabled",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "Deshabilitado"
+                },
+                {
+                    "id": "enabled",
+                    "label": "Habilitado (TLS/SSL)"
+                }
+            ]
+        },
+        {
+            "id": "parameters",
+            "type": "code",
+            "title": "Parámetros",
+            "placeholder": "{\"name\": \"Alice\", \"minAge\": 21}",
+            "language": "json"
+        },
+        {
+            "id": "cypherQuery",
+            "type": "code",
+            "title": "Sentencia DELETE de Cypher",
+            "placeholder": "MATCH (n:Person {name: \"Alice\"}) DETACH DELETE n",
+            "language": "plaintext",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar nodos/relaciones (<code>neo4j_delete</code>)</div>
+
+Ejecutar sentencias DELETE o DETACH DELETE para eliminar nodos y relaciones de Neo4j
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Sí | Nombre de host o dirección IP del servidor Neo4j |
+| `port` | number | Sí | Puerto del servidor Neo4j \(predeterminado: 7687 para el protocolo Bolt\) |
+| `database` | string | Sí | Nombre de la base de datos a la que conectarse |
+| `username` | string | Sí | Nombre de usuario de Neo4j |
+| `password` | string | Sí | Contraseña de Neo4j |
+| `encryption` | string | No | Modo de cifrado de la conexión \(enabled, disabled\) |
+| `cypherQuery` | string | Sí | Consulta Cypher con sentencias MATCH y DELETE/DETACH DELETE |
+| `parameters` | object | No | Parámetros de la consulta Cypher como objeto JSON |
+| `detach` | boolean | No | Si se usa DETACH DELETE para eliminar las relaciones antes de borrar los nodos |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `summary` | json | Resumen de eliminación con contadores de nodos y relaciones eliminados |
+
+</div>
+
+---
+
+### Ejecutar Cypher
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Neo4j"
+    type="neo4j"
+    color="#FFFFFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "execute",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Consulta (MATCH)"
+                },
+                {
+                    "id": "create",
+                    "label": "Crear nodos/relaciones"
+                },
+                {
+                    "id": "merge",
+                    "label": "Fusionar (buscar o crear)"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar propiedades (SET)"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar nodos/relaciones"
+                },
+                {
+                    "id": "execute",
+                    "label": "Ejecutar Cypher"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "placeholder": "localhost o your.neo4j.host",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto",
+            "placeholder": "7687",
+            "required": true,
+            "defaultValue": "7687"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "placeholder": "neo4j",
+            "required": true,
+            "defaultValue": "neo4j"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Usuario",
+            "placeholder": "neo4j",
+            "required": true,
+            "defaultValue": "neo4j"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "placeholder": "Contraseña de la base de datos",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "encryption",
+            "type": "dropdown",
+            "title": "Cifrado",
+            "defaultValue": "disabled",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "Deshabilitado"
+                },
+                {
+                    "id": "enabled",
+                    "label": "Habilitado (TLS/SSL)"
+                }
+            ]
+        },
+        {
+            "id": "parameters",
+            "type": "code",
+            "title": "Parámetros",
+            "placeholder": "{\"name\": \"Alice\", \"minAge\": 21}",
+            "language": "json"
+        },
+        {
+            "id": "cypherQuery",
+            "type": "code",
+            "title": "Consulta Cypher",
+            "placeholder": "MATCH (n:Person) RETURN n LIMIT 10",
+            "language": "plaintext",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Ejecutar Cypher (<code>neo4j_execute</code>)</div>
+
+Ejecuta consultas Cypher arbitrarias en la base de datos de grafos Neo4j para operaciones complejas
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Sí | Nombre de host o dirección IP del servidor Neo4j |
+| `port` | number | Sí | Puerto del servidor Neo4j \(predeterminado: 7687 para el protocolo Bolt\) |
+| `database` | string | Sí | Nombre de la base de datos a la que conectarse |
+| `username` | string | Sí | Nombre de usuario de Neo4j |
+| `password` | string | Sí | Contraseña de Neo4j |
+| `encryption` | string | No | Modo de cifrado de la conexión \(enabled, disabled\) |
+| `cypherQuery` | string | Sí | Consulta Cypher que se ejecutará \(cualquier instrucción Cypher válida\) |
+| `parameters` | object | No | Parámetros de la consulta Cypher como objeto JSON |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `records` | array | Array de registros devueltos por la consulta |
+| `recordCount` | number | Número de registros devueltos |
+| `summary` | json | Resumen de ejecución con tiempos y contadores |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra la base de datos de grafos Neo4j en el flujo de trabajo. Permite consultar, crear, fusionar, actualizar y eliminar nodos y relaciones.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `neo4j`

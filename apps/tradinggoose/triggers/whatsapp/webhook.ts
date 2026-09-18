@@ -51,7 +51,7 @@ export const whatsappWebhookTrigger: TriggerConfig = {
         'Paste the <strong>Webhook URL</strong> above into the "Callback URL" field.',
         'Paste the <strong>Verification Token</strong> into the "Verify token" field.',
         'Click "Verify and save".',
-        'Click "Manage" next to Webhook fields and subscribe to `messages`.',
+        'Click "Manage" next to Webhook fields and subscribe to <code>messages</code>.',
       ]
         .map(
           (instruction, index) =>

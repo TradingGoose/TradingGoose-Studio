@@ -29,37 +29,37 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "read",
             "options": [
                 {
-                    "label": "Read Presentation",
-                    "id": "read"
+                    "id": "read",
+                    "label": "Read Presentation"
                 },
                 {
-                    "label": "Write to Presentation",
-                    "id": "write"
+                    "id": "write",
+                    "label": "Write to Presentation"
                 },
                 {
-                    "label": "Create Presentation",
-                    "id": "create"
+                    "id": "create",
+                    "label": "Create Presentation"
                 },
                 {
-                    "label": "Replace All Text",
-                    "id": "replace_all_text"
+                    "id": "replace_all_text",
+                    "label": "Replace All Text"
                 },
                 {
-                    "label": "Add Slide",
-                    "id": "add_slide"
+                    "id": "add_slide",
+                    "label": "Add Slide"
                 },
                 {
-                    "label": "Add Image",
-                    "id": "add_image"
+                    "id": "add_image",
+                    "label": "Add Image"
                 },
                 {
-                    "label": "Get Thumbnail",
-                    "id": "get_thumbnail"
+                    "id": "get_thumbnail",
+                    "label": "Get Thumbnail"
                 }
-            ],
-            "defaultValue": "read"
+            ]
         },
         {
             "id": "credential",
@@ -101,6 +101,7 @@ Read content from a Google Slides presentation
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `slides` | json | Array of slides with their content |
+| `metadata` | json | Presentation metadata including ID, title, and URL |
 
 </div>
 
@@ -121,37 +122,37 @@ Read content from a Google Slides presentation
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "write",
             "options": [
                 {
-                    "label": "Read Presentation",
-                    "id": "read"
+                    "id": "read",
+                    "label": "Read Presentation"
                 },
                 {
-                    "label": "Write to Presentation",
-                    "id": "write"
+                    "id": "write",
+                    "label": "Write to Presentation"
                 },
                 {
-                    "label": "Create Presentation",
-                    "id": "create"
+                    "id": "create",
+                    "label": "Create Presentation"
                 },
                 {
-                    "label": "Replace All Text",
-                    "id": "replace_all_text"
+                    "id": "replace_all_text",
+                    "label": "Replace All Text"
                 },
                 {
-                    "label": "Add Slide",
-                    "id": "add_slide"
+                    "id": "add_slide",
+                    "label": "Add Slide"
                 },
                 {
-                    "label": "Add Image",
-                    "id": "add_image"
+                    "id": "add_image",
+                    "label": "Add Image"
                 },
                 {
-                    "label": "Get Thumbnail",
-                    "id": "get_thumbnail"
+                    "id": "get_thumbnail",
+                    "label": "Get Thumbnail"
                 }
-            ],
-            "defaultValue": "write"
+            ]
         },
         {
             "id": "credential",
@@ -208,6 +209,7 @@ Write or update content in a Google Slides presentation
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `updatedContent` | boolean | Indicates if presentation content was updated successfully |
+| `metadata` | json | Updated presentation metadata including ID, title, and URL |
 
 </div>
 
@@ -228,37 +230,37 @@ Write or update content in a Google Slides presentation
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create",
             "options": [
                 {
-                    "label": "Read Presentation",
-                    "id": "read"
+                    "id": "read",
+                    "label": "Read Presentation"
                 },
                 {
-                    "label": "Write to Presentation",
-                    "id": "write"
+                    "id": "write",
+                    "label": "Write to Presentation"
                 },
                 {
-                    "label": "Create Presentation",
-                    "id": "create"
+                    "id": "create",
+                    "label": "Create Presentation"
                 },
                 {
-                    "label": "Replace All Text",
-                    "id": "replace_all_text"
+                    "id": "replace_all_text",
+                    "label": "Replace All Text"
                 },
                 {
-                    "label": "Add Slide",
-                    "id": "add_slide"
+                    "id": "add_slide",
+                    "label": "Add Slide"
                 },
                 {
-                    "label": "Add Image",
-                    "id": "add_image"
+                    "id": "add_image",
+                    "label": "Add Image"
                 },
                 {
-                    "label": "Get Thumbnail",
-                    "id": "get_thumbnail"
+                    "id": "get_thumbnail",
+                    "label": "Get Thumbnail"
                 }
-            ],
-            "defaultValue": "create"
+            ]
         },
         {
             "id": "credential",
@@ -308,12 +310,13 @@ Create a new Google Slides presentation
 | --------- | ---- | -------- | ----------- |
 | `title` | string | Yes | The title of the presentation to create |
 | `content` | string | No | The content to add to the first slide |
-| `folderSelector` | string | No | Select the folder to create the presentation in |
-| `folderId` | string | No | The ID of the folder to create the presentation in \(internal use\) |
+| `folderId` | string | No | The ID of the folder to create the presentation in |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `metadata` | json | Created presentation metadata including ID, title, and URL |
 
 </div>
 
@@ -334,37 +337,37 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "replace_all_text",
             "options": [
                 {
-                    "label": "Read Presentation",
-                    "id": "read"
+                    "id": "read",
+                    "label": "Read Presentation"
                 },
                 {
-                    "label": "Write to Presentation",
-                    "id": "write"
+                    "id": "write",
+                    "label": "Write to Presentation"
                 },
                 {
-                    "label": "Create Presentation",
-                    "id": "create"
+                    "id": "create",
+                    "label": "Create Presentation"
                 },
                 {
-                    "label": "Replace All Text",
-                    "id": "replace_all_text"
+                    "id": "replace_all_text",
+                    "label": "Replace All Text"
                 },
                 {
-                    "label": "Add Slide",
-                    "id": "add_slide"
+                    "id": "add_slide",
+                    "label": "Add Slide"
                 },
                 {
-                    "label": "Add Image",
-                    "id": "add_image"
+                    "id": "add_image",
+                    "label": "Add Image"
                 },
                 {
-                    "label": "Get Thumbnail",
-                    "id": "get_thumbnail"
+                    "id": "get_thumbnail",
+                    "label": "Get Thumbnail"
                 }
-            ],
-            "defaultValue": "replace_all_text"
+            ]
         },
         {
             "id": "credential",
@@ -435,6 +438,7 @@ Find and replace all occurrences of text throughout a Google Slides presentation
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `occurrencesChanged` | number | Number of text occurrences that were replaced |
+| `metadata` | json | Operation metadata including presentation ID and URL |
 
 </div>
 
@@ -455,37 +459,37 @@ Find and replace all occurrences of text throughout a Google Slides presentation
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "add_slide",
             "options": [
                 {
-                    "label": "Read Presentation",
-                    "id": "read"
+                    "id": "read",
+                    "label": "Read Presentation"
                 },
                 {
-                    "label": "Write to Presentation",
-                    "id": "write"
+                    "id": "write",
+                    "label": "Write to Presentation"
                 },
                 {
-                    "label": "Create Presentation",
-                    "id": "create"
+                    "id": "create",
+                    "label": "Create Presentation"
                 },
                 {
-                    "label": "Replace All Text",
-                    "id": "replace_all_text"
+                    "id": "replace_all_text",
+                    "label": "Replace All Text"
                 },
                 {
-                    "label": "Add Slide",
-                    "id": "add_slide"
+                    "id": "add_slide",
+                    "label": "Add Slide"
                 },
                 {
-                    "label": "Add Image",
-                    "id": "add_image"
+                    "id": "add_image",
+                    "label": "Add Image"
                 },
                 {
-                    "label": "Get Thumbnail",
-                    "id": "get_thumbnail"
+                    "id": "get_thumbnail",
+                    "label": "Get Thumbnail"
                 }
-            ],
-            "defaultValue": "add_slide"
+            ]
         },
         {
             "id": "credential",
@@ -511,42 +515,43 @@ Find and replace all occurrences of text throughout a Google Slides presentation
             "id": "layout",
             "type": "dropdown",
             "title": "Slide Layout",
+            "defaultValue": "BLANK",
             "options": [
                 {
-                    "label": "Blank",
-                    "id": "BLANK"
+                    "id": "BLANK",
+                    "label": "Blank"
                 },
                 {
-                    "label": "Title",
-                    "id": "TITLE"
+                    "id": "TITLE",
+                    "label": "Title"
                 },
                 {
-                    "label": "Title and Body",
-                    "id": "TITLE_AND_BODY"
+                    "id": "TITLE_AND_BODY",
+                    "label": "Title and Body"
                 },
                 {
-                    "label": "Title Only",
-                    "id": "TITLE_ONLY"
+                    "id": "TITLE_ONLY",
+                    "label": "Title Only"
                 },
                 {
-                    "label": "Title and Two Columns",
-                    "id": "TITLE_AND_TWO_COLUMNS"
+                    "id": "TITLE_AND_TWO_COLUMNS",
+                    "label": "Title and Two Columns"
                 },
                 {
-                    "label": "Section Header",
-                    "id": "SECTION_HEADER"
+                    "id": "SECTION_HEADER",
+                    "label": "Section Header"
                 },
                 {
-                    "label": "Caption Only",
-                    "id": "CAPTION_ONLY"
+                    "id": "CAPTION_ONLY",
+                    "label": "Caption Only"
                 },
                 {
-                    "label": "Main Point",
-                    "id": "MAIN_POINT"
+                    "id": "MAIN_POINT",
+                    "label": "Main Point"
                 },
                 {
-                    "label": "Big Number",
-                    "id": "BIG_NUMBER"
+                    "id": "BIG_NUMBER",
+                    "label": "Big Number"
                 }
             ]
         },
@@ -585,6 +590,7 @@ Add a new slide to a Google Slides presentation with a specified layout
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `slideId` | string | The object ID of the newly created slide |
+| `metadata` | json | Operation metadata including presentation ID, layout, and URL |
 
 </div>
 
@@ -605,37 +611,37 @@ Add a new slide to a Google Slides presentation with a specified layout
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "add_image",
             "options": [
                 {
-                    "label": "Read Presentation",
-                    "id": "read"
+                    "id": "read",
+                    "label": "Read Presentation"
                 },
                 {
-                    "label": "Write to Presentation",
-                    "id": "write"
+                    "id": "write",
+                    "label": "Write to Presentation"
                 },
                 {
-                    "label": "Create Presentation",
-                    "id": "create"
+                    "id": "create",
+                    "label": "Create Presentation"
                 },
                 {
-                    "label": "Replace All Text",
-                    "id": "replace_all_text"
+                    "id": "replace_all_text",
+                    "label": "Replace All Text"
                 },
                 {
-                    "label": "Add Slide",
-                    "id": "add_slide"
+                    "id": "add_slide",
+                    "label": "Add Slide"
                 },
                 {
-                    "label": "Add Image",
-                    "id": "add_image"
+                    "id": "add_image",
+                    "label": "Add Image"
                 },
                 {
-                    "label": "Get Thumbnail",
-                    "id": "get_thumbnail"
+                    "id": "get_thumbnail",
+                    "label": "Get Thumbnail"
                 }
-            ],
-            "defaultValue": "add_image"
+            ]
         },
         {
             "id": "credential",
@@ -721,6 +727,7 @@ Insert an image into a specific slide in a Google Slides presentation
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `imageId` | string | The object ID of the newly created image |
+| `metadata` | json | Operation metadata including presentation ID and image URL |
 
 </div>
 
@@ -741,37 +748,37 @@ Insert an image into a specific slide in a Google Slides presentation
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_thumbnail",
             "options": [
                 {
-                    "label": "Read Presentation",
-                    "id": "read"
+                    "id": "read",
+                    "label": "Read Presentation"
                 },
                 {
-                    "label": "Write to Presentation",
-                    "id": "write"
+                    "id": "write",
+                    "label": "Write to Presentation"
                 },
                 {
-                    "label": "Create Presentation",
-                    "id": "create"
+                    "id": "create",
+                    "label": "Create Presentation"
                 },
                 {
-                    "label": "Replace All Text",
-                    "id": "replace_all_text"
+                    "id": "replace_all_text",
+                    "label": "Replace All Text"
                 },
                 {
-                    "label": "Add Slide",
-                    "id": "add_slide"
+                    "id": "add_slide",
+                    "label": "Add Slide"
                 },
                 {
-                    "label": "Add Image",
-                    "id": "add_image"
+                    "id": "add_image",
+                    "label": "Add Image"
                 },
                 {
-                    "label": "Get Thumbnail",
-                    "id": "get_thumbnail"
+                    "id": "get_thumbnail",
+                    "label": "Get Thumbnail"
                 }
-            ],
-            "defaultValue": "get_thumbnail"
+            ]
         },
         {
             "id": "credential",
@@ -804,18 +811,19 @@ Insert an image into a specific slide in a Google Slides presentation
             "id": "thumbnailSize",
             "type": "dropdown",
             "title": "Thumbnail Size",
+            "defaultValue": "MEDIUM",
             "options": [
                 {
-                    "label": "Small (200px)",
-                    "id": "SMALL"
+                    "id": "SMALL",
+                    "label": "Small (200px)"
                 },
                 {
-                    "label": "Medium (800px)",
-                    "id": "MEDIUM"
+                    "id": "MEDIUM",
+                    "label": "Medium (800px)"
                 },
                 {
-                    "label": "Large (1600px)",
-                    "id": "LARGE"
+                    "id": "LARGE",
+                    "label": "Large (1600px)"
                 }
             ]
         },
@@ -823,14 +831,15 @@ Insert an image into a specific slide in a Google Slides presentation
             "id": "mimeType",
             "type": "dropdown",
             "title": "Image Format",
+            "defaultValue": "PNG",
             "options": [
                 {
-                    "label": "PNG",
-                    "id": "PNG"
+                    "id": "PNG",
+                    "label": "PNG"
                 },
                 {
-                    "label": "GIF",
-                    "id": "GIF"
+                    "id": "GIF",
+                    "label": "GIF"
                 }
             ]
         }
@@ -859,6 +868,7 @@ Generate a thumbnail image of a specific slide in a Google Slides presentation
 | `contentUrl` | string | URL to the thumbnail image \(valid for 30 minutes\) |
 | `width` | number | Width of the thumbnail in pixels |
 | `height` | number | Height of the thumbnail in pixels |
+| `metadata` | json | Operation metadata including presentation ID and page object ID |
 
 </div>
 

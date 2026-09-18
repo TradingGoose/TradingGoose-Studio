@@ -18,6 +18,9 @@
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { getAllBlocks } from '../apps/tradinggoose/blocks/registry'
+import { providerToTriggerDocSlug } from './doc-gen/doc-pages'
+import { getTriggerDocConfigs } from './doc-gen/runtime-metadata'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -29,13 +32,12 @@ const DOCS_ROOT = path.join(rootDir, 'apps/docs/content/docs/en')
 
 const PATHS = {
   blocks: path.join(APP_ROOT, 'blocks/blocks'),
-  tools: path.join(APP_ROOT, 'tools'),
   indicators: path.join(APP_ROOT, 'lib/indicators/default'),
   widgets: path.join(APP_ROOT, 'widgets/widgets'),
   triggers: path.join(APP_ROOT, 'triggers'),
   mcpLib: path.join(APP_ROOT, 'lib/mcp'),
-  skillsStore: path.join(APP_ROOT, 'stores/skills'),
-  customToolWidget: path.join(APP_ROOT, 'widgets/widgets/editor_custom_tool'),
+  skillsLib: path.join(APP_ROOT, 'lib/skills'),
+  customToolsLib: path.join(APP_ROOT, 'lib/custom-tools'),
 }
 
 const DOC_PATHS = {
@@ -44,9 +46,7 @@ const DOC_PATHS = {
   indicators: path.join(DOCS_ROOT, 'indicators'),
   widgets: path.join(DOCS_ROOT, 'widgets'),
   triggers: path.join(DOCS_ROOT, 'triggers'),
-  mcp: path.join(DOCS_ROOT, 'utilities'),
-  skills: path.join(DOCS_ROOT, 'utilities'),
-  customTools: path.join(DOCS_ROOT, 'utilities'),
+  utilities: path.join(DOCS_ROOT, 'utilities'),
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -77,21 +77,6 @@ interface CategoryAudit {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function listTsFiles(dir: string): string[] {
-  if (!fs.existsSync(dir)) return []
-  return fs
-    .readdirSync(dir)
-    .filter(
-      (f) =>
-        f.endsWith('.ts') &&
-        !f.endsWith('.test.ts') &&
-        f !== 'index.ts' &&
-        f !== 'types.ts' &&
-        f !== 'runtime.ts'
-    )
-    .map((f) => path.join(dir, f))
-}
-
 function listDirs(dir: string): string[] {
   if (!fs.existsSync(dir)) return []
   return fs
@@ -121,14 +106,6 @@ function listMdxFiles(dir: string, includeIndex = false): DocItem[] {
     })
 }
 
-function extractStringProp(content: string, prop: string): string | null {
-  const m =
-    content.match(new RegExp(`${prop}\\s*:\\s*'([^']*)'`)) ||
-    content.match(new RegExp(`${prop}\\s*:\\s*"([^"]*)"`)) ||
-    content.match(new RegExp(`${prop}\\s*:\\s*\`([^\`]*)\``))
-  return m ? m[1].replace(/\s+/g, ' ').trim() : null
-}
-
 function normalizeSlug(s: string): string {
   return s.toLowerCase().replace(/[-_\s]/g, '')
 }
@@ -154,7 +131,7 @@ function matchSourceToDocs(
     if (doc && !usedDocs.has(doc.slug)) {
       matched.push({ source: src, doc })
       usedDocs.add(doc.slug)
-    } else if (!doc) {
+    } else {
       unmatchedSources.push(src)
     }
   }
@@ -167,89 +144,44 @@ function matchSourceToDocs(
 // ── Scanners ─────────────────────────────────────────────────────────────────
 
 function scanBlocks(): SourceItem[] {
-  const dir = PATHS.blocks
-  if (!fs.existsSync(dir)) return []
+  const items = getAllBlocks()
+    .filter((block) => block.category === 'blocks' || block.type === 'evaluator')
+    .map((block) => ({
+      id: block.type,
+      name: block.name,
+      description: block.description,
+      sourcePath: PATHS.blocks,
+    }))
 
-  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts'))
-
-  const items: SourceItem[] = []
-
-  // Categories that are "built-in blocks" (not integration tools)
-  const builtInTypes = new Set([
-    'agent',
-    'api',
-    'condition',
-    'evaluator',
-    'function',
-    'guardrails',
-    'loop',
-    'parallel',
-    'response',
-    'router',
-    'variables',
-    'wait',
-    'workflow',
-    'workflow_input',
-    'note',
-    'human_in_the_loop',
-  ])
-
-  for (const file of files) {
-    const id = file.replace('.ts', '')
-    if (!builtInTypes.has(id)) continue
-
-    const content = fs.readFileSync(path.join(dir, file), 'utf-8')
-    const name = extractStringProp(content, 'name') || id
-    const description = extractStringProp(content, 'description') || ''
-    items.push({ id, name, description, sourcePath: path.join(dir, file) })
+  for (const container of ['loop', 'parallel']) {
+    const sourcePath = path.join(
+      APP_ROOT,
+      'executor/handlers',
+      container,
+      `${container}-handler.ts`
+    )
+    if (fs.existsSync(sourcePath)) {
+      items.push({
+        id: container,
+        name: container[0].toUpperCase() + container.slice(1),
+        description: '',
+        sourcePath,
+      })
+    }
   }
 
   return items
 }
 
 function scanTools(): SourceItem[] {
-  const dir = PATHS.blocks
-  if (!fs.existsSync(dir)) return []
-
-  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts'))
-
-  const builtInTypes = new Set([
-    'agent',
-    'api',
-    'condition',
-    'evaluator',
-    'function',
-    'guardrails',
-    'loop',
-    'parallel',
-    'response',
-    'router',
-    'variables',
-    'wait',
-    'workflow',
-    'workflow_input',
-    'note',
-    'human_in_the_loop',
-  ])
-
-  const items: SourceItem[] = []
-
-  for (const file of files) {
-    const id = file.replace('.ts', '')
-    if (builtInTypes.has(id)) continue
-
-    const content = fs.readFileSync(path.join(dir, file), 'utf-8')
-
-    // Skip trigger-only blocks
-    const type = extractStringProp(content, 'type') || id
-    if (type.includes('_trigger') || type.includes('_webhook')) continue
-
-    const name = extractStringProp(content, 'name') || id
-    const description = extractStringProp(content, 'description') || ''
-    items.push({ id, name, description, sourcePath: path.join(dir, file) })
-  }
-
-  return items
+  return getAllBlocks()
+    .filter((block) => block.category === 'tools' && block.type !== 'evaluator')
+    .map((block) => ({
+      id: block.type,
+      name: block.name,
+      description: block.description,
+      sourcePath: PATHS.blocks,
+    }))
 }
 
 function scanIndicators(): SourceItem[] {
@@ -296,15 +228,6 @@ function scanWidgets(): SourceItem[] {
     )
       continue
 
-    // Skip list widgets that are documented within their editor page
-    const listMergedIntoEditor = new Set([
-      'list_indicator',
-      'list_skill',
-      'list_mcp',
-      'list_custom_tool',
-    ])
-    if (listMergedIntoEditor.has(dirName)) continue
-
     // Try to read index or component file for metadata
     const indexPath = path.join(widgetDir, 'index.tsx')
     const indexPath2 = path.join(widgetDir, 'index.ts')
@@ -324,106 +247,76 @@ function scanWidgets(): SourceItem[] {
     items.push({ id: dirName, name, description: '', sourcePath: widgetDir })
   }
 
+  const dashboardPath = path.join(APP_ROOT, 'app/workspace/[workspaceId]/dashboard')
+  if (fs.existsSync(dashboardPath)) {
+    items.push({
+      id: 'dashboard-layouts',
+      name: 'Dashboard Layouts',
+      description: 'Dashboard layout management',
+      sourcePath: dashboardPath,
+    })
+  }
+
   return items
 }
 
 function scanTriggers(): SourceItem[] {
-  const dir = PATHS.triggers
-  if (!fs.existsSync(dir)) return []
+  const blocksDir = path.join(PATHS.triggers, 'blocks')
+  const items: SourceItem[] = [
+    ['api', 'API Trigger', 'api_trigger.ts'],
+    ['chat', 'Chat Trigger', 'chat_trigger.ts'],
+    ['input-form', 'Input Form Trigger', 'input_trigger.ts'],
+    ['manual', 'Manual Trigger', 'manual_trigger.ts'],
+    ['webhook', 'Webhooks', 'generic_webhook.ts'],
+  ].map(([id, name, file]) => ({
+    id,
+    name,
+    description: '',
+    sourcePath: path.join(blocksDir, file),
+  }))
 
-  const items: SourceItem[] = []
-
-  // 1. Core trigger types from triggers/blocks/ (the fundamental trigger types)
-  const coreBlockTriggers: Record<string, string> = {
-    api_trigger: 'API Trigger',
-    chat_trigger: 'Chat Trigger',
-    manual_trigger: 'Manual Trigger',
-    input_trigger: 'Input Form Trigger',
-    generic_webhook: 'Webhooks',
-    schedule: 'Schedule',
+  const providers = new Map<string, string>()
+  for (const trigger of getTriggerDocConfigs()) {
+    const slug = providerToTriggerDocSlug(trigger.provider)
+    if (!providers.has(slug)) providers.set(slug, trigger.name)
   }
-
-  const blocksDir = path.join(dir, 'blocks')
-  if (fs.existsSync(blocksDir)) {
-    for (const [file, name] of Object.entries(coreBlockTriggers)) {
-      const fullPath = path.join(blocksDir, `${file}.ts`)
-      if (fs.existsSync(fullPath)) {
-        // Map to the doc slug convention
-        const slugMap: Record<string, string> = {
-          api_trigger: 'api',
-          chat_trigger: 'chat',
-          manual_trigger: 'manual',
-          input_trigger: 'input-form',
-          generic_webhook: 'webhook',
-          schedule: 'schedule',
-        }
-        items.push({ id: slugMap[file] || file, name, description: '', sourcePath: fullPath })
-      }
-    }
-  }
-
-  // 2. Integration triggers from individual directories
-  const triggerDirs = fs.readdirSync(dir).filter((f) => {
-    const full = path.join(dir, f)
-    return fs.statSync(full).isDirectory() && !['blocks', 'core'].includes(f)
-  })
-
-  for (const triggerDir of triggerDirs) {
-    const fullPath = path.join(dir, triggerDir)
-    let name = triggerDir.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-
-    const indexPath = path.join(fullPath, 'index.ts')
-    if (fs.existsSync(indexPath)) {
-      const content = fs.readFileSync(indexPath, 'utf-8')
-      const nameMatch = content.match(/name:\s*['"]([^'"]+)['"]/)
-      if (nameMatch) name = nameMatch[1]
-    }
-
-    items.push({ id: triggerDir, name, description: '', sourcePath: fullPath })
+  for (const [provider, name] of providers) {
+    items.push({ id: provider, name, description: '', sourcePath: PATHS.triggers })
   }
 
   return items
 }
 
-type UtilitySubCategory = 'mcp' | 'skills' | 'custom-tools'
-
-interface UtilityItem extends SourceItem {
-  subCategory: UtilitySubCategory
-}
-
-function scanUtilities(): UtilityItem[] {
-  const items: UtilityItem[] = []
+function scanUtilities(): SourceItem[] {
+  const items: SourceItem[] = []
 
   // MCP
   if (fs.existsSync(PATHS.mcpLib)) {
     items.push({
-      id: 'mcp-overview',
-      name: 'MCP Overview',
+      id: 'mcp',
+      name: 'MCP',
       description: 'Model Context Protocol integration',
       sourcePath: PATHS.mcpLib,
-      subCategory: 'mcp',
     })
   }
 
   // Skills
-  if (fs.existsSync(PATHS.skillsStore)) {
+  if (fs.existsSync(PATHS.skillsLib)) {
     items.push({
-      id: 'skills-overview',
-      name: 'Skills Overview',
+      id: 'skills',
+      name: 'Skills',
       description: 'Reusable skill definitions',
-      sourcePath: PATHS.skillsStore,
-      subCategory: 'skills',
+      sourcePath: PATHS.skillsLib,
     })
   }
 
   // Custom Tools
-  if (fs.existsSync(PATHS.customToolWidget)) {
+  if (fs.existsSync(PATHS.customToolsLib)) {
     items.push({
-      id: 'custom-tools-overview',
-      name: 'Custom Tools Overview',
+      id: 'custom-tools',
+      name: 'Custom Tools',
       description: 'User-defined custom tools',
-      sourcePath: PATHS.customToolWidget,
-      subCategory: 'custom-tools',
+      sourcePath: PATHS.customToolsLib,
     })
   }
 
@@ -501,70 +394,12 @@ function runAudit(filterCategory?: string): CategoryAudit[] {
       label: 'Utilities (MCP / Skills / Custom Tools)',
       description: 'Extensibility features: MCP servers, reusable skills, custom tool definitions',
       scanner: scanUtilities,
-      docPath: '', // checked individually below
+      docPath: DOC_PATHS.utilities,
     },
   ]
 
   for (const cat of categories) {
     if (filterCategory && cat.key !== filterCategory) continue
-
-    if (cat.key === 'utilities') {
-      // Special handling: check each sub-category against its own doc path
-      const utilItems = scanUtilities()
-      const subCats: Record<UtilitySubCategory, { docPath: string; label: string }> = {
-        mcp: { docPath: DOC_PATHS.mcp, label: 'MCP' },
-        skills: { docPath: DOC_PATHS.skills, label: 'Skills' },
-        'custom-tools': { docPath: DOC_PATHS.customTools, label: 'Custom Tools' },
-      }
-
-      const allSources: SourceItem[] = []
-      const allDocs: DocItem[] = []
-      const allMissing: SourceItem[] = []
-      const allOrphaned: DocItem[] = []
-      const allMatched: Array<{ source: SourceItem; doc: DocItem }> = []
-
-      for (const [subKey, subCat] of Object.entries(subCats)) {
-        const subSources = utilItems.filter((u) => u.subCategory === subKey)
-        const subDocs = listMdxFiles(subCat.docPath)
-        const hasIndexDoc = fs.existsSync(path.join(subCat.docPath, 'index.mdx'))
-        const docExists = subDocs.length > 0 || hasIndexDoc
-
-        allSources.push(...subSources)
-        allDocs.push(...subDocs)
-
-        if (!docExists) {
-          allMissing.push(...subSources)
-        } else {
-          for (const src of subSources) {
-            allMatched.push({
-              source: src,
-              doc: subDocs[0] || {
-                slug: 'index',
-                title: subCat.label,
-                filePath: path.join(subCat.docPath, 'index.mdx'),
-              },
-            })
-          }
-        }
-      }
-
-      const total = allSources.length
-      const covered = allMatched.length
-      const coverage =
-        total === 0 ? 'N/A' : `${covered}/${total} (${Math.round((covered / total) * 100)}%)`
-
-      audits.push({
-        category: cat.label,
-        description: cat.description,
-        source: allSources,
-        docs: allDocs,
-        missing: allMissing,
-        orphaned: allOrphaned,
-        matched: allMatched,
-        coverage,
-      })
-      continue
-    }
 
     const sources = cat.scanner()
     audits.push(auditCategory(cat.label, cat.description, sources, cat.docPath, cat.includeIndex))

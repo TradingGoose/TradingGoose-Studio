@@ -1,30 +1,9 @@
-export interface StructuredFilter {
-  tagName: string
-  tagSlot?: string
-  fieldType?: string
-  operator?: string
-  value: string | number | boolean
-  valueTo?: string | number
-}
-
 /**
  * Document tag entry format used in create_document tool.
  */
 export interface DocumentTagEntry {
   tagName: string
   value: string
-}
-
-/**
- * Tag filter entry format used in search tool.
- */
-export interface TagFilterEntry {
-  tagName: string
-  tagSlot?: string
-  tagValue: string | number | boolean
-  fieldType?: string
-  operator?: string
-  valueTo?: string | number
 }
 
 /**
@@ -124,44 +103,49 @@ export function parseDocumentTags(value: unknown): DocumentTagEntry[] {
   return []
 }
 
-/**
- * Parses tag filters from various formats into a normalized StructuredFilter array.
- */
-export function parseTagFilters(value: unknown): StructuredFilter[] {
-  if (!value) return []
-
-  let tagFilters = value
-
-  if (typeof tagFilters === 'string') {
+/** Convert editor/LLM tag rows to the search API's text-equality filter map. */
+export function parseTagFilters(value: unknown): Record<string, string> {
+  if (value === undefined || value === null || value === '') return {}
+  let rows = value
+  if (typeof rows === 'string') {
     try {
-      tagFilters = JSON.parse(tagFilters)
+      rows = JSON.parse(rows)
     } catch {
-      return []
+      throw new Error('Tag filters must be a valid JSON array')
     }
   }
+  if (!Array.isArray(rows)) throw new Error('Tag filters must be an array')
 
-  if (!Array.isArray(tagFilters)) return []
-
-  return tagFilters
-    .filter((filter): filter is Record<string, unknown> => {
-      if (typeof filter !== 'object' || filter === null) return false
-      const f = filter as Record<string, unknown>
-      if (!f.tagName || (typeof f.tagName === 'string' && f.tagName.trim() === '')) return false
-      if (f.fieldType === 'boolean') {
-        return f.tagValue !== undefined
-      }
-      if (f.tagValue === undefined || f.tagValue === null) return false
-      if (typeof f.tagValue === 'string' && f.tagValue.trim().length === 0) return false
-      return true
-    })
-    .map((filter) => ({
-      tagName: filter.tagName as string,
-      tagSlot: (filter.tagSlot as string) || '',
-      fieldType: (filter.fieldType as string) || 'text',
-      operator: (filter.operator as string) || 'eq',
-      value: filter.tagValue as string | number | boolean,
-      valueTo: filter.valueTo as string | number | undefined,
-    }))
+  const filters: Record<string, string> = Object.create(null)
+  for (const row of rows) {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) {
+      throw new Error('Each tag filter must contain tagName and tagValue')
+    }
+    const { tagName, tagValue, operator, fieldType } = row
+    if ((!tagName || !String(tagName).trim()) && (tagValue == null || tagValue === '')) continue
+    if (typeof tagName !== 'string' || !tagName.trim()) {
+      throw new Error('Tag filter name is required')
+    }
+    if (
+      (operator !== undefined && operator !== 'eq') ||
+      (fieldType !== undefined && fieldType !== 'text')
+    ) {
+      throw new Error('Knowledge tag filters support text equality only')
+    }
+    if (
+      !['string', 'number', 'boolean'].includes(typeof tagValue) ||
+      (typeof tagValue === 'number' && !Number.isFinite(tagValue))
+    ) {
+      throw new Error('Tag filter values must be text, numbers, or booleans')
+    }
+    const text = String(tagValue).trim()
+    if (!text || text.split('|OR|').some((part) => !part.trim())) {
+      throw new Error('Tag filter value is required')
+    }
+    const name = tagName.trim()
+    filters[name] = filters[name] ? `${filters[name]}|OR|${text}` : text
+  }
+  return filters
 }
 
 /**

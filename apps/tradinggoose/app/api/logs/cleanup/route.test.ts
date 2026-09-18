@@ -11,6 +11,9 @@ const {
   mockOldLogsWhere,
   mockOldLogsLimit,
   mockSnapshotCleanup,
+  mockDeleteWhere,
+  mockDeleteReturning,
+  mockArchive,
 } = vi.hoisted(() => {
   const mockOrderHistoryTable = {
     logId: 'orderHistoryTable.logId',
@@ -21,6 +24,8 @@ const {
   }))
   const mockSelect = vi.fn()
   const mockSnapshotCleanup = vi.fn()
+  const mockDeleteReturning = vi.fn()
+  const mockDeleteWhere = vi.fn((_condition: unknown) => ({ returning: mockDeleteReturning }))
 
   return {
     mockOrderHistoryTable,
@@ -28,12 +33,16 @@ const {
     mockOldLogsWhere,
     mockOldLogsLimit,
     mockSnapshotCleanup,
+    mockDeleteWhere,
+    mockDeleteReturning,
+    mockArchive: vi.fn(),
   }
 })
 
 vi.mock('@tradinggoose/db', () => ({
   db: {
     select: mockSelect,
+    delete: vi.fn(() => ({ where: mockDeleteWhere })),
   },
   orderHistoryTable: mockOrderHistoryTable,
 }))
@@ -74,6 +83,7 @@ vi.mock('drizzle-orm', () => ({
     value,
   })),
   lt: vi.fn((field: unknown, value: unknown) => ({ field, type: 'lt', value })),
+  isNotNull: vi.fn((field: unknown) => ({ field, type: 'isNotNull' })),
   sql: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
     strings,
     type: 'sql',
@@ -115,7 +125,7 @@ vi.mock('@/lib/uploads', () => ({
   isUsingCloudStorage: vi.fn(() => false),
   StorageService: {
     deleteFile: vi.fn(),
-    uploadFile: vi.fn(),
+    uploadFile: mockArchive,
   },
 }))
 
@@ -152,6 +162,8 @@ describe('logs cleanup route', () => {
       })
     mockOldLogsLimit.mockResolvedValue([])
     mockSnapshotCleanup.mockResolvedValue(0)
+    mockArchive.mockResolvedValue({})
+    mockDeleteReturning.mockResolvedValue([{ id: 'finished-log' }])
   })
 
   it('deletes by durable workspace scope while excluding order-linked logs', async () => {
@@ -163,6 +175,12 @@ describe('logs cleanup route', () => {
     const whereCalls = mockOldLogsWhere.mock.calls as unknown as Array<[unknown]>
     const conditions = collectConditions(whereCalls[0]?.[0])
 
+    expect(
+      conditions.some(
+        (condition) =>
+          condition.type === 'isNotNull' && condition.field === 'workflowExecutionLogs.endedAt'
+      )
+    ).toBe(true)
     expect(
       conditions.some(
         (condition) =>
@@ -182,4 +200,85 @@ describe('logs cleanup route', () => {
       )
     ).toBe(true)
   })
+
+  it.each([false, true])(
+    'retains active logs and their finished children until parent completion (%s)',
+    async (parentFinished) => {
+      const candidates: Array<Record<string, any>> = [
+        {
+          id: 'paused-log',
+          endedAt: null,
+          executionData: { checkpoint: { encryptedSnapshot: 'secret' } },
+        },
+        {
+          id: 'parent-log',
+          executionId: 'parent-execution',
+          endedAt: parentFinished ? new Date('2020-01-01') : null,
+          executionData: {},
+        },
+        { id: 'finished-log', endedAt: new Date('2020-01-01'), executionData: {} },
+        {
+          id: 'child-log',
+          endedAt: new Date('2020-01-01'),
+          executionData: {
+            trigger: {
+              data: {
+                queuedExecution: {
+                  source: 'workflow_block',
+                  parentExecutionId: 'parent-execution',
+                },
+              },
+            },
+          },
+        },
+      ]
+      mockOldLogsLimit.mockImplementation(async () => {
+        const [where] = mockOldLogsWhere.mock.calls[0] as unknown as [unknown]
+        const guards = collectConditions(where)
+        return candidates.filter((row) =>
+          guards.every((guard) => {
+            if (guard.type === 'isNotNull') return row[guard.field.split('.').at(-1)] != null
+            if (guard.type === 'sql' && guard.strings.join('').includes('retention_parent')) {
+              const queued = row.executionData.trigger?.data?.queuedExecution
+              return (
+                queued?.source !== 'workflow_block' ||
+                !candidates.some(
+                  (parent) =>
+                    parent.executionId === queued.parentExecutionId && parent.endedAt === null
+                )
+              )
+            }
+            return true
+          })
+        )
+      })
+      const { GET } = await import('./route')
+
+      const response = await GET(new NextRequest('http://localhost/api/logs/cleanup'))
+
+      expect(response.status).toBe(200)
+      const archived = mockArchive.mock.calls.map(([upload]) => JSON.parse(upload.file.toString()))
+      const expectedIds = parentFinished
+        ? ['parent-log', 'finished-log', 'child-log']
+        : ['finished-log']
+      expect(archived.map((log) => log.id)).toEqual(expectedIds)
+      expect(JSON.stringify(archived)).not.toContain('secret')
+      for (const [index, [where]] of mockDeleteWhere.mock.calls.entries()) {
+        const deleteConditions = collectConditions(where)
+        expect(deleteConditions).toEqual(
+          expect.arrayContaining([
+            { type: 'eq', field: 'workflowExecutionLogs.id', value: expectedIds[index] },
+            { type: 'isNotNull', field: 'workflowExecutionLogs.endedAt' },
+          ])
+        )
+        const parentGuard = deleteConditions.find(
+          (guard) => guard.type === 'sql' && guard.strings.join('').includes('retention_parent')
+        )
+        expect(parentGuard?.strings.join('')).toContain("->'queuedExecution'->>'parentExecutionId'")
+        expect(parentGuard?.strings.join('')).toContain("->>'source' = 'workflow_block'")
+        expect(parentGuard?.strings.join('')).toContain('retention_parent.ended_at IS NULL')
+      }
+      expect((await response.json()).results.enhancedLogs.deleted).toBe(expectedIds.length)
+    }
+  )
 })

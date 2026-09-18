@@ -1,121 +1,102 @@
 ---
 title: Loop
-description: Repeat blocks multiple times with iteration control
+description: Repeat the blocks inside a workflow container sequentially.
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
-import { Callout } from 'fumadocs-ui/components/callout'
-import { Step, Steps } from 'fumadocs-ui/components/steps'
-import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
 
 <BlockInfoCard
   type="loop"
-  color=""
+  color="#00ccff"
 />
 
-The Loop block is a container that executes the blocks inside it repeatedly. It is not a regular block with its own source file -- it is a special wrapper node managed by the executor's `LoopBlockHandler`. Drag blocks into the loop container and they will run once per iteration.
-
-<Callout type="info">
-  Loop blocks are container nodes. Drag child blocks inside the loop on the canvas. Incoming edges enter through Loop Start, and child outputs reconnect to Loop End before the workflow continues outside the loop.
-</Callout>
-
-## Loop Types
-
-<Tabs items={['For', 'ForEach', 'While', 'Do-While']}>
-  <Tab>
-    **For Loop** -- runs a fixed number of times. The default iteration count is **5** if not specified.
-
-    ```
-    Example: Run 3 times
-    - Iteration 1 (index 0)
-    - Iteration 2 (index 1)
-    - Iteration 3 (index 2)
-    ```
-  </Tab>
-  <Tab>
-    **ForEach Loop** -- iterates over each item in an array or object. The collection must be non-empty; an empty collection throws an error.
-
-    ```
-    Example: Process ["apple", "banana", "orange"]
-    - Iteration 1: currentItem = "apple"
-    - Iteration 2: currentItem = "banana"
-    - Iteration 3: currentItem = "orange"
-    ```
-
-    For objects, each iteration receives a `[key, value]` pair.
-  </Tab>
-  <Tab>
-    **While Loop** -- evaluates a condition **before** each iteration. If the condition is false on the first check, the body never executes.
-
-    While and Do-While loops have **no built-in iteration cap**. They rely on the condition becoming false (or the workflow timeout) to stop.
-  </Tab>
-  <Tab>
-    **Do-While Loop** -- executes the body at least once, then evaluates the condition **after** each iteration. Useful when you need at least one pass before checking.
-  </Tab>
-</Tabs>
-
-## How It Works
-
-The executor's `LoopBlockHandler` manages iteration control:
-
-1. **Initialize** -- the loop counter starts at 1. For `forEach` loops, the collection is resolved (JSON, variable references, or expressions).
-2. **Check continuation** -- `for`/`forEach` compare the counter against the collection length or iteration count. `while`/`doWhile` evaluate the condition expression using the same engine as the Condition block.
-3. **Activate children** -- blocks connected to the loop's internal start handle are placed on the active execution path.
-4. **Collect results** -- each iteration's outputs are aggregated into `loop.results`.
-5. **Increment and repeat** -- the counter advances and step 2 runs again. When the loop finishes, blocks connected to the loop's exit handle are activated.
-
-## Iteration Variables
-
-Inside the loop body, the following variables are available:
-
-| Variable | Type | Description |
-|---|---|---|
-| `loop.index` | number | Zero-based index of the current iteration |
-| `loop.currentItem` | any | The current item (ForEach loops) or loop context (While loops) |
-| `loop.items` | array/object | The full collection being iterated (ForEach only) |
-
-After the loop completes, downstream blocks can access:
-
-| Variable | Type | Description |
-|---|---|---|
-| `loop.results` | array | Ordered array of all iteration outputs |
 
 ## Configuration
 
-| Parameter | Applies to | Description |
-|---|---|---|
-| **Loop Type** | All | `for`, `forEach`, `while`, or `doWhile` |
-| **Iterations** | For | Number of times to repeat (default: 5) |
-| **Collection** | ForEach | Array or object to iterate. Supports JSON literals, `<block.output>` references, and expressions. |
-| **Condition** | While / Do-While | A boolean expression evaluated each iteration (e.g., `<variable.i> < 10`) |
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Loop"
+    type="loop"
+    color="#00ccff"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "loopType",
+            "type": "dropdown",
+            "title": "Loop Type",
+            "options": [
+                {
+                    "id": "for",
+                    "label": "For Loop"
+                },
+                {
+                    "id": "forEach",
+                    "label": "For Each"
+                },
+                {
+                    "id": "while",
+                    "label": "While Loop"
+                },
+                {
+                    "id": "doWhile",
+                    "label": "Do While Loop"
+                }
+            ]
+        },
+        {
+            "id": "iterations",
+            "type": "short-input",
+            "title": "Loop Iterations",
+            "description": "Shown when loopType is 'for'."
+        },
+        {
+            "id": "collection",
+            "type": "long-input",
+            "title": "Collection Items",
+            "description": "Shown when loopType is 'forEach'."
+        },
+        {
+            "id": "whileCondition",
+            "type": "long-input",
+            "title": "While Condition",
+            "description": "Shown when loopType is one of 'while', 'doWhile'."
+        }
+    ]}
+  />
+</ShowcaseCard>
 
-## Example Use Cases
+## Input
 
-### Processing API Results
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `loopType` | string | No | for, forEach, while, or doWhile. |
+| `iterations` | number | No | Iteration count for For Loop; the editor allows 1–100. Shown when loopType is 'for'. |
+| `forEachItems` | json | No | Non-empty array or object for For Each; supports upstream references. |
+| `whileCondition` | string | No | Boolean expression for While or Do While. Shown when loopType is one of 'while', 'doWhile'. |
 
-1. An API block fetches a list of customer records.
-2. A ForEach loop iterates over each customer.
-3. Inside the loop, an Agent analyzes the customer data and a Function stores the result.
-4. After the loop, a Response block returns the aggregated `loop.results`.
+## Output
 
-### Iterative Refinement
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `loopId` | string | Loop container ID. |
+| `currentIteration` | number | One-based during loop execution; completed For and For Each outputs use the final zero-based index. |
+| `maxIterations` | number | Count or collection length; condition-driven loops use the runtime sentinel Number.MAX_SAFE_INTEGER. |
+| `loopType` | string | Configured loop mode. |
+| `completed` | boolean | Whether the loop has finished. |
+| `results` | array | Child outputs grouped by iteration after For or For Each completes; absent from While and Do While completion outputs. |
+| `message` | string | Loop progress message. |
 
-1. A For loop set to 5 iterations generates content variations.
-2. Inside the loop, an Agent produces a draft and an Evaluator scores it.
-3. After the loop, a Function selects the highest-scoring variation from `loop.results`.
 
-## Limitations
+## Usage Instructions
 
-<Callout type="warning">
-  Container blocks (Loops and Parallels) **cannot be nested** inside each other. You cannot place a Loop inside another Loop, or a Parallel inside a Loop. If you need multi-dimensional iteration, restructure your workflow to use sequential loops or process data in stages.
-</Callout>
+For Loop repeats a configured number of times. For Each iterates over a non-empty array or object; object items are key/value pairs. While tests its condition before each iteration, and Do While always executes its first iteration. Conditions use the same expression evaluator as Condition blocks. While and Do While have no fixed iteration cap: provide a terminating condition and account for workflow timeout and execution limits. Connect the container start to its first child and the container end to the blocks that should run afterward. Completed For and For Each loops aggregate child outputs under results in iteration order; a single iteration can contain multiple child outputs. While and Do While completion outputs do not include that results array.
 
-<Callout type="info">
-  Loops execute iterations **sequentially**. For concurrent execution of independent tasks, use the Parallel block instead.
-</Callout>
 
-## Best Practices
 
-- **Set reasonable iteration counts** for For loops to avoid long-running workflows. The default is 5.
-- **Use ForEach for collections** -- it automatically sizes to the collection length and gives you `currentItem`.
-- **Always update your condition variable** inside While/Do-While loops. Forgetting to change the variable the condition depends on creates an infinite loop (bounded only by the workflow timeout).
+## Notes
+
+- Category: `blocks`
+- Type: `loop`

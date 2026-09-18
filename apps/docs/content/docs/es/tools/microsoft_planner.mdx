@@ -1,0 +1,216 @@
+---
+title: Microsoft Planner
+description: Leer y crear tareas en Microsoft Planner
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="microsoft_planner"
+  color="#33C481"
+/>
+
+## Configuración
+
+### Leer tarea
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Microsoft Planner"
+    type="microsoft_planner"
+    color="#33C481"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "read_task",
+                    "label": "Leer tarea"
+                },
+                {
+                    "id": "create_task",
+                    "label": "Crear tarea"
+                }
+            ],
+            "defaultValue": "read_task"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "microsoft-planner"
+        },
+        {
+            "id": "planId",
+            "type": "short-input",
+            "title": "ID del plan",
+            "layout": "full",
+            "placeholder": "Introducir el ID del plan"
+        },
+        {
+            "id": "taskId",
+            "type": "file-selector",
+            "title": "ID de la tarea",
+            "layout": "full",
+            "placeholder": "Seleccionar una tarea",
+            "provider": "microsoft-planner"
+        },
+        {
+            "id": "manualTaskId",
+            "type": "short-input",
+            "title": "ID de tarea manual",
+            "layout": "full",
+            "placeholder": "Introducir el ID de la tarea"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Leer tarea (<code>microsoft_planner_read_task</code>)</div>
+
+Leer tareas de Microsoft Planner: obtener todas las tareas del usuario o todas las tareas de un plan específico
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `planId` | string | No | ID del plan del que obtener las tareas \(si no se proporciona, se obtienen todas las tareas del usuario\) |
+| `taskId` | string | No | ID de la tarea que se va a obtener |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Indica si las tareas se recuperaron correctamente |
+| `tasks` | array | Matriz de objetos de tarea con propiedades filtradas |
+| `metadata` | object | Metadatos que incluyen planId, userId y planUrl |
+
+</div>
+
+---
+
+### Crear tarea
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Microsoft Planner"
+    type="microsoft_planner"
+    color="#33C481"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "read_task",
+                    "label": "Leer tarea"
+                },
+                {
+                    "id": "create_task",
+                    "label": "Crear tarea"
+                }
+            ],
+            "defaultValue": "create_task"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "microsoft-planner"
+        },
+        {
+            "id": "planId",
+            "type": "short-input",
+            "title": "ID del plan",
+            "layout": "full",
+            "placeholder": "Introducir el ID del plan"
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Título de la tarea",
+            "layout": "full",
+            "placeholder": "Introducir el título de la tarea"
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "Descripción",
+            "layout": "full",
+            "placeholder": "Introducir la descripción de la tarea (opcional)"
+        },
+        {
+            "id": "dueDateTime",
+            "type": "datetime-input",
+            "title": "Fecha de vencimiento",
+            "layout": "full",
+            "placeholder": "Introducir la fecha de vencimiento en 2024-12-31 23:59:59"
+        },
+        {
+            "id": "assigneeUserId",
+            "type": "short-input",
+            "title": "ID de usuario asignado",
+            "layout": "full",
+            "placeholder": "Introducir el ID de usuario al que asignar esta tarea (opcional)"
+        },
+        {
+            "id": "bucketId",
+            "type": "short-input",
+            "title": "ID del cubo",
+            "layout": "full",
+            "placeholder": "Introducir el ID del cubo para organizar la tarea (opcional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear tarea (<code>microsoft_planner_create_task</code>)</div>
+
+Crear una nueva tarea en Microsoft Planner
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `planId` | string | Sí | El ID del plan donde se creará la tarea |
+| `title` | string | Sí | El título de la tarea |
+| `description` | string | No | La descripción de la tarea |
+| `dueDateTime` | string | No | La fecha y hora de vencimiento de la tarea \(formato ISO 8601\) |
+| `assigneeUserId` | string | No | El ID de usuario al que asignar la tarea |
+| `bucketId` | string | No | El ID del cubo donde colocar la tarea |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Si la tarea se creó correctamente |
+| `task` | object | El objeto de la tarea creada con todas las propiedades |
+| `metadata` | object | Metadatos que incluyen planId, taskId y taskUrl |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Microsoft Planner en el workflow. Puede leer y crear tareas.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `microsoft_planner`

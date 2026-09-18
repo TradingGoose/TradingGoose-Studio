@@ -1,0 +1,145 @@
+---
+title: Watchlist
+description: Read workspace watchlists and watchlist items.
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="watchlist"
+  color="#0f766e"
+/>
+
+
+## Configuration
+
+### Read Lists
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Watchlist"
+    type="watchlist"
+    color="#0f766e"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "required": true,
+            "defaultValue": "readLists",
+            "options": [
+                {
+                    "id": "readLists",
+                    "label": "Read Lists"
+                },
+                {
+                    "id": "readListItems",
+                    "label": "Read List Items"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Read Lists (<code>watchlist_read_lists</code>)</div>
+
+Read root watchlists available in the current workspace.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+This operation has no direct parameters.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `watchlists` | array | Watchlist records including items, settings, and metadata. |
+
+</div>
+
+
+
+---
+
+### Read List Items
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Watchlist"
+    type="watchlist"
+    color="#0f766e"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "required": true,
+            "defaultValue": "readListItems",
+            "options": [
+                {
+                    "id": "readLists",
+                    "label": "Read Lists"
+                },
+                {
+                    "id": "readListItems",
+                    "label": "Read List Items"
+                }
+            ]
+        },
+        {
+            "id": "watchlistId",
+            "type": "dropdown",
+            "title": "Watchlist",
+            "layout": "full",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Read List Items (<code>watchlist_read_list_items</code>)</div>
+
+Read one watchlist with ordered listings and section/category items.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `watchlistId` | string | Yes | Root watchlist id to read. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `watchlist` | json | Watchlist record. |
+| `items` | array | Watchlist items in display order, including listings and sections. |
+| `listings` | array | Listing items in the watchlist. |
+| `sections` | array | Section/category items in the watchlist. |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Read root workspace watchlists, inspect ordered listing items, and inspect section/category items.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `watchlist`

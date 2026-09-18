@@ -1,0 +1,243 @@
+---
+title: 条件
+description: 根据布尔表达式分支工作流路径
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion'
+import { BlockConfigPreview } from '@/components/ui/block-config-preview'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
+
+<BlockInfoCard
+  type="condition"
+  color="#FF752F"
+/>
+
+条件区块允许您根据布尔表达式分支工作流执行路径，从而创建具有不同执行路径的动态、响应式工作流。它评估条件并相应地路由工作流，让您无需 LLM 即可根据数据或逻辑控制执行流。
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Condition"
+    type="condition"
+    color="#FF752F"
+    hideHeader
+    subBlocks={[
+      { "id": "conditions", "type": "condition-input", "layout": "full" }
+    ]}
+  />
+</ShowcaseCard>
+
+<Callout>
+  条件区块无需 LLM 即可实现确定性决策，非常适合直接的分支逻辑。
+</Callout>
+
+## 概览
+
+条件区块使您能够：
+
+<Steps>
+  <Step>
+    <strong>创建分支逻辑</strong>：根据布尔表达式路由工作流
+  </Step>
+  <Step>
+    <strong>做出数据驱动决策</strong>：使用先前区块的输出评估条件
+  </Step>
+  <Step>
+    <strong>处理多种场景</strong>：定义具有不同路径的多个条件
+  </Step>
+  <Step>
+    <strong>提供确定性路由</strong>：无需 LLM 即可做出决策
+  </Step>
+</Steps>
+
+## 工作原理
+
+条件区块通过顺序评估流程运行：
+
+1. **评估表达式** - 使用当前工作流数据处理 JavaScript/TypeScript 布尔表达式
+2. **确定结果** - 根据表达式评估返回 true 或 false
+3. **路由工作流** - 根据结果将执行定向到适当的目标区块
+4. **提供上下文** - 生成关于该决策的元数据，用于调试和监控
+
+## 配置选项
+
+### 条件
+
+定义一个或多个将被评估的条件。每个条件包括：
+
+- **表达式**：一个评估为 true 或 false 的 JavaScript/TypeScript 表达式
+- **路径**：如果条件为 true，则路由到的目标块
+- **描述**：对条件检查内容的可选说明
+
+你可以创建多个按顺序评估的条件，第一个匹配的条件将决定执行路径。
+
+### 条件表达式格式
+
+条件使用 JavaScript 语法，可以引用前序块的输入值。
+
+<Tabs items={['分数阈值', '文本分析', '多个条件']}>
+  <Tab>
+
+    ```javascript
+    // Check if a score is above a threshold
+    <agent.score> > 75
+    ```
+
+  </Tab>
+  <Tab>
+
+    ```javascript
+    // Check if a text contains specific keywords
+    <agent.text>.includes('urgent') || <agent.text>.includes('emergency')
+    ```
+
+  </Tab>
+  <Tab>
+
+    ```javascript
+    // Check multiple conditions
+    <agent.age> >= 18 && <agent.country> === 'US'
+    ```
+
+  </Tab>
+</Tabs>
+
+### 访问结果
+
+条件评估后，你可以访问其输出：
+
+- **`<condition.conditionResult>`**: 是否选中了已连接的路径（包括 Else），并非首个表达式的真假值。
+- **`<condition.selectedOption>`**：匹配到的条件 ID
+- **`<condition.selectedPath>`**：所选路由目标的详细信息
+
+## 高级功能
+
+### 复杂表达式
+
+在条件中使用 JavaScript 运算符和函数：
+
+```javascript
+// String operations
+<user.email>.endsWith('@company.com')
+
+// Array operations
+<api.data.tags>.includes('urgent')
+
+// Mathematical operations
+<agent.confidence> * 100 > 85
+
+// Date comparisons
+new Date(<api.data.created_at>) > new Date('2024-01-01')
+```
+
+### 多条件评估
+
+条件按顺序评估，直到有一个匹配：
+
+```javascript
+// Condition 1: Check for high priority
+<ticket.priority> === 'high'
+
+// Condition 2: Check for urgent keywords
+<ticket.subject>.toLowerCase().includes('urgent')
+
+// Condition 3: Default fallback
+true
+```
+
+### 错误处理
+
+无效表达式和不安全的属性访问可能导致块失败。请显式校验可选属性，例如 API data 为对象时使用 `((<api.data>)?.tags ?? []).includes('urgent')`。Condition 不支持普通块的错误路径恢复。如校验需要可恢复的异常，请在上游 Function 块中校验并连接其错误路径。
+
+## 输入与输出
+
+<Tabs items={['配置', '变量', '结果']}>
+  <Tab>
+    <ul className="list-disc space-y-2 pl-6">
+      <li>
+        <strong>条件</strong>：要评估的布尔表达式数组
+      </li>
+      <li>
+        <strong>表达式</strong>：使用块输出的 JavaScript/TypeScript 条件
+      </li>
+      <li>
+        <strong>路由路径</strong>：每个条件结果对应的目标块
+      </li>
+    </ul>
+  </Tab>
+  <Tab>
+    <ul className="list-disc space-y-2 pl-6">
+      <li>
+        <strong>condition.conditionResult</strong>: 选中已连接的路径（包括 Else）时为 true
+      </li>
+      <li>
+        <strong>condition.selectedOption</strong>：匹配条件的 ID
+      </li>
+      <li>
+        <strong>condition.selectedPath</strong>：所选路由目标的详情
+      </li>
+    </ul>
+  </Tab>
+  <Tab>
+    <ul className="list-disc space-y-2 pl-6">
+      <li>
+        <strong>布尔结果</strong>：条件评估的主要结果
+      </li>
+      <li>
+        <strong>路由信息</strong>：路径选择与条件详情
+      </li>
+      <li>
+        <strong>访问</strong>：在条件之后的块中可用
+      </li>
+    </ul>
+  </Tab>
+</Tabs>
+
+## 示例用例
+
+### 客户支持路由
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">场景：根据优先级路由支持工单</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>API 块获取支持工单数据</li>
+    <li>条件检查 `<api.data.priority>` 是否等于 'high'</li>
+    <li>高优先级工单 → 带升级工具的智能体</li>
+    <li>普通优先级工单 → 标准支持智能体</li>
+  </ol>
+</div>
+
+### 内容审核
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">场景：根据分析结果过滤内容</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>智能体分析用户生成的内容</li>
+    <li>条件检查 `<agent.toxicity_score>` > 0.7</li>
+    <li>有毒内容 → 审核工作流</li>
+    <li>干净内容 → 发布工作流</li>
+  </ol>
+</div>
+
+### 用户引导流程
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">场景：根据用户类型个性化引导</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>函数块处理用户注册数据</li>
+    <li>条件检查 `<function.result.account_type>` === 'enterprise'</li>
+    <li>企业用户 → 高级设置工作流</li>
+    <li>个人用户 → 简单引导工作流</li>
+  </ol>
+</div>
+
+## 最佳实践
+
+- **正确排列条件顺序**：将更具体的条件放在更通用的条件之前，确保具体逻辑优先于回退逻辑
+- **包含默认条件**：添加一个兜底条件（`true`）作为最后一个条件，以处理未匹配的情况，防止工作流执行卡住
+- **保持表达式简洁**：使用清晰、直接的布尔表达式，以提高可读性并便于调试
+- **为条件添加说明**：添加描述，说明每个条件的用途，以便更好地进行团队协作和维护
+- **测试边界情况**：通过使用条件范围边缘的值进行测试，验证条件能否正确处理边界值

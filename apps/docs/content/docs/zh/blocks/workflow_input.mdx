@@ -1,0 +1,97 @@
+---
+title: 工作流
+description: 执行子工作流，并将父变量映射到其输入架构
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="workflow_input"
+  color="#6366F1"
+  icon={true}
+/>
+
+工作流块会在当前（父）工作流内执行另一个（子）工作流。它会读取子工作流的 **输入表单触发器** 架构，并展示映射 UI，以便你将父变量传入子工作流预期的输入。这是将复杂自动化模块化为可复用子工作流的主要机制。
+
+## 概述
+
+<Steps>
+  <Step>
+    <strong>选择子工作流</strong>：选择工作区中的任意工作流（当前工作流除外）
+  </Step>
+  <Step>
+    <strong>映射输入</strong>：该块会读取子工作流的输入表单触发器，并显示每个预期字段。为每个字段映射父变量或硬编码值。
+  </Step>
+  <Step>
+    <strong>执行</strong>：子工作流将使用映射的输入运行至完成
+  </Step>
+  <Step>
+    <strong>返回结果</strong>：子工作流的最终输出将作为该块的 `result` 输出返回给父工作流
+  </Step>
+</Steps>
+
+## 工作原理
+
+子工作流必须使用 **输入表单触发器** 作为起始块。该触发器定义输入架构（字段名称、类型和描述）。在此块中选择子工作流时，输入映射 UI 会动态呈现这些字段，以便你将其连接起来。
+
+运行时，该块会：
+
+1. 从父工作流的当前状态解析所有映射值。
+2. 调用子工作流的执行器，并传入解析后的输入。
+3. 等待子工作流完成。
+4. 返回 `success: true`、`childWorkflowName`，以及包含子工作流最终输出的 `result`。
+
+<Callout type="info">
+  子工作流继承父工作流的执行目标：编辑器/live 运行使用子工作流当前保存的结构，已部署运行使用其已部署版本。在已部署父工作流中依赖子工作流更新前，请先部署子工作流。选择器排除当前工作流；嵌套调用的最大深度为 10。
+</Callout>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Workflow"
+    type="workflow_input"
+    color="#6366F1"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "workflowId",
+            "type": "dropdown",
+            "title": "选择工作流",
+            "required": true
+        },
+        {
+            "id": "inputMapping",
+            "type": "input-mapping",
+            "title": "输入映射",
+            "layout": "full",
+            "description": "将子工作流的输入触发器中定义的字段映射到当前工作流中的变量/值。"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+### 字段
+
+| 字段 | 必填 | 说明 |
+|---|---|---|
+| **选择工作流** | 是 | 要执行的子工作流。必须具有输入表单触发器。 |
+| **输入映射** | -- | 将父工作流的值动态映射到子工作流的触发器结构。选择工作流后显示。 |
+
+## 输出
+
+| 输出 | 类型 | 说明 |
+|---|---|---|
+| `success` | boolean | 正常成功路径上为 `true` |
+| `childWorkflowName` | string | 所执行子工作流的名称 |
+| `result` | json | 子工作流的最终输出，不是完整执行记录 |
+
+## 最佳实践
+
+- **设计具有清晰输入表单触发器的子工作流** -- 以描述性方式命名字段，以便在父工作流中轻松使用映射界面。
+- **保持子工作流专注** -- 子工作流应做好一件事，使其可在多个父工作流中复用。
+- **连接错误路径** -- 子工作流失败会抛出块错误，不会向正常下游返回 `success: false`。请将恢复逻辑连接到 Workflow 块的错误输出。

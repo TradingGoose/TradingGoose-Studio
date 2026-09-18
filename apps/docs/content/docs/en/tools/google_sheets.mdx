@@ -10,7 +10,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <BlockInfoCard
   type="google_sheets"
-  color=""
+  color="#34A853"
 />
 
 
@@ -22,7 +22,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="Google Sheets"
     type="google_sheets"
-    color=""
+    color="#34A853"
     hideHeader
     subBlocks={[
         {
@@ -30,25 +30,25 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "read",
             "options": [
                 {
-                    "label": "Read Data",
-                    "id": "read"
+                    "id": "read",
+                    "label": "Read Data"
                 },
                 {
-                    "label": "Write Data",
-                    "id": "write"
+                    "id": "write",
+                    "label": "Write Data"
                 },
                 {
-                    "label": "Update Data",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Data"
                 },
                 {
-                    "label": "Append Data",
-                    "id": "append"
+                    "id": "append",
+                    "label": "Append Data"
                 }
-            ],
-            "defaultValue": "read"
+            ]
         },
         {
             "id": "credential",
@@ -102,6 +102,7 @@ Read data from a Google Sheets spreadsheet
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `data` | json | Sheet data including range and cell values |
+| `metadata` | json | Spreadsheet metadata including ID and URL |
 
 </div>
 
@@ -115,7 +116,7 @@ Read data from a Google Sheets spreadsheet
   <BlockConfigPreview
     name="Google Sheets"
     type="google_sheets"
-    color=""
+    color="#34A853"
     hideHeader
     subBlocks={[
         {
@@ -123,25 +124,25 @@ Read data from a Google Sheets spreadsheet
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "write",
             "options": [
                 {
-                    "label": "Read Data",
-                    "id": "read"
+                    "id": "read",
+                    "label": "Read Data"
                 },
                 {
-                    "label": "Write Data",
-                    "id": "write"
+                    "id": "write",
+                    "label": "Write Data"
                 },
                 {
-                    "label": "Update Data",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Data"
                 },
                 {
-                    "label": "Append Data",
-                    "id": "append"
+                    "id": "append",
+                    "label": "Append Data"
                 }
-            ],
-            "defaultValue": "write"
+            ]
         },
         {
             "id": "credential",
@@ -189,12 +190,12 @@ Read data from a Google Sheets spreadsheet
             "layout": "full",
             "options": [
                 {
-                    "label": "User Entered (Parse formulas)",
-                    "id": "USER_ENTERED"
+                    "id": "USER_ENTERED",
+                    "label": "User Entered (Parse formulas)"
                 },
                 {
-                    "label": "Raw (Don",
-                    "id": "RAW"
+                    "id": "RAW",
+                    "label": "Raw (Don't parse formulas)"
                 }
             ]
         }
@@ -214,8 +215,6 @@ Write data to a Google Sheets spreadsheet
 | `spreadsheetId` | string | Yes | The ID of the spreadsheet to write to |
 | `range` | string | No | The range of cells to write to |
 | `values` | array | Yes | The data to write to the spreadsheet |
-| `valueInputOption` | string | No | The format of the data to write |
-| `includeValuesInResponse` | boolean | No | Whether to include the written values in the response |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
@@ -225,6 +224,7 @@ Write data to a Google Sheets spreadsheet
 | `updatedRows` | number | Number of rows updated |
 | `updatedColumns` | number | Number of columns updated |
 | `updatedCells` | number | Number of cells updated |
+| `metadata` | json | Spreadsheet metadata including ID and URL |
 
 </div>
 
@@ -238,7 +238,7 @@ Write data to a Google Sheets spreadsheet
   <BlockConfigPreview
     name="Google Sheets"
     type="google_sheets"
-    color=""
+    color="#34A853"
     hideHeader
     subBlocks={[
         {
@@ -246,25 +246,25 @@ Write data to a Google Sheets spreadsheet
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "update",
             "options": [
                 {
-                    "label": "Read Data",
-                    "id": "read"
+                    "id": "read",
+                    "label": "Read Data"
                 },
                 {
-                    "label": "Write Data",
-                    "id": "write"
+                    "id": "write",
+                    "label": "Write Data"
                 },
                 {
-                    "label": "Update Data",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Data"
                 },
                 {
-                    "label": "Append Data",
-                    "id": "append"
+                    "id": "append",
+                    "label": "Append Data"
                 }
-            ],
-            "defaultValue": "update"
+            ]
         },
         {
             "id": "credential",
@@ -312,12 +312,12 @@ Write data to a Google Sheets spreadsheet
             "layout": "full",
             "options": [
                 {
-                    "label": "User Entered (Parse formulas)",
-                    "id": "USER_ENTERED"
+                    "id": "USER_ENTERED",
+                    "label": "User Entered (Parse formulas)"
                 },
                 {
-                    "label": "Raw (Don",
-                    "id": "RAW"
+                    "id": "RAW",
+                    "label": "Raw (Don't parse formulas)"
                 }
             ]
         }
@@ -337,8 +337,6 @@ Update data in a Google Sheets spreadsheet
 | `spreadsheetId` | string | Yes | The ID of the spreadsheet to update |
 | `range` | string | No | The range of cells to update |
 | `values` | array | Yes | The data to update in the spreadsheet |
-| `valueInputOption` | string | No | The format of the data to update |
-| `includeValuesInResponse` | boolean | No | Whether to include the updated values in the response |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
@@ -348,6 +346,7 @@ Update data in a Google Sheets spreadsheet
 | `updatedRows` | number | Number of rows updated |
 | `updatedColumns` | number | Number of columns updated |
 | `updatedCells` | number | Number of cells updated |
+| `metadata` | json | Spreadsheet metadata including ID and URL |
 
 </div>
 
@@ -361,7 +360,7 @@ Update data in a Google Sheets spreadsheet
   <BlockConfigPreview
     name="Google Sheets"
     type="google_sheets"
-    color=""
+    color="#34A853"
     hideHeader
     subBlocks={[
         {
@@ -369,25 +368,25 @@ Update data in a Google Sheets spreadsheet
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "append",
             "options": [
                 {
-                    "label": "Read Data",
-                    "id": "read"
+                    "id": "read",
+                    "label": "Read Data"
                 },
                 {
-                    "label": "Write Data",
-                    "id": "write"
+                    "id": "write",
+                    "label": "Write Data"
                 },
                 {
-                    "label": "Update Data",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Data"
                 },
                 {
-                    "label": "Append Data",
-                    "id": "append"
+                    "id": "append",
+                    "label": "Append Data"
                 }
-            ],
-            "defaultValue": "append"
+            ]
         },
         {
             "id": "credential",
@@ -435,12 +434,12 @@ Update data in a Google Sheets spreadsheet
             "layout": "full",
             "options": [
                 {
-                    "label": "User Entered (Parse formulas)",
-                    "id": "USER_ENTERED"
+                    "id": "USER_ENTERED",
+                    "label": "User Entered (Parse formulas)"
                 },
                 {
-                    "label": "Raw (Don",
-                    "id": "RAW"
+                    "id": "RAW",
+                    "label": "Raw (Don't parse formulas)"
                 }
             ]
         },
@@ -451,12 +450,12 @@ Update data in a Google Sheets spreadsheet
             "layout": "full",
             "options": [
                 {
-                    "label": "Insert Rows (Add new rows)",
-                    "id": "INSERT_ROWS"
+                    "id": "INSERT_ROWS",
+                    "label": "Insert Rows (Add new rows)"
                 },
                 {
-                    "label": "Overwrite (Add to existing data)",
-                    "id": "OVERWRITE"
+                    "id": "OVERWRITE",
+                    "label": "Overwrite (Add to existing data)"
                 }
             ]
         }
@@ -476,9 +475,6 @@ Append data to the end of a Google Sheets spreadsheet
 | `spreadsheetId` | string | Yes | The ID of the spreadsheet to append to |
 | `range` | string | No | The range of cells to append after |
 | `values` | array | Yes | The data to append to the spreadsheet |
-| `valueInputOption` | string | No | The format of the data to append |
-| `insertDataOption` | string | No | How to insert the data \(OVERWRITE or INSERT_ROWS\) |
-| `includeValuesInResponse` | boolean | No | Whether to include the appended values in the response |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
@@ -489,6 +485,7 @@ Append data to the end of a Google Sheets spreadsheet
 | `updatedRows` | number | Number of rows updated |
 | `updatedColumns` | number | Number of columns updated |
 | `updatedCells` | number | Number of cells updated |
+| `metadata` | json | Spreadsheet metadata including ID and URL |
 
 </div>
 

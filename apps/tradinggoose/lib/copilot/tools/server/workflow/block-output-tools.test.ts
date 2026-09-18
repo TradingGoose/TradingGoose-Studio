@@ -19,6 +19,12 @@ vi.mock('@/blocks', () => ({
           meta: {
             sentiment: { type: 'string', description: 'Sentiment label' },
           },
+          structured: {
+            type: 'object',
+            properties: {
+              count: { type: 'number' },
+            },
+          },
         },
       },
       function: {
@@ -74,6 +80,8 @@ describe('server workflow output tools', () => {
         outputs: [
           { path: 'agent.content', type: 'string' },
           { path: 'agent.meta.sentiment', type: 'string' },
+          { path: 'agent.structured', type: 'object' },
+          { path: 'agent.structured.count', type: 'number' },
         ],
       },
       {
@@ -132,6 +140,8 @@ describe('server workflow output tools', () => {
             outputs: [
               { path: 'agent.content', type: 'string' },
               { path: 'agent.meta.sentiment', type: 'string' },
+              { path: 'agent.structured', type: 'object' },
+              { path: 'agent.structured.count', type: 'number' },
             ],
           },
         ],

@@ -1,0 +1,292 @@
+---
+title: Wikipedia
+description: 搜索并获取 Wikipedia 内容
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="wikipedia"
+  color=""
+/>
+
+## 配置
+
+### 获取页面摘要
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Wikipedia"
+    type="wikipedia"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "wikipedia_summary",
+            "options": [
+                {
+                    "id": "wikipedia_summary",
+                    "label": "获取页面摘要"
+                },
+                {
+                    "id": "wikipedia_search",
+                    "label": "搜索页面"
+                },
+                {
+                    "id": "wikipedia_content",
+                    "label": "获取页面内容"
+                },
+                {
+                    "id": "wikipedia_random",
+                    "label": "随机页面"
+                }
+            ]
+        },
+        {
+            "id": "pageTitle",
+            "type": "long-input",
+            "title": "页面标题",
+            "layout": "full",
+            "placeholder": "输入 Wikipedia 页面标题（例如：\"Python programming language\"）...",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取页面摘要（<code>wikipedia_summary</code>）</div>
+
+获取指定 Wikipedia 页面的摘要和元数据。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `pageTitle` | string | 是 | 要获取摘要的 Wikipedia 页面标题 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `summary` | object | Wikipedia 页面摘要和元数据 |
+
+</div>
+
+---
+
+### 搜索页面
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Wikipedia"
+    type="wikipedia"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "wikipedia_search",
+            "options": [
+                {
+                    "id": "wikipedia_summary",
+                    "label": "获取页面摘要"
+                },
+                {
+                    "id": "wikipedia_search",
+                    "label": "搜索页面"
+                },
+                {
+                    "id": "wikipedia_content",
+                    "label": "获取页面内容"
+                },
+                {
+                    "id": "wikipedia_random",
+                    "label": "随机页面"
+                }
+            ]
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "搜索查询",
+            "layout": "full",
+            "placeholder": "输入搜索词...",
+            "required": true
+        },
+        {
+            "id": "searchLimit",
+            "type": "short-input",
+            "title": "最大结果数",
+            "layout": "full",
+            "placeholder": "10"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索页面 (<code>wikipedia_search</code>)</div>
+
+按标题或内容搜索 Wikipedia 页面。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | 是 | 用于查找 Wikipedia 页面的搜索查询 |
+| `searchLimit` | number | 否 | 返回结果的最大数量 \(默认：10，最大：50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `searchResults` | array | 匹配的 Wikipedia 页面数组 |
+| `totalHits` | number | 找到的搜索结果总数 |
+| `query` | string | 已执行的搜索查询 |
+
+</div>
+
+---
+
+### 获取页面内容
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Wikipedia"
+    type="wikipedia"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "wikipedia_content",
+            "options": [
+                {
+                    "id": "wikipedia_summary",
+                    "label": "获取页面摘要"
+                },
+                {
+                    "id": "wikipedia_search",
+                    "label": "搜索页面"
+                },
+                {
+                    "id": "wikipedia_content",
+                    "label": "获取页面内容"
+                },
+                {
+                    "id": "wikipedia_random",
+                    "label": "随机页面"
+                }
+            ]
+        },
+        {
+            "id": "pageTitle",
+            "type": "long-input",
+            "title": "页面标题",
+            "layout": "full",
+            "placeholder": "输入 Wikipedia 页面标题...",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取页面内容 (<code>wikipedia_content</code>)</div>
+
+获取 Wikipedia 页面的完整 HTML 内容。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `pageTitle` | string | 是 | 要获取内容的 Wikipedia 页面标题 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | object | Wikipedia 页面的完整 HTML 内容和元数据 |
+
+</div>
+
+---
+
+### 随机页面
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Wikipedia"
+    type="wikipedia"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "wikipedia_random",
+            "options": [
+                {
+                    "id": "wikipedia_summary",
+                    "label": "获取页面摘要"
+                },
+                {
+                    "id": "wikipedia_search",
+                    "label": "搜索页面"
+                },
+                {
+                    "id": "wikipedia_content",
+                    "label": "获取页面内容"
+                },
+                {
+                    "id": "wikipedia_random",
+                    "label": "随机页面"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">随机页面（<code>wikipedia_random</code>）</div>
+
+获取随机 Wikipedia 页面。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+此操作没有直接参数。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `randomPage` | object | 随机 Wikipedia 页面数据 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Wikipedia 集成到工作流。可获取页面摘要、搜索页面、获取页面内容，以及获取随机页面。
+
+## 备注
+
+- 分类：`tools`
+- 类型：`wikipedia`

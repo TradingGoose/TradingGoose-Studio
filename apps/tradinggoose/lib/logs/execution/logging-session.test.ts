@@ -3,49 +3,11 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { WorkflowState } from '@/lib/logs/types'
+import type { TraceSpan, WorkflowState } from '@/lib/logs/types'
 import { LoggingSession } from './logging-session'
 
 const mocks = vi.hoisted(() => ({
-  calculateCostSummary: vi.fn(() => ({
-    baseExecutionCharge: 0,
-    modelCost: 0,
-    models: {},
-    totalCompletionTokens: 0,
-    totalCost: 0,
-    totalInputCost: 0,
-    totalOutputCost: 0,
-    totalPromptTokens: 0,
-    totalTokens: 0,
-  })),
   completeWorkflowExecution: vi.fn(),
-  createEnvironmentObject: vi.fn(
-    (workflowId: string, executionId: string, userId?: string, workspaceId?: string) => {
-      if (!workspaceId) {
-        throw new Error('Workflow execution logging requires workspaceId')
-      }
-      return {
-        executionId,
-        userId: userId ?? '',
-        variables: {},
-        workflowId,
-        workspaceId,
-      }
-    }
-  ),
-  createTriggerObject: vi.fn((type: string, additionalData?: Record<string, unknown>) => {
-    const source = typeof additionalData?.source === 'string' ? additionalData.source : type
-    const { source: _source, ...data } = additionalData ?? {}
-    return {
-      data,
-      source,
-      timestamp: '2026-04-23T00:00:00.000Z',
-      type,
-    }
-  }),
-  getResolvedBillingSettings: vi.fn(() => Promise.resolve({ billingEnabled: false })),
-  getTierWorkflowExecutionMultiplier: vi.fn(() => 1),
-  getTierWorkflowModelCostMultiplier: vi.fn(() => 1),
   loadWorkflowSummaryForExecution: vi.fn(() =>
     Promise.resolve({
       color: '#000000',
@@ -60,7 +22,6 @@ const mocks = vi.hoisted(() => ({
       workspaceId: 'workspace-1',
     })
   ),
-  resolveWorkspaceBillingContext: vi.fn(() => Promise.resolve({ tier: 'free' })),
   startWorkflowExecution: vi.fn(() =>
     Promise.resolve({
       snapshot: { id: 'snapshot-1' },
@@ -70,48 +31,42 @@ const mocks = vi.hoisted(() => ({
   trackPlatformEvent: vi.fn(),
 }))
 
-vi.mock('@/lib/billing/settings', () => ({
-  getResolvedBillingSettings: (...args: unknown[]) =>
-    (mocks.getResolvedBillingSettings as any)(...args),
-}))
-
-vi.mock('@/lib/billing/tiers', () => ({
-  getTierWorkflowExecutionMultiplier: (...args: unknown[]) =>
-    (mocks.getTierWorkflowExecutionMultiplier as any)(...args),
-  getTierWorkflowModelCostMultiplier: (...args: unknown[]) =>
-    (mocks.getTierWorkflowModelCostMultiplier as any)(...args),
-}))
-
-vi.mock('@/lib/billing/workspace-billing', () => ({
-  resolveWorkspaceBillingContext: (...args: unknown[]) =>
-    (mocks.resolveWorkspaceBillingContext as any)(...args),
-}))
-
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn(() => ({ debug: vi.fn(), error: vi.fn(), info: vi.fn(), warn: vi.fn() })),
 }))
 
 vi.mock('@/lib/logs/execution/logger', () => ({
   executionLogger: {
-    completeWorkflowExecution: (...args: unknown[]) =>
-      (mocks.completeWorkflowExecution as any)(...args),
-    startWorkflowExecution: (...args: unknown[]) => (mocks.startWorkflowExecution as any)(...args),
+    completeWorkflowExecution: mocks.completeWorkflowExecution,
+    startWorkflowExecution: mocks.startWorkflowExecution,
   },
 }))
 
-vi.mock('@/lib/logs/execution/logging-factory', () => ({
-  calculateCostSummary: (...args: unknown[]) => (mocks.calculateCostSummary as any)(...args),
-  createEnvironmentObject: (...args: unknown[]) => (mocks.createEnvironmentObject as any)(...args),
-  createTriggerObject: (...args: unknown[]) => (mocks.createTriggerObject as any)(...args),
-  loadWorkflowSummaryForExecution: (...args: unknown[]) =>
-    (mocks.loadWorkflowSummaryForExecution as any)(...args),
+vi.mock('@tradinggoose/db', () => ({ db: {} }))
+vi.mock('@/lib/logs/execution/logging-factory', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./logging-factory')>()),
+  loadWorkflowSummaryForExecution: mocks.loadWorkflowSummaryForExecution,
 }))
 
 vi.mock('@/lib/telemetry/tracer', () => ({
-  trackPlatformEvent: (...args: unknown[]) => (mocks.trackPlatformEvent as any)(...args),
+  trackPlatformEvent: mocks.trackPlatformEvent,
 }))
 
 describe('LoggingSession', () => {
+  const modelSpans: TraceSpan[] = [
+    {
+      id: 'agent',
+      name: 'Agent',
+      type: 'agent',
+      duration: 1000,
+      status: 'success',
+      startTime: '2026-04-23T00:00:00.000Z',
+      endTime: '2026-04-23T00:00:01.000Z',
+      model: 'test-model',
+      cost: { input: 1.5, output: 0.5, total: 2 },
+      tokens: { prompt: 100, completion: 50, total: 150 },
+    },
+  ]
   const workflowState: WorkflowState = {
     blocks: {
       block1: {
@@ -131,7 +86,7 @@ describe('LoggingSession', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.getResolvedBillingSettings.mockResolvedValue({ billingEnabled: false })
+    mocks.completeWorkflowExecution.mockResolvedValue({ cost: { total: 2.25 } })
     mocks.startWorkflowExecution.mockResolvedValue({
       snapshot: { id: 'snapshot-1' },
       workflowLog: { id: 'log-1' },
@@ -161,9 +116,8 @@ describe('LoggingSession', () => {
       },
       executionId: 'execution-1',
       trigger: {
-        data: {},
         source: 'records',
-        timestamp: '2026-04-23T00:00:00.000Z',
+        timestamp: expect.any(String),
         type: 'manual',
       },
       workflowId: 'workflow-1',
@@ -175,114 +129,72 @@ describe('LoggingSession', () => {
     })
   })
 
-  it('completes failed executions with a root error span and final output', async () => {
-    const session = new LoggingSession('workflow-1', 'execution-1', 'manual', 'request-1')
-    await session.start({ userId: 'user-1', workspaceId: 'workspace-1', workflowState })
-
-    await session.completeWithError({
-      endedAt: '2026-04-23T00:00:00.000Z',
-      error: { message: 'boom' },
-      totalDurationMs: 0,
-    })
-
-    expect(mocks.completeWorkflowExecution).toHaveBeenCalledWith({
-      costSummary: expect.objectContaining({
-        baseExecutionCharge: 0,
-        totalCost: 0,
-      }),
-      endedAt: '2026-04-23T00:00:00.000Z',
-      executionId: 'execution-1',
-      finalOutput: { error: 'boom' },
-      success: false,
-      totalDurationMs: 1,
-      traceSpans: [
-        expect.objectContaining({
-          duration: 1,
-          name: 'Workflow Error',
-          output: { error: 'boom' },
-          status: 'error',
-          type: 'workflow',
-        }),
-      ],
-      workflowLogId: 'log-1',
-      workspaceId: 'workspace-1',
-    })
-    expect(mocks.trackPlatformEvent).toHaveBeenCalledWith(
-      'platform.workflow.executed',
-      expect.objectContaining({
-        'execution.error_message': 'boom',
-        'execution.status': 'error',
-        'workflow.id': 'workflow-1',
+  it.each([true, false])(
+    'passes explicit completion and billing eligibility: %s',
+    async (billable) => {
+      const session = new LoggingSession(
+        'workflow-1',
+        'execution-1',
+        'manual',
+        'request-1',
+        'log-1'
+      )
+      await session.complete({
+        endedAt: '2026-04-23T00:00:00.000Z',
+        success: false,
+        failureReason: 'Workflow execution was cancelled',
+        workspaceId: 'workspace-1',
+        traceSpans: modelSpans,
+        billable,
       })
-    )
-  })
-
-  it('uses explicit workflow success when completing execution logs', async () => {
-    mocks.getResolvedBillingSettings.mockResolvedValue({ billingEnabled: true })
-    const session = new LoggingSession('workflow-1', 'execution-1', 'manual', 'request-1', 'log-1')
-
-    await session.complete({
-      actorUserId: 'user-1',
-      endedAt: '2026-04-23T00:00:01.000Z',
-      finalOutput: { ok: true },
-      success: true,
-      totalDurationMs: 1000,
-      traceSpans: [
-        {
-          duration: 100,
-          endTime: '2026-04-23T00:00:00.100Z',
-          id: 'block-1',
-          name: 'Recoverable Block',
-          startTime: '2026-04-23T00:00:00.000Z',
-          status: 'error',
-          type: 'api',
-        },
-      ],
-      workspaceId: 'workspace-1',
-    })
-
-    expect(mocks.resolveWorkspaceBillingContext).toHaveBeenCalledWith({
-      actorUserId: 'user-1',
-      workspaceId: 'workspace-1',
-    })
-    expect(mocks.completeWorkflowExecution).toHaveBeenCalledWith(
-      expect.objectContaining({
-        endedAt: '2026-04-23T00:00:01.000Z',
+      expect(mocks.completeWorkflowExecution).toHaveBeenCalledExactlyOnceWith({
+        endedAt: '2026-04-23T00:00:00.000Z',
         executionId: 'execution-1',
-        finalOutput: { ok: true },
-        success: true,
-        totalDurationMs: 1000,
         workflowLogId: 'log-1',
         workspaceId: 'workspace-1',
+        success: false,
+        failureReason: 'Workflow execution was cancelled',
+        totalDurationMs: 0,
+        finalOutput: {},
+        traceSpans: modelSpans,
+        billable,
+        hasResponseBlock: undefined,
+        variables: undefined,
+        workflowInput: undefined,
       })
+      expect(mocks.trackPlatformEvent).toHaveBeenCalledWith(
+        'platform.workflow.executed',
+        expect.objectContaining({
+          'execution.error_message': 'Workflow execution was cancelled',
+          'execution.total_cost': 2.25,
+          'execution.status': 'error',
+        })
+      )
+    }
+  )
+
+  it('uses explicit success even with recovered error spans', async () => {
+    const session = new LoggingSession('workflow-1', 'execution-1', 'manual', undefined, 'log-1')
+    await session.complete({
+      success: true,
+      traceSpans: [{ ...modelSpans[0], status: 'error' }],
+      workspaceId: 'workspace-1',
+    })
+    expect(mocks.completeWorkflowExecution).toHaveBeenCalledWith(
+      expect.objectContaining({ success: true })
     )
     expect(mocks.trackPlatformEvent).toHaveBeenCalledWith(
       'platform.workflow.executed',
-      expect.objectContaining({
-        'execution.has_errors': false,
-        'execution.status': 'success',
-      })
+      expect.objectContaining({ 'execution.has_errors': false, 'execution.status': 'success' })
     )
   })
 
-  it('keeps terminal log completion independent from billing lookup failures', async () => {
-    mocks.getResolvedBillingSettings.mockRejectedValueOnce(new Error('billing unavailable'))
-    const session = new LoggingSession('workflow-1', 'execution-1', 'manual', 'request-1', 'log-1')
-
-    await session.complete({
-      endedAt: '2026-04-23T00:00:01.000Z',
-      finalOutput: { ok: true },
-      success: true,
-      totalDurationMs: 1000,
-      traceSpans: [],
-      workspaceId: 'workspace-1',
-    })
-
-    expect(mocks.completeWorkflowExecution).toHaveBeenCalledWith(
-      expect.objectContaining({
-        endedAt: '2026-04-23T00:00:01.000Z',
-        success: true,
-      })
+  it('propagates settlement failure so durable accounting can be retried', async () => {
+    mocks.completeWorkflowExecution.mockRejectedValueOnce(new Error('billing unavailable'))
+    const session = new LoggingSession('workflow-1', 'execution-1', 'manual', undefined, 'log-1')
+    await expect(session.complete({ success: true, workspaceId: 'workspace-1' })).rejects.toThrow(
+      'billing unavailable'
     )
+    expect(mocks.trackPlatformEvent).not.toHaveBeenCalled()
   })
 })

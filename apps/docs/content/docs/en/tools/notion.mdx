@@ -30,37 +30,37 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "notion_read",
             "options": [
                 {
-                    "label": "Read Page",
-                    "id": "notion_read"
+                    "id": "notion_read",
+                    "label": "Read Page"
                 },
                 {
-                    "label": "Read Database",
-                    "id": "notion_read_database"
+                    "id": "notion_read_database",
+                    "label": "Read Database"
                 },
                 {
-                    "label": "Create Page",
-                    "id": "notion_create_page"
+                    "id": "notion_create_page",
+                    "label": "Create Page"
                 },
                 {
-                    "label": "Create Database",
-                    "id": "notion_create_database"
+                    "id": "notion_create_database",
+                    "label": "Create Database"
                 },
                 {
-                    "label": "Append Content",
-                    "id": "notion_write"
+                    "id": "notion_write",
+                    "label": "Append Content"
                 },
                 {
-                    "label": "Query Database",
-                    "id": "notion_query_database"
+                    "id": "notion_query_database",
+                    "label": "Query Database"
                 },
                 {
-                    "label": "Search Workspace",
-                    "id": "notion_search"
+                    "id": "notion_search",
+                    "label": "Search Workspace"
                 }
-            ],
-            "defaultValue": "notion_read"
+            ]
         },
         {
             "id": "credential",
@@ -99,6 +99,7 @@ Read content from a Notion page
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Page content in markdown format with headers, paragraphs, lists, and todos |
+| `metadata` | object | Page metadata including title, URL, and timestamps |
 
 </div>
 
@@ -120,37 +121,37 @@ Read content from a Notion page
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "notion_read_database",
             "options": [
                 {
-                    "label": "Read Page",
-                    "id": "notion_read"
+                    "id": "notion_read",
+                    "label": "Read Page"
                 },
                 {
-                    "label": "Read Database",
-                    "id": "notion_read_database"
+                    "id": "notion_read_database",
+                    "label": "Read Database"
                 },
                 {
-                    "label": "Create Page",
-                    "id": "notion_create_page"
+                    "id": "notion_create_page",
+                    "label": "Create Page"
                 },
                 {
-                    "label": "Create Database",
-                    "id": "notion_create_database"
+                    "id": "notion_create_database",
+                    "label": "Create Database"
                 },
                 {
-                    "label": "Append Content",
-                    "id": "notion_write"
+                    "id": "notion_write",
+                    "label": "Append Content"
                 },
                 {
-                    "label": "Query Database",
-                    "id": "notion_query_database"
+                    "id": "notion_query_database",
+                    "label": "Query Database"
                 },
                 {
-                    "label": "Search Workspace",
-                    "id": "notion_search"
+                    "id": "notion_search",
+                    "label": "Search Workspace"
                 }
-            ],
-            "defaultValue": "notion_read_database"
+            ]
         },
         {
             "id": "credential",
@@ -189,6 +190,7 @@ Read database information and structure from Notion
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Database information including title, properties schema, and metadata |
+| `metadata` | object | Database metadata including title, ID, URL, timestamps, and properties schema |
 
 </div>
 
@@ -210,37 +212,37 @@ Read database information and structure from Notion
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "notion_create_page",
             "options": [
                 {
-                    "label": "Read Page",
-                    "id": "notion_read"
+                    "id": "notion_read",
+                    "label": "Read Page"
                 },
                 {
-                    "label": "Read Database",
-                    "id": "notion_read_database"
+                    "id": "notion_read_database",
+                    "label": "Read Database"
                 },
                 {
-                    "label": "Create Page",
-                    "id": "notion_create_page"
+                    "id": "notion_create_page",
+                    "label": "Create Page"
                 },
                 {
-                    "label": "Create Database",
-                    "id": "notion_create_database"
+                    "id": "notion_create_database",
+                    "label": "Create Database"
                 },
                 {
-                    "label": "Append Content",
-                    "id": "notion_write"
+                    "id": "notion_write",
+                    "label": "Append Content"
                 },
                 {
-                    "label": "Query Database",
-                    "id": "notion_query_database"
+                    "id": "notion_query_database",
+                    "label": "Query Database"
                 },
                 {
-                    "label": "Search Workspace",
-                    "id": "notion_search"
+                    "id": "notion_search",
+                    "label": "Search Workspace"
                 }
-            ],
-            "defaultValue": "notion_create_page"
+            ]
         },
         {
             "id": "credential",
@@ -296,6 +298,7 @@ Create a new page in Notion
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Success message confirming page creation |
+| `metadata` | object | Page metadata including title, page ID, URL, and timestamps |
 
 </div>
 
@@ -317,37 +320,37 @@ Create a new page in Notion
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "notion_create_database",
             "options": [
                 {
-                    "label": "Read Page",
-                    "id": "notion_read"
+                    "id": "notion_read",
+                    "label": "Read Page"
                 },
                 {
-                    "label": "Read Database",
-                    "id": "notion_read_database"
+                    "id": "notion_read_database",
+                    "label": "Read Database"
                 },
                 {
-                    "label": "Create Page",
-                    "id": "notion_create_page"
+                    "id": "notion_create_page",
+                    "label": "Create Page"
                 },
                 {
-                    "label": "Create Database",
-                    "id": "notion_create_database"
+                    "id": "notion_create_database",
+                    "label": "Create Database"
                 },
                 {
-                    "label": "Append Content",
-                    "id": "notion_write"
+                    "id": "notion_write",
+                    "label": "Append Content"
                 },
                 {
-                    "label": "Query Database",
-                    "id": "notion_query_database"
+                    "id": "notion_query_database",
+                    "label": "Query Database"
                 },
                 {
-                    "label": "Search Workspace",
-                    "id": "notion_search"
+                    "id": "notion_search",
+                    "label": "Search Workspace"
                 }
-            ],
-            "defaultValue": "notion_create_database"
+            ]
         },
         {
             "id": "credential",
@@ -403,6 +406,7 @@ Create a new database in Notion with custom properties
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Success message with database details and properties list |
+| `metadata` | object | Database metadata including ID, title, URL, creation time, and properties schema |
 
 </div>
 
@@ -424,37 +428,37 @@ Create a new database in Notion with custom properties
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "notion_write",
             "options": [
                 {
-                    "label": "Read Page",
-                    "id": "notion_read"
+                    "id": "notion_read",
+                    "label": "Read Page"
                 },
                 {
-                    "label": "Read Database",
-                    "id": "notion_read_database"
+                    "id": "notion_read_database",
+                    "label": "Read Database"
                 },
                 {
-                    "label": "Create Page",
-                    "id": "notion_create_page"
+                    "id": "notion_create_page",
+                    "label": "Create Page"
                 },
                 {
-                    "label": "Create Database",
-                    "id": "notion_create_database"
+                    "id": "notion_create_database",
+                    "label": "Create Database"
                 },
                 {
-                    "label": "Append Content",
-                    "id": "notion_write"
+                    "id": "notion_write",
+                    "label": "Append Content"
                 },
                 {
-                    "label": "Query Database",
-                    "id": "notion_query_database"
+                    "id": "notion_query_database",
+                    "label": "Query Database"
                 },
                 {
-                    "label": "Search Workspace",
-                    "id": "notion_search"
+                    "id": "notion_search",
+                    "label": "Search Workspace"
                 }
-            ],
-            "defaultValue": "notion_write"
+            ]
         },
         {
             "id": "credential",
@@ -499,7 +503,9 @@ Append content to a Notion page
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `content` | string | Success message confirming content was appended to page |
 
 </div>
 
@@ -521,37 +527,37 @@ Refer to the block outputs for this operation.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "notion_query_database",
             "options": [
                 {
-                    "label": "Read Page",
-                    "id": "notion_read"
+                    "id": "notion_read",
+                    "label": "Read Page"
                 },
                 {
-                    "label": "Read Database",
-                    "id": "notion_read_database"
+                    "id": "notion_read_database",
+                    "label": "Read Database"
                 },
                 {
-                    "label": "Create Page",
-                    "id": "notion_create_page"
+                    "id": "notion_create_page",
+                    "label": "Create Page"
                 },
                 {
-                    "label": "Create Database",
-                    "id": "notion_create_database"
+                    "id": "notion_create_database",
+                    "label": "Create Database"
                 },
                 {
-                    "label": "Append Content",
-                    "id": "notion_write"
+                    "id": "notion_write",
+                    "label": "Append Content"
                 },
                 {
-                    "label": "Query Database",
-                    "id": "notion_query_database"
+                    "id": "notion_query_database",
+                    "label": "Query Database"
                 },
                 {
-                    "label": "Search Workspace",
-                    "id": "notion_search"
+                    "id": "notion_search",
+                    "label": "Search Workspace"
                 }
-            ],
-            "defaultValue": "notion_query_database"
+            ]
         },
         {
             "id": "credential",
@@ -590,8 +596,7 @@ Refer to the block outputs for this operation.
             "type": "short-input",
             "title": "Page Size",
             "layout": "full",
-            "placeholder": "Number of results (default: 100, max: 100)",
-            "max": 100
+            "placeholder": "Number of results (default: 100, max: 100)"
         }
     ]}
   />
@@ -616,14 +621,7 @@ Query and filter Notion database entries with advanced filtering
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Formatted list of database entries with their properties |
-| `totalResults` | number | Number of results returned |
-| `hasMore` | boolean | Whether more results are available |
-| `nextCursor` | string | Cursor for pagination |
-| `id` | string | Page ID |
-| `properties` | object | Page properties |
-| `created_time` | string | Creation timestamp |
-| `last_edited_time` | string | Last edit timestamp |
-| `url` | string | Page URL |
+| `metadata` | object | Query metadata including total results count, pagination info, and raw results array |
 
 </div>
 
@@ -645,37 +643,37 @@ Query and filter Notion database entries with advanced filtering
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "notion_search",
             "options": [
                 {
-                    "label": "Read Page",
-                    "id": "notion_read"
+                    "id": "notion_read",
+                    "label": "Read Page"
                 },
                 {
-                    "label": "Read Database",
-                    "id": "notion_read_database"
+                    "id": "notion_read_database",
+                    "label": "Read Database"
                 },
                 {
-                    "label": "Create Page",
-                    "id": "notion_create_page"
+                    "id": "notion_create_page",
+                    "label": "Create Page"
                 },
                 {
-                    "label": "Create Database",
-                    "id": "notion_create_database"
+                    "id": "notion_create_database",
+                    "label": "Create Database"
                 },
                 {
-                    "label": "Append Content",
-                    "id": "notion_write"
+                    "id": "notion_write",
+                    "label": "Append Content"
                 },
                 {
-                    "label": "Query Database",
-                    "id": "notion_query_database"
+                    "id": "notion_query_database",
+                    "label": "Query Database"
                 },
                 {
-                    "label": "Search Workspace",
-                    "id": "notion_search"
+                    "id": "notion_search",
+                    "label": "Search Workspace"
                 }
-            ],
-            "defaultValue": "notion_search"
+            ]
         },
         {
             "id": "credential",
@@ -700,16 +698,16 @@ Query and filter Notion database entries with advanced filtering
             "layout": "full",
             "options": [
                 {
-                    "label": "All",
-                    "id": "all"
+                    "id": "all",
+                    "label": "All"
                 },
                 {
-                    "label": "Pages Only",
-                    "id": "page"
+                    "id": "page",
+                    "label": "Pages Only"
                 },
                 {
-                    "label": "Databases Only",
-                    "id": "database"
+                    "id": "database",
+                    "label": "Databases Only"
                 }
             ]
         }
@@ -735,6 +733,7 @@ Search across all pages and databases in Notion workspace
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Formatted list of search results including pages and databases |
+| `metadata` | object | Search metadata including total results count, pagination info, and raw results array |
 
 </div>
 

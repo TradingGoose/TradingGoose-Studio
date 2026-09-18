@@ -6,7 +6,7 @@ export const KnowledgeBlock: BlockConfig = {
   name: 'Knowledge',
   description: 'Use vector search',
   longDescription:
-    'Integrate Knowledge into the workflow. Can search, upload chunks, and create documents.',
+    'Search a knowledge base, upload chunks, or create documents. Search accepts a query, text tag filters, or both. Tag equality is case-insensitive; repeated values for the same tag use OR and different tags use AND. Tag-only searches do not generate a query embedding. Unknown tags and unsupported filter operators are rejected. Write operations return confirmation data under data, not results.',
   bestPractices: `
   - Search up examples with knowledge base blocks to understand YAML syntax.
   - Clarify which tags are available for the knowledge base to understand whether to use tag filters on a search.

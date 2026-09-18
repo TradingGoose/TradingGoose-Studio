@@ -3,6 +3,7 @@ import { createElement } from 'react'
 import { BriefcaseBusiness } from 'lucide-react'
 import type { BlockConfig } from '@/blocks/types'
 import { getTrigger } from '@/triggers'
+import { portfolioStateTrigger } from '@/triggers/portfolio/trigger'
 
 const PortfolioStateTriggerIcon = (props: SVGProps<SVGSVGElement>) =>
   createElement(BriefcaseBusiness, props)
@@ -25,8 +26,7 @@ export const PortfolioStateTriggerBlock: BlockConfig = {
     access: [],
   },
   inputs: {},
-  outputs: (getTrigger('portfolio_state_trigger')?.outputs ??
-    {}) as unknown as BlockConfig['outputs'],
+  outputs: portfolioStateTrigger.outputs,
   triggers: {
     enabled: true,
     available: ['portfolio_state_trigger'],

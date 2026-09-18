@@ -36,14 +36,15 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Output Type",
             "layout": "half",
+            "defaultValue": "sourcedAnswer",
             "options": [
                 {
-                    "label": "Answer",
-                    "id": "sourcedAnswer"
+                    "id": "sourcedAnswer",
+                    "label": "Answer"
                 },
                 {
-                    "label": "Search",
-                    "id": "searchResults"
+                    "id": "searchResults",
+                    "label": "Search"
                 }
             ]
         },
@@ -54,12 +55,12 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "layout": "half",
             "options": [
                 {
-                    "label": "Standard",
-                    "id": "standard"
+                    "id": "standard",
+                    "label": "Standard"
                 },
                 {
-                    "label": "Deep",
-                    "id": "deep"
+                    "id": "deep",
+                    "label": "Deep"
                 }
             ]
         },
@@ -96,6 +97,7 @@ Search the web for information using Linkup
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `answer` | string | The sourced answer to the search query |
+| `sources` | array | Array of sources used to compile the answer, each containing name, url, and snippet |
 
 
 ## Usage Instructions

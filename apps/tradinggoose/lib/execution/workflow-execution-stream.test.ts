@@ -18,23 +18,7 @@ vi.mock('@/lib/logs/console/logger', () => ({
   })),
 }))
 
-async function readStream(stream: ReadableStream<Uint8Array>) {
-  const reader = stream.getReader()
-  const decoder = new TextDecoder()
-  let text = ''
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      text += decoder.decode(value, { stream: true })
-    }
-    text += decoder.decode()
-    return text
-  } finally {
-    reader.releaseLock()
-  }
-}
+const params = { pendingExecutionId: 'execution-1', workflowId: 'workflow-1' }
 
 describe('openWorkflowExecutionEventStream', () => {
   beforeEach(() => {
@@ -44,10 +28,7 @@ describe('openWorkflowExecutionEventStream', () => {
   it('returns notFound before opening an SSE stream for missing executions', async () => {
     readWorkflowExecutionEventStateMock.mockResolvedValue(null)
 
-    const result = await openWorkflowExecutionEventStream({
-      pendingExecutionId: 'execution-1',
-      workflowId: 'workflow-1',
-    })
+    const result = await openWorkflowExecutionEventStream(params)
 
     expect(result).toEqual({ ok: false, reason: 'notFound' })
     expect(readWorkflowExecutionEventStateMock).toHaveBeenCalledTimes(1)
@@ -58,55 +39,57 @@ describe('openWorkflowExecutionEventStream', () => {
     })
   })
 
-  it('streams terminal initial state without polling the same state again', async () => {
-    readWorkflowExecutionEventStateMock.mockResolvedValue({
-      status: 'completed',
-      result: { success: true, output: { ok: true }, logs: [] },
-      failureReason: null,
-      events: [],
-    })
-
-    const result = await openWorkflowExecutionEventStream({
-      pendingExecutionId: 'execution-1',
-      workflowId: 'workflow-1',
-    })
-
-    expect(result.ok).toBe(true)
-    if (!result.ok) return
-
-    const text = await readStream(result.stream)
-
-    expect(text).toContain('"type":"execution:completed"')
-    expect(text).toContain('"ok":true')
-    expect(text).toContain('data: [DONE]')
-    expect(readWorkflowExecutionEventStateMock).toHaveBeenCalledTimes(1)
-  })
-
-  it('streams log-reconstructed cancellation as a cancelled terminal event', async () => {
-    readWorkflowExecutionEventStateMock.mockResolvedValue({
-      status: 'failed',
-      result: {
-        success: false,
-        output: {},
-        error: 'Workflow execution was cancelled',
+  it.each([
+    ['completed', false],
+    ['failed', false],
+    ['paused', false],
+    ['paused', true],
+  ] as const)(
+    'ends a %s segment with exactly one matching event and no extra polling (buffered=%s)',
+    async (status, buffered) => {
+      const error = status === 'failed' ? 'Workflow execution was cancelled' : undefined
+      const result = {
+        success: !error,
+        ...(status === 'paused' ? { status } : {}),
+        ...(error ? { error } : {}),
+        output: status === 'paused' ? { revision: 2, url: '/review' } : { ok: true },
         logs: [],
-      },
-      failureReason: 'Workflow execution was cancelled',
-      events: [],
-    })
+      }
+      const eventType = error ? 'execution:cancelled' : `execution:${status}`
+      readWorkflowExecutionEventStateMock.mockResolvedValue({
+        status,
+        result,
+        failureReason: error ?? null,
+        events: buffered
+          ? [
+              {
+                eventId: 3,
+                event: {
+                  type: eventType,
+                  executionId: 'execution-1',
+                  workflowId: 'workflow-1',
+                  timestamp: new Date().toISOString(),
+                  eventId: 3,
+                  data: { result },
+                },
+              },
+            ]
+          : [],
+      })
 
-    const result = await openWorkflowExecutionEventStream({
-      pendingExecutionId: 'execution-1',
-      workflowId: 'workflow-1',
-    })
+      const opened = await openWorkflowExecutionEventStream(params)
+      expect(opened.ok).toBe(true)
+      if (!opened.ok) throw new Error('Expected execution stream')
+      const text = await new Response(opened.stream).text()
 
-    expect(result.ok).toBe(true)
-    if (!result.ok) return
-
-    const text = await readStream(result.stream)
-
-    expect(text).toContain('"type":"execution:cancelled"')
-    expect(text).not.toContain('"type":"execution:error"')
-    expect(text).toContain('data: [DONE]')
-  })
+      expect(text.match(new RegExp(`"type":"${eventType}"`, 'g'))).toHaveLength(1)
+      for (const other of ['completed', 'cancelled', 'paused', 'error']) {
+        if (`execution:${other}` !== eventType) expect(text).not.toContain(`execution:${other}`)
+      }
+      if (status === 'paused') expect(text).toContain('"status":"paused"')
+      if (status === 'completed') expect(text).toContain('"ok":true')
+      expect(text).toContain('data: [DONE]')
+      expect(readWorkflowExecutionEventStateMock).toHaveBeenCalledTimes(1)
+    }
+  )
 })

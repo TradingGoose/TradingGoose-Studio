@@ -1,0 +1,2012 @@
+---
+title: Datadog
+description: 使用 Datadog 监控基础设施、应用和日志
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="datadog"
+  color="#632CA6"
+/>
+
+## 配置
+
+### 提交指标
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "datadog_submit_metrics",
+            "options": [
+                {
+                    "id": "datadog_submit_metrics",
+                    "label": "提交指标"
+                },
+                {
+                    "id": "datadog_query_timeseries",
+                    "label": "查询时序数据"
+                },
+                {
+                    "id": "datadog_create_event",
+                    "label": "创建事件"
+                },
+                {
+                    "id": "datadog_create_monitor",
+                    "label": "创建监控器"
+                },
+                {
+                    "id": "datadog_get_monitor",
+                    "label": "获取监控器"
+                },
+                {
+                    "id": "datadog_list_monitors",
+                    "label": "列出监控器"
+                },
+                {
+                    "id": "datadog_mute_monitor",
+                    "label": "静音监控器"
+                },
+                {
+                    "id": "datadog_query_logs",
+                    "label": "查询日志"
+                },
+                {
+                    "id": "datadog_send_logs",
+                    "label": "发送日志"
+                },
+                {
+                    "id": "datadog_create_downtime",
+                    "label": "创建停机"
+                },
+                {
+                    "id": "datadog_list_downtimes",
+                    "label": "列出停机"
+                },
+                {
+                    "id": "datadog_cancel_downtime",
+                    "label": "取消停机"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Datadog API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Datadog 站点",
+            "defaultValue": "datadoghq.com",
+            "options": [
+                {
+                    "id": "datadoghq.com",
+                    "label": "US1 (datadoghq.com)"
+                },
+                {
+                    "id": "us3.datadoghq.com",
+                    "label": "US3 (us3.datadoghq.com)"
+                },
+                {
+                    "id": "us5.datadoghq.com",
+                    "label": "US5 (us5.datadoghq.com)"
+                },
+                {
+                    "id": "datadoghq.eu",
+                    "label": "EU (datadoghq.eu)"
+                },
+                {
+                    "id": "ap1.datadoghq.com",
+                    "label": "AP1 (ap1.datadoghq.com)"
+                },
+                {
+                    "id": "ddog-gov.com",
+                    "label": "US1-FED (ddog-gov.com)"
+                }
+            ]
+        },
+        {
+            "id": "series",
+            "type": "code",
+            "title": "指标数据 (JSON)",
+            "placeholder": "[\n  {\n    \"metric\": \"custom.app.response_time\",\n    \"type\": \"gauge\",\n    \"points\": [{\"timestamp\": 1700000000, \"value\": 0.85}],\n    \"tags\": [\"env:production\", \"service:api\"]\n  }\n]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">提交指标 (<code>datadog_submit_metrics</code>)</div>
+
+向 Datadog 提交自定义指标。用于跟踪应用性能、业务指标或自定义监控数据。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `series` | string | 是 | 要提交的指标序列 JSON 数组。每个序列应包含指标名称、类型 \(gauge/rate/count\)、数据点 \(时间戳/值对\)，以及可选标签。 |
+| `apiKey` | string | 是 | Datadog API 密钥 |
+| `site` | string | 否 | Datadog 站点/区域 \(默认：datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 指标是否提交成功 |
+| `errors` | array | 提交过程中出现的任何错误 |
+
+</div>
+
+---
+
+### 查询时间序列
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "datadog_query_timeseries",
+            "options": [
+                {
+                    "id": "datadog_submit_metrics",
+                    "label": "提交指标"
+                },
+                {
+                    "id": "datadog_query_timeseries",
+                    "label": "查询时间序列"
+                },
+                {
+                    "id": "datadog_create_event",
+                    "label": "创建事件"
+                },
+                {
+                    "id": "datadog_create_monitor",
+                    "label": "创建监控器"
+                },
+                {
+                    "id": "datadog_get_monitor",
+                    "label": "获取监控器"
+                },
+                {
+                    "id": "datadog_list_monitors",
+                    "label": "列出监控器"
+                },
+                {
+                    "id": "datadog_mute_monitor",
+                    "label": "静音监控器"
+                },
+                {
+                    "id": "datadog_query_logs",
+                    "label": "查询日志"
+                },
+                {
+                    "id": "datadog_send_logs",
+                    "label": "发送日志"
+                },
+                {
+                    "id": "datadog_create_downtime",
+                    "label": "创建停机时间"
+                },
+                {
+                    "id": "datadog_list_downtimes",
+                    "label": "列出停机时间"
+                },
+                {
+                    "id": "datadog_cancel_downtime",
+                    "label": "取消停机时间"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Datadog API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Datadog 站点",
+            "defaultValue": "datadoghq.com",
+            "options": [
+                {
+                    "id": "datadoghq.com",
+                    "label": "US1 (datadoghq.com)"
+                },
+                {
+                    "id": "us3.datadoghq.com",
+                    "label": "US3 (us3.datadoghq.com)"
+                },
+                {
+                    "id": "us5.datadoghq.com",
+                    "label": "US5 (us5.datadoghq.com)"
+                },
+                {
+                    "id": "datadoghq.eu",
+                    "label": "EU (datadoghq.eu)"
+                },
+                {
+                    "id": "ap1.datadoghq.com",
+                    "label": "AP1 (ap1.datadoghq.com)"
+                },
+                {
+                    "id": "ddog-gov.com",
+                    "label": "US1-FED (ddog-gov.com)"
+                }
+            ]
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "查询",
+            "placeholder": "avg:system.cpu.user{*}",
+            "required": true
+        },
+        {
+            "id": "from",
+            "type": "short-input",
+            "title": "开始时间（Unix 时间戳）",
+            "placeholder": "例如：1701360000",
+            "required": true
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "结束时间（Unix 时间戳）",
+            "placeholder": "例如：1701446400",
+            "required": true
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "应用密钥",
+            "placeholder": "输入你的 Datadog 应用密钥",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">查询时间序列 (<code>datadog_query_timeseries</code>)</div>
+
+查询 Datadog 的指标时间序列数据。用于分析趋势、创建报告或检索指标值。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必需 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `query` | 字符串 | 是 | Datadog 指标查询 \(例如，"avg:system.cpu.user\{*\}"\) |
+| `from` | 数字 | 是 | 开始时间（Unix 时间戳，秒） |
+| `to` | 数字 | 是 | 结束时间（Unix 时间戳，秒） |
+| `apiKey` | 字符串 | 是 | Datadog API 密钥 |
+| `applicationKey` | 字符串 | 是 | Datadog 应用密钥 |
+| `site` | 字符串 | 否 | Datadog 站点/区域 \(默认：datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `series` | 数组 | 时间序列数据数组，包含指标名称、标签和数据点 |
+| `status` | 字符串 | 查询状态 |
+
+</div>
+
+---
+
+### 创建事件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "datadog_create_event",
+            "options": [
+                {
+                    "id": "datadog_submit_metrics",
+                    "label": "提交指标"
+                },
+                {
+                    "id": "datadog_query_timeseries",
+                    "label": "查询时间序列"
+                },
+                {
+                    "id": "datadog_create_event",
+                    "label": "创建事件"
+                },
+                {
+                    "id": "datadog_create_monitor",
+                    "label": "创建监控"
+                },
+                {
+                    "id": "datadog_get_monitor",
+                    "label": "获取监控"
+                },
+                {
+                    "id": "datadog_list_monitors",
+                    "label": "列出监控"
+                },
+                {
+                    "id": "datadog_mute_monitor",
+                    "label": "静音监控"
+                },
+                {
+                    "id": "datadog_query_logs",
+                    "label": "查询日志"
+                },
+                {
+                    "id": "datadog_send_logs",
+                    "label": "发送日志"
+                },
+                {
+                    "id": "datadog_create_downtime",
+                    "label": "创建停机时间"
+                },
+                {
+                    "id": "datadog_list_downtimes",
+                    "label": "列出停机时间"
+                },
+                {
+                    "id": "datadog_cancel_downtime",
+                    "label": "取消停机时间"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 Datadog API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Datadog 站点",
+            "defaultValue": "datadoghq.com",
+            "options": [
+                {
+                    "id": "datadoghq.com",
+                    "label": "US1 (datadoghq.com)"
+                },
+                {
+                    "id": "us3.datadoghq.com",
+                    "label": "US3 (us3.datadoghq.com)"
+                },
+                {
+                    "id": "us5.datadoghq.com",
+                    "label": "US5 (us5.datadoghq.com)"
+                },
+                {
+                    "id": "datadoghq.eu",
+                    "label": "EU (datadoghq.eu)"
+                },
+                {
+                    "id": "ap1.datadoghq.com",
+                    "label": "AP1 (ap1.datadoghq.com)"
+                },
+                {
+                    "id": "ddog-gov.com",
+                    "label": "US1-FED (ddog-gov.com)"
+                }
+            ]
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "事件标题",
+            "placeholder": "部署已完成",
+            "required": true
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "事件文本",
+            "placeholder": "描述事件...",
+            "required": true
+        },
+        {
+            "id": "alertType",
+            "type": "dropdown",
+            "title": "警报类型",
+            "defaultValue": "info",
+            "options": [
+                {
+                    "id": "info",
+                    "label": "信息"
+                },
+                {
+                    "id": "success",
+                    "label": "成功"
+                },
+                {
+                    "id": "warning",
+                    "label": "警告"
+                },
+                {
+                    "id": "error",
+                    "label": "错误"
+                }
+            ]
+        },
+        {
+            "id": "priority",
+            "type": "dropdown",
+            "title": "优先级",
+            "defaultValue": "normal",
+            "options": [
+                {
+                    "id": "normal",
+                    "label": "正常"
+                },
+                {
+                    "id": "low",
+                    "label": "低"
+                }
+            ]
+        },
+        {
+            "id": "tags",
+            "type": "short-input",
+            "title": "标签",
+            "placeholder": "env:production, service:api"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建事件 (<code>datadog_create_event</code>)</div>
+
+将事件发布到 Datadog 事件流。用于部署通知、警报或任何重要事件。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `title` | string | 是 | 事件标题 |
+| `text` | string | 是 | 事件正文/描述。支持 Markdown。 |
+| `alertType` | string | 否 | 警报类型：error、warning、info、success、user_update、recommendation 或 snapshot |
+| `priority` | string | 否 | 事件优先级：normal 或 low |
+| `host` | string | 否 | 关联此事件的主机名 |
+| `tags` | string | 否 | 逗号分隔的标签列表 \(例如 "env:production,service:api"\) |
+| `aggregationKey` | string | 否 | 用于聚合事件的键 |
+| `sourceTypeName` | string | 否 | 事件的来源类型名称 |
+| `dateHappened` | number | 否 | 事件发生时的时间戳（Unix 时间戳）\(默认为当前时间\) |
+| `apiKey` | string | 是 | Datadog API 密钥 |
+| `site` | string | 否 | Datadog 站点/区域 \(默认：datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `event` | object | 创建的事件详情 |
+
+</div>
+
+---
+
+### 创建监控
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "datadog_create_monitor",
+            "options": [
+                {
+                    "id": "datadog_submit_metrics",
+                    "label": "提交指标"
+                },
+                {
+                    "id": "datadog_query_timeseries",
+                    "label": "查询时间序列"
+                },
+                {
+                    "id": "datadog_create_event",
+                    "label": "创建事件"
+                },
+                {
+                    "id": "datadog_create_monitor",
+                    "label": "创建监控"
+                },
+                {
+                    "id": "datadog_get_monitor",
+                    "label": "获取监控"
+                },
+                {
+                    "id": "datadog_list_monitors",
+                    "label": "列出监控"
+                },
+                {
+                    "id": "datadog_mute_monitor",
+                    "label": "静音监控"
+                },
+                {
+                    "id": "datadog_query_logs",
+                    "label": "查询日志"
+                },
+                {
+                    "id": "datadog_send_logs",
+                    "label": "发送日志"
+                },
+                {
+                    "id": "datadog_create_downtime",
+                    "label": "创建停机时间"
+                },
+                {
+                    "id": "datadog_list_downtimes",
+                    "label": "列出停机时间"
+                },
+                {
+                    "id": "datadog_cancel_downtime",
+                    "label": "取消停机时间"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 Datadog API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Datadog 站点",
+            "defaultValue": "datadoghq.com",
+            "options": [
+                {
+                    "id": "datadoghq.com",
+                    "label": "US1 (datadoghq.com)"
+                },
+                {
+                    "id": "us3.datadoghq.com",
+                    "label": "US3 (us3.datadoghq.com)"
+                },
+                {
+                    "id": "us5.datadoghq.com",
+                    "label": "US5 (us5.datadoghq.com)"
+                },
+                {
+                    "id": "datadoghq.eu",
+                    "label": "EU (datadoghq.eu)"
+                },
+                {
+                    "id": "ap1.datadoghq.com",
+                    "label": "AP1 (ap1.datadoghq.com)"
+                },
+                {
+                    "id": "ddog-gov.com",
+                    "label": "US1-FED (ddog-gov.com)"
+                }
+            ]
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "监控名称",
+            "placeholder": "高 CPU 使用率警报",
+            "required": true
+        },
+        {
+            "id": "type",
+            "type": "dropdown",
+            "title": "监控类型",
+            "required": true,
+            "defaultValue": "metric alert",
+            "options": [
+                {
+                    "id": "metric alert",
+                    "label": "指标警报"
+                },
+                {
+                    "id": "service check",
+                    "label": "服务检查"
+                },
+                {
+                    "id": "event alert",
+                    "label": "事件警报"
+                },
+                {
+                    "id": "log alert",
+                    "label": "日志警报"
+                },
+                {
+                    "id": "query alert",
+                    "label": "查询警报"
+                },
+                {
+                    "id": "composite",
+                    "label": "复合"
+                },
+                {
+                    "id": "slo alert",
+                    "label": "SLO 警报"
+                }
+            ]
+        },
+        {
+            "id": "monitorQuery",
+            "type": "long-input",
+            "title": "监控查询",
+            "placeholder": "avg(last_5m):avg:system.cpu.idle{*} < 20",
+            "required": true
+        },
+        {
+            "id": "message",
+            "type": "long-input",
+            "title": "通知消息",
+            "placeholder": "警报！CPU 使用率过高。@slack-alerts"
+        },
+        {
+            "id": "monitorTags",
+            "type": "short-input",
+            "title": "标签",
+            "placeholder": "team:backend, priority:high"
+        },
+        {
+            "id": "monitorPriority",
+            "type": "short-input",
+            "title": "优先级 (1-5)",
+            "placeholder": "3"
+        },
+        {
+            "id": "options",
+            "type": "code",
+            "title": "选项 (JSON)",
+            "placeholder": "{\"notify_no_data\": true, \"thresholds\": {\"critical\": 90}}",
+            "language": "json"
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "应用密钥",
+            "placeholder": "输入您的 Datadog 应用密钥",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建监控 (<code>datadog_create_monitor</code>)</div>
+
+在 Datadog 中创建新的监控/告警。监控可跟踪指标、服务检查、事件等。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `name` | string | 是 | 监控名称 |
+| `type` | string | 是 | 监控类型：指标告警、服务检查、事件告警、进程告警、日志告警、查询告警、复合告警、合成告警、SLO 告警 |
+| `query` | string | 是 | 监控查询 \(例如，"avg\(last_5m\):avg:system.cpu.idle\{*\} &lt; 20"\) |
+| `message` | string | 否 | 随通知包含的消息。可以包含 @提及 和 Markdown。 |
+| `tags` | string | 否 | 逗号分隔的标签列表 |
+| `priority` | number | 否 | 监控优先级 \(1-5，其中 1 最高\) |
+| `options` | string | 否 | 监控选项的 JSON 字符串 \(阈值、notify_no_data、renotify_interval 等\) |
+| `apiKey` | string | 是 | Datadog API 密钥 |
+| `applicationKey` | string | 是 | Datadog 应用密钥 |
+| `site` | string | 否 | Datadog 站点/区域 \(默认：datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `monitor` | object | 创建的监控详情 |
+
+</div>
+
+---
+
+### 获取监控
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "datadog_get_monitor",
+            "options": [
+                {
+                    "id": "datadog_submit_metrics",
+                    "label": "提交指标"
+                },
+                {
+                    "id": "datadog_query_timeseries",
+                    "label": "查询时间序列"
+                },
+                {
+                    "id": "datadog_create_event",
+                    "label": "创建事件"
+                },
+                {
+                    "id": "datadog_create_monitor",
+                    "label": "创建监控"
+                },
+                {
+                    "id": "datadog_get_monitor",
+                    "label": "获取监控"
+                },
+                {
+                    "id": "datadog_list_monitors",
+                    "label": "列出监控"
+                },
+                {
+                    "id": "datadog_mute_monitor",
+                    "label": "静默监控"
+                },
+                {
+                    "id": "datadog_query_logs",
+                    "label": "查询日志"
+                },
+                {
+                    "id": "datadog_send_logs",
+                    "label": "发送日志"
+                },
+                {
+                    "id": "datadog_create_downtime",
+                    "label": "创建停机时间"
+                },
+                {
+                    "id": "datadog_list_downtimes",
+                    "label": "列出停机时间"
+                },
+                {
+                    "id": "datadog_cancel_downtime",
+                    "label": "取消停机时间"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 Datadog API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Datadog 站点",
+            "defaultValue": "datadoghq.com",
+            "options": [
+                {
+                    "id": "datadoghq.com",
+                    "label": "US1 (datadoghq.com)"
+                },
+                {
+                    "id": "us3.datadoghq.com",
+                    "label": "US3 (us3.datadoghq.com)"
+                },
+                {
+                    "id": "us5.datadoghq.com",
+                    "label": "US5 (us5.datadoghq.com)"
+                },
+                {
+                    "id": "datadoghq.eu",
+                    "label": "EU (datadoghq.eu)"
+                },
+                {
+                    "id": "ap1.datadoghq.com",
+                    "label": "AP1 (ap1.datadoghq.com)"
+                },
+                {
+                    "id": "ddog-gov.com",
+                    "label": "US1-FED (ddog-gov.com)"
+                }
+            ]
+        },
+        {
+            "id": "monitorId",
+            "type": "short-input",
+            "title": "监控 ID",
+            "placeholder": "12345678",
+            "required": true
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "应用密钥",
+            "placeholder": "输入您的 Datadog 应用密钥",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取监控器（<code>datadog_get_monitor</code>）</div>
+
+按 ID 获取指定监控器的详细信息。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `monitorId` | string | 是 | 要获取的监控器 ID |
+| `groupStates` | string | 否 | 以逗号分隔的要包含的组状态：alert、warn、no data、ok |
+| `withDowntimes` | boolean | 否 | 在监控器中包含停机数据 |
+| `apiKey` | string | 是 | Datadog API 密钥 |
+| `applicationKey` | string | 是 | Datadog 应用密钥 |
+| `site` | string | 否 | Datadog 站点/区域（默认：datadoghq.com） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `monitor` | object | 监控器详细信息 |
+
+</div>
+
+---
+
+### 列出监控器
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "datadog_list_monitors",
+            "options": [
+                {
+                    "id": "datadog_submit_metrics",
+                    "label": "提交指标"
+                },
+                {
+                    "id": "datadog_query_timeseries",
+                    "label": "查询时序数据"
+                },
+                {
+                    "id": "datadog_create_event",
+                    "label": "创建事件"
+                },
+                {
+                    "id": "datadog_create_monitor",
+                    "label": "创建监控器"
+                },
+                {
+                    "id": "datadog_get_monitor",
+                    "label": "获取监控器"
+                },
+                {
+                    "id": "datadog_list_monitors",
+                    "label": "列出监控器"
+                },
+                {
+                    "id": "datadog_mute_monitor",
+                    "label": "静音监控器"
+                },
+                {
+                    "id": "datadog_query_logs",
+                    "label": "查询日志"
+                },
+                {
+                    "id": "datadog_send_logs",
+                    "label": "发送日志"
+                },
+                {
+                    "id": "datadog_create_downtime",
+                    "label": "创建停机"
+                },
+                {
+                    "id": "datadog_list_downtimes",
+                    "label": "列出停机"
+                },
+                {
+                    "id": "datadog_cancel_downtime",
+                    "label": "取消停机"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Datadog API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Datadog 站点",
+            "defaultValue": "datadoghq.com",
+            "options": [
+                {
+                    "id": "datadoghq.com",
+                    "label": "US1 (datadoghq.com)"
+                },
+                {
+                    "id": "us3.datadoghq.com",
+                    "label": "US3 (us3.datadoghq.com)"
+                },
+                {
+                    "id": "us5.datadoghq.com",
+                    "label": "US5 (us5.datadoghq.com)"
+                },
+                {
+                    "id": "datadoghq.eu",
+                    "label": "EU (datadoghq.eu)"
+                },
+                {
+                    "id": "ap1.datadoghq.com",
+                    "label": "AP1 (ap1.datadoghq.com)"
+                },
+                {
+                    "id": "ddog-gov.com",
+                    "label": "US1-FED (ddog-gov.com)"
+                }
+            ]
+        },
+        {
+            "id": "listMonitorName",
+            "type": "short-input",
+            "title": "按名称筛选",
+            "placeholder": "CPU"
+        },
+        {
+            "id": "listMonitorTags",
+            "type": "short-input",
+            "title": "按标签筛选",
+            "placeholder": "env:production"
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "应用密钥",
+            "placeholder": "输入你的 Datadog 应用密钥",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出监控器 (<code>datadog_list_monitors</code>)</div>
+
+列出 Datadog 中的所有监控器，可按名称、标签或状态进行可选筛选。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `groupStates` | 字符串 | 否 | 逗号分隔的组状态，用于筛选：alert、warn、no data、ok |
+| `name` | 字符串 | 否 | 按名称筛选监控器 \(部分匹配\) |
+| `tags` | 字符串 | 否 | 用于筛选的逗号分隔标签列表 |
+| `monitorTags` | 字符串 | 否 | 用于筛选的逗号分隔监控器标签列表 |
+| `withDowntimes` | 布尔值 | 否 | 在监控器中包含停机数据 |
+| `page` | 数字 | 否 | 用于分页的页码 \(从0开始\) |
+| `pageSize` | 数字 | 否 | 每页监控器数量 \(最大1000\) |
+| `apiKey` | 字符串 | 是 | Datadog API 密钥 |
+| `applicationKey` | 字符串 | 是 | Datadog 应用密钥 |
+| `site` | 字符串 | 否 | Datadog 站点/区域 \(默认：datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `monitors` | 数组 | 监控器列表 |
+
+</div>
+
+---
+
+### 静音监控器
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "datadog_mute_monitor",
+            "options": [
+                {
+                    "id": "datadog_submit_metrics",
+                    "label": "提交指标"
+                },
+                {
+                    "id": "datadog_query_timeseries",
+                    "label": "查询时间序列"
+                },
+                {
+                    "id": "datadog_create_event",
+                    "label": "创建事件"
+                },
+                {
+                    "id": "datadog_create_monitor",
+                    "label": "创建监控器"
+                },
+                {
+                    "id": "datadog_get_monitor",
+                    "label": "获取监控器"
+                },
+                {
+                    "id": "datadog_list_monitors",
+                    "label": "列出监控器"
+                },
+                {
+                    "id": "datadog_mute_monitor",
+                    "label": "静音监控器"
+                },
+                {
+                    "id": "datadog_query_logs",
+                    "label": "查询日志"
+                },
+                {
+                    "id": "datadog_send_logs",
+                    "label": "发送日志"
+                },
+                {
+                    "id": "datadog_create_downtime",
+                    "label": "创建停机"
+                },
+                {
+                    "id": "datadog_list_downtimes",
+                    "label": "列出停机"
+                },
+                {
+                    "id": "datadog_cancel_downtime",
+                    "label": "取消停机"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 Datadog API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Datadog 站点",
+            "defaultValue": "datadoghq.com",
+            "options": [
+                {
+                    "id": "datadoghq.com",
+                    "label": "US1 (datadoghq.com)"
+                },
+                {
+                    "id": "us3.datadoghq.com",
+                    "label": "US3 (us3.datadoghq.com)"
+                },
+                {
+                    "id": "us5.datadoghq.com",
+                    "label": "US5 (us5.datadoghq.com)"
+                },
+                {
+                    "id": "datadoghq.eu",
+                    "label": "EU (datadoghq.eu)"
+                },
+                {
+                    "id": "ap1.datadoghq.com",
+                    "label": "AP1 (ap1.datadoghq.com)"
+                },
+                {
+                    "id": "ddog-gov.com",
+                    "label": "US1-FED (ddog-gov.com)"
+                }
+            ]
+        },
+        {
+            "id": "muteMonitorId",
+            "type": "short-input",
+            "title": "监控器 ID",
+            "placeholder": "12345678",
+            "required": true
+        },
+        {
+            "id": "scope",
+            "type": "short-input",
+            "title": "范围",
+            "placeholder": "host:myhost（可选）"
+        },
+        {
+            "id": "end",
+            "type": "short-input",
+            "title": "结束时间（Unix 时间戳）",
+            "placeholder": "留空表示无限期"
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "应用密钥",
+            "placeholder": "输入您的 Datadog 应用密钥",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">静音监控器（<code>datadog_mute_monitor</code>）</div>
+
+将监控器静音，以暂时抑制通知。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `monitorId` | 字符串 | 是 | 要静音的监控器 ID |
+| `scope` | 字符串 | 否 | 要静音的范围\(例如："host:myhost"\)。如果未指定，则静音所有范围。 |
+| `end` | 数字 | 否 | 静音结束时的 Unix 时间戳。如果未指定，则永久静音。 |
+| `apiKey` | 字符串 | 是 | Datadog API 密钥 |
+| `applicationKey` | 字符串 | 是 | Datadog 应用密钥 |
+| `site` | 字符串 | 否 | Datadog 站点/区域\(默认：datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `success` | 布尔值 | 监控器是否已成功静音 |
+
+</div>
+
+---
+
+### 查询日志
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "datadog_query_logs",
+            "options": [
+                {
+                    "id": "datadog_submit_metrics",
+                    "label": "提交指标"
+                },
+                {
+                    "id": "datadog_query_timeseries",
+                    "label": "查询时间序列"
+                },
+                {
+                    "id": "datadog_create_event",
+                    "label": "创建事件"
+                },
+                {
+                    "id": "datadog_create_monitor",
+                    "label": "创建监控器"
+                },
+                {
+                    "id": "datadog_get_monitor",
+                    "label": "获取监控器"
+                },
+                {
+                    "id": "datadog_list_monitors",
+                    "label": "列出监控器"
+                },
+                {
+                    "id": "datadog_mute_monitor",
+                    "label": "静音监控器"
+                },
+                {
+                    "id": "datadog_query_logs",
+                    "label": "查询日志"
+                },
+                {
+                    "id": "datadog_send_logs",
+                    "label": "发送日志"
+                },
+                {
+                    "id": "datadog_create_downtime",
+                    "label": "创建停机时间"
+                },
+                {
+                    "id": "datadog_list_downtimes",
+                    "label": "列出停机时间"
+                },
+                {
+                    "id": "datadog_cancel_downtime",
+                    "label": "取消停机时间"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 Datadog API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Datadog 站点",
+            "defaultValue": "datadoghq.com",
+            "options": [
+                {
+                    "id": "datadoghq.com",
+                    "label": "US1 (datadoghq.com)"
+                },
+                {
+                    "id": "us3.datadoghq.com",
+                    "label": "US3 (us3.datadoghq.com)"
+                },
+                {
+                    "id": "us5.datadoghq.com",
+                    "label": "US5 (us5.datadoghq.com)"
+                },
+                {
+                    "id": "datadoghq.eu",
+                    "label": "EU (datadoghq.eu)"
+                },
+                {
+                    "id": "ap1.datadoghq.com",
+                    "label": "AP1 (ap1.datadoghq.com)"
+                },
+                {
+                    "id": "ddog-gov.com",
+                    "label": "US1-FED (ddog-gov.com)"
+                }
+            ]
+        },
+        {
+            "id": "logQuery",
+            "type": "long-input",
+            "title": "搜索查询",
+            "placeholder": "service:web-app status:error",
+            "required": true
+        },
+        {
+            "id": "logFrom",
+            "type": "short-input",
+            "title": "开始",
+            "placeholder": "now-1h",
+            "required": true
+        },
+        {
+            "id": "logTo",
+            "type": "short-input",
+            "title": "结束",
+            "placeholder": "now",
+            "required": true
+        },
+        {
+            "id": "logLimit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "50"
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "应用密钥",
+            "placeholder": "输入您的 Datadog 应用密钥",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">查询日志（<code>datadog_query_logs</code>）</div>
+
+从 Datadog 搜索并获取日志。用于故障排查、分析或监控。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | 是 | 日志搜索查询 \(例如，"service:web-app status:error"\) |
+| `from` | string | 是 | 开始时间，ISO-8601 格式或相对时间 \(例如，"now-1h"\) |
+| `to` | string | 是 | 结束时间，ISO-8601 格式或相对时间 \(例如，"now"\) |
+| `limit` | number | 否 | 返回的最大日志数量 \(默认：50，最大：1000\) |
+| `sort` | string | 否 | 排序顺序：timestamp \(最早优先\) 或 -timestamp \(最新优先\) |
+| `indexes` | string | 否 | 要搜索的日志索引列表，以逗号分隔 |
+| `apiKey` | string | 是 | Datadog API 密钥 |
+| `applicationKey` | string | 是 | Datadog 应用密钥 |
+| `site` | string | 否 | Datadog 站点/区域 \(默认：datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `logs` | array | 日志条目列表 |
+| `nextLogId` | string | 分页游标 |
+
+</div>
+
+---
+
+### 发送日志
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "datadog_send_logs",
+            "options": [
+                {
+                    "id": "datadog_submit_metrics",
+                    "label": "提交指标"
+                },
+                {
+                    "id": "datadog_query_timeseries",
+                    "label": "查询时间序列"
+                },
+                {
+                    "id": "datadog_create_event",
+                    "label": "创建事件"
+                },
+                {
+                    "id": "datadog_create_monitor",
+                    "label": "创建监控器"
+                },
+                {
+                    "id": "datadog_get_monitor",
+                    "label": "获取监控器"
+                },
+                {
+                    "id": "datadog_list_monitors",
+                    "label": "列出监控器"
+                },
+                {
+                    "id": "datadog_mute_monitor",
+                    "label": "静音监控器"
+                },
+                {
+                    "id": "datadog_query_logs",
+                    "label": "查询日志"
+                },
+                {
+                    "id": "datadog_send_logs",
+                    "label": "发送日志"
+                },
+                {
+                    "id": "datadog_create_downtime",
+                    "label": "创建停机"
+                },
+                {
+                    "id": "datadog_list_downtimes",
+                    "label": "列出停机"
+                },
+                {
+                    "id": "datadog_cancel_downtime",
+                    "label": "取消停机"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 Datadog API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Datadog 站点",
+            "defaultValue": "datadoghq.com",
+            "options": [
+                {
+                    "id": "datadoghq.com",
+                    "label": "US1 (datadoghq.com)"
+                },
+                {
+                    "id": "us3.datadoghq.com",
+                    "label": "US3 (us3.datadoghq.com)"
+                },
+                {
+                    "id": "us5.datadoghq.com",
+                    "label": "US5 (us5.datadoghq.com)"
+                },
+                {
+                    "id": "datadoghq.eu",
+                    "label": "EU (datadoghq.eu)"
+                },
+                {
+                    "id": "ap1.datadoghq.com",
+                    "label": "AP1 (ap1.datadoghq.com)"
+                },
+                {
+                    "id": "ddog-gov.com",
+                    "label": "US1-FED (ddog-gov.com)"
+                }
+            ]
+        },
+        {
+            "id": "logs",
+            "type": "code",
+            "title": "日志（JSON）",
+            "placeholder": "[\n  {\n    \"message\": \"Application started successfully\",\n    \"service\": \"my-app\",\n    \"ddsource\": \"custom\",\n    \"ddtags\": \"env:production\"\n  }\n]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">发送日志 (<code>datadog_send_logs</code>)</div>
+
+将日志条目发送到 Datadog 进行集中式日志记录和分析。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `logs` | string | 是 | 日志条目的 JSON 数组。每个条目应包含 message，并可选择包含 ddsource、ddtags、hostname、service。 |
+| `apiKey` | string | 是 | Datadog API 密钥 |
+| `site` | string | 否 | Datadog 站点/区域 \(默认：datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 日志是否发送成功 |
+
+</div>
+
+---
+
+### 创建停机
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "datadog_create_downtime",
+            "options": [
+                {
+                    "id": "datadog_submit_metrics",
+                    "label": "提交指标"
+                },
+                {
+                    "id": "datadog_query_timeseries",
+                    "label": "查询时间序列"
+                },
+                {
+                    "id": "datadog_create_event",
+                    "label": "创建事件"
+                },
+                {
+                    "id": "datadog_create_monitor",
+                    "label": "创建监控器"
+                },
+                {
+                    "id": "datadog_get_monitor",
+                    "label": "获取监控器"
+                },
+                {
+                    "id": "datadog_list_monitors",
+                    "label": "列出监控器"
+                },
+                {
+                    "id": "datadog_mute_monitor",
+                    "label": "静音监控器"
+                },
+                {
+                    "id": "datadog_query_logs",
+                    "label": "查询日志"
+                },
+                {
+                    "id": "datadog_send_logs",
+                    "label": "发送日志"
+                },
+                {
+                    "id": "datadog_create_downtime",
+                    "label": "创建停机"
+                },
+                {
+                    "id": "datadog_list_downtimes",
+                    "label": "列出停机"
+                },
+                {
+                    "id": "datadog_cancel_downtime",
+                    "label": "取消停机"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 Datadog API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Datadog 站点",
+            "defaultValue": "datadoghq.com",
+            "options": [
+                {
+                    "id": "datadoghq.com",
+                    "label": "US1 (datadoghq.com)"
+                },
+                {
+                    "id": "us3.datadoghq.com",
+                    "label": "US3 (us3.datadoghq.com)"
+                },
+                {
+                    "id": "us5.datadoghq.com",
+                    "label": "US5 (us5.datadoghq.com)"
+                },
+                {
+                    "id": "datadoghq.eu",
+                    "label": "EU (datadoghq.eu)"
+                },
+                {
+                    "id": "ap1.datadoghq.com",
+                    "label": "AP1 (ap1.datadoghq.com)"
+                },
+                {
+                    "id": "ddog-gov.com",
+                    "label": "US1-FED (ddog-gov.com)"
+                }
+            ]
+        },
+        {
+            "id": "downtimeScope",
+            "type": "short-input",
+            "title": "范围",
+            "placeholder": "host:myhost 或 env:production 或 *",
+            "required": true
+        },
+        {
+            "id": "downtimeMessage",
+            "type": "long-input",
+            "title": "消息",
+            "placeholder": "计划维护"
+        },
+        {
+            "id": "downtimeStart",
+            "type": "short-input",
+            "title": "开始时间（Unix 时间戳）",
+            "placeholder": "留空表示现在"
+        },
+        {
+            "id": "downtimeEnd",
+            "type": "short-input",
+            "title": "结束时间（Unix 时间戳）",
+            "placeholder": "例如：1701450000"
+        },
+        {
+            "id": "downtimeMonitorId",
+            "type": "short-input",
+            "title": "监控器 ID（可选）",
+            "placeholder": "12345678"
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "应用密钥",
+            "placeholder": "输入您的 Datadog 应用密钥",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建停机时间 (<code>datadog_create_downtime</code>)</div>
+
+安排停机时间，以在维护窗口期间抑制监控器通知。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必需 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `scope` | string | 是 | 应用停机时间的范围 \(例如，"host:myhost"、"env:production"，或 "*" 表示全部\) |
+| `message` | string | 否 | 停机期间显示的消息 |
+| `start` | number | 否 | 停机开始的 Unix 时间戳 \(默认为当前时间\) |
+| `end` | number | 否 | 停机结束的 Unix 时间戳 |
+| `timezone` | string | 否 | 停机的时区 \(例如，"America/New_York"\) |
+| `monitorId` | string | 否 | 要静音的特定监控器 ID |
+| `monitorTags` | string | 否 | 要匹配的逗号分隔的监控器标签 \(例如，"team:backend,priority:high"\) |
+| `muteFirstRecoveryNotification` | boolean | 否 | 静音第一个恢复通知 |
+| `apiKey` | string | 是 | Datadog API 密钥 |
+| `applicationKey` | string | 是 | Datadog 应用程序密钥 |
+| `site` | string | 否 | Datadog 站点/区域 \(默认：datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `downtime` | object | 创建的停机时间详细信息 |
+
+</div>
+
+---
+
+### 列出停机时间
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "datadog_list_downtimes",
+            "options": [
+                {
+                    "id": "datadog_submit_metrics",
+                    "label": "提交指标"
+                },
+                {
+                    "id": "datadog_query_timeseries",
+                    "label": "查询时间序列"
+                },
+                {
+                    "id": "datadog_create_event",
+                    "label": "创建事件"
+                },
+                {
+                    "id": "datadog_create_monitor",
+                    "label": "创建监控器"
+                },
+                {
+                    "id": "datadog_get_monitor",
+                    "label": "获取监控器"
+                },
+                {
+                    "id": "datadog_list_monitors",
+                    "label": "列出监控器"
+                },
+                {
+                    "id": "datadog_mute_monitor",
+                    "label": "静音监控器"
+                },
+                {
+                    "id": "datadog_query_logs",
+                    "label": "查询日志"
+                },
+                {
+                    "id": "datadog_send_logs",
+                    "label": "发送日志"
+                },
+                {
+                    "id": "datadog_create_downtime",
+                    "label": "创建停机时间"
+                },
+                {
+                    "id": "datadog_list_downtimes",
+                    "label": "列出停机时间"
+                },
+                {
+                    "id": "datadog_cancel_downtime",
+                    "label": "取消停机时间"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 Datadog API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Datadog 站点",
+            "defaultValue": "datadoghq.com",
+            "options": [
+                {
+                    "id": "datadoghq.com",
+                    "label": "US1 (datadoghq.com)"
+                },
+                {
+                    "id": "us3.datadoghq.com",
+                    "label": "US3 (us3.datadoghq.com)"
+                },
+                {
+                    "id": "us5.datadoghq.com",
+                    "label": "US5 (us5.datadoghq.com)"
+                },
+                {
+                    "id": "datadoghq.eu",
+                    "label": "EU (datadoghq.eu)"
+                },
+                {
+                    "id": "ap1.datadoghq.com",
+                    "label": "AP1 (ap1.datadoghq.com)"
+                },
+                {
+                    "id": "ddog-gov.com",
+                    "label": "US1-FED (ddog-gov.com)"
+                }
+            ]
+        },
+        {
+            "id": "currentOnly",
+            "type": "switch",
+            "title": "仅当前"
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "应用程序密钥",
+            "placeholder": "输入您的 Datadog 应用程序密钥",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出停机 (<code>datadog_list_downtimes</code>)</div>
+
+列出 Datadog 中所有已计划的停机。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `currentOnly` | boolean | 否 | 仅返回当前活跃的停机 |
+| `monitorId` | string | 否 | 按监控器 ID 筛选 |
+| `apiKey` | string | 是 | Datadog API 密钥 |
+| `applicationKey` | string | 是 | Datadog 应用密钥 |
+| `site` | string | 否 | Datadog 站点/区域 \(默认：datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `downtimes` | array | 停机列表 |
+
+</div>
+
+---
+
+### 取消停机
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datadog"
+    type="datadog"
+    color="#632CA6"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "datadog_cancel_downtime",
+            "options": [
+                {
+                    "id": "datadog_submit_metrics",
+                    "label": "提交指标"
+                },
+                {
+                    "id": "datadog_query_timeseries",
+                    "label": "查询时间序列"
+                },
+                {
+                    "id": "datadog_create_event",
+                    "label": "创建事件"
+                },
+                {
+                    "id": "datadog_create_monitor",
+                    "label": "创建监控器"
+                },
+                {
+                    "id": "datadog_get_monitor",
+                    "label": "获取监控器"
+                },
+                {
+                    "id": "datadog_list_monitors",
+                    "label": "列出监控器"
+                },
+                {
+                    "id": "datadog_mute_monitor",
+                    "label": "静音监控器"
+                },
+                {
+                    "id": "datadog_query_logs",
+                    "label": "查询日志"
+                },
+                {
+                    "id": "datadog_send_logs",
+                    "label": "发送日志"
+                },
+                {
+                    "id": "datadog_create_downtime",
+                    "label": "创建停机"
+                },
+                {
+                    "id": "datadog_list_downtimes",
+                    "label": "列出停机"
+                },
+                {
+                    "id": "datadog_cancel_downtime",
+                    "label": "取消停机"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 Datadog API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "site",
+            "type": "dropdown",
+            "title": "Datadog 站点",
+            "defaultValue": "datadoghq.com",
+            "options": [
+                {
+                    "id": "datadoghq.com",
+                    "label": "US1 (datadoghq.com)"
+                },
+                {
+                    "id": "us3.datadoghq.com",
+                    "label": "US3 (us3.datadoghq.com)"
+                },
+                {
+                    "id": "us5.datadoghq.com",
+                    "label": "US5 (us5.datadoghq.com)"
+                },
+                {
+                    "id": "datadoghq.eu",
+                    "label": "EU (datadoghq.eu)"
+                },
+                {
+                    "id": "ap1.datadoghq.com",
+                    "label": "AP1 (ap1.datadoghq.com)"
+                },
+                {
+                    "id": "ddog-gov.com",
+                    "label": "US1-FED (ddog-gov.com)"
+                }
+            ]
+        },
+        {
+            "id": "downtimeId",
+            "type": "short-input",
+            "title": "停机 ID",
+            "placeholder": "abc123",
+            "required": true
+        },
+        {
+            "id": "applicationKey",
+            "type": "short-input",
+            "title": "应用密钥",
+            "placeholder": "输入您的 Datadog 应用密钥",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">取消停机时间(<code>datadog_cancel_downtime</code>)</div>
+
+取消已计划的停机时间。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `downtimeId` | 字符串 | 是 | 要取消的停机 ID |
+| `apiKey` | 字符串 | 是 | Datadog API 密钥 |
+| `applicationKey` | 字符串 | 是 | Datadog 应用密钥 |
+| `site` | 字符串 | 否 | Datadog 站点/区域 \(默认：datadoghq.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `success` | 布尔值 | 停机是否成功取消 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Datadog 监控集成到工作流中。提交指标、管理监控器、查询日志、创建事件、处理停机等。
+
+## 注意事项
+
+- 类别: `tools`
+- 类型: `datadog`

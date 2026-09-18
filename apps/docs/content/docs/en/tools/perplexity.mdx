@@ -10,7 +10,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <BlockInfoCard
   type="perplexity"
-  color=""
+  color="#21808D"
 />
 
 
@@ -20,7 +20,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="Perplexity"
     type="perplexity"
-    color=""
+    color="#21808D"
     hideHeader
     subBlocks={[
         {
@@ -43,30 +43,31 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Model",
             "layout": "half",
+            "defaultValue": "sonar",
             "options": [
                 {
-                    "label": "Sonar",
-                    "id": "sonar"
+                    "id": "sonar",
+                    "label": "Sonar"
                 },
                 {
-                    "label": "Mistral",
-                    "id": "mistral"
+                    "id": "mistral",
+                    "label": "Mistral"
                 },
                 {
-                    "label": "Claude-3-Opus",
-                    "id": "claude-3-opus"
+                    "id": "claude-3-opus",
+                    "label": "Claude-3-Opus"
                 },
                 {
-                    "label": "Claude-3-Sonnet",
-                    "id": "claude-3-sonnet"
+                    "id": "claude-3-sonnet",
+                    "label": "Claude-3-Sonnet"
                 },
                 {
-                    "label": "Command-R",
-                    "id": "command-r"
+                    "id": "command-r",
+                    "label": "Command-R"
                 },
                 {
-                    "label": "GPT-4o",
-                    "id": "gpt-4o"
+                    "id": "gpt-4o",
+                    "label": "GPT-4o"
                 }
             ]
         },
@@ -76,7 +77,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Temperature",
             "layout": "half",
             "min": 0,
-            "max": 1
+            "max": 1,
+            "defaultValue": "0.7"
         },
         {
             "id": "max_tokens",
@@ -120,10 +122,7 @@ Generate completions using Perplexity AI chat models
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `success` | boolean | Operation success status |
-| `content` | string | Generated text content |
-| `model` | string | Model used for generation |
-| `prompt_tokens` | number | Number of tokens in the prompt |
-| `completion_tokens` | number | Number of tokens in the completion |
+| `output` | object | Chat completion results |
 
 
 ## Usage Instructions

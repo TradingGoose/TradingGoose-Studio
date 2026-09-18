@@ -1,0 +1,94 @@
+---
+title: Jina
+description: 将网站内容转换为文本
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="jina"
+  color=""
+/>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jina"
+    type="jina"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "url",
+            "type": "short-input",
+            "title": "URL",
+            "layout": "full",
+            "placeholder": "输入要提取内容的 URL",
+            "required": true
+        },
+        {
+            "id": "options",
+            "type": "checkbox-list",
+            "title": "选项",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "useReaderLMv2",
+                    "label": "使用 Reader LM v2"
+                },
+                {
+                    "id": "gatherLinks",
+                    "label": "收集链接"
+                },
+                {
+                    "id": "jsonResponse",
+                    "label": "JSON 响应"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Jina API 密钥",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+### `jina_read_url`
+
+使用 Jina AI Reader 将网页内容提取并处理为干净、适合 LLM 的文本。支持高级内容解析、链接收集以及多种输出格式，并提供可配置的处理选项。
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `url` | string | 是 | 要读取并转换为 Markdown 的 URL |
+| `useReaderLMv2` | boolean | 否 | 是否使用 ReaderLM-v2 以获得更好质量 |
+| `gatherLinks` | boolean | 否 | 是否在末尾收集所有链接 |
+| `jsonResponse` | boolean | 否 | 是否以 JSON 格式返回响应 |
+| `apiKey` | string | 是 | 你的 Jina AI API 密钥 |
+
+#### 输出
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | string | 从 URL 提取的内容，已处理为干净、适合 LLM 的文本 |
+
+## 使用说明
+
+将 Jina 集成到工作流中。从网站提取内容。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`jina`

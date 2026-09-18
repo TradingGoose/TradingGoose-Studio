@@ -1,0 +1,284 @@
+---
+title: 智能体
+description: 使用 AI 模型和工具集成构建智能体
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { BlockConfigPreview } from '@/components/ui/block-config-preview'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
+
+<BlockInfoCard
+  type="agent"
+  color="#2873f6"
+/>
+
+智能体块充当工作流与大语言模型（LLM）之间的接口。它针对各种 AI 提供商执行推理请求，根据定义的指令处理自然语言输入，并生成结构化或非结构化输出供下游使用。
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="智能体"
+    type="agent"
+    color="#2873f6"
+    hideHeader
+    subBlocks={[
+      { "id": "systemPrompt", "title": "系统提示词", "type": "long-input", "layout": "full", "placeholder": "输入系统提示词……" },
+      { "id": "userPrompt", "title": "用户提示词", "type": "long-input", "layout": "full", "placeholder": "输入上下文或用户消息……" },
+      { "id": "memories", "title": "记忆", "type": "short-input", "layout": "full", "placeholder": "连接记忆块输出……" },
+      { "id": "model", "title": "模型", "type": "combobox", "layout": "half", "placeholder": "输入或选择模型……", "required": true },
+      { "id": "temperature", "title": "温度", "type": "slider", "layout": "half", "defaultValue": 0.5 },
+      { "id": "reasoningEffort", "title": "推理强度", "type": "dropdown", "layout": "half", "placeholder": "选择推理强度……", "options": [{ "label": "最低", "id": "minimal" }, { "label": "低", "id": "low" }, { "label": "中", "id": "medium" }, { "label": "高", "id": "high" }] },
+      { "id": "verbosity", "title": "详细程度", "type": "dropdown", "layout": "half", "placeholder": "选择详细程度……", "options": [{ "label": "低", "id": "low" }, { "label": "中", "id": "medium" }, { "label": "高", "id": "high" }] },
+      { "id": "apiKey", "title": "API 密钥", "type": "short-input", "layout": "full", "placeholder": "输入 API 密钥", "password": true, "required": true },
+      { "id": "azureEndpoint", "title": "Azure OpenAI 终结点", "type": "short-input", "layout": "full", "password": true, "placeholder": "https://your-resource.openai.azure.com" },
+      { "id": "azureApiVersion", "title": "Azure API 版本", "type": "short-input", "layout": "full", "placeholder": "2024-07-01-preview" },
+      { "id": "tools", "title": "工具", "type": "tool-input", "layout": "full", "defaultValue": [] },
+      { "id": "skills", "title": "技能", "type": "skill-input", "layout": "full", "defaultValue": [] },
+      { "id": "responseFormat", "title": "响应格式", "type": "code", "layout": "full", "placeholder": "输入 JSON Schema……" }
+    ]}
+  />
+</ShowcaseCard>
+
+## 概述
+
+Agent 块使您能够：
+
+<Steps>
+  <Step>
+    <strong>处理自然语言</strong>：分析用户输入并生成上下文相关的响应
+  </Step>
+  <Step>
+    <strong>执行 AI 驱动的任务</strong>：执行内容分析、生成和决策
+  </Step>
+  <Step>
+    <strong>调用外部工具</strong>：在处理过程中访问 API、数据库和服务
+  </Step>
+  <Step>
+    <strong>生成结构化输出</strong>：返回符合您模式要求的 JSON 数据
+  </Step>
+</Steps>
+
+## 配置选项
+
+### 系统提示词
+
+系统提示词设置智能体的操作参数和行为约束。此配置定义了智能体的角色、响应方法以及所有传入请求的处理边界。
+
+```markdown
+You are a helpful assistant that specializes in financial analysis.
+Always provide clear explanations and cite sources when possible.
+When responding to questions about investments, include risk disclaimers.
+```
+
+### 用户提示词
+
+用户提示词代表推理处理的主要输入数据。此参数接受自然语言文本或结构化数据，智能体将对其进行分析并作出响应。输入来源包括：
+
+- **静态配置**：在块配置中指定的直接文本输入
+- **动态输入**：通过连接接口从上游块传递的数据
+- **运行时生成**：在工作流执行期间以编程方式生成的内容
+
+### 模型选择
+
+Agent 块通过统一的推理接口支持多个 LLM 提供商。其模型选择器按提供商分组，并反映部署当前的内置目录以及从配置的 OpenRouter 和 Ollama 连接中发现模型。请以选择器为准，而不是依赖固定的模型列表。
+
+### 温度
+
+控制响应的创造性和随机性：
+
+<Tabs items={['低 (0-0.3)', '中 (0.3-0.7)', '高 (0.7-2.0)']}>
+  <Tab>
+    更具确定性、专注的响应。最适合事实性任务、客户支持以及
+    准确性至关重要的场景。
+  </Tab>
+  <Tab>
+    平衡创造性和专注度。适用于既需要准确性又需要一定创造性的
+    通用应用。
+  </Tab>
+  <Tab>
+    更具创造性、多样化的响应。非常适合创意写作、头脑风暴以及生成
+    多样化的想法。
+  </Tab>
+</Tabs>
+
+<div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
+  温度范围（0-1 或 0-2）取决于所选模型。
+</div>
+
+### API 密钥
+
+显示此字段时，请输入所选提供商的 API 密钥。托管部署上的托管模型和本地 Ollama 模型不会显示此字段。
+
+### 工具
+
+工具通过外部 API 集成和服务连接扩展智能体的能力。工具系统支持函数调用，使智能体能够执行文本生成之外的操作。
+
+**工具集成流程**：
+1. 在 Agent 块中访问工具配置部分
+2. 选择内置集成、已连接的 MCP 工具或自定义工具
+3. 配置身份验证参数和操作约束
+
+**可用工具类别**：
+- **通信**：Gmail、Slack、Telegram、WhatsApp、Microsoft Teams
+- **数据源**：Notion、Google Sheets、Airtable、Supabase、Pinecone
+- **Web 服务**：Firecrawl、Google Search、Exa AI、浏览器自动化
+- **开发**：GitHub、Jira、Linear 仓库与问题管理
+- **AI 服务**：OpenAI、Perplexity、Hugging Face、ElevenLabs
+
+**工具执行控制**：
+- **Auto**：模型根据上下文和必要性决定是否调用工具
+- **Force**：指示提供商在响应中使用此工具
+- **None**：将该工具从提供商请求中排除
+
+### 响应格式
+
+响应格式参数使用 JSON Schema 请求结构化输出：
+
+```json
+{
+  "name": "user_analysis",
+  "description": "Classifies sentiment with a confidence score",
+  "strict": true,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "sentiment": {
+        "type": "string",
+        "enum": ["positive", "negative", "neutral"]
+      },
+      "confidence": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+      }
+    },
+    "required": ["sentiment", "confidence"],
+    "additionalProperties": false
+  }
+}
+```
+
+当模型返回有效的 JSON 时，schema 字段会直接暴露在 Agent 块的输出根节点。如果响应格式不正确，该块会回退到标准输出，并包含 `_responseFormatWarning`。
+
+### 访问结果
+
+未设置响应格式时，Agent 会暴露以下标准输出：
+
+- **`<agent.content>`**：Agent 的响应文本
+- **`<agent.model>`**：该响应对应使用的模型
+- **`<agent.tokens>`**：服务商上报的 token 用量统计
+- **`<agent.toolCalls>`**：Agent 在执行期间使用的所有工具的详细信息
+- **`<agent.toolResults>`**：这些工具返回的结果
+- **`<agent.cost>`**：API 调用的预估费用（如可用）
+
+使用有效的响应格式时，可直接引用各个 schema 字段，例如 `<agent.sentiment>`。token、工具、耗时和费用元数据仍会与这些字段一同提供。
+
+## 高级功能
+
+### 记忆 + Agent：对话历史
+
+Agent 的 Memories 字段可使用 Get Memory 返回的消息数组，例如 `<memory.memories>`。使用 Add Memory 保存用户和助手消息，并在同一工作流的后续执行中使用相同 ID 读取对话。工作流变量本身不会跨执行保存历史记录。请参阅 [Memory](/blocks/memory)。
+
+## 输入与输出
+
+<Tabs items={['Configuration', 'Variables', 'Results']}>
+  <Tab>
+    <ul className="list-disc space-y-2 pl-6">
+      <li>
+        <strong>System Prompt</strong>：定义 Agent 行为与角色的指令
+      </li>
+      <li>
+        <strong>User Prompt</strong>：待处理的输入文本或数据
+      </li>
+      <li>
+        <strong>Model</strong>：AI 模型选择（OpenAI、Anthropic、Google 等）
+      </li>
+      <li>
+        <strong>Temperature</strong>：响应随机性控制（0-2）
+      </li>
+      <li>
+        <strong>Tools</strong>：可供函数调用使用的工具数组
+      </li>
+      <li>
+        <strong>Response Format</strong>：用于结构化输出的 JSON Schema
+      </li>
+    </ul>
+  </Tab>
+  <Tab>
+    <ul className="list-disc space-y-2 pl-6">
+      <li>
+        <strong>agent.content</strong>：Agent 的响应文本或结构化数据
+      </li>
+      <li>
+        <strong>agent.tokens</strong>：token 用量统计对象
+      </li>
+      <li>
+        <strong>agent.toolCalls</strong>：工具执行详情与次数
+      </li>
+      <li>
+        <strong>agent.toolResults</strong>：被调用工具返回的结果
+      </li>
+    </ul>
+  </Tab>
+  <Tab>
+    <ul className="list-disc space-y-2 pl-6">
+      <li>
+        <strong>Content</strong>：Agent 的主要响应输出
+      </li>
+      <li>
+        <strong>Metadata</strong>：用量统计与执行详情
+      </li>
+      <li>
+        <strong>Access</strong>：在 Agent 之后的块中可用
+      </li>
+    </ul>
+  </Tab>
+</Tabs>
+
+## 示例用例
+
+### 客户支持自动化
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">场景：利用数据库访问处理客户咨询</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>用户通过 API 触发器提交支持工单</li>
+    <li>Agent 在 Postgres 中检查订单/订阅，并在知识库中搜索指导</li>
+    <li>如果需要升级，Agent 会创建包含相关上下文的 Linear 问题</li>
+    <li>Agent 起草清晰的电子邮件回复</li>
+    <li>Gmail 将回复发送给客户</li>
+    <li>使用 Memory Add 保存消息，在后续执行中通过 Get Memory 加载历史记录</li>
+  </ol>
+</div>
+
+### 多模型内容分析
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">场景：使用不同 AI 模型分析内容</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>函数块处理上传的文档</li>
+    <li>使用 GPT-4o 的 Agent 执行技术分析</li>
+    <li>使用 Claude 的 Agent 分析情感和语气</li>
+    <li>函数块合并结果以生成最终报告</li>
+  </ol>
+</div>
+
+### 工具驱动的研究助手
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">场景：具有网络搜索和文档访问功能的研究助手</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>通过输入接收用户查询</li>
+    <li>Agent 使用 Google 搜索工具搜索网络</li>
+    <li>Agent 访问 Notion 数据库以获取内部文档</li>
+    <li>Agent 编写全面的研究报告</li>
+  </ol>
+</div>
+
+## 最佳实践
+
+- **在系统提示中保持具体**：清晰定义 Agent 的角色、语气和限制。指令越具体，Agent 就越能实现其预期目的。
+- **选择合适的温度设置**：当准确性很重要时，使用较低的温度设置（0-0.3），或者提高温度（0.7-2.0）以获得更具创造性或多样化的响应
+- **有效利用工具**：集成能够补充 Agent 用途并增强其能力的工具。谨慎选择提供的工具，以免 Agent 不堪重负。对于重叠较少的任务，使用另一个 Agent 块以获得最佳结果。

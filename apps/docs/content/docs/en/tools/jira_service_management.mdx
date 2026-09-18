@@ -29,89 +29,89 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_service_desks",
             "options": [
                 {
-                    "label": "Get Service Desks",
-                    "id": "get_service_desks"
+                    "id": "get_service_desks",
+                    "label": "Get Service Desks"
                 },
                 {
-                    "label": "Get Request Types",
-                    "id": "get_request_types"
+                    "id": "get_request_types",
+                    "label": "Get Request Types"
                 },
                 {
-                    "label": "Create Request",
-                    "id": "create_request"
+                    "id": "create_request",
+                    "label": "Create Request"
                 },
                 {
-                    "label": "Get Request",
-                    "id": "get_request"
+                    "id": "get_request",
+                    "label": "Get Request"
                 },
                 {
-                    "label": "Get Requests",
-                    "id": "get_requests"
+                    "id": "get_requests",
+                    "label": "Get Requests"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 },
                 {
-                    "label": "Get Comments",
-                    "id": "get_comments"
+                    "id": "get_comments",
+                    "label": "Get Comments"
                 },
                 {
-                    "label": "Get Customers",
-                    "id": "get_customers"
+                    "id": "get_customers",
+                    "label": "Get Customers"
                 },
                 {
-                    "label": "Add Customer",
-                    "id": "add_customer"
+                    "id": "add_customer",
+                    "label": "Add Customer"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Add Organization",
-                    "id": "add_organization"
+                    "id": "add_organization",
+                    "label": "Add Organization"
                 },
                 {
-                    "label": "Get Queues",
-                    "id": "get_queues"
+                    "id": "get_queues",
+                    "label": "Get Queues"
                 },
                 {
-                    "label": "Get SLA",
-                    "id": "get_sla"
+                    "id": "get_sla",
+                    "label": "Get SLA"
                 },
                 {
-                    "label": "Get Transitions",
-                    "id": "get_transitions"
+                    "id": "get_transitions",
+                    "label": "Get Transitions"
                 },
                 {
-                    "label": "Transition Request",
-                    "id": "transition_request"
+                    "id": "transition_request",
+                    "label": "Transition Request"
                 },
                 {
-                    "label": "Get Participants",
-                    "id": "get_participants"
+                    "id": "get_participants",
+                    "label": "Get Participants"
                 },
                 {
-                    "label": "Add Participants",
-                    "id": "add_participants"
+                    "id": "add_participants",
+                    "label": "Add Participants"
                 },
                 {
-                    "label": "Get Approvals",
-                    "id": "get_approvals"
+                    "id": "get_approvals",
+                    "label": "Get Approvals"
                 },
                 {
-                    "label": "Answer Approval",
-                    "id": "answer_approval"
+                    "id": "answer_approval",
+                    "label": "Answer Approval"
                 }
-            ],
-            "defaultValue": "get_service_desks"
+            ]
         },
         {
             "id": "domain",
@@ -148,7 +148,6 @@ Get all service desks from Jira Service Management
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `domain` | string | Yes | Your Jira domain \(e.g., yourcompany.atlassian.net\) |
-| `cloudId` | string | No | Jira Cloud ID for the instance |
 | `start` | number | No | Start index for pagination \(default: 0\) |
 | `limit` | number | No | Maximum results to return \(default: 50\) |
 
@@ -159,6 +158,7 @@ Get all service desks from Jira Service Management
 | `ts` | string | Timestamp of the operation |
 | `serviceDesks` | json | Array of service desks |
 | `total` | number | Total number of service desks |
+| `isLastPage` | boolean | Whether this is the last page |
 
 </div>
 
@@ -179,89 +179,89 @@ Get all service desks from Jira Service Management
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_request_types",
             "options": [
                 {
-                    "label": "Get Service Desks",
-                    "id": "get_service_desks"
+                    "id": "get_service_desks",
+                    "label": "Get Service Desks"
                 },
                 {
-                    "label": "Get Request Types",
-                    "id": "get_request_types"
+                    "id": "get_request_types",
+                    "label": "Get Request Types"
                 },
                 {
-                    "label": "Create Request",
-                    "id": "create_request"
+                    "id": "create_request",
+                    "label": "Create Request"
                 },
                 {
-                    "label": "Get Request",
-                    "id": "get_request"
+                    "id": "get_request",
+                    "label": "Get Request"
                 },
                 {
-                    "label": "Get Requests",
-                    "id": "get_requests"
+                    "id": "get_requests",
+                    "label": "Get Requests"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 },
                 {
-                    "label": "Get Comments",
-                    "id": "get_comments"
+                    "id": "get_comments",
+                    "label": "Get Comments"
                 },
                 {
-                    "label": "Get Customers",
-                    "id": "get_customers"
+                    "id": "get_customers",
+                    "label": "Get Customers"
                 },
                 {
-                    "label": "Add Customer",
-                    "id": "add_customer"
+                    "id": "add_customer",
+                    "label": "Add Customer"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Add Organization",
-                    "id": "add_organization"
+                    "id": "add_organization",
+                    "label": "Add Organization"
                 },
                 {
-                    "label": "Get Queues",
-                    "id": "get_queues"
+                    "id": "get_queues",
+                    "label": "Get Queues"
                 },
                 {
-                    "label": "Get SLA",
-                    "id": "get_sla"
+                    "id": "get_sla",
+                    "label": "Get SLA"
                 },
                 {
-                    "label": "Get Transitions",
-                    "id": "get_transitions"
+                    "id": "get_transitions",
+                    "label": "Get Transitions"
                 },
                 {
-                    "label": "Transition Request",
-                    "id": "transition_request"
+                    "id": "transition_request",
+                    "label": "Transition Request"
                 },
                 {
-                    "label": "Get Participants",
-                    "id": "get_participants"
+                    "id": "get_participants",
+                    "label": "Get Participants"
                 },
                 {
-                    "label": "Add Participants",
-                    "id": "add_participants"
+                    "id": "add_participants",
+                    "label": "Add Participants"
                 },
                 {
-                    "label": "Get Approvals",
-                    "id": "get_approvals"
+                    "id": "get_approvals",
+                    "label": "Get Approvals"
                 },
                 {
-                    "label": "Answer Approval",
-                    "id": "answer_approval"
+                    "id": "answer_approval",
+                    "label": "Answer Approval"
                 }
-            ],
-            "defaultValue": "get_request_types"
+            ]
         },
         {
             "id": "domain",
@@ -304,14 +304,18 @@ Get request types for a service desk in Jira Service Management
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `domain` | string | Yes | Your Jira domain \(e.g., yourcompany.atlassian.net\) |
-| `cloudId` | string | No | Jira Cloud ID for the instance |
 | `serviceDeskId` | string | Yes | Service Desk ID to get request types for |
 | `start` | number | No | Start index for pagination \(default: 0\) |
 | `limit` | number | No | Maximum results to return \(default: 50\) |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `ts` | string | Timestamp of the operation |
+| `requestTypes` | json | Array of request types |
+| `total` | number | Total number of request types |
+| `isLastPage` | boolean | Whether this is the last page |
 
 </div>
 
@@ -332,89 +336,89 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create_request",
             "options": [
                 {
-                    "label": "Get Service Desks",
-                    "id": "get_service_desks"
+                    "id": "get_service_desks",
+                    "label": "Get Service Desks"
                 },
                 {
-                    "label": "Get Request Types",
-                    "id": "get_request_types"
+                    "id": "get_request_types",
+                    "label": "Get Request Types"
                 },
                 {
-                    "label": "Create Request",
-                    "id": "create_request"
+                    "id": "create_request",
+                    "label": "Create Request"
                 },
                 {
-                    "label": "Get Request",
-                    "id": "get_request"
+                    "id": "get_request",
+                    "label": "Get Request"
                 },
                 {
-                    "label": "Get Requests",
-                    "id": "get_requests"
+                    "id": "get_requests",
+                    "label": "Get Requests"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 },
                 {
-                    "label": "Get Comments",
-                    "id": "get_comments"
+                    "id": "get_comments",
+                    "label": "Get Comments"
                 },
                 {
-                    "label": "Get Customers",
-                    "id": "get_customers"
+                    "id": "get_customers",
+                    "label": "Get Customers"
                 },
                 {
-                    "label": "Add Customer",
-                    "id": "add_customer"
+                    "id": "add_customer",
+                    "label": "Add Customer"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Add Organization",
-                    "id": "add_organization"
+                    "id": "add_organization",
+                    "label": "Add Organization"
                 },
                 {
-                    "label": "Get Queues",
-                    "id": "get_queues"
+                    "id": "get_queues",
+                    "label": "Get Queues"
                 },
                 {
-                    "label": "Get SLA",
-                    "id": "get_sla"
+                    "id": "get_sla",
+                    "label": "Get SLA"
                 },
                 {
-                    "label": "Get Transitions",
-                    "id": "get_transitions"
+                    "id": "get_transitions",
+                    "label": "Get Transitions"
                 },
                 {
-                    "label": "Transition Request",
-                    "id": "transition_request"
+                    "id": "transition_request",
+                    "label": "Transition Request"
                 },
                 {
-                    "label": "Get Participants",
-                    "id": "get_participants"
+                    "id": "get_participants",
+                    "label": "Get Participants"
                 },
                 {
-                    "label": "Add Participants",
-                    "id": "add_participants"
+                    "id": "add_participants",
+                    "label": "Add Participants"
                 },
                 {
-                    "label": "Get Approvals",
-                    "id": "get_approvals"
+                    "id": "get_approvals",
+                    "label": "Get Approvals"
                 },
                 {
-                    "label": "Answer Approval",
-                    "id": "answer_approval"
+                    "id": "answer_approval",
+                    "label": "Answer Approval"
                 }
-            ],
-            "defaultValue": "create_request"
+            ]
         },
         {
             "id": "domain",
@@ -477,7 +481,11 @@ Create a new service request in Jira Service Management
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `domain` | string | Yes | Your Jira domain \(e.g., yourcompany.atlassian.net\) |
-| `cloudId` | string | No | Jira Cloud ID for the instance |
+| `serviceDeskId` | string | Yes | Service Desk ID to create the request in |
+| `requestTypeId` | string | Yes | Request Type ID for the new request |
+| `summary` | string | Yes | Summary/title for the service request |
+| `description` | string | No | Description for the service request |
+| `raiseOnBehalfOf` | string | No | Account ID of customer to raise request on behalf of |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
@@ -485,6 +493,11 @@ Create a new service request in Jira Service Management
 | --------- | ---- | ----------- |
 | `ts` | string | Timestamp of the operation |
 | `issueId` | string | Created request issue ID |
+| `issueKey` | string | Created request issue key \(e.g., SD-123\) |
+| `requestTypeId` | string | Request type ID |
+| `serviceDeskId` | string | Service desk ID |
+| `success` | boolean | Whether the request was created successfully |
+| `url` | string | URL to the created request |
 
 </div>
 
@@ -505,89 +518,89 @@ Create a new service request in Jira Service Management
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_request",
             "options": [
                 {
-                    "label": "Get Service Desks",
-                    "id": "get_service_desks"
+                    "id": "get_service_desks",
+                    "label": "Get Service Desks"
                 },
                 {
-                    "label": "Get Request Types",
-                    "id": "get_request_types"
+                    "id": "get_request_types",
+                    "label": "Get Request Types"
                 },
                 {
-                    "label": "Create Request",
-                    "id": "create_request"
+                    "id": "create_request",
+                    "label": "Create Request"
                 },
                 {
-                    "label": "Get Request",
-                    "id": "get_request"
+                    "id": "get_request",
+                    "label": "Get Request"
                 },
                 {
-                    "label": "Get Requests",
-                    "id": "get_requests"
+                    "id": "get_requests",
+                    "label": "Get Requests"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 },
                 {
-                    "label": "Get Comments",
-                    "id": "get_comments"
+                    "id": "get_comments",
+                    "label": "Get Comments"
                 },
                 {
-                    "label": "Get Customers",
-                    "id": "get_customers"
+                    "id": "get_customers",
+                    "label": "Get Customers"
                 },
                 {
-                    "label": "Add Customer",
-                    "id": "add_customer"
+                    "id": "add_customer",
+                    "label": "Add Customer"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Add Organization",
-                    "id": "add_organization"
+                    "id": "add_organization",
+                    "label": "Add Organization"
                 },
                 {
-                    "label": "Get Queues",
-                    "id": "get_queues"
+                    "id": "get_queues",
+                    "label": "Get Queues"
                 },
                 {
-                    "label": "Get SLA",
-                    "id": "get_sla"
+                    "id": "get_sla",
+                    "label": "Get SLA"
                 },
                 {
-                    "label": "Get Transitions",
-                    "id": "get_transitions"
+                    "id": "get_transitions",
+                    "label": "Get Transitions"
                 },
                 {
-                    "label": "Transition Request",
-                    "id": "transition_request"
+                    "id": "transition_request",
+                    "label": "Transition Request"
                 },
                 {
-                    "label": "Get Participants",
-                    "id": "get_participants"
+                    "id": "get_participants",
+                    "label": "Get Participants"
                 },
                 {
-                    "label": "Add Participants",
-                    "id": "add_participants"
+                    "id": "add_participants",
+                    "label": "Add Participants"
                 },
                 {
-                    "label": "Get Approvals",
-                    "id": "get_approvals"
+                    "id": "get_approvals",
+                    "label": "Get Approvals"
                 },
                 {
-                    "label": "Answer Approval",
-                    "id": "answer_approval"
+                    "id": "answer_approval",
+                    "label": "Answer Approval"
                 }
-            ],
-            "defaultValue": "get_request"
+            ]
         },
         {
             "id": "domain",
@@ -625,12 +638,14 @@ Get a single service request from Jira Service Management
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `domain` | string | Yes | Your Jira domain \(e.g., yourcompany.atlassian.net\) |
-| `cloudId` | string | No | Jira Cloud ID for the instance |
 | `issueIdOrKey` | string | Yes | Issue ID or key \(e.g., SD-123\) |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `ts` | string | Timestamp of the operation |
+| `request` | json | The service request object |
 
 </div>
 
@@ -651,89 +666,89 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_requests",
             "options": [
                 {
-                    "label": "Get Service Desks",
-                    "id": "get_service_desks"
+                    "id": "get_service_desks",
+                    "label": "Get Service Desks"
                 },
                 {
-                    "label": "Get Request Types",
-                    "id": "get_request_types"
+                    "id": "get_request_types",
+                    "label": "Get Request Types"
                 },
                 {
-                    "label": "Create Request",
-                    "id": "create_request"
+                    "id": "create_request",
+                    "label": "Create Request"
                 },
                 {
-                    "label": "Get Request",
-                    "id": "get_request"
+                    "id": "get_request",
+                    "label": "Get Request"
                 },
                 {
-                    "label": "Get Requests",
-                    "id": "get_requests"
+                    "id": "get_requests",
+                    "label": "Get Requests"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 },
                 {
-                    "label": "Get Comments",
-                    "id": "get_comments"
+                    "id": "get_comments",
+                    "label": "Get Comments"
                 },
                 {
-                    "label": "Get Customers",
-                    "id": "get_customers"
+                    "id": "get_customers",
+                    "label": "Get Customers"
                 },
                 {
-                    "label": "Add Customer",
-                    "id": "add_customer"
+                    "id": "add_customer",
+                    "label": "Add Customer"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Add Organization",
-                    "id": "add_organization"
+                    "id": "add_organization",
+                    "label": "Add Organization"
                 },
                 {
-                    "label": "Get Queues",
-                    "id": "get_queues"
+                    "id": "get_queues",
+                    "label": "Get Queues"
                 },
                 {
-                    "label": "Get SLA",
-                    "id": "get_sla"
+                    "id": "get_sla",
+                    "label": "Get SLA"
                 },
                 {
-                    "label": "Get Transitions",
-                    "id": "get_transitions"
+                    "id": "get_transitions",
+                    "label": "Get Transitions"
                 },
                 {
-                    "label": "Transition Request",
-                    "id": "transition_request"
+                    "id": "transition_request",
+                    "label": "Transition Request"
                 },
                 {
-                    "label": "Get Participants",
-                    "id": "get_participants"
+                    "id": "get_participants",
+                    "label": "Get Participants"
                 },
                 {
-                    "label": "Add Participants",
-                    "id": "add_participants"
+                    "id": "add_participants",
+                    "label": "Add Participants"
                 },
                 {
-                    "label": "Get Approvals",
-                    "id": "get_approvals"
+                    "id": "get_approvals",
+                    "label": "Get Approvals"
                 },
                 {
-                    "label": "Answer Approval",
-                    "id": "answer_approval"
+                    "id": "answer_approval",
+                    "label": "Answer Approval"
                 }
-            ],
-            "defaultValue": "get_requests"
+            ]
         },
         {
             "id": "domain",
@@ -754,22 +769,23 @@ Refer to the block outputs for this operation.
             "id": "requestOwnership",
             "type": "dropdown",
             "title": "Request Ownership",
+            "defaultValue": "ALL_REQUESTS",
             "options": [
                 {
-                    "label": "All Requests",
-                    "id": "ALL_REQUESTS"
+                    "id": "ALL_REQUESTS",
+                    "label": "All Requests"
                 },
                 {
-                    "label": "My Requests",
-                    "id": "OWNED_REQUESTS"
+                    "id": "OWNED_REQUESTS",
+                    "label": "My Requests"
                 },
                 {
-                    "label": "Participated",
-                    "id": "PARTICIPATED_REQUESTS"
+                    "id": "PARTICIPATED_REQUESTS",
+                    "label": "Participated"
                 },
                 {
-                    "label": "Organization",
-                    "id": "ORGANIZATION"
+                    "id": "ORGANIZATION",
+                    "label": "Organization"
                 }
             ]
         },
@@ -777,18 +793,19 @@ Refer to the block outputs for this operation.
             "id": "requestStatus",
             "type": "dropdown",
             "title": "Request Status",
+            "defaultValue": "ALL",
             "options": [
                 {
-                    "label": "All",
-                    "id": "ALL"
+                    "id": "ALL",
+                    "label": "All"
                 },
                 {
-                    "label": "Open",
-                    "id": "OPEN"
+                    "id": "OPEN",
+                    "label": "Open"
                 },
                 {
-                    "label": "Closed",
-                    "id": "CLOSED"
+                    "id": "CLOSED",
+                    "label": "Closed"
                 }
             ]
         },
@@ -818,11 +835,21 @@ Get multiple service requests from Jira Service Management
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `domain` | string | Yes | Your Jira domain \(e.g., yourcompany.atlassian.net\) |
-| `cloudId` | string | No | Jira Cloud ID for the instance |
+| `serviceDeskId` | string | No | Filter by service desk ID |
+| `requestOwnership` | string | No | Filter by ownership: OWNED_REQUESTS, PARTICIPATED_REQUESTS, ORGANIZATION, ALL_REQUESTS |
+| `requestStatus` | string | No | Filter by status: OPEN, CLOSED, ALL |
+| `searchTerm` | string | No | Search term to filter requests |
+| `start` | number | No | Start index for pagination \(default: 0\) |
+| `limit` | number | No | Maximum results to return \(default: 50\) |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `ts` | string | Timestamp of the operation |
+| `requests` | json | Array of service requests |
+| `total` | number | Total number of requests |
+| `isLastPage` | boolean | Whether this is the last page |
 
 </div>
 
@@ -843,89 +870,89 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "add_comment",
             "options": [
                 {
-                    "label": "Get Service Desks",
-                    "id": "get_service_desks"
+                    "id": "get_service_desks",
+                    "label": "Get Service Desks"
                 },
                 {
-                    "label": "Get Request Types",
-                    "id": "get_request_types"
+                    "id": "get_request_types",
+                    "label": "Get Request Types"
                 },
                 {
-                    "label": "Create Request",
-                    "id": "create_request"
+                    "id": "create_request",
+                    "label": "Create Request"
                 },
                 {
-                    "label": "Get Request",
-                    "id": "get_request"
+                    "id": "get_request",
+                    "label": "Get Request"
                 },
                 {
-                    "label": "Get Requests",
-                    "id": "get_requests"
+                    "id": "get_requests",
+                    "label": "Get Requests"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 },
                 {
-                    "label": "Get Comments",
-                    "id": "get_comments"
+                    "id": "get_comments",
+                    "label": "Get Comments"
                 },
                 {
-                    "label": "Get Customers",
-                    "id": "get_customers"
+                    "id": "get_customers",
+                    "label": "Get Customers"
                 },
                 {
-                    "label": "Add Customer",
-                    "id": "add_customer"
+                    "id": "add_customer",
+                    "label": "Add Customer"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Add Organization",
-                    "id": "add_organization"
+                    "id": "add_organization",
+                    "label": "Add Organization"
                 },
                 {
-                    "label": "Get Queues",
-                    "id": "get_queues"
+                    "id": "get_queues",
+                    "label": "Get Queues"
                 },
                 {
-                    "label": "Get SLA",
-                    "id": "get_sla"
+                    "id": "get_sla",
+                    "label": "Get SLA"
                 },
                 {
-                    "label": "Get Transitions",
-                    "id": "get_transitions"
+                    "id": "get_transitions",
+                    "label": "Get Transitions"
                 },
                 {
-                    "label": "Transition Request",
-                    "id": "transition_request"
+                    "id": "transition_request",
+                    "label": "Transition Request"
                 },
                 {
-                    "label": "Get Participants",
-                    "id": "get_participants"
+                    "id": "get_participants",
+                    "label": "Get Participants"
                 },
                 {
-                    "label": "Add Participants",
-                    "id": "add_participants"
+                    "id": "add_participants",
+                    "label": "Add Participants"
                 },
                 {
-                    "label": "Get Approvals",
-                    "id": "get_approvals"
+                    "id": "get_approvals",
+                    "label": "Get Approvals"
                 },
                 {
-                    "label": "Answer Approval",
-                    "id": "answer_approval"
+                    "id": "answer_approval",
+                    "label": "Answer Approval"
                 }
-            ],
-            "defaultValue": "add_comment"
+            ]
         },
         {
             "id": "domain",
@@ -960,14 +987,15 @@ Refer to the block outputs for this operation.
             "id": "isPublic",
             "type": "dropdown",
             "title": "Comment Visibility",
+            "defaultValue": "true",
             "options": [
                 {
-                    "label": "Public (visible to customer)",
-                    "id": "true"
+                    "id": "true",
+                    "label": "Public (visible to customer)"
                 },
                 {
-                    "label": "Internal (agents only)",
-                    "id": "false"
+                    "id": "false",
+                    "label": "Internal (agents only)"
                 }
             ]
         }
@@ -985,7 +1013,6 @@ Add a comment (public or internal) to a service request in Jira Service Manageme
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `domain` | string | Yes | Your Jira domain \(e.g., yourcompany.atlassian.net\) |
-| `cloudId` | string | No | Jira Cloud ID for the instance |
 | `issueIdOrKey` | string | Yes | Issue ID or key \(e.g., SD-123\) |
 | `body` | string | Yes | Comment body text |
 | `isPublic` | boolean | Yes | Whether the comment is public \(visible to customer\) or internal |
@@ -999,6 +1026,7 @@ Add a comment (public or internal) to a service request in Jira Service Manageme
 | `commentId` | string | Created comment ID |
 | `body` | string | Comment body text |
 | `isPublic` | boolean | Whether the comment is public |
+| `success` | boolean | Whether the comment was added successfully |
 
 </div>
 
@@ -1019,89 +1047,89 @@ Add a comment (public or internal) to a service request in Jira Service Manageme
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_comments",
             "options": [
                 {
-                    "label": "Get Service Desks",
-                    "id": "get_service_desks"
+                    "id": "get_service_desks",
+                    "label": "Get Service Desks"
                 },
                 {
-                    "label": "Get Request Types",
-                    "id": "get_request_types"
+                    "id": "get_request_types",
+                    "label": "Get Request Types"
                 },
                 {
-                    "label": "Create Request",
-                    "id": "create_request"
+                    "id": "create_request",
+                    "label": "Create Request"
                 },
                 {
-                    "label": "Get Request",
-                    "id": "get_request"
+                    "id": "get_request",
+                    "label": "Get Request"
                 },
                 {
-                    "label": "Get Requests",
-                    "id": "get_requests"
+                    "id": "get_requests",
+                    "label": "Get Requests"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 },
                 {
-                    "label": "Get Comments",
-                    "id": "get_comments"
+                    "id": "get_comments",
+                    "label": "Get Comments"
                 },
                 {
-                    "label": "Get Customers",
-                    "id": "get_customers"
+                    "id": "get_customers",
+                    "label": "Get Customers"
                 },
                 {
-                    "label": "Add Customer",
-                    "id": "add_customer"
+                    "id": "add_customer",
+                    "label": "Add Customer"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Add Organization",
-                    "id": "add_organization"
+                    "id": "add_organization",
+                    "label": "Add Organization"
                 },
                 {
-                    "label": "Get Queues",
-                    "id": "get_queues"
+                    "id": "get_queues",
+                    "label": "Get Queues"
                 },
                 {
-                    "label": "Get SLA",
-                    "id": "get_sla"
+                    "id": "get_sla",
+                    "label": "Get SLA"
                 },
                 {
-                    "label": "Get Transitions",
-                    "id": "get_transitions"
+                    "id": "get_transitions",
+                    "label": "Get Transitions"
                 },
                 {
-                    "label": "Transition Request",
-                    "id": "transition_request"
+                    "id": "transition_request",
+                    "label": "Transition Request"
                 },
                 {
-                    "label": "Get Participants",
-                    "id": "get_participants"
+                    "id": "get_participants",
+                    "label": "Get Participants"
                 },
                 {
-                    "label": "Add Participants",
-                    "id": "add_participants"
+                    "id": "add_participants",
+                    "label": "Add Participants"
                 },
                 {
-                    "label": "Get Approvals",
-                    "id": "get_approvals"
+                    "id": "get_approvals",
+                    "label": "Get Approvals"
                 },
                 {
-                    "label": "Answer Approval",
-                    "id": "answer_approval"
+                    "id": "answer_approval",
+                    "label": "Answer Approval"
                 }
-            ],
-            "defaultValue": "get_comments"
+            ]
         },
         {
             "id": "domain",
@@ -1145,7 +1173,6 @@ Get comments for a service request in Jira Service Management
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `domain` | string | Yes | Your Jira domain \(e.g., yourcompany.atlassian.net\) |
-| `cloudId` | string | No | Jira Cloud ID for the instance |
 | `issueIdOrKey` | string | Yes | Issue ID or key \(e.g., SD-123\) |
 | `isPublic` | boolean | No | Filter to only public comments |
 | `internal` | boolean | No | Filter to only internal comments |
@@ -1160,6 +1187,7 @@ Get comments for a service request in Jira Service Management
 | `issueIdOrKey` | string | Issue ID or key |
 | `comments` | json | Array of comments |
 | `total` | number | Total number of comments |
+| `isLastPage` | boolean | Whether this is the last page |
 
 </div>
 
@@ -1180,89 +1208,89 @@ Get comments for a service request in Jira Service Management
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_customers",
             "options": [
                 {
-                    "label": "Get Service Desks",
-                    "id": "get_service_desks"
+                    "id": "get_service_desks",
+                    "label": "Get Service Desks"
                 },
                 {
-                    "label": "Get Request Types",
-                    "id": "get_request_types"
+                    "id": "get_request_types",
+                    "label": "Get Request Types"
                 },
                 {
-                    "label": "Create Request",
-                    "id": "create_request"
+                    "id": "create_request",
+                    "label": "Create Request"
                 },
                 {
-                    "label": "Get Request",
-                    "id": "get_request"
+                    "id": "get_request",
+                    "label": "Get Request"
                 },
                 {
-                    "label": "Get Requests",
-                    "id": "get_requests"
+                    "id": "get_requests",
+                    "label": "Get Requests"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 },
                 {
-                    "label": "Get Comments",
-                    "id": "get_comments"
+                    "id": "get_comments",
+                    "label": "Get Comments"
                 },
                 {
-                    "label": "Get Customers",
-                    "id": "get_customers"
+                    "id": "get_customers",
+                    "label": "Get Customers"
                 },
                 {
-                    "label": "Add Customer",
-                    "id": "add_customer"
+                    "id": "add_customer",
+                    "label": "Add Customer"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Add Organization",
-                    "id": "add_organization"
+                    "id": "add_organization",
+                    "label": "Add Organization"
                 },
                 {
-                    "label": "Get Queues",
-                    "id": "get_queues"
+                    "id": "get_queues",
+                    "label": "Get Queues"
                 },
                 {
-                    "label": "Get SLA",
-                    "id": "get_sla"
+                    "id": "get_sla",
+                    "label": "Get SLA"
                 },
                 {
-                    "label": "Get Transitions",
-                    "id": "get_transitions"
+                    "id": "get_transitions",
+                    "label": "Get Transitions"
                 },
                 {
-                    "label": "Transition Request",
-                    "id": "transition_request"
+                    "id": "transition_request",
+                    "label": "Transition Request"
                 },
                 {
-                    "label": "Get Participants",
-                    "id": "get_participants"
+                    "id": "get_participants",
+                    "label": "Get Participants"
                 },
                 {
-                    "label": "Add Participants",
-                    "id": "add_participants"
+                    "id": "add_participants",
+                    "label": "Add Participants"
                 },
                 {
-                    "label": "Get Approvals",
-                    "id": "get_approvals"
+                    "id": "get_approvals",
+                    "label": "Get Approvals"
                 },
                 {
-                    "label": "Answer Approval",
-                    "id": "answer_approval"
+                    "id": "answer_approval",
+                    "label": "Answer Approval"
                 }
-            ],
-            "defaultValue": "get_customers"
+            ]
         },
         {
             "id": "domain",
@@ -1311,7 +1339,6 @@ Get customers for a service desk in Jira Service Management
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `domain` | string | Yes | Your Jira domain \(e.g., yourcompany.atlassian.net\) |
-| `cloudId` | string | No | Jira Cloud ID for the instance |
 | `serviceDeskId` | string | Yes | Service Desk ID to get customers for |
 | `query` | string | No | Search query to filter customers |
 | `start` | number | No | Start index for pagination \(default: 0\) |
@@ -1324,6 +1351,7 @@ Get customers for a service desk in Jira Service Management
 | `ts` | string | Timestamp of the operation |
 | `customers` | json | Array of customers |
 | `total` | number | Total number of customers |
+| `isLastPage` | boolean | Whether this is the last page |
 
 </div>
 
@@ -1344,89 +1372,89 @@ Get customers for a service desk in Jira Service Management
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "add_customer",
             "options": [
                 {
-                    "label": "Get Service Desks",
-                    "id": "get_service_desks"
+                    "id": "get_service_desks",
+                    "label": "Get Service Desks"
                 },
                 {
-                    "label": "Get Request Types",
-                    "id": "get_request_types"
+                    "id": "get_request_types",
+                    "label": "Get Request Types"
                 },
                 {
-                    "label": "Create Request",
-                    "id": "create_request"
+                    "id": "create_request",
+                    "label": "Create Request"
                 },
                 {
-                    "label": "Get Request",
-                    "id": "get_request"
+                    "id": "get_request",
+                    "label": "Get Request"
                 },
                 {
-                    "label": "Get Requests",
-                    "id": "get_requests"
+                    "id": "get_requests",
+                    "label": "Get Requests"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 },
                 {
-                    "label": "Get Comments",
-                    "id": "get_comments"
+                    "id": "get_comments",
+                    "label": "Get Comments"
                 },
                 {
-                    "label": "Get Customers",
-                    "id": "get_customers"
+                    "id": "get_customers",
+                    "label": "Get Customers"
                 },
                 {
-                    "label": "Add Customer",
-                    "id": "add_customer"
+                    "id": "add_customer",
+                    "label": "Add Customer"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Add Organization",
-                    "id": "add_organization"
+                    "id": "add_organization",
+                    "label": "Add Organization"
                 },
                 {
-                    "label": "Get Queues",
-                    "id": "get_queues"
+                    "id": "get_queues",
+                    "label": "Get Queues"
                 },
                 {
-                    "label": "Get SLA",
-                    "id": "get_sla"
+                    "id": "get_sla",
+                    "label": "Get SLA"
                 },
                 {
-                    "label": "Get Transitions",
-                    "id": "get_transitions"
+                    "id": "get_transitions",
+                    "label": "Get Transitions"
                 },
                 {
-                    "label": "Transition Request",
-                    "id": "transition_request"
+                    "id": "transition_request",
+                    "label": "Transition Request"
                 },
                 {
-                    "label": "Get Participants",
-                    "id": "get_participants"
+                    "id": "get_participants",
+                    "label": "Get Participants"
                 },
                 {
-                    "label": "Add Participants",
-                    "id": "add_participants"
+                    "id": "add_participants",
+                    "label": "Add Participants"
                 },
                 {
-                    "label": "Get Approvals",
-                    "id": "get_approvals"
+                    "id": "get_approvals",
+                    "label": "Get Approvals"
                 },
                 {
-                    "label": "Answer Approval",
-                    "id": "answer_approval"
+                    "id": "answer_approval",
+                    "label": "Answer Approval"
                 }
-            ],
-            "defaultValue": "add_customer"
+            ]
         },
         {
             "id": "domain",
@@ -1470,7 +1498,6 @@ Add customers to a service desk in Jira Service Management
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `domain` | string | Yes | Your Jira domain \(e.g., yourcompany.atlassian.net\) |
-| `cloudId` | string | No | Jira Cloud ID for the instance |
 | `serviceDeskId` | string | Yes | Service Desk ID to add customers to |
 | `emails` | string | Yes | Comma-separated email addresses to add as customers |
 
@@ -1480,6 +1507,7 @@ Add customers to a service desk in Jira Service Management
 | --------- | ---- | ----------- |
 | `ts` | string | Timestamp of the operation |
 | `serviceDeskId` | string | Service desk ID |
+| `success` | boolean | Whether customers were added successfully |
 
 </div>
 
@@ -1500,89 +1528,89 @@ Add customers to a service desk in Jira Service Management
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_organizations",
             "options": [
                 {
-                    "label": "Get Service Desks",
-                    "id": "get_service_desks"
+                    "id": "get_service_desks",
+                    "label": "Get Service Desks"
                 },
                 {
-                    "label": "Get Request Types",
-                    "id": "get_request_types"
+                    "id": "get_request_types",
+                    "label": "Get Request Types"
                 },
                 {
-                    "label": "Create Request",
-                    "id": "create_request"
+                    "id": "create_request",
+                    "label": "Create Request"
                 },
                 {
-                    "label": "Get Request",
-                    "id": "get_request"
+                    "id": "get_request",
+                    "label": "Get Request"
                 },
                 {
-                    "label": "Get Requests",
-                    "id": "get_requests"
+                    "id": "get_requests",
+                    "label": "Get Requests"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 },
                 {
-                    "label": "Get Comments",
-                    "id": "get_comments"
+                    "id": "get_comments",
+                    "label": "Get Comments"
                 },
                 {
-                    "label": "Get Customers",
-                    "id": "get_customers"
+                    "id": "get_customers",
+                    "label": "Get Customers"
                 },
                 {
-                    "label": "Add Customer",
-                    "id": "add_customer"
+                    "id": "add_customer",
+                    "label": "Add Customer"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Add Organization",
-                    "id": "add_organization"
+                    "id": "add_organization",
+                    "label": "Add Organization"
                 },
                 {
-                    "label": "Get Queues",
-                    "id": "get_queues"
+                    "id": "get_queues",
+                    "label": "Get Queues"
                 },
                 {
-                    "label": "Get SLA",
-                    "id": "get_sla"
+                    "id": "get_sla",
+                    "label": "Get SLA"
                 },
                 {
-                    "label": "Get Transitions",
-                    "id": "get_transitions"
+                    "id": "get_transitions",
+                    "label": "Get Transitions"
                 },
                 {
-                    "label": "Transition Request",
-                    "id": "transition_request"
+                    "id": "transition_request",
+                    "label": "Transition Request"
                 },
                 {
-                    "label": "Get Participants",
-                    "id": "get_participants"
+                    "id": "get_participants",
+                    "label": "Get Participants"
                 },
                 {
-                    "label": "Add Participants",
-                    "id": "add_participants"
+                    "id": "add_participants",
+                    "label": "Add Participants"
                 },
                 {
-                    "label": "Get Approvals",
-                    "id": "get_approvals"
+                    "id": "get_approvals",
+                    "label": "Get Approvals"
                 },
                 {
-                    "label": "Answer Approval",
-                    "id": "answer_approval"
+                    "id": "answer_approval",
+                    "label": "Answer Approval"
                 }
-            ],
-            "defaultValue": "get_organizations"
+            ]
         },
         {
             "id": "domain",
@@ -1625,7 +1653,6 @@ Get organizations for a service desk in Jira Service Management
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `domain` | string | Yes | Your Jira domain \(e.g., yourcompany.atlassian.net\) |
-| `cloudId` | string | No | Jira Cloud ID for the instance |
 | `serviceDeskId` | string | Yes | Service Desk ID to get organizations for |
 | `start` | number | No | Start index for pagination \(default: 0\) |
 | `limit` | number | No | Maximum results to return \(default: 50\) |
@@ -1637,6 +1664,7 @@ Get organizations for a service desk in Jira Service Management
 | `ts` | string | Timestamp of the operation |
 | `organizations` | json | Array of organizations |
 | `total` | number | Total number of organizations |
+| `isLastPage` | boolean | Whether this is the last page |
 
 </div>
 
@@ -1657,89 +1685,89 @@ Get organizations for a service desk in Jira Service Management
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create_organization",
             "options": [
                 {
-                    "label": "Get Service Desks",
-                    "id": "get_service_desks"
+                    "id": "get_service_desks",
+                    "label": "Get Service Desks"
                 },
                 {
-                    "label": "Get Request Types",
-                    "id": "get_request_types"
+                    "id": "get_request_types",
+                    "label": "Get Request Types"
                 },
                 {
-                    "label": "Create Request",
-                    "id": "create_request"
+                    "id": "create_request",
+                    "label": "Create Request"
                 },
                 {
-                    "label": "Get Request",
-                    "id": "get_request"
+                    "id": "get_request",
+                    "label": "Get Request"
                 },
                 {
-                    "label": "Get Requests",
-                    "id": "get_requests"
+                    "id": "get_requests",
+                    "label": "Get Requests"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 },
                 {
-                    "label": "Get Comments",
-                    "id": "get_comments"
+                    "id": "get_comments",
+                    "label": "Get Comments"
                 },
                 {
-                    "label": "Get Customers",
-                    "id": "get_customers"
+                    "id": "get_customers",
+                    "label": "Get Customers"
                 },
                 {
-                    "label": "Add Customer",
-                    "id": "add_customer"
+                    "id": "add_customer",
+                    "label": "Add Customer"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Add Organization",
-                    "id": "add_organization"
+                    "id": "add_organization",
+                    "label": "Add Organization"
                 },
                 {
-                    "label": "Get Queues",
-                    "id": "get_queues"
+                    "id": "get_queues",
+                    "label": "Get Queues"
                 },
                 {
-                    "label": "Get SLA",
-                    "id": "get_sla"
+                    "id": "get_sla",
+                    "label": "Get SLA"
                 },
                 {
-                    "label": "Get Transitions",
-                    "id": "get_transitions"
+                    "id": "get_transitions",
+                    "label": "Get Transitions"
                 },
                 {
-                    "label": "Transition Request",
-                    "id": "transition_request"
+                    "id": "transition_request",
+                    "label": "Transition Request"
                 },
                 {
-                    "label": "Get Participants",
-                    "id": "get_participants"
+                    "id": "get_participants",
+                    "label": "Get Participants"
                 },
                 {
-                    "label": "Add Participants",
-                    "id": "add_participants"
+                    "id": "add_participants",
+                    "label": "Add Participants"
                 },
                 {
-                    "label": "Get Approvals",
-                    "id": "get_approvals"
+                    "id": "get_approvals",
+                    "label": "Get Approvals"
                 },
                 {
-                    "label": "Answer Approval",
-                    "id": "answer_approval"
+                    "id": "answer_approval",
+                    "label": "Answer Approval"
                 }
-            ],
-            "defaultValue": "create_organization"
+            ]
         },
         {
             "id": "domain",
@@ -1777,7 +1805,6 @@ Create a new organization in Jira Service Management
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `domain` | string | Yes | Your Jira domain \(e.g., yourcompany.atlassian.net\) |
-| `cloudId` | string | No | Jira Cloud ID for the instance |
 | `name` | string | Yes | Name of the organization to create |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
@@ -1787,6 +1814,7 @@ Create a new organization in Jira Service Management
 | `ts` | string | Timestamp of the operation |
 | `organizationId` | string | ID of the created organization |
 | `name` | string | Name of the created organization |
+| `success` | boolean | Whether the operation succeeded |
 
 </div>
 
@@ -1807,89 +1835,89 @@ Create a new organization in Jira Service Management
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "add_organization",
             "options": [
                 {
-                    "label": "Get Service Desks",
-                    "id": "get_service_desks"
+                    "id": "get_service_desks",
+                    "label": "Get Service Desks"
                 },
                 {
-                    "label": "Get Request Types",
-                    "id": "get_request_types"
+                    "id": "get_request_types",
+                    "label": "Get Request Types"
                 },
                 {
-                    "label": "Create Request",
-                    "id": "create_request"
+                    "id": "create_request",
+                    "label": "Create Request"
                 },
                 {
-                    "label": "Get Request",
-                    "id": "get_request"
+                    "id": "get_request",
+                    "label": "Get Request"
                 },
                 {
-                    "label": "Get Requests",
-                    "id": "get_requests"
+                    "id": "get_requests",
+                    "label": "Get Requests"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 },
                 {
-                    "label": "Get Comments",
-                    "id": "get_comments"
+                    "id": "get_comments",
+                    "label": "Get Comments"
                 },
                 {
-                    "label": "Get Customers",
-                    "id": "get_customers"
+                    "id": "get_customers",
+                    "label": "Get Customers"
                 },
                 {
-                    "label": "Add Customer",
-                    "id": "add_customer"
+                    "id": "add_customer",
+                    "label": "Add Customer"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Add Organization",
-                    "id": "add_organization"
+                    "id": "add_organization",
+                    "label": "Add Organization"
                 },
                 {
-                    "label": "Get Queues",
-                    "id": "get_queues"
+                    "id": "get_queues",
+                    "label": "Get Queues"
                 },
                 {
-                    "label": "Get SLA",
-                    "id": "get_sla"
+                    "id": "get_sla",
+                    "label": "Get SLA"
                 },
                 {
-                    "label": "Get Transitions",
-                    "id": "get_transitions"
+                    "id": "get_transitions",
+                    "label": "Get Transitions"
                 },
                 {
-                    "label": "Transition Request",
-                    "id": "transition_request"
+                    "id": "transition_request",
+                    "label": "Transition Request"
                 },
                 {
-                    "label": "Get Participants",
-                    "id": "get_participants"
+                    "id": "get_participants",
+                    "label": "Get Participants"
                 },
                 {
-                    "label": "Add Participants",
-                    "id": "add_participants"
+                    "id": "add_participants",
+                    "label": "Add Participants"
                 },
                 {
-                    "label": "Get Approvals",
-                    "id": "get_approvals"
+                    "id": "get_approvals",
+                    "label": "Get Approvals"
                 },
                 {
-                    "label": "Answer Approval",
-                    "id": "answer_approval"
+                    "id": "answer_approval",
+                    "label": "Answer Approval"
                 }
-            ],
-            "defaultValue": "add_organization"
+            ]
         },
         {
             "id": "domain",
@@ -1933,7 +1961,6 @@ Add an organization to a service desk in Jira Service Management
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `domain` | string | Yes | Your Jira domain \(e.g., yourcompany.atlassian.net\) |
-| `cloudId` | string | No | Jira Cloud ID for the instance |
 | `serviceDeskId` | string | Yes | Service Desk ID to add the organization to |
 | `organizationId` | string | Yes | Organization ID to add to the service desk |
 
@@ -1944,6 +1971,7 @@ Add an organization to a service desk in Jira Service Management
 | `ts` | string | Timestamp of the operation |
 | `serviceDeskId` | string | Service Desk ID |
 | `organizationId` | string | Organization ID added |
+| `success` | boolean | Whether the operation succeeded |
 
 </div>
 
@@ -1964,89 +1992,89 @@ Add an organization to a service desk in Jira Service Management
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_queues",
             "options": [
                 {
-                    "label": "Get Service Desks",
-                    "id": "get_service_desks"
+                    "id": "get_service_desks",
+                    "label": "Get Service Desks"
                 },
                 {
-                    "label": "Get Request Types",
-                    "id": "get_request_types"
+                    "id": "get_request_types",
+                    "label": "Get Request Types"
                 },
                 {
-                    "label": "Create Request",
-                    "id": "create_request"
+                    "id": "create_request",
+                    "label": "Create Request"
                 },
                 {
-                    "label": "Get Request",
-                    "id": "get_request"
+                    "id": "get_request",
+                    "label": "Get Request"
                 },
                 {
-                    "label": "Get Requests",
-                    "id": "get_requests"
+                    "id": "get_requests",
+                    "label": "Get Requests"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 },
                 {
-                    "label": "Get Comments",
-                    "id": "get_comments"
+                    "id": "get_comments",
+                    "label": "Get Comments"
                 },
                 {
-                    "label": "Get Customers",
-                    "id": "get_customers"
+                    "id": "get_customers",
+                    "label": "Get Customers"
                 },
                 {
-                    "label": "Add Customer",
-                    "id": "add_customer"
+                    "id": "add_customer",
+                    "label": "Add Customer"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Add Organization",
-                    "id": "add_organization"
+                    "id": "add_organization",
+                    "label": "Add Organization"
                 },
                 {
-                    "label": "Get Queues",
-                    "id": "get_queues"
+                    "id": "get_queues",
+                    "label": "Get Queues"
                 },
                 {
-                    "label": "Get SLA",
-                    "id": "get_sla"
+                    "id": "get_sla",
+                    "label": "Get SLA"
                 },
                 {
-                    "label": "Get Transitions",
-                    "id": "get_transitions"
+                    "id": "get_transitions",
+                    "label": "Get Transitions"
                 },
                 {
-                    "label": "Transition Request",
-                    "id": "transition_request"
+                    "id": "transition_request",
+                    "label": "Transition Request"
                 },
                 {
-                    "label": "Get Participants",
-                    "id": "get_participants"
+                    "id": "get_participants",
+                    "label": "Get Participants"
                 },
                 {
-                    "label": "Add Participants",
-                    "id": "add_participants"
+                    "id": "add_participants",
+                    "label": "Add Participants"
                 },
                 {
-                    "label": "Get Approvals",
-                    "id": "get_approvals"
+                    "id": "get_approvals",
+                    "label": "Get Approvals"
                 },
                 {
-                    "label": "Answer Approval",
-                    "id": "answer_approval"
+                    "id": "answer_approval",
+                    "label": "Answer Approval"
                 }
-            ],
-            "defaultValue": "get_queues"
+            ]
         },
         {
             "id": "domain",
@@ -2073,14 +2101,15 @@ Add an organization to a service desk in Jira Service Management
             "id": "includeCount",
             "type": "dropdown",
             "title": "Include Issue Count",
+            "defaultValue": "false",
             "options": [
                 {
-                    "label": "No",
-                    "id": "false"
+                    "id": "false",
+                    "label": "No"
                 },
                 {
-                    "label": "Yes",
-                    "id": "true"
+                    "id": "true",
+                    "label": "Yes"
                 }
             ]
         },
@@ -2104,7 +2133,6 @@ Get queues for a service desk in Jira Service Management
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `domain` | string | Yes | Your Jira domain \(e.g., yourcompany.atlassian.net\) |
-| `cloudId` | string | No | Jira Cloud ID for the instance |
 | `serviceDeskId` | string | Yes | Service Desk ID to get queues for |
 | `includeCount` | boolean | No | Include issue count for each queue |
 | `start` | number | No | Start index for pagination \(default: 0\) |
@@ -2117,6 +2145,7 @@ Get queues for a service desk in Jira Service Management
 | `ts` | string | Timestamp of the operation |
 | `queues` | json | Array of queues |
 | `total` | number | Total number of queues |
+| `isLastPage` | boolean | Whether this is the last page |
 
 </div>
 
@@ -2137,89 +2166,89 @@ Get queues for a service desk in Jira Service Management
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_sla",
             "options": [
                 {
-                    "label": "Get Service Desks",
-                    "id": "get_service_desks"
+                    "id": "get_service_desks",
+                    "label": "Get Service Desks"
                 },
                 {
-                    "label": "Get Request Types",
-                    "id": "get_request_types"
+                    "id": "get_request_types",
+                    "label": "Get Request Types"
                 },
                 {
-                    "label": "Create Request",
-                    "id": "create_request"
+                    "id": "create_request",
+                    "label": "Create Request"
                 },
                 {
-                    "label": "Get Request",
-                    "id": "get_request"
+                    "id": "get_request",
+                    "label": "Get Request"
                 },
                 {
-                    "label": "Get Requests",
-                    "id": "get_requests"
+                    "id": "get_requests",
+                    "label": "Get Requests"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 },
                 {
-                    "label": "Get Comments",
-                    "id": "get_comments"
+                    "id": "get_comments",
+                    "label": "Get Comments"
                 },
                 {
-                    "label": "Get Customers",
-                    "id": "get_customers"
+                    "id": "get_customers",
+                    "label": "Get Customers"
                 },
                 {
-                    "label": "Add Customer",
-                    "id": "add_customer"
+                    "id": "add_customer",
+                    "label": "Add Customer"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Add Organization",
-                    "id": "add_organization"
+                    "id": "add_organization",
+                    "label": "Add Organization"
                 },
                 {
-                    "label": "Get Queues",
-                    "id": "get_queues"
+                    "id": "get_queues",
+                    "label": "Get Queues"
                 },
                 {
-                    "label": "Get SLA",
-                    "id": "get_sla"
+                    "id": "get_sla",
+                    "label": "Get SLA"
                 },
                 {
-                    "label": "Get Transitions",
-                    "id": "get_transitions"
+                    "id": "get_transitions",
+                    "label": "Get Transitions"
                 },
                 {
-                    "label": "Transition Request",
-                    "id": "transition_request"
+                    "id": "transition_request",
+                    "label": "Transition Request"
                 },
                 {
-                    "label": "Get Participants",
-                    "id": "get_participants"
+                    "id": "get_participants",
+                    "label": "Get Participants"
                 },
                 {
-                    "label": "Add Participants",
-                    "id": "add_participants"
+                    "id": "add_participants",
+                    "label": "Add Participants"
                 },
                 {
-                    "label": "Get Approvals",
-                    "id": "get_approvals"
+                    "id": "get_approvals",
+                    "label": "Get Approvals"
                 },
                 {
-                    "label": "Answer Approval",
-                    "id": "answer_approval"
+                    "id": "answer_approval",
+                    "label": "Answer Approval"
                 }
-            ],
-            "defaultValue": "get_sla"
+            ]
         },
         {
             "id": "domain",
@@ -2263,7 +2292,6 @@ Get SLA information for a service request in Jira Service Management
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `domain` | string | Yes | Your Jira domain \(e.g., yourcompany.atlassian.net\) |
-| `cloudId` | string | No | Jira Cloud ID for the instance |
 | `issueIdOrKey` | string | Yes | Issue ID or key \(e.g., SD-123\) |
 | `start` | number | No | Start index for pagination \(default: 0\) |
 | `limit` | number | No | Maximum results to return \(default: 50\) |
@@ -2276,6 +2304,7 @@ Get SLA information for a service request in Jira Service Management
 | `issueIdOrKey` | string | Issue ID or key |
 | `slas` | json | Array of SLA information |
 | `total` | number | Total number of SLAs |
+| `isLastPage` | boolean | Whether this is the last page |
 
 </div>
 
@@ -2296,89 +2325,89 @@ Get SLA information for a service request in Jira Service Management
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_transitions",
             "options": [
                 {
-                    "label": "Get Service Desks",
-                    "id": "get_service_desks"
+                    "id": "get_service_desks",
+                    "label": "Get Service Desks"
                 },
                 {
-                    "label": "Get Request Types",
-                    "id": "get_request_types"
+                    "id": "get_request_types",
+                    "label": "Get Request Types"
                 },
                 {
-                    "label": "Create Request",
-                    "id": "create_request"
+                    "id": "create_request",
+                    "label": "Create Request"
                 },
                 {
-                    "label": "Get Request",
-                    "id": "get_request"
+                    "id": "get_request",
+                    "label": "Get Request"
                 },
                 {
-                    "label": "Get Requests",
-                    "id": "get_requests"
+                    "id": "get_requests",
+                    "label": "Get Requests"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 },
                 {
-                    "label": "Get Comments",
-                    "id": "get_comments"
+                    "id": "get_comments",
+                    "label": "Get Comments"
                 },
                 {
-                    "label": "Get Customers",
-                    "id": "get_customers"
+                    "id": "get_customers",
+                    "label": "Get Customers"
                 },
                 {
-                    "label": "Add Customer",
-                    "id": "add_customer"
+                    "id": "add_customer",
+                    "label": "Add Customer"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Add Organization",
-                    "id": "add_organization"
+                    "id": "add_organization",
+                    "label": "Add Organization"
                 },
                 {
-                    "label": "Get Queues",
-                    "id": "get_queues"
+                    "id": "get_queues",
+                    "label": "Get Queues"
                 },
                 {
-                    "label": "Get SLA",
-                    "id": "get_sla"
+                    "id": "get_sla",
+                    "label": "Get SLA"
                 },
                 {
-                    "label": "Get Transitions",
-                    "id": "get_transitions"
+                    "id": "get_transitions",
+                    "label": "Get Transitions"
                 },
                 {
-                    "label": "Transition Request",
-                    "id": "transition_request"
+                    "id": "transition_request",
+                    "label": "Transition Request"
                 },
                 {
-                    "label": "Get Participants",
-                    "id": "get_participants"
+                    "id": "get_participants",
+                    "label": "Get Participants"
                 },
                 {
-                    "label": "Add Participants",
-                    "id": "add_participants"
+                    "id": "add_participants",
+                    "label": "Add Participants"
                 },
                 {
-                    "label": "Get Approvals",
-                    "id": "get_approvals"
+                    "id": "get_approvals",
+                    "label": "Get Approvals"
                 },
                 {
-                    "label": "Answer Approval",
-                    "id": "answer_approval"
+                    "id": "answer_approval",
+                    "label": "Answer Approval"
                 }
-            ],
-            "defaultValue": "get_transitions"
+            ]
         },
         {
             "id": "domain",
@@ -2416,7 +2445,6 @@ Get available transitions for a service request in Jira Service Management
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `domain` | string | Yes | Your Jira domain \(e.g., yourcompany.atlassian.net\) |
-| `cloudId` | string | No | Jira Cloud ID for the instance |
 | `issueIdOrKey` | string | Yes | Issue ID or key \(e.g., SD-123\) |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
@@ -2425,6 +2453,7 @@ Get available transitions for a service request in Jira Service Management
 | --------- | ---- | ----------- |
 | `ts` | string | Timestamp of the operation |
 | `issueIdOrKey` | string | Issue ID or key |
+| `transitions` | json | Array of available transitions |
 
 </div>
 
@@ -2445,89 +2474,89 @@ Get available transitions for a service request in Jira Service Management
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "transition_request",
             "options": [
                 {
-                    "label": "Get Service Desks",
-                    "id": "get_service_desks"
+                    "id": "get_service_desks",
+                    "label": "Get Service Desks"
                 },
                 {
-                    "label": "Get Request Types",
-                    "id": "get_request_types"
+                    "id": "get_request_types",
+                    "label": "Get Request Types"
                 },
                 {
-                    "label": "Create Request",
-                    "id": "create_request"
+                    "id": "create_request",
+                    "label": "Create Request"
                 },
                 {
-                    "label": "Get Request",
-                    "id": "get_request"
+                    "id": "get_request",
+                    "label": "Get Request"
                 },
                 {
-                    "label": "Get Requests",
-                    "id": "get_requests"
+                    "id": "get_requests",
+                    "label": "Get Requests"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 },
                 {
-                    "label": "Get Comments",
-                    "id": "get_comments"
+                    "id": "get_comments",
+                    "label": "Get Comments"
                 },
                 {
-                    "label": "Get Customers",
-                    "id": "get_customers"
+                    "id": "get_customers",
+                    "label": "Get Customers"
                 },
                 {
-                    "label": "Add Customer",
-                    "id": "add_customer"
+                    "id": "add_customer",
+                    "label": "Add Customer"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Add Organization",
-                    "id": "add_organization"
+                    "id": "add_organization",
+                    "label": "Add Organization"
                 },
                 {
-                    "label": "Get Queues",
-                    "id": "get_queues"
+                    "id": "get_queues",
+                    "label": "Get Queues"
                 },
                 {
-                    "label": "Get SLA",
-                    "id": "get_sla"
+                    "id": "get_sla",
+                    "label": "Get SLA"
                 },
                 {
-                    "label": "Get Transitions",
-                    "id": "get_transitions"
+                    "id": "get_transitions",
+                    "label": "Get Transitions"
                 },
                 {
-                    "label": "Transition Request",
-                    "id": "transition_request"
+                    "id": "transition_request",
+                    "label": "Transition Request"
                 },
                 {
-                    "label": "Get Participants",
-                    "id": "get_participants"
+                    "id": "get_participants",
+                    "label": "Get Participants"
                 },
                 {
-                    "label": "Add Participants",
-                    "id": "add_participants"
+                    "id": "add_participants",
+                    "label": "Add Participants"
                 },
                 {
-                    "label": "Get Approvals",
-                    "id": "get_approvals"
+                    "id": "get_approvals",
+                    "label": "Get Approvals"
                 },
                 {
-                    "label": "Answer Approval",
-                    "id": "answer_approval"
+                    "id": "answer_approval",
+                    "label": "Answer Approval"
                 }
-            ],
-            "defaultValue": "transition_request"
+            ]
         },
         {
             "id": "domain",
@@ -2578,7 +2607,6 @@ Transition a service request to a new status in Jira Service Management
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `domain` | string | Yes | Your Jira domain \(e.g., yourcompany.atlassian.net\) |
-| `cloudId` | string | No | Jira Cloud ID for the instance |
 | `issueIdOrKey` | string | Yes | Issue ID or key \(e.g., SD-123\) |
 | `transitionId` | string | Yes | Transition ID to apply |
 | `comment` | string | No | Optional comment to add during transition |
@@ -2590,6 +2618,7 @@ Transition a service request to a new status in Jira Service Management
 | `ts` | string | Timestamp of the operation |
 | `issueIdOrKey` | string | Issue ID or key |
 | `transitionId` | string | Applied transition ID |
+| `success` | boolean | Whether the transition was successful |
 
 </div>
 
@@ -2610,89 +2639,89 @@ Transition a service request to a new status in Jira Service Management
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_participants",
             "options": [
                 {
-                    "label": "Get Service Desks",
-                    "id": "get_service_desks"
+                    "id": "get_service_desks",
+                    "label": "Get Service Desks"
                 },
                 {
-                    "label": "Get Request Types",
-                    "id": "get_request_types"
+                    "id": "get_request_types",
+                    "label": "Get Request Types"
                 },
                 {
-                    "label": "Create Request",
-                    "id": "create_request"
+                    "id": "create_request",
+                    "label": "Create Request"
                 },
                 {
-                    "label": "Get Request",
-                    "id": "get_request"
+                    "id": "get_request",
+                    "label": "Get Request"
                 },
                 {
-                    "label": "Get Requests",
-                    "id": "get_requests"
+                    "id": "get_requests",
+                    "label": "Get Requests"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 },
                 {
-                    "label": "Get Comments",
-                    "id": "get_comments"
+                    "id": "get_comments",
+                    "label": "Get Comments"
                 },
                 {
-                    "label": "Get Customers",
-                    "id": "get_customers"
+                    "id": "get_customers",
+                    "label": "Get Customers"
                 },
                 {
-                    "label": "Add Customer",
-                    "id": "add_customer"
+                    "id": "add_customer",
+                    "label": "Add Customer"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Add Organization",
-                    "id": "add_organization"
+                    "id": "add_organization",
+                    "label": "Add Organization"
                 },
                 {
-                    "label": "Get Queues",
-                    "id": "get_queues"
+                    "id": "get_queues",
+                    "label": "Get Queues"
                 },
                 {
-                    "label": "Get SLA",
-                    "id": "get_sla"
+                    "id": "get_sla",
+                    "label": "Get SLA"
                 },
                 {
-                    "label": "Get Transitions",
-                    "id": "get_transitions"
+                    "id": "get_transitions",
+                    "label": "Get Transitions"
                 },
                 {
-                    "label": "Transition Request",
-                    "id": "transition_request"
+                    "id": "transition_request",
+                    "label": "Transition Request"
                 },
                 {
-                    "label": "Get Participants",
-                    "id": "get_participants"
+                    "id": "get_participants",
+                    "label": "Get Participants"
                 },
                 {
-                    "label": "Add Participants",
-                    "id": "add_participants"
+                    "id": "add_participants",
+                    "label": "Add Participants"
                 },
                 {
-                    "label": "Get Approvals",
-                    "id": "get_approvals"
+                    "id": "get_approvals",
+                    "label": "Get Approvals"
                 },
                 {
-                    "label": "Answer Approval",
-                    "id": "answer_approval"
+                    "id": "answer_approval",
+                    "label": "Answer Approval"
                 }
-            ],
-            "defaultValue": "get_participants"
+            ]
         },
         {
             "id": "domain",
@@ -2730,7 +2759,6 @@ Get participants for a request in Jira Service Management
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `domain` | string | Yes | Your Jira domain \(e.g., yourcompany.atlassian.net\) |
-| `cloudId` | string | No | Jira Cloud ID for the instance |
 | `issueIdOrKey` | string | Yes | Issue ID or key \(e.g., SD-123\) |
 | `start` | number | No | Start index for pagination \(default: 0\) |
 | `limit` | number | No | Maximum results to return \(default: 50\) |
@@ -2743,6 +2771,7 @@ Get participants for a request in Jira Service Management
 | `issueIdOrKey` | string | Issue ID or key |
 | `participants` | json | Array of participants |
 | `total` | number | Total number of participants |
+| `isLastPage` | boolean | Whether this is the last page |
 
 </div>
 
@@ -2763,89 +2792,89 @@ Get participants for a request in Jira Service Management
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "add_participants",
             "options": [
                 {
-                    "label": "Get Service Desks",
-                    "id": "get_service_desks"
+                    "id": "get_service_desks",
+                    "label": "Get Service Desks"
                 },
                 {
-                    "label": "Get Request Types",
-                    "id": "get_request_types"
+                    "id": "get_request_types",
+                    "label": "Get Request Types"
                 },
                 {
-                    "label": "Create Request",
-                    "id": "create_request"
+                    "id": "create_request",
+                    "label": "Create Request"
                 },
                 {
-                    "label": "Get Request",
-                    "id": "get_request"
+                    "id": "get_request",
+                    "label": "Get Request"
                 },
                 {
-                    "label": "Get Requests",
-                    "id": "get_requests"
+                    "id": "get_requests",
+                    "label": "Get Requests"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 },
                 {
-                    "label": "Get Comments",
-                    "id": "get_comments"
+                    "id": "get_comments",
+                    "label": "Get Comments"
                 },
                 {
-                    "label": "Get Customers",
-                    "id": "get_customers"
+                    "id": "get_customers",
+                    "label": "Get Customers"
                 },
                 {
-                    "label": "Add Customer",
-                    "id": "add_customer"
+                    "id": "add_customer",
+                    "label": "Add Customer"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Add Organization",
-                    "id": "add_organization"
+                    "id": "add_organization",
+                    "label": "Add Organization"
                 },
                 {
-                    "label": "Get Queues",
-                    "id": "get_queues"
+                    "id": "get_queues",
+                    "label": "Get Queues"
                 },
                 {
-                    "label": "Get SLA",
-                    "id": "get_sla"
+                    "id": "get_sla",
+                    "label": "Get SLA"
                 },
                 {
-                    "label": "Get Transitions",
-                    "id": "get_transitions"
+                    "id": "get_transitions",
+                    "label": "Get Transitions"
                 },
                 {
-                    "label": "Transition Request",
-                    "id": "transition_request"
+                    "id": "transition_request",
+                    "label": "Transition Request"
                 },
                 {
-                    "label": "Get Participants",
-                    "id": "get_participants"
+                    "id": "get_participants",
+                    "label": "Get Participants"
                 },
                 {
-                    "label": "Add Participants",
-                    "id": "add_participants"
+                    "id": "add_participants",
+                    "label": "Add Participants"
                 },
                 {
-                    "label": "Get Approvals",
-                    "id": "get_approvals"
+                    "id": "get_approvals",
+                    "label": "Get Approvals"
                 },
                 {
-                    "label": "Answer Approval",
-                    "id": "answer_approval"
+                    "id": "answer_approval",
+                    "label": "Answer Approval"
                 }
-            ],
-            "defaultValue": "add_participants"
+            ]
         },
         {
             "id": "domain",
@@ -2890,7 +2919,6 @@ Add participants to a request in Jira Service Management
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `domain` | string | Yes | Your Jira domain \(e.g., yourcompany.atlassian.net\) |
-| `cloudId` | string | No | Jira Cloud ID for the instance |
 | `issueIdOrKey` | string | Yes | Issue ID or key \(e.g., SD-123\) |
 | `accountIds` | string | Yes | Comma-separated account IDs to add as participants |
 
@@ -2901,6 +2929,7 @@ Add participants to a request in Jira Service Management
 | `ts` | string | Timestamp of the operation |
 | `issueIdOrKey` | string | Issue ID or key |
 | `participants` | json | Array of added participants |
+| `success` | boolean | Whether the operation succeeded |
 
 </div>
 
@@ -2921,89 +2950,89 @@ Add participants to a request in Jira Service Management
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_approvals",
             "options": [
                 {
-                    "label": "Get Service Desks",
-                    "id": "get_service_desks"
+                    "id": "get_service_desks",
+                    "label": "Get Service Desks"
                 },
                 {
-                    "label": "Get Request Types",
-                    "id": "get_request_types"
+                    "id": "get_request_types",
+                    "label": "Get Request Types"
                 },
                 {
-                    "label": "Create Request",
-                    "id": "create_request"
+                    "id": "create_request",
+                    "label": "Create Request"
                 },
                 {
-                    "label": "Get Request",
-                    "id": "get_request"
+                    "id": "get_request",
+                    "label": "Get Request"
                 },
                 {
-                    "label": "Get Requests",
-                    "id": "get_requests"
+                    "id": "get_requests",
+                    "label": "Get Requests"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 },
                 {
-                    "label": "Get Comments",
-                    "id": "get_comments"
+                    "id": "get_comments",
+                    "label": "Get Comments"
                 },
                 {
-                    "label": "Get Customers",
-                    "id": "get_customers"
+                    "id": "get_customers",
+                    "label": "Get Customers"
                 },
                 {
-                    "label": "Add Customer",
-                    "id": "add_customer"
+                    "id": "add_customer",
+                    "label": "Add Customer"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Add Organization",
-                    "id": "add_organization"
+                    "id": "add_organization",
+                    "label": "Add Organization"
                 },
                 {
-                    "label": "Get Queues",
-                    "id": "get_queues"
+                    "id": "get_queues",
+                    "label": "Get Queues"
                 },
                 {
-                    "label": "Get SLA",
-                    "id": "get_sla"
+                    "id": "get_sla",
+                    "label": "Get SLA"
                 },
                 {
-                    "label": "Get Transitions",
-                    "id": "get_transitions"
+                    "id": "get_transitions",
+                    "label": "Get Transitions"
                 },
                 {
-                    "label": "Transition Request",
-                    "id": "transition_request"
+                    "id": "transition_request",
+                    "label": "Transition Request"
                 },
                 {
-                    "label": "Get Participants",
-                    "id": "get_participants"
+                    "id": "get_participants",
+                    "label": "Get Participants"
                 },
                 {
-                    "label": "Add Participants",
-                    "id": "add_participants"
+                    "id": "add_participants",
+                    "label": "Add Participants"
                 },
                 {
-                    "label": "Get Approvals",
-                    "id": "get_approvals"
+                    "id": "get_approvals",
+                    "label": "Get Approvals"
                 },
                 {
-                    "label": "Answer Approval",
-                    "id": "answer_approval"
+                    "id": "answer_approval",
+                    "label": "Answer Approval"
                 }
-            ],
-            "defaultValue": "get_approvals"
+            ]
         },
         {
             "id": "domain",
@@ -3041,7 +3070,6 @@ Get approvals for a request in Jira Service Management
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `domain` | string | Yes | Your Jira domain \(e.g., yourcompany.atlassian.net\) |
-| `cloudId` | string | No | Jira Cloud ID for the instance |
 | `issueIdOrKey` | string | Yes | Issue ID or key \(e.g., SD-123\) |
 | `start` | number | No | Start index for pagination \(default: 0\) |
 | `limit` | number | No | Maximum results to return \(default: 50\) |
@@ -3054,6 +3082,7 @@ Get approvals for a request in Jira Service Management
 | `issueIdOrKey` | string | Issue ID or key |
 | `approvals` | json | Array of approvals |
 | `total` | number | Total number of approvals |
+| `isLastPage` | boolean | Whether this is the last page |
 
 </div>
 
@@ -3074,89 +3103,89 @@ Get approvals for a request in Jira Service Management
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "answer_approval",
             "options": [
                 {
-                    "label": "Get Service Desks",
-                    "id": "get_service_desks"
+                    "id": "get_service_desks",
+                    "label": "Get Service Desks"
                 },
                 {
-                    "label": "Get Request Types",
-                    "id": "get_request_types"
+                    "id": "get_request_types",
+                    "label": "Get Request Types"
                 },
                 {
-                    "label": "Create Request",
-                    "id": "create_request"
+                    "id": "create_request",
+                    "label": "Create Request"
                 },
                 {
-                    "label": "Get Request",
-                    "id": "get_request"
+                    "id": "get_request",
+                    "label": "Get Request"
                 },
                 {
-                    "label": "Get Requests",
-                    "id": "get_requests"
+                    "id": "get_requests",
+                    "label": "Get Requests"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 },
                 {
-                    "label": "Get Comments",
-                    "id": "get_comments"
+                    "id": "get_comments",
+                    "label": "Get Comments"
                 },
                 {
-                    "label": "Get Customers",
-                    "id": "get_customers"
+                    "id": "get_customers",
+                    "label": "Get Customers"
                 },
                 {
-                    "label": "Add Customer",
-                    "id": "add_customer"
+                    "id": "add_customer",
+                    "label": "Add Customer"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Add Organization",
-                    "id": "add_organization"
+                    "id": "add_organization",
+                    "label": "Add Organization"
                 },
                 {
-                    "label": "Get Queues",
-                    "id": "get_queues"
+                    "id": "get_queues",
+                    "label": "Get Queues"
                 },
                 {
-                    "label": "Get SLA",
-                    "id": "get_sla"
+                    "id": "get_sla",
+                    "label": "Get SLA"
                 },
                 {
-                    "label": "Get Transitions",
-                    "id": "get_transitions"
+                    "id": "get_transitions",
+                    "label": "Get Transitions"
                 },
                 {
-                    "label": "Transition Request",
-                    "id": "transition_request"
+                    "id": "transition_request",
+                    "label": "Transition Request"
                 },
                 {
-                    "label": "Get Participants",
-                    "id": "get_participants"
+                    "id": "get_participants",
+                    "label": "Get Participants"
                 },
                 {
-                    "label": "Add Participants",
-                    "id": "add_participants"
+                    "id": "add_participants",
+                    "label": "Add Participants"
                 },
                 {
-                    "label": "Get Approvals",
-                    "id": "get_approvals"
+                    "id": "get_approvals",
+                    "label": "Get Approvals"
                 },
                 {
-                    "label": "Answer Approval",
-                    "id": "answer_approval"
+                    "id": "answer_approval",
+                    "label": "Answer Approval"
                 }
-            ],
-            "defaultValue": "answer_approval"
+            ]
         },
         {
             "id": "domain",
@@ -3191,14 +3220,15 @@ Get approvals for a request in Jira Service Management
             "id": "approvalDecision",
             "type": "dropdown",
             "title": "Decision",
+            "defaultValue": "approve",
             "options": [
                 {
-                    "label": "Approve",
-                    "id": "approve"
+                    "id": "approve",
+                    "label": "Approve"
                 },
                 {
-                    "label": "Decline",
-                    "id": "decline"
+                    "id": "decline",
+                    "label": "Decline"
                 }
             ]
         }
@@ -3216,7 +3246,6 @@ Approve or decline an approval request in Jira Service Management
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `domain` | string | Yes | Your Jira domain \(e.g., yourcompany.atlassian.net\) |
-| `cloudId` | string | No | Jira Cloud ID for the instance |
 | `issueIdOrKey` | string | Yes | Issue ID or key \(e.g., SD-123\) |
 | `approvalId` | string | Yes | Approval ID to answer |
 | `decision` | string | Yes | Decision: "approve" or "decline" |
@@ -3229,6 +3258,7 @@ Approve or decline an approval request in Jira Service Management
 | `issueIdOrKey` | string | Issue ID or key |
 | `approvalId` | string | Approval ID |
 | `decision` | string | Decision made \(approve/decline\) |
+| `success` | boolean | Whether the operation succeeded |
 
 </div>
 

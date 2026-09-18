@@ -1,0 +1,221 @@
+---
+title: Linear
+description: Leer y crear incidencias en Linear
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="linear"
+  color=""
+/>
+
+## Configuración
+
+### Leer incidencias
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Linear"
+    type="linear"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "read",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "Leer incidencias"
+                },
+                {
+                    "id": "write",
+                    "label": "Crear incidencia"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Linear",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Linear",
+            "provider": "linear",
+            "required": true
+        },
+        {
+            "id": "teamId",
+            "type": "project-selector",
+            "title": "Equipo",
+            "layout": "full",
+            "placeholder": "Seleccionar un equipo",
+            "provider": "linear"
+        },
+        {
+            "id": "projectId",
+            "type": "project-selector",
+            "title": "Proyecto",
+            "layout": "full",
+            "placeholder": "Seleccionar un proyecto",
+            "provider": "linear"
+        },
+        {
+            "id": "manualTeamId",
+            "type": "short-input",
+            "title": "ID de equipo",
+            "layout": "full",
+            "placeholder": "Introducir ID de equipo de Linear"
+        },
+        {
+            "id": "manualProjectId",
+            "type": "short-input",
+            "title": "ID de proyecto",
+            "layout": "full",
+            "placeholder": "Introducir ID de proyecto de Linear"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Leer incidencias (<code>linear_read_issues</code>)</div>
+
+Obtener y filtrar incidencias de Linear
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `teamId` | string | Sí | ID de equipo de Linear |
+| `projectId` | string | Sí | ID de proyecto de Linear |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `issues` | array | Array de incidencias del equipo y proyecto de Linear especificados; cada una contiene id, title, description, state, teamId y projectId |
+
+</div>
+
+---
+
+### Crear incidencia
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Linear"
+    type="linear"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "write",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "Leer incidencias"
+                },
+                {
+                    "id": "write",
+                    "label": "Crear incidencia"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Linear",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Linear",
+            "provider": "linear",
+            "required": true
+        },
+        {
+            "id": "teamId",
+            "type": "project-selector",
+            "title": "Equipo",
+            "layout": "full",
+            "placeholder": "Seleccionar un equipo",
+            "provider": "linear"
+        },
+        {
+            "id": "projectId",
+            "type": "project-selector",
+            "title": "Proyecto",
+            "layout": "full",
+            "placeholder": "Seleccionar un proyecto",
+            "provider": "linear"
+        },
+        {
+            "id": "manualTeamId",
+            "type": "short-input",
+            "title": "ID de equipo",
+            "layout": "full",
+            "placeholder": "Introducir ID de equipo de Linear"
+        },
+        {
+            "id": "manualProjectId",
+            "type": "short-input",
+            "title": "ID de proyecto",
+            "layout": "full",
+            "placeholder": "Introducir ID de proyecto de Linear"
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Título",
+            "layout": "full",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "Descripción",
+            "layout": "full"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear incidencia (<code>linear_create_issue</code>)</div>
+
+Crear una incidencia nueva en Linear
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `teamId` | string | Sí | ID de equipo de Linear |
+| `projectId` | string | Sí | ID de proyecto de Linear |
+| `title` | string | Sí | Título de la incidencia |
+| `description` | string | No | Descripción de la incidencia |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `issue` | object | La incidencia creada, que contiene id, title, description, state, teamId y projectId |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Linear en el flujo de trabajo. Puede leer y crear incidencias.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `linear`

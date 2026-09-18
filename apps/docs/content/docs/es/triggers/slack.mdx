@@ -1,0 +1,118 @@
+---
+title: Activador de Slack
+description: Activa un flujo de trabajo a partir de eventos de Slack, como
+  menciones, mensajes y reacciones
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="slack"
+  color=""
+/>
+
+Activa un flujo de trabajo a partir de eventos de Slack, como menciones, mensajes y reacciones
+
+<Callout type="info">
+  Este es un activador **basado en webhook**. Configura el servicio externo para que envíe eventos a la URL del webhook del flujo de trabajo.
+</Callout>
+
+<Cards>
+  <Card title="Usar como herramienta" href="/tools/slack">
+    Consulta las acciones de flujo de trabajo, las operaciones y las entradas de la herramienta para Slack.
+  </Card>
+</Cards>
+
+## Instrucciones de configuración
+
+<div class="mb-3"><strong>1.</strong> Ve a <a href="https://api.slack.com/apps" target="_blank" rel="noopener noreferrer" class="text-muted-foreground underline transition-colors hover:text-muted-foreground/80">la página de Slack Apps</a></div><div class="mb-3"><strong>2.</strong> Si no tienes una aplicación:<br /><ul class="mt-1 ml-5 list-disc"><li>Crea una aplicación desde cero</li><li>Asigna un nombre y selecciona tu espacio de trabajo</li></ul></div><div class="mb-3"><strong>3.</strong> Ve a "Información básica", busca el "Signing Secret" y pégalo en el campo de arriba.</div><div class="mb-3"><strong>4.</strong> Ve a "OAuth y permisos" y añade alcances del token de bot:<br /><ul class="mt-1 ml-5 list-disc"><li><code>app_mentions:read</code> - Para ver los mensajes que mencionan a tu bot con un @</li><li><code>chat:write</code> - Para enviar mensajes a los canales de los que forma parte tu bot</li></ul></div><div class="mb-3"><strong>5.</strong> Ve a "Suscripciones a eventos":<br /><ul class="mt-1 ml-5 list-disc"><li>Activa los eventos</li><li>En "Suscribirse a eventos del bot", añade <code>app_mention</code> para escuchar los mensajes que mencionan a tu bot</li><li>Pega la URL del webhook de arriba en el campo "URL de solicitud"</li></ul></div><div class="mb-3"><strong>6.</strong> Ve a "Instalar aplicación" en la barra lateral izquierda e instala la aplicación en el espacio de trabajo y el canal de Slack que desees.</div><div class="mb-3"><strong>7.</strong> Guarda los cambios tanto en Slack como aquí.</div>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Slack Webhook"
+    type="slack_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "signingSecret",
+            "type": "short-input",
+            "title": "Secreto de firma",
+            "placeholder": "Introduce el secreto de firma de tu app de Slack",
+            "description": "El secreto de firma de tu app de Slack para validar la autenticidad de las solicitudes.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "event",
+          "type": "object",
+          "children": [
+              {
+                  "name": "event_type",
+                  "type": "string",
+                  "description": "Tipo de evento de Slack (p. ej., app_mention, message)"
+              },
+              {
+                  "name": "channel",
+                  "type": "string",
+                  "description": "ID del canal de Slack donde ocurrió el evento"
+              },
+              {
+                  "name": "channel_name",
+                  "type": "string",
+                  "description": "Nombre del canal en formato legible"
+              },
+              {
+                  "name": "user",
+                  "type": "string",
+                  "description": "ID del usuario que activó el evento"
+              },
+              {
+                  "name": "user_name",
+                  "type": "string",
+                  "description": "Nombre de usuario que activó el evento"
+              },
+              {
+                  "name": "text",
+                  "type": "string",
+                  "description": "Contenido de texto del mensaje"
+              },
+              {
+                  "name": "timestamp",
+                  "type": "string",
+                  "description": "Marca de tiempo del mensaje del evento que lo activó"
+              },
+              {
+                  "name": "thread_ts",
+                  "type": "string",
+                  "description": "Marca de tiempo del hilo principal (si el mensaje está en un hilo)"
+              },
+              {
+                  "name": "team_id",
+                  "type": "string",
+                  "description": "ID del espacio de trabajo/equipo de Slack"
+              },
+              {
+                  "name": "event_id",
+                  "type": "string",
+                  "description": "Identificador único del evento"
+              }
+          ]
+      }
+  ]}
+/>

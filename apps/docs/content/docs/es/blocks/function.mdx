@@ -1,0 +1,53 @@
+---
+title: Function
+description: Ejecuta código personalizado de TypeScript o JavaScript
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+El bloque Function ejecuta instrucciones de TypeScript o JavaScript para transformar datos, realizar cálculos e invocar servicios externos. TypeScript se transpila a JavaScript antes de ejecutarse. Este bloque no admite Python.
+
+## Escribir código
+
+Introduce instrucciones directamente en el editor de código. Se proporciona un contenedor asíncrono automáticamente, así que usa `await` y `return` sin declarar una función envolvente.
+
+Referencia las salidas anteriores con etiquetas que incluyan el origen. No existe un objeto `input` rellenado automáticamente.
+
+```typescript
+const customers = <api.data.customers>;
+const activeCustomers = customers.filter((customer) => customer.active);
+console.log('Active customers:', activeCustomers.length);
+return activeCustomers;
+```
+
+Usa el nombre real del bloque de origen y la ruta de salida. Las variables del flujo usan `<variable.name>`; las variables de entorno usan `{{VARIABLE_NAME}}`.
+
+## Entorno de ejecución
+
+La ejecución usa una VM local de JavaScript aislada o un sandbox de JavaScript de E2B, según la **configuración del servicio de sistema E2B** del despliegue. No hay un interruptor Remote Code Execution ni un selector de lenguaje por bloque. Un administrador configura el servicio E2B y su clave de API; un campo del bloque no lo habilita.
+
+- El tiempo de espera predeterminado del código es de **180 segundos**. Los límites del flujo pueden detener la ejecución completa antes.
+- `fetch()` está disponible para solicitudes HTTP, sujeto a las restricciones de URL del entorno.
+- Las importaciones externas requieren compatibilidad del entorno E2B; no están disponibles en la VM local.
+- `console.log()` se captura en `stdout`.
+
+<Callout>
+  Consulta [Indicadores](/indicators) para ver las definiciones disponibles. El código Function puede invocar `await indicator.RSI(<historical_data>, { Length: 7 })` con la salida completa de Historical Data. No pases solo una serie escalar de precios ni importes PineTS directamente.
+</Callout>
+
+## Salidas
+
+| Referencia | Descripción |
+|---|---|
+| `<function.result>` | Valor devuelto por el código |
+| `<function.stdout>` | Salida de consola capturada |
+
+Los errores hacen fallar el bloque. Usa una conexión de ruta de error para gestionar los fallos de ejecución, o captura errores dentro del código cuando puedas recuperarte de forma segura.
+
+## Ejemplo: actualizar un contador
+
+Calcula el siguiente valor en Function y asígnalo con `<function.result>` en un bloque Variables:
+
+```typescript
+return <variable.retryCount> + 1;
+```

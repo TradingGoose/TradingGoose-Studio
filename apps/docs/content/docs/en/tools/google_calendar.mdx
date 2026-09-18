@@ -30,29 +30,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "create",
             "options": [
                 {
-                    "label": "Create Event",
-                    "id": "create"
+                    "id": "create",
+                    "label": "Create Event"
                 },
                 {
-                    "label": "List Events",
-                    "id": "list"
+                    "id": "list",
+                    "label": "List Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get"
+                    "id": "get",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Quick Add (Natural Language)",
-                    "id": "quick_add"
+                    "id": "quick_add",
+                    "label": "Quick Add (Natural Language)"
                 },
                 {
-                    "label": "Invite Attendees",
-                    "id": "invite"
+                    "id": "invite",
+                    "label": "Invite Attendees"
                 }
-            ],
-            "defaultValue": "create"
+            ]
         },
         {
             "id": "credential",
@@ -130,16 +130,16 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "layout": "full",
             "options": [
                 {
-                    "label": "All attendees (recommended)",
-                    "id": "all"
+                    "id": "all",
+                    "label": "All attendees (recommended)"
                 },
                 {
-                    "label": "External attendees only",
-                    "id": "externalOnly"
+                    "id": "externalOnly",
+                    "label": "External attendees only"
                 },
                 {
-                    "label": "None (no emails sent)",
-                    "id": "none"
+                    "id": "none",
+                    "label": "None (no emails sent)"
                 }
             ]
         }
@@ -171,6 +171,7 @@ Create a new event in Google Calendar
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Event creation confirmation message |
+| `metadata` | json | Created event metadata including ID, status, and details |
 
 </div>
 
@@ -192,29 +193,29 @@ Create a new event in Google Calendar
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "list",
             "options": [
                 {
-                    "label": "Create Event",
-                    "id": "create"
+                    "id": "create",
+                    "label": "Create Event"
                 },
                 {
-                    "label": "List Events",
-                    "id": "list"
+                    "id": "list",
+                    "label": "List Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get"
+                    "id": "get",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Quick Add (Natural Language)",
-                    "id": "quick_add"
+                    "id": "quick_add",
+                    "label": "Quick Add (Natural Language)"
                 },
                 {
-                    "label": "Invite Attendees",
-                    "id": "invite"
+                    "id": "invite",
+                    "label": "Invite Attendees"
                 }
-            ],
-            "defaultValue": "list"
+            ]
         },
         {
             "id": "credential",
@@ -270,14 +271,13 @@ List events from Google Calendar
 | `calendarId` | string | No | Calendar ID \(defaults to primary\) |
 | `timeMin` | string | No | Lower bound for events \(RFC3339 timestamp, e.g., 2025-06-03T00:00:00Z\) |
 | `timeMax` | string | No | Upper bound for events \(RFC3339 timestamp, e.g., 2025-06-04T00:00:00Z\) |
-| `orderBy` | string | No | Order of events returned \(startTime or updated\) |
-| `showDeleted` | boolean | No | Include deleted events |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Summary of found events count |
+| `metadata` | json | List of events with pagination tokens and event details |
 
 </div>
 
@@ -299,29 +299,29 @@ List events from Google Calendar
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "get",
             "options": [
                 {
-                    "label": "Create Event",
-                    "id": "create"
+                    "id": "create",
+                    "label": "Create Event"
                 },
                 {
-                    "label": "List Events",
-                    "id": "list"
+                    "id": "list",
+                    "label": "List Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get"
+                    "id": "get",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Quick Add (Natural Language)",
-                    "id": "quick_add"
+                    "id": "quick_add",
+                    "label": "Quick Add (Natural Language)"
                 },
                 {
-                    "label": "Invite Attendees",
-                    "id": "invite"
+                    "id": "invite",
+                    "label": "Invite Attendees"
                 }
-            ],
-            "defaultValue": "get"
+            ]
         },
         {
             "id": "credential",
@@ -376,6 +376,7 @@ Get a specific event from Google Calendar
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Event retrieval confirmation message |
+| `metadata` | json | Event details including ID, status, times, and attendees |
 
 </div>
 
@@ -397,29 +398,29 @@ Get a specific event from Google Calendar
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "quick_add",
             "options": [
                 {
-                    "label": "Create Event",
-                    "id": "create"
+                    "id": "create",
+                    "label": "Create Event"
                 },
                 {
-                    "label": "List Events",
-                    "id": "list"
+                    "id": "list",
+                    "label": "List Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get"
+                    "id": "get",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Quick Add (Natural Language)",
-                    "id": "quick_add"
+                    "id": "quick_add",
+                    "label": "Quick Add (Natural Language)"
                 },
                 {
-                    "label": "Invite Attendees",
-                    "id": "invite"
+                    "id": "invite",
+                    "label": "Invite Attendees"
                 }
-            ],
-            "defaultValue": "quick_add"
+            ]
         },
         {
             "id": "credential",
@@ -468,16 +469,16 @@ Get a specific event from Google Calendar
             "layout": "full",
             "options": [
                 {
-                    "label": "All attendees (recommended)",
-                    "id": "all"
+                    "id": "all",
+                    "label": "All attendees (recommended)"
                 },
                 {
-                    "label": "External attendees only",
-                    "id": "externalOnly"
+                    "id": "externalOnly",
+                    "label": "External attendees only"
                 },
                 {
-                    "label": "None (no emails sent)",
-                    "id": "none"
+                    "id": "none",
+                    "label": "None (no emails sent)"
                 }
             ]
         }
@@ -504,6 +505,7 @@ Create events from natural language text
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Event creation confirmation message from natural language |
+| `metadata` | json | Created event metadata including parsed details |
 
 </div>
 
@@ -525,29 +527,29 @@ Create events from natural language text
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "invite",
             "options": [
                 {
-                    "label": "Create Event",
-                    "id": "create"
+                    "id": "create",
+                    "label": "Create Event"
                 },
                 {
-                    "label": "List Events",
-                    "id": "list"
+                    "id": "list",
+                    "label": "List Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get"
+                    "id": "get",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Quick Add (Natural Language)",
-                    "id": "quick_add"
+                    "id": "quick_add",
+                    "label": "Quick Add (Natural Language)"
                 },
                 {
-                    "label": "Invite Attendees",
-                    "id": "invite"
+                    "id": "invite",
+                    "label": "Invite Attendees"
                 }
-            ],
-            "defaultValue": "invite"
+            ]
         },
         {
             "id": "credential",
@@ -595,12 +597,12 @@ Create events from natural language text
             "layout": "full",
             "options": [
                 {
-                    "label": "Add to existing attendees",
-                    "id": "false"
+                    "id": "false",
+                    "label": "Add to existing attendees"
                 },
                 {
-                    "label": "Replace all attendees",
-                    "id": "true"
+                    "id": "true",
+                    "label": "Replace all attendees"
                 }
             ]
         },
@@ -611,16 +613,16 @@ Create events from natural language text
             "layout": "full",
             "options": [
                 {
-                    "label": "All attendees (recommended)",
-                    "id": "all"
+                    "id": "all",
+                    "label": "All attendees (recommended)"
                 },
                 {
-                    "label": "External attendees only",
-                    "id": "externalOnly"
+                    "id": "externalOnly",
+                    "label": "External attendees only"
                 },
                 {
-                    "label": "None (no emails sent)",
-                    "id": "none"
+                    "id": "none",
+                    "label": "None (no emails sent)"
                 }
             ]
         }
@@ -648,6 +650,7 @@ Invite attendees to an existing Google Calendar event
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Attendee invitation confirmation message with email delivery status |
+| `metadata` | json | Updated event metadata including attendee list and details |
 
 </div>
 

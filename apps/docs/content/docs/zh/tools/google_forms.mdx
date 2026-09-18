@@ -1,0 +1,93 @@
+---
+title: Google Forms
+description: 读取 Google 表单中的回复
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="google_forms"
+  color="#7248B9"
+/>
+
+<Cards>
+  <Card title="用作触发器" href="/triggers/google-forms">
+    查看 Google Forms 的触发器事件、设置和事件载荷。
+  </Card>
+</Cards>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Forms"
+    type="google_forms"
+    color="#7248B9"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google 账号",
+            "layout": "full",
+            "placeholder": "选择 Google 账号",
+            "provider": "google-forms",
+            "required": true
+        },
+        {
+            "id": "formId",
+            "type": "short-input",
+            "title": "表单 ID",
+            "layout": "full",
+            "placeholder": "输入 Google 表单 ID",
+            "required": true
+        },
+        {
+            "id": "responseId",
+            "type": "short-input",
+            "title": "回复 ID",
+            "layout": "full",
+            "placeholder": "输入指定的回复 ID"
+        },
+        {
+            "id": "pageSize",
+            "type": "short-input",
+            "title": "分页大小",
+            "layout": "full",
+            "placeholder": "最多获取的回复数（默认 5000）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+### `google_forms_get_responses`
+
+获取 Google 表单的单条回复或回复列表
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `formId` | string | 是 | Google 表单的 ID |
+| `responseId` | string | 否 | 若提供，则返回该指定回复 |
+| `pageSize` | number | 否 | 返回的回复数量上限 \(服务可能返回更少\)。默认 5000。 |
+
+#### 输出（块级契约）
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `data` | json | 单条回复或回复列表 |
+
+## 使用说明
+
+将 Google Forms 集成到你的工作流中。提供表单 ID 以列出响应，或指定响应 ID 以获取单个响应。需要 OAuth。
+
+## 说明
+
+- 类别: `tools`
+- 类型: `google_forms`

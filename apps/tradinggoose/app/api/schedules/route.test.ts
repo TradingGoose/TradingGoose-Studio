@@ -3,6 +3,7 @@
  *
  * @vitest-environment node
  */
+import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockRequest, mockExecutionDependencies } from '@/app/api/__test-utils__/utils'
 
@@ -55,6 +56,7 @@ describe('Schedule Configuration API Route', () => {
                     workflowId: 'workflow-id',
                     blockId: 'trigger-id',
                     cronExpression: '0 9 * * *',
+                    timezone: 'America/New_York',
                     nextRunAt: new Date(),
                     status: 'active',
                   },
@@ -131,6 +133,42 @@ describe('Schedule Configuration API Route', () => {
   afterEach(() => {
     vi.clearAllMocks()
   })
+
+  it.each([false, true])(
+    'returns schedule status when timezone resolution fails: %s',
+    async (fails) => {
+      const { resolveTimezoneState } = await import('@/lib/timezone/timezone-resolver')
+      if (fails) {
+        vi.mocked(resolveTimezoneState).mockRejectedValueOnce(new Error('Market unavailable'))
+      } else {
+        vi.mocked(resolveTimezoneState).mockResolvedValueOnce({
+          name: 'America/New_York',
+          utcOffset: '-04:00',
+          utcOffsetMinutes: -240,
+          dstOn: true,
+          observesDst: true,
+          storageValue: 'America/New_York',
+        })
+      }
+      const { GET } = await import('@/app/api/schedules/route')
+      const response = await GET(
+        new NextRequest('http://localhost/api/schedules?workflowId=workflow-id&blockId=trigger-id')
+      )
+      expect(response.status).toBe(200)
+      expect(await response.json()).toMatchObject({
+        schedule: {
+          id: 'existing-schedule-id',
+          timezone: 'America/New_York',
+          utcOffset: fails ? null : '-04:00',
+          status: 'active',
+        },
+        isDisabled: false,
+        hasFailures: false,
+        canBeReactivated: false,
+      })
+      expect(resolveTimezoneState).toHaveBeenCalledExactlyOnceWith('America/New_York')
+    }
+  )
 
   /**
    * Test creating a new schedule

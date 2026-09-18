@@ -15,6 +15,7 @@ export type InternalWorkflowExecutionContext = {
   source: 'workflow_block'
   parentWorkflowId?: string
   parentExecutionId?: string
+  parentPendingExecutionId?: string
   parentBlockId: string
 }
 

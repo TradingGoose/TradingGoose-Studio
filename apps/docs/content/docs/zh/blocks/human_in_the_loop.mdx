@@ -1,0 +1,30 @@
+---
+title: 人工审批
+description: 暂停工作流执行并等待人工审核
+---
+
+此块保存持久化检查点，并等待拥有工作区写权限的审核者提交结果。当前执行层完成后才会暂停。该检查点中的所有审批和子工作流等待都完成后，执行才会继续。
+
+## 配置
+
+| 字段 | 用途 |
+|---|---|
+| Display Data | 展示给审核者的数据；支持引用上游值 |
+| Notification | 可选通知工具；检查点保存后可发送 `url` 或 `resumeEndpoint` |
+| Resume Form | 输入字段；名称必须唯一，且不能使用保留名称 `url`、`resumeEndpoint`、`response`、`error`、`stream` 或 `execution` |
+
+## 审核与恢复
+
+打开 `url` 查看请求。链接需要身份验证，持有链接并不意味着拥有审批权限。恢复时会保留原工作流版本、执行身份、执行者、变量、输出以及循环和并行执行位置，不会重放已完成的块。提交的表单字段会成为此块的顶层输出。
+
+通过 API 审核时，先 GET `resumeEndpoint` 获取当前检查点，再以 `Content-Type: application/json` 发送包含 `revision`、`pausePointId` 和 `input` 的 POST 请求。端点为 `/api/resume/[workflowId]/[executionId]`，接受有权访问该工作流所属工作区的用户会话或 API 密钥，并按 Resume Form 校验 `input`。请使用检查点的当前修订号。
+
+通知发送失败不会跳过审批。暂停的执行可通过任务 API 取消。
+
+## 输出
+
+| 字段 | 说明 |
+|---|---|
+| `url` | 审核界面链接 |
+| `resumeEndpoint` | API 查询与提交端点 |
+| Resume Form 字段 | 恢复后提交的字段值 |

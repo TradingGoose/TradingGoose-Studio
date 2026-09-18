@@ -1,6 +1,6 @@
 ---
-title: Hubspot Trigger
-description: Trigger workflow when a new company is created in HubSpot
+title: HubSpot Trigger
+description: Trigger workflow when a new contact is created in HubSpot
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
@@ -15,37 +15,35 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
   color=""
 />
 
-Trigger workflow when a new company is created in HubSpot
+Trigger workflow when a new contact is created in HubSpot
 
 <Callout type="info">
-  This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
+  This is a **webhook-based** trigger. Configure the external service to send events to the workflow webhook URL.
 </Callout>
 
 <Cards>
   <Card title="Use as a Tool" href="/tools/hubspot">
-    See workflow actions, operations, and tool inputs for Hubspot.
+    See workflow actions, operations, and tool inputs for HubSpot.
   </Card>
 </Cards>
 
 
 ## Events
 
-### HubSpot Company Created
+### HubSpot Contact Created
 
-Trigger workflow when a new company is created in HubSpot
+Trigger workflow when a new contact is created in HubSpot
+
+#### Setup Instructions
+
+<div class="mb-3"><strong>Step 1: Create a HubSpot Developer Account</strong><br />Sign up for a free developer account at <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> if you don't have one.</div><div class="mb-3"><strong>Step 2: Create a Public App via CLI</strong><br /><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot's documentation</a> for details.</div><div class="mb-3"><strong>Step 3: Save OAuth App Credentials</strong><br />Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.</div><div class="mb-3"><strong>Step 4: Get App ID and Developer API Key</strong><br />In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.</div><div class="mb-3"><strong>Step 5: Set Required Scopes</strong><br />Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Step 6: Save Configuration in TradingGoose</strong><br />Click the <strong>"Save Configuration"</strong> button above. This will generate your unique webhook URL.</div><div class="mb-3"><strong>Step 7: Configure Webhook in HubSpot via API</strong><br />After saving above, copy the <strong>Webhook URL</strong> and run the two curl commands below (replace <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code>, and <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> with your actual values).</div><div class="mb-3"><strong>Step 8: Test Your Webhook</strong><br />Create or modify a contact in HubSpot to trigger the webhook. Check your workflow execution logs in TradingGoose to verify it's working.</div><div class="mb-3"><strong>Additional Info:</strong> The webhook will trigger whenever a new contact is created in your HubSpot account, regardless of the source (manual entry, form submission, API, import, etc.).</div>
 
 <ShowcaseCard>
   <BlockConfigPreview
-    name="HubSpot Company Created"
-    type="hubspot_company_created"
+    name="HubSpot Contact Created"
+    type="hubspot_contact_created"
     hideHeader
     subBlocks={[
-        {
-            "id": "selectedTriggerId",
-            "type": "dropdown",
-            "title": "Trigger Type",
-            "required": true
-        },
         {
             "id": "clientId",
             "type": "short-input",
@@ -60,8 +58,8 @@ Trigger workflow when a new company is created in HubSpot
             "title": "Client Secret",
             "placeholder": "Enter your HubSpot app Client Secret",
             "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true,
-            "password": true
+            "password": true,
+            "required": true
         },
         {
             "id": "appId",
@@ -77,8 +75,8 @@ Trigger workflow when a new company is created in HubSpot
             "title": "Developer API Key",
             "placeholder": "Enter your HubSpot Developer API Key",
             "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
-            "required": true,
-            "password": true
+            "password": true,
+            "required": true
         }
     ]}
   />
@@ -102,651 +100,6 @@ Trigger workflow when a new company is created in HubSpot
       {
           "name": "providerConfig",
           "type": "object",
-          "description": "providerConfig",
-          "children": [
-              {
-                  "name": "appId",
-                  "type": "string",
-                  "description": "HubSpot App ID"
-              },
-              {
-                  "name": "clientId",
-                  "type": "string",
-                  "description": "HubSpot Client ID"
-              },
-              {
-                  "name": "triggerId",
-                  "type": "string",
-                  "description": "Trigger ID (e.g., hubspot_company_created)"
-              },
-              {
-                  "name": "clientSecret",
-                  "type": "string",
-                  "description": "HubSpot Client Secret"
-              },
-              {
-                  "name": "developerApiKey",
-                  "type": "string",
-                  "description": "HubSpot Developer API Key"
-              },
-              {
-                  "name": "curlSetWebhookUrl",
-                  "type": "string",
-                  "description": "curl command to set webhook URL"
-              },
-              {
-                  "name": "curlCreateSubscription",
-                  "type": "string",
-                  "description": "curl command to create subscription"
-              },
-              {
-                  "name": "webhookUrlDisplay",
-                  "type": "string",
-                  "description": "Webhook URL display value"
-              },
-              {
-                  "name": "propertyName",
-                  "type": "string",
-                  "description": "Optional property name filter (for property change triggers)"
-              }
-          ]
-      }
-  ]}
-/>
-
----
-
-### HubSpot Conversation Deletion
-
-Trigger workflow when a conversation is deleted in HubSpot
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="HubSpot Conversation Deletion"
-    type="hubspot_conversation_deletion"
-    hideHeader
-    subBlocks={[
-        {
-            "id": "selectedTriggerId",
-            "type": "dropdown",
-            "title": "Trigger Type",
-            "required": true
-        },
-        {
-            "id": "clientId",
-            "type": "short-input",
-            "title": "Client ID",
-            "placeholder": "Enter your HubSpot app Client ID",
-            "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true
-        },
-        {
-            "id": "clientSecret",
-            "type": "short-input",
-            "title": "Client Secret",
-            "placeholder": "Enter your HubSpot app Client Secret",
-            "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true,
-            "password": true
-        },
-        {
-            "id": "appId",
-            "type": "short-input",
-            "title": "App ID",
-            "placeholder": "Enter your HubSpot App ID",
-            "description": "Found in your HubSpot app settings. Used to identify your app.",
-            "required": true
-        },
-        {
-            "id": "developerApiKey",
-            "type": "short-input",
-            "title": "Developer API Key",
-            "placeholder": "Enter your HubSpot Developer API Key",
-            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
-            "required": true,
-            "password": true
-        }
-    ]}
-  />
-</ShowcaseCard>
-
-#### Output Schema
-
-<SchemaTree
-  title="Event Payload"
-  fields={[
-      {
-          "name": "payload",
-          "type": "json",
-          "description": "Full webhook payload array from HubSpot containing event details"
-      },
-      {
-          "name": "provider",
-          "type": "string",
-          "description": "Provider name (hubspot)"
-      },
-      {
-          "name": "providerConfig",
-          "type": "object",
-          "description": "providerConfig",
-          "children": [
-              {
-                  "name": "appId",
-                  "type": "string",
-                  "description": "HubSpot App ID"
-              },
-              {
-                  "name": "clientId",
-                  "type": "string",
-                  "description": "HubSpot Client ID"
-              },
-              {
-                  "name": "triggerId",
-                  "type": "string",
-                  "description": "Trigger ID (e.g., hubspot_company_created)"
-              },
-              {
-                  "name": "clientSecret",
-                  "type": "string",
-                  "description": "HubSpot Client Secret"
-              },
-              {
-                  "name": "developerApiKey",
-                  "type": "string",
-                  "description": "HubSpot Developer API Key"
-              },
-              {
-                  "name": "curlSetWebhookUrl",
-                  "type": "string",
-                  "description": "curl command to set webhook URL"
-              },
-              {
-                  "name": "curlCreateSubscription",
-                  "type": "string",
-                  "description": "curl command to create subscription"
-              },
-              {
-                  "name": "webhookUrlDisplay",
-                  "type": "string",
-                  "description": "Webhook URL display value"
-              },
-              {
-                  "name": "propertyName",
-                  "type": "string",
-                  "description": "Optional property name filter (for property change triggers)"
-              }
-          ]
-      }
-  ]}
-/>
-
----
-
-### HubSpot Conversation Property Changed
-
-Trigger workflow when any property of a conversation is updated in HubSpot
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="HubSpot Conversation Property Changed"
-    type="hubspot_conversation_property_changed"
-    hideHeader
-    subBlocks={[
-        {
-            "id": "selectedTriggerId",
-            "type": "dropdown",
-            "title": "Trigger Type",
-            "required": true
-        },
-        {
-            "id": "clientId",
-            "type": "short-input",
-            "title": "Client ID",
-            "placeholder": "Enter your HubSpot app Client ID",
-            "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true
-        },
-        {
-            "id": "clientSecret",
-            "type": "short-input",
-            "title": "Client Secret",
-            "placeholder": "Enter your HubSpot app Client Secret",
-            "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true,
-            "password": true
-        },
-        {
-            "id": "appId",
-            "type": "short-input",
-            "title": "App ID",
-            "placeholder": "Enter your HubSpot App ID",
-            "description": "Found in your HubSpot app settings. Used to identify your app.",
-            "required": true
-        },
-        {
-            "id": "developerApiKey",
-            "type": "short-input",
-            "title": "Developer API Key",
-            "placeholder": "Enter your HubSpot Developer API Key",
-            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
-            "required": true,
-            "password": true
-        },
-        {
-            "id": "propertyName",
-            "type": "short-input",
-            "title": "Property Name (Optional)",
-            "placeholder": "e.g., status, assignedTo",
-            "description": "Optional: Filter to only trigger when a specific property changes. Leave empty to trigger on any property change."
-        }
-    ]}
-  />
-</ShowcaseCard>
-
-#### Output Schema
-
-<SchemaTree
-  title="Event Payload"
-  fields={[
-      {
-          "name": "payload",
-          "type": "json",
-          "description": "Full webhook payload array from HubSpot containing event details"
-      },
-      {
-          "name": "provider",
-          "type": "string",
-          "description": "Provider name (hubspot)"
-      },
-      {
-          "name": "providerConfig",
-          "type": "object",
-          "description": "providerConfig",
-          "children": [
-              {
-                  "name": "appId",
-                  "type": "string",
-                  "description": "HubSpot App ID"
-              },
-              {
-                  "name": "clientId",
-                  "type": "string",
-                  "description": "HubSpot Client ID"
-              },
-              {
-                  "name": "triggerId",
-                  "type": "string",
-                  "description": "Trigger ID (e.g., hubspot_company_created)"
-              },
-              {
-                  "name": "clientSecret",
-                  "type": "string",
-                  "description": "HubSpot Client Secret"
-              },
-              {
-                  "name": "developerApiKey",
-                  "type": "string",
-                  "description": "HubSpot Developer API Key"
-              },
-              {
-                  "name": "curlSetWebhookUrl",
-                  "type": "string",
-                  "description": "curl command to set webhook URL"
-              },
-              {
-                  "name": "curlCreateSubscription",
-                  "type": "string",
-                  "description": "curl command to create subscription"
-              },
-              {
-                  "name": "webhookUrlDisplay",
-                  "type": "string",
-                  "description": "Webhook URL display value"
-              },
-              {
-                  "name": "propertyName",
-                  "type": "string",
-                  "description": "Optional property name filter (for property change triggers)"
-              }
-          ]
-      }
-  ]}
-/>
-
----
-
-### HubSpot Ticket Created
-
-Trigger workflow when a new ticket is created in HubSpot
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="HubSpot Ticket Created"
-    type="hubspot_ticket_created"
-    hideHeader
-    subBlocks={[
-        {
-            "id": "selectedTriggerId",
-            "type": "dropdown",
-            "title": "Trigger Type",
-            "required": true
-        },
-        {
-            "id": "clientId",
-            "type": "short-input",
-            "title": "Client ID",
-            "placeholder": "Enter your HubSpot app Client ID",
-            "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true
-        },
-        {
-            "id": "clientSecret",
-            "type": "short-input",
-            "title": "Client Secret",
-            "placeholder": "Enter your HubSpot app Client Secret",
-            "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true,
-            "password": true
-        },
-        {
-            "id": "appId",
-            "type": "short-input",
-            "title": "App ID",
-            "placeholder": "Enter your HubSpot App ID",
-            "description": "Found in your HubSpot app settings. Used to identify your app.",
-            "required": true
-        },
-        {
-            "id": "developerApiKey",
-            "type": "short-input",
-            "title": "Developer API Key",
-            "placeholder": "Enter your HubSpot Developer API Key",
-            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
-            "required": true,
-            "password": true
-        }
-    ]}
-  />
-</ShowcaseCard>
-
-#### Output Schema
-
-<SchemaTree
-  title="Event Payload"
-  fields={[
-      {
-          "name": "payload",
-          "type": "json",
-          "description": "Full webhook payload array from HubSpot containing event details"
-      },
-      {
-          "name": "provider",
-          "type": "string",
-          "description": "Provider name (hubspot)"
-      },
-      {
-          "name": "providerConfig",
-          "type": "object",
-          "description": "providerConfig",
-          "children": [
-              {
-                  "name": "appId",
-                  "type": "string",
-                  "description": "HubSpot App ID"
-              },
-              {
-                  "name": "clientId",
-                  "type": "string",
-                  "description": "HubSpot Client ID"
-              },
-              {
-                  "name": "triggerId",
-                  "type": "string",
-                  "description": "Trigger ID (e.g., hubspot_company_created)"
-              },
-              {
-                  "name": "clientSecret",
-                  "type": "string",
-                  "description": "HubSpot Client Secret"
-              },
-              {
-                  "name": "developerApiKey",
-                  "type": "string",
-                  "description": "HubSpot Developer API Key"
-              },
-              {
-                  "name": "curlSetWebhookUrl",
-                  "type": "string",
-                  "description": "curl command to set webhook URL"
-              },
-              {
-                  "name": "curlCreateSubscription",
-                  "type": "string",
-                  "description": "curl command to create subscription"
-              },
-              {
-                  "name": "webhookUrlDisplay",
-                  "type": "string",
-                  "description": "Webhook URL display value"
-              },
-              {
-                  "name": "propertyName",
-                  "type": "string",
-                  "description": "Optional property name filter (for property change triggers)"
-              }
-          ]
-      }
-  ]}
-/>
-
----
-
-### HubSpot Deal Created
-
-Trigger workflow when a new deal is created in HubSpot
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="HubSpot Deal Created"
-    type="hubspot_deal_created"
-    hideHeader
-    subBlocks={[
-        {
-            "id": "selectedTriggerId",
-            "type": "dropdown",
-            "title": "Trigger Type",
-            "required": true
-        },
-        {
-            "id": "clientId",
-            "type": "short-input",
-            "title": "Client ID",
-            "placeholder": "Enter your HubSpot app Client ID",
-            "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true
-        },
-        {
-            "id": "clientSecret",
-            "type": "short-input",
-            "title": "Client Secret",
-            "placeholder": "Enter your HubSpot app Client Secret",
-            "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true,
-            "password": true
-        },
-        {
-            "id": "appId",
-            "type": "short-input",
-            "title": "App ID",
-            "placeholder": "Enter your HubSpot App ID",
-            "description": "Found in your HubSpot app settings. Used to identify your app.",
-            "required": true
-        },
-        {
-            "id": "developerApiKey",
-            "type": "short-input",
-            "title": "Developer API Key",
-            "placeholder": "Enter your HubSpot Developer API Key",
-            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
-            "required": true,
-            "password": true
-        }
-    ]}
-  />
-</ShowcaseCard>
-
-#### Output Schema
-
-<SchemaTree
-  title="Event Payload"
-  fields={[
-      {
-          "name": "payload",
-          "type": "json",
-          "description": "Full webhook payload array from HubSpot containing event details"
-      },
-      {
-          "name": "provider",
-          "type": "string",
-          "description": "Provider name (hubspot)"
-      },
-      {
-          "name": "providerConfig",
-          "type": "object",
-          "description": "providerConfig",
-          "children": [
-              {
-                  "name": "appId",
-                  "type": "string",
-                  "description": "HubSpot App ID"
-              },
-              {
-                  "name": "clientId",
-                  "type": "string",
-                  "description": "HubSpot Client ID"
-              },
-              {
-                  "name": "triggerId",
-                  "type": "string",
-                  "description": "Trigger ID (e.g., hubspot_company_created)"
-              },
-              {
-                  "name": "clientSecret",
-                  "type": "string",
-                  "description": "HubSpot Client Secret"
-              },
-              {
-                  "name": "developerApiKey",
-                  "type": "string",
-                  "description": "HubSpot Developer API Key"
-              },
-              {
-                  "name": "curlSetWebhookUrl",
-                  "type": "string",
-                  "description": "curl command to set webhook URL"
-              },
-              {
-                  "name": "curlCreateSubscription",
-                  "type": "string",
-                  "description": "curl command to create subscription"
-              },
-              {
-                  "name": "webhookUrlDisplay",
-                  "type": "string",
-                  "description": "Webhook URL display value"
-              },
-              {
-                  "name": "propertyName",
-                  "type": "string",
-                  "description": "Optional property name filter (for property change triggers)"
-              }
-          ]
-      }
-  ]}
-/>
-
----
-
-### HubSpot Company Property Changed
-
-Trigger workflow when any property of a company is updated in HubSpot
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="HubSpot Company Property Changed"
-    type="hubspot_company_property_changed"
-    hideHeader
-    subBlocks={[
-        {
-            "id": "selectedTriggerId",
-            "type": "dropdown",
-            "title": "Trigger Type",
-            "required": true
-        },
-        {
-            "id": "clientId",
-            "type": "short-input",
-            "title": "Client ID",
-            "placeholder": "Enter your HubSpot app Client ID",
-            "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true
-        },
-        {
-            "id": "clientSecret",
-            "type": "short-input",
-            "title": "Client Secret",
-            "placeholder": "Enter your HubSpot app Client Secret",
-            "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true,
-            "password": true
-        },
-        {
-            "id": "appId",
-            "type": "short-input",
-            "title": "App ID",
-            "placeholder": "Enter your HubSpot App ID",
-            "description": "Found in your HubSpot app settings. Used to identify your app.",
-            "required": true
-        },
-        {
-            "id": "developerApiKey",
-            "type": "short-input",
-            "title": "Developer API Key",
-            "placeholder": "Enter your HubSpot Developer API Key",
-            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
-            "required": true,
-            "password": true
-        },
-        {
-            "id": "propertyName",
-            "type": "short-input",
-            "title": "Property Name (Optional)",
-            "placeholder": "e.g., name, domain, industry",
-            "description": "Optional: Filter to only trigger when a specific property changes. Leave empty to trigger on any property change."
-        }
-    ]}
-  />
-</ShowcaseCard>
-
-#### Output Schema
-
-<SchemaTree
-  title="Event Payload"
-  fields={[
-      {
-          "name": "payload",
-          "type": "json",
-          "description": "Full webhook payload array from HubSpot containing event details"
-      },
-      {
-          "name": "provider",
-          "type": "string",
-          "description": "Provider name (hubspot)"
-      },
-      {
-          "name": "providerConfig",
-          "type": "object",
-          "description": "providerConfig",
           "children": [
               {
                   "name": "appId",
@@ -804,18 +157,16 @@ Trigger workflow when any property of a company is updated in HubSpot
 
 Trigger workflow when a contact is deleted in HubSpot
 
+#### Setup Instructions
+
+<div class="mb-3"><strong>Step 1: Create a HubSpot Developer Account</strong><br />Sign up for a free developer account at <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> if you don't have one.</div><div class="mb-3"><strong>Step 2: Create a Public App via CLI</strong><br /><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot's documentation</a> for details.</div><div class="mb-3"><strong>Step 3: Save OAuth App Credentials</strong><br />Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.</div><div class="mb-3"><strong>Step 4: Get App ID and Developer API Key</strong><br />In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.</div><div class="mb-3"><strong>Step 5: Set Required Scopes</strong><br />Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Step 6: Save Configuration in TradingGoose</strong><br />Click the <strong>"Save Configuration"</strong> button above. This will generate your unique webhook URL.</div><div class="mb-3"><strong>Step 7: Configure Webhook in HubSpot via API</strong><br />After saving above, copy the <strong>Webhook URL</strong> and run the two curl commands below (replace <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code>, and <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> with your actual values).</div><div class="mb-3"><strong>Step 8: Test Your Webhook</strong><br />Create or modify a contact in HubSpot to trigger the webhook. Check your workflow execution logs in TradingGoose to verify it's working.</div><div class="mb-3"><strong>Additional Info:</strong> The webhook will trigger whenever a contact is deleted from your HubSpot account. Note: This does not include privacy deletions (GDPR compliance), which have a separate trigger.</div>
+
 <ShowcaseCard>
   <BlockConfigPreview
     name="HubSpot Contact Deleted"
     type="hubspot_contact_deleted"
     hideHeader
     subBlocks={[
-        {
-            "id": "selectedTriggerId",
-            "type": "dropdown",
-            "title": "Trigger Type",
-            "required": true
-        },
         {
             "id": "clientId",
             "type": "short-input",
@@ -830,8 +181,8 @@ Trigger workflow when a contact is deleted in HubSpot
             "title": "Client Secret",
             "placeholder": "Enter your HubSpot app Client Secret",
             "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true,
-            "password": true
+            "password": true,
+            "required": true
         },
         {
             "id": "appId",
@@ -847,8 +198,8 @@ Trigger workflow when a contact is deleted in HubSpot
             "title": "Developer API Key",
             "placeholder": "Enter your HubSpot Developer API Key",
             "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
-            "required": true,
-            "password": true
+            "password": true,
+            "required": true
         }
     ]}
   />
@@ -872,7 +223,6 @@ Trigger workflow when a contact is deleted in HubSpot
       {
           "name": "providerConfig",
           "type": "object",
-          "description": "providerConfig",
           "children": [
               {
                   "name": "appId",
@@ -930,6 +280,10 @@ Trigger workflow when a contact is deleted in HubSpot
 
 Trigger workflow when a contact is deleted for privacy compliance (GDPR, CCPA, etc.) in HubSpot
 
+#### Setup Instructions
+
+<div class="mb-3"><strong>Step 1: Create a HubSpot Developer Account</strong><br />Sign up for a free developer account at <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> if you don't have one.</div><div class="mb-3"><strong>Step 2: Create a Public App via CLI</strong><br /><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot's documentation</a> for details.</div><div class="mb-3"><strong>Step 3: Save OAuth App Credentials</strong><br />Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.</div><div class="mb-3"><strong>Step 4: Get App ID and Developer API Key</strong><br />In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.</div><div class="mb-3"><strong>Step 5: Set Required Scopes</strong><br />Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Step 6: Save Configuration in TradingGoose</strong><br />Click the <strong>"Save Configuration"</strong> button above. This will generate your unique webhook URL.</div><div class="mb-3"><strong>Step 7: Configure Webhook in HubSpot via API</strong><br />After saving above, copy the <strong>Webhook URL</strong> and run the two curl commands below (replace <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code>, and <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> with your actual values).</div><div class="mb-3"><strong>Step 8: Test Your Webhook</strong><br />Create or modify a contact in HubSpot to trigger the webhook. Check your workflow execution logs in TradingGoose to verify it's working.</div><div class="mb-3"><strong>Additional Info:</strong> The webhook will trigger when a contact is deleted specifically for privacy compliance reasons (e.g., GDPR "right to be forgotten" requests). This is different from regular contact deletions and is used to track data privacy compliance actions.</div>
+
 <ShowcaseCard>
   <BlockConfigPreview
     name="HubSpot Contact Privacy Deleted"
@@ -937,12 +291,6 @@ Trigger workflow when a contact is deleted for privacy compliance (GDPR, CCPA, e
     hideHeader
     subBlocks={[
         {
-            "id": "selectedTriggerId",
-            "type": "dropdown",
-            "title": "Trigger Type",
-            "required": true
-        },
-        {
             "id": "clientId",
             "type": "short-input",
             "title": "Client ID",
@@ -956,8 +304,8 @@ Trigger workflow when a contact is deleted for privacy compliance (GDPR, CCPA, e
             "title": "Client Secret",
             "placeholder": "Enter your HubSpot app Client Secret",
             "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true,
-            "password": true
+            "password": true,
+            "required": true
         },
         {
             "id": "appId",
@@ -973,8 +321,8 @@ Trigger workflow when a contact is deleted for privacy compliance (GDPR, CCPA, e
             "title": "Developer API Key",
             "placeholder": "Enter your HubSpot Developer API Key",
             "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
-            "required": true,
-            "password": true
+            "password": true,
+            "required": true
         }
     ]}
   />
@@ -998,644 +346,6 @@ Trigger workflow when a contact is deleted for privacy compliance (GDPR, CCPA, e
       {
           "name": "providerConfig",
           "type": "object",
-          "description": "providerConfig",
-          "children": [
-              {
-                  "name": "appId",
-                  "type": "string",
-                  "description": "HubSpot App ID"
-              },
-              {
-                  "name": "clientId",
-                  "type": "string",
-                  "description": "HubSpot Client ID"
-              },
-              {
-                  "name": "triggerId",
-                  "type": "string",
-                  "description": "Trigger ID (e.g., hubspot_company_created)"
-              },
-              {
-                  "name": "clientSecret",
-                  "type": "string",
-                  "description": "HubSpot Client Secret"
-              },
-              {
-                  "name": "developerApiKey",
-                  "type": "string",
-                  "description": "HubSpot Developer API Key"
-              },
-              {
-                  "name": "curlSetWebhookUrl",
-                  "type": "string",
-                  "description": "curl command to set webhook URL"
-              },
-              {
-                  "name": "curlCreateSubscription",
-                  "type": "string",
-                  "description": "curl command to create subscription"
-              },
-              {
-                  "name": "webhookUrlDisplay",
-                  "type": "string",
-                  "description": "Webhook URL display value"
-              },
-              {
-                  "name": "propertyName",
-                  "type": "string",
-                  "description": "Optional property name filter (for property change triggers)"
-              }
-          ]
-      }
-  ]}
-/>
-
----
-
-### HubSpot Ticket Deleted
-
-Trigger workflow when a ticket is deleted in HubSpot
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="HubSpot Ticket Deleted"
-    type="hubspot_ticket_deleted"
-    hideHeader
-    subBlocks={[
-        {
-            "id": "selectedTriggerId",
-            "type": "dropdown",
-            "title": "Trigger Type",
-            "required": true
-        },
-        {
-            "id": "clientId",
-            "type": "short-input",
-            "title": "Client ID",
-            "placeholder": "Enter your HubSpot app Client ID",
-            "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true
-        },
-        {
-            "id": "clientSecret",
-            "type": "short-input",
-            "title": "Client Secret",
-            "placeholder": "Enter your HubSpot app Client Secret",
-            "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true,
-            "password": true
-        },
-        {
-            "id": "appId",
-            "type": "short-input",
-            "title": "App ID",
-            "placeholder": "Enter your HubSpot App ID",
-            "description": "Found in your HubSpot app settings. Used to identify your app.",
-            "required": true
-        },
-        {
-            "id": "developerApiKey",
-            "type": "short-input",
-            "title": "Developer API Key",
-            "placeholder": "Enter your HubSpot Developer API Key",
-            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
-            "required": true,
-            "password": true
-        }
-    ]}
-  />
-</ShowcaseCard>
-
-#### Output Schema
-
-<SchemaTree
-  title="Event Payload"
-  fields={[
-      {
-          "name": "payload",
-          "type": "json",
-          "description": "Full webhook payload array from HubSpot containing event details"
-      },
-      {
-          "name": "provider",
-          "type": "string",
-          "description": "Provider name (hubspot)"
-      },
-      {
-          "name": "providerConfig",
-          "type": "object",
-          "description": "providerConfig",
-          "children": [
-              {
-                  "name": "appId",
-                  "type": "string",
-                  "description": "HubSpot App ID"
-              },
-              {
-                  "name": "clientId",
-                  "type": "string",
-                  "description": "HubSpot Client ID"
-              },
-              {
-                  "name": "triggerId",
-                  "type": "string",
-                  "description": "Trigger ID (e.g., hubspot_company_created)"
-              },
-              {
-                  "name": "clientSecret",
-                  "type": "string",
-                  "description": "HubSpot Client Secret"
-              },
-              {
-                  "name": "developerApiKey",
-                  "type": "string",
-                  "description": "HubSpot Developer API Key"
-              },
-              {
-                  "name": "curlSetWebhookUrl",
-                  "type": "string",
-                  "description": "curl command to set webhook URL"
-              },
-              {
-                  "name": "curlCreateSubscription",
-                  "type": "string",
-                  "description": "curl command to create subscription"
-              },
-              {
-                  "name": "webhookUrlDisplay",
-                  "type": "string",
-                  "description": "Webhook URL display value"
-              },
-              {
-                  "name": "propertyName",
-                  "type": "string",
-                  "description": "Optional property name filter (for property change triggers)"
-              }
-          ]
-      }
-  ]}
-/>
-
----
-
-### HubSpot Conversation Privacy Deletion
-
-Trigger workflow when a conversation is deleted for privacy compliance (GDPR, CCPA, etc.) in HubSpot
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="HubSpot Conversation Privacy Deletion"
-    type="hubspot_conversation_privacy_deletion"
-    hideHeader
-    subBlocks={[
-        {
-            "id": "selectedTriggerId",
-            "type": "dropdown",
-            "title": "Trigger Type",
-            "required": true
-        },
-        {
-            "id": "clientId",
-            "type": "short-input",
-            "title": "Client ID",
-            "placeholder": "Enter your HubSpot app Client ID",
-            "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true
-        },
-        {
-            "id": "clientSecret",
-            "type": "short-input",
-            "title": "Client Secret",
-            "placeholder": "Enter your HubSpot app Client Secret",
-            "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true,
-            "password": true
-        },
-        {
-            "id": "appId",
-            "type": "short-input",
-            "title": "App ID",
-            "placeholder": "Enter your HubSpot App ID",
-            "description": "Found in your HubSpot app settings. Used to identify your app.",
-            "required": true
-        },
-        {
-            "id": "developerApiKey",
-            "type": "short-input",
-            "title": "Developer API Key",
-            "placeholder": "Enter your HubSpot Developer API Key",
-            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
-            "required": true,
-            "password": true
-        }
-    ]}
-  />
-</ShowcaseCard>
-
-#### Output Schema
-
-<SchemaTree
-  title="Event Payload"
-  fields={[
-      {
-          "name": "payload",
-          "type": "json",
-          "description": "Full webhook payload array from HubSpot containing event details"
-      },
-      {
-          "name": "provider",
-          "type": "string",
-          "description": "Provider name (hubspot)"
-      },
-      {
-          "name": "providerConfig",
-          "type": "object",
-          "description": "providerConfig",
-          "children": [
-              {
-                  "name": "appId",
-                  "type": "string",
-                  "description": "HubSpot App ID"
-              },
-              {
-                  "name": "clientId",
-                  "type": "string",
-                  "description": "HubSpot Client ID"
-              },
-              {
-                  "name": "triggerId",
-                  "type": "string",
-                  "description": "Trigger ID (e.g., hubspot_company_created)"
-              },
-              {
-                  "name": "clientSecret",
-                  "type": "string",
-                  "description": "HubSpot Client Secret"
-              },
-              {
-                  "name": "developerApiKey",
-                  "type": "string",
-                  "description": "HubSpot Developer API Key"
-              },
-              {
-                  "name": "curlSetWebhookUrl",
-                  "type": "string",
-                  "description": "curl command to set webhook URL"
-              },
-              {
-                  "name": "curlCreateSubscription",
-                  "type": "string",
-                  "description": "curl command to create subscription"
-              },
-              {
-                  "name": "webhookUrlDisplay",
-                  "type": "string",
-                  "description": "Webhook URL display value"
-              },
-              {
-                  "name": "propertyName",
-                  "type": "string",
-                  "description": "Optional property name filter (for property change triggers)"
-              }
-          ]
-      }
-  ]}
-/>
-
----
-
-### HubSpot Conversation New Message
-
-Trigger workflow when a new message is added to a conversation in HubSpot
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="HubSpot Conversation New Message"
-    type="hubspot_conversation_new_message"
-    hideHeader
-    subBlocks={[
-        {
-            "id": "selectedTriggerId",
-            "type": "dropdown",
-            "title": "Trigger Type",
-            "required": true
-        },
-        {
-            "id": "clientId",
-            "type": "short-input",
-            "title": "Client ID",
-            "placeholder": "Enter your HubSpot app Client ID",
-            "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true
-        },
-        {
-            "id": "clientSecret",
-            "type": "short-input",
-            "title": "Client Secret",
-            "placeholder": "Enter your HubSpot app Client Secret",
-            "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true,
-            "password": true
-        },
-        {
-            "id": "appId",
-            "type": "short-input",
-            "title": "App ID",
-            "placeholder": "Enter your HubSpot App ID",
-            "description": "Found in your HubSpot app settings. Used to identify your app.",
-            "required": true
-        },
-        {
-            "id": "developerApiKey",
-            "type": "short-input",
-            "title": "Developer API Key",
-            "placeholder": "Enter your HubSpot Developer API Key",
-            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
-            "required": true,
-            "password": true
-        }
-    ]}
-  />
-</ShowcaseCard>
-
-#### Output Schema
-
-<SchemaTree
-  title="Event Payload"
-  fields={[
-      {
-          "name": "payload",
-          "type": "json",
-          "description": "Full webhook payload array from HubSpot containing event details"
-      },
-      {
-          "name": "provider",
-          "type": "string",
-          "description": "Provider name (hubspot)"
-      },
-      {
-          "name": "providerConfig",
-          "type": "object",
-          "description": "providerConfig",
-          "children": [
-              {
-                  "name": "appId",
-                  "type": "string",
-                  "description": "HubSpot App ID"
-              },
-              {
-                  "name": "clientId",
-                  "type": "string",
-                  "description": "HubSpot Client ID"
-              },
-              {
-                  "name": "triggerId",
-                  "type": "string",
-                  "description": "Trigger ID (e.g., hubspot_company_created)"
-              },
-              {
-                  "name": "clientSecret",
-                  "type": "string",
-                  "description": "HubSpot Client Secret"
-              },
-              {
-                  "name": "developerApiKey",
-                  "type": "string",
-                  "description": "HubSpot Developer API Key"
-              },
-              {
-                  "name": "curlSetWebhookUrl",
-                  "type": "string",
-                  "description": "curl command to set webhook URL"
-              },
-              {
-                  "name": "curlCreateSubscription",
-                  "type": "string",
-                  "description": "curl command to create subscription"
-              },
-              {
-                  "name": "webhookUrlDisplay",
-                  "type": "string",
-                  "description": "Webhook URL display value"
-              },
-              {
-                  "name": "propertyName",
-                  "type": "string",
-                  "description": "Optional property name filter (for property change triggers)"
-              }
-          ]
-      }
-  ]}
-/>
-
----
-
-### HubSpot Company Deleted
-
-Trigger workflow when a company is deleted in HubSpot
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="HubSpot Company Deleted"
-    type="hubspot_company_deleted"
-    hideHeader
-    subBlocks={[
-        {
-            "id": "selectedTriggerId",
-            "type": "dropdown",
-            "title": "Trigger Type",
-            "required": true
-        },
-        {
-            "id": "clientId",
-            "type": "short-input",
-            "title": "Client ID",
-            "placeholder": "Enter your HubSpot app Client ID",
-            "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true
-        },
-        {
-            "id": "clientSecret",
-            "type": "short-input",
-            "title": "Client Secret",
-            "placeholder": "Enter your HubSpot app Client Secret",
-            "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true,
-            "password": true
-        },
-        {
-            "id": "appId",
-            "type": "short-input",
-            "title": "App ID",
-            "placeholder": "Enter your HubSpot App ID",
-            "description": "Found in your HubSpot app settings. Used to identify your app.",
-            "required": true
-        },
-        {
-            "id": "developerApiKey",
-            "type": "short-input",
-            "title": "Developer API Key",
-            "placeholder": "Enter your HubSpot Developer API Key",
-            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
-            "required": true,
-            "password": true
-        }
-    ]}
-  />
-</ShowcaseCard>
-
-#### Output Schema
-
-<SchemaTree
-  title="Event Payload"
-  fields={[
-      {
-          "name": "payload",
-          "type": "json",
-          "description": "Full webhook payload array from HubSpot containing event details"
-      },
-      {
-          "name": "provider",
-          "type": "string",
-          "description": "Provider name (hubspot)"
-      },
-      {
-          "name": "providerConfig",
-          "type": "object",
-          "description": "providerConfig",
-          "children": [
-              {
-                  "name": "appId",
-                  "type": "string",
-                  "description": "HubSpot App ID"
-              },
-              {
-                  "name": "clientId",
-                  "type": "string",
-                  "description": "HubSpot Client ID"
-              },
-              {
-                  "name": "triggerId",
-                  "type": "string",
-                  "description": "Trigger ID (e.g., hubspot_company_created)"
-              },
-              {
-                  "name": "clientSecret",
-                  "type": "string",
-                  "description": "HubSpot Client Secret"
-              },
-              {
-                  "name": "developerApiKey",
-                  "type": "string",
-                  "description": "HubSpot Developer API Key"
-              },
-              {
-                  "name": "curlSetWebhookUrl",
-                  "type": "string",
-                  "description": "curl command to set webhook URL"
-              },
-              {
-                  "name": "curlCreateSubscription",
-                  "type": "string",
-                  "description": "curl command to create subscription"
-              },
-              {
-                  "name": "webhookUrlDisplay",
-                  "type": "string",
-                  "description": "Webhook URL display value"
-              },
-              {
-                  "name": "propertyName",
-                  "type": "string",
-                  "description": "Optional property name filter (for property change triggers)"
-              }
-          ]
-      }
-  ]}
-/>
-
----
-
-### HubSpot Ticket Property Changed
-
-Trigger workflow when any property of a ticket is updated in HubSpot
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="HubSpot Ticket Property Changed"
-    type="hubspot_ticket_property_changed"
-    hideHeader
-    subBlocks={[
-        {
-            "id": "selectedTriggerId",
-            "type": "dropdown",
-            "title": "Trigger Type",
-            "required": true
-        },
-        {
-            "id": "clientId",
-            "type": "short-input",
-            "title": "Client ID",
-            "placeholder": "Enter your HubSpot app Client ID",
-            "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true
-        },
-        {
-            "id": "clientSecret",
-            "type": "short-input",
-            "title": "Client Secret",
-            "placeholder": "Enter your HubSpot app Client Secret",
-            "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true,
-            "password": true
-        },
-        {
-            "id": "appId",
-            "type": "short-input",
-            "title": "App ID",
-            "placeholder": "Enter your HubSpot App ID",
-            "description": "Found in your HubSpot app settings. Used to identify your app.",
-            "required": true
-        },
-        {
-            "id": "developerApiKey",
-            "type": "short-input",
-            "title": "Developer API Key",
-            "placeholder": "Enter your HubSpot Developer API Key",
-            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
-            "required": true,
-            "password": true
-        },
-        {
-            "id": "propertyName",
-            "type": "short-input",
-            "title": "Property Name (Optional)",
-            "placeholder": "e.g., hs_pipeline_stage, hs_ticket_priority",
-            "description": "Optional: Filter to only trigger when a specific property changes. Leave empty to trigger on any property change."
-        }
-    ]}
-  />
-</ShowcaseCard>
-
-#### Output Schema
-
-<SchemaTree
-  title="Event Payload"
-  fields={[
-      {
-          "name": "payload",
-          "type": "json",
-          "description": "Full webhook payload array from HubSpot containing event details"
-      },
-      {
-          "name": "provider",
-          "type": "string",
-          "description": "Provider name (hubspot)"
-      },
-      {
-          "name": "providerConfig",
-          "type": "object",
-          "description": "providerConfig",
           "children": [
               {
                   "name": "appId",
@@ -1693,18 +403,16 @@ Trigger workflow when any property of a ticket is updated in HubSpot
 
 Trigger workflow when any property of a contact is updated in HubSpot
 
+#### Setup Instructions
+
+<div class="mb-3"><strong>Step 1: Create a HubSpot Developer Account</strong><br />Sign up for a free developer account at <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> if you don't have one.</div><div class="mb-3"><strong>Step 2: Create a Public App via CLI</strong><br /><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot's documentation</a> for details.</div><div class="mb-3"><strong>Step 3: Save OAuth App Credentials</strong><br />Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.</div><div class="mb-3"><strong>Step 4: Get App ID and Developer API Key</strong><br />In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.</div><div class="mb-3"><strong>Step 5: Set Required Scopes</strong><br />Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Step 6: Save Configuration in TradingGoose</strong><br />Click the <strong>"Save Configuration"</strong> button above. This will generate your unique webhook URL.</div><div class="mb-3"><strong>Step 7: Configure Webhook in HubSpot via API</strong><br />After saving above, copy the <strong>Webhook URL</strong> and run the two curl commands below (replace <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code>, and <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> with your actual values).</div><div class="mb-3"><strong>Step 8: Test Your Webhook</strong><br />Create or modify a contact in HubSpot to trigger the webhook. Check your workflow execution logs in TradingGoose to verify it's working.</div><div class="mb-3"><strong>Additional Info:</strong> The webhook will trigger whenever any property of a contact is updated. You can optionally filter by a specific property name to only receive events for that property. The webhook provides both the property name and new value in the payload.</div>
+
 <ShowcaseCard>
   <BlockConfigPreview
     name="HubSpot Contact Property Changed"
     type="hubspot_contact_property_changed"
     hideHeader
     subBlocks={[
-        {
-            "id": "selectedTriggerId",
-            "type": "dropdown",
-            "title": "Trigger Type",
-            "required": true
-        },
         {
             "id": "clientId",
             "type": "short-input",
@@ -1719,8 +427,8 @@ Trigger workflow when any property of a contact is updated in HubSpot
             "title": "Client Secret",
             "placeholder": "Enter your HubSpot app Client Secret",
             "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true,
-            "password": true
+            "password": true,
+            "required": true
         },
         {
             "id": "appId",
@@ -1736,15 +444,16 @@ Trigger workflow when any property of a contact is updated in HubSpot
             "title": "Developer API Key",
             "placeholder": "Enter your HubSpot Developer API Key",
             "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
-            "required": true,
-            "password": true
+            "password": true,
+            "required": true
         },
         {
             "id": "propertyName",
             "type": "short-input",
             "title": "Property Name (Optional)",
             "placeholder": "e.g., email, firstname, lifecyclestage",
-            "description": "Optional: Filter to only trigger when a specific property changes. Leave empty to trigger on any property change."
+            "description": "Optional: Filter to only trigger when a specific property changes. Leave empty to trigger on any property change.",
+            "required": false
         }
     ]}
   />
@@ -1768,7 +477,383 @@ Trigger workflow when any property of a contact is updated in HubSpot
       {
           "name": "providerConfig",
           "type": "object",
-          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot Company Created
+
+Trigger workflow when a new company is created in HubSpot
+
+#### Setup Instructions
+
+<div class="mb-3"><strong>Step 1: Create a HubSpot Developer Account</strong><br />Sign up for a free developer account at <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> if you don't have one.</div><div class="mb-3"><strong>Step 2: Create a Public App via CLI</strong><br /><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot's documentation</a> for details.</div><div class="mb-3"><strong>Step 3: Save OAuth App Credentials</strong><br />Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.</div><div class="mb-3"><strong>Step 4: Get App ID and Developer API Key</strong><br />In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.</div><div class="mb-3"><strong>Step 5: Set Required Scopes</strong><br />Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Step 6: Save Configuration in TradingGoose</strong><br />Click the <strong>"Save Configuration"</strong> button above. This will generate your unique webhook URL.</div><div class="mb-3"><strong>Step 7: Configure Webhook in HubSpot via API</strong><br />After saving above, copy the <strong>Webhook URL</strong> and run the two curl commands below (replace <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code>, and <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> with your actual values).</div><div class="mb-3"><strong>Step 8: Test Your Webhook</strong><br />Create or modify a contact in HubSpot to trigger the webhook. Check your workflow execution logs in TradingGoose to verify it's working.</div><div class="mb-3"><strong>Additional Info:</strong> The webhook will trigger whenever a new company is created in your HubSpot account, regardless of the source (manual entry, form submission, API, import, etc.).</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Company Created"
+    type="hubspot_company_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot Company Deleted
+
+Trigger workflow when a company is deleted in HubSpot
+
+#### Setup Instructions
+
+<div class="mb-3"><strong>Step 1: Create a HubSpot Developer Account</strong><br />Sign up for a free developer account at <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> if you don't have one.</div><div class="mb-3"><strong>Step 2: Create a Public App via CLI</strong><br /><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot's documentation</a> for details.</div><div class="mb-3"><strong>Step 3: Save OAuth App Credentials</strong><br />Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.</div><div class="mb-3"><strong>Step 4: Get App ID and Developer API Key</strong><br />In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.</div><div class="mb-3"><strong>Step 5: Set Required Scopes</strong><br />Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Step 6: Save Configuration in TradingGoose</strong><br />Click the <strong>"Save Configuration"</strong> button above. This will generate your unique webhook URL.</div><div class="mb-3"><strong>Step 7: Configure Webhook in HubSpot via API</strong><br />After saving above, copy the <strong>Webhook URL</strong> and run the two curl commands below (replace <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code>, and <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> with your actual values).</div><div class="mb-3"><strong>Step 8: Test Your Webhook</strong><br />Create or modify a contact in HubSpot to trigger the webhook. Check your workflow execution logs in TradingGoose to verify it's working.</div><div class="mb-3"><strong>Additional Info:</strong> The webhook will trigger whenever a company is deleted from your HubSpot account.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Company Deleted"
+    type="hubspot_company_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot Company Property Changed
+
+Trigger workflow when any property of a company is updated in HubSpot
+
+#### Setup Instructions
+
+<div class="mb-3"><strong>Step 1: Create a HubSpot Developer Account</strong><br />Sign up for a free developer account at <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> if you don't have one.</div><div class="mb-3"><strong>Step 2: Create a Public App via CLI</strong><br /><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot's documentation</a> for details.</div><div class="mb-3"><strong>Step 3: Save OAuth App Credentials</strong><br />Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.</div><div class="mb-3"><strong>Step 4: Get App ID and Developer API Key</strong><br />In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.</div><div class="mb-3"><strong>Step 5: Set Required Scopes</strong><br />Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Step 6: Save Configuration in TradingGoose</strong><br />Click the <strong>"Save Configuration"</strong> button above. This will generate your unique webhook URL.</div><div class="mb-3"><strong>Step 7: Configure Webhook in HubSpot via API</strong><br />After saving above, copy the <strong>Webhook URL</strong> and run the two curl commands below (replace <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code>, and <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> with your actual values).</div><div class="mb-3"><strong>Step 8: Test Your Webhook</strong><br />Create or modify a contact in HubSpot to trigger the webhook. Check your workflow execution logs in TradingGoose to verify it's working.</div><div class="mb-3"><strong>Additional Info:</strong> The webhook will trigger whenever any property of a company is updated. You can optionally filter by a specific property name to only receive events for that property. The webhook provides both the property name and new value in the payload.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Company Property Changed"
+    type="hubspot_company_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "Property Name (Optional)",
+            "placeholder": "e.g., name, domain, industry",
+            "description": "Optional: Filter to only trigger when a specific property changes. Leave empty to trigger on any property change.",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
           "children": [
               {
                   "name": "appId",
@@ -1826,18 +911,16 @@ Trigger workflow when any property of a contact is updated in HubSpot
 
 Trigger workflow when a new conversation is created in HubSpot
 
+#### Setup Instructions
+
+<div class="mb-3"><strong>Step 1: Create a HubSpot Developer Account</strong><br />Sign up for a free developer account at <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> if you don't have one.</div><div class="mb-3"><strong>Step 2: Create a Public App via CLI</strong><br /><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot's documentation</a> for details.</div><div class="mb-3"><strong>Step 3: Save OAuth App Credentials</strong><br />Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.</div><div class="mb-3"><strong>Step 4: Get App ID and Developer API Key</strong><br />In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.</div><div class="mb-3"><strong>Step 5: Set Required Scopes</strong><br />Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Step 6: Save Configuration in TradingGoose</strong><br />Click the <strong>"Save Configuration"</strong> button above. This will generate your unique webhook URL.</div><div class="mb-3"><strong>Step 7: Configure Webhook in HubSpot via API</strong><br />After saving above, copy the <strong>Webhook URL</strong> and run the two curl commands below (replace <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code>, and <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> with your actual values).</div><div class="mb-3"><strong>Step 8: Test Your Webhook</strong><br />Create or modify a contact in HubSpot to trigger the webhook. Check your workflow execution logs in TradingGoose to verify it's working.</div><div class="mb-3"><strong>Additional Info:</strong> The webhook will trigger whenever a new conversation is created in your HubSpot account, such as when a new email thread starts or a chat conversation begins.</div>
+
 <ShowcaseCard>
   <BlockConfigPreview
     name="HubSpot Conversation Creation"
     type="hubspot_conversation_creation"
     hideHeader
     subBlocks={[
-        {
-            "id": "selectedTriggerId",
-            "type": "dropdown",
-            "title": "Trigger Type",
-            "required": true
-        },
         {
             "id": "clientId",
             "type": "short-input",
@@ -1852,8 +935,8 @@ Trigger workflow when a new conversation is created in HubSpot
             "title": "Client Secret",
             "placeholder": "Enter your HubSpot app Client Secret",
             "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true,
-            "password": true
+            "password": true,
+            "required": true
         },
         {
             "id": "appId",
@@ -1869,8 +952,8 @@ Trigger workflow when a new conversation is created in HubSpot
             "title": "Developer API Key",
             "placeholder": "Enter your HubSpot Developer API Key",
             "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
-            "required": true,
-            "password": true
+            "password": true,
+            "required": true
         }
     ]}
   />
@@ -1894,7 +977,6 @@ Trigger workflow when a new conversation is created in HubSpot
       {
           "name": "providerConfig",
           "type": "object",
-          "description": "providerConfig",
           "children": [
               {
                   "name": "appId",
@@ -1948,22 +1030,20 @@ Trigger workflow when a new conversation is created in HubSpot
 
 ---
 
-### HubSpot Deal Property Changed
+### HubSpot Conversation Deletion
 
-Trigger workflow when any property of a deal is updated in HubSpot
+Trigger workflow when a conversation is deleted in HubSpot
+
+#### Setup Instructions
+
+<div class="mb-3"><strong>Step 1: Create a HubSpot Developer Account</strong><br />Sign up for a free developer account at <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> if you don't have one.</div><div class="mb-3"><strong>Step 2: Create a Public App via CLI</strong><br /><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot's documentation</a> for details.</div><div class="mb-3"><strong>Step 3: Save OAuth App Credentials</strong><br />Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.</div><div class="mb-3"><strong>Step 4: Get App ID and Developer API Key</strong><br />In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.</div><div class="mb-3"><strong>Step 5: Set Required Scopes</strong><br />Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Step 6: Save Configuration in TradingGoose</strong><br />Click the <strong>"Save Configuration"</strong> button above. This will generate your unique webhook URL.</div><div class="mb-3"><strong>Step 7: Configure Webhook in HubSpot via API</strong><br />After saving above, copy the <strong>Webhook URL</strong> and run the two curl commands below (replace <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code>, and <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> with your actual values).</div><div class="mb-3"><strong>Step 8: Test Your Webhook</strong><br />Create or modify a contact in HubSpot to trigger the webhook. Check your workflow execution logs in TradingGoose to verify it's working.</div><div class="mb-3"><strong>Additional Info:</strong> The webhook will trigger whenever a conversation is deleted from your HubSpot account.</div>
 
 <ShowcaseCard>
   <BlockConfigPreview
-    name="HubSpot Deal Property Changed"
-    type="hubspot_deal_property_changed"
+    name="HubSpot Conversation Deletion"
+    type="hubspot_conversation_deletion"
     hideHeader
     subBlocks={[
-        {
-            "id": "selectedTriggerId",
-            "type": "dropdown",
-            "title": "Trigger Type",
-            "required": true
-        },
         {
             "id": "clientId",
             "type": "short-input",
@@ -1978,8 +1058,8 @@ Trigger workflow when any property of a deal is updated in HubSpot
             "title": "Client Secret",
             "placeholder": "Enter your HubSpot app Client Secret",
             "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true,
-            "password": true
+            "password": true,
+            "required": true
         },
         {
             "id": "appId",
@@ -1995,15 +1075,8 @@ Trigger workflow when any property of a deal is updated in HubSpot
             "title": "Developer API Key",
             "placeholder": "Enter your HubSpot Developer API Key",
             "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
-            "required": true,
-            "password": true
-        },
-        {
-            "id": "propertyName",
-            "type": "short-input",
-            "title": "Property Name (Optional)",
-            "placeholder": "e.g., dealstage, amount, closedate",
-            "description": "Optional: Filter to only trigger when a specific property changes. Leave empty to trigger on any property change."
+            "password": true,
+            "required": true
         }
     ]}
   />
@@ -2027,7 +1100,506 @@ Trigger workflow when any property of a deal is updated in HubSpot
       {
           "name": "providerConfig",
           "type": "object",
-          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot Conversation New Message
+
+Trigger workflow when a new message is added to a conversation in HubSpot
+
+#### Setup Instructions
+
+<div class="mb-3"><strong>Step 1: Create a HubSpot Developer Account</strong><br />Sign up for a free developer account at <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> if you don't have one.</div><div class="mb-3"><strong>Step 2: Create a Public App via CLI</strong><br /><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot's documentation</a> for details.</div><div class="mb-3"><strong>Step 3: Save OAuth App Credentials</strong><br />Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.</div><div class="mb-3"><strong>Step 4: Get App ID and Developer API Key</strong><br />In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.</div><div class="mb-3"><strong>Step 5: Set Required Scopes</strong><br />Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Step 6: Save Configuration in TradingGoose</strong><br />Click the <strong>"Save Configuration"</strong> button above. This will generate your unique webhook URL.</div><div class="mb-3"><strong>Step 7: Configure Webhook in HubSpot via API</strong><br />After saving above, copy the <strong>Webhook URL</strong> and run the two curl commands below (replace <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code>, and <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> with your actual values).</div><div class="mb-3"><strong>Step 8: Test Your Webhook</strong><br />Create or modify a contact in HubSpot to trigger the webhook. Check your workflow execution logs in TradingGoose to verify it's working.</div><div class="mb-3"><strong>Additional Info:</strong> The webhook will trigger whenever a new message is added to any conversation in your HubSpot account. This includes emails, chat messages, and other conversation types.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Conversation New Message"
+    type="hubspot_conversation_new_message"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot Conversation Privacy Deletion
+
+Trigger workflow when a conversation is deleted for privacy compliance (GDPR, CCPA, etc.) in HubSpot
+
+#### Setup Instructions
+
+<div class="mb-3"><strong>Step 1: Create a HubSpot Developer Account</strong><br />Sign up for a free developer account at <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> if you don't have one.</div><div class="mb-3"><strong>Step 2: Create a Public App via CLI</strong><br /><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot's documentation</a> for details.</div><div class="mb-3"><strong>Step 3: Save OAuth App Credentials</strong><br />Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.</div><div class="mb-3"><strong>Step 4: Get App ID and Developer API Key</strong><br />In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.</div><div class="mb-3"><strong>Step 5: Set Required Scopes</strong><br />Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Step 6: Save Configuration in TradingGoose</strong><br />Click the <strong>"Save Configuration"</strong> button above. This will generate your unique webhook URL.</div><div class="mb-3"><strong>Step 7: Configure Webhook in HubSpot via API</strong><br />After saving above, copy the <strong>Webhook URL</strong> and run the two curl commands below (replace <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code>, and <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> with your actual values).</div><div class="mb-3"><strong>Step 8: Test Your Webhook</strong><br />Create or modify a contact in HubSpot to trigger the webhook. Check your workflow execution logs in TradingGoose to verify it's working.</div><div class="mb-3"><strong>Additional Info:</strong> The webhook will trigger when a conversation is deleted specifically for privacy compliance reasons (e.g., GDPR "right to be forgotten" requests). This is different from regular conversation deletions.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Conversation Privacy Deletion"
+    type="hubspot_conversation_privacy_deletion"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot Conversation Property Changed
+
+Trigger workflow when any property of a conversation is updated in HubSpot
+
+#### Setup Instructions
+
+<div class="mb-3"><strong>Step 1: Create a HubSpot Developer Account</strong><br />Sign up for a free developer account at <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> if you don't have one.</div><div class="mb-3"><strong>Step 2: Create a Public App via CLI</strong><br /><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot's documentation</a> for details.</div><div class="mb-3"><strong>Step 3: Save OAuth App Credentials</strong><br />Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.</div><div class="mb-3"><strong>Step 4: Get App ID and Developer API Key</strong><br />In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.</div><div class="mb-3"><strong>Step 5: Set Required Scopes</strong><br />Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Step 6: Save Configuration in TradingGoose</strong><br />Click the <strong>"Save Configuration"</strong> button above. This will generate your unique webhook URL.</div><div class="mb-3"><strong>Step 7: Configure Webhook in HubSpot via API</strong><br />After saving above, copy the <strong>Webhook URL</strong> and run the two curl commands below (replace <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code>, and <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> with your actual values).</div><div class="mb-3"><strong>Step 8: Test Your Webhook</strong><br />Create or modify a contact in HubSpot to trigger the webhook. Check your workflow execution logs in TradingGoose to verify it's working.</div><div class="mb-3"><strong>Additional Info:</strong> The webhook will trigger whenever any property of a conversation is updated. You can optionally filter by a specific property name to only receive events for that property. The webhook provides both the property name and new value in the payload.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Conversation Property Changed"
+    type="hubspot_conversation_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "Property Name (Optional)",
+            "placeholder": "e.g., status, assignedTo",
+            "description": "Optional: Filter to only trigger when a specific property changes. Leave empty to trigger on any property change.",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot Deal Created
+
+Trigger workflow when a new deal is created in HubSpot
+
+#### Setup Instructions
+
+<div class="mb-3"><strong>Step 1: Create a HubSpot Developer Account</strong><br />Sign up for a free developer account at <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> if you don't have one.</div><div class="mb-3"><strong>Step 2: Create a Public App via CLI</strong><br /><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot's documentation</a> for details.</div><div class="mb-3"><strong>Step 3: Save OAuth App Credentials</strong><br />Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.</div><div class="mb-3"><strong>Step 4: Get App ID and Developer API Key</strong><br />In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.</div><div class="mb-3"><strong>Step 5: Set Required Scopes</strong><br />Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Step 6: Save Configuration in TradingGoose</strong><br />Click the <strong>"Save Configuration"</strong> button above. This will generate your unique webhook URL.</div><div class="mb-3"><strong>Step 7: Configure Webhook in HubSpot via API</strong><br />After saving above, copy the <strong>Webhook URL</strong> and run the two curl commands below (replace <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code>, and <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> with your actual values).</div><div class="mb-3"><strong>Step 8: Test Your Webhook</strong><br />Create or modify a contact in HubSpot to trigger the webhook. Check your workflow execution logs in TradingGoose to verify it's working.</div><div class="mb-3"><strong>Additional Info:</strong> The webhook will trigger whenever a new deal is created in your HubSpot account, regardless of the source (manual entry, API, import, etc.).</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Deal Created"
+    type="hubspot_deal_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
           "children": [
               {
                   "name": "appId",
@@ -2085,6 +1657,10 @@ Trigger workflow when any property of a deal is updated in HubSpot
 
 Trigger workflow when a deal is deleted in HubSpot
 
+#### Setup Instructions
+
+<div class="mb-3"><strong>Step 1: Create a HubSpot Developer Account</strong><br />Sign up for a free developer account at <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> if you don't have one.</div><div class="mb-3"><strong>Step 2: Create a Public App via CLI</strong><br /><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot's documentation</a> for details.</div><div class="mb-3"><strong>Step 3: Save OAuth App Credentials</strong><br />Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.</div><div class="mb-3"><strong>Step 4: Get App ID and Developer API Key</strong><br />In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.</div><div class="mb-3"><strong>Step 5: Set Required Scopes</strong><br />Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Step 6: Save Configuration in TradingGoose</strong><br />Click the <strong>"Save Configuration"</strong> button above. This will generate your unique webhook URL.</div><div class="mb-3"><strong>Step 7: Configure Webhook in HubSpot via API</strong><br />After saving above, copy the <strong>Webhook URL</strong> and run the two curl commands below (replace <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code>, and <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> with your actual values).</div><div class="mb-3"><strong>Step 8: Test Your Webhook</strong><br />Create or modify a contact in HubSpot to trigger the webhook. Check your workflow execution logs in TradingGoose to verify it's working.</div><div class="mb-3"><strong>Additional Info:</strong> The webhook will trigger whenever a deal is deleted from your HubSpot account.</div>
+
 <ShowcaseCard>
   <BlockConfigPreview
     name="HubSpot Deal Deleted"
@@ -2092,12 +1668,6 @@ Trigger workflow when a deal is deleted in HubSpot
     hideHeader
     subBlocks={[
         {
-            "id": "selectedTriggerId",
-            "type": "dropdown",
-            "title": "Trigger Type",
-            "required": true
-        },
-        {
             "id": "clientId",
             "type": "short-input",
             "title": "Client ID",
@@ -2111,8 +1681,8 @@ Trigger workflow when a deal is deleted in HubSpot
             "title": "Client Secret",
             "placeholder": "Enter your HubSpot app Client Secret",
             "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true,
-            "password": true
+            "password": true,
+            "required": true
         },
         {
             "id": "appId",
@@ -2128,8 +1698,8 @@ Trigger workflow when a deal is deleted in HubSpot
             "title": "Developer API Key",
             "placeholder": "Enter your HubSpot Developer API Key",
             "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
-            "required": true,
-            "password": true
+            "password": true,
+            "required": true
         }
     ]}
   />
@@ -2153,7 +1723,6 @@ Trigger workflow when a deal is deleted in HubSpot
       {
           "name": "providerConfig",
           "type": "object",
-          "description": "providerConfig",
           "children": [
               {
                   "name": "appId",
@@ -2207,22 +1776,20 @@ Trigger workflow when a deal is deleted in HubSpot
 
 ---
 
-### HubSpot Contact Created
+### HubSpot Deal Property Changed
 
-Trigger workflow when a new contact is created in HubSpot
+Trigger workflow when any property of a deal is updated in HubSpot
+
+#### Setup Instructions
+
+<div class="mb-3"><strong>Step 1: Create a HubSpot Developer Account</strong><br />Sign up for a free developer account at <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> if you don't have one.</div><div class="mb-3"><strong>Step 2: Create a Public App via CLI</strong><br /><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot's documentation</a> for details.</div><div class="mb-3"><strong>Step 3: Save OAuth App Credentials</strong><br />Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.</div><div class="mb-3"><strong>Step 4: Get App ID and Developer API Key</strong><br />In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.</div><div class="mb-3"><strong>Step 5: Set Required Scopes</strong><br />Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Step 6: Save Configuration in TradingGoose</strong><br />Click the <strong>"Save Configuration"</strong> button above. This will generate your unique webhook URL.</div><div class="mb-3"><strong>Step 7: Configure Webhook in HubSpot via API</strong><br />After saving above, copy the <strong>Webhook URL</strong> and run the two curl commands below (replace <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code>, and <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> with your actual values).</div><div class="mb-3"><strong>Step 8: Test Your Webhook</strong><br />Create or modify a contact in HubSpot to trigger the webhook. Check your workflow execution logs in TradingGoose to verify it's working.</div><div class="mb-3"><strong>Additional Info:</strong> The webhook will trigger whenever any property of a deal is updated. You can optionally filter by a specific property name to only receive events for that property. The webhook provides both the property name and new value in the payload.</div>
 
 <ShowcaseCard>
   <BlockConfigPreview
-    name="HubSpot Contact Created"
-    type="hubspot_contact_created"
+    name="HubSpot Deal Property Changed"
+    type="hubspot_deal_property_changed"
     hideHeader
     subBlocks={[
-        {
-            "id": "selectedTriggerId",
-            "type": "dropdown",
-            "title": "Trigger Type",
-            "required": true
-        },
         {
             "id": "clientId",
             "type": "short-input",
@@ -2237,8 +1804,8 @@ Trigger workflow when a new contact is created in HubSpot
             "title": "Client Secret",
             "placeholder": "Enter your HubSpot app Client Secret",
             "description": "Found in your HubSpot app settings under Auth tab",
-            "required": true,
-            "password": true
+            "password": true,
+            "required": true
         },
         {
             "id": "appId",
@@ -2254,8 +1821,16 @@ Trigger workflow when a new contact is created in HubSpot
             "title": "Developer API Key",
             "placeholder": "Enter your HubSpot Developer API Key",
             "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
-            "required": true,
-            "password": true
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "Property Name (Optional)",
+            "placeholder": "e.g., dealstage, amount, closedate",
+            "description": "Optional: Filter to only trigger when a specific property changes. Leave empty to trigger on any property change.",
+            "required": false
         }
     ]}
   />
@@ -2279,7 +1854,6 @@ Trigger workflow when a new contact is created in HubSpot
       {
           "name": "providerConfig",
           "type": "object",
-          "description": "providerConfig",
           "children": [
               {
                   "name": "appId",
@@ -2333,4 +1907,379 @@ Trigger workflow when a new contact is created in HubSpot
 
 ---
 
+### HubSpot Ticket Created
 
+Trigger workflow when a new ticket is created in HubSpot
+
+#### Setup Instructions
+
+<div class="mb-3"><strong>Step 1: Create a HubSpot Developer Account</strong><br />Sign up for a free developer account at <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> if you don't have one.</div><div class="mb-3"><strong>Step 2: Create a Public App via CLI</strong><br /><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot's documentation</a> for details.</div><div class="mb-3"><strong>Step 3: Save OAuth App Credentials</strong><br />Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.</div><div class="mb-3"><strong>Step 4: Get App ID and Developer API Key</strong><br />In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.</div><div class="mb-3"><strong>Step 5: Set Required Scopes</strong><br />Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Step 6: Save Configuration in TradingGoose</strong><br />Click the <strong>"Save Configuration"</strong> button above. This will generate your unique webhook URL.</div><div class="mb-3"><strong>Step 7: Configure Webhook in HubSpot via API</strong><br />After saving above, copy the <strong>Webhook URL</strong> and run the two curl commands below (replace <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code>, and <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> with your actual values).</div><div class="mb-3"><strong>Step 8: Test Your Webhook</strong><br />Create or modify a contact in HubSpot to trigger the webhook. Check your workflow execution logs in TradingGoose to verify it's working.</div><div class="mb-3"><strong>Additional Info:</strong> The webhook will trigger whenever a new ticket is created in your HubSpot account, regardless of the source (manual entry, form submission, API, import, etc.).</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Ticket Created"
+    type="hubspot_ticket_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot Ticket Deleted
+
+Trigger workflow when a ticket is deleted in HubSpot
+
+#### Setup Instructions
+
+<div class="mb-3"><strong>Step 1: Create a HubSpot Developer Account</strong><br />Sign up for a free developer account at <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> if you don't have one.</div><div class="mb-3"><strong>Step 2: Create a Public App via CLI</strong><br /><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot's documentation</a> for details.</div><div class="mb-3"><strong>Step 3: Save OAuth App Credentials</strong><br />Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.</div><div class="mb-3"><strong>Step 4: Get App ID and Developer API Key</strong><br />In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.</div><div class="mb-3"><strong>Step 5: Set Required Scopes</strong><br />Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Step 6: Save Configuration in TradingGoose</strong><br />Click the <strong>"Save Configuration"</strong> button above. This will generate your unique webhook URL.</div><div class="mb-3"><strong>Step 7: Configure Webhook in HubSpot via API</strong><br />After saving above, copy the <strong>Webhook URL</strong> and run the two curl commands below (replace <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code>, and <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> with your actual values).</div><div class="mb-3"><strong>Step 8: Test Your Webhook</strong><br />Create or modify a contact in HubSpot to trigger the webhook. Check your workflow execution logs in TradingGoose to verify it's working.</div><div class="mb-3"><strong>Additional Info:</strong> The webhook will trigger whenever a ticket is deleted from your HubSpot account.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Ticket Deleted"
+    type="hubspot_ticket_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot Ticket Property Changed
+
+Trigger workflow when any property of a ticket is updated in HubSpot
+
+#### Setup Instructions
+
+<div class="mb-3"><strong>Step 1: Create a HubSpot Developer Account</strong><br />Sign up for a free developer account at <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> if you don't have one.</div><div class="mb-3"><strong>Step 2: Create a Public App via CLI</strong><br /><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot's documentation</a> for details.</div><div class="mb-3"><strong>Step 3: Save OAuth App Credentials</strong><br />Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.</div><div class="mb-3"><strong>Step 4: Get App ID and Developer API Key</strong><br />In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.</div><div class="mb-3"><strong>Step 5: Set Required Scopes</strong><br />Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Step 6: Save Configuration in TradingGoose</strong><br />Click the <strong>"Save Configuration"</strong> button above. This will generate your unique webhook URL.</div><div class="mb-3"><strong>Step 7: Configure Webhook in HubSpot via API</strong><br />After saving above, copy the <strong>Webhook URL</strong> and run the two curl commands below (replace <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code>, and <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> with your actual values).</div><div class="mb-3"><strong>Step 8: Test Your Webhook</strong><br />Create or modify a contact in HubSpot to trigger the webhook. Check your workflow execution logs in TradingGoose to verify it's working.</div><div class="mb-3"><strong>Additional Info:</strong> The webhook will trigger whenever any property of a ticket is updated. You can optionally filter by a specific property name to only receive events for that property. The webhook provides both the property name and new value in the payload.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot Ticket Property Changed"
+    type="hubspot_ticket_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "Client ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Client Secret",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "Found in your HubSpot app settings under Auth tab",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "Found in your HubSpot app settings. Used to identify your app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Developer API Key",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "Used for making API calls to HubSpot. Found in your HubSpot app settings.",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "Property Name (Optional)",
+            "placeholder": "e.g., hs_pipeline_stage, hs_ticket_priority",
+            "description": "Optional: Filter to only trigger when a specific property changes. Leave empty to trigger on any property change.",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Full webhook payload array from HubSpot containing event details"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Provider name (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot Client ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "Trigger ID (e.g., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot Client Secret"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot Developer API Key"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl command to set webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl command to create subscription"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL display value"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Optional property name filter (for property change triggers)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---

@@ -1,0 +1,324 @@
+---
+title: Typeform
+description: Interactuar con Typeform
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="typeform"
+  color=""
+/>
+
+## Configuración
+
+### Obtener respuestas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Typeform"
+    type="typeform"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "typeform_responses",
+            "options": [
+                {
+                    "id": "typeform_responses",
+                    "label": "Obtener respuestas"
+                },
+                {
+                    "id": "typeform_files",
+                    "label": "Descargar archivo"
+                },
+                {
+                    "id": "typeform_insights",
+                    "label": "Estadísticas del formulario"
+                }
+            ]
+        },
+        {
+            "id": "formId",
+            "type": "short-input",
+            "title": "ID del formulario",
+            "layout": "full",
+            "placeholder": "Introduce el ID de tu formulario de Typeform",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de acceso personal",
+            "layout": "full",
+            "placeholder": "Introduce tu token de acceso personal de Typeform",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "pageSize",
+            "type": "short-input",
+            "title": "Tamaño de página",
+            "layout": "half",
+            "placeholder": "Número de respuestas por página (predeterminado: 25)"
+        },
+        {
+            "id": "since",
+            "type": "datetime-input",
+            "title": "Desde",
+            "layout": "half",
+            "placeholder": "YYYY-MM-DD or YYYY-MM-DDTHH:mm:ssZ"
+        },
+        {
+            "id": "until",
+            "type": "datetime-input",
+            "title": "Hasta",
+            "layout": "half",
+            "placeholder": "YYYY-MM-DD or YYYY-MM-DDTHH:mm:ssZ"
+        },
+        {
+            "id": "completed",
+            "type": "dropdown",
+            "title": "Completadas",
+            "layout": "half",
+            "options": [
+                {
+                    "id": "all",
+                    "label": "Todas las respuestas"
+                },
+                {
+                    "id": "true",
+                    "label": "Solo completadas"
+                },
+                {
+                    "id": "false",
+                    "label": "Solo incompletas"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener respuestas (<code>typeform_responses</code>)</div>
+
+Obtener las respuestas de un formulario de Typeform
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `formId` | string | Sí | ID del formulario de Typeform |
+| `apiKey` | string | Sí | Token de acceso personal de Typeform |
+| `pageSize` | number | No | Número de respuestas que obtener \(predeterminado: 25\) |
+| `since` | string | No | Obtener respuestas enviadas después de esta fecha \(formato ISO 8601\) |
+| `until` | string | No | Obtener respuestas enviadas antes de esta fecha \(formato ISO 8601\) |
+| `completed` | string | No | Filtrar por estado de finalización \(true/false\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida (contrato a nivel de bloque)</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `total_items` | number | Recuento total de respuestas |
+| `page_count` | number | Recuento total de páginas |
+| `items` | json | Elementos de respuesta |
+
+</div>
+
+---
+
+### Descargar archivo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Typeform"
+    type="typeform"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "typeform_files",
+            "options": [
+                {
+                    "id": "typeform_responses",
+                    "label": "Obtener respuestas"
+                },
+                {
+                    "id": "typeform_files",
+                    "label": "Descargar archivo"
+                },
+                {
+                    "id": "typeform_insights",
+                    "label": "Estadísticas del formulario"
+                }
+            ]
+        },
+        {
+            "id": "formId",
+            "type": "short-input",
+            "title": "ID del formulario",
+            "layout": "full",
+            "placeholder": "Introduce el ID de tu formulario de Typeform",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de acceso personal",
+            "layout": "full",
+            "placeholder": "Introduce tu token de acceso personal de Typeform",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "responseId",
+            "type": "short-input",
+            "title": "ID de respuesta",
+            "layout": "full",
+            "placeholder": "Introduce el ID de respuesta (token)"
+        },
+        {
+            "id": "fieldId",
+            "type": "short-input",
+            "title": "ID del campo",
+            "layout": "half",
+            "placeholder": "Introduce el ID del campo de carga de archivos"
+        },
+        {
+            "id": "filename",
+            "type": "short-input",
+            "title": "Nombre de archivo",
+            "layout": "half",
+            "placeholder": "Introduce el nombre exacto del archivo"
+        },
+        {
+            "id": "inline",
+            "type": "switch",
+            "title": "Visualización en línea",
+            "layout": "half"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Descargar archivo (<code>typeform_files</code>)</div>
+
+Descarga archivos cargados en las respuestas de Typeform
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `formId` | string | Sí | ID del formulario de Typeform |
+| `responseId` | string | Sí | ID de respuesta que contiene los archivos |
+| `fieldId` | string | Sí | ID único del campo de carga de archivos |
+| `filename` | string | Sí | Nombre del archivo cargado |
+| `inline` | boolean | No | Si se solicita el archivo con Content-Disposition inline |
+| `apiKey` | string | Sí | Token de acceso personal de Typeform |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `fileUrl` | string | URL de descarga directa del archivo subido |
+| `contentType` | string | Tipo MIME del archivo subido |
+| `filename` | string | Nombre original del archivo subido |
+
+</div>
+
+---
+
+### Estadísticas del formulario
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Typeform"
+    type="typeform"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "typeform_insights",
+            "options": [
+                {
+                    "id": "typeform_responses",
+                    "label": "Obtener respuestas"
+                },
+                {
+                    "id": "typeform_files",
+                    "label": "Descargar archivo"
+                },
+                {
+                    "id": "typeform_insights",
+                    "label": "Estadísticas del formulario"
+                }
+            ]
+        },
+        {
+            "id": "formId",
+            "type": "short-input",
+            "title": "ID del formulario",
+            "layout": "full",
+            "placeholder": "Introduce el ID de tu formulario de Typeform",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de acceso personal",
+            "layout": "full",
+            "placeholder": "Introduce tu token de acceso personal de Typeform",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Estadísticas del formulario (<code>typeform_insights</code>)</div>
+
+Obtener estadísticas y análisis de formularios de Typeform
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `formId` | string | Sí | ID del formulario de Typeform |
+| `apiKey` | string | Sí | Token de acceso personal de Typeform |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `fields` | array | Datos analíticos de cada campo del formulario |
+| `form` | object | Datos analíticos y de rendimiento a nivel de formulario |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Typeform en el flujo de trabajo. Puede recuperar respuestas, descargar archivos y obtener estadísticas del formulario. Requiere clave de API.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `typeform`

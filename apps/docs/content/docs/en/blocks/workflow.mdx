@@ -1,19 +1,20 @@
 ---
-title: Workflow Block
-description: Run another workflow inside the current flow
+title: Workflow
+description: This is a core workflow block. Execute another workflow as a block in your workflow. Enter the input variable to pass to the child workflow.
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
-import { Callout } from 'fumadocs-ui/components/callout'
-import { BlockConfigPreview } from '@/components/ui/block-config-preview'
-import { ShowcaseCard } from '@/components/ui/showcase-card'
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
 
 <BlockInfoCard
   type="workflow"
   color="#705335"
 />
 
-## What It Does
+
+## Configuration
 
 <ShowcaseCard>
   <BlockConfigPreview
@@ -22,29 +23,48 @@ import { ShowcaseCard } from '@/components/ui/showcase-card'
     color="#705335"
     hideHeader
     subBlocks={[
-      { "id": "workflowId", "title": "Select Workflow", "type": "dropdown", "required": true },
-      { "id": "input", "title": "Input Variable (Optional)", "type": "short-input", "placeholder": "Select a variable to pass to the child workflow", "description": "This variable will be available as start.input in the child workflow" }
+        {
+            "id": "workflowId",
+            "type": "dropdown",
+            "title": "Select Workflow",
+            "required": true
+        },
+        {
+            "id": "input",
+            "type": "short-input",
+            "title": "Input Variable (Optional)",
+            "placeholder": "Select a variable to pass to the child workflow",
+            "description": "Value passed directly as the child workflow input.",
+            "required": false
+        }
     ]}
   />
 </ShowcaseCard>
 
-Drop a Workflow block when you want to call a child workflow as part of a larger flow. The block runs the latest deployed version of that workflow, waits for it to finish, and then continues with the parent.
+## Input
 
-## Configure It
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `workflowId` | string | Yes | ID of the workflow to execute |
+| `input` | string | No | Variable reference to pass to the child workflow |
 
-1. **Pick a workflow** from the dropdown (self-references are blocked to prevent loops).
-2. **Map inputs**: If the child workflow has an Input Form trigger, you’ll see each field and can connect parent variables. The mapped values are what the child receives.
-3. **Outputs**: After the child finishes, the block exposes:
-   - `result` – the child workflow’s final response
-   - `success` – whether it ran without errors
-   - `error` – message when the run fails
+## Output
 
-## Execution Notes
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Execution success status |
+| `childWorkflowName` | string | Child workflow name |
+| `result` | json | Workflow execution result |
+| `childTraceSpans` | array | Trace spans from the child execution. |
 
-- Child workflows run in the same workspace context, so environment variables and tools carry over.
-- The block uses deployment versioning: any API, schedule, webhook, manual, or chat execution calls the deployed snapshot. Redeploy the child when you change it.
-- If the child fails, the block raises an error unless you handle it downstream.
 
-<Callout>
-Keep child workflows focused. Small, reusable flows make it easier to combine them without creating deep nesting.
-</Callout>
+## Usage Instructions
+
+This hidden block type is not offered in the block toolbar; use the Workflow block with Input Mapping for new workflows. The selected input value is passed directly as the child workflow input. The parent waits for the child and exposes the child output under result. The execution target follows the parent: deployed parents run deployed children, and live parents run live children. Child failures fail this block, and nested workflow execution is limited to 10 levels.
+
+
+
+## Notes
+
+- Category: `blocks`
+- Type: `workflow`

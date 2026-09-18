@@ -1,0 +1,105 @@
+---
+title: Trigger de cartera
+description: Activa un workflow a partir de cambios de estado del monitor de cartera
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="portfolio"
+  color=""
+/>
+
+Activa un workflow a partir de cambios de estado del monitor de cartera
+
+<Callout type="info">
+  Este es un trigger **basado en sondeo**. TradingGoose comprueba la fuente en busca de cambios coincidentes a intervalos regulares.
+</Callout>
+
+## Instrucciones de configuración
+
+- Abre `/workspace/[workspaceId]/monitor` y crea un monitor de cartera.
+- Selecciona la cuenta de bróker, la condición de cartera y el workflow de destino.
+- Elige `edge` para ejecutarlo solo cuando la condición pase de false a true, o `while_true` para ejecutarlo de forma repetida mientras permanezca en true, sujeto al cooldown.
+- El intervalo de sondeo es de 60 segundos por defecto y admite 15–3600 segundos. El cooldown es de 300 segundos por defecto y admite 0–86400 segundos.
+
+## Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "input",
+          "type": "string",
+          "description": "Resumen legible que indica la cartera cuya condición coincidió."
+      },
+      {
+          "name": "event",
+          "type": "string",
+          "description": "Siempre `portfolio_state_condition_matched`."
+      },
+      {
+          "name": "portfolio",
+          "type": "object",
+          "description": "Identidad de la cartera supervisada y la instantánea de detalle que coincidió.",
+          "children": [
+              {
+                  "name": "identity",
+                  "type": "object",
+                  "description": "Identidad de la cartera de trading."
+              },
+              {
+                  "name": "detail",
+                  "type": "object",
+                  "description": "Instantánea de detalle de la cartera."
+              }
+          ]
+      },
+      {
+          "name": "monitor",
+          "type": "object",
+          "description": "Identificadores del monitor, el workflow de destino, el proveedor, el servicio y la cuenta.",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "ID del monitor de cartera."
+              },
+              {
+                  "name": "workflowId",
+                  "type": "string",
+                  "description": "ID del workflow de destino."
+              },
+              {
+                  "name": "blockId",
+                  "type": "string",
+                  "description": "ID del bloque trigger de destino."
+              },
+              {
+                  "name": "providerId",
+                  "type": "string",
+                  "description": "ID del proveedor de trading."
+              },
+              {
+                  "name": "serviceId",
+                  "type": "string",
+                  "description": "ID del servicio de trading conectado."
+              },
+              {
+                  "name": "accountId",
+                  "type": "string",
+                  "description": "ID de la cuenta de bróker supervisada."
+              }
+          ]
+      },
+      {
+          "name": "condition",
+          "type": "json",
+          "description": "Condición de disparo de cartera coincidente."
+      }
+  ]}
+/>

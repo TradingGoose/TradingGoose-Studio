@@ -1,0 +1,108 @@
+---
+title: Conceptos básicos
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+Entender cómo se ejecutan los workflows en TradingGoose es clave para crear automatizaciones eficientes y fiables. El motor de ejecución gestiona automáticamente las dependencias, la concurrencia y el flujo de datos para que tus workflows se ejecuten de forma fluida y predecible.
+
+## Cómo se ejecutan los workflows
+
+El motor de ejecución de TradingGoose procesa los workflows de forma inteligente: analiza las dependencias y ejecuta los blocks en el orden más eficiente posible.
+
+### Ejecución concurrente por defecto
+
+Varios blocks se ejecutan de forma concurrente cuando no dependen entre sí. Esta ejecución en paralelo mejora de forma considerable el rendimiento sin necesidad de configuración manual.
+
+Por ejemplo, si un disparador Manual se conecta a un agente Customer Support y a un agente Deep Researcher, ambos bloques de agente pueden ejecutarse de forma concurrente.
+
+### Dependencias y mapeo explícito de datos
+
+Cuando un bloque tiene varias dependencias activas, el motor espera a que se completen. Las conexiones determinan el orden de ejecución; no combinan automáticamente las salidas en un objeto de entrada ni insertan contenido en el prompt de un Agent.
+
+Por ejemplo, un bloque Function conectado a agentes llamados `support` y `research` puede combinar explícitamente sus salidas con `return { support: <support.content>, research: <research.content> };`. Del mismo modo, referencia explícitamente los resultados de Knowledge en el prompt del Agent posterior. El código de Function no recibe un objeto `input` inyectado automáticamente.
+
+### Enrutamiento inteligente
+
+Los workflows pueden ramificarse en varias direcciones mediante blocks de enrutamiento. El motor de ejecución admite tanto el enrutamiento determinista (con blocks Condition) como el enrutamiento con IA (con blocks Router).
+
+Por ejemplo, un workflow puede ramificarse después de un block inicial hacia un block Condition (que evalúa una expresión lógica) y un block Router (que usa IA para elegir una ruta). Cada rama resultante se ejecuta de forma independiente.
+
+## Tipos de blocks
+
+TradingGoose ofrece distintos tipos de blocks que cumplen funciones específicas en tus workflows:
+
+<Cards>
+  <Card title="Disparadores" href="/triggers">
+    Los **bloques de disparador** definen puntos de entrada como Manual, API, Input Form, Chat y eventos externos. Un flujo de trabajo puede tener varios puntos de entrada; cada ejecución comienza desde un disparador seleccionado.
+  </Card>
+
+  <Card title="Bloques de procesamiento" href="/blocks">
+    Los **bloques de agente** interactúan con modelos de IA, los **bloques de función** ejecutan código personalizado y los **bloques de API** se conectan a servicios externos. Estos bloques transforman y procesan tus datos.
+  </Card>
+
+  <Card title="Flujo de control" href="/blocks">
+    Los **bloques de enrutador** usan IA para elegir rutas, los **bloques de condición** ramifican según la lógica, los **bloques de bucle** iteran sobre elementos o recuentos, y los **bloques paralelos** gestionan iteraciones concurrentes.
+  </Card>
+
+  <Card title="Bloques de utilidad" href="/blocks">
+    Los **bloques de respuesta** formatean las salidas finales para API e interfaces de chat. Los **bloques de variables** gestionan datos con alcance de flujo de trabajo. Los **bloques de espera** pausan la ejecución durante un periodo. Los **bloques de evaluación** evalúan y puntúan las salidas.
+  </Card>
+</Cards>
+
+Todos los bloques se ejecutan automáticamente según sus dependencias; no necesitas gestionar manualmente el orden de ejecución ni los tiempos.
+
+## Disparadores de ejecución
+
+Los flujos de trabajo se pueden disparar de varias formas, según tu caso de uso:
+
+### Pruebas manuales
+Haz clic en "Ejecutar" en el editor de flujos de trabajo para probar tu flujo durante el desarrollo. Ideal para la depuración y la validación.
+
+### Ejecución programada
+Configura ejecuciones recurrentes mediante expresiones cron. Ideal para el procesamiento periódico de datos, informes o tareas de mantenimiento.
+
+### Despliegue de API
+Despliega flujos de trabajo como endpoints HTTP que se pueden invocar de forma programática desde tus aplicaciones.
+
+### Integración de Webhook
+Responde en tiempo real a eventos de servicios externos como GitHub, Stripe o sistemas personalizados.
+
+### Interfaz de chat
+Publica interfaces conversacionales en `/chat/{identifier}` bajo el origen de tu implementación para aplicaciones de IA orientadas al usuario.
+
+<Callout type="info">
+  Obtén más información sobre cada tipo de disparador en la [sección Disparadores](/triggers) de la documentación.
+</Callout>
+
+## Monitoreo de ejecución
+
+Cuando se ejecutan los flujos de trabajo, TradingGoose ofrece visibilidad en tiempo real del proceso de ejecución:
+
+- **Estados de bloque en vivo**: Consulta qué bloques se están ejecutando, ya se completaron o fallaron
+- **Registros de ejecución**: Aparecen registros detallados en tiempo real que muestran entradas, salidas y cualquier error
+- **Métricas de rendimiento**: Sigue el tiempo de ejecución y los costos de cada bloque
+- **Visualización de rutas**: Entiende qué rutas de ejecución se siguieron en tu flujo de trabajo
+
+<Callout type="info">
+  Todos los detalles de ejecución se capturan y quedan disponibles para su revisión incluso después de que los flujos de trabajo finalizan, lo que ayuda con la depuración y la optimización.
+</Callout>
+
+## Principios clave de la ejecución
+
+Entender estos principios fundamentales te ayudará a crear mejores flujos de trabajo:
+
+1. **Ejecución basada en dependencias**: Los bloques se ejecutan cuando se satisfacen las dependencias de su ruta activa
+2. **Paralelización automática**: Los bloques independientes se ejecutan en paralelo sin configuración
+3. **Mapeo explícito de datos**: Referencia las salidas anteriores en las entradas o prompts; las conexiones por sí solas no insertan los datos
+4. **Manejo de errores**: Los bloques con error detienen su ruta de ejecución, pero no afectan a las rutas independientes
+5. **Persistencia de estado**: Todas las salidas de los bloques y los detalles de ejecución se conservan para la depuración
+
+## Próximos pasos
+
+Ahora que entiendes los conceptos básicos de la ejecución, explora:
+- **[Tipos de bloque](/blocks)** - Conoce las capacidades específicas de cada bloque
+- **[Registro](/execution/logging)** - Monitorea las ejecuciones de los flujos de trabajo y depura problemas
+- **[Cálculo de costos](/execution/costs)** - Entiende y optimiza los costos de los flujos de trabajo
+- **[Desencadenadores](/triggers)** - Configura distintas formas de ejecutar tus flujos de trabajo

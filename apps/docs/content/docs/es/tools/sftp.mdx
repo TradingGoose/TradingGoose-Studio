@@ -1,0 +1,982 @@
+---
+title: SFTP
+description: Transfiere archivos vía SFTP (SSH File Transfer Protocol)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="sftp"
+  color=""
+/>
+
+## Configuración
+
+### Subir archivos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SFTP"
+    type="sftp"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "sftp_upload",
+            "options": [
+                {
+                    "id": "sftp_upload",
+                    "label": "Subir archivos"
+                },
+                {
+                    "id": "sftp_create",
+                    "label": "Crear archivo"
+                },
+                {
+                    "id": "sftp_download",
+                    "label": "Descargar archivo"
+                },
+                {
+                    "id": "sftp_list",
+                    "label": "Listar directorio"
+                },
+                {
+                    "id": "sftp_delete",
+                    "label": "Eliminar archivo/directorio"
+                },
+                {
+                    "id": "sftp_mkdir",
+                    "label": "Crear directorio"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host SFTP",
+            "placeholder": "sftp.example.com o 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto SFTP",
+            "placeholder": "22",
+            "defaultValue": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Nombre de usuario",
+            "placeholder": "sftp-user",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Método de autenticación",
+            "defaultValue": "password",
+            "options": [
+                {
+                    "id": "password",
+                    "label": "Contraseña"
+                },
+                {
+                    "id": "privateKey",
+                    "label": "Clave privada"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "placeholder": "Tu contraseña de SFTP",
+            "password": true,
+            "description": "Se muestra cuando authMethod es 'password'."
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "Clave privada",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "Se muestra cuando authMethod es 'privateKey'."
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "Frase de contraseña",
+            "placeholder": "Frase de contraseña para clave cifrada (opcional)",
+            "password": true,
+            "description": "Se muestra cuando authMethod es 'privateKey'."
+        },
+        {
+            "id": "remotePath",
+            "type": "short-input",
+            "title": "Ruta remota",
+            "placeholder": "/home/user/uploads",
+            "required": true
+        },
+        {
+            "id": "uploadFiles",
+            "type": "file-upload",
+            "title": "Archivos para subir",
+            "placeholder": "Selecciona archivos para subir",
+            "required": false
+        },
+        {
+            "id": "files",
+            "type": "short-input",
+            "title": "Referencia de archivo",
+            "placeholder": "Referencia de archivo del bloque anterior (p. ej., {{block_name.file}})",
+            "required": false
+        },
+        {
+            "id": "overwrite",
+            "type": "switch",
+            "title": "Sobrescribir archivos existentes",
+            "defaultValue": true
+        },
+        {
+            "id": "permissions",
+            "type": "short-input",
+            "title": "Permisos de archivo",
+            "placeholder": "0644"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Subir archivos (<code>sftp_upload</code>)</div>
+
+Subir archivos a un servidor SFTP remoto
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Sí | Nombre de host o dirección IP del servidor SFTP |
+| `port` | number | Sí | Puerto del servidor SFTP \(predeterminado: 22\) |
+| `username` | string | Sí | Nombre de usuario de SFTP |
+| `password` | string | No | Contraseña para autenticación \(si no se usa clave privada\) |
+| `privateKey` | string | No | Clave privada para autenticación \(formato OpenSSH\) |
+| `passphrase` | string | No | Frase de contraseña para clave privada cifrada |
+| `remotePath` | string | Sí | Directorio de destino en el servidor remoto |
+| `files` | file[] | No | Archivos a subir |
+| `fileContent` | string | No | Contenido de archivo directo a subir \(para archivos de texto\) |
+| `fileName` | string | No | Nombre de archivo cuando se usa contenido directo |
+| `overwrite` | boolean | No | Si se deben sobrescribir archivos existentes \(predeterminado: true\) |
+| `permissions` | string | No | Permisos de archivo \(ej., 0644\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Si la subida fue exitosa |
+| `uploadedFiles` | json | Matriz de detalles de archivos subidos \(nombre, remotePath, size\) |
+| `message` | string | Mensaje de estado de la operación |
+
+</div>
+
+---
+
+### Crear archivo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SFTP"
+    type="sftp"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "defaultValue": "sftp_create",
+            "options": [
+                {
+                    "id": "sftp_upload",
+                    "label": "Upload Files"
+                },
+                {
+                    "id": "sftp_create",
+                    "label": "Create File"
+                },
+                {
+                    "id": "sftp_download",
+                    "label": "Download File"
+                },
+                {
+                    "id": "sftp_list",
+                    "label": "List Directory"
+                },
+                {
+                    "id": "sftp_delete",
+                    "label": "Delete File/Directory"
+                },
+                {
+                    "id": "sftp_mkdir",
+                    "label": "Create Directory"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "SFTP Host",
+            "placeholder": "sftp.example.com or 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "SFTP Port",
+            "placeholder": "22",
+            "defaultValue": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Username",
+            "placeholder": "sftp-user",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Authentication Method",
+            "defaultValue": "password",
+            "options": [
+                {
+                    "id": "password",
+                    "label": "Password"
+                },
+                {
+                    "id": "privateKey",
+                    "label": "Private Key"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Password",
+            "placeholder": "Your SFTP password",
+            "password": true,
+            "description": "Shown when authMethod is 'password'."
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "Private Key",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "Shown when authMethod is 'privateKey'."
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "Passphrase",
+            "placeholder": "Passphrase for encrypted key (optional)",
+            "password": true,
+            "description": "Shown when authMethod is 'privateKey'."
+        },
+        {
+            "id": "remotePath",
+            "type": "short-input",
+            "title": "Remote Path",
+            "placeholder": "/home/user/uploads",
+            "required": true
+        },
+        {
+            "id": "overwrite",
+            "type": "switch",
+            "title": "Overwrite Existing Files",
+            "defaultValue": true
+        },
+        {
+            "id": "permissions",
+            "type": "short-input",
+            "title": "File Permissions",
+            "placeholder": "0644"
+        },
+        {
+            "id": "fileName",
+            "type": "short-input",
+            "title": "File Name",
+            "placeholder": "filename.txt",
+            "required": true
+        },
+        {
+            "id": "fileContent",
+            "type": "code",
+            "title": "File Content",
+            "placeholder": "Text content to write to the file",
+            "language": "plaintext",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear archivo (<code>sftp_upload</code>)</div>
+
+Subir archivos a un servidor SFTP remoto
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Sí | Nombre de host o dirección IP del servidor SFTP |
+| `port` | number | Sí | Puerto del servidor SFTP \(predeterminado: 22\) |
+| `username` | string | Sí | Nombre de usuario SFTP |
+| `password` | string | No | Contraseña para la autenticación \(si no se usa una clave privada\) |
+| `privateKey` | string | No | Clave privada para la autenticación \(formato OpenSSH\) |
+| `passphrase` | string | No | Frase de contraseña para la clave privada cifrada |
+| `remotePath` | string | Sí | Directorio de destino en el servidor remoto |
+| `files` | file[] | No | Archivos para subir |
+| `fileContent` | string | No | Contenido de archivo directo para subir \(para archivos de texto\) |
+| `fileName` | string | No | Nombre del archivo cuando se usa contenido directo |
+| `overwrite` | boolean | No | Indica si se deben sobrescribir los archivos existentes \(predeterminado: true\) |
+| `permissions` | string | No | Permisos de archivo \(p. ej., 0644\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Indica si la subida se realizó correctamente |
+| `uploadedFiles` | json | Arreglo de detalles de los archivos subidos \(name, remotePath, size\) |
+| `message` | string | Mensaje de estado de la operación |
+
+</div>
+
+---
+
+### Descargar archivo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SFTP"
+    type="sftp"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "sftp_download",
+            "options": [
+                {
+                    "id": "sftp_upload",
+                    "label": "Subir archivos"
+                },
+                {
+                    "id": "sftp_create",
+                    "label": "Crear archivo"
+                },
+                {
+                    "id": "sftp_download",
+                    "label": "Descargar archivo"
+                },
+                {
+                    "id": "sftp_list",
+                    "label": "Listar directorio"
+                },
+                {
+                    "id": "sftp_delete",
+                    "label": "Eliminar archivo/directorio"
+                },
+                {
+                    "id": "sftp_mkdir",
+                    "label": "Crear directorio"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host SFTP",
+            "placeholder": "sftp.example.com o 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto SFTP",
+            "placeholder": "22",
+            "defaultValue": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Nombre de usuario",
+            "placeholder": "sftp-user",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Método de autenticación",
+            "defaultValue": "password",
+            "options": [
+                {
+                    "id": "password",
+                    "label": "Contraseña"
+                },
+                {
+                    "id": "privateKey",
+                    "label": "Clave privada"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "placeholder": "Tu contraseña SFTP",
+            "password": true,
+            "description": "Se muestra cuando authMethod es 'password'."
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "Clave privada",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "Se muestra cuando authMethod es 'privateKey'."
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "Frase de contraseña",
+            "placeholder": "Frase de contraseña para clave cifrada (opcional)",
+            "password": true,
+            "description": "Se muestra cuando authMethod es 'privateKey'."
+        },
+        {
+            "id": "remotePath",
+            "type": "short-input",
+            "title": "Ruta remota",
+            "placeholder": "/home/user/uploads",
+            "required": true
+        },
+        {
+            "id": "encoding",
+            "type": "dropdown",
+            "title": "Codificación de salida",
+            "defaultValue": "utf-8",
+            "options": [
+                {
+                    "id": "utf-8",
+                    "label": "UTF-8 (Texto)"
+                },
+                {
+                    "id": "base64",
+                    "label": "Base64 (Binario)"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Descargar archivo (<code>sftp_download</code>)</div>
+
+Descargar un archivo de un servidor SFTP remoto
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Sí | Nombre de host o dirección IP del servidor SFTP |
+| `port` | number | Sí | Puerto del servidor SFTP \(por defecto: 22\) |
+| `username` | string | Sí | Nombre de usuario SFTP |
+| `password` | string | No | Contraseña para autenticación \(si no se usa clave privada\) |
+| `privateKey` | string | No | Clave privada para autenticación \(formato OpenSSH\) |
+| `passphrase` | string | No | Frase de contraseña para clave privada cifrada |
+| `remotePath` | string | Sí | Ruta del archivo en el servidor remoto |
+| `encoding` | string | No | Codificación de salida: utf-8 para texto, base64 para binario \(por defecto: utf-8\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Si la descarga se realizó correctamente |
+| `fileName` | string | Nombre del archivo descargado |
+| `content` | string | Contenido del archivo \(texto o codificado en base64\) |
+| `size` | number | Tamaño del archivo en bytes |
+| `encoding` | string | Codificación del contenido \(utf-8 o base64\) |
+| `message` | string | Mensaje de estado de la operación |
+
+</div>
+
+---
+
+### Listar directorio
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SFTP"
+    type="sftp"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "sftp_list",
+            "options": [
+                {
+                    "id": "sftp_upload",
+                    "label": "Subir archivos"
+                },
+                {
+                    "id": "sftp_create",
+                    "label": "Crear archivo"
+                },
+                {
+                    "id": "sftp_download",
+                    "label": "Descargar archivo"
+                },
+                {
+                    "id": "sftp_list",
+                    "label": "Listar directorio"
+                },
+                {
+                    "id": "sftp_delete",
+                    "label": "Eliminar archivo/directorio"
+                },
+                {
+                    "id": "sftp_mkdir",
+                    "label": "Crear directorio"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host SFTP",
+            "placeholder": "sftp.example.com o 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto SFTP",
+            "placeholder": "22",
+            "defaultValue": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Nombre de usuario",
+            "placeholder": "sftp-user",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Método de autenticación",
+            "defaultValue": "password",
+            "options": [
+                {
+                    "id": "password",
+                    "label": "Contraseña"
+                },
+                {
+                    "id": "privateKey",
+                    "label": "Clave privada"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "placeholder": "Tu contraseña SFTP",
+            "password": true,
+            "description": "Se muestra cuando authMethod es 'password'."
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "Clave privada",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "Se muestra cuando authMethod es 'privateKey'."
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "Frase de contraseña",
+            "placeholder": "Frase de contraseña para clave cifrada (opcional)",
+            "password": true,
+            "description": "Se muestra cuando authMethod es 'privateKey'."
+        },
+        {
+            "id": "remotePath",
+            "type": "short-input",
+            "title": "Ruta remota",
+            "placeholder": "/home/user/uploads",
+            "required": true
+        },
+        {
+            "id": "detailed",
+            "type": "switch",
+            "title": "Mostrar información detallada",
+            "defaultValue": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar directorio (<code>sftp_list</code>)</div>
+
+Listar archivos y directorios en un servidor SFTP remoto
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Sí | Nombre de host o dirección IP del servidor SFTP |
+| `port` | number | Sí | Puerto del servidor SFTP \(predeterminado: 22\) |
+| `username` | string | Sí | Nombre de usuario SFTP |
+| `password` | string | No | Contraseña para autenticación \(si no se usa clave privada\) |
+| `privateKey` | string | No | Clave privada para autenticación \(formato OpenSSH\) |
+| `passphrase` | string | No | Frase de contraseña para clave privada cifrada |
+| `remotePath` | string | Sí | Ruta del directorio en el servidor remoto |
+| `detailed` | boolean | No | Incluir información detallada del archivo \(tamaño, permisos, fecha de modificación\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Indica si la operación fue exitosa |
+| `path` | string | Ruta del directorio listado |
+| `entries` | json | Matriz de entradas de directorio con nombre, tipo, tamaño, permisos, modifiedAt |
+| `count` | number | Número de entradas en el directorio |
+| `message` | string | Mensaje de estado de la operación |
+
+</div>
+
+---
+
+### Eliminar archivo/directorio
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SFTP"
+    type="sftp"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "sftp_delete",
+            "options": [
+                {
+                    "id": "sftp_upload",
+                    "label": "Subir archivos"
+                },
+                {
+                    "id": "sftp_create",
+                    "label": "Crear archivo"
+                },
+                {
+                    "id": "sftp_download",
+                    "label": "Descargar archivo"
+                },
+                {
+                    "id": "sftp_list",
+                    "label": "Listar directorio"
+                },
+                {
+                    "id": "sftp_delete",
+                    "label": "Eliminar archivo/directorio"
+                },
+                {
+                    "id": "sftp_mkdir",
+                    "label": "Crear directorio"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host SFTP",
+            "placeholder": "sftp.example.com o 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto SFTP",
+            "placeholder": "22",
+            "defaultValue": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Nombre de usuario",
+            "placeholder": "sftp-user",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Método de autenticación",
+            "defaultValue": "password",
+            "options": [
+                {
+                    "id": "password",
+                    "label": "Contraseña"
+                },
+                {
+                    "id": "privateKey",
+                    "label": "Clave privada"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "placeholder": "Tu contraseña SFTP",
+            "password": true,
+            "description": "Se muestra cuando authMethod es 'password'."
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "Clave privada",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
+            "language": "plaintext",
+            "description": "Se muestra cuando authMethod es 'privateKey'."
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "Frase de contraseña",
+            "placeholder": "Frase de contraseña para clave cifrada (opcional)",
+            "password": true,
+            "description": "Se muestra cuando authMethod es 'privateKey'."
+        },
+        {
+            "id": "remotePath",
+            "type": "short-input",
+            "title": "Ruta remota",
+            "placeholder": "/home/user/uploads",
+            "required": true
+        },
+        {
+            "id": "recursive",
+            "type": "switch",
+            "title": "Eliminación recursiva",
+            "defaultValue": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar archivo/directorio (<code>sftp_delete</code>)</div>
+
+Eliminar un archivo o directorio en un servidor SFTP remoto
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Yes | Nombre de host o dirección IP del servidor SFTP |
+| `port` | number | Yes | Puerto del servidor SFTP \(predeterminado: 22\) |
+| `username` | string | Yes | Nombre de usuario de SFTP |
+| `password` | string | No | Contraseña para la autenticación \(si no se usa una clave privada\) |
+| `privateKey` | string | No | Clave privada para la autenticación \(formato OpenSSH\) |
+| `passphrase` | string | No | Frase de contraseña para la clave privada cifrada |
+| `remotePath` | string | Yes | Ruta del archivo o directorio que se va a eliminar |
+| `recursive` | boolean | No | Eliminar directorios de forma recursiva |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Indica si la eliminación se realizó correctamente |
+| `deletedPath` | string | Ruta que se eliminó |
+| `message` | string | Mensaje de estado de la operación |
+
+</div>
+
+---
+
+### Crear directorio
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SFTP"
+    type="sftp"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "sftp_mkdir",
+            "options": [
+                {
+                    "id": "sftp_upload",
+                    "label": "Subir archivos"
+                },
+                {
+                    "id": "sftp_create",
+                    "label": "Crear archivo"
+                },
+                {
+                    "id": "sftp_download",
+                    "label": "Descargar archivo"
+                },
+                {
+                    "id": "sftp_list",
+                    "label": "Listar directorio"
+                },
+                {
+                    "id": "sftp_delete",
+                    "label": "Eliminar archivo/directorio"
+                },
+                {
+                    "id": "sftp_mkdir",
+                    "label": "Crear directorio"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host de SFTP",
+            "placeholder": "sftp.example.com o 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto de SFTP",
+            "placeholder": "22",
+            "defaultValue": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Nombre de usuario",
+            "placeholder": "sftp-user",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Método de autenticación",
+            "defaultValue": "password",
+            "options": [
+                {
+                    "id": "password",
+                    "label": "Contraseña"
+                },
+                {
+                    "id": "privateKey",
+                    "label": "Clave privada"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "placeholder": "Tu contraseña de SFTP",
+            "password": true,
+            "description": "Se muestra cuando authMethod es 'password'."
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "Clave privada",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "Se muestra cuando authMethod es 'privateKey'."
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "Frase de contraseña",
+            "placeholder": "Frase de contraseña para la clave cifrada (opcional)",
+            "password": true,
+            "description": "Se muestra cuando authMethod es 'privateKey'."
+        },
+        {
+            "id": "remotePath",
+            "type": "short-input",
+            "title": "Ruta remota",
+            "placeholder": "/home/user/uploads",
+            "required": true
+        },
+        {
+            "id": "mkdirRecursive",
+            "type": "switch",
+            "title": "Crear directorios superiores",
+            "defaultValue": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear directorio (<code>sftp_mkdir</code>)</div>
+
+Crear un directorio en un servidor SFTP remoto
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Sí | Nombre de host o dirección IP del servidor SFTP |
+| `port` | number | Sí | Puerto del servidor SFTP \(predeterminado: 22\) |
+| `username` | string | Sí | Nombre de usuario SFTP |
+| `password` | string | No | Contraseña para autenticación \(si no se usa clave privada\) |
+| `privateKey` | string | No | Clave privada para autenticación \(formato OpenSSH\) |
+| `passphrase` | string | No | Frase de contraseña para clave privada cifrada |
+| `remotePath` | string | Sí | Ruta para el nuevo directorio |
+| `recursive` | boolean | No | Crear directorios principales si no existen |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Si el directorio se creó correctamente |
+| `createdPath` | string | Ruta del directorio creado |
+| `message` | string | Mensaje de estado de la operación |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Cargar, descargar, listar y gestionar archivos en servidores remotos a través de SFTP. Admite autenticación con contraseña y clave privada para transferencias de archivos seguras.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `sftp`

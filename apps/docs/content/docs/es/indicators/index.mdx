@@ -1,0 +1,111 @@
+---
+title: Indicadores
+description: Crea indicadores personalizados de análisis técnico con scripting PineTS
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+
+Los indicadores son scripts personalizados de análisis técnico que se ejecutan sobre datos de mercado en TradingGoose. Funcionan con [PineTS](https://github.com/nicholasgasior/PineTS), un runtime de JavaScript/TypeScript para Pine Script, ampliado con funciones propias de TradingGoose, como los activadores de flujo de trabajo.
+
+## ¿Qué puedes crear?
+
+- **Indicadores técnicos** — RSI, MACD, bandas de Bollinger o tus propios cálculos personalizados
+- **Generadores de señales** — Detecta cruces, rupturas o condiciones personalizadas
+- **Activadores de flujo de trabajo** — Lanza ejecuciones de flujo de trabajo cuando se cumplen las condiciones del indicador mediante la API `trigger()`
+- **Superposiciones visuales** — Dibuja líneas, formas y rellenos directamente en el gráfico
+
+## Cómo funciona
+
+<Steps>
+  <Step>
+    **Escribe código PineTS** en el Editor de indicadores con la conocida sintaxis de Pine Script adaptada a JavaScript/TypeScript
+  </Step>
+  <Step>
+    **Define entradas** con `input.int()`, `input.float()`, etc.: se convierten en parámetros configurables en la interfaz
+  </Step>
+  <Step>
+    **Calcula** con más de 57 funciones integradas de análisis técnico (`ta.*`), operaciones matemáticas, arrays y mucho más
+  </Step>
+  <Step>
+    **Visualiza** con `plot()`, `plotshape()`, `fill()` y otras funciones de representación en el gráfico
+  </Step>
+  <Step>
+    **Activa flujos de trabajo** llamando a `trigger()` cuando se cumplen las condiciones: conecta los indicadores con tus canalizaciones de automatización
+  </Step>
+</Steps>
+
+## Ejemplo rápido
+
+```javascript
+indicator('RSI Signal', { overlay: false });
+
+const length = input.int(14, 'RSI Length');
+const overbought = input.int(70, 'Overbought');
+const oversold = input.int(30, 'Oversold');
+
+const rsi = ta.rsi(close, length);
+
+plot(rsi, 'RSI', { color: '#2962FF' });
+hline(overbought, 'Overbought', '#FF0000', hline.style_dashed);
+hline(oversold, 'Oversold', '#00FF00', hline.style_dashed);
+
+// Trigger a workflow when RSI crosses below oversold
+if (ta.crossunder(rsi, oversold)) {
+  trigger('rsi_oversold', {
+    condition: ta.crossunder(rsi, oversold),
+    input: 'RSI crossed below oversold threshold',
+    signal: 'long',
+    position: 'belowBar',
+    color: '#00FF00'
+  });
+}
+```
+
+## Indicadores integrados
+
+TradingGoose incluye más de 80 indicadores predefinidos que cubren análisis de momento, tendencia, volatilidad y volumen. Sirven tanto como herramientas listas para usar como de ejemplos de referencia para escribir los tuyos.
+
+<Callout type="info">
+  PineTS se basa en la sintaxis de Pine Script v5/v6. Si estás familiarizado con el Pine Script de TradingView, te resultará muy familiar: la principal diferencia es que se usan declaraciones de variables de JavaScript (`const`, `let`, `var`) en lugar de las declaraciones implícitas de Pine Script.
+</Callout>
+
+## Gestionar indicadores
+
+<Cards>
+  <Card title="Lista de indicadores" href="/widgets/list-indicator">
+    Explora, crea e importa indicadores en el espacio de trabajo.
+  </Card>
+  <Card title="Editor de indicadores" href="/widgets/editor-indicator">
+    Escribe código PineTS y exporta el indicador actual como JSON.
+  </Card>
+</Cards>
+
+Usa el widget Lista de indicadores para explorar los indicadores existentes, crear nuevos o importar JSON de exportación de TradingGoose. El encabezado del Editor de indicadores incluye un botón de exportación que descarga el indicador actual como JSON de exportación de TradingGoose. Los indicadores importados se normalizan automáticamente y los nombres duplicados se renombran durante la importación.
+
+## Guías
+
+<Cards>
+  <Card title="Primeros pasos" href="/indicators/getting-started">
+    Escribe y despliega tu primer indicador en 5 minutos
+  </Card>
+  <Card title="Guía de sintaxis" href="/indicators/syntax">
+    Reglas de sintaxis de PineTS: variables, bucles, funciones y acceso al historial
+  </Card>
+  <Card title="Entradas" href="/indicators/inputs">
+    Define parámetros configurables con el espacio de nombres input
+  </Card>
+  <Card title="Análisis técnico" href="/indicators/ta">
+    Más de 57 funciones TA integradas: medias móviles, osciladores, detección de tendencias
+  </Card>
+  <Card title="Trazado" href="/indicators/plots">
+    Visualiza datos con plot, formas, rellenos y colores
+  </Card>
+  <Card title="Disparadores" href="/indicators/triggers">
+    Conecta las señales de los indicadores con los flujos de trabajo de TradingGoose
+  </Card>
+  <Card title="Referencia de API" href="/indicators/api-reference">
+    Tabla de referencia completa de funciones
+  </Card>
+</Cards>

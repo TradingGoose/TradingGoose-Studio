@@ -3,6 +3,7 @@ export type WorkflowExecutionEventType =
   | 'execution:completed'
   | 'execution:error'
   | 'execution:cancelled'
+  | 'execution:paused'
   | 'block:started'
   | 'block:completed'
   | 'block:error'
@@ -11,6 +12,7 @@ export type WorkflowExecutionEventType =
 
 type WorkflowExecutionTerminalResult = {
   success: boolean
+  status?: 'paused'
   output: Record<string, unknown>
   error?: string
   logs?: any[]
@@ -44,6 +46,14 @@ export type WorkflowExecutionEvent =
       data: {
         startTime: string
       }
+    }
+  | {
+      type: 'execution:paused'
+      executionId: string
+      workflowId: string
+      timestamp: string
+      eventId?: number
+      data: { result: WorkflowExecutionTerminalResult }
     }
   | {
       type: 'execution:completed'
@@ -143,12 +153,13 @@ export type WorkflowExecutionEventEntry = {
 
 export type WorkflowExecutionTerminalEvent = Extract<
   WorkflowExecutionEvent,
-  { type: 'execution:completed' | 'execution:error' | 'execution:cancelled' }
+  { type: 'execution:completed' | 'execution:error' | 'execution:cancelled' | 'execution:paused' }
 >
 
 export function createWorkflowExecutionTerminalEventInput(
   result: WorkflowExecutionTerminalResult
 ): WorkflowExecutionEventInput {
+  if (result.status === 'paused') return { type: 'execution:paused', data: { result } }
   if (result.success) {
     return { type: 'execution:completed', data: { result } }
   }
@@ -171,6 +182,7 @@ export function isTerminalWorkflowExecutionEvent(
 ): event is WorkflowExecutionTerminalEvent {
   return (
     event.type === 'execution:completed' ||
+    event.type === 'execution:paused' ||
     event.type === 'execution:error' ||
     event.type === 'execution:cancelled'
   )

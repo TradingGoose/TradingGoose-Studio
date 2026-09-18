@@ -54,7 +54,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "layout": "full",
             "placeholder": "Enter your API key",
             "password": true,
-            "required": true
+            "description": "Shown when applicable to the selected model at runtime."
         },
         {
             "id": "azureEndpoint",
@@ -62,44 +62,33 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Azure OpenAI Endpoint",
             "layout": "full",
             "placeholder": "https://your-resource.openai.azure.com",
-            "password": true
+            "password": true,
+            "description": "Shown when model is one of 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano', 'azure/model-router'."
         },
         {
             "id": "azureApiVersion",
             "type": "short-input",
             "title": "Azure API Version",
             "layout": "full",
-            "placeholder": "2024-07-01-preview"
+            "placeholder": "2024-07-01-preview",
+            "description": "Shown when model is one of 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano', 'azure/model-router'."
         }
     ]}
   />
 </ShowcaseCard>
 
-## Tools
-
-### `openai_chat`
-
-#### Input
+## Input
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
+| `context` | string | Yes | Text to translate |
+| `targetLanguage` | string | Yes | Target language |
+| `model` | combobox | Yes | Model |
+| `apiKey` | string | No | Provider API key |
+| `azureEndpoint` | string | No | Azure OpenAI endpoint URL |
+| `azureApiVersion` | string | No | Azure API version |
 
-#### Output
-
-| Parameter | Type | Description |
-| --------- | ---- | ----------- |
-| `content` | string | Translated text |
-| `model` | string | Model used |
-| `tokens` | json | Token usage |
-
-### `google_chat`
-
-#### Input
-
-| Parameter | Type | Required | Description |
-| --------- | ---- | -------- | ----------- |
-
-#### Output
+## Output
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
@@ -110,7 +99,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 ## Usage Instructions
 
-Integrate Translate into the workflow. Can translate text to any language.
+Translate text to any language. The model list is loaded at runtime from the base, Ollama, and OpenRouter models available to the deployment.
 
 
 

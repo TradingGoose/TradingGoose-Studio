@@ -43,7 +43,6 @@ const {
   loadBlueprintMock,
   runWorkflowMock,
   loggingCompleteMock,
-  loggingFailureMock,
   tables,
 } = vi.hoisted(() => {
   const table = () => new Proxy({}, { get: (_target, key) => String(key) })
@@ -65,7 +64,6 @@ const {
     loadBlueprintMock: vi.fn(),
     runWorkflowMock: vi.fn(),
     loggingCompleteMock: vi.fn(),
-    loggingFailureMock: vi.fn(),
     tables: {
       credential: table(),
       environmentVariables: table(),
@@ -261,7 +259,6 @@ vi.mock('@/lib/execution/pending-execution', () => ({
 vi.mock('@/lib/logs/execution/logging-session', () => ({
   LoggingSession: class {
     complete = loggingCompleteMock
-    completeWithError = loggingFailureMock
     start = vi.fn().mockResolvedValue('log-1')
   },
 }))
@@ -588,7 +585,6 @@ describe('Airtable payload durability', () => {
     })
     runWorkflowMock.mockReset()
     loggingCompleteMock.mockReset().mockResolvedValue(undefined)
-    loggingFailureMock.mockReset().mockResolvedValue(undefined)
     vi.stubGlobal('fetch', fetchMock)
   })
 
@@ -665,7 +661,7 @@ describe('Airtable payload durability', () => {
     expect(enqueueExecutionMock.mock.calls[0][0].pendingExecutionId).toBe(
       'webhook_execution:webhook-1:airtable:remote:1'
     )
-    expect(loggingFailureMock).not.toHaveBeenCalled()
+    expect(loggingCompleteMock).not.toHaveBeenCalled()
   })
 
   it('does not execute staged data after losing pending-row ownership', async () => {
@@ -688,19 +684,23 @@ describe('Airtable payload durability', () => {
     await vi.advanceTimersByTimeAsync(31_000)
     await expect(execution).resolves.toMatchObject({ success: false })
     expect(fetchMock).toHaveBeenCalledTimes(3)
-    expect(loggingFailureMock).toHaveBeenCalledOnce()
+    expect(loggingCompleteMock).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ success: false, failureReason: expect.any(String) })
+    )
   })
 
   it('terminally logs a revoked Airtable credential and bounds its queue lifetime', async () => {
     tokenMock.mockResolvedValueOnce(null)
 
     await expect(execute()).resolves.toMatchObject({ success: false })
-    expect(loggingFailureMock).toHaveBeenCalledOnce()
+    expect(loggingCompleteMock).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ success: false, failureReason: expect.any(String) })
+    )
   })
 
   it('retains crash recovery when terminal failure logging cannot persist', async () => {
     tokenMock.mockResolvedValueOnce(null)
-    loggingFailureMock.mockRejectedValueOnce(new Error('logging unavailable'))
+    loggingCompleteMock.mockRejectedValueOnce(new Error('logging unavailable'))
 
     await expect(execute()).rejects.toThrow('connection required')
   })
@@ -774,6 +774,43 @@ describe('Airtable payload durability', () => {
     await execute()
 
     expect(enqueueExecutionMock).not.toHaveBeenCalled()
+  })
+
+  it('preserves a paused batch while admitting independent later Airtable events', async () => {
+    queueTenPages()
+    runWorkflowMock.mockResolvedValue({
+      result: { success: true, status: 'paused', output: { reviewUrl: '/review/execution-a' } },
+    })
+
+    await expect(execute()).resolves.toMatchObject({
+      success: true,
+      status: 'paused',
+      executionId: 'execution-a',
+      output: { reviewUrl: '/review/execution-a' },
+    })
+
+    expect(runWorkflowMock).toHaveBeenCalledOnce()
+    expect(enqueueExecutionMock).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        pendingExecutionId: 'webhook_execution:webhook-1:airtable:remote:10',
+        executionType: 'webhook',
+      })
+    )
+    expect(enqueueExecutionMock.mock.calls[0][0].payload).not.toHaveProperty('airtablePollStage')
+    expect(loggingCompleteMock).not.toHaveBeenCalled()
+  })
+
+  it('does not terminally log a paused batch when later-page admission fails', async () => {
+    queueTenPages()
+    runWorkflowMock.mockResolvedValue({
+      result: { success: true, status: 'paused', output: {} },
+    })
+    enqueueExecutionMock.mockRejectedValueOnce(new Error('admission unavailable'))
+
+    await expect(execute()).rejects.toThrow('admission unavailable')
+
+    expect(runWorkflowMock).toHaveBeenCalledOnce()
+    expect(loggingCompleteMock).not.toHaveBeenCalled()
   })
 
   it('logs an empty producing batch before admitting its continuation', async () => {

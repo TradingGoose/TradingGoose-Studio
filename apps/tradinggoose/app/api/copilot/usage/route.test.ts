@@ -75,7 +75,10 @@ describe('Copilot Usage API - Context', () => {
       (tier: { copilotCostMultiplier?: number } | null | undefined) =>
         tier?.copilotCostMultiplier ?? 1
     )
-    mockAccrueUserUsageCost.mockResolvedValue(true)
+    mockAccrueUserUsageCost.mockImplementation(async ({ cost }) => ({
+      currentUsageBefore: 0,
+      currentUsageAfter: cost,
+    }))
     mockResolveWorkflowBillingContext.mockResolvedValue({
       billingUserId: 'user-1',
       subscription: {
@@ -554,7 +557,10 @@ describe('Copilot Usage API - Completion', () => {
       (tier: { copilotCostMultiplier?: number } | null | undefined) =>
         tier?.copilotCostMultiplier ?? 1
     )
-    mockAccrueUserUsageCost.mockResolvedValue(true)
+    mockAccrueUserUsageCost.mockImplementation(async ({ cost }) => ({
+      currentUsageBefore: 0,
+      currentUsageAfter: cost,
+    }))
     mockResolveWorkflowBillingContext.mockResolvedValue({
       billingUserId: 'user-1',
       subscription: {
@@ -697,7 +703,7 @@ describe('Copilot Usage API - Completion', () => {
   })
 
   it('returns non-2xx when completion settlement cannot find a ledger', async () => {
-    mockAccrueUserUsageCost.mockResolvedValue(false)
+    mockAccrueUserUsageCost.mockResolvedValue(null)
     const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
       method: 'POST',
       body: JSON.stringify({

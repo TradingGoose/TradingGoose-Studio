@@ -1,0 +1,215 @@
+---
+title: Referencia de API
+description: Referencia completa de funciones de PineTS en TradingGoose
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+Referencia completa de todas las funciones de PineTS compatibles en TradingGoose, organizadas por espacio de nombres. Esta página se deriva de las definiciones de tipos del entorno de ejecución de PineTS.
+
+## input (13 funciones)
+
+| Función | Devuelve | Descripción |
+|----------|---------|-------------|
+| `input.int(defval, title, min?, max?, step?)` | `number` | Entrada de entero |
+| `input.float(defval, title, min?, max?, step?)` | `number` | Entrada de flotante |
+| `input.bool(defval, title)` | `boolean` | Entrada booleana |
+| `input.string(defval, title)` | `string` | Entrada de cadena |
+| `input.color(defval, title)` | `string` | Selector de color |
+| `input.source(defval, title)` | `series` | Selector de fuente de datos |
+| `input.timeframe(defval, title)` | `string` | Selector de intervalo temporal |
+| `input.price(defval, title)` | `number` | Entrada de precio |
+| `input.time(defval, title)` | `number` | Entrada de marca temporal |
+| `input.session(defval, title)` | `string` | Entrada de sesión |
+| `input.symbol(defval, title)` | `string` | Entrada de símbolo |
+| `input.text_area(defval, title)` | `string` | Texto multilínea |
+| `input.enum(defval, title, options)` | `T` | Selector desplegable |
+
+## ta (57 funciones)
+
+### Medias móviles
+
+| Función | Descripción |
+|----------|-------------|
+| `ta.alma(source, length, offset?, sigma?)` | Media móvil de Arnaud Legoux |
+| `ta.ema(source, length)` | Media móvil exponencial |
+| `ta.hma(source, length)` | Media móvil de Hull |
+| `ta.linreg(source, length, offset?)` | Regresión lineal |
+| `ta.rma(source, length)` | Media móvil deslizante |
+| `ta.sma(source, length)` | Media móvil simple |
+| `ta.swma(source)` | Media móvil ponderada simétricamente |
+| `ta.vwap` / `ta.vwap(source)` | Precio medio ponderado por volumen |
+| `ta.vwma(source, length)` | Media móvil ponderada por volumen |
+| `ta.wma(source, length)` | Media móvil ponderada |
+
+### Osciladores
+
+| Función | Descripción |
+|----------|-------------|
+| `ta.cci(source, length)` | Índice de canales de materias primas |
+| `ta.change(source, length?)` | Cambio de precio |
+| `ta.cmo(source, length)` | Oscilador de momento de Chande |
+| `ta.cog(source, length)` | Centro de gravedad |
+| `ta.macd(source, fast, slow, signal)` | MACD → `[macd, signal, hist]` |
+| `ta.mfi(series, length)` | Índice de flujo de dinero |
+| `ta.mom(source, length)` | Momento |
+| `ta.roc(source, length)` | Tasa de cambio |
+| `ta.rsi(source, length)` | Índice de fuerza relativa |
+| `ta.stoch(source, high, low, length)` | Estocástico |
+| `ta.tsi(source, short, long)` | Índice de fuerza real |
+| `ta.wpr(length)` | Williams %R |
+
+### Volatilidad
+
+| Función | Descripción |
+|----------|-------------|
+| `ta.atr(length)` | Rango Verdadero Medio |
+| `ta.bb(source, length, mult)` | Bandas de Bollinger → `[mid, upper, lower]` |
+| `ta.bbw(source, length, mult)` | Ancho de las Bandas de Bollinger |
+| `ta.dev(source, length)` | Desviación Absoluta Media |
+| `ta.kc(source, length, mult)` | Canales de Keltner → `[mid, upper, lower]` |
+| `ta.kcw(source, length, mult)` | Ancho de los Canales de Keltner |
+| `ta.range(source, length)` | Rango |
+| `ta.stdev(source, length)` | Desviación Estándar |
+| `ta.tr` / `ta.tr(handleNa?)` | Rango Verdadero |
+| `ta.variance(source, length)` | Varianza |
+
+### Volumen (variables)
+
+| Variable | Descripción |
+|----------|-------------|
+| `ta.accdist` | Acumulación/Distribución |
+| `ta.iii` | Índice de Intensidad Intradía |
+| `ta.nvi` | Índice de Volumen Negativo |
+| `ta.obv` | Volumen en Balance |
+| `ta.pvi` | Índice de Volumen Positivo |
+| `ta.pvt` | Tendencia Precio-Volumen |
+| `ta.wad` | Williams A/D |
+| `ta.wvad` | Williams A/D Variable |
+
+### Tendencia
+
+| Función | Descripción |
+|----------|-------------|
+| `ta.cross(a, b)` | Cruce (cualquier dirección) |
+| `ta.crossover(a, b)` | Cruce por encima |
+| `ta.crossunder(a, b)` | Cruce por debajo |
+| `ta.dmi(diLength, adxSmoothing)` | DMI → `[plus, minus, adx]` |
+| `ta.falling(source, length)` | Detección de caída |
+| `ta.rising(source, length)` | Detección de subida |
+| `ta.sar(start, inc, max)` | SAR Parabólico |
+| `ta.supertrend(factor, atrLength)` | SuperTrend → `[value, direction]` |
+
+### Estadísticas
+
+| Función | Descripción |
+|----------|-------------|
+| `ta.barssince(condition)` | Barras desde la condición |
+| `ta.correlation(a, b, length)` | Coeficiente de correlación |
+| `ta.cum(source)` | Suma acumulada |
+| `ta.highest(source, length)` | Máximo en N barras |
+| `ta.highestbars(source, length)` | Barras desde el máximo |
+| `ta.lowest(source, length)` | Mínimo en N barras |
+| `ta.lowestbars(source, length)` | Barras desde el mínimo |
+| `ta.median(source, length)` | Mediana |
+| `ta.mode(source, length)` | Moda |
+| `ta.percentile_linear_interpolation(source, len, pct)` | Percentil (lineal) |
+| `ta.percentile_nearest_rank(source, len, pct)` | Percentil (rango más cercano) |
+| `ta.percentrank(source, length)` | Rango percentil |
+| `ta.pivothigh(source, left, right)` | Pivote alto |
+| `ta.pivotlow(source, left, right)` | Pivote bajo |
+| `ta.valuewhen(condition, source, occurrence)` | Valor cuando la condición |
+
+## math (28 funciones + 4 constantes)
+
+| Función / Constante | Descripción |
+|---------------------|-------------|
+| `math.pi`, `math.e`, `math.phi`, `math.rphi` | Constantes matemáticas |
+| `math.abs(x)` | Valor absoluto |
+| `math.ceil(x)` | Redondear hacia arriba |
+| `math.floor(x)` | Redondear hacia abajo |
+| `math.round(x, precision?)` | Redondear |
+| `math.round_to_mintick(x)` | No disponible en Studio: requiere `syminfo.mintick`; redondea usando una entrada explícita |
+| `math.sign(x)` | Signo |
+| `math.max(a, b)` | Máximo |
+| `math.min(a, b)` | Mínimo |
+| `math.avg(...)` | Promedio |
+| `math.sum(source, length)` | Suma |
+| `math.pow(base, exp)` | Potencia |
+| `math.sqrt(x)` | Raíz cuadrada |
+| `math.exp(x)` | Exponencial |
+| `math.log(x)` | Logaritmo natural |
+| `math.log10(x)` | Logaritmo base 10 |
+| `math.sin(x)`, `math.cos(x)`, `math.tan(x)` | Trigonométricas |
+| `math.asin(x)`, `math.acos(x)`, `math.atan(x)` | Trigonométricas inversas |
+| `math.todegrees(x)`, `math.toradians(x)` | Conversión de ángulos |
+| `math.random(min?, max?)` | Número aleatorio |
+
+## plot (10 funciones)
+
+| Función | Descripción |
+|----------|-------------|
+| `plot(series, title?, options?)` | Gráfico de líneas/áreas/histograma |
+| `plotshape(series, title?, options?)` | Marcadores de forma |
+| `plotchar(series, title?, char?, options?)` | Marcadores de carácter |
+| `plotarrow(series, title?, options?)` | Marcadores de flecha |
+| `plotbar(o, h, l, c, title?, options?)` | Barras OHLC |
+| `plotcandle(o, h, l, c, title?, options?)` | Velas |
+| `hline(price, title?, color?, linestyle?, linewidth?, editable?, display?)` | Línea horizontal |
+| `fill(plot1, plot2, color?)` | Relleno entre gráficos |
+| `bgcolor(color, offset?, options?)` | No se renderiza en Studio; produce una advertencia de estilo no compatible |
+| `barcolor(color, offset?, options?)` | No se renderiza en Studio; usa la opción `color` de un plot |
+
+## array (52 métodos)
+
+| Categoría | Funciones |
+|----------|-----------|
+| **Creación** | `from`, `new_float`, `new_int`, `new_bool`, `new_string`, `copy` |
+| **Acceso** | `get`, `set`, `first`, `last` |
+| **Modificación** | `push`, `pop`, `shift`, `unshift`, `insert`, `remove`, `clear`, `fill`, `reverse` |
+| **Forma** | `size`, `slice`, `concat` |
+| **Búsqueda** | `indexof`, `lastindexof`, `includes`, `binary_search`, `binary_search_leftmost`, `binary_search_rightmost`, `every`, `some` |
+| **Ordenación** | `sort`, `sort_indices` |
+| **Estadísticas** | `sum`, `avg`, `min`, `max`, `median`, `mode`, `stdev`, `variance`, `covariance`, `range`, `percentrank`, `percentile_linear_interpolation`, `percentile_nearest_rank` |
+| **Transformación** | `abs`, `join`, `standardize` |
+
+## map (11 métodos)
+
+`new`, `get`, `put`, `put_all`, `contains`, `remove`, `keys`, `values`, `size`, `clear`, `copy`
+
+## matrix
+
+| Categoría | Funciones |
+|----------|-----------|
+| **Acceso** | `get`, `set`, `row`, `col` |
+| **Tamaño** | `rows`, `columns`, `elements_count`, `reshape`, `submatrix` |
+| **Modificar** | `add_row`, `add_col`, `remove_row`, `remove_col`, `swap_rows`, `swap_columns`, `fill`, `reverse`, `concat`, `copy` |
+| **Aritmética** | `mult`, `pow`, `diff`, `kron` |
+| **Álgebra lineal** | `det`, `inv`, `pinv`, `eigenvalues`, `eigenvectors`, `rank`, `trace`, `transpose` |
+| **Estadística** | `sum`, `avg`, `min`, `max`, `median`, `mode` |
+| **Booleano** | `is_square`, `is_identity`, `is_diagonal`, `is_antidiagonal`, `is_triangular`, `is_symmetric`, `is_antisymmetric`, `is_stochastic`, `is_binary`, `is_zero` |
+| **Ordenar** | `sort` |
+
+## str (19 métodos)
+
+`length`, `contains`, `startswith`, `endswith`, `pos`, `match`, `substring`, `split`, `replace`, `replace_all`, `lower`, `upper`, `trim`, `repeat`, `format`, `tonumber`, `tostring`
+
+## log (3 métodos)
+
+`log.info(msg)`, `log.warning(msg)`, `log.error(msg)`
+
+## request (no compatible)
+
+TradingGoose no admite `request.security` ni `request.security_lower_tf`. La verificación del indicador y la compilación en el servidor rechazan estas llamadas. Usa los datos proporcionados por el gráfico u obtén la serie necesaria en un workflow.
+
+## trigger (extensión de TradingGoose)
+
+```
+trigger(event: string, options: { condition, input, signal, position?, color? })
+```
+
+Consulta [Disparadores de indicadores](/indicators/triggers) para ver la documentación completa.
+
+<Callout type="info">
+  Esta referencia cubre las funciones disponibles en el entorno de ejecución PineTS de TradingGoose. PineTS se basa en el proyecto de código abierto [PineTS project](https://github.com/nicholasgasior/PineTS) y admite un subconjunto de las API de Pine Script v5/v6. Actualmente no se admiten características como `strategy.*`, `label.*`, `line.*`, `box.*` y `table.*`.
+</Callout>

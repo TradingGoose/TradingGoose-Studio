@@ -1,0 +1,57 @@
+---
+title: Nota
+description: Agrega anotaciones visuales al lienzo del flujo de trabajo sin
+  afectar la ejecución
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="note"
+  color="#F59E0B"
+  icon={true}
+/>
+
+El bloque Nota es una anotación solo visual que reside en el lienzo del flujo de trabajo. No se ejecuta, no tiene entradas ni salidas y el ejecutor lo ignora por completo. Úsalo para documentar decisiones, dejar instrucciones a los colaboradores o explicar secciones complejas de un flujo de trabajo.
+
+## Descripción general
+
+Los bloques Nota cumplen una función puramente organizativa:
+
+- **Documenta decisiones de diseño** -- explica por qué se eligió una determinada estrategia de ramificación o un modelo concreto.
+- **Deja instrucciones** -- indica a los colaboradores cómo configurar variables de entorno o qué hace una sección del flujo de trabajo.
+- **Incrusta referencias** -- pega enlaces de YouTube y se mostrarán como videos incrustados directamente en el lienzo.
+
+<Callout type="info">
+  Los bloques Nota no tienen ningún efecto en la ejecución del flujo de trabajo. No producen salidas y no se pueden conectar a otros bloques. Se eliminan por completo cuando se ejecuta el flujo de trabajo.
+</Callout>
+
+## Configuración
+
+El único campo es un área de texto Markdown. Escribe texto sin formato, usa formato Markdown (encabezados, listas, negrita, bloques de código) o pega una URL de YouTube para incrustar un video.
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Note"
+    type="note"
+    color="#F59E0B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "content",
+            "type": "long-input",
+            "placeholder": "Agrega contexto o instrucciones para los colaboradores...",
+            "description": "Escribe tu nota con Markdown. Los enlaces de YouTube se mostrarán como videos incrustados."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Buenas prácticas
+
+- **Coloca las notas cerca de los bloques que describen** para que el contexto sea visible de inmediato.
+- **Usa encabezados y listas de Markdown** para que las notas más largas se puedan escanear con facilidad.
+- **Prefiere las notas antes que los comentarios dentro de los bloques de código** -- las notas son visibles a nivel del lienzo sin necesidad de abrir la configuración de un bloque.

@@ -183,55 +183,50 @@ describe('Tools Registry', () => {
   })
 })
 
-describe('Custom Tools', () => {
-  beforeEach(() => {
-    // Mock custom tools store
-    vi.mock('@/stores/custom-tools/store', () => ({
-      useCustomToolsStore: {
-        getState: () => ({
-          activeWorkspaceId: 'workspace-456',
-          getTool: (id: string) => {
-            if (id === 'custom-tool-123') {
-              return {
-                id: 'custom-tool-123',
-                workspaceId: 'workspace-456',
-                userId: 'user-123',
-                title: 'Custom Weather Tool',
-                code: 'return { result: "Weather data" }',
-                schema: {
-                  function: {
-                    description: 'Get weather information',
-                    parameters: {
-                      type: 'object',
-                      properties: {
-                        location: { type: 'string', description: 'City name' },
-                        unit: { type: 'string', description: 'Unit (metric/imperial)' },
-                      },
-                      required: ['location'],
-                    },
+vi.mock('@/stores/custom-tools/store', () => ({
+  useCustomToolsStore: {
+    getState: () => ({
+      activeWorkspaceId: 'workspace-456',
+      getTool: (id: string) => {
+        if (id === 'custom-tool-123') {
+          return {
+            id: 'custom-tool-123',
+            workspaceId: 'workspace-456',
+            userId: 'user-123',
+            title: 'Custom Weather Tool',
+            code: 'return { result: "Weather data" }',
+            schema: {
+              function: {
+                description: 'Get weather information',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    location: { type: 'string', description: 'City name' },
+                    unit: { type: 'string', description: 'Unit (metric/imperial)' },
                   },
+                  required: ['location'],
                 },
-              }
-            }
-            return undefined
-          },
-        }),
+              },
+            },
+          }
+        }
+        return undefined
       },
-    }))
+    }),
+  },
+}))
 
-    // Mock environment store
-    vi.mock('@/stores/settings/environment/store', () => ({
-      useEnvironmentStore: {
-        getState: () => ({
-          getAllVariables: () => ({
-            API_KEY: { value: 'test-api-key' },
-            BASE_URL: { value: 'https://test-base-url.com' },
-          }),
-        }),
-      },
-    }))
-  })
-
+vi.mock('@/stores/settings/environment/store', () => ({
+  useEnvironmentStore: {
+    getState: () => ({
+      getAllVariables: () => ({
+        API_KEY: { value: 'test-api-key' },
+        BASE_URL: { value: 'https://test-base-url.com' },
+      }),
+    }),
+  },
+}))
+describe('Custom Tools', () => {
   afterEach(() => {
     vi.resetAllMocks()
   })
@@ -327,6 +322,44 @@ describe('executeTool Function', () => {
     expect(result.timing?.startTime).toBeDefined()
     expect(result.timing?.endTime).toBeDefined()
     expect(result.timing?.duration).toBeGreaterThanOrEqual(0)
+  })
+
+  it('overwrites untrusted Memory context with the actual workflow execution scope', async () => {
+    await executeTool(
+      'memory_add',
+      {
+        id: 'chat',
+        role: 'user',
+        content: 'Hello',
+        workflowId: 'untrusted',
+        type: 'raw',
+        _context: { workflowId: 'untrusted', workspaceId: 'untrusted', userId: 'untrusted' },
+      },
+      false,
+      createMockExecutionContext()
+    )
+    const call = vi.mocked(fetch).mock.calls.find(([url]) => String(url).includes('/api/memory'))
+    expect(call).toBeDefined()
+    expect(JSON.parse(call![1]!.body as string)).toEqual({
+      key: 'chat',
+      type: 'agent',
+      workflowId: 'test-workflow',
+      data: { role: 'user', content: 'Hello' },
+    })
+    expect(permissionMocks.checkWorkspaceAccess).toHaveBeenCalledWith('workspace-456', 'user-123')
+  })
+
+  it('rejects Memory writes without workspace write access before making a request', async () => {
+    permissionMocks.checkWorkspaceAccess.mockResolvedValueOnce({ hasAccess: true, canWrite: false })
+    const result = await executeTool(
+      'memory_add',
+      { id: 'chat', role: 'user', content: 'Hello' },
+      false,
+      createMockExecutionContext()
+    )
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('requires write access to the workspace')
+    expect(fetch).not.toHaveBeenCalled()
   })
 
   it('should call internal routes directly', async () => {

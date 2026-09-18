@@ -1,0 +1,188 @@
+---
+title: Acción de trading
+description: Coloca órdenes de compra/venta a través de Alpaca o Tradier.
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="trading_action"
+  color="#ff766e"
+/>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Acción de trading"
+    type="trading_action"
+    color="#ff766e"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "trading-provider-selector",
+            "title": "Bróker",
+            "layout": "full",
+            "placeholder": "Seleccionar bróker",
+            "required": true
+        },
+        {
+            "id": "portfolioIdentity",
+            "type": "trading-account-selector",
+            "title": "Cuenta del bróker",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta del bróker",
+            "description": "Cuenta del bróker usada para enviar esta orden.",
+            "required": true
+        },
+        {
+            "id": "side",
+            "type": "dropdown",
+            "title": "Acción",
+            "layout": "half",
+            "required": true,
+            "options": [
+                {
+                    "id": "buy",
+                    "label": "Comprar"
+                },
+                {
+                    "id": "sell",
+                    "label": "Vender"
+                }
+            ]
+        },
+        {
+            "id": "listing",
+            "type": "market-selector",
+            "title": "Listado",
+            "layout": "full",
+            "required": true
+        },
+        {
+            "id": "orderSizingMode",
+            "type": "dropdown",
+            "title": "Tamaño de la orden",
+            "layout": "half",
+            "description": "Se muestra cuando el proveedor es 'alpaca'."
+        },
+        {
+            "id": "quantity",
+            "type": "short-input",
+            "title": "Cantidad",
+            "layout": "half",
+            "placeholder": "Cantidad a operar",
+            "description": "Se muestra cuando orderSizingMode no es 'notional' y el proveedor es uno de 'alpaca', 'tradier'."
+        },
+        {
+            "id": "notional",
+            "type": "short-input",
+            "title": "Nocional",
+            "layout": "half",
+            "placeholder": "Importe en dólares",
+            "description": "Se muestra cuando orderSizingMode es 'notional' y el proveedor es 'alpaca'."
+        },
+        {
+            "id": "orderType",
+            "type": "dropdown",
+            "title": "Tipo de orden",
+            "layout": "half",
+            "required": true,
+            "defaultValue": "market"
+        },
+        {
+            "id": "preview",
+            "type": "switch",
+            "title": "Previsualizar orden",
+            "layout": "half",
+            "description": "Se muestra cuando el proveedor es 'tradier'."
+        },
+        {
+            "id": "limitPrice",
+            "type": "short-input",
+            "title": "Precio límite",
+            "layout": "half",
+            "placeholder": "Obligatorio para órdenes límite y stop-límite",
+            "description": "Se muestra cuando orderType es uno de 'limit', 'stop_limit' y el proveedor es uno de 'alpaca', 'tradier'."
+        },
+        {
+            "id": "stopPrice",
+            "type": "short-input",
+            "title": "Precio stop",
+            "layout": "half",
+            "placeholder": "Obligatorio para órdenes stop/stop-límite",
+            "description": "Se muestra cuando orderType es uno de 'stop', 'stop_limit' y el proveedor es uno de 'alpaca', 'tradier'."
+        },
+        {
+            "id": "trailPrice",
+            "type": "short-input",
+            "title": "Precio trailing",
+            "layout": "half",
+            "placeholder": "Desplazamiento de precio del stop trailing (usar precio o porcentaje)",
+            "description": "Se muestra cuando orderType es 'trailing_stop' y el proveedor es 'alpaca'."
+        },
+        {
+            "id": "trailPercent",
+            "type": "short-input",
+            "title": "Porcentaje trailing",
+            "layout": "half",
+            "placeholder": "Desplazamiento porcentual del stop trailing (usar porcentaje o precio)",
+            "description": "Se muestra cuando orderType es 'trailing_stop' y el proveedor es 'alpaca'."
+        },
+        {
+            "id": "timeInForce",
+            "type": "dropdown",
+            "title": "Vigencia",
+            "layout": "half",
+            "placeholder": "Los valores predeterminados varían según el proveedor"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `trading_place_order`
+
+Coloca órdenes de compra o venta a través de Alpaca o Tradier.
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | Sí | Proveedor de bróker seleccionado para la cuenta y la disponibilidad de listados. |
+| `portfolioIdentity` | json | Sí | Identidad canónica de la cuenta de bróker seleccionada para esta orden. |
+| `listing` | listingIdentity | Sí | Payload estructurado de listado del activo a operar. |
+| `side` | string | Sí | Lado de la orden: compra o venta. |
+| `quantity` | number | No | Cantidad a operar cuando el modo de dimensionamiento del proveedor seleccionado es quantity. |
+| `notional` | number | No | Importe en dólares a operar cuando el proveedor seleccionado lo admite. |
+| `orderSizingMode` | string | No | Modo de dimensionamiento de la orden seleccionado según las capacidades del proveedor de trading. |
+| `orderType` | string | No | Tipo de orden seleccionado según las capacidades del proveedor de trading. |
+| `timeInForce` | string | No | Tiempo en vigor \(day, gtc, gfd, etc.\). |
+| `limitPrice` | number | No | Precio límite \(obligatorio para órdenes limitadas\). |
+| `stopPrice` | number | No | Precio stop cuando lo exige el tipo de orden seleccionado. |
+| `trailPrice` | number | No | Desplazamiento de precio trailing cuando lo admite el tipo de orden seleccionado. |
+| `trailPercent` | number | No | Desplazamiento porcentual trailing cuando lo admite el tipo de orden seleccionado. |
+| `preview` | boolean | No | Previsualiza la orden del proveedor sin enviarla cuando esté admitido. |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `summary` | string | Mensaje de estado del envío de la orden. |
+| `provider` | string | Broker/proveedor utilizado para la orden. |
+| `appOrderId` | string | ID de orden de Trading Goose. |
+| `clientOrderId` | string | Identidad de orden de cliente del broker para reintentos. |
+| `order` | json | Detalles de orden normalizados y respuesta sin procesar. |
+
+## Instrucciones de uso
+
+Bloque de acción de trading unificado que envía órdenes desde una cuenta de broker seleccionada.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `trading_action`

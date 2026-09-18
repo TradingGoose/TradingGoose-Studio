@@ -128,7 +128,6 @@ import { WaitBlock } from '@/blocks/blocks/wait'
 import { WatchlistBlock } from '@/blocks/blocks/watchlist'
 import { WealthboxBlock } from '@/blocks/blocks/wealthbox'
 import { WebflowBlock } from '@/blocks/blocks/webflow'
-import { WebhookRequestBlock } from '@/blocks/blocks/webhook_request'
 import { WhatsAppBlock } from '@/blocks/blocks/whatsapp'
 import { WikipediaBlock } from '@/blocks/blocks/wikipedia'
 import { WordPressBlock } from '@/blocks/blocks/wordpress'
@@ -302,7 +301,6 @@ export const registry: Record<string, BlockConfig> = {
   tts: TtsBlock,
   twilio_voice: TwilioVoiceBlock,
   video_generator: VideoGeneratorBlock,
-  webhook_request: WebhookRequestBlock,
   wordpress: WordPressBlock,
   zendesk: ZendeskBlock,
   zoom: ZoomBlock,

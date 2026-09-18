@@ -2,7 +2,7 @@
   "title": "TradingGoose Documentation",
   "pages": [
     "./introduction/index",
-    "./copilot/index",
+    "copilot",
     "utilities",
     "./permissions/index",
     "indicators",

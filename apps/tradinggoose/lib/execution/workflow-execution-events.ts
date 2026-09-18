@@ -26,6 +26,7 @@ type MemoryExecutionEventStream = {
 type WorkflowExecutionResultState =
   | { status: 'pending' | 'processing'; result: null; failureReason: null }
   | { status: 'completed' | 'failed'; result: ExecutionResult; failureReason: string | null }
+  | { status: 'paused'; result: ExecutionResult; failureReason: null }
 
 type WorkflowExecutionEventState = WorkflowExecutionResultState & {
   events: WorkflowExecutionEventEntry[]
@@ -130,18 +131,6 @@ function readFinalOutput(executionData: unknown): Record<string, unknown> {
   return executionData.finalOutput
 }
 
-function readLogFailureReason(row: WorkflowExecutionLogStateRow) {
-  const executionData = isRecord(row.executionData) ? row.executionData : {}
-  if (typeof executionData.errorMessage === 'string' && executionData.errorMessage.length > 0) {
-    return executionData.errorMessage
-  }
-
-  const finalOutput = readFinalOutput(row.executionData)
-  return typeof finalOutput.error === 'string' && finalOutput.error.length > 0
-    ? finalOutput.error
-    : 'Workflow execution failed'
-}
-
 function readQueuedExecutionMetadata(executionData: Record<string, unknown>) {
   const trigger = isRecord(executionData.trigger) ? executionData.trigger : {}
   const data = isRecord(trigger.data) ? trigger.data : {}
@@ -207,7 +196,15 @@ export async function readWorkflowExecutionAccessContext(params: {
 export function createWorkflowExecutionResultFromLog(
   row: WorkflowExecutionLogStateRow
 ): WorkflowExecutionResultState {
+  const executionData = isRecord(row.executionData) ? row.executionData : {}
   if (!row.endedAt) {
+    if (isRecord(executionData.pause)) {
+      return {
+        status: 'paused',
+        result: { success: true, status: 'paused', output: executionData.pause },
+        failureReason: null,
+      }
+    }
     return {
       status: 'processing',
       result: null,
@@ -215,13 +212,13 @@ export function createWorkflowExecutionResultFromLog(
     }
   }
 
-  const executionData = isRecord(row.executionData) ? row.executionData : {}
   const finalOutput = readFinalOutput(executionData)
   const queuedExecution = readQueuedExecutionMetadata(executionData)
   const traceSpans = Array.isArray(executionData.traceSpans) ? executionData.traceSpans : []
   const hasResponseBlock = executionData.hasResponseBlock === true
   const failed = row.level === 'error'
-  const failureReason = failed ? readLogFailureReason(row) : null
+  const failureReason =
+    failed && typeof executionData.errorMessage === 'string' ? executionData.errorMessage : null
   const metadata = {
     duration: row.totalDurationMs ?? 0,
     startTime: row.startedAt.toISOString(),
@@ -246,6 +243,9 @@ export function createWorkflowExecutionResultFromLog(
 }
 
 function createWorkflowExecutionStateFromTerminalEvent(event: WorkflowExecutionTerminalEvent) {
+  if (event.type === 'execution:paused') {
+    return { status: 'paused' as const, result: event.data.result, failureReason: null }
+  }
   if (event.type === 'execution:completed') {
     return {
       status: 'completed' as const,
@@ -266,6 +266,7 @@ function createWorkflowExecutionStateFromTerminalEvent(event: WorkflowExecutionT
 function findTerminalEvent(entries: WorkflowExecutionEventEntry[]) {
   for (let index = entries.length - 1; index >= 0; index -= 1) {
     const entry = entries[index]
+    if (entry?.event.type === 'execution:started') return null
     if (entry && isTerminalWorkflowExecutionEvent(entry.event)) {
       return entry.event
     }
@@ -397,18 +398,30 @@ export async function readWorkflowExecutionEventState(params: {
       )
       .limit(1),
   ])
-  const terminalEvent = findTerminalEvent(events)
+  // Durable state owns status: delayed pauses and post-completion failures cannot
+  // override a resumed or finished execution. Streams reconstruct its final event.
+  const logData = isRecord(logRow?.executionData) ? logRow.executionData : {}
+  const pause = isRecord(logData.pause) && !logRow?.endedAt ? logData.pause : null
+  const visibleEvents = events.filter(({ event }) => {
+    if (logRow?.endedAt) return !isTerminalWorkflowExecutionEvent(event)
+    return (
+      event.type !== 'execution:paused' ||
+      !logRow ||
+      (pause && event.data.result.output.revision === pause.revision)
+    )
+  })
+  const terminalEvent = findTerminalEvent(visibleEvents)
   if (terminalEvent) {
     return {
       ...createWorkflowExecutionStateFromTerminalEvent(terminalEvent),
-      events: params.afterEventId === undefined ? [] : events,
+      events: params.afterEventId === undefined ? [] : visibleEvents,
     }
   }
 
   if (logRow) {
     return {
       ...createWorkflowExecutionResultFromLog(logRow),
-      events: params.afterEventId === undefined ? [] : events,
+      events: params.afterEventId === undefined ? [] : visibleEvents,
     }
   }
 

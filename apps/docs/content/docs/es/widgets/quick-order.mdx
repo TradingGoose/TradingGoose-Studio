@@ -1,0 +1,65 @@
+---
+title: Orden rápida
+description: Valide y envíe órdenes de bróker desde un formulario de trading compacto.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Descripción general
+
+| Propiedad | Valor |
+|----------|-------|
+| **Clave** | `quick_order` |
+| **Categoría** | Trading |
+
+Orden rápida ofrece un formulario de compra/venta específico para la cuenta de bróker y el listing seleccionados.
+
+## Características
+
+- **Controles según capacidades** -- Los tipos de orden se filtran por proveedor y listing; las opciones de vigencia se filtran según el soporte del proveedor.
+- **Límites de tamaño** -- Los modos de cantidad y nocional aparecen solo cuando el proveedor y el activo los admiten.
+- **Precios condicionales** -- Los campos de límite, stop y trailing aparecen para el tipo de orden aplicable.
+- **Validación y envío** -- Las restricciones de cuenta, listing, tamaño, precio y proveedor se comprueban antes del envío.
+
+## Uso
+
+Seleccione Compra o Venta, elija un listing y, a continuación, seleccione un modo de tamaño, un tipo de orden y una vigencia admitidos. Introduzca la cantidad o el valor nocional según se requiera. Las órdenes trailing aceptan uno de `trailPrice` o `trailPercent`; las alternativas son mutuamente excluyentes. Revise los mensajes de validación antes de enviar.
+
+<Callout type="warn">Al enviar el formulario se envía una orden a la cuenta de bróker seleccionada. La orden es paper o live según el entorno de esa cuenta, así que verifique la cuenta antes de enviar.</Callout>
+
+## Configuración
+
+Configuración persistida del widget:
+
+| Parámetro | Descripción |
+|-----------|-------------|
+| `provider` | Proveedor de trading. |
+| `serviceId` | Identificador del servicio de bróker. |
+| `portfolioIdentity` | Identidad canónica de la cuenta de bróker. |
+| `marketProvider` | Proveedor de datos de mercado usado para el descubrimiento de listings. |
+| `marketProviderParams` | Parámetros de mercado específicos del proveedor. |
+| `marketAuth` | Credenciales opcionales del proveedor de mercado. |
+| `side` | Lado Compra o Venta persistido. |
+
+Estado transitorio del formulario:
+
+| Parámetro | Descripción |
+|-----------|-------------|
+| `listing` | Listado seleccionado para esta orden. |
+| `sizingMode` | Dimensionamiento por cantidad o nocional. |
+| `orderType` | Tipo de orden admitido por el proveedor o el listado. |
+| `timeInForce` | Valor time-in-force admitido por el proveedor. |
+| `quantity` | Cantidad unitaria. |
+| `notional` | Importe en divisa. |
+| `limitPrice` | Precio límite cuando se requiera. |
+| `stopPrice` | Precio stop cuando se requiera. |
+| `trailPrice` | Importe de trailing absoluto. |
+| `trailPercent` | Importe de trailing porcentual. |
+
+## Relacionado
+
+<Cards>
+  <Card title="Instantánea de cartera" href="/widgets/portfolio-snapshot">Revisa la cuenta usada para la orden.</Card>
+  <Card title="Herramienta de acción de trading" href="/tools/trading_action">Consulta el contrato de la herramienta de workflow usada para las acciones de trading.</Card>
+</Cards>

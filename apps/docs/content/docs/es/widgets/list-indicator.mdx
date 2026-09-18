@@ -1,0 +1,46 @@
+---
+title: Lista de indicadores
+description: Explora, crea e importa indicadores del espacio de trabajo.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Descripción general
+
+| Propiedad | Valor |
+|----------|-------|
+| **Clave** | `list_indicator` |
+| **Categoría** | Lista |
+
+El widget Lista de indicadores es el explorador del espacio de trabajo para indicadores PineTS personalizados. Úsalo para buscar indicadores existentes, crear otros nuevos, importar JSON de exportación de TradingGoose y abrir el indicador seleccionado en el Editor de indicadores.
+
+## Funciones
+
+- **Explorar y buscar** indicadores en el espacio de trabajo actual.
+- **Crear nuevos** indicadores desde el menú Crear.
+- **Importar** indicadores desde el menú Crear con la acción **Importar indicador**.
+- **Abrir en el editor** seleccionando un indicador de la lista.
+- **Vinculación por color de pareja** mantiene la lista sincronizada con el Editor de indicadores cuando ambos widgets comparten el mismo color.
+
+## Uso
+
+1. Añade el widget a un panel del espacio de trabajo.
+2. Usa el menú Crear para añadir un indicador nuevo o importar un archivo JSON de exportación de TradingGoose.
+3. Selecciona un indicador de la lista para abrirlo en el widget Editor de indicadores emparejado.
+4. Asigna un color de pareja si quieres que los cambios de selección se mantengan sincronizados entre la lista y el editor.
+
+<Callout type="info">
+  Las acciones de crear e importar requieren permiso de edición en el espacio de trabajo. Explorar los indicadores existentes solo requiere acceso al espacio de trabajo.
+</Callout>
+
+## Relacionado
+
+<Cards>
+  <Card title="Editor de indicadores" href="/widgets/editor-indicator">
+    Escribe código PineTS, verifica scripts y exporta indicadores como JSON.
+  </Card>
+  <Card title="Guía de indicadores" href="/indicators">
+    Conoce el modelo de scripting de PineTS y los indicadores integrados.
+  </Card>
+</Cards>

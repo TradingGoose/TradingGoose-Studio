@@ -1,0 +1,74 @@
+---
+title: 数学函数
+description: math 命名空间中的数学运算和常量
+---
+
+`math` 命名空间提供了数学常量、基本运算、三角函数和统计函数。
+
+## 常量
+
+| 常量 | 值 | 描述 |
+|----------|-------|-------------|
+| `math.pi` | 3.14159... | 圆周率 |
+| `math.e` | 2.71828... | 欧拉数 |
+| `math.phi` | 1.61803... | 黄金比例 |
+| `math.rphi` | 0.61803... | 黄金比例的倒数 |
+
+## 基本运算
+
+| 函数 | 描述 |
+|----------|-------------|
+| `math.abs(x)` | 绝对值 |
+| `math.ceil(x)` | 向上取整 |
+| `math.floor(x)` | 向下取整 |
+| `math.round(x, precision?)` | 四舍五入到最接近的整数（或精度） |
+| `math.round_to_mintick(x)` | Studio 中不可用：需要 `syminfo.mintick`；请改用显式输入进行舍入 |
+| `math.sign(x)` | 值的符号（-1、0 或 1） |
+| `math.max(a, b)` | 两个值的最大值 |
+| `math.min(a, b)` | 两个值的最小值 |
+| `math.avg(...)` | 值的平均值 |
+| `math.sum(source, length)` | N 根 K 线内的值之和 |
+
+## 指数与对数
+
+| 函数 | 描述 |
+|----------|-------------|
+| `math.pow(base, exp)` | 幂 |
+| `math.sqrt(x)` | 平方根 |
+| `math.exp(x)` | e 的 x 次幂 |
+| `math.log(x)` | 自然对数 |
+| `math.log10(x)` | 常用对数 |
+
+## 三角函数
+
+| 函数 | 描述 |
+|----------|-------------|
+| `math.sin(x)` | 正弦（弧度） |
+| `math.cos(x)` | 余弦（弧度） |
+| `math.tan(x)` | 正切（弧度） |
+| `math.asin(x)` | 反正弦 |
+| `math.acos(x)` | 反余弦 |
+| `math.atan(x)` | 反正切 |
+| `math.todegrees(x)` | 将弧度转换为角度 |
+| `math.toradians(x)` | 将角度转换为弧度 |
+
+## 其他
+
+| 函数 | 描述 |
+|----------|-------------|
+| `math.random(min?, max?)` | 随机数 |
+
+## 示例
+
+```javascript
+indicator('Volatility Ratio');
+
+const atr = ta.atr(14);
+const avgAtr = ta.sma(atr, 50);
+const minAtr = input.float(0.000001, 'Minimum ATR', 0.000001);
+const ratio = atr / math.max(avgAtr, minAtr);
+const logRatio = math.log(ratio);
+
+plot(logRatio, 'Log Volatility Ratio');
+hline(0, 'Zero', '#787B86', hline.style_dashed);
+```

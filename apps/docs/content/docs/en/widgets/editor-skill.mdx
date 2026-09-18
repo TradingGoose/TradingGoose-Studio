@@ -17,10 +17,10 @@ The Skill Editor lets you modify the name, description, and instruction content 
 
 ## Features
 
-- **Name field** accepts a trimmed, workspace-unique name up to 64 characters. This is the key the agent uses when loading the skill. The editor validates uniqueness across the workspace on save.
+- **Name field** accepts a trimmed, workspace-unique display name up to 64 characters. The agent uses the skill's immutable ID, not this name, when loading its instructions.
 - **Description field** provides a short summary of what the skill helps the agent do.
 - **Instructions textarea** is a free-form text area (up to 50,000 characters) where you write the full skill instructions in plain text or markdown. The textarea uses a monospace font for comfortable editing.
-- **Export button** in the header bar downloads the current saved skill as TradingGoose export JSON. Save first if the editor is dirty.
+- **Export button** in the header bar downloads the editor's current name, description, and instructions as TradingGoose export JSON.
 - **Save button** in the header bar persists all changes. Validation runs on save: name must be non-empty and at most 64 characters, description and content must be non-empty, and the name must be unique within the workspace.
 - **Skill selector** in the header bar switches between skills. When paired via a color link, the selector syncs with the Skill List widget.
 
@@ -45,7 +45,7 @@ This widget supports the **pairColor** mechanism. Assign the same color to a Ski
 
 ## Configuration
 
-The selected skill is stored in widget params as `skillId` and synced through the pair-color store when linked.
+The selected skill is stored in widget params as `skillId` and shared with a linked Skill List when both widgets use the same pair color.
 
 ## Related
 
@@ -54,7 +54,7 @@ The selected skill is stored in widget params as `skillId` and synced through th
     Learn what skills are, how the agent loads them, and best practices.
   </Card>
   <Card title="Skill List" href="/widgets/list-skill">
-    Browse, create, and import skills from the workspace list.
+    Browse, create, import, rename, and delete workspace skills.
   </Card>
   <Card title="Workflow Editor" href="/widgets/editor-workflow">
     Canvas interface to build and edit workflows.

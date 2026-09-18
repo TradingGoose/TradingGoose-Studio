@@ -1,0 +1,53 @@
+---
+title: Function
+description: 运行自定义 TypeScript 或 JavaScript 代码
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+Function 区块运行 TypeScript 或 JavaScript 语句，用于转换数据、执行计算和调用外部服务。TypeScript 会在执行前转译为 JavaScript。此区块不支持 Python。
+
+## 编写代码
+
+直接在代码编辑器中输入语句。系统自动提供异步包装，因此可以使用 `await` 和 `return`，无需再声明包装函数。
+
+使用包含来源的标签引用上游输出。系统不会自动提供填充数据的 `input` 对象。
+
+```typescript
+const customers = <api.data.customers>;
+const activeCustomers = customers.filter((customer) => customer.active);
+console.log('Active customers:', activeCustomers.length);
+return activeCustomers;
+```
+
+请使用实际的来源区块名称和输出路径。工作流变量使用 `<variable.name>`，环境变量使用 `{{VARIABLE_NAME}}`。
+
+## 执行环境
+
+根据部署的 **E2B 系统服务配置**，代码在隔离的本地 JavaScript VM 或 E2B JavaScript 沙盒中执行。没有区块级 Remote Code Execution 开关或语言选择器。管理员负责配置 E2B 服务及其 API 密钥，区块字段不能启用该服务。
+
+- 代码默认超时为 **180 秒**。工作流限制可能更早终止整个运行。
+- 可以使用 `fetch()` 发起 HTTP 请求，但须遵守运行环境的 URL 限制。
+- 外部导入需要 E2B 运行环境支持，本地 VM 不支持。
+- `console.log()` 的内容会记录在 `stdout` 中。
+
+<Callout>
+  可用指标定义请参阅[指标](/indicators)。Function 代码可通过 `await indicator.RSI(<historical_data>, { Length: 7 })` 传入完整的 Historical Data 输出。不要仅传入标量价格序列，也不要直接导入 PineTS。
+</Callout>
+
+## 输出
+
+| 引用 | 说明 |
+|---|---|
+| `<function.result>` | 代码返回的值 |
+| `<function.stdout>` | 捕获的控制台输出 |
+
+错误会导致区块失败。请使用错误路径连接处理执行失败，或在能够安全恢复时在代码中捕获错误。
+
+## 示例：更新计数器
+
+先在 Function 中计算新值，再用 Variables 区块赋值为 `<function.result>`：
+
+```typescript
+return <variable.retryCount> + 1;
+```

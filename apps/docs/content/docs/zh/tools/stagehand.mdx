@@ -1,0 +1,91 @@
+---
+title: Stagehand 提取
+description: 从网站提取数据
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="stagehand"
+  color="#ffbb33"
+/>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Stagehand 提取"
+    type="stagehand"
+    color="#ffbb33"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "url",
+            "type": "short-input",
+            "title": "URL",
+            "layout": "full",
+            "placeholder": "输入要提取数据的网站 URL",
+            "required": true
+        },
+        {
+            "id": "instruction",
+            "type": "long-input",
+            "title": "指令",
+            "layout": "full",
+            "placeholder": "输入要从页面提取哪些数据的详细指令...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "OpenAI API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 OpenAI API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "schema",
+            "type": "code",
+            "title": "架构",
+            "layout": "full",
+            "placeholder": "输入 JSON 架构...",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+### `stagehand_extract`
+
+使用 Stagehand 从网页提取结构化数据
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `url` | string | 是 | 要提取数据的网页 URL |
+| `instruction` | string | 是 | 提取指令 |
+| `provider` | string | 否 | 要使用的 AI 提供商：openai 或 anthropic |
+| `apiKey` | string | 是 | 所选提供商的 API 密钥 |
+| `schema` | json | 是 | 定义待提取数据结构的 JSON 架构 |
+
+#### 输出
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `data` | object | 与所提供架构匹配的已提取结构化数据 |
+
+## 使用说明
+
+将 Stagehand 集成到工作流中。可从网页提取结构化数据。
+
+## 说明
+
+- 类别：`tools`
+- 类型：`stagehand`

@@ -18,8 +18,8 @@ The Workflow List widget displays a browseable list of all workflows in your wor
 ## Features
 
 - **Browse**: View all workflows in your workspace
-- **Search & Filter**: Find workflows quickly
 - **Create**: Start a new folder or workflow directly from the Create menu
+- **Organize**: Drag workflows into folders and nest a folder one level below a root folder
 - **Import**: Import a TradingGoose export JSON file from the Create menu. If the file includes skills, they are imported first and the workflow references are relinked automatically.
 - **Open in Editor**: Click to open any workflow in the editor widget
 
@@ -29,6 +29,10 @@ Add this widget alongside the Workflow Editor to manage your workflows. The Crea
 
 <Callout type="info">
   Workflow imports use the shared TradingGoose export JSON format. Bundled skills are imported first and relinked automatically.
+</Callout>
+
+<Callout type="info">
+  Folders support one child-folder level: a root folder can contain child folders, but a child folder cannot contain another folder. A folder that already contains child folders also cannot be moved beneath another folder.
 </Callout>
 
 ## Related

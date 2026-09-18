@@ -1,6 +1,6 @@
 ---
 title: Circleback Trigger
-description: Trigger workflow when meeting notes and action items are ready
+description: Trigger workflow when a meeting is processed and ready in Circleback
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
@@ -15,10 +15,10 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
   color=""
 />
 
-Trigger workflow when meeting notes and action items are ready
+Trigger workflow when a meeting is processed and ready in Circleback
 
 <Callout type="info">
-  This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
+  This is a **webhook-based** trigger. Configure the external service to send events to the workflow webhook URL.
 </Callout>
 
 <Cards>
@@ -30,9 +30,120 @@ Trigger workflow when meeting notes and action items are ready
 
 ## Events
 
+### Circleback Meeting Completed
+
+Trigger workflow when a meeting is processed and ready in Circleback
+
+#### Setup Instructions
+
+<div class="mb-3"><strong>Note:</strong> You need access to Circleback automations to set up webhooks.</div><div class="mb-3"><strong>1.</strong> In Circleback, click <strong>Automations</strong> in the sidebar.</div><div class="mb-3"><strong>2.</strong> Create a new automation or edit an existing one.</div><div class="mb-3"><strong>3.</strong> Add a <strong>Send webhook request</strong> step to your automation.</div><div class="mb-3"><strong>4.</strong> Paste the <strong>Webhook URL</strong> from above into the Endpoint field.</div><div class="mb-3"><strong>5.</strong> Optionally, copy the <strong>Signing Secret</strong> from Circleback and paste it above to verify webhook signatures.</div><div class="mb-3"><strong>6.</strong> Toggle what to include in the request (Meeting notes, Action items, Transcript). For this trigger: <strong>All meeting data</strong>.</div><div class="mb-3"><strong>7.</strong> Click <strong>"Done"</strong> and save the automation.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Circleback Meeting Completed"
+    type="circleback_meeting_completed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Signing Secret",
+            "placeholder": "Paste signing secret from Circleback (optional)",
+            "description": "Validates that webhook deliveries originate from Circleback using HMAC-SHA256.",
+            "password": true,
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "id",
+          "type": "number",
+          "description": "Circleback meeting ID"
+      },
+      {
+          "name": "name",
+          "type": "string",
+          "description": "Meeting title/name"
+      },
+      {
+          "name": "url",
+          "type": "string",
+          "description": "URL of the virtual meeting (Zoom, Google Meet, Teams, etc.)"
+      },
+      {
+          "name": "createdAt",
+          "type": "string",
+          "description": "ISO8601 timestamp when meeting was created"
+      },
+      {
+          "name": "duration",
+          "type": "number",
+          "description": "Meeting duration in seconds"
+      },
+      {
+          "name": "recordingUrl",
+          "type": "string",
+          "description": "Recording URL (valid for 24 hours, if enabled)"
+      },
+      {
+          "name": "tags",
+          "type": "array",
+          "description": "Array of tag strings"
+      },
+      {
+          "name": "icalUid",
+          "type": "string",
+          "description": "Calendar event identifier"
+      },
+      {
+          "name": "attendees",
+          "type": "array",
+          "description": "Array of attendee objects with name and email"
+      },
+      {
+          "name": "notes",
+          "type": "string",
+          "description": "Meeting notes in Markdown format"
+      },
+      {
+          "name": "actionItems",
+          "type": "array",
+          "description": "Array of action item objects with id, title, description, assignee, status"
+      },
+      {
+          "name": "transcript",
+          "type": "array",
+          "description": "Array of transcript segments with speaker, text, and timestamp (in seconds)"
+      },
+      {
+          "name": "insights",
+          "type": "object",
+          "description": "User-created insights keyed by insight name, each containing array of insight results"
+      },
+      {
+          "name": "meeting",
+          "type": "object",
+          "description": "Full meeting payload object"
+      }
+  ]}
+/>
+
+---
+
 ### Circleback Meeting Notes Ready
 
 Trigger workflow when meeting notes and action items are ready
+
+#### Setup Instructions
+
+<div class="mb-3"><strong>Note:</strong> You need access to Circleback automations to set up webhooks.</div><div class="mb-3"><strong>1.</strong> In Circleback, click <strong>Automations</strong> in the sidebar.</div><div class="mb-3"><strong>2.</strong> Create a new automation or edit an existing one.</div><div class="mb-3"><strong>3.</strong> Add a <strong>Send webhook request</strong> step to your automation.</div><div class="mb-3"><strong>4.</strong> Paste the <strong>Webhook URL</strong> from above into the Endpoint field.</div><div class="mb-3"><strong>5.</strong> Optionally, copy the <strong>Signing Secret</strong> from Circleback and paste it above to verify webhook signatures.</div><div class="mb-3"><strong>6.</strong> Toggle what to include in the request (Meeting notes, Action items, Transcript). For this trigger: <strong>Meeting notes and action items</strong>.</div><div class="mb-3"><strong>7.</strong> Click <strong>"Done"</strong> and save the automation.</div>
 
 <ShowcaseCard>
   <BlockConfigPreview
@@ -46,7 +157,8 @@ Trigger workflow when meeting notes and action items are ready
             "title": "Signing Secret",
             "placeholder": "Paste signing secret from Circleback (optional)",
             "description": "Validates that webhook deliveries originate from Circleback using HMAC-SHA256.",
-            "password": true
+            "password": true,
+            "required": false
         }
     ]}
   />
@@ -136,6 +248,10 @@ Trigger workflow when meeting notes and action items are ready
 
 Generic webhook trigger for all Circleback events
 
+#### Setup Instructions
+
+<div class="mb-3"><strong>Note:</strong> You need access to Circleback automations to set up webhooks.</div><div class="mb-3"><strong>1.</strong> In Circleback, click <strong>Automations</strong> in the sidebar.</div><div class="mb-3"><strong>2.</strong> Create a new automation or edit an existing one.</div><div class="mb-3"><strong>3.</strong> Add a <strong>Send webhook request</strong> step to your automation.</div><div class="mb-3"><strong>4.</strong> Paste the <strong>Webhook URL</strong> from above into the Endpoint field.</div><div class="mb-3"><strong>5.</strong> Optionally, copy the <strong>Signing Secret</strong> from Circleback and paste it above to verify webhook signatures.</div><div class="mb-3"><strong>6.</strong> Toggle what to include in the request (Meeting notes, Action items, Transcript). For this trigger: <strong>All events</strong>.</div><div class="mb-3"><strong>7.</strong> Click <strong>"Done"</strong> and save the automation.</div>
+
 <ShowcaseCard>
   <BlockConfigPreview
     name="Circleback Webhook"
@@ -143,18 +259,13 @@ Generic webhook trigger for all Circleback events
     hideHeader
     subBlocks={[
         {
-            "id": "selectedTriggerId",
-            "type": "dropdown",
-            "title": "Trigger Type",
-            "required": true
-        },
-        {
             "id": "webhookSecret",
             "type": "short-input",
             "title": "Signing Secret",
             "placeholder": "Paste signing secret from Circleback (optional)",
             "description": "Validates that webhook deliveries originate from Circleback using HMAC-SHA256.",
-            "password": true
+            "password": true,
+            "required": false
         }
     ]}
   />
@@ -239,107 +350,3 @@ Generic webhook trigger for all Circleback events
 />
 
 ---
-
-### Circleback Meeting Completed
-
-Trigger workflow when a meeting is processed and ready in Circleback
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="Circleback Meeting Completed"
-    type="circleback_meeting_completed"
-    hideHeader
-    subBlocks={[
-        {
-            "id": "webhookSecret",
-            "type": "short-input",
-            "title": "Signing Secret",
-            "placeholder": "Paste signing secret from Circleback (optional)",
-            "description": "Validates that webhook deliveries originate from Circleback using HMAC-SHA256.",
-            "password": true
-        }
-    ]}
-  />
-</ShowcaseCard>
-
-#### Output Schema
-
-<SchemaTree
-  title="Event Payload"
-  fields={[
-      {
-          "name": "id",
-          "type": "number",
-          "description": "Circleback meeting ID"
-      },
-      {
-          "name": "name",
-          "type": "string",
-          "description": "Meeting title/name"
-      },
-      {
-          "name": "url",
-          "type": "string",
-          "description": "URL of the virtual meeting (Zoom, Google Meet, Teams, etc.)"
-      },
-      {
-          "name": "createdAt",
-          "type": "string",
-          "description": "ISO8601 timestamp when meeting was created"
-      },
-      {
-          "name": "duration",
-          "type": "number",
-          "description": "Meeting duration in seconds"
-      },
-      {
-          "name": "recordingUrl",
-          "type": "string",
-          "description": "Recording URL (valid for 24 hours, if enabled)"
-      },
-      {
-          "name": "tags",
-          "type": "array",
-          "description": "Array of tag strings"
-      },
-      {
-          "name": "icalUid",
-          "type": "string",
-          "description": "Calendar event identifier"
-      },
-      {
-          "name": "attendees",
-          "type": "array",
-          "description": "Array of attendee objects with name and email"
-      },
-      {
-          "name": "notes",
-          "type": "string",
-          "description": "Meeting notes in Markdown format"
-      },
-      {
-          "name": "actionItems",
-          "type": "array",
-          "description": "Array of action item objects with id, title, description, assignee, status"
-      },
-      {
-          "name": "transcript",
-          "type": "array",
-          "description": "Array of transcript segments with speaker, text, and timestamp (in seconds)"
-      },
-      {
-          "name": "insights",
-          "type": "object",
-          "description": "User-created insights keyed by insight name, each containing array of insight results"
-      },
-      {
-          "name": "meeting",
-          "type": "object",
-          "description": "Full meeting payload object"
-      }
-  ]}
-/>
-
----
-
-

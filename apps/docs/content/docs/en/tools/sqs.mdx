@@ -27,10 +27,11 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "send",
             "options": [
                 {
-                    "label": "Send Message",
-                    "id": "send"
+                    "id": "send",
+                    "label": "Send Message"
                 }
             ]
         },
@@ -69,32 +70,22 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "short-input",
             "title": "Message Group ID (optional)",
             "placeholder": "5FAB0F0B-30C6-4427-9407-5634F4A3984A",
-            "condition": {
-                "field": "operation",
-                "value": "send"
-            }
+            "description": "Shown when operation is 'send'."
         },
         {
             "id": "messageDeduplicationId",
             "type": "short-input",
             "title": "Message Deduplication ID (optional)",
             "placeholder": "5FAB0F0B-30C6-4427-9407-5634F4A3984A",
-            "condition": {
-                "field": "operation",
-                "value": "send"
-            }
+            "description": "Shown when operation is 'send'."
         },
         {
             "id": "data",
             "type": "code",
             "title": "Data (JSON)",
-            "placeholder": "{\\n  \"name\": \"John Doe\",\\n  \"email\": \"john@example.com\",\\n  \"active\": true\\n}",
+            "placeholder": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"active\": true\n}",
             "language": "json",
-            "required": true,
-            "condition": {
-                "field": "operation",
-                "value": "send"
-            }
+            "description": "Shown when operation is 'send'."
         }
     ]}
   />
@@ -123,6 +114,7 @@ Send a message to an Amazon SQS queue
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
+| `id` | string | Message ID |
 
 
 ## Usage Instructions

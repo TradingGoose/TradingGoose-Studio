@@ -1,0 +1,475 @@
+---
+title: Microsoft Teams
+description: Leer, escribir y crear mensajes
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="microsoft_teams"
+  color="#5059C9"
+/>
+
+<Cards>
+  <Card title="Usar como disparador" href="/triggers/microsoft-teams">
+    Consulta los eventos de disparador, la configuración y los payloads de eventos de Microsoft Teams.
+  </Card>
+</Cards>
+
+## Configuración
+
+### Leer mensajes de chat
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Microsoft Teams"
+    type="microsoft_teams"
+    color="#5059C9"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "read_chat",
+            "options": [
+                {
+                    "id": "read_chat",
+                    "label": "Leer mensajes de chat"
+                },
+                {
+                    "id": "write_chat",
+                    "label": "Escribir mensaje de chat"
+                },
+                {
+                    "id": "read_channel",
+                    "label": "Leer mensajes del canal"
+                },
+                {
+                    "id": "write_channel",
+                    "label": "Escribir mensaje del canal"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "microsoft-teams",
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "file-selector",
+            "title": "Seleccionar chat",
+            "layout": "full",
+            "placeholder": "Seleccionar un chat",
+            "provider": "microsoft-teams"
+        },
+        {
+            "id": "manualChatId",
+            "type": "short-input",
+            "title": "ID del chat",
+            "layout": "full",
+            "placeholder": "Introducir ID del chat"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Leer mensajes de chat (<code>microsoft_teams_read_chat</code>)</div>
+
+Leer contenido de un chat de Microsoft Teams
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `chatId` | string | Sí | El ID del chat del que leer |
+| `includeAttachments` | boolean | No | Descargar e incluir los archivos adjuntos del mensaje \(contenidos hospedados\) en el almacenamiento |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación de lectura del chat de Teams |
+| `messageCount` | number | Número de mensajes recuperados del chat |
+| `chatId` | string | ID del chat del que se leyó |
+| `messages` | array | Array de objetos de mensajes de chat |
+| `attachmentCount` | number | Número total de archivos adjuntos encontrados |
+| `attachmentTypes` | array | Tipos de archivos adjuntos encontrados |
+| `content` | string | Contenido con formato de los mensajes de chat |
+| `attachments` | file[] | Archivos adjuntos cargados por conveniencia \(aplanados\) |
+
+</div>
+
+---
+
+### Escribir mensaje de chat
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Microsoft Teams"
+    type="microsoft_teams"
+    color="#5059C9"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "write_chat",
+            "options": [
+                {
+                    "id": "read_chat",
+                    "label": "Leer mensajes de chat"
+                },
+                {
+                    "id": "write_chat",
+                    "label": "Escribir mensaje de chat"
+                },
+                {
+                    "id": "read_channel",
+                    "label": "Leer mensajes de canal"
+                },
+                {
+                    "id": "write_channel",
+                    "label": "Escribir mensaje de canal"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "microsoft-teams",
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "file-selector",
+            "title": "Seleccionar chat",
+            "layout": "full",
+            "placeholder": "Seleccionar un chat",
+            "provider": "microsoft-teams"
+        },
+        {
+            "id": "manualChatId",
+            "type": "short-input",
+            "title": "ID de chat",
+            "layout": "full",
+            "placeholder": "Introducir ID de chat"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Mensaje",
+            "layout": "full",
+            "placeholder": "Introducir contenido del mensaje",
+            "required": true
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "Archivos adjuntos",
+            "layout": "full",
+            "placeholder": "Cargar archivos para adjuntar",
+            "required": false
+        },
+        {
+            "id": "files",
+            "type": "short-input",
+            "title": "Adjuntos de archivo",
+            "layout": "full",
+            "placeholder": "Referenciar archivos de bloques anteriores",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Escribir mensaje de chat (<code>microsoft_teams_write_chat</code>)</div>
+
+Escribir o actualizar contenido en un chat de Microsoft Teams
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `chatId` | string | Sí | El ID del chat al que escribir |
+| `content` | string | Sí | El contenido que se escribirá en el mensaje |
+| `files` | file[] | No | Archivos que adjuntar al mensaje |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito del envío del mensaje de chat de Teams |
+| `messageId` | string | Identificador único del mensaje enviado |
+| `chatId` | string | ID del chat donde se envió el mensaje |
+| `createdTime` | string | Marca de tiempo de creación del mensaje |
+| `url` | string | URL web del mensaje |
+| `updatedContent` | boolean | Indica si el contenido se actualizó correctamente |
+
+</div>
+
+---
+
+### Leer mensajes del canal
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Microsoft Teams"
+    type="microsoft_teams"
+    color="#5059C9"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "read_channel",
+            "options": [
+                {
+                    "id": "read_chat",
+                    "label": "Leer mensajes de chat"
+                },
+                {
+                    "id": "write_chat",
+                    "label": "Escribir mensaje de chat"
+                },
+                {
+                    "id": "read_channel",
+                    "label": "Leer mensajes del canal"
+                },
+                {
+                    "id": "write_channel",
+                    "label": "Escribir mensaje del canal"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "microsoft-teams",
+            "required": true
+        },
+        {
+            "id": "teamId",
+            "type": "file-selector",
+            "title": "Seleccionar equipo",
+            "layout": "full",
+            "placeholder": "Seleccionar un equipo",
+            "provider": "microsoft-teams"
+        },
+        {
+            "id": "manualTeamId",
+            "type": "short-input",
+            "title": "ID del equipo",
+            "layout": "full",
+            "placeholder": "Introducir ID del equipo"
+        },
+        {
+            "id": "channelId",
+            "type": "file-selector",
+            "title": "Seleccionar canal",
+            "layout": "full",
+            "placeholder": "Seleccionar un canal",
+            "provider": "microsoft-teams"
+        },
+        {
+            "id": "manualChannelId",
+            "type": "short-input",
+            "title": "ID del canal",
+            "layout": "full",
+            "placeholder": "Introducir ID del canal"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Leer mensajes del canal (<code>microsoft_teams_read_channel</code>)</div>
+
+Leer el contenido de un canal de Microsoft Teams
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `teamId` | string | Sí | ID del equipo del que leer |
+| `channelId` | string | Sí | ID del canal del que leer |
+| `includeAttachments` | boolean | No | Descargar e incluir adjuntos de mensajes \(contenidos hospedados\) en el almacenamiento |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación de lectura del canal de Teams |
+| `messageCount` | number | Número de mensajes recuperados del canal |
+| `teamId` | string | ID del equipo del que se leyó |
+| `channelId` | string | ID del canal del que se leyó |
+| `messages` | array | Array de objetos de mensajes del canal |
+| `attachmentCount` | number | Número total de adjuntos encontrados |
+| `attachmentTypes` | array | Tipos de adjuntos encontrados |
+| `content` | string | Contenido con formato de los mensajes del canal |
+| `attachments` | file[] | Adjuntos cargados por comodidad \(aplanados\) |
+
+</div>
+
+---
+
+### Escribir mensaje del canal
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Microsoft Teams"
+    type="microsoft_teams"
+    color="#5059C9"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "write_channel",
+            "options": [
+                {
+                    "id": "read_chat",
+                    "label": "Leer mensajes del chat"
+                },
+                {
+                    "id": "write_chat",
+                    "label": "Escribir mensaje del chat"
+                },
+                {
+                    "id": "read_channel",
+                    "label": "Leer mensajes del canal"
+                },
+                {
+                    "id": "write_channel",
+                    "label": "Escribir mensaje del canal"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "microsoft-teams",
+            "required": true
+        },
+        {
+            "id": "teamId",
+            "type": "file-selector",
+            "title": "Seleccionar equipo",
+            "layout": "full",
+            "placeholder": "Seleccionar un equipo",
+            "provider": "microsoft-teams"
+        },
+        {
+            "id": "manualTeamId",
+            "type": "short-input",
+            "title": "ID del equipo",
+            "layout": "full",
+            "placeholder": "Introducir ID del equipo"
+        },
+        {
+            "id": "channelId",
+            "type": "file-selector",
+            "title": "Seleccionar canal",
+            "layout": "full",
+            "placeholder": "Seleccionar un canal",
+            "provider": "microsoft-teams"
+        },
+        {
+            "id": "manualChannelId",
+            "type": "short-input",
+            "title": "ID del canal",
+            "layout": "full",
+            "placeholder": "Introducir ID del canal"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Mensaje",
+            "layout": "full",
+            "placeholder": "Introducir contenido del mensaje",
+            "required": true
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "Adjuntos",
+            "layout": "full",
+            "placeholder": "Cargar archivos para adjuntar",
+            "required": false
+        },
+        {
+            "id": "files",
+            "type": "short-input",
+            "title": "Archivos adjuntos",
+            "layout": "full",
+            "placeholder": "Referenciar archivos de bloques anteriores",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Escribir mensaje de canal (<code>microsoft_teams_write_channel</code>)</div>
+
+Escribir o enviar un mensaje a un canal de Microsoft Teams
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `teamId` | string | Sí | ID del equipo al que escribir |
+| `channelId` | string | Sí | ID del canal al que escribir |
+| `content` | string | Sí | Contenido que escribir en el canal |
+| `files` | file[] | No | Archivos que adjuntar al mensaje |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito del envío del mensaje al canal de Teams |
+| `messageId` | string | Identificador único del mensaje enviado |
+| `teamId` | string | ID del equipo donde se envió el mensaje |
+| `channelId` | string | ID del canal donde se envió el mensaje |
+| `createdTime` | string | Marca de tiempo de creación del mensaje |
+| `url` | string | URL web del mensaje |
+| `updatedContent` | boolean | Indica si el contenido se actualizó correctamente |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Microsoft Teams en el flujo de trabajo. Puede leer y escribir mensajes de chat, y leer y escribir mensajes de canal. Se puede usar en modo de activación para activar un flujo de trabajo cuando se envía un mensaje a un chat o canal.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `microsoft_teams`

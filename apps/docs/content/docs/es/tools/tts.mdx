@@ -1,0 +1,1175 @@
+---
+title: Texto a voz
+description: Convierte texto a voz con voces de IA
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="tts"
+  color=""
+/>
+
+## Configuración
+
+### OpenAI TTS
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Texto a voz"
+    type="tts"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Proveedor",
+            "required": true,
+            "defaultValue": "openai",
+            "options": [
+                {
+                    "id": "openai",
+                    "label": "OpenAI TTS"
+                },
+                {
+                    "id": "deepgram",
+                    "label": "Deepgram Aura"
+                },
+                {
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
+                },
+                {
+                    "id": "cartesia",
+                    "label": "Cartesia Sonic"
+                },
+                {
+                    "id": "google",
+                    "label": "Google Cloud TTS"
+                },
+                {
+                    "id": "azure",
+                    "label": "Azure TTS"
+                },
+                {
+                    "id": "playht",
+                    "label": "PlayHT"
+                }
+            ]
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Texto",
+            "placeholder": "Introduce el texto que quieres convertir a voz...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Modelo",
+            "required": false,
+            "defaultValue": "tts-1",
+            "options": [
+                {
+                    "id": "tts-1",
+                    "label": "TTS-1"
+                },
+                {
+                    "id": "tts-1-hd",
+                    "label": "TTS-1-HD"
+                },
+                {
+                    "id": "gpt-4o-mini-tts",
+                    "label": "GPT-4o Mini TTS"
+                }
+            ]
+        },
+        {
+            "id": "voice",
+            "type": "dropdown",
+            "title": "Voz",
+            "required": false,
+            "defaultValue": "alloy",
+            "options": [
+                {
+                    "id": "alloy",
+                    "label": "Alloy"
+                },
+                {
+                    "id": "ash",
+                    "label": "Ash"
+                },
+                {
+                    "id": "ballad",
+                    "label": "Ballad"
+                },
+                {
+                    "id": "cedar",
+                    "label": "Cedar"
+                },
+                {
+                    "id": "coral",
+                    "label": "Coral"
+                },
+                {
+                    "id": "echo",
+                    "label": "Echo"
+                },
+                {
+                    "id": "marin",
+                    "label": "Marin"
+                },
+                {
+                    "id": "sage",
+                    "label": "Sage"
+                },
+                {
+                    "id": "shimmer",
+                    "label": "Shimmer"
+                },
+                {
+                    "id": "verse",
+                    "label": "Verse"
+                }
+            ]
+        },
+        {
+            "id": "responseFormat",
+            "type": "dropdown",
+            "title": "Formato de audio",
+            "required": false,
+            "defaultValue": "mp3",
+            "options": [
+                {
+                    "id": "mp3",
+                    "label": "MP3"
+                },
+                {
+                    "id": "opus",
+                    "label": "Opus"
+                },
+                {
+                    "id": "aac",
+                    "label": "AAC"
+                },
+                {
+                    "id": "flac",
+                    "label": "FLAC"
+                },
+                {
+                    "id": "wav",
+                    "label": "WAV"
+                }
+            ]
+        },
+        {
+            "id": "speed",
+            "type": "slider",
+            "title": "Velocidad",
+            "min": 0.25,
+            "max": 4,
+            "step": 0.25,
+            "required": false,
+            "defaultValue": "1.0"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">OpenAI TTS (<code>tts_openai</code>)</div>
+
+Convierte texto a voz con los modelos TTS de OpenAI
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `text` | string | Sí | El texto que se convertirá a voz |
+| `apiKey` | string | Sí | Clave de API de OpenAI |
+| `model` | string | No | Modelo TTS que se usará \(tts-1, tts-1-hd o gpt-4o-mini-tts\) |
+| `voice` | string | No | Voz que se usará \(alloy, ash, ballad, cedar, coral, echo, marin, sage, shimmer, verse\) |
+| `responseFormat` | string | No | Formato de audio \(mp3, opus, aac, flac, wav, pcm\) |
+| `speed` | number | No | Velocidad del habla \(0.25 a 4.0, valor predeterminado: 1.0\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `audioUrl` | string | URL del archivo de audio generado |
+| `audioFile` | file | Objeto del archivo de audio generado |
+| `duration` | number | Duración del audio en segundos |
+| `characterCount` | number | Número de caracteres procesados |
+| `format` | string | Formato de audio |
+| `provider` | string | Proveedor TTS utilizado |
+
+</div>
+
+---
+
+### Deepgram Aura
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Texto a voz"
+    type="tts"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Proveedor",
+            "required": true,
+            "defaultValue": "deepgram",
+            "options": [
+                {
+                    "id": "openai",
+                    "label": "OpenAI TTS"
+                },
+                {
+                    "id": "deepgram",
+                    "label": "Deepgram Aura"
+                },
+                {
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
+                },
+                {
+                    "id": "cartesia",
+                    "label": "Cartesia Sonic"
+                },
+                {
+                    "id": "google",
+                    "label": "Google Cloud TTS"
+                },
+                {
+                    "id": "azure",
+                    "label": "Azure TTS"
+                },
+                {
+                    "id": "playht",
+                    "label": "PlayHT"
+                }
+            ]
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Texto",
+            "placeholder": "Introduce el texto que quieres convertir a voz...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "voice",
+            "type": "dropdown",
+            "title": "Voz",
+            "required": true,
+            "defaultValue": "aura-asteria-en",
+            "options": [
+                {
+                    "id": "aura-asteria-en",
+                    "label": "Asteria"
+                },
+                {
+                    "id": "aura-luna-en",
+                    "label": "Luna"
+                },
+                {
+                    "id": "aura-stella-en",
+                    "label": "Stella"
+                },
+                {
+                    "id": "aura-athena-en",
+                    "label": "Athena"
+                },
+                {
+                    "id": "aura-hera-en",
+                    "label": "Hera"
+                },
+                {
+                    "id": "aura-orion-en",
+                    "label": "Orion"
+                },
+                {
+                    "id": "aura-arcas-en",
+                    "label": "Arcas"
+                },
+                {
+                    "id": "aura-perseus-en",
+                    "label": "Perseus"
+                },
+                {
+                    "id": "aura-angus-en",
+                    "label": "Angus"
+                },
+                {
+                    "id": "aura-orpheus-en",
+                    "label": "Orpheus"
+                },
+                {
+                    "id": "aura-helios-en",
+                    "label": "Helios"
+                },
+                {
+                    "id": "aura-zeus-en",
+                    "label": "Zeus"
+                }
+            ]
+        },
+        {
+            "id": "encoding",
+            "type": "dropdown",
+            "title": "Formato de audio",
+            "required": false,
+            "defaultValue": "mp3",
+            "options": [
+                {
+                    "id": "mp3",
+                    "label": "MP3"
+                },
+                {
+                    "id": "opus",
+                    "label": "Opus"
+                },
+                {
+                    "id": "aac",
+                    "label": "AAC"
+                },
+                {
+                    "id": "flac",
+                    "label": "FLAC"
+                },
+                {
+                    "id": "linear16",
+                    "label": "Linear16"
+                }
+            ]
+        },
+        {
+            "id": "sampleRate",
+            "type": "dropdown",
+            "title": "Frecuencia de muestreo",
+            "defaultValue": "24000",
+            "options": [
+                {
+                    "id": "8000",
+                    "label": "8000 Hz"
+                },
+                {
+                    "id": "16000",
+                    "label": "16000 Hz"
+                },
+                {
+                    "id": "24000",
+                    "label": "24000 Hz"
+                },
+                {
+                    "id": "48000",
+                    "label": "48000 Hz"
+                }
+            ],
+            "description": "Se muestra cuando la codificación es 'linear16'."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Deepgram Aura (<code>tts_deepgram</code>)</div>
+
+Convierte texto a voz con Deepgram Aura
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `text` | string | Sí | El texto que se convertirá a voz |
+| `apiKey` | string | Sí | Clave de API de Deepgram |
+| `model` | string | No | Modelo/voz de Deepgram \(p. ej., aura-asteria-en, aura-luna-en\) |
+| `voice` | string | No | Identificador de voz \(alternativa al parámetro model\) |
+| `encoding` | string | No | Codificación de audio \(linear16, mp3, opus, aac, flac\) |
+| `sampleRate` | number | No | Frecuencia de muestreo \(8000, 16000, 24000, 48000\) |
+| `bitRate` | number | No | Tasa de bits para formatos comprimidos |
+| `container` | string | No | Formato de contenedor \(none, wav, ogg\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `audioUrl` | string | URL del archivo de audio generado |
+| `audioFile` | file | Objeto del archivo de audio generado |
+| `duration` | number | Duración del audio en segundos |
+| `characterCount` | number | Número de caracteres procesados |
+| `format` | string | Formato de audio |
+| `provider` | string | Proveedor TTS usado |
+
+</div>
+
+---
+
+### ElevenLabs
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Texto a voz"
+    type="tts"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Proveedor",
+            "required": true,
+            "defaultValue": "elevenlabs",
+            "options": [
+                {
+                    "id": "openai",
+                    "label": "OpenAI TTS"
+                },
+                {
+                    "id": "deepgram",
+                    "label": "Deepgram Aura"
+                },
+                {
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
+                },
+                {
+                    "id": "cartesia",
+                    "label": "Cartesia Sonic"
+                },
+                {
+                    "id": "google",
+                    "label": "Google Cloud TTS"
+                },
+                {
+                    "id": "azure",
+                    "label": "Azure TTS"
+                },
+                {
+                    "id": "playht",
+                    "label": "PlayHT"
+                }
+            ]
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Texto",
+            "placeholder": "Introduce el texto que se convertirá a voz...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "voiceId",
+            "type": "short-input",
+            "title": "ID de voz",
+            "placeholder": "Introduce el ID de voz de ElevenLabs",
+            "required": true
+        },
+        {
+            "id": "modelId",
+            "type": "dropdown",
+            "title": "Modelo",
+            "required": false,
+            "defaultValue": "eleven_turbo_v2_5",
+            "options": [
+                {
+                    "id": "eleven_turbo_v2_5",
+                    "label": "Turbo v2.5"
+                },
+                {
+                    "id": "eleven_flash_v2_5",
+                    "label": "Flash v2.5"
+                },
+                {
+                    "id": "eleven_multilingual_v2",
+                    "label": "Multilingual v2"
+                },
+                {
+                    "id": "eleven_turbo_v2",
+                    "label": "Turbo v2"
+                },
+                {
+                    "id": "eleven_monolingual_v1",
+                    "label": "Monolingual v1"
+                },
+                {
+                    "id": "eleven_multilingual_v1",
+                    "label": "Multilingual v1"
+                }
+            ]
+        },
+        {
+            "id": "stability",
+            "type": "slider",
+            "title": "Estabilidad",
+            "min": 0,
+            "max": 1,
+            "step": 0.05,
+            "required": false,
+            "defaultValue": "0.5"
+        },
+        {
+            "id": "similarityBoost",
+            "type": "slider",
+            "title": "Refuerzo de similitud",
+            "min": 0,
+            "max": 1,
+            "step": 0.05,
+            "required": false,
+            "defaultValue": "0.8"
+        },
+        {
+            "id": "style",
+            "type": "slider",
+            "title": "Estilo",
+            "min": 0,
+            "max": 1,
+            "step": 0.05,
+            "required": false,
+            "defaultValue": "0.0"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">ElevenLabs (<code>tts_elevenlabs</code>)</div>
+
+Convierte texto a voz con voces de ElevenLabs
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `text` | string | Sí | El texto que se convertirá a voz |
+| `voiceId` | string | Sí | El ID de la voz que se usará |
+| `apiKey` | string | Sí | Clave de API de ElevenLabs |
+| `modelId` | string | No | Modelo que se usará \(p. ej., eleven_monolingual_v1, eleven_turbo_v2_5, eleven_flash_v2_5\) |
+| `stability` | number | No | Estabilidad de la voz \(0.0 a 1.0, valor predeterminado: 0.5\) |
+| `similarityBoost` | number | No | Aumento de similitud \(0.0 a 1.0, valor predeterminado: 0.8\) |
+| `style` | number | No | Exageración de estilo \(0.0 a 1.0\) |
+| `useSpeakerBoost` | boolean | No | Usar refuerzo de locutor \(valor predeterminado: true\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `audioUrl` | string | URL del archivo de audio generado |
+| `audioFile` | file | Objeto del archivo de audio generado |
+| `duration` | number | Duración del audio en segundos |
+| `characterCount` | number | Número de caracteres procesados |
+| `format` | string | Formato de audio |
+| `provider` | string | Proveedor TTS utilizado |
+
+</div>
+
+---
+
+### Cartesia Sonic
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Texto a voz"
+    type="tts"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Proveedor",
+            "required": true,
+            "defaultValue": "cartesia",
+            "options": [
+                {
+                    "id": "openai",
+                    "label": "OpenAI TTS"
+                },
+                {
+                    "id": "deepgram",
+                    "label": "Deepgram Aura"
+                },
+                {
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
+                },
+                {
+                    "id": "cartesia",
+                    "label": "Cartesia Sonic"
+                },
+                {
+                    "id": "google",
+                    "label": "Google Cloud TTS"
+                },
+                {
+                    "id": "azure",
+                    "label": "Azure TTS"
+                },
+                {
+                    "id": "playht",
+                    "label": "PlayHT"
+                }
+            ]
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Texto",
+            "placeholder": "Introduce el texto que se convertirá a voz...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "modelId",
+            "type": "dropdown",
+            "title": "Modelo",
+            "required": false,
+            "defaultValue": "sonic-3",
+            "options": [
+                {
+                    "id": "sonic",
+                    "label": "Sonic"
+                },
+                {
+                    "id": "sonic-2",
+                    "label": "Sonic 2"
+                },
+                {
+                    "id": "sonic-turbo",
+                    "label": "Sonic Turbo"
+                },
+                {
+                    "id": "sonic-3",
+                    "label": "Sonic 3"
+                },
+                {
+                    "id": "sonic-multilingual",
+                    "label": "Sonic Multilingual"
+                }
+            ]
+        },
+        {
+            "id": "voice",
+            "type": "short-input",
+            "title": "ID de voz",
+            "placeholder": "Introduce el ID de voz de Cartesia",
+            "required": true
+        },
+        {
+            "id": "speed",
+            "type": "slider",
+            "title": "Velocidad",
+            "min": 0.5,
+            "max": 2,
+            "step": 0.1,
+            "required": false,
+            "defaultValue": "1.0"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Cartesia Sonic (<code>tts_cartesia</code>)</div>
+
+Convierte texto a voz con Cartesia Sonic (latencia ultrabaja)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `text` | string | Sí | El texto que se convertirá a voz |
+| `apiKey` | string | Sí | Clave de API de Cartesia |
+| `modelId` | string | No | ID del modelo \(sonic-english, sonic-multilingual\) |
+| `voice` | string | No | ID de voz o embedding |
+| `language` | string | No | Código de idioma \(en, es, fr, de, it, pt, etc.\) |
+| `outputFormat` | json | No | Configuración del formato de salida \(container, encoding, sampleRate\) |
+| `speed` | number | No | Multiplicador de velocidad |
+| `emotion` | array | No | Etiquetas de emoción para Sonic-3 \(p. ej., \['positivity:high'\]\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `audioUrl` | string | URL del archivo de audio generado |
+| `audioFile` | file | Objeto del archivo de audio generado |
+| `duration` | number | Duración del audio en segundos |
+| `characterCount` | number | Número de caracteres procesados |
+| `format` | string | Formato de audio |
+| `provider` | string | Proveedor TTS utilizado |
+
+</div>
+
+---
+
+### Google Cloud TTS
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Texto a voz"
+    type="tts"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Proveedor",
+            "required": true,
+            "defaultValue": "google",
+            "options": [
+                {
+                    "id": "openai",
+                    "label": "OpenAI TTS"
+                },
+                {
+                    "id": "deepgram",
+                    "label": "Deepgram Aura"
+                },
+                {
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
+                },
+                {
+                    "id": "cartesia",
+                    "label": "Cartesia Sonic"
+                },
+                {
+                    "id": "google",
+                    "label": "Google Cloud TTS"
+                },
+                {
+                    "id": "azure",
+                    "label": "Azure TTS"
+                },
+                {
+                    "id": "playht",
+                    "label": "PlayHT"
+                }
+            ]
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Texto",
+            "placeholder": "Introduce el texto que se convertirá a voz...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "voiceId",
+            "type": "short-input",
+            "title": "ID de voz",
+            "placeholder": "p. ej., en-US-Neural2-A",
+            "required": false
+        },
+        {
+            "id": "languageCode",
+            "type": "short-input",
+            "title": "Código de idioma",
+            "placeholder": "p. ej., en-US, es-ES",
+            "required": true,
+            "defaultValue": "en-US"
+        },
+        {
+            "id": "speakingRate",
+            "type": "slider",
+            "title": "Velocidad de habla",
+            "min": 0.25,
+            "max": 2,
+            "step": 0.25,
+            "required": false,
+            "defaultValue": "1.0"
+        },
+        {
+            "id": "pitch",
+            "type": "slider",
+            "title": "Tono",
+            "min": -20,
+            "max": 20,
+            "step": 1,
+            "required": false,
+            "defaultValue": "0.0"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Google Cloud TTS (<code>tts_google</code>)</div>
+
+Convierte texto a voz con Google Cloud Text-to-Speech
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `text` | string | Sí | El texto a convertir a voz |
+| `apiKey` | string | Sí | Clave de API de Google Cloud |
+| `voiceId` | string | No | ID de voz \(p. ej., en-US-Neural2-A, en-US-Wavenet-D\) |
+| `languageCode` | string | Sí | Código de idioma \(p. ej., en-US, es-ES, fr-FR\) |
+| `gender` | string | No | Género de la voz \(MALE, FEMALE, NEUTRAL\) |
+| `audioEncoding` | string | No | Codificación de audio \(LINEAR16, MP3, OGG_OPUS, MULAW, ALAW\) |
+| `speakingRate` | number | No | Velocidad de habla \(0.25 a 2.0, predeterminado: 1.0\) |
+| `pitch` | number | No | Tono de voz \(-20.0 a 20.0, predeterminado: 0.0\) |
+| `volumeGainDb` | number | No | Ganancia de volumen en dB \(-96.0 a 16.0\) |
+| `sampleRateHertz` | number | No | Frecuencia de muestreo en Hz |
+| `effectsProfileId` | array | No | Perfil de efectos \(p. ej., \['headphone-class-device'\]\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `audioUrl` | string | URL del archivo de audio generado |
+| `audioFile` | file | Objeto del archivo de audio generado |
+| `duration` | number | Duración del audio en segundos |
+| `characterCount` | number | Número de caracteres procesados |
+| `format` | string | Formato de audio |
+| `provider` | string | Proveedor de TTS utilizado |
+
+</div>
+
+---
+
+### Azure TTS
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Texto a voz"
+    type="tts"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Proveedor",
+            "required": true,
+            "defaultValue": "azure",
+            "options": [
+                {
+                    "id": "openai",
+                    "label": "OpenAI TTS"
+                },
+                {
+                    "id": "deepgram",
+                    "label": "Deepgram Aura"
+                },
+                {
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
+                },
+                {
+                    "id": "cartesia",
+                    "label": "Cartesia Sonic"
+                },
+                {
+                    "id": "google",
+                    "label": "Google Cloud TTS"
+                },
+                {
+                    "id": "azure",
+                    "label": "Azure TTS"
+                },
+                {
+                    "id": "playht",
+                    "label": "PlayHT"
+                }
+            ]
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Texto",
+            "placeholder": "Introduce el texto que quieres convertir a voz...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "voiceId",
+            "type": "short-input",
+            "title": "ID de voz",
+            "placeholder": "p. ej., en-US-JennyNeural",
+            "required": false
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "Región",
+            "placeholder": "p. ej., eastus, westus",
+            "required": false
+        },
+        {
+            "id": "outputFormat",
+            "type": "dropdown",
+            "title": "Formato de salida",
+            "required": false,
+            "defaultValue": "audio-24khz-96kbitrate-mono-mp3",
+            "options": [
+                {
+                    "id": "audio-24khz-48kbitrate-mono-mp3",
+                    "label": "MP3 24kHz 48kbps"
+                },
+                {
+                    "id": "audio-24khz-96kbitrate-mono-mp3",
+                    "label": "MP3 24kHz 96kbps"
+                },
+                {
+                    "id": "audio-48khz-96kbitrate-mono-mp3",
+                    "label": "MP3 48kHz 96kbps"
+                }
+            ]
+        },
+        {
+            "id": "style",
+            "type": "short-input",
+            "title": "Estilo de habla",
+            "placeholder": "p. ej., cheerful, sad, angry",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Azure TTS (<code>tts_azure</code>)</div>
+
+Convierte texto a voz con Azure Cognitive Services
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `text` | string | Sí | El texto que se convertirá a voz |
+| `apiKey` | string | Sí | Clave de API de Azure Speech Services |
+| `voiceId` | string | No | ID de voz \(p. ej., en-US-JennyNeural, en-US-GuyNeural\) |
+| `region` | string | No | Región de Azure \(p. ej., eastus, westus, westeurope\) |
+| `outputFormat` | string | No | Formato de audio de salida |
+| `rate` | string | No | Velocidad de habla \(p. ej., +10%, -20%, 1.5\) |
+| `pitch` | string | No | Tono de voz \(p. ej., +5Hz, -2st, low\) |
+| `style` | string | No | Estilo de habla \(p. ej., cheerful, sad, angry; solo voces neurales\) |
+| `styleDegree` | number | No | Intensidad del estilo \(0.01 a 2.0\) |
+| `role` | string | No | Rol \(p. ej., Girl, Boy, YoungAdultFemale\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `audioUrl` | string | URL del archivo de audio generado |
+| `audioFile` | file | Objeto del archivo de audio generado |
+| `duration` | number | Duración del audio en segundos |
+| `characterCount` | number | Número de caracteres procesados |
+| `format` | string | Formato de audio |
+| `provider` | string | Proveedor TTS utilizado |
+
+</div>
+
+---
+
+### PlayHT
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Texto a voz"
+    type="tts"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Proveedor",
+            "required": true,
+            "defaultValue": "playht",
+            "options": [
+                {
+                    "id": "openai",
+                    "label": "OpenAI TTS"
+                },
+                {
+                    "id": "deepgram",
+                    "label": "Deepgram Aura"
+                },
+                {
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
+                },
+                {
+                    "id": "cartesia",
+                    "label": "Cartesia Sonic"
+                },
+                {
+                    "id": "google",
+                    "label": "Google Cloud TTS"
+                },
+                {
+                    "id": "azure",
+                    "label": "Azure TTS"
+                },
+                {
+                    "id": "playht",
+                    "label": "PlayHT"
+                }
+            ]
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Texto",
+            "placeholder": "Introduce el texto para convertirlo en voz...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Introduce tu clave API",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "ID de usuario",
+            "placeholder": "Introduce tu ID de usuario de PlayHT",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "voice",
+            "type": "short-input",
+            "title": "Voz",
+            "placeholder": "ID de voz o URL del manifiesto",
+            "required": false
+        },
+        {
+            "id": "quality",
+            "type": "dropdown",
+            "title": "Calidad",
+            "required": false,
+            "defaultValue": "standard",
+            "options": [
+                {
+                    "id": "draft",
+                    "label": "Borrador"
+                },
+                {
+                    "id": "standard",
+                    "label": "Estándar"
+                },
+                {
+                    "id": "premium",
+                    "label": "Premium"
+                }
+            ]
+        },
+        {
+            "id": "speed",
+            "type": "slider",
+            "title": "Velocidad",
+            "min": 0.5,
+            "max": 2,
+            "step": 0.1,
+            "required": false,
+            "defaultValue": "1.0"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">PlayHT (<code>tts_playht</code>)</div>
+
+Convertir texto a voz con PlayHT (clonación de voz)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `text` | string | Sí | El texto que se convertirá a voz |
+| `apiKey` | string | Sí | Clave de API de PlayHT \(encabezado AUTHORIZATION\) |
+| `userId` | string | Sí | ID de usuario de PlayHT \(encabezado X-USER-ID\) |
+| `voice` | string | No | ID de voz o URL del manifiesto |
+| `quality` | string | No | Nivel de calidad \(draft, standard, premium\) |
+| `outputFormat` | string | No | Formato de salida \(mp3, wav, ogg, flac, mulaw\) |
+| `speed` | number | No | Multiplicador de velocidad \(0.5 a 2.0\) |
+| `temperature` | number | No | Creatividad/aleatoriedad \(0.0 a 2.0\) |
+| `voiceGuidance` | number | No | Estabilidad de la voz \(1.0 a 6.0\) |
+| `textGuidance` | number | No | Adherencia al texto \(1.0 a 6.0\) |
+| `sampleRate` | number | No | Frecuencia de muestreo \(8000, 16000, 22050, 24000, 44100, 48000\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `audioUrl` | string | URL del archivo de audio generado |
+| `audioFile` | file | Objeto del archivo de audio generado |
+| `duration` | number | Duración del audio en segundos |
+| `characterCount` | number | Número de caracteres procesados |
+| `format` | string | Formato de audio |
+| `provider` | string | Proveedor TTS utilizado |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Genera voz de sonido natural a partir de texto usando voces de IA de última generación de OpenAI, Deepgram, ElevenLabs, Cartesia, Google Cloud, Azure y PlayHT. Admite múltiples voces, idiomas y formatos de audio.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `tts`

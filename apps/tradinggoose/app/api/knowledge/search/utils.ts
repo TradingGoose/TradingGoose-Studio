@@ -1,9 +1,24 @@
 import { db } from '@tradinggoose/db'
 import { document, embedding } from '@tradinggoose/db/schema'
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { TAG_SLOTS } from '@/lib/knowledge/consts'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('KnowledgeSearchUtils')
+const resultColumns = {
+  id: embedding.id,
+  content: embedding.content,
+  documentId: embedding.documentId,
+  chunkIndex: embedding.chunkIndex,
+  tag1: embedding.tag1,
+  tag2: embedding.tag2,
+  tag3: embedding.tag3,
+  tag4: embedding.tag4,
+  tag5: embedding.tag5,
+  tag6: embedding.tag6,
+  tag7: embedding.tag7,
+  knowledgeBaseId: embedding.knowledgeBaseId,
+}
 
 export async function getDocumentNamesByIds(
   documentIds: string[]
@@ -56,35 +71,15 @@ export interface SearchParams {
 // Use shared embedding utility
 export { generateSearchEmbedding } from '@/lib/embeddings/utils'
 
-function getTagFilters(filters: Record<string, string>, embedding: any) {
+function getTagFilters(filters: Record<string, string>) {
   return Object.entries(filters).map(([key, value]) => {
     // Handle OR logic within same tag
-    const values = value.includes('|OR|') ? value.split('|OR|') : [value]
+    const values = value.split('|OR|')
     logger.debug(`[getTagFilters] Processing ${key}="${value}" -> values:`, values)
 
-    const getColumnForKey = (key: string) => {
-      switch (key) {
-        case 'tag1':
-          return embedding.tag1
-        case 'tag2':
-          return embedding.tag2
-        case 'tag3':
-          return embedding.tag3
-        case 'tag4':
-          return embedding.tag4
-        case 'tag5':
-          return embedding.tag5
-        case 'tag6':
-          return embedding.tag6
-        case 'tag7':
-          return embedding.tag7
-        default:
-          return null
-      }
-    }
-
-    const column = getColumnForKey(key)
-    if (!column) return sql`1=1` // No-op for unknown keys
+    const slot = TAG_SLOTS.find((slot) => slot === key)
+    if (!slot) throw new Error(`Unknown knowledge tag slot: ${key}`)
+    const column = embedding[slot]
 
     if (values.length === 1) {
       // Single value - simple equality
@@ -105,13 +100,10 @@ function onlyCompletedDocuments() {
 export function getQueryStrategy(kbCount: number, topK: number) {
   const useParallel = kbCount > 4 || (kbCount > 2 && topK > 50)
   const distanceThreshold = kbCount > 3 ? 0.8 : 1.0
-  const parallelLimit = Math.ceil(topK / kbCount) + 5
 
   return {
     useParallel,
     distanceThreshold,
-    parallelLimit,
-    singleQueryOptimized: kbCount <= 2,
   }
 }
 
@@ -119,20 +111,6 @@ async function executeTagFilterQuery(
   knowledgeBaseIds: string[],
   filters: Record<string, string>
 ): Promise<{ id: string }[]> {
-  if (knowledgeBaseIds.length === 1) {
-    return await db
-      .select({ id: embedding.id })
-      .from(embedding)
-      .innerJoin(document, eq(embedding.documentId, document.id))
-      .where(
-        and(
-          eq(embedding.knowledgeBaseId, knowledgeBaseIds[0]),
-          eq(embedding.enabled, true),
-          ...onlyCompletedDocuments(),
-          ...getTagFilters(filters, embedding)
-        )
-      )
-  }
   return await db
     .select({ id: embedding.id })
     .from(embedding)
@@ -142,7 +120,7 @@ async function executeTagFilterQuery(
         inArray(embedding.knowledgeBaseId, knowledgeBaseIds),
         eq(embedding.enabled, true),
         ...onlyCompletedDocuments(),
-        ...getTagFilters(filters, embedding)
+        ...getTagFilters(filters)
       )
     )
 }
@@ -159,19 +137,8 @@ async function executeVectorSearchOnIds(
 
   return await db
     .select({
-      id: embedding.id,
-      content: embedding.content,
-      documentId: embedding.documentId,
-      chunkIndex: embedding.chunkIndex,
-      tag1: embedding.tag1,
-      tag2: embedding.tag2,
-      tag3: embedding.tag3,
-      tag4: embedding.tag4,
-      tag5: embedding.tag5,
-      tag6: embedding.tag6,
-      tag7: embedding.tag7,
+      ...resultColumns,
       distance: sql<number>`${embedding.embedding} <=> ${queryVector}::vector`.as('distance'),
-      knowledgeBaseId: embedding.knowledgeBaseId,
     })
     .from(embedding)
     .innerJoin(document, eq(embedding.documentId, document.id))
@@ -204,19 +171,8 @@ export async function handleTagOnlySearch(params: SearchParams): Promise<SearchR
     const queryPromises = knowledgeBaseIds.map(async (kbId) => {
       return await db
         .select({
-          id: embedding.id,
-          content: embedding.content,
-          documentId: embedding.documentId,
-          chunkIndex: embedding.chunkIndex,
-          tag1: embedding.tag1,
-          tag2: embedding.tag2,
-          tag3: embedding.tag3,
-          tag4: embedding.tag4,
-          tag5: embedding.tag5,
-          tag6: embedding.tag6,
-          tag7: embedding.tag7,
+          ...resultColumns,
           distance: sql<number>`0`.as('distance'), // No distance for tag-only searches
-          knowledgeBaseId: embedding.knowledgeBaseId,
         })
         .from(embedding)
         .innerJoin(document, eq(embedding.documentId, document.id))
@@ -225,7 +181,7 @@ export async function handleTagOnlySearch(params: SearchParams): Promise<SearchR
             eq(embedding.knowledgeBaseId, kbId),
             eq(embedding.enabled, true),
             ...onlyCompletedDocuments(),
-            ...getTagFilters(filters, embedding)
+            ...getTagFilters(filters)
           )
         )
         .limit(parallelLimit)
@@ -237,19 +193,8 @@ export async function handleTagOnlySearch(params: SearchParams): Promise<SearchR
   // Single query for fewer KBs
   return await db
     .select({
-      id: embedding.id,
-      content: embedding.content,
-      documentId: embedding.documentId,
-      chunkIndex: embedding.chunkIndex,
-      tag1: embedding.tag1,
-      tag2: embedding.tag2,
-      tag3: embedding.tag3,
-      tag4: embedding.tag4,
-      tag5: embedding.tag5,
-      tag6: embedding.tag6,
-      tag7: embedding.tag7,
+      ...resultColumns,
       distance: sql<number>`0`.as('distance'), // No distance for tag-only searches
-      knowledgeBaseId: embedding.knowledgeBaseId,
     })
     .from(embedding)
     .innerJoin(document, eq(embedding.documentId, document.id))
@@ -258,7 +203,7 @@ export async function handleTagOnlySearch(params: SearchParams): Promise<SearchR
         inArray(embedding.knowledgeBaseId, knowledgeBaseIds),
         eq(embedding.enabled, true),
         ...onlyCompletedDocuments(),
-        ...getTagFilters(filters, embedding)
+        ...getTagFilters(filters)
       )
     )
     .limit(topK)
@@ -282,19 +227,8 @@ export async function handleVectorOnlySearch(params: SearchParams): Promise<Sear
     const queryPromises = knowledgeBaseIds.map(async (kbId) => {
       return await db
         .select({
-          id: embedding.id,
-          content: embedding.content,
-          documentId: embedding.documentId,
-          chunkIndex: embedding.chunkIndex,
-          tag1: embedding.tag1,
-          tag2: embedding.tag2,
-          tag3: embedding.tag3,
-          tag4: embedding.tag4,
-          tag5: embedding.tag5,
-          tag6: embedding.tag6,
-          tag7: embedding.tag7,
+          ...resultColumns,
           distance: sql<number>`${embedding.embedding} <=> ${queryVector}::vector`.as('distance'),
-          knowledgeBaseId: embedding.knowledgeBaseId,
         })
         .from(embedding)
         .innerJoin(document, eq(embedding.documentId, document.id))
@@ -317,19 +251,8 @@ export async function handleVectorOnlySearch(params: SearchParams): Promise<Sear
   // Single query for fewer KBs
   return await db
     .select({
-      id: embedding.id,
-      content: embedding.content,
-      documentId: embedding.documentId,
-      chunkIndex: embedding.chunkIndex,
-      tag1: embedding.tag1,
-      tag2: embedding.tag2,
-      tag3: embedding.tag3,
-      tag4: embedding.tag4,
-      tag5: embedding.tag5,
-      tag6: embedding.tag6,
-      tag7: embedding.tag7,
+      ...resultColumns,
       distance: sql<number>`${embedding.embedding} <=> ${queryVector}::vector`.as('distance'),
-      knowledgeBaseId: embedding.knowledgeBaseId,
     })
     .from(embedding)
     .innerJoin(document, eq(embedding.documentId, document.id))

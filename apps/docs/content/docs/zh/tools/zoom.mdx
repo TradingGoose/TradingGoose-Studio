@@ -1,0 +1,1370 @@
+---
+title: Zoom
+description: 创建并管理 Zoom 会议和录制
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="zoom"
+  color="#2D8CFF"
+/>
+
+## 配置
+
+### 创建会议
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zoom"
+    type="zoom"
+    color="#2D8CFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "zoom_create_meeting",
+            "options": [
+                {
+                    "id": "zoom_create_meeting",
+                    "label": "创建会议"
+                },
+                {
+                    "id": "zoom_list_meetings",
+                    "label": "列出会议"
+                },
+                {
+                    "id": "zoom_get_meeting",
+                    "label": "获取会议"
+                },
+                {
+                    "id": "zoom_update_meeting",
+                    "label": "更新会议"
+                },
+                {
+                    "id": "zoom_delete_meeting",
+                    "label": "删除会议"
+                },
+                {
+                    "id": "zoom_get_meeting_invitation",
+                    "label": "获取会议邀请"
+                },
+                {
+                    "id": "zoom_list_recordings",
+                    "label": "列出录制"
+                },
+                {
+                    "id": "zoom_get_meeting_recordings",
+                    "label": "获取会议录制"
+                },
+                {
+                    "id": "zoom_delete_recording",
+                    "label": "删除录制"
+                },
+                {
+                    "id": "zoom_list_past_participants",
+                    "label": "列出过往参与者"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Zoom 账号",
+            "placeholder": "选择 Zoom 账号",
+            "provider": "zoom",
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "用户 ID",
+            "placeholder": "me（或用户 ID/邮箱）",
+            "required": true
+        },
+        {
+            "id": "topic",
+            "type": "short-input",
+            "title": "主题",
+            "placeholder": "会议主题",
+            "required": true
+        },
+        {
+            "id": "type",
+            "type": "dropdown",
+            "title": "会议类型",
+            "defaultValue": "2",
+            "options": [
+                {
+                    "id": "2",
+                    "label": "定时"
+                },
+                {
+                    "id": "1",
+                    "label": "即时"
+                },
+                {
+                    "id": "3",
+                    "label": "周期性（无固定时间）"
+                },
+                {
+                    "id": "8",
+                    "label": "周期性（固定时间）"
+                }
+            ]
+        },
+        {
+            "id": "startTime",
+            "type": "datetime-input",
+            "title": "开始时间",
+            "placeholder": "2025-06-03T10:00:00Z"
+        },
+        {
+            "id": "duration",
+            "type": "short-input",
+            "title": "时长（分钟）",
+            "placeholder": "30"
+        },
+        {
+            "id": "timezone",
+            "type": "dropdown",
+            "title": "时区",
+            "placeholder": "America/Los_Angeles",
+            "defaultValue": ""
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "会议密码"
+        },
+        {
+            "id": "agenda",
+            "type": "long-input",
+            "title": "议程",
+            "placeholder": "会议议程"
+        },
+        {
+            "id": "hostVideo",
+            "type": "switch",
+            "title": "主持人视频"
+        },
+        {
+            "id": "participantVideo",
+            "type": "switch",
+            "title": "参与者视频"
+        },
+        {
+            "id": "joinBeforeHost",
+            "type": "switch",
+            "title": "允许在主持人之前加入"
+        },
+        {
+            "id": "muteUponEntry",
+            "type": "switch",
+            "title": "进入时静音"
+        },
+        {
+            "id": "waitingRoom",
+            "type": "switch",
+            "title": "等候室"
+        },
+        {
+            "id": "autoRecording",
+            "type": "dropdown",
+            "title": "自动录制",
+            "defaultValue": "none",
+            "options": [
+                {
+                    "id": "none",
+                    "label": "无"
+                },
+                {
+                    "id": "local",
+                    "label": "本地"
+                },
+                {
+                    "id": "cloud",
+                    "label": "云端"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建会议 (<code>zoom_create_meeting</code>)</div>
+
+创建新的 Zoom 会议
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `userId` | string | 是 | 用户 ID 或邮箱地址。已认证用户请使用 "me"。 |
+| `topic` | string | 是 | 会议主题 |
+| `type` | number | 否 | 会议类型：1=即时，2=预定，3=无固定时间的周期性会议，8=有固定时间的周期性会议 |
+| `startTime` | string | 否 | 会议开始时间，ISO 8601 格式 \(例如 2025-06-03T10:00:00Z\) |
+| `duration` | number | 否 | 会议时长（分钟） |
+| `timezone` | string | 否 | 会议时区 \(例如 America/Los_Angeles\) |
+| `password` | string | 否 | 会议密码 |
+| `agenda` | string | 否 | 会议议程 |
+| `hostVideo` | boolean | 否 | 开始时开启主持人视频 |
+| `participantVideo` | boolean | 否 | 开始时开启参会者视频 |
+| `joinBeforeHost` | boolean | 否 | 允许参会者在主持人之前加入 |
+| `muteUponEntry` | boolean | 否 | 参会者入会时静音 |
+| `waitingRoom` | boolean | 否 | 启用等候室 |
+| `autoRecording` | string | 否 | 自动录制设置：local、cloud 或 none |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `meeting` | object | 已创建的会议及其全部属性 |
+
+</div>
+
+---
+
+### 列出会议
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zoom"
+    type="zoom"
+    color="#2D8CFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "zoom_list_meetings",
+            "options": [
+                {
+                    "id": "zoom_create_meeting",
+                    "label": "创建会议"
+                },
+                {
+                    "id": "zoom_list_meetings",
+                    "label": "列出会议"
+                },
+                {
+                    "id": "zoom_get_meeting",
+                    "label": "获取会议"
+                },
+                {
+                    "id": "zoom_update_meeting",
+                    "label": "更新会议"
+                },
+                {
+                    "id": "zoom_delete_meeting",
+                    "label": "删除会议"
+                },
+                {
+                    "id": "zoom_get_meeting_invitation",
+                    "label": "获取会议邀请"
+                },
+                {
+                    "id": "zoom_list_recordings",
+                    "label": "列出录制"
+                },
+                {
+                    "id": "zoom_get_meeting_recordings",
+                    "label": "获取会议录制"
+                },
+                {
+                    "id": "zoom_delete_recording",
+                    "label": "删除录制"
+                },
+                {
+                    "id": "zoom_list_past_participants",
+                    "label": "列出过往参与者"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Zoom 账户",
+            "placeholder": "选择 Zoom 账户",
+            "provider": "zoom",
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "用户 ID",
+            "placeholder": "me（或用户 ID/邮箱）",
+            "required": true
+        },
+        {
+            "id": "listType",
+            "type": "dropdown",
+            "title": "会议类型筛选",
+            "defaultValue": "scheduled",
+            "options": [
+                {
+                    "id": "scheduled",
+                    "label": "已安排"
+                },
+                {
+                    "id": "live",
+                    "label": "进行中"
+                },
+                {
+                    "id": "upcoming",
+                    "label": "即将开始"
+                },
+                {
+                    "id": "upcoming_meetings",
+                    "label": "即将开始的会议"
+                },
+                {
+                    "id": "previous_meetings",
+                    "label": "过往会议"
+                }
+            ]
+        },
+        {
+            "id": "pageSize",
+            "type": "short-input",
+            "title": "每页数量",
+            "placeholder": "结果数量（最多 300）"
+        },
+        {
+            "id": "nextPageToken",
+            "type": "short-input",
+            "title": "分页令牌",
+            "placeholder": "下一页令牌"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出会议（<code>zoom_list_meetings</code>）</div>
+
+列出 Zoom 用户的所有会议
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `userId` | string | 是 | 用户 ID 或邮箱地址。使用 "me" 表示已认证用户。 |
+| `type` | string | 否 | 会议类型筛选：scheduled、live、upcoming、upcoming_meetings 或 previous_meetings |
+| `pageSize` | number | 否 | 每页记录数（最多 300） |
+| `nextPageToken` | string | 否 | 用于获取下一页结果的分页令牌 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `meetings` | array | 会议列表 |
+| `pageInfo` | object | 分页信息 |
+
+</div>
+
+---
+
+### 获取会议
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zoom"
+    type="zoom"
+    color="#2D8CFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "zoom_get_meeting",
+            "options": [
+                {
+                    "id": "zoom_create_meeting",
+                    "label": "创建会议"
+                },
+                {
+                    "id": "zoom_list_meetings",
+                    "label": "列出会议"
+                },
+                {
+                    "id": "zoom_get_meeting",
+                    "label": "获取会议"
+                },
+                {
+                    "id": "zoom_update_meeting",
+                    "label": "更新会议"
+                },
+                {
+                    "id": "zoom_delete_meeting",
+                    "label": "删除会议"
+                },
+                {
+                    "id": "zoom_get_meeting_invitation",
+                    "label": "获取会议邀请"
+                },
+                {
+                    "id": "zoom_list_recordings",
+                    "label": "列出录制"
+                },
+                {
+                    "id": "zoom_get_meeting_recordings",
+                    "label": "获取会议录制"
+                },
+                {
+                    "id": "zoom_delete_recording",
+                    "label": "删除录制"
+                },
+                {
+                    "id": "zoom_list_past_participants",
+                    "label": "列出过往参会者"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Zoom 账号",
+            "placeholder": "选择 Zoom 账号",
+            "provider": "zoom",
+            "required": true
+        },
+        {
+            "id": "meetingId",
+            "type": "short-input",
+            "title": "会议 ID",
+            "placeholder": "输入会议 ID",
+            "required": true
+        },
+        {
+            "id": "occurrenceId",
+            "type": "short-input",
+            "title": "场次 ID",
+            "placeholder": "用于周期会议"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取会议 (<code>zoom_get_meeting</code>)</div>
+
+获取指定 Zoom 会议的详细信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `meetingId` | string | 是 | 会议 ID |
+| `occurrenceId` | string | 否 | 周期会议的场次 ID |
+| `showPreviousOccurrences` | boolean | 否 | 显示周期会议的以往场次 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `meeting` | object | 会议详情 |
+
+</div>
+
+---
+
+### 更新会议
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zoom"
+    type="zoom"
+    color="#2D8CFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "zoom_update_meeting",
+            "options": [
+                {
+                    "id": "zoom_create_meeting",
+                    "label": "创建会议"
+                },
+                {
+                    "id": "zoom_list_meetings",
+                    "label": "列出会议"
+                },
+                {
+                    "id": "zoom_get_meeting",
+                    "label": "获取会议"
+                },
+                {
+                    "id": "zoom_update_meeting",
+                    "label": "更新会议"
+                },
+                {
+                    "id": "zoom_delete_meeting",
+                    "label": "删除会议"
+                },
+                {
+                    "id": "zoom_get_meeting_invitation",
+                    "label": "获取会议邀请"
+                },
+                {
+                    "id": "zoom_list_recordings",
+                    "label": "列出录制"
+                },
+                {
+                    "id": "zoom_get_meeting_recordings",
+                    "label": "获取会议录制"
+                },
+                {
+                    "id": "zoom_delete_recording",
+                    "label": "删除录制"
+                },
+                {
+                    "id": "zoom_list_past_participants",
+                    "label": "列出过往参会者"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Zoom 账户",
+            "placeholder": "选择 Zoom 账户",
+            "provider": "zoom",
+            "required": true
+        },
+        {
+            "id": "meetingId",
+            "type": "short-input",
+            "title": "会议 ID",
+            "placeholder": "输入会议 ID",
+            "required": true
+        },
+        {
+            "id": "topicUpdate",
+            "type": "short-input",
+            "title": "主题",
+            "placeholder": "会议主题（可选）"
+        },
+        {
+            "id": "type",
+            "type": "dropdown",
+            "title": "会议类型",
+            "defaultValue": "2",
+            "options": [
+                {
+                    "id": "2",
+                    "label": "预定"
+                },
+                {
+                    "id": "1",
+                    "label": "即时"
+                },
+                {
+                    "id": "3",
+                    "label": "周期性（无固定时间）"
+                },
+                {
+                    "id": "8",
+                    "label": "周期性（固定时间）"
+                }
+            ]
+        },
+        {
+            "id": "startTime",
+            "type": "datetime-input",
+            "title": "开始时间",
+            "placeholder": "2025-06-03T10:00:00Z"
+        },
+        {
+            "id": "duration",
+            "type": "short-input",
+            "title": "时长（分钟）",
+            "placeholder": "30"
+        },
+        {
+            "id": "timezone",
+            "type": "dropdown",
+            "title": "时区",
+            "placeholder": "America/Los_Angeles",
+            "defaultValue": ""
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "会议密码"
+        },
+        {
+            "id": "agenda",
+            "type": "long-input",
+            "title": "议程",
+            "placeholder": "会议议程"
+        },
+        {
+            "id": "hostVideo",
+            "type": "switch",
+            "title": "主持人视频"
+        },
+        {
+            "id": "participantVideo",
+            "type": "switch",
+            "title": "参会者视频"
+        },
+        {
+            "id": "joinBeforeHost",
+            "type": "switch",
+            "title": "允许在主持人之前加入"
+        },
+        {
+            "id": "muteUponEntry",
+            "type": "switch",
+            "title": "进入时静音"
+        },
+        {
+            "id": "waitingRoom",
+            "type": "switch",
+            "title": "等候室"
+        },
+        {
+            "id": "autoRecording",
+            "type": "dropdown",
+            "title": "自动录制",
+            "defaultValue": "none",
+            "options": [
+                {
+                    "id": "none",
+                    "label": "无"
+                },
+                {
+                    "id": "local",
+                    "label": "本地"
+                },
+                {
+                    "id": "cloud",
+                    "label": "云端"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新会议（<code>zoom_update_meeting</code>）</div>
+
+更新现有 Zoom 会议
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `meetingId` | string | 是 | 要更新的会议 ID |
+| `topic` | string | 否 | 会议主题 |
+| `type` | number | 否 | 会议类型：1=即时，2=预约，3=无固定时间的周期性会议，8=有固定时间的周期性会议 |
+| `startTime` | string | 否 | 会议开始时间，ISO 8601 格式（例如：2025-06-03T10:00:00Z） |
+| `duration` | number | 否 | 会议时长（分钟） |
+| `timezone` | string | 否 | 会议时区（例如：America/Los_Angeles） |
+| `password` | string | 否 | 会议密码 |
+| `agenda` | string | 否 | 会议议程 |
+| `hostVideo` | boolean | 否 | 开始时开启主持人视频 |
+| `participantVideo` | boolean | 否 | 开始时开启参会者视频 |
+| `joinBeforeHost` | boolean | 否 | 允许参会者在主持人之前加入 |
+| `muteUponEntry` | boolean | 否 | 参会者加入时静音 |
+| `waitingRoom` | boolean | 否 | 启用等候室 |
+| `autoRecording` | string | 否 | 自动录制设置：local、cloud 或 none |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 会议是否更新成功 |
+
+</div>
+
+---
+
+### 删除会议
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zoom"
+    type="zoom"
+    color="#2D8CFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "zoom_delete_meeting",
+            "options": [
+                {
+                    "id": "zoom_create_meeting",
+                    "label": "创建会议"
+                },
+                {
+                    "id": "zoom_list_meetings",
+                    "label": "列出会议"
+                },
+                {
+                    "id": "zoom_get_meeting",
+                    "label": "获取会议"
+                },
+                {
+                    "id": "zoom_update_meeting",
+                    "label": "更新会议"
+                },
+                {
+                    "id": "zoom_delete_meeting",
+                    "label": "删除会议"
+                },
+                {
+                    "id": "zoom_get_meeting_invitation",
+                    "label": "获取会议邀请"
+                },
+                {
+                    "id": "zoom_list_recordings",
+                    "label": "列出录制"
+                },
+                {
+                    "id": "zoom_get_meeting_recordings",
+                    "label": "获取会议录制"
+                },
+                {
+                    "id": "zoom_delete_recording",
+                    "label": "删除录制"
+                },
+                {
+                    "id": "zoom_list_past_participants",
+                    "label": "列出过往参会者"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Zoom 账号",
+            "placeholder": "选择 Zoom 账号",
+            "provider": "zoom",
+            "required": true
+        },
+        {
+            "id": "meetingId",
+            "type": "short-input",
+            "title": "会议 ID",
+            "placeholder": "输入会议 ID",
+            "required": true
+        },
+        {
+            "id": "occurrenceId",
+            "type": "short-input",
+            "title": "场次 ID",
+            "placeholder": "用于周期性会议"
+        },
+        {
+            "id": "cancelMeetingReminder",
+            "type": "switch",
+            "title": "发送取消邮件"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除会议 (<code>zoom_delete_meeting</code>)</div>
+
+删除或取消 Zoom 会议
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `meetingId` | string | 是 | 要删除的会议 ID |
+| `occurrenceId` | string | 否 | 用于删除周期性会议中特定场次的场次 ID |
+| `scheduleForReminder` | boolean | 否 | 向报名者发送取消提醒邮件 |
+| `cancelMeetingReminder` | boolean | 否 | 向报名者和候补主持人发送取消邮件 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 会议是否已成功删除 |
+
+</div>
+
+---
+
+### 获取会议邀请
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zoom"
+    type="zoom"
+    color="#2D8CFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "zoom_get_meeting_invitation",
+            "options": [
+                {
+                    "id": "zoom_create_meeting",
+                    "label": "创建会议"
+                },
+                {
+                    "id": "zoom_list_meetings",
+                    "label": "列出会议"
+                },
+                {
+                    "id": "zoom_get_meeting",
+                    "label": "获取会议"
+                },
+                {
+                    "id": "zoom_update_meeting",
+                    "label": "更新会议"
+                },
+                {
+                    "id": "zoom_delete_meeting",
+                    "label": "删除会议"
+                },
+                {
+                    "id": "zoom_get_meeting_invitation",
+                    "label": "获取会议邀请"
+                },
+                {
+                    "id": "zoom_list_recordings",
+                    "label": "列出录制"
+                },
+                {
+                    "id": "zoom_get_meeting_recordings",
+                    "label": "获取会议录制"
+                },
+                {
+                    "id": "zoom_delete_recording",
+                    "label": "删除录制"
+                },
+                {
+                    "id": "zoom_list_past_participants",
+                    "label": "列出过往参会者"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Zoom 账号",
+            "placeholder": "选择 Zoom 账号",
+            "provider": "zoom",
+            "required": true
+        },
+        {
+            "id": "meetingId",
+            "type": "short-input",
+            "title": "会议 ID",
+            "placeholder": "输入会议 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取会议邀请 (<code>zoom_get_meeting_invitation</code>)</div>
+
+获取 Zoom 会议的邀请文本
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `meetingId` | string | 是 | 会议 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `invitation` | string | 会议邀请文本 |
+
+</div>
+
+---
+
+### 列出录制
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zoom"
+    type="zoom"
+    color="#2D8CFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "zoom_list_recordings",
+            "options": [
+                {
+                    "id": "zoom_create_meeting",
+                    "label": "创建会议"
+                },
+                {
+                    "id": "zoom_list_meetings",
+                    "label": "列出会议"
+                },
+                {
+                    "id": "zoom_get_meeting",
+                    "label": "获取会议"
+                },
+                {
+                    "id": "zoom_update_meeting",
+                    "label": "更新会议"
+                },
+                {
+                    "id": "zoom_delete_meeting",
+                    "label": "删除会议"
+                },
+                {
+                    "id": "zoom_get_meeting_invitation",
+                    "label": "获取会议邀请"
+                },
+                {
+                    "id": "zoom_list_recordings",
+                    "label": "列出录制"
+                },
+                {
+                    "id": "zoom_get_meeting_recordings",
+                    "label": "获取会议录制"
+                },
+                {
+                    "id": "zoom_delete_recording",
+                    "label": "删除录制"
+                },
+                {
+                    "id": "zoom_list_past_participants",
+                    "label": "列出过往参会者"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Zoom 账号",
+            "placeholder": "选择 Zoom 账号",
+            "provider": "zoom",
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "用户 ID",
+            "placeholder": "me（或用户 ID/邮箱）",
+            "required": true
+        },
+        {
+            "id": "pageSize",
+            "type": "short-input",
+            "title": "每页条数",
+            "placeholder": "结果数量（最多 300）"
+        },
+        {
+            "id": "nextPageToken",
+            "type": "short-input",
+            "title": "分页令牌",
+            "placeholder": "下一页令牌"
+        },
+        {
+            "id": "fromDate",
+            "type": "datetime-input",
+            "title": "开始日期",
+            "placeholder": "yyyy-mm-dd（最近 6 个月内）"
+        },
+        {
+            "id": "toDate",
+            "type": "datetime-input",
+            "title": "结束日期",
+            "placeholder": "yyyy-mm-dd"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出录制（<code>zoom_list_recordings</code>）</div>
+
+列出指定 Zoom 用户的全部云录制
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `userId` | string | 是 | 用户 ID 或电子邮件地址。已认证用户请使用 "me"。 |
+| `from` | string | 否 | 开始日期，格式为 yyyy-mm-dd（最近 6 个月内） |
+| `to` | string | 否 | 结束日期，格式为 yyyy-mm-dd |
+| `pageSize` | number | 否 | 每页记录数（最多 300） |
+| `nextPageToken` | string | 否 | 用于获取下一页结果的分页令牌 |
+| `trash` | boolean | 否 | 设为 true 可列出回收站中的录制 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `recordings` | array | 录制列表 |
+| `pageInfo` | object | 分页信息 |
+
+</div>
+
+---
+
+### 获取会议录制
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zoom"
+    type="zoom"
+    color="#2D8CFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "zoom_get_meeting_recordings",
+            "options": [
+                {
+                    "id": "zoom_create_meeting",
+                    "label": "创建会议"
+                },
+                {
+                    "id": "zoom_list_meetings",
+                    "label": "列出会议"
+                },
+                {
+                    "id": "zoom_get_meeting",
+                    "label": "获取会议"
+                },
+                {
+                    "id": "zoom_update_meeting",
+                    "label": "更新会议"
+                },
+                {
+                    "id": "zoom_delete_meeting",
+                    "label": "删除会议"
+                },
+                {
+                    "id": "zoom_get_meeting_invitation",
+                    "label": "获取会议邀请"
+                },
+                {
+                    "id": "zoom_list_recordings",
+                    "label": "列出录制"
+                },
+                {
+                    "id": "zoom_get_meeting_recordings",
+                    "label": "获取会议录制"
+                },
+                {
+                    "id": "zoom_delete_recording",
+                    "label": "删除录制"
+                },
+                {
+                    "id": "zoom_list_past_participants",
+                    "label": "列出过往参与者"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Zoom 账号",
+            "placeholder": "选择 Zoom 账号",
+            "provider": "zoom",
+            "required": true
+        },
+        {
+            "id": "meetingId",
+            "type": "short-input",
+            "title": "会议 ID",
+            "placeholder": "输入会议 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取会议录制（<code>zoom_get_meeting_recordings</code>）</div>
+
+获取指定 Zoom 会议的所有录制
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `meetingId` | string | 是 | 会议 ID 或会议 UUID |
+| `includeFolderItems` | boolean | 否 | 包含文件夹内的项目 |
+| `ttl` | number | 否 | 下载 URL 的有效时间（秒，最大 604800） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `recording` | object | 包含所有文件的会议录制 |
+
+</div>
+
+---
+
+### 删除录制
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zoom"
+    type="zoom"
+    color="#2D8CFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "zoom_delete_recording",
+            "options": [
+                {
+                    "id": "zoom_create_meeting",
+                    "label": "创建会议"
+                },
+                {
+                    "id": "zoom_list_meetings",
+                    "label": "列出会议"
+                },
+                {
+                    "id": "zoom_get_meeting",
+                    "label": "获取会议"
+                },
+                {
+                    "id": "zoom_update_meeting",
+                    "label": "更新会议"
+                },
+                {
+                    "id": "zoom_delete_meeting",
+                    "label": "删除会议"
+                },
+                {
+                    "id": "zoom_get_meeting_invitation",
+                    "label": "获取会议邀请"
+                },
+                {
+                    "id": "zoom_list_recordings",
+                    "label": "列出录制"
+                },
+                {
+                    "id": "zoom_get_meeting_recordings",
+                    "label": "获取会议录制"
+                },
+                {
+                    "id": "zoom_delete_recording",
+                    "label": "删除录制"
+                },
+                {
+                    "id": "zoom_list_past_participants",
+                    "label": "列出过往参与者"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Zoom 账号",
+            "placeholder": "选择 Zoom 账号",
+            "provider": "zoom",
+            "required": true
+        },
+        {
+            "id": "meetingId",
+            "type": "short-input",
+            "title": "会议 ID",
+            "placeholder": "输入会议 ID",
+            "required": true
+        },
+        {
+            "id": "recordingId",
+            "type": "short-input",
+            "title": "录制 ID",
+            "placeholder": "特定录制文件 ID（可选）"
+        },
+        {
+            "id": "deleteAction",
+            "type": "dropdown",
+            "title": "删除操作",
+            "defaultValue": "trash",
+            "options": [
+                {
+                    "id": "trash",
+                    "label": "移至回收站"
+                },
+                {
+                    "id": "delete",
+                    "label": "永久删除"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除录制 (<code>zoom_delete_recording</code>)</div>
+
+删除 Zoom 会议的云录制
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `meetingId` | string | 是 | 会议 ID 或会议 UUID |
+| `recordingId` | string | 否 | 要删除的特定录制文件 ID。未提供时将删除全部录制。 |
+| `action` | string | 否 | 删除操作："trash" \(移至回收站\) 或 "delete" \(永久删除\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 录制是否已成功删除 |
+
+</div>
+
+---
+
+### 列出过往参会者
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zoom"
+    type="zoom"
+    color="#2D8CFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "zoom_list_past_participants",
+            "options": [
+                {
+                    "id": "zoom_create_meeting",
+                    "label": "创建会议"
+                },
+                {
+                    "id": "zoom_list_meetings",
+                    "label": "列出会议"
+                },
+                {
+                    "id": "zoom_get_meeting",
+                    "label": "获取会议"
+                },
+                {
+                    "id": "zoom_update_meeting",
+                    "label": "更新会议"
+                },
+                {
+                    "id": "zoom_delete_meeting",
+                    "label": "删除会议"
+                },
+                {
+                    "id": "zoom_get_meeting_invitation",
+                    "label": "获取会议邀请"
+                },
+                {
+                    "id": "zoom_list_recordings",
+                    "label": "列出录制"
+                },
+                {
+                    "id": "zoom_get_meeting_recordings",
+                    "label": "获取会议录制"
+                },
+                {
+                    "id": "zoom_delete_recording",
+                    "label": "删除录制"
+                },
+                {
+                    "id": "zoom_list_past_participants",
+                    "label": "列出过往参会者"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Zoom 账号",
+            "placeholder": "选择 Zoom 账号",
+            "provider": "zoom",
+            "required": true
+        },
+        {
+            "id": "meetingId",
+            "type": "short-input",
+            "title": "会议 ID",
+            "placeholder": "输入会议 ID",
+            "required": true
+        },
+        {
+            "id": "pageSize",
+            "type": "short-input",
+            "title": "每页数量",
+            "placeholder": "结果数量（最多 300）"
+        },
+        {
+            "id": "nextPageToken",
+            "type": "short-input",
+            "title": "分页令牌",
+            "placeholder": "下一页令牌"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出过往参会者 (<code>zoom_list_past_participants</code>)</div>
+
+列出过往 Zoom 会议的参会者
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `meetingId` | string | 是 | 过往会议 ID 或 UUID |
+| `pageSize` | number | 否 | 每页记录数（最多 300） |
+| `nextPageToken` | string | 否 | 用于获取下一页结果的分页令牌 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `participants` | array | 会议参与者列表 |
+| `pageInfo` | object | 分页信息 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Zoom 集成到工作流中。创建、列出、更新和删除 Zoom 会议。获取会议详情、邀请、录制和参与者。以编程方式管理云录制。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`zoom`

@@ -10,7 +10,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <BlockInfoCard
   type="s3"
-  color=""
+  color="#FF9900"
 />
 
 
@@ -22,7 +22,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="S3"
     type="s3"
-    color=""
+    color="#FF9900"
     hideHeader
     subBlocks={[
         {
@@ -30,29 +30,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "get_object",
             "options": [
                 {
-                    "label": "Download File",
-                    "id": "get_object"
+                    "id": "get_object",
+                    "label": "Download File"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "put_object"
+                    "id": "put_object",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "List Objects",
-                    "id": "list_objects"
+                    "id": "list_objects",
+                    "label": "List Objects"
                 },
                 {
-                    "label": "Delete Object",
-                    "id": "delete_object"
+                    "id": "delete_object",
+                    "label": "Delete Object"
                 },
                 {
-                    "label": "Copy Object",
-                    "id": "copy_object"
+                    "id": "copy_object",
+                    "label": "Copy Object"
                 }
-            ],
-            "defaultValue": "get_object"
+            ]
         },
         {
             "id": "accessKeyId",
@@ -85,14 +85,24 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Download File (<code>s3_get_object</code>)</div>
+
+Retrieve an object from an AWS S3 bucket
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `accessKeyId` | string | Yes | Your AWS Access Key ID |
+| `secretAccessKey` | string | Yes | Your AWS Secret Access Key |
+| `s3Uri` | string | Yes | S3 Object URL |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `url` | string | URL of S3 object |
-| `objects` | json | List of objects \(for list operation\) |
-| `deleted` | boolean | Deletion status |
-| `metadata` | json | Operation metadata |
+| `url` | string | Pre-signed URL for downloading the S3 object |
+| `metadata` | object | File metadata including type, size, name, and last modified date |
 
 </div>
 
@@ -106,7 +116,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="S3"
     type="s3"
-    color=""
+    color="#FF9900"
     hideHeader
     subBlocks={[
         {
@@ -114,29 +124,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "put_object",
             "options": [
                 {
-                    "label": "Download File",
-                    "id": "get_object"
+                    "id": "get_object",
+                    "label": "Download File"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "put_object"
+                    "id": "put_object",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "List Objects",
-                    "id": "list_objects"
+                    "id": "list_objects",
+                    "label": "List Objects"
                 },
                 {
-                    "label": "Delete Object",
-                    "id": "delete_object"
+                    "id": "delete_object",
+                    "label": "Delete Object"
                 },
                 {
-                    "label": "Copy Object",
-                    "id": "copy_object"
+                    "id": "copy_object",
+                    "label": "Copy Object"
                 }
-            ],
-            "defaultValue": "put_object"
+            ]
         },
         {
             "id": "accessKeyId",
@@ -216,20 +226,20 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "placeholder": "Select ACL (default: private)",
             "options": [
                 {
-                    "label": "Private",
-                    "id": "private"
+                    "id": "private",
+                    "label": "Private"
                 },
                 {
-                    "label": "Public Read",
-                    "id": "public-read"
+                    "id": "public-read",
+                    "label": "Public Read"
                 },
                 {
-                    "label": "Public Read/Write",
-                    "id": "public-read-write"
+                    "id": "public-read-write",
+                    "label": "Public Read/Write"
                 },
                 {
-                    "label": "Authenticated Read",
-                    "id": "authenticated-read"
+                    "id": "authenticated-read",
+                    "label": "Authenticated Read"
                 }
             ]
         }
@@ -238,14 +248,31 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Upload File (<code>s3_put_object</code>)</div>
+
+Upload a file to an AWS S3 bucket
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `accessKeyId` | string | Yes | Your AWS Access Key ID |
+| `secretAccessKey` | string | Yes | Your AWS Secret Access Key |
+| `region` | string | Yes | AWS region \(e.g., us-east-1\) |
+| `bucketName` | string | Yes | S3 bucket name |
+| `objectKey` | string | Yes | Object key/path in S3 \(e.g., folder/filename.ext\) |
+| `file` | file | No | File to upload |
+| `content` | string | No | Text content to upload \(alternative to file\) |
+| `contentType` | string | No | Content-Type header \(auto-detected from file if not provided\) |
+| `acl` | string | No | Access control list \(e.g., private, public-read\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `url` | string | URL of S3 object |
-| `objects` | json | List of objects \(for list operation\) |
-| `deleted` | boolean | Deletion status |
-| `metadata` | json | Operation metadata |
+| `url` | string | URL of the uploaded S3 object |
+| `uri` | string | S3 URI of the uploaded object \(s3://bucket/key\) |
+| `metadata` | object | Upload metadata including ETag and location |
 
 </div>
 
@@ -259,7 +286,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="S3"
     type="s3"
-    color=""
+    color="#FF9900"
     hideHeader
     subBlocks={[
         {
@@ -267,29 +294,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "list_objects",
             "options": [
                 {
-                    "label": "Download File",
-                    "id": "get_object"
+                    "id": "get_object",
+                    "label": "Download File"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "put_object"
+                    "id": "put_object",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "List Objects",
-                    "id": "list_objects"
+                    "id": "list_objects",
+                    "label": "List Objects"
                 },
                 {
-                    "label": "Delete Object",
-                    "id": "delete_object"
+                    "id": "delete_object",
+                    "label": "Delete Object"
                 },
                 {
-                    "label": "Copy Object",
-                    "id": "copy_object"
+                    "id": "copy_object",
+                    "label": "Copy Object"
                 }
-            ],
-            "defaultValue": "list_objects"
+            ]
         },
         {
             "id": "accessKeyId",
@@ -351,14 +378,28 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">List Objects (<code>s3_list_objects</code>)</div>
+
+List objects in an AWS S3 bucket
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `accessKeyId` | string | Yes | Your AWS Access Key ID |
+| `secretAccessKey` | string | Yes | Your AWS Secret Access Key |
+| `region` | string | Yes | AWS region \(e.g., us-east-1\) |
+| `bucketName` | string | Yes | S3 bucket name |
+| `prefix` | string | No | Prefix to filter objects \(e.g., folder/\) |
+| `maxKeys` | number | No | Maximum number of objects to return \(default: 1000\) |
+| `continuationToken` | string | No | Token for pagination |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `url` | string | URL of S3 object |
-| `objects` | json | List of objects \(for list operation\) |
-| `deleted` | boolean | Deletion status |
-| `metadata` | json | Operation metadata |
+| `objects` | array | List of S3 objects |
+| `metadata` | object | Listing metadata including pagination info |
 
 </div>
 
@@ -372,7 +413,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="S3"
     type="s3"
-    color=""
+    color="#FF9900"
     hideHeader
     subBlocks={[
         {
@@ -380,29 +421,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "delete_object",
             "options": [
                 {
-                    "label": "Download File",
-                    "id": "get_object"
+                    "id": "get_object",
+                    "label": "Download File"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "put_object"
+                    "id": "put_object",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "List Objects",
-                    "id": "list_objects"
+                    "id": "list_objects",
+                    "label": "List Objects"
                 },
                 {
-                    "label": "Delete Object",
-                    "id": "delete_object"
+                    "id": "delete_object",
+                    "label": "Delete Object"
                 },
                 {
-                    "label": "Copy Object",
-                    "id": "copy_object"
+                    "id": "copy_object",
+                    "label": "Copy Object"
                 }
-            ],
-            "defaultValue": "delete_object"
+            ]
         },
         {
             "id": "accessKeyId",
@@ -451,14 +492,26 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Delete Object (<code>s3_delete_object</code>)</div>
+
+Delete an object from an AWS S3 bucket
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `accessKeyId` | string | Yes | Your AWS Access Key ID |
+| `secretAccessKey` | string | Yes | Your AWS Secret Access Key |
+| `region` | string | Yes | AWS region \(e.g., us-east-1\) |
+| `bucketName` | string | Yes | S3 bucket name |
+| `objectKey` | string | Yes | Object key/path to delete |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `url` | string | URL of S3 object |
-| `objects` | json | List of objects \(for list operation\) |
-| `deleted` | boolean | Deletion status |
-| `metadata` | json | Operation metadata |
+| `deleted` | boolean | Whether the object was successfully deleted |
+| `metadata` | object | Deletion metadata |
 
 </div>
 
@@ -472,7 +525,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="S3"
     type="s3"
-    color=""
+    color="#FF9900"
     hideHeader
     subBlocks={[
         {
@@ -480,29 +533,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "copy_object",
             "options": [
                 {
-                    "label": "Download File",
-                    "id": "get_object"
+                    "id": "get_object",
+                    "label": "Download File"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "put_object"
+                    "id": "put_object",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "List Objects",
-                    "id": "list_objects"
+                    "id": "list_objects",
+                    "label": "List Objects"
                 },
                 {
-                    "label": "Delete Object",
-                    "id": "delete_object"
+                    "id": "delete_object",
+                    "label": "Delete Object"
                 },
                 {
-                    "label": "Copy Object",
-                    "id": "copy_object"
+                    "id": "copy_object",
+                    "label": "Copy Object"
                 }
-            ],
-            "defaultValue": "copy_object"
+            ]
         },
         {
             "id": "accessKeyId",
@@ -570,20 +623,20 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "placeholder": "Select ACL for copied object (default: private)",
             "options": [
                 {
-                    "label": "Private",
-                    "id": "private"
+                    "id": "private",
+                    "label": "Private"
                 },
                 {
-                    "label": "Public Read",
-                    "id": "public-read"
+                    "id": "public-read",
+                    "label": "Public Read"
                 },
                 {
-                    "label": "Public Read/Write",
-                    "id": "public-read-write"
+                    "id": "public-read-write",
+                    "label": "Public Read/Write"
                 },
                 {
-                    "label": "Authenticated Read",
-                    "id": "authenticated-read"
+                    "id": "authenticated-read",
+                    "label": "Authenticated Read"
                 }
             ]
         }
@@ -592,14 +645,30 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Copy Object (<code>s3_copy_object</code>)</div>
+
+Copy an object within or between AWS S3 buckets
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `accessKeyId` | string | Yes | Your AWS Access Key ID |
+| `secretAccessKey` | string | Yes | Your AWS Secret Access Key |
+| `region` | string | Yes | AWS region \(e.g., us-east-1\) |
+| `sourceBucket` | string | Yes | Source bucket name |
+| `sourceKey` | string | Yes | Source object key/path |
+| `destinationBucket` | string | Yes | Destination bucket name |
+| `destinationKey` | string | Yes | Destination object key/path |
+| `acl` | string | No | Access control list for the copied object \(e.g., private, public-read\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `url` | string | URL of S3 object |
-| `objects` | json | List of objects \(for list operation\) |
-| `deleted` | boolean | Deletion status |
-| `metadata` | json | Operation metadata |
+| `url` | string | URL of the copied S3 object |
+| `uri` | string | S3 URI of the copied object \(s3://bucket/key\) |
+| `metadata` | object | Copy operation metadata |
 
 </div>
 

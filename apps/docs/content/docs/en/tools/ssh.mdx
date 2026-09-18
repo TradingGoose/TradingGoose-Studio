@@ -29,61 +29,61 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "ssh_execute_command",
             "options": [
                 {
-                    "label": "Execute Command",
-                    "id": "ssh_execute_command"
+                    "id": "ssh_execute_command",
+                    "label": "Execute Command"
                 },
                 {
-                    "label": "Execute Script",
-                    "id": "ssh_execute_script"
+                    "id": "ssh_execute_script",
+                    "label": "Execute Script"
                 },
                 {
-                    "label": "Check Command Exists",
-                    "id": "ssh_check_command_exists"
+                    "id": "ssh_check_command_exists",
+                    "label": "Check Command Exists"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "ssh_upload_file"
+                    "id": "ssh_upload_file",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "Download File",
-                    "id": "ssh_download_file"
+                    "id": "ssh_download_file",
+                    "label": "Download File"
                 },
                 {
-                    "label": "List Directory",
-                    "id": "ssh_list_directory"
+                    "id": "ssh_list_directory",
+                    "label": "List Directory"
                 },
                 {
-                    "label": "Check File/Directory Exists",
-                    "id": "ssh_check_file_exists"
+                    "id": "ssh_check_file_exists",
+                    "label": "Check File/Directory Exists"
                 },
                 {
-                    "label": "Create Directory",
-                    "id": "ssh_create_directory"
+                    "id": "ssh_create_directory",
+                    "label": "Create Directory"
                 },
                 {
-                    "label": "Delete File/Directory",
-                    "id": "ssh_delete_file"
+                    "id": "ssh_delete_file",
+                    "label": "Delete File/Directory"
                 },
                 {
-                    "label": "Move/Rename",
-                    "id": "ssh_move_rename"
+                    "id": "ssh_move_rename",
+                    "label": "Move/Rename"
                 },
                 {
-                    "label": "Get System Info",
-                    "id": "ssh_get_system_info"
+                    "id": "ssh_get_system_info",
+                    "label": "Get System Info"
                 },
                 {
-                    "label": "Read File Content",
-                    "id": "ssh_read_file_content"
+                    "id": "ssh_read_file_content",
+                    "label": "Read File Content"
                 },
                 {
-                    "label": "Write File Content",
-                    "id": "ssh_write_file_content"
+                    "id": "ssh_write_file_content",
+                    "label": "Write File Content"
                 }
-            ],
-            "defaultValue": "ssh_execute_command"
+            ]
         },
         {
             "id": "host",
@@ -96,7 +96,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "port",
             "type": "short-input",
             "title": "Port",
-            "placeholder": "22"
+            "placeholder": "22",
+            "defaultValue": "22"
         },
         {
             "id": "username",
@@ -109,14 +110,15 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "password",
             "options": [
                 {
-                    "label": "Password",
-                    "id": "password"
+                    "id": "password",
+                    "label": "Password"
                 },
                 {
-                    "label": "Private Key",
-                    "id": "privateKey"
+                    "id": "privateKey",
+                    "label": "Private Key"
                 }
             ]
         },
@@ -125,21 +127,24 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "short-input",
             "title": "Password",
             "placeholder": "Your SSH password",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'password'."
         },
         {
             "id": "privateKey",
             "type": "code",
             "title": "Private Key",
-            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
-            "language": "plaintext"
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "passphrase",
             "type": "short-input",
             "title": "Passphrase",
             "placeholder": "Passphrase for encrypted key (optional)",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "command",
@@ -185,6 +190,7 @@ Execute a shell command on a remote SSH server
 | `stderr` | string | Standard error output |
 | `exitCode` | number | Command exit code |
 | `success` | boolean | Whether command succeeded \(exit code 0\) |
+| `message` | string | Operation status message |
 
 </div>
 
@@ -205,61 +211,61 @@ Execute a shell command on a remote SSH server
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "ssh_execute_script",
             "options": [
                 {
-                    "label": "Execute Command",
-                    "id": "ssh_execute_command"
+                    "id": "ssh_execute_command",
+                    "label": "Execute Command"
                 },
                 {
-                    "label": "Execute Script",
-                    "id": "ssh_execute_script"
+                    "id": "ssh_execute_script",
+                    "label": "Execute Script"
                 },
                 {
-                    "label": "Check Command Exists",
-                    "id": "ssh_check_command_exists"
+                    "id": "ssh_check_command_exists",
+                    "label": "Check Command Exists"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "ssh_upload_file"
+                    "id": "ssh_upload_file",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "Download File",
-                    "id": "ssh_download_file"
+                    "id": "ssh_download_file",
+                    "label": "Download File"
                 },
                 {
-                    "label": "List Directory",
-                    "id": "ssh_list_directory"
+                    "id": "ssh_list_directory",
+                    "label": "List Directory"
                 },
                 {
-                    "label": "Check File/Directory Exists",
-                    "id": "ssh_check_file_exists"
+                    "id": "ssh_check_file_exists",
+                    "label": "Check File/Directory Exists"
                 },
                 {
-                    "label": "Create Directory",
-                    "id": "ssh_create_directory"
+                    "id": "ssh_create_directory",
+                    "label": "Create Directory"
                 },
                 {
-                    "label": "Delete File/Directory",
-                    "id": "ssh_delete_file"
+                    "id": "ssh_delete_file",
+                    "label": "Delete File/Directory"
                 },
                 {
-                    "label": "Move/Rename",
-                    "id": "ssh_move_rename"
+                    "id": "ssh_move_rename",
+                    "label": "Move/Rename"
                 },
                 {
-                    "label": "Get System Info",
-                    "id": "ssh_get_system_info"
+                    "id": "ssh_get_system_info",
+                    "label": "Get System Info"
                 },
                 {
-                    "label": "Read File Content",
-                    "id": "ssh_read_file_content"
+                    "id": "ssh_read_file_content",
+                    "label": "Read File Content"
                 },
                 {
-                    "label": "Write File Content",
-                    "id": "ssh_write_file_content"
+                    "id": "ssh_write_file_content",
+                    "label": "Write File Content"
                 }
-            ],
-            "defaultValue": "ssh_execute_script"
+            ]
         },
         {
             "id": "host",
@@ -272,7 +278,8 @@ Execute a shell command on a remote SSH server
             "id": "port",
             "type": "short-input",
             "title": "Port",
-            "placeholder": "22"
+            "placeholder": "22",
+            "defaultValue": "22"
         },
         {
             "id": "username",
@@ -285,14 +292,15 @@ Execute a shell command on a remote SSH server
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "password",
             "options": [
                 {
-                    "label": "Password",
-                    "id": "password"
+                    "id": "password",
+                    "label": "Password"
                 },
                 {
-                    "label": "Private Key",
-                    "id": "privateKey"
+                    "id": "privateKey",
+                    "label": "Private Key"
                 }
             ]
         },
@@ -301,27 +309,30 @@ Execute a shell command on a remote SSH server
             "type": "short-input",
             "title": "Password",
             "placeholder": "Your SSH password",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'password'."
         },
         {
             "id": "privateKey",
             "type": "code",
             "title": "Private Key",
-            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
-            "language": "plaintext"
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "passphrase",
             "type": "short-input",
             "title": "Passphrase",
             "placeholder": "Passphrase for encrypted key (optional)",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "script",
             "type": "code",
             "title": "Script Content",
-            "placeholder": "#!/bin/bash\\necho \"Hello World\"",
+            "placeholder": "#!/bin/bash\necho \"Hello World\"",
             "language": "plaintext",
             "required": true
         },
@@ -369,6 +380,7 @@ Upload and execute a multi-line script on a remote SSH server
 | `exitCode` | number | Script exit code |
 | `success` | boolean | Whether script succeeded \(exit code 0\) |
 | `scriptPath` | string | Temporary path where script was uploaded |
+| `message` | string | Operation status message |
 
 </div>
 
@@ -389,61 +401,61 @@ Upload and execute a multi-line script on a remote SSH server
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "ssh_check_command_exists",
             "options": [
                 {
-                    "label": "Execute Command",
-                    "id": "ssh_execute_command"
+                    "id": "ssh_execute_command",
+                    "label": "Execute Command"
                 },
                 {
-                    "label": "Execute Script",
-                    "id": "ssh_execute_script"
+                    "id": "ssh_execute_script",
+                    "label": "Execute Script"
                 },
                 {
-                    "label": "Check Command Exists",
-                    "id": "ssh_check_command_exists"
+                    "id": "ssh_check_command_exists",
+                    "label": "Check Command Exists"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "ssh_upload_file"
+                    "id": "ssh_upload_file",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "Download File",
-                    "id": "ssh_download_file"
+                    "id": "ssh_download_file",
+                    "label": "Download File"
                 },
                 {
-                    "label": "List Directory",
-                    "id": "ssh_list_directory"
+                    "id": "ssh_list_directory",
+                    "label": "List Directory"
                 },
                 {
-                    "label": "Check File/Directory Exists",
-                    "id": "ssh_check_file_exists"
+                    "id": "ssh_check_file_exists",
+                    "label": "Check File/Directory Exists"
                 },
                 {
-                    "label": "Create Directory",
-                    "id": "ssh_create_directory"
+                    "id": "ssh_create_directory",
+                    "label": "Create Directory"
                 },
                 {
-                    "label": "Delete File/Directory",
-                    "id": "ssh_delete_file"
+                    "id": "ssh_delete_file",
+                    "label": "Delete File/Directory"
                 },
                 {
-                    "label": "Move/Rename",
-                    "id": "ssh_move_rename"
+                    "id": "ssh_move_rename",
+                    "label": "Move/Rename"
                 },
                 {
-                    "label": "Get System Info",
-                    "id": "ssh_get_system_info"
+                    "id": "ssh_get_system_info",
+                    "label": "Get System Info"
                 },
                 {
-                    "label": "Read File Content",
-                    "id": "ssh_read_file_content"
+                    "id": "ssh_read_file_content",
+                    "label": "Read File Content"
                 },
                 {
-                    "label": "Write File Content",
-                    "id": "ssh_write_file_content"
+                    "id": "ssh_write_file_content",
+                    "label": "Write File Content"
                 }
-            ],
-            "defaultValue": "ssh_check_command_exists"
+            ]
         },
         {
             "id": "host",
@@ -456,7 +468,8 @@ Upload and execute a multi-line script on a remote SSH server
             "id": "port",
             "type": "short-input",
             "title": "Port",
-            "placeholder": "22"
+            "placeholder": "22",
+            "defaultValue": "22"
         },
         {
             "id": "username",
@@ -469,14 +482,15 @@ Upload and execute a multi-line script on a remote SSH server
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "password",
             "options": [
                 {
-                    "label": "Password",
-                    "id": "password"
+                    "id": "password",
+                    "label": "Password"
                 },
                 {
-                    "label": "Private Key",
-                    "id": "privateKey"
+                    "id": "privateKey",
+                    "label": "Private Key"
                 }
             ]
         },
@@ -485,21 +499,24 @@ Upload and execute a multi-line script on a remote SSH server
             "type": "short-input",
             "title": "Password",
             "placeholder": "Your SSH password",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'password'."
         },
         {
             "id": "privateKey",
             "type": "code",
             "title": "Private Key",
-            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
-            "language": "plaintext"
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "passphrase",
             "type": "short-input",
             "title": "Passphrase",
             "placeholder": "Passphrase for encrypted key (optional)",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "commandName",
@@ -536,6 +553,7 @@ Check if a command/program exists on the remote SSH server
 | `commandExists` | boolean | Whether the command exists |
 | `commandPath` | string | Full path to the command \(if found\) |
 | `version` | string | Command version output \(if applicable\) |
+| `message` | string | Operation status message |
 
 </div>
 
@@ -556,61 +574,61 @@ Check if a command/program exists on the remote SSH server
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "ssh_upload_file",
             "options": [
                 {
-                    "label": "Execute Command",
-                    "id": "ssh_execute_command"
+                    "id": "ssh_execute_command",
+                    "label": "Execute Command"
                 },
                 {
-                    "label": "Execute Script",
-                    "id": "ssh_execute_script"
+                    "id": "ssh_execute_script",
+                    "label": "Execute Script"
                 },
                 {
-                    "label": "Check Command Exists",
-                    "id": "ssh_check_command_exists"
+                    "id": "ssh_check_command_exists",
+                    "label": "Check Command Exists"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "ssh_upload_file"
+                    "id": "ssh_upload_file",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "Download File",
-                    "id": "ssh_download_file"
+                    "id": "ssh_download_file",
+                    "label": "Download File"
                 },
                 {
-                    "label": "List Directory",
-                    "id": "ssh_list_directory"
+                    "id": "ssh_list_directory",
+                    "label": "List Directory"
                 },
                 {
-                    "label": "Check File/Directory Exists",
-                    "id": "ssh_check_file_exists"
+                    "id": "ssh_check_file_exists",
+                    "label": "Check File/Directory Exists"
                 },
                 {
-                    "label": "Create Directory",
-                    "id": "ssh_create_directory"
+                    "id": "ssh_create_directory",
+                    "label": "Create Directory"
                 },
                 {
-                    "label": "Delete File/Directory",
-                    "id": "ssh_delete_file"
+                    "id": "ssh_delete_file",
+                    "label": "Delete File/Directory"
                 },
                 {
-                    "label": "Move/Rename",
-                    "id": "ssh_move_rename"
+                    "id": "ssh_move_rename",
+                    "label": "Move/Rename"
                 },
                 {
-                    "label": "Get System Info",
-                    "id": "ssh_get_system_info"
+                    "id": "ssh_get_system_info",
+                    "label": "Get System Info"
                 },
                 {
-                    "label": "Read File Content",
-                    "id": "ssh_read_file_content"
+                    "id": "ssh_read_file_content",
+                    "label": "Read File Content"
                 },
                 {
-                    "label": "Write File Content",
-                    "id": "ssh_write_file_content"
+                    "id": "ssh_write_file_content",
+                    "label": "Write File Content"
                 }
-            ],
-            "defaultValue": "ssh_upload_file"
+            ]
         },
         {
             "id": "host",
@@ -623,7 +641,8 @@ Check if a command/program exists on the remote SSH server
             "id": "port",
             "type": "short-input",
             "title": "Port",
-            "placeholder": "22"
+            "placeholder": "22",
+            "defaultValue": "22"
         },
         {
             "id": "username",
@@ -636,14 +655,15 @@ Check if a command/program exists on the remote SSH server
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "password",
             "options": [
                 {
-                    "label": "Password",
-                    "id": "password"
+                    "id": "password",
+                    "label": "Password"
                 },
                 {
-                    "label": "Private Key",
-                    "id": "privateKey"
+                    "id": "privateKey",
+                    "label": "Private Key"
                 }
             ]
         },
@@ -652,21 +672,24 @@ Check if a command/program exists on the remote SSH server
             "type": "short-input",
             "title": "Password",
             "placeholder": "Your SSH password",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'password'."
         },
         {
             "id": "privateKey",
             "type": "code",
             "title": "Private Key",
-            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
-            "language": "plaintext"
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "passphrase",
             "type": "short-input",
             "title": "Passphrase",
             "placeholder": "Passphrase for encrypted key (optional)",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "fileContent",
@@ -728,6 +751,7 @@ Upload a file to a remote SSH server
 | `uploaded` | boolean | Whether the file was uploaded successfully |
 | `remotePath` | string | Final path on the remote server |
 | `size` | number | File size in bytes |
+| `message` | string | Operation status message |
 
 </div>
 
@@ -748,61 +772,61 @@ Upload a file to a remote SSH server
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "ssh_download_file",
             "options": [
                 {
-                    "label": "Execute Command",
-                    "id": "ssh_execute_command"
+                    "id": "ssh_execute_command",
+                    "label": "Execute Command"
                 },
                 {
-                    "label": "Execute Script",
-                    "id": "ssh_execute_script"
+                    "id": "ssh_execute_script",
+                    "label": "Execute Script"
                 },
                 {
-                    "label": "Check Command Exists",
-                    "id": "ssh_check_command_exists"
+                    "id": "ssh_check_command_exists",
+                    "label": "Check Command Exists"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "ssh_upload_file"
+                    "id": "ssh_upload_file",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "Download File",
-                    "id": "ssh_download_file"
+                    "id": "ssh_download_file",
+                    "label": "Download File"
                 },
                 {
-                    "label": "List Directory",
-                    "id": "ssh_list_directory"
+                    "id": "ssh_list_directory",
+                    "label": "List Directory"
                 },
                 {
-                    "label": "Check File/Directory Exists",
-                    "id": "ssh_check_file_exists"
+                    "id": "ssh_check_file_exists",
+                    "label": "Check File/Directory Exists"
                 },
                 {
-                    "label": "Create Directory",
-                    "id": "ssh_create_directory"
+                    "id": "ssh_create_directory",
+                    "label": "Create Directory"
                 },
                 {
-                    "label": "Delete File/Directory",
-                    "id": "ssh_delete_file"
+                    "id": "ssh_delete_file",
+                    "label": "Delete File/Directory"
                 },
                 {
-                    "label": "Move/Rename",
-                    "id": "ssh_move_rename"
+                    "id": "ssh_move_rename",
+                    "label": "Move/Rename"
                 },
                 {
-                    "label": "Get System Info",
-                    "id": "ssh_get_system_info"
+                    "id": "ssh_get_system_info",
+                    "label": "Get System Info"
                 },
                 {
-                    "label": "Read File Content",
-                    "id": "ssh_read_file_content"
+                    "id": "ssh_read_file_content",
+                    "label": "Read File Content"
                 },
                 {
-                    "label": "Write File Content",
-                    "id": "ssh_write_file_content"
+                    "id": "ssh_write_file_content",
+                    "label": "Write File Content"
                 }
-            ],
-            "defaultValue": "ssh_download_file"
+            ]
         },
         {
             "id": "host",
@@ -815,7 +839,8 @@ Upload a file to a remote SSH server
             "id": "port",
             "type": "short-input",
             "title": "Port",
-            "placeholder": "22"
+            "placeholder": "22",
+            "defaultValue": "22"
         },
         {
             "id": "username",
@@ -828,14 +853,15 @@ Upload a file to a remote SSH server
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "password",
             "options": [
                 {
-                    "label": "Password",
-                    "id": "password"
+                    "id": "password",
+                    "label": "Password"
                 },
                 {
-                    "label": "Private Key",
-                    "id": "privateKey"
+                    "id": "privateKey",
+                    "label": "Private Key"
                 }
             ]
         },
@@ -844,21 +870,24 @@ Upload a file to a remote SSH server
             "type": "short-input",
             "title": "Password",
             "placeholder": "Your SSH password",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'password'."
         },
         {
             "id": "privateKey",
             "type": "code",
             "title": "Private Key",
-            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
-            "language": "plaintext"
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "passphrase",
             "type": "short-input",
             "title": "Passphrase",
             "placeholder": "Passphrase for encrypted key (optional)",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "downloadRemotePath",
@@ -897,6 +926,7 @@ Download a file from a remote SSH server
 | `fileName` | string | Name of the downloaded file |
 | `remotePath` | string | Source path on the remote server |
 | `size` | number | File size in bytes |
+| `message` | string | Operation status message |
 
 </div>
 
@@ -917,61 +947,61 @@ Download a file from a remote SSH server
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "ssh_list_directory",
             "options": [
                 {
-                    "label": "Execute Command",
-                    "id": "ssh_execute_command"
+                    "id": "ssh_execute_command",
+                    "label": "Execute Command"
                 },
                 {
-                    "label": "Execute Script",
-                    "id": "ssh_execute_script"
+                    "id": "ssh_execute_script",
+                    "label": "Execute Script"
                 },
                 {
-                    "label": "Check Command Exists",
-                    "id": "ssh_check_command_exists"
+                    "id": "ssh_check_command_exists",
+                    "label": "Check Command Exists"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "ssh_upload_file"
+                    "id": "ssh_upload_file",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "Download File",
-                    "id": "ssh_download_file"
+                    "id": "ssh_download_file",
+                    "label": "Download File"
                 },
                 {
-                    "label": "List Directory",
-                    "id": "ssh_list_directory"
+                    "id": "ssh_list_directory",
+                    "label": "List Directory"
                 },
                 {
-                    "label": "Check File/Directory Exists",
-                    "id": "ssh_check_file_exists"
+                    "id": "ssh_check_file_exists",
+                    "label": "Check File/Directory Exists"
                 },
                 {
-                    "label": "Create Directory",
-                    "id": "ssh_create_directory"
+                    "id": "ssh_create_directory",
+                    "label": "Create Directory"
                 },
                 {
-                    "label": "Delete File/Directory",
-                    "id": "ssh_delete_file"
+                    "id": "ssh_delete_file",
+                    "label": "Delete File/Directory"
                 },
                 {
-                    "label": "Move/Rename",
-                    "id": "ssh_move_rename"
+                    "id": "ssh_move_rename",
+                    "label": "Move/Rename"
                 },
                 {
-                    "label": "Get System Info",
-                    "id": "ssh_get_system_info"
+                    "id": "ssh_get_system_info",
+                    "label": "Get System Info"
                 },
                 {
-                    "label": "Read File Content",
-                    "id": "ssh_read_file_content"
+                    "id": "ssh_read_file_content",
+                    "label": "Read File Content"
                 },
                 {
-                    "label": "Write File Content",
-                    "id": "ssh_write_file_content"
+                    "id": "ssh_write_file_content",
+                    "label": "Write File Content"
                 }
-            ],
-            "defaultValue": "ssh_list_directory"
+            ]
         },
         {
             "id": "host",
@@ -984,7 +1014,8 @@ Download a file from a remote SSH server
             "id": "port",
             "type": "short-input",
             "title": "Port",
-            "placeholder": "22"
+            "placeholder": "22",
+            "defaultValue": "22"
         },
         {
             "id": "username",
@@ -997,14 +1028,15 @@ Download a file from a remote SSH server
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "password",
             "options": [
                 {
-                    "label": "Password",
-                    "id": "password"
+                    "id": "password",
+                    "label": "Password"
                 },
                 {
-                    "label": "Private Key",
-                    "id": "privateKey"
+                    "id": "privateKey",
+                    "label": "Private Key"
                 }
             ]
         },
@@ -1013,21 +1045,24 @@ Download a file from a remote SSH server
             "type": "short-input",
             "title": "Password",
             "placeholder": "Your SSH password",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'password'."
         },
         {
             "id": "privateKey",
             "type": "code",
             "title": "Private Key",
-            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
-            "language": "plaintext"
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "passphrase",
             "type": "short-input",
             "title": "Passphrase",
             "placeholder": "Passphrase for encrypted key (optional)",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "listPath",
@@ -1068,10 +1103,10 @@ List files and directories in a remote directory
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `name` | string | File or directory name |
-| `type` | string | Entry type \(file, directory, symlink\) |
-| `size` | number | File size in bytes |
-| `permissions` | string | File permissions |
+| `entries` | array | Array of file and directory entries |
+| `totalFiles` | number | Total number of files |
+| `totalDirectories` | number | Total number of directories |
+| `message` | string | Operation status message |
 
 </div>
 
@@ -1092,61 +1127,61 @@ List files and directories in a remote directory
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "ssh_check_file_exists",
             "options": [
                 {
-                    "label": "Execute Command",
-                    "id": "ssh_execute_command"
+                    "id": "ssh_execute_command",
+                    "label": "Execute Command"
                 },
                 {
-                    "label": "Execute Script",
-                    "id": "ssh_execute_script"
+                    "id": "ssh_execute_script",
+                    "label": "Execute Script"
                 },
                 {
-                    "label": "Check Command Exists",
-                    "id": "ssh_check_command_exists"
+                    "id": "ssh_check_command_exists",
+                    "label": "Check Command Exists"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "ssh_upload_file"
+                    "id": "ssh_upload_file",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "Download File",
-                    "id": "ssh_download_file"
+                    "id": "ssh_download_file",
+                    "label": "Download File"
                 },
                 {
-                    "label": "List Directory",
-                    "id": "ssh_list_directory"
+                    "id": "ssh_list_directory",
+                    "label": "List Directory"
                 },
                 {
-                    "label": "Check File/Directory Exists",
-                    "id": "ssh_check_file_exists"
+                    "id": "ssh_check_file_exists",
+                    "label": "Check File/Directory Exists"
                 },
                 {
-                    "label": "Create Directory",
-                    "id": "ssh_create_directory"
+                    "id": "ssh_create_directory",
+                    "label": "Create Directory"
                 },
                 {
-                    "label": "Delete File/Directory",
-                    "id": "ssh_delete_file"
+                    "id": "ssh_delete_file",
+                    "label": "Delete File/Directory"
                 },
                 {
-                    "label": "Move/Rename",
-                    "id": "ssh_move_rename"
+                    "id": "ssh_move_rename",
+                    "label": "Move/Rename"
                 },
                 {
-                    "label": "Get System Info",
-                    "id": "ssh_get_system_info"
+                    "id": "ssh_get_system_info",
+                    "label": "Get System Info"
                 },
                 {
-                    "label": "Read File Content",
-                    "id": "ssh_read_file_content"
+                    "id": "ssh_read_file_content",
+                    "label": "Read File Content"
                 },
                 {
-                    "label": "Write File Content",
-                    "id": "ssh_write_file_content"
+                    "id": "ssh_write_file_content",
+                    "label": "Write File Content"
                 }
-            ],
-            "defaultValue": "ssh_check_file_exists"
+            ]
         },
         {
             "id": "host",
@@ -1159,7 +1194,8 @@ List files and directories in a remote directory
             "id": "port",
             "type": "short-input",
             "title": "Port",
-            "placeholder": "22"
+            "placeholder": "22",
+            "defaultValue": "22"
         },
         {
             "id": "username",
@@ -1172,14 +1208,15 @@ List files and directories in a remote directory
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "password",
             "options": [
                 {
-                    "label": "Password",
-                    "id": "password"
+                    "id": "password",
+                    "label": "Password"
                 },
                 {
-                    "label": "Private Key",
-                    "id": "privateKey"
+                    "id": "privateKey",
+                    "label": "Private Key"
                 }
             ]
         },
@@ -1188,21 +1225,24 @@ List files and directories in a remote directory
             "type": "short-input",
             "title": "Password",
             "placeholder": "Your SSH password",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'password'."
         },
         {
             "id": "privateKey",
             "type": "code",
             "title": "Private Key",
-            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
-            "language": "plaintext"
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "passphrase",
             "type": "short-input",
             "title": "Passphrase",
             "placeholder": "Passphrase for encrypted key (optional)",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "checkPath",
@@ -1215,18 +1255,19 @@ List files and directories in a remote directory
             "id": "checkType",
             "type": "dropdown",
             "title": "Expected Type",
+            "defaultValue": "any",
             "options": [
                 {
-                    "label": "Any",
-                    "id": "any"
+                    "id": "any",
+                    "label": "Any"
                 },
                 {
-                    "label": "File",
-                    "id": "file"
+                    "id": "file",
+                    "label": "File"
                 },
                 {
-                    "label": "Directory",
-                    "id": "directory"
+                    "id": "directory",
+                    "label": "Directory"
                 }
             ]
         }
@@ -1261,6 +1302,7 @@ Check if a file or directory exists on the remote SSH server
 | `size` | number | File size if it is a file |
 | `permissions` | string | File permissions \(e.g., 0755\) |
 | `modified` | string | Last modified timestamp |
+| `message` | string | Operation status message |
 
 </div>
 
@@ -1281,61 +1323,61 @@ Check if a file or directory exists on the remote SSH server
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "ssh_create_directory",
             "options": [
                 {
-                    "label": "Execute Command",
-                    "id": "ssh_execute_command"
+                    "id": "ssh_execute_command",
+                    "label": "Execute Command"
                 },
                 {
-                    "label": "Execute Script",
-                    "id": "ssh_execute_script"
+                    "id": "ssh_execute_script",
+                    "label": "Execute Script"
                 },
                 {
-                    "label": "Check Command Exists",
-                    "id": "ssh_check_command_exists"
+                    "id": "ssh_check_command_exists",
+                    "label": "Check Command Exists"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "ssh_upload_file"
+                    "id": "ssh_upload_file",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "Download File",
-                    "id": "ssh_download_file"
+                    "id": "ssh_download_file",
+                    "label": "Download File"
                 },
                 {
-                    "label": "List Directory",
-                    "id": "ssh_list_directory"
+                    "id": "ssh_list_directory",
+                    "label": "List Directory"
                 },
                 {
-                    "label": "Check File/Directory Exists",
-                    "id": "ssh_check_file_exists"
+                    "id": "ssh_check_file_exists",
+                    "label": "Check File/Directory Exists"
                 },
                 {
-                    "label": "Create Directory",
-                    "id": "ssh_create_directory"
+                    "id": "ssh_create_directory",
+                    "label": "Create Directory"
                 },
                 {
-                    "label": "Delete File/Directory",
-                    "id": "ssh_delete_file"
+                    "id": "ssh_delete_file",
+                    "label": "Delete File/Directory"
                 },
                 {
-                    "label": "Move/Rename",
-                    "id": "ssh_move_rename"
+                    "id": "ssh_move_rename",
+                    "label": "Move/Rename"
                 },
                 {
-                    "label": "Get System Info",
-                    "id": "ssh_get_system_info"
+                    "id": "ssh_get_system_info",
+                    "label": "Get System Info"
                 },
                 {
-                    "label": "Read File Content",
-                    "id": "ssh_read_file_content"
+                    "id": "ssh_read_file_content",
+                    "label": "Read File Content"
                 },
                 {
-                    "label": "Write File Content",
-                    "id": "ssh_write_file_content"
+                    "id": "ssh_write_file_content",
+                    "label": "Write File Content"
                 }
-            ],
-            "defaultValue": "ssh_create_directory"
+            ]
         },
         {
             "id": "host",
@@ -1348,7 +1390,8 @@ Check if a file or directory exists on the remote SSH server
             "id": "port",
             "type": "short-input",
             "title": "Port",
-            "placeholder": "22"
+            "placeholder": "22",
+            "defaultValue": "22"
         },
         {
             "id": "username",
@@ -1361,14 +1404,15 @@ Check if a file or directory exists on the remote SSH server
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "password",
             "options": [
                 {
-                    "label": "Password",
-                    "id": "password"
+                    "id": "password",
+                    "label": "Password"
                 },
                 {
-                    "label": "Private Key",
-                    "id": "privateKey"
+                    "id": "privateKey",
+                    "label": "Private Key"
                 }
             ]
         },
@@ -1377,21 +1421,24 @@ Check if a file or directory exists on the remote SSH server
             "type": "short-input",
             "title": "Password",
             "placeholder": "Your SSH password",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'password'."
         },
         {
             "id": "privateKey",
             "type": "code",
             "title": "Private Key",
-            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
-            "language": "plaintext"
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "passphrase",
             "type": "short-input",
             "title": "Passphrase",
             "placeholder": "Passphrase for encrypted key (optional)",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "createPath",
@@ -1436,6 +1483,7 @@ Create a directory on the remote SSH server
 | `created` | boolean | Whether the directory was created successfully |
 | `remotePath` | string | Created directory path |
 | `alreadyExists` | boolean | Whether the directory already existed |
+| `message` | string | Operation status message |
 
 </div>
 
@@ -1456,61 +1504,61 @@ Create a directory on the remote SSH server
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "ssh_delete_file",
             "options": [
                 {
-                    "label": "Execute Command",
-                    "id": "ssh_execute_command"
+                    "id": "ssh_execute_command",
+                    "label": "Execute Command"
                 },
                 {
-                    "label": "Execute Script",
-                    "id": "ssh_execute_script"
+                    "id": "ssh_execute_script",
+                    "label": "Execute Script"
                 },
                 {
-                    "label": "Check Command Exists",
-                    "id": "ssh_check_command_exists"
+                    "id": "ssh_check_command_exists",
+                    "label": "Check Command Exists"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "ssh_upload_file"
+                    "id": "ssh_upload_file",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "Download File",
-                    "id": "ssh_download_file"
+                    "id": "ssh_download_file",
+                    "label": "Download File"
                 },
                 {
-                    "label": "List Directory",
-                    "id": "ssh_list_directory"
+                    "id": "ssh_list_directory",
+                    "label": "List Directory"
                 },
                 {
-                    "label": "Check File/Directory Exists",
-                    "id": "ssh_check_file_exists"
+                    "id": "ssh_check_file_exists",
+                    "label": "Check File/Directory Exists"
                 },
                 {
-                    "label": "Create Directory",
-                    "id": "ssh_create_directory"
+                    "id": "ssh_create_directory",
+                    "label": "Create Directory"
                 },
                 {
-                    "label": "Delete File/Directory",
-                    "id": "ssh_delete_file"
+                    "id": "ssh_delete_file",
+                    "label": "Delete File/Directory"
                 },
                 {
-                    "label": "Move/Rename",
-                    "id": "ssh_move_rename"
+                    "id": "ssh_move_rename",
+                    "label": "Move/Rename"
                 },
                 {
-                    "label": "Get System Info",
-                    "id": "ssh_get_system_info"
+                    "id": "ssh_get_system_info",
+                    "label": "Get System Info"
                 },
                 {
-                    "label": "Read File Content",
-                    "id": "ssh_read_file_content"
+                    "id": "ssh_read_file_content",
+                    "label": "Read File Content"
                 },
                 {
-                    "label": "Write File Content",
-                    "id": "ssh_write_file_content"
+                    "id": "ssh_write_file_content",
+                    "label": "Write File Content"
                 }
-            ],
-            "defaultValue": "ssh_delete_file"
+            ]
         },
         {
             "id": "host",
@@ -1523,7 +1571,8 @@ Create a directory on the remote SSH server
             "id": "port",
             "type": "short-input",
             "title": "Port",
-            "placeholder": "22"
+            "placeholder": "22",
+            "defaultValue": "22"
         },
         {
             "id": "username",
@@ -1536,14 +1585,15 @@ Create a directory on the remote SSH server
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "password",
             "options": [
                 {
-                    "label": "Password",
-                    "id": "password"
+                    "id": "password",
+                    "label": "Password"
                 },
                 {
-                    "label": "Private Key",
-                    "id": "privateKey"
+                    "id": "privateKey",
+                    "label": "Private Key"
                 }
             ]
         },
@@ -1552,21 +1602,24 @@ Create a directory on the remote SSH server
             "type": "short-input",
             "title": "Password",
             "placeholder": "Your SSH password",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'password'."
         },
         {
             "id": "privateKey",
             "type": "code",
             "title": "Private Key",
-            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
-            "language": "plaintext"
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "passphrase",
             "type": "short-input",
             "title": "Passphrase",
             "placeholder": "Passphrase for encrypted key (optional)",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "deletePath",
@@ -1614,6 +1667,7 @@ Delete a file or directory from the remote SSH server
 | --------- | ---- | ----------- |
 | `deleted` | boolean | Whether the path was deleted successfully |
 | `remotePath` | string | Deleted path |
+| `message` | string | Operation status message |
 
 </div>
 
@@ -1634,61 +1688,61 @@ Delete a file or directory from the remote SSH server
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "ssh_move_rename",
             "options": [
                 {
-                    "label": "Execute Command",
-                    "id": "ssh_execute_command"
+                    "id": "ssh_execute_command",
+                    "label": "Execute Command"
                 },
                 {
-                    "label": "Execute Script",
-                    "id": "ssh_execute_script"
+                    "id": "ssh_execute_script",
+                    "label": "Execute Script"
                 },
                 {
-                    "label": "Check Command Exists",
-                    "id": "ssh_check_command_exists"
+                    "id": "ssh_check_command_exists",
+                    "label": "Check Command Exists"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "ssh_upload_file"
+                    "id": "ssh_upload_file",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "Download File",
-                    "id": "ssh_download_file"
+                    "id": "ssh_download_file",
+                    "label": "Download File"
                 },
                 {
-                    "label": "List Directory",
-                    "id": "ssh_list_directory"
+                    "id": "ssh_list_directory",
+                    "label": "List Directory"
                 },
                 {
-                    "label": "Check File/Directory Exists",
-                    "id": "ssh_check_file_exists"
+                    "id": "ssh_check_file_exists",
+                    "label": "Check File/Directory Exists"
                 },
                 {
-                    "label": "Create Directory",
-                    "id": "ssh_create_directory"
+                    "id": "ssh_create_directory",
+                    "label": "Create Directory"
                 },
                 {
-                    "label": "Delete File/Directory",
-                    "id": "ssh_delete_file"
+                    "id": "ssh_delete_file",
+                    "label": "Delete File/Directory"
                 },
                 {
-                    "label": "Move/Rename",
-                    "id": "ssh_move_rename"
+                    "id": "ssh_move_rename",
+                    "label": "Move/Rename"
                 },
                 {
-                    "label": "Get System Info",
-                    "id": "ssh_get_system_info"
+                    "id": "ssh_get_system_info",
+                    "label": "Get System Info"
                 },
                 {
-                    "label": "Read File Content",
-                    "id": "ssh_read_file_content"
+                    "id": "ssh_read_file_content",
+                    "label": "Read File Content"
                 },
                 {
-                    "label": "Write File Content",
-                    "id": "ssh_write_file_content"
+                    "id": "ssh_write_file_content",
+                    "label": "Write File Content"
                 }
-            ],
-            "defaultValue": "ssh_move_rename"
+            ]
         },
         {
             "id": "host",
@@ -1701,7 +1755,8 @@ Delete a file or directory from the remote SSH server
             "id": "port",
             "type": "short-input",
             "title": "Port",
-            "placeholder": "22"
+            "placeholder": "22",
+            "defaultValue": "22"
         },
         {
             "id": "username",
@@ -1714,14 +1769,15 @@ Delete a file or directory from the remote SSH server
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "password",
             "options": [
                 {
-                    "label": "Password",
-                    "id": "password"
+                    "id": "password",
+                    "label": "Password"
                 },
                 {
-                    "label": "Private Key",
-                    "id": "privateKey"
+                    "id": "privateKey",
+                    "label": "Private Key"
                 }
             ]
         },
@@ -1730,21 +1786,24 @@ Delete a file or directory from the remote SSH server
             "type": "short-input",
             "title": "Password",
             "placeholder": "Your SSH password",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'password'."
         },
         {
             "id": "privateKey",
             "type": "code",
             "title": "Private Key",
-            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
-            "language": "plaintext"
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "passphrase",
             "type": "short-input",
             "title": "Passphrase",
             "placeholder": "Passphrase for encrypted key (optional)",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "sourcePath",
@@ -1795,6 +1854,7 @@ Move or rename a file or directory on the remote SSH server
 | `moved` | boolean | Whether the operation was successful |
 | `sourcePath` | string | Original path |
 | `destinationPath` | string | New path |
+| `message` | string | Operation status message |
 
 </div>
 
@@ -1815,61 +1875,61 @@ Move or rename a file or directory on the remote SSH server
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "ssh_get_system_info",
             "options": [
                 {
-                    "label": "Execute Command",
-                    "id": "ssh_execute_command"
+                    "id": "ssh_execute_command",
+                    "label": "Execute Command"
                 },
                 {
-                    "label": "Execute Script",
-                    "id": "ssh_execute_script"
+                    "id": "ssh_execute_script",
+                    "label": "Execute Script"
                 },
                 {
-                    "label": "Check Command Exists",
-                    "id": "ssh_check_command_exists"
+                    "id": "ssh_check_command_exists",
+                    "label": "Check Command Exists"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "ssh_upload_file"
+                    "id": "ssh_upload_file",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "Download File",
-                    "id": "ssh_download_file"
+                    "id": "ssh_download_file",
+                    "label": "Download File"
                 },
                 {
-                    "label": "List Directory",
-                    "id": "ssh_list_directory"
+                    "id": "ssh_list_directory",
+                    "label": "List Directory"
                 },
                 {
-                    "label": "Check File/Directory Exists",
-                    "id": "ssh_check_file_exists"
+                    "id": "ssh_check_file_exists",
+                    "label": "Check File/Directory Exists"
                 },
                 {
-                    "label": "Create Directory",
-                    "id": "ssh_create_directory"
+                    "id": "ssh_create_directory",
+                    "label": "Create Directory"
                 },
                 {
-                    "label": "Delete File/Directory",
-                    "id": "ssh_delete_file"
+                    "id": "ssh_delete_file",
+                    "label": "Delete File/Directory"
                 },
                 {
-                    "label": "Move/Rename",
-                    "id": "ssh_move_rename"
+                    "id": "ssh_move_rename",
+                    "label": "Move/Rename"
                 },
                 {
-                    "label": "Get System Info",
-                    "id": "ssh_get_system_info"
+                    "id": "ssh_get_system_info",
+                    "label": "Get System Info"
                 },
                 {
-                    "label": "Read File Content",
-                    "id": "ssh_read_file_content"
+                    "id": "ssh_read_file_content",
+                    "label": "Read File Content"
                 },
                 {
-                    "label": "Write File Content",
-                    "id": "ssh_write_file_content"
+                    "id": "ssh_write_file_content",
+                    "label": "Write File Content"
                 }
-            ],
-            "defaultValue": "ssh_get_system_info"
+            ]
         },
         {
             "id": "host",
@@ -1882,7 +1942,8 @@ Move or rename a file or directory on the remote SSH server
             "id": "port",
             "type": "short-input",
             "title": "Port",
-            "placeholder": "22"
+            "placeholder": "22",
+            "defaultValue": "22"
         },
         {
             "id": "username",
@@ -1895,14 +1956,15 @@ Move or rename a file or directory on the remote SSH server
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "password",
             "options": [
                 {
-                    "label": "Password",
-                    "id": "password"
+                    "id": "password",
+                    "label": "Password"
                 },
                 {
-                    "label": "Private Key",
-                    "id": "privateKey"
+                    "id": "privateKey",
+                    "label": "Private Key"
                 }
             ]
         },
@@ -1911,21 +1973,24 @@ Move or rename a file or directory on the remote SSH server
             "type": "short-input",
             "title": "Password",
             "placeholder": "Your SSH password",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'password'."
         },
         {
             "id": "privateKey",
             "type": "code",
             "title": "Private Key",
-            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
-            "language": "plaintext"
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "passphrase",
             "type": "short-input",
             "title": "Passphrase",
             "placeholder": "Passphrase for encrypted key (optional)",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'privateKey'."
         }
     ]}
   />
@@ -1957,6 +2022,7 @@ Retrieve system information from the remote SSH server
 | `uptime` | number | System uptime in seconds |
 | `memory` | json | Memory information \(total, free, used\) |
 | `diskSpace` | json | Disk space information \(total, free, used\) |
+| `message` | string | Operation status message |
 
 </div>
 
@@ -1977,61 +2043,61 @@ Retrieve system information from the remote SSH server
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "ssh_read_file_content",
             "options": [
                 {
-                    "label": "Execute Command",
-                    "id": "ssh_execute_command"
+                    "id": "ssh_execute_command",
+                    "label": "Execute Command"
                 },
                 {
-                    "label": "Execute Script",
-                    "id": "ssh_execute_script"
+                    "id": "ssh_execute_script",
+                    "label": "Execute Script"
                 },
                 {
-                    "label": "Check Command Exists",
-                    "id": "ssh_check_command_exists"
+                    "id": "ssh_check_command_exists",
+                    "label": "Check Command Exists"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "ssh_upload_file"
+                    "id": "ssh_upload_file",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "Download File",
-                    "id": "ssh_download_file"
+                    "id": "ssh_download_file",
+                    "label": "Download File"
                 },
                 {
-                    "label": "List Directory",
-                    "id": "ssh_list_directory"
+                    "id": "ssh_list_directory",
+                    "label": "List Directory"
                 },
                 {
-                    "label": "Check File/Directory Exists",
-                    "id": "ssh_check_file_exists"
+                    "id": "ssh_check_file_exists",
+                    "label": "Check File/Directory Exists"
                 },
                 {
-                    "label": "Create Directory",
-                    "id": "ssh_create_directory"
+                    "id": "ssh_create_directory",
+                    "label": "Create Directory"
                 },
                 {
-                    "label": "Delete File/Directory",
-                    "id": "ssh_delete_file"
+                    "id": "ssh_delete_file",
+                    "label": "Delete File/Directory"
                 },
                 {
-                    "label": "Move/Rename",
-                    "id": "ssh_move_rename"
+                    "id": "ssh_move_rename",
+                    "label": "Move/Rename"
                 },
                 {
-                    "label": "Get System Info",
-                    "id": "ssh_get_system_info"
+                    "id": "ssh_get_system_info",
+                    "label": "Get System Info"
                 },
                 {
-                    "label": "Read File Content",
-                    "id": "ssh_read_file_content"
+                    "id": "ssh_read_file_content",
+                    "label": "Read File Content"
                 },
                 {
-                    "label": "Write File Content",
-                    "id": "ssh_write_file_content"
+                    "id": "ssh_write_file_content",
+                    "label": "Write File Content"
                 }
-            ],
-            "defaultValue": "ssh_read_file_content"
+            ]
         },
         {
             "id": "host",
@@ -2044,7 +2110,8 @@ Retrieve system information from the remote SSH server
             "id": "port",
             "type": "short-input",
             "title": "Port",
-            "placeholder": "22"
+            "placeholder": "22",
+            "defaultValue": "22"
         },
         {
             "id": "username",
@@ -2057,14 +2124,15 @@ Retrieve system information from the remote SSH server
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "password",
             "options": [
                 {
-                    "label": "Password",
-                    "id": "password"
+                    "id": "password",
+                    "label": "Password"
                 },
                 {
-                    "label": "Private Key",
-                    "id": "privateKey"
+                    "id": "privateKey",
+                    "label": "Private Key"
                 }
             ]
         },
@@ -2073,21 +2141,24 @@ Retrieve system information from the remote SSH server
             "type": "short-input",
             "title": "Password",
             "placeholder": "Your SSH password",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'password'."
         },
         {
             "id": "privateKey",
             "type": "code",
             "title": "Private Key",
-            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
-            "language": "plaintext"
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "passphrase",
             "type": "short-input",
             "title": "Passphrase",
             "placeholder": "Passphrase for encrypted key (optional)",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "readPath",
@@ -2139,6 +2210,7 @@ Read the contents of a remote file
 | `size` | number | File size in bytes |
 | `lines` | number | Number of lines in file |
 | `remotePath` | string | Remote file path |
+| `message` | string | Operation status message |
 
 </div>
 
@@ -2159,61 +2231,61 @@ Read the contents of a remote file
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "ssh_write_file_content",
             "options": [
                 {
-                    "label": "Execute Command",
-                    "id": "ssh_execute_command"
+                    "id": "ssh_execute_command",
+                    "label": "Execute Command"
                 },
                 {
-                    "label": "Execute Script",
-                    "id": "ssh_execute_script"
+                    "id": "ssh_execute_script",
+                    "label": "Execute Script"
                 },
                 {
-                    "label": "Check Command Exists",
-                    "id": "ssh_check_command_exists"
+                    "id": "ssh_check_command_exists",
+                    "label": "Check Command Exists"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "ssh_upload_file"
+                    "id": "ssh_upload_file",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "Download File",
-                    "id": "ssh_download_file"
+                    "id": "ssh_download_file",
+                    "label": "Download File"
                 },
                 {
-                    "label": "List Directory",
-                    "id": "ssh_list_directory"
+                    "id": "ssh_list_directory",
+                    "label": "List Directory"
                 },
                 {
-                    "label": "Check File/Directory Exists",
-                    "id": "ssh_check_file_exists"
+                    "id": "ssh_check_file_exists",
+                    "label": "Check File/Directory Exists"
                 },
                 {
-                    "label": "Create Directory",
-                    "id": "ssh_create_directory"
+                    "id": "ssh_create_directory",
+                    "label": "Create Directory"
                 },
                 {
-                    "label": "Delete File/Directory",
-                    "id": "ssh_delete_file"
+                    "id": "ssh_delete_file",
+                    "label": "Delete File/Directory"
                 },
                 {
-                    "label": "Move/Rename",
-                    "id": "ssh_move_rename"
+                    "id": "ssh_move_rename",
+                    "label": "Move/Rename"
                 },
                 {
-                    "label": "Get System Info",
-                    "id": "ssh_get_system_info"
+                    "id": "ssh_get_system_info",
+                    "label": "Get System Info"
                 },
                 {
-                    "label": "Read File Content",
-                    "id": "ssh_read_file_content"
+                    "id": "ssh_read_file_content",
+                    "label": "Read File Content"
                 },
                 {
-                    "label": "Write File Content",
-                    "id": "ssh_write_file_content"
+                    "id": "ssh_write_file_content",
+                    "label": "Write File Content"
                 }
-            ],
-            "defaultValue": "ssh_write_file_content"
+            ]
         },
         {
             "id": "host",
@@ -2226,7 +2298,8 @@ Read the contents of a remote file
             "id": "port",
             "type": "short-input",
             "title": "Port",
-            "placeholder": "22"
+            "placeholder": "22",
+            "defaultValue": "22"
         },
         {
             "id": "username",
@@ -2239,14 +2312,15 @@ Read the contents of a remote file
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "password",
             "options": [
                 {
-                    "label": "Password",
-                    "id": "password"
+                    "id": "password",
+                    "label": "Password"
                 },
                 {
-                    "label": "Private Key",
-                    "id": "privateKey"
+                    "id": "privateKey",
+                    "label": "Private Key"
                 }
             ]
         },
@@ -2255,21 +2329,24 @@ Read the contents of a remote file
             "type": "short-input",
             "title": "Password",
             "placeholder": "Your SSH password",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'password'."
         },
         {
             "id": "privateKey",
             "type": "code",
             "title": "Private Key",
-            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
-            "language": "plaintext"
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "passphrase",
             "type": "short-input",
             "title": "Passphrase",
             "placeholder": "Passphrase for encrypted key (optional)",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "writePath",
@@ -2290,18 +2367,19 @@ Read the contents of a remote file
             "id": "writeMode",
             "type": "dropdown",
             "title": "Write Mode",
+            "defaultValue": "overwrite",
             "options": [
                 {
-                    "label": "Overwrite",
-                    "id": "overwrite"
+                    "id": "overwrite",
+                    "label": "Overwrite"
                 },
                 {
-                    "label": "Append",
-                    "id": "append"
+                    "id": "append",
+                    "label": "Append"
                 },
                 {
-                    "label": "Create (fail if exists)",
-                    "id": "create"
+                    "id": "create",
+                    "label": "Create (fail if exists)"
                 }
             ]
         },
@@ -2342,6 +2420,7 @@ Write or append content to a remote file
 | `written` | boolean | Whether the file was written successfully |
 | `remotePath` | string | File path |
 | `size` | number | Final file size in bytes |
+| `message` | string | Operation status message |
 
 </div>
 

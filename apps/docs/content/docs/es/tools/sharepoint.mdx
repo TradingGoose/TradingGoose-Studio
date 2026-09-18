@@ -1,0 +1,915 @@
+---
+title: Sharepoint
+description: Trabajar con páginas y listas
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="sharepoint"
+  color="#1A9BA1"
+/>
+
+## Configuración
+
+### Crear página
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sharepoint"
+    type="sharepoint"
+    color="#1A9BA1"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "read_page",
+                    "label": "Leer página"
+                },
+                {
+                    "id": "list_sites",
+                    "label": "Listar sitios"
+                },
+                {
+                    "id": "create_list",
+                    "label": "Crear lista"
+                },
+                {
+                    "id": "read_list",
+                    "label": "Leer lista"
+                },
+                {
+                    "id": "update_list",
+                    "label": "Actualizar lista"
+                },
+                {
+                    "id": "add_list_items",
+                    "label": "Agregar elementos de lista"
+                },
+                {
+                    "id": "upload_file",
+                    "label": "Subir archivo"
+                }
+            ],
+            "defaultValue": "create_page"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "sharepoint"
+        },
+        {
+            "id": "siteSelector",
+            "type": "file-selector",
+            "title": "Seleccionar sitio",
+            "layout": "full",
+            "placeholder": "Seleccionar un sitio",
+            "provider": "microsoft"
+        },
+        {
+            "id": "pageName",
+            "type": "short-input",
+            "title": "Nombre de la página",
+            "layout": "full",
+            "placeholder": "Nombre de la página"
+        },
+        {
+            "id": "manualSiteId",
+            "type": "short-input",
+            "title": "ID del sitio",
+            "layout": "full",
+            "placeholder": "Introducir ID del sitio (dejar vacío para el sitio raíz)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear página (<code>sharepoint_create_page</code>)</div>
+
+Crear una página nueva en un sitio de SharePoint
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | No | El ID del sitio de SharePoint |
+| `pageName` | string | Sí | El nombre de la página que se va a crear |
+| `pageTitle` | string | No | El título de la página \(si no se proporciona, se usa el nombre de la página\) |
+| `pageContent` | string | No | El contenido de la página |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `page` | object | Información de la página de SharePoint creada |
+
+</div>
+
+---
+
+### Leer página
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sharepoint"
+    type="sharepoint"
+    color="#1A9BA1"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "read_page",
+                    "label": "Leer página"
+                },
+                {
+                    "id": "list_sites",
+                    "label": "Listar sitios"
+                },
+                {
+                    "id": "create_list",
+                    "label": "Crear lista"
+                },
+                {
+                    "id": "read_list",
+                    "label": "Leer lista"
+                },
+                {
+                    "id": "update_list",
+                    "label": "Actualizar lista"
+                },
+                {
+                    "id": "add_list_items",
+                    "label": "Agregar elementos de lista"
+                },
+                {
+                    "id": "upload_file",
+                    "label": "Cargar archivo"
+                }
+            ],
+            "defaultValue": "read_page"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "sharepoint"
+        },
+        {
+            "id": "siteSelector",
+            "type": "file-selector",
+            "title": "Seleccionar sitio",
+            "layout": "full",
+            "placeholder": "Seleccionar un sitio",
+            "provider": "microsoft"
+        },
+        {
+            "id": "pageName",
+            "type": "short-input",
+            "title": "Nombre de página",
+            "layout": "full",
+            "placeholder": "Nombre de la página"
+        },
+        {
+            "id": "pageId",
+            "type": "short-input",
+            "title": "ID de página",
+            "layout": "full",
+            "placeholder": "ID de página (alternativa al nombre de página)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Leer página (<code>sharepoint_read_page</code>)</div>
+
+Leer una página específica de un sitio de SharePoint
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | No | El ID del sitio de SharePoint |
+| `pageId` | string | No | El ID de la página que se va a leer |
+| `pageName` | string | No | El nombre de la página que se va a leer \(alternativa a pageId\) |
+| `maxPages` | number | No | Número máximo de páginas que se devolverán al listar todas las páginas \(predeterminado: 10, máx.: 50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `page` | object | Información sobre la página de SharePoint |
+| `pages` | array | Lista de páginas de SharePoint |
+| `content` | object | Contenido de la página de SharePoint |
+| `totalPages` | number | Número total de páginas encontradas |
+
+</div>
+
+---
+
+### Listar sitios
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sharepoint"
+    type="sharepoint"
+    color="#1A9BA1"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "read_page",
+                    "label": "Leer página"
+                },
+                {
+                    "id": "list_sites",
+                    "label": "Listar sitios"
+                },
+                {
+                    "id": "create_list",
+                    "label": "Crear lista"
+                },
+                {
+                    "id": "read_list",
+                    "label": "Leer lista"
+                },
+                {
+                    "id": "update_list",
+                    "label": "Actualizar lista"
+                },
+                {
+                    "id": "add_list_items",
+                    "label": "Agregar elementos de lista"
+                },
+                {
+                    "id": "upload_file",
+                    "label": "Cargar archivo"
+                }
+            ],
+            "defaultValue": "list_sites"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "sharepoint"
+        },
+        {
+            "id": "siteSelector",
+            "type": "file-selector",
+            "title": "Seleccionar sitio",
+            "layout": "full",
+            "placeholder": "Seleccionar un sitio",
+            "provider": "microsoft"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar sitios (<code>sharepoint_list_sites</code>)</div>
+
+Listar los detalles de todos los sitios de SharePoint
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | No | El ID del sitio de SharePoint |
+| `groupId` | string | No | El ID del grupo para acceder a un sitio de equipo de grupo |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `site` | object | Información sobre el sitio de SharePoint actual |
+| `sites` | array | Lista de todos los sitios de SharePoint accesibles |
+
+</div>
+
+---
+
+### Crear lista
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sharepoint"
+    type="sharepoint"
+    color="#1A9BA1"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "read_page",
+                    "label": "Leer página"
+                },
+                {
+                    "id": "list_sites",
+                    "label": "Listar sitios"
+                },
+                {
+                    "id": "create_list",
+                    "label": "Crear lista"
+                },
+                {
+                    "id": "read_list",
+                    "label": "Leer lista"
+                },
+                {
+                    "id": "update_list",
+                    "label": "Actualizar lista"
+                },
+                {
+                    "id": "add_list_items",
+                    "label": "Agregar elementos de lista"
+                },
+                {
+                    "id": "upload_file",
+                    "label": "Cargar archivo"
+                }
+            ],
+            "defaultValue": "create_list"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "sharepoint"
+        },
+        {
+            "id": "siteSelector",
+            "type": "file-selector",
+            "title": "Seleccionar sitio",
+            "layout": "full",
+            "placeholder": "Seleccionar un sitio",
+            "provider": "microsoft"
+        },
+        {
+            "id": "listDisplayName",
+            "type": "short-input",
+            "title": "Nombre para mostrar de la lista",
+            "layout": "full",
+            "placeholder": "Nombre de la lista"
+        },
+        {
+            "id": "listTemplate",
+            "type": "short-input",
+            "title": "Plantilla de lista",
+            "layout": "full",
+            "placeholder": "Plantilla (p. ej., 'genericList')"
+        },
+        {
+            "id": "pageContent",
+            "type": "long-input",
+            "title": "Contenido de la página",
+            "layout": "full",
+            "placeholder": "Proporcionar contenido de la página"
+        },
+        {
+            "id": "listDescription",
+            "type": "long-input",
+            "title": "Descripción de la lista",
+            "layout": "full",
+            "placeholder": "Descripción opcional"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear lista (<code>sharepoint_create_list</code>)</div>
+
+Crear una lista nueva en un sitio de SharePoint
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | No | El ID del sitio de SharePoint |
+| `listDisplayName` | string | Sí | Nombre para mostrar de la lista que se va a crear |
+| `listDescription` | string | No | Descripción de la lista |
+| `listTemplate` | string | No | Nombre de la plantilla de lista \(p. ej., 'genericList'\) |
+| `pageContent` | string | No | JSON opcional de columnas. Un array de definiciones de columnas en el nivel superior o un objeto con \{ columns: \[...\] \}. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `list` | object | Información de la lista de SharePoint creada |
+
+</div>
+
+---
+
+### Leer lista
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sharepoint"
+    type="sharepoint"
+    color="#1A9BA1"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "read_page",
+                    "label": "Leer página"
+                },
+                {
+                    "id": "list_sites",
+                    "label": "Listar sitios"
+                },
+                {
+                    "id": "create_list",
+                    "label": "Crear lista"
+                },
+                {
+                    "id": "read_list",
+                    "label": "Leer lista"
+                },
+                {
+                    "id": "update_list",
+                    "label": "Actualizar lista"
+                },
+                {
+                    "id": "add_list_items",
+                    "label": "Agregar elementos de lista"
+                },
+                {
+                    "id": "upload_file",
+                    "label": "Cargar archivo"
+                }
+            ],
+            "defaultValue": "read_list"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "sharepoint"
+        },
+        {
+            "id": "siteSelector",
+            "type": "file-selector",
+            "title": "Seleccionar sitio",
+            "layout": "full",
+            "placeholder": "Seleccionar un sitio",
+            "provider": "microsoft"
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "ID de lista",
+            "layout": "full",
+            "placeholder": "Introducir ID de lista (GUID). Obligatorio para Actualizar; opcional para Leer."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Leer lista (<code>sharepoint_get_list</code>)</div>
+
+Obtener metadatos (y, opcionalmente, columnas/elementos) de una lista de SharePoint
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | No | El ID del sitio de SharePoint |
+| `listId` | string | No | El ID de la lista que se va a recuperar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `list` | object | Información sobre la lista de SharePoint |
+| `lists` | array | Todas las listas del sitio cuando no se proporciona listId/title |
+
+</div>
+
+---
+
+### Actualizar lista
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sharepoint"
+    type="sharepoint"
+    color="#1A9BA1"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "read_page",
+                    "label": "Leer página"
+                },
+                {
+                    "id": "list_sites",
+                    "label": "Listar sitios"
+                },
+                {
+                    "id": "create_list",
+                    "label": "Crear lista"
+                },
+                {
+                    "id": "read_list",
+                    "label": "Leer lista"
+                },
+                {
+                    "id": "update_list",
+                    "label": "Actualizar lista"
+                },
+                {
+                    "id": "add_list_items",
+                    "label": "Agregar elementos de lista"
+                },
+                {
+                    "id": "upload_file",
+                    "label": "Cargar archivo"
+                }
+            ],
+            "defaultValue": "update_list"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "sharepoint"
+        },
+        {
+            "id": "siteSelector",
+            "type": "file-selector",
+            "title": "Seleccionar sitio",
+            "layout": "full",
+            "placeholder": "Seleccionar un sitio",
+            "provider": "microsoft"
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "ID de lista",
+            "layout": "full",
+            "placeholder": "Introducir ID de lista (GUID). Obligatorio para Actualizar; opcional para Leer."
+        },
+        {
+            "id": "listItemId",
+            "type": "short-input",
+            "title": "ID de elemento",
+            "layout": "full",
+            "placeholder": "Introducir ID de elemento"
+        },
+        {
+            "id": "listItemFields",
+            "type": "long-input",
+            "title": "Campos del elemento de lista",
+            "layout": "full",
+            "placeholder": "Introducir campos del elemento de lista"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar lista (<code>sharepoint_update_list</code>)</div>
+
+Actualizar las propiedades (campos) de un elemento de lista de SharePoint
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | No | El ID del sitio de SharePoint |
+| `listId` | string | No | El ID de la lista que contiene el elemento |
+| `itemId` | string | Sí | El ID del elemento de lista que se va a actualizar |
+| `listItemFields` | object | Sí | Valores de campo que actualizar en el elemento de lista |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `item` | object | Elemento de lista de SharePoint actualizado |
+
+</div>
+
+---
+
+### Agregar elementos de lista
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sharepoint"
+    type="sharepoint"
+    color="#1A9BA1"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "read_page",
+                    "label": "Leer página"
+                },
+                {
+                    "id": "list_sites",
+                    "label": "Listar sitios"
+                },
+                {
+                    "id": "create_list",
+                    "label": "Crear lista"
+                },
+                {
+                    "id": "read_list",
+                    "label": "Leer lista"
+                },
+                {
+                    "id": "update_list",
+                    "label": "Actualizar lista"
+                },
+                {
+                    "id": "add_list_items",
+                    "label": "Agregar elementos de lista"
+                },
+                {
+                    "id": "upload_file",
+                    "label": "Cargar archivo"
+                }
+            ],
+            "defaultValue": "add_list_items"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "sharepoint"
+        },
+        {
+            "id": "siteSelector",
+            "type": "file-selector",
+            "title": "Seleccionar sitio",
+            "layout": "full",
+            "placeholder": "Seleccionar un sitio",
+            "provider": "microsoft"
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "ID de lista",
+            "layout": "full",
+            "placeholder": "Introducir el ID de lista (GUID). Obligatorio para Actualizar; opcional para Leer."
+        },
+        {
+            "id": "listItemFields",
+            "type": "long-input",
+            "title": "Campos del elemento de lista",
+            "layout": "full",
+            "placeholder": "Introducir los campos del elemento de lista"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Añadir elementos de lista (<code>sharepoint_add_list_items</code>)</div>
+
+Añade un elemento nuevo a una lista de SharePoint
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | No | El ID del sitio de SharePoint |
+| `listId` | string | Sí | El ID de la lista a la que se añadirá el elemento |
+| `listItemFields` | object | Sí | Valores de campo del nuevo elemento de lista |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `item` | object | Elemento de lista de SharePoint creado |
+
+</div>
+
+---
+
+### Subir archivo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sharepoint"
+    type="sharepoint"
+    color="#1A9BA1"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "read_page",
+                    "label": "Leer página"
+                },
+                {
+                    "id": "list_sites",
+                    "label": "Listar sitios"
+                },
+                {
+                    "id": "create_list",
+                    "label": "Crear lista"
+                },
+                {
+                    "id": "read_list",
+                    "label": "Leer lista"
+                },
+                {
+                    "id": "update_list",
+                    "label": "Actualizar lista"
+                },
+                {
+                    "id": "add_list_items",
+                    "label": "Añadir elementos de lista"
+                },
+                {
+                    "id": "upload_file",
+                    "label": "Subir archivo"
+                }
+            ],
+            "defaultValue": "upload_file"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "sharepoint"
+        },
+        {
+            "id": "siteSelector",
+            "type": "file-selector",
+            "title": "Seleccionar sitio",
+            "layout": "full",
+            "placeholder": "Seleccionar un sitio",
+            "provider": "microsoft"
+        },
+        {
+            "id": "driveId",
+            "type": "short-input",
+            "title": "ID de biblioteca de documentos",
+            "layout": "full",
+            "placeholder": "Introducir ID de biblioteca de documentos (unidad)"
+        },
+        {
+            "id": "folderPath",
+            "type": "short-input",
+            "title": "Ruta de carpeta",
+            "layout": "full",
+            "placeholder": "Ruta de carpeta opcional (p. ej., /Documents/Subfolder)",
+            "required": false
+        },
+        {
+            "id": "fileName",
+            "type": "short-input",
+            "title": "Nombre de archivo",
+            "layout": "full",
+            "placeholder": "Opcional: sustituir el nombre del archivo subido",
+            "required": false
+        },
+        {
+            "id": "uploadFiles",
+            "type": "file-upload",
+            "title": "Archivos",
+            "layout": "full",
+            "placeholder": "Subir archivos a SharePoint",
+            "required": false
+        },
+        {
+            "id": "files",
+            "type": "short-input",
+            "title": "Archivos",
+            "layout": "full",
+            "placeholder": "Referenciar archivos de bloques anteriores",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Cargar archivo (<code>sharepoint_upload_file</code>)</div>
+
+Cargar archivos en una biblioteca de documentos de SharePoint
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `driveId` | string | No | El ID de la biblioteca de documentos \(unidad\). Si no se proporciona, se usa la unidad predeterminada. |
+| `folderPath` | string | No | Ruta de carpeta opcional dentro de la biblioteca de documentos \(p. ej., /Documents/Subfolder\) |
+| `fileName` | string | No | Opcional: reemplazar el nombre del archivo cargado |
+| `files` | file[] | No | Archivos para cargar en SharePoint |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `uploadedFiles` | array | Array de objetos de archivos cargados |
+| `fileCount` | number | Número de archivos cargados |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra SharePoint en el flujo de trabajo. Lee/crea páginas, lista sitios y trabaja con listas (leer, crear, actualizar elementos). Requiere OAuth.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `sharepoint`

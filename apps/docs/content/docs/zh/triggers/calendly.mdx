@@ -1,0 +1,848 @@
+---
+title: Calendly 触发器
+description: 根据任意 Calendly Webhook 事件触发工作流
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="calendly"
+  color=""
+/>
+
+根据任意 Calendly Webhook 事件触发工作流
+
+<Callout type="info">
+  这是一个**基于 Webhook** 的触发器。请将外部服务配置为向工作流 Webhook URL 发送事件。
+</Callout>
+
+<Cards>
+  <Card title="作为工具使用" href="/tools/calendly">
+    查看 Calendly 的工作流动作、操作和工具输入。
+  </Card>
+</Cards>
+
+## 事件
+
+### Calendly Webhook
+
+根据任意 Calendly Webhook 事件触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>1.</strong> <strong>注意：</strong>此触发器需要付费的 Calendly 订阅（Professional、Teams 或 Enterprise 套餐）。</div><div class="mb-3"><strong>2.</strong>在 Calendly 账户的 <strong>Settings > Integrations > API & Webhooks</strong> 中获取个人访问令牌。</div><div class="mb-3"><strong>3.</strong>在 Calendly 模块中使用 “Get Current User” 操作以获取你的组织 URI。</div><div class="mb-3"><strong>4.</strong>保存此触发器时，将自动在 Calendly 中创建 Webhook。</div><div class="mb-3"><strong>5.</strong>此 Webhook 会订阅所有 Calendly 事件（受邀者已创建、受邀者已取消、路由表单已提交）。使用 payload 中的 <code>event</code> 字段判断事件类型。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly Webhook"
+    type="calendly_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "输入你的 Calendly 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organization",
+            "type": "short-input",
+            "title": "组织 URI",
+            "placeholder": "https://api.calendly.com/organizations/XXXXXX",
+            "description": "Webhook 订阅所用的组织 URI。可通过 “Get Current User” 操作获取。",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件负载"
+  fields={[
+      {
+          "name": "event",
+          "type": "string",
+          "description": "事件类型（invitee.created、invitee.canceled 或 routing_form_submission.created）"
+      },
+      {
+          "name": "created_at",
+          "type": "string",
+          "description": "Webhook 事件创建时间戳"
+      },
+      {
+          "name": "created_by",
+          "type": "string",
+          "description": "创建此 webhook 的 Calendly 用户 URI"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "description": "完整事件负载（结构因事件类型而异）"
+      }
+  ]}
+/>
+
+---
+
+### Calendly 受邀者已创建
+
+当有人在 Calendly 上预约新日程时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>1.</strong> <strong>注意：</strong>此触发器需要付费 Calendly 订阅（Professional、Teams 或 Enterprise 套餐）。</div><div class="mb-3"><strong>2.</strong> 在 Calendly 账户的 <strong>Settings > Integrations > API & Webhooks</strong> 中获取个人访问令牌。</div><div class="mb-3"><strong>3.</strong> 在 Calendly 模块中使用「获取当前用户」操作以获取你的组织 URI。</div><div class="mb-3"><strong>4.</strong> 保存此触发器后，将自动在 Calendly 中创建 webhook。</div><div class="mb-3"><strong>5.</strong> 当受邀者预约新日程时，此 webhook 会触发。改期会同时触发取消和创建事件。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly 受邀者已创建"
+    type="calendly_invitee_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "输入你的 Calendly 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organization",
+            "type": "short-input",
+            "title": "组织 URI",
+            "placeholder": "https://api.calendly.com/organizations/XXXXXX",
+            "description": "Webhook 订阅所用的组织 URI。可通过「获取当前用户」操作获取。",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件负载"
+  fields={[
+      {
+          "name": "event",
+          "type": "string",
+          "description": "事件类型（invitee.created 或 invitee.canceled）"
+      },
+      {
+          "name": "created_at",
+          "type": "string",
+          "description": "Webhook 事件创建时间戳"
+      },
+      {
+          "name": "created_by",
+          "type": "string",
+          "description": "创建此 webhook 的 Calendly 用户 URI"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "children": [
+              {
+                  "name": "uri",
+                  "type": "string",
+                  "description": "受邀者 URI"
+              },
+              {
+                  "name": "email",
+                  "type": "string",
+                  "description": "受邀者邮箱"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "受邀者全名"
+              },
+              {
+                  "name": "first_name",
+                  "type": "string",
+                  "description": "受邀者名"
+              },
+              {
+                  "name": "last_name",
+                  "type": "string",
+                  "description": "受邀者姓"
+              },
+              {
+                  "name": "status",
+                  "type": "string",
+                  "description": "受邀者状态（active 或 canceled）"
+              },
+              {
+                  "name": "timezone",
+                  "type": "string",
+                  "description": "受邀者时区"
+              },
+              {
+                  "name": "event",
+                  "type": "string",
+                  "description": "已预约日程 URI"
+              },
+              {
+                  "name": "questions_and_answers",
+                  "type": "array",
+                  "description": "预约表单中的问答",
+                  "children": [
+                      {
+                          "name": "question",
+                          "type": "string",
+                          "description": "问题文本"
+                      },
+                      {
+                          "name": "answer",
+                          "type": "string",
+                          "description": "回答文本"
+                      }
+                  ]
+              },
+              {
+                  "name": "tracking",
+                  "type": "object",
+                  "children": [
+                      {
+                          "name": "utm_campaign",
+                          "type": "string",
+                          "description": "UTM campaign 参数"
+                      },
+                      {
+                          "name": "utm_source",
+                          "type": "string",
+                          "description": "UTM source 参数"
+                      },
+                      {
+                          "name": "utm_medium",
+                          "type": "string",
+                          "description": "UTM medium 参数"
+                      },
+                      {
+                          "name": "utm_content",
+                          "type": "string",
+                          "description": "UTM content 参数"
+                      },
+                      {
+                          "name": "utm_term",
+                          "type": "string",
+                          "description": "UTM term 参数"
+                      },
+                      {
+                          "name": "salesforce_uuid",
+                          "type": "string",
+                          "description": "Salesforce UUID"
+                      }
+                  ]
+              },
+              {
+                  "name": "text_reminder_number",
+                  "type": "string",
+                  "description": "短信提醒电话号码"
+              },
+              {
+                  "name": "rescheduled",
+                  "type": "boolean",
+                  "description": "该受邀者是否已改期"
+              },
+              {
+                  "name": "old_invitee",
+                  "type": "string",
+                  "description": "原受邀者 URI（若已改期）"
+              },
+              {
+                  "name": "new_invitee",
+                  "type": "string",
+                  "description": "新受邀者 URI（若已改期）"
+              },
+              {
+                  "name": "cancel_url",
+                  "type": "string",
+                  "description": "取消日程的 URL"
+              },
+              {
+                  "name": "reschedule_url",
+                  "type": "string",
+                  "description": "改期日程的 URL"
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "受邀者创建时间戳"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "受邀者最后更新时间戳"
+              },
+              {
+                  "name": "canceled",
+                  "type": "boolean",
+                  "description": "日程是否已取消"
+              },
+              {
+                  "name": "cancellation",
+                  "type": "object",
+                  "description": "取消详情",
+                  "children": [
+                      {
+                          "name": "canceled_by",
+                          "type": "string",
+                          "description": "取消日程的人"
+                      },
+                      {
+                          "name": "reason",
+                          "type": "string",
+                          "description": "取消原因"
+                      }
+                  ]
+              },
+              {
+                  "name": "payment",
+                  "type": "object",
+                  "description": "支付详情",
+                  "children": [
+                      {
+                          "name": "id",
+                          "type": "string",
+                          "description": "支付 ID"
+                      },
+                      {
+                          "name": "provider",
+                          "type": "string",
+                          "description": "支付提供方"
+                      },
+                      {
+                          "name": "amount",
+                          "type": "number",
+                          "description": "支付金额"
+                      },
+                      {
+                          "name": "currency",
+                          "type": "string",
+                          "description": "支付币种"
+                      },
+                      {
+                          "name": "terms",
+                          "type": "string",
+                          "description": "支付条款"
+                      },
+                      {
+                          "name": "successful",
+                          "type": "boolean",
+                          "description": "支付是否成功"
+                      }
+                  ]
+              },
+              {
+                  "name": "no_show",
+                  "type": "object",
+                  "description": "未出席详情",
+                  "children": [
+                      {
+                          "name": "created_at",
+                          "type": "string",
+                          "description": "标记未出席的时间戳"
+                      }
+                  ]
+              },
+              {
+                  "name": "reconfirmation",
+                  "type": "object",
+                  "description": "再次确认详情",
+                  "children": [
+                      {
+                          "name": "created_at",
+                          "type": "string",
+                          "description": "再次确认时间戳"
+                      },
+                      {
+                          "name": "confirmed_at",
+                          "type": "string",
+                          "description": "确认时间戳"
+                      }
+                  ]
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Calendly 受邀者已取消
+
+当有人在 Calendly 上取消已预约活动时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>1.</strong> <strong>注意：</strong>此触发器需要付费 Calendly 订阅（Professional、Teams 或 Enterprise 套餐）。</div><div class="mb-3"><strong>2.</strong> 在 Calendly 账户的 <strong>设置 > 集成 > API 与 Webhooks</strong> 中获取个人访问令牌。</div><div class="mb-3"><strong>3.</strong> 在 Calendly 块中使用「获取当前用户」操作，以获取你的组织 URI。</div><div class="mb-3"><strong>4.</strong> 保存此触发器后，Webhook 将自动在 Calendly 中创建。</div><div class="mb-3"><strong>5.</strong> 当受邀者取消活动时，此 Webhook 会触发。载荷包含取消详情和原因。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly 受邀者已取消"
+    type="calendly_invitee_canceled"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "输入你的 Calendly 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organization",
+            "type": "short-input",
+            "title": "组织 URI",
+            "placeholder": "https://api.calendly.com/organizations/XXXXXX",
+            "description": "用于 Webhook 订阅的组织 URI。可通过「获取当前用户」操作获取。",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "event",
+          "type": "string",
+          "description": "事件类型（invitee.created 或 invitee.canceled）"
+      },
+      {
+          "name": "created_at",
+          "type": "string",
+          "description": "Webhook 事件创建时间戳"
+      },
+      {
+          "name": "created_by",
+          "type": "string",
+          "description": "创建此 Webhook 的 Calendly 用户 URI"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "children": [
+              {
+                  "name": "uri",
+                  "type": "string",
+                  "description": "受邀者 URI"
+              },
+              {
+                  "name": "email",
+                  "type": "string",
+                  "description": "受邀者邮箱地址"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "受邀者全名"
+              },
+              {
+                  "name": "first_name",
+                  "type": "string",
+                  "description": "受邀者名"
+              },
+              {
+                  "name": "last_name",
+                  "type": "string",
+                  "description": "受邀者姓"
+              },
+              {
+                  "name": "status",
+                  "type": "string",
+                  "description": "受邀者状态（active 或 canceled）"
+              },
+              {
+                  "name": "timezone",
+                  "type": "string",
+                  "description": "受邀者时区"
+              },
+              {
+                  "name": "event",
+                  "type": "string",
+                  "description": "已预约活动 URI"
+              },
+              {
+                  "name": "questions_and_answers",
+                  "type": "array",
+                  "description": "预约表单中的问答",
+                  "children": [
+                      {
+                          "name": "question",
+                          "type": "string",
+                          "description": "问题文本"
+                      },
+                      {
+                          "name": "answer",
+                          "type": "string",
+                          "description": "回答文本"
+                      }
+                  ]
+              },
+              {
+                  "name": "tracking",
+                  "type": "object",
+                  "children": [
+                      {
+                          "name": "utm_campaign",
+                          "type": "string",
+                          "description": "UTM campaign 参数"
+                      },
+                      {
+                          "name": "utm_source",
+                          "type": "string",
+                          "description": "UTM source 参数"
+                      },
+                      {
+                          "name": "utm_medium",
+                          "type": "string",
+                          "description": "UTM medium 参数"
+                      },
+                      {
+                          "name": "utm_content",
+                          "type": "string",
+                          "description": "UTM content 参数"
+                      },
+                      {
+                          "name": "utm_term",
+                          "type": "string",
+                          "description": "UTM term 参数"
+                      },
+                      {
+                          "name": "salesforce_uuid",
+                          "type": "string",
+                          "description": "Salesforce UUID"
+                      }
+                  ]
+              },
+              {
+                  "name": "text_reminder_number",
+                  "type": "string",
+                  "description": "短信提醒电话号码"
+              },
+              {
+                  "name": "rescheduled",
+                  "type": "boolean",
+                  "description": "该受邀者是否已改期"
+              },
+              {
+                  "name": "old_invitee",
+                  "type": "string",
+                  "description": "原受邀者 URI（若已改期）"
+              },
+              {
+                  "name": "new_invitee",
+                  "type": "string",
+                  "description": "新受邀者 URI（若已改期）"
+              },
+              {
+                  "name": "cancel_url",
+                  "type": "string",
+                  "description": "取消活动的 URL"
+              },
+              {
+                  "name": "reschedule_url",
+                  "type": "string",
+                  "description": "改期活动的 URL"
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "受邀者创建时间戳"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "受邀者最后更新时间戳"
+              },
+              {
+                  "name": "canceled",
+                  "type": "boolean",
+                  "description": "活动是否已取消"
+              },
+              {
+                  "name": "cancellation",
+                  "type": "object",
+                  "description": "取消详情",
+                  "children": [
+                      {
+                          "name": "canceled_by",
+                          "type": "string",
+                          "description": "取消活动的人员"
+                      },
+                      {
+                          "name": "reason",
+                          "type": "string",
+                          "description": "取消原因"
+                      }
+                  ]
+              },
+              {
+                  "name": "payment",
+                  "type": "object",
+                  "description": "付款详情",
+                  "children": [
+                      {
+                          "name": "id",
+                          "type": "string",
+                          "description": "付款 ID"
+                      },
+                      {
+                          "name": "provider",
+                          "type": "string",
+                          "description": "付款提供商"
+                      },
+                      {
+                          "name": "amount",
+                          "type": "number",
+                          "description": "付款金额"
+                      },
+                      {
+                          "name": "currency",
+                          "type": "string",
+                          "description": "付款币种"
+                      },
+                      {
+                          "name": "terms",
+                          "type": "string",
+                          "description": "付款条款"
+                      },
+                      {
+                          "name": "successful",
+                          "type": "boolean",
+                          "description": "付款是否成功"
+                      }
+                  ]
+              },
+              {
+                  "name": "no_show",
+                  "type": "object",
+                  "description": "未出席详情",
+                  "children": [
+                      {
+                          "name": "created_at",
+                          "type": "string",
+                          "description": "标记未出席的时间戳"
+                      }
+                  ]
+              },
+              {
+                  "name": "reconfirmation",
+                  "type": "object",
+                  "description": "再次确认详情",
+                  "children": [
+                      {
+                          "name": "created_at",
+                          "type": "string",
+                          "description": "再次确认时间戳"
+                      },
+                      {
+                          "name": "confirmed_at",
+                          "type": "string",
+                          "description": "确认时间戳"
+                      }
+                  ]
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Calendly 路由表单已提交
+
+有人提交 Calendly 路由表单时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>1.</strong> <strong>注意：</strong>此触发器需要付费 Calendly 订阅（Professional、Teams 或 Enterprise 套餐）。</div><div class="mb-3"><strong>2.</strong> 在 Calendly 账户的 <strong>设置 > 集成 > API 和 Webhooks</strong> 中获取个人访问令牌。</div><div class="mb-3"><strong>3.</strong> 在 Calendly 模块中使用“获取当前用户”操作以获取组织 URI。</div><div class="mb-3"><strong>4.</strong> 保存此触发器后，将在 Calendly 中自动创建 webhook。</div><div class="mb-3"><strong>5.</strong> 无论对方是否预约活动，只要有人提交路由表单，此 webhook 就会触发。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly 路由表单已提交"
+    type="calendly_routing_form_submitted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "输入你的 Calendly 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organization",
+            "type": "short-input",
+            "title": "组织 URI",
+            "placeholder": "https://api.calendly.com/organizations/XXXXXX",
+            "description": "用于 webhook 订阅的组织 URI。可通过“获取当前用户”操作获取。",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "event",
+          "type": "string",
+          "description": "事件类型（routing_form_submission.created）"
+      },
+      {
+          "name": "created_at",
+          "type": "string",
+          "description": "Webhook 事件创建时间戳"
+      },
+      {
+          "name": "created_by",
+          "type": "string",
+          "description": "创建此 webhook 的 Calendly 用户 URI"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "children": [
+              {
+                  "name": "uri",
+                  "type": "string",
+                  "description": "路由表单提交 URI"
+              },
+              {
+                  "name": "routing_form",
+                  "type": "string",
+                  "description": "路由表单 URI"
+              },
+              {
+                  "name": "submitter",
+                  "type": "object",
+                  "description": "提交者详情",
+                  "children": [
+                      {
+                          "name": "uri",
+                          "type": "string",
+                          "description": "提交者 URI"
+                      },
+                      {
+                          "name": "email",
+                          "type": "string",
+                          "description": "提交者邮箱"
+                      },
+                      {
+                          "name": "name",
+                          "type": "string",
+                          "description": "提交者全名"
+                      }
+                  ]
+              },
+              {
+                  "name": "submitter_type",
+                  "type": "string",
+                  "description": "提交者类型"
+              },
+              {
+                  "name": "questions_and_answers",
+                  "type": "array",
+                  "description": "预约表单中的问答",
+                  "children": [
+                      {
+                          "name": "question",
+                          "type": "string",
+                          "description": "问题文本"
+                      },
+                      {
+                          "name": "answer",
+                          "type": "string",
+                          "description": "回答文本"
+                      }
+                  ]
+              },
+              {
+                  "name": "tracking",
+                  "type": "object",
+                  "children": [
+                      {
+                          "name": "utm_campaign",
+                          "type": "string",
+                          "description": "UTM 广告系列参数"
+                      },
+                      {
+                          "name": "utm_source",
+                          "type": "string",
+                          "description": "UTM 来源参数"
+                      },
+                      {
+                          "name": "utm_medium",
+                          "type": "string",
+                          "description": "UTM 媒介参数"
+                      },
+                      {
+                          "name": "utm_content",
+                          "type": "string",
+                          "description": "UTM 内容参数"
+                      },
+                      {
+                          "name": "utm_term",
+                          "type": "string",
+                          "description": "UTM 关键词参数"
+                      },
+                      {
+                          "name": "salesforce_uuid",
+                          "type": "string",
+                          "description": "Salesforce UUID"
+                      }
+                  ]
+              },
+              {
+                  "name": "result",
+                  "type": "object",
+                  "description": "路由结果详情",
+                  "children": [
+                      {
+                          "name": "type",
+                          "type": "string",
+                          "description": "结果类型（event_type、custom_message 或 external_url）"
+                      },
+                      {
+                          "name": "value",
+                          "type": "string",
+                          "description": "结果值（活动类型 URI、消息或 URL）"
+                      }
+                  ]
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "提交创建时间戳"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "提交最后更新时间戳"
+              }
+          ]
+      }
+  ]}
+/>
+
+---

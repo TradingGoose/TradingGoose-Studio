@@ -30,17 +30,17 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Model",
             "layout": "half",
+            "defaultValue": "dall-e-3",
             "options": [
                 {
-                    "label": "DALL-E 3",
-                    "id": "dall-e-3"
+                    "id": "dall-e-3",
+                    "label": "DALL-E 3"
                 },
                 {
-                    "label": "GPT Image",
-                    "id": "gpt-image-1"
+                    "id": "gpt-image-1",
+                    "label": "GPT Image"
                 }
-            ],
-            "defaultValue": "dall-e-3"
+            ]
         },
         {
             "id": "prompt",
@@ -64,18 +64,19 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Size",
             "layout": "half",
+            "defaultValue": "1024x1024",
             "options": [
                 {
-                    "label": "1024x1024",
-                    "id": "1024x1024"
+                    "id": "1024x1024",
+                    "label": "1024x1024"
                 },
                 {
-                    "label": "1024x1792",
-                    "id": "1024x1792"
+                    "id": "1024x1792",
+                    "label": "1024x1792"
                 },
                 {
-                    "label": "1792x1024",
-                    "id": "1792x1024"
+                    "id": "1792x1024",
+                    "label": "1792x1024"
                 }
             ]
         },
@@ -84,14 +85,15 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Quality",
             "layout": "half",
+            "defaultValue": "standard",
             "options": [
                 {
-                    "label": "Standard",
-                    "id": "standard"
+                    "id": "standard",
+                    "label": "Standard"
                 },
                 {
-                    "label": "HD",
-                    "id": "hd"
+                    "id": "hd",
+                    "label": "HD"
                 }
             ]
         },
@@ -100,14 +102,15 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Style",
             "layout": "half",
+            "defaultValue": "vivid",
             "options": [
                 {
-                    "label": "Vivid",
-                    "id": "vivid"
+                    "id": "vivid",
+                    "label": "Vivid"
                 },
                 {
-                    "label": "Natural",
-                    "id": "natural"
+                    "id": "natural",
+                    "label": "Natural"
                 }
             ]
         }
@@ -116,13 +119,28 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">DALL-E 3 (<code>openai_image</code>)</div>
+
+Generate images using OpenAI's Image models
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `model` | string | Yes | The model to use \(gpt-image-1 or dall-e-3\) |
+| `prompt` | string | Yes | A text description of the desired image |
+| `size` | string | Yes | The size of the generated images \(1024x1024, 1024x1792, or 1792x1024\) |
+| `quality` | string | No | The quality of the image \(standard or hd\) |
+| `style` | string | No | The style of the image \(vivid or natural\) |
+| `background` | string | No | The background color, only for gpt-image-1 |
+| `apiKey` | string | Yes | Your OpenAI API key |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `content` | string | Generation response |
-| `image` | string | Generated image URL |
-| `metadata` | json | Generation metadata |
+| `success` | boolean | Operation success status |
+| `output` | object | Generated image data |
 
 </div>
 
@@ -144,17 +162,17 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Model",
             "layout": "half",
+            "defaultValue": "gpt-image-1",
             "options": [
                 {
-                    "label": "DALL-E 3",
-                    "id": "dall-e-3"
+                    "id": "dall-e-3",
+                    "label": "DALL-E 3"
                 },
                 {
-                    "label": "GPT Image",
-                    "id": "gpt-image-1"
+                    "id": "gpt-image-1",
+                    "label": "GPT Image"
                 }
-            ],
-            "defaultValue": "gpt-image-1"
+            ]
         },
         {
             "id": "prompt",
@@ -178,22 +196,23 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Size",
             "layout": "half",
+            "defaultValue": "auto",
             "options": [
                 {
-                    "label": "Auto",
-                    "id": "auto"
+                    "id": "auto",
+                    "label": "Auto"
                 },
                 {
-                    "label": "1024x1024",
-                    "id": "1024x1024"
+                    "id": "1024x1024",
+                    "label": "1024x1024"
                 },
                 {
-                    "label": "1536x1024",
-                    "id": "1536x1024"
+                    "id": "1536x1024",
+                    "label": "1536x1024"
                 },
                 {
-                    "label": "1024x1536",
-                    "id": "1024x1536"
+                    "id": "1024x1536",
+                    "label": "1024x1536"
                 }
             ]
         },
@@ -202,18 +221,19 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Background",
             "layout": "half",
+            "defaultValue": "auto",
             "options": [
                 {
-                    "label": "Auto",
-                    "id": "auto"
+                    "id": "auto",
+                    "label": "Auto"
                 },
                 {
-                    "label": "Transparent",
-                    "id": "transparent"
+                    "id": "transparent",
+                    "label": "Transparent"
                 },
                 {
-                    "label": "Opaque",
-                    "id": "opaque"
+                    "id": "opaque",
+                    "label": "Opaque"
                 }
             ]
         }
@@ -222,13 +242,28 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">GPT Image (<code>openai_image</code>)</div>
+
+Generate images using OpenAI's Image models
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `model` | string | Yes | The model to use \(gpt-image-1 or dall-e-3\) |
+| `prompt` | string | Yes | A text description of the desired image |
+| `size` | string | Yes | The size of the generated images \(1024x1024, 1024x1792, or 1792x1024\) |
+| `quality` | string | No | The quality of the image \(standard or hd\) |
+| `style` | string | No | The style of the image \(vivid or natural\) |
+| `background` | string | No | The background color, only for gpt-image-1 |
+| `apiKey` | string | Yes | Your OpenAI API key |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `content` | string | Generation response |
-| `image` | string | Generated image URL |
-| `metadata` | json | Generation metadata |
+| `success` | boolean | Operation success status |
+| `output` | object | Generated image data |
 
 </div>
 

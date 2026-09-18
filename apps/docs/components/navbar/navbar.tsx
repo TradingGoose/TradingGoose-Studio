@@ -2,7 +2,6 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { LanguageDropdown } from '@/components/ui/language-dropdown'
 import { SearchTrigger } from '@/components/ui/search-trigger'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 
@@ -56,7 +55,6 @@ export function Navbar() {
             >
               Platform
             </Link>
-            <LanguageDropdown />
             <ThemeToggle />
           </div>
         </div>

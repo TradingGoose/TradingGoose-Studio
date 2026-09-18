@@ -1,0 +1,57 @@
+---
+title: Mapa de calor
+description: Compare instrumentos de mercado o de cartera en un mapa de calor
+  con código de colores.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Descripción general
+
+| Propiedad | Valor |
+|----------|-------|
+| **Clave** | `heatmap` |
+| **Categoría** | Trading |
+
+El widget Mapa de calor es una vista de solo lectura de instrumentos dimensionados y coloreados a partir de los datos actuales de mercado o de cartera.
+
+## Características
+
+- **Dos orígenes** -- `sourceMode` selecciona datos de `watchlist` o `portfolio` y usa `watchlist` de forma predeterminada.
+- **Listas de seguimiento del espacio de trabajo** -- El modo Lista de seguimiento combina automáticamente los instrumentos de todas las listas de seguimiento del espacio de trabajo activo y elimina los duplicados de los instrumentos compartidos por más de una lista.
+- **Dimensionamiento de la lista de seguimiento** -- `watchlistSizeMetric` usa `volumeUsd` de forma predeterminada para el volumen negociado en USD; seleccione `volume` para el volumen en unidades.
+- **Contexto de cartera** -- El modo Cartera lee la cuenta de bróker seleccionada a través de `tradingProvider`, `serviceId` e `portfolioIdentity`.
+- **Selección vinculada** -- Al seleccionar una celda se actualiza el `listing` vinculado para los widgets con el mismo color de par.
+- **Actualización** -- Actualizar `runtime.refreshAt` solicita datos nuevos sin cambiar los ajustes guardados.
+
+## Uso
+
+Elija el proveedor de mercado y sus parámetros o credenciales. De forma predeterminada, el modo Lista de seguimiento usa los instrumentos sin duplicados de todas las listas de seguimiento del espacio de trabajo y los dimensiona por `volumeUsd`; gestione esos instrumentos en el [widget Lista de seguimiento](/widgets/watchlist) o cambie el dimensionamiento a `volume`. El mapa de calor muestra hasta 200 instrumentos e informa cuando se omiten instrumentos adicionales.
+
+En el modo Cartera, seleccione un bróker y una cuenta de bróker para que `portfolioIdentity` identifique las posiciones. Haga clic en una celda para publicar su instrumento en los widgets vinculados. El mapa de calor no coloca ni modifica órdenes.
+
+<Callout type="info">El modo Cartera requiere una cuenta de bróker configurada; el enriquecimiento de cotizaciones puede seguir dependiendo del proveedor de mercado seleccionado.</Callout>
+
+## Configuración
+
+| Parámetro | Descripción |
+|-----------|-------------|
+| `listing` | Listado compartido actualmente con los widgets vinculados. |
+| `sourceMode` | `watchlist` (predeterminado) o `portfolio`. |
+| `watchlistSizeMetric` | `volumeUsd` (predeterminado) o `volume` en el modo Watchlist. |
+| `marketProvider` | Proveedor usado para los datos de listado y cotización. |
+| `marketProviderParams` | Parámetros de mercado específicos del proveedor. |
+| `marketAuth` | Credenciales opcionales del proveedor de mercado. |
+| `tradingProvider` | Proveedor de bróker usado en el modo Portfolio. |
+| `serviceId` | Identificador del servicio de bróker. |
+| `portfolioIdentity` | Identidad canónica de la cuenta de bróker seleccionada. |
+| `runtime.refreshAt` | Marca de tiempo usada para solicitar la actualización. |
+
+## Relacionado
+
+<Cards>
+  <Card title="Watchlist" href="/widgets/watchlist">Gestiona los listados agregados por el modo Watchlist.</Card>
+  <Card title="Data Chart" href="/widgets/data-chart">Inspecciona el listado seleccionado en el mapa de calor.</Card>
+  <Card title="Portfolio Snapshot" href="/widgets/portfolio-snapshot">Revisa la misma cuenta de bróker en forma de resumen.</Card>
+</Cards>

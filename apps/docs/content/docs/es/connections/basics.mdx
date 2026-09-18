@@ -1,0 +1,43 @@
+---
+title: Conceptos básicos
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+
+## Cómo funcionan las conexiones
+
+Las conexiones son las vías que permiten que los datos fluyan entre bloques en tu flujo de trabajo. En TradingGoose, las conexiones definen cómo pasa la información de un bloque a otro, lo que habilita el flujo de datos en todo tu flujo de trabajo.
+
+<Callout type="info">
+  Cada conexión representa una relación dirigida en la que los datos fluyen desde la salida de un bloque de origen
+  hacia la entrada de un bloque de destino.
+</Callout>
+
+### Crear conexiones
+
+<Steps>
+  <Step>
+    <strong>Selecciona el bloque de origen</strong>: Haz clic en el puerto de salida del bloque desde el que quieres conectar
+  </Step>
+  <Step>
+    <strong>Traza la conexión</strong>: Arrastra hasta el puerto de entrada del bloque de destino
+  </Step>
+  <Step>
+    <strong>Confirma la conexión</strong>: Suelta para crear la conexión
+  </Step>
+</Steps>
+
+### Flujo de las conexiones
+
+El flujo de datos a través de las conexiones sigue estos principios:
+
+1. **Flujo direccional**: Los datos siempre fluyen de las salidas a las entradas
+2. **Orden de ejecución**: Los bloques se ejecutan en orden según sus conexiones
+3. **Transformación de datos**: Los datos pueden transformarse al pasar entre bloques
+4. **Rutas condicionales**: Algunos bloques (como Router y Condition) pueden dirigir el flujo hacia distintas rutas
+
+<Callout type="warning">
+  Eliminar una conexión detendrá inmediatamente el flujo de datos entre los bloques. Asegúrate de que
+  esto sea intencional antes de eliminar conexiones.
+</Callout>

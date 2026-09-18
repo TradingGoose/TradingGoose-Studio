@@ -1,0 +1,117 @@
+---
+title: Slack 触发器
+description: 根据提及、消息和回应等 Slack 事件触发工作流
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="slack"
+  color=""
+/>
+
+根据提及、消息和回应等 Slack 事件触发工作流
+
+<Callout type="info">
+  这是一个**基于 webhook** 的触发器。请将外部服务配置为向工作流 webhook URL 发送事件。
+</Callout>
+
+<Cards>
+  <Card title="用作工具" href="/tools/slack">
+    查看 Slack 的工作流动作、操作和工具输入。
+  </Card>
+</Cards>
+
+## 设置说明
+
+<div class="mb-3"><strong>1.</strong> 前往 <a href="https://api.slack.com/apps" target="_blank" rel="noopener noreferrer" class="text-muted-foreground underline transition-colors hover:text-muted-foreground/80">Slack 应用页面</a></div><div class="mb-3"><strong>2.</strong> 如果还没有应用：<br /><ul class="mt-1 ml-5 list-disc"><li>从头创建应用</li><li>为其命名并选择工作区</li></ul></div><div class="mb-3"><strong>3.</strong> 前往“基本信息”，找到“Signing Secret”，并将其粘贴到上方字段中。</div><div class="mb-3"><strong>4.</strong> 前往“OAuth 与权限”，添加机器人令牌范围：<br /><ul class="mt-1 ml-5 list-disc"><li><code>app_mentions:read</code> - 用于查看 @ 提及机器人的消息</li><li><code>chat:write</code> - 用于向机器人所在频道发送消息</li></ul></div><div class="mb-3"><strong>5.</strong> 前往“事件订阅”：<br /><ul class="mt-1 ml-5 list-disc"><li>启用事件</li><li>在“订阅机器人事件”下，添加 <code>app_mention</code> 以监听提及机器人的消息</li><li>将上方的 Webhook URL 粘贴到“请求 URL”字段</li></ul></div><div class="mb-3"><strong>6.</strong> 在左侧边栏前往“安装应用”，将应用安装到所需的 Slack 工作区和频道。</div><div class="mb-3"><strong>7.</strong> 在 Slack 和此处均保存更改。</div>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Slack Webhook"
+    type="slack_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "signingSecret",
+            "type": "short-input",
+            "title": "签名密钥",
+            "placeholder": "输入 Slack 应用的签名密钥",
+            "description": "来自 Slack 应用的签名密钥，用于验证请求真实性。",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "event",
+          "type": "object",
+          "children": [
+              {
+                  "name": "event_type",
+                  "type": "string",
+                  "description": "Slack 事件类型（例如 app_mention、message）"
+              },
+              {
+                  "name": "channel",
+                  "type": "string",
+                  "description": "事件发生所在的 Slack 频道 ID"
+              },
+              {
+                  "name": "channel_name",
+                  "type": "string",
+                  "description": "可读的频道名称"
+              },
+              {
+                  "name": "user",
+                  "type": "string",
+                  "description": "触发该事件的用户 ID"
+              },
+              {
+                  "name": "user_name",
+                  "type": "string",
+                  "description": "触发该事件的用户名"
+              },
+              {
+                  "name": "text",
+                  "type": "string",
+                  "description": "消息文本内容"
+              },
+              {
+                  "name": "timestamp",
+                  "type": "string",
+                  "description": "触发事件中的消息时间戳"
+              },
+              {
+                  "name": "thread_ts",
+                  "type": "string",
+                  "description": "父线程时间戳（若消息位于线程中）"
+              },
+              {
+                  "name": "team_id",
+                  "type": "string",
+                  "description": "Slack 工作区/团队 ID"
+              },
+              {
+                  "name": "event_id",
+                  "type": "string",
+                  "description": "唯一事件标识符"
+              }
+          ]
+      }
+  ]}
+/>

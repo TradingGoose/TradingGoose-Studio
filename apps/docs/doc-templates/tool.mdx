@@ -1,5 +1,5 @@
 {/*
-  TEMPLATE: Integration Tool (auto-generated + manual content)
+  TEMPLATE: Integration Tool (generated reference shape)
   OUTPUT:   apps/docs/content/docs/en/tools/{{SLUG}}.mdx
   SOURCE:   apps/tradinggoose/blocks/blocks/{{SLUG}}.ts
 
@@ -7,7 +7,8 @@
   Copy the subBlocks array from the block's .ts file and pass as JSON props.
   The BlockConfigPreview component renders a static form preview.
 
-  IMPORTANT: Sections between MANUAL-CONTENT markers survive regeneration.
+  IMPORTANT: The generator overwrites source-backed tool pages in full.
+  Put durable descriptions and instructions in the runtime contracts.
 */}
 ---
 title: {{TOOL_NAME}}
@@ -24,7 +25,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   icon={{{HAS_ICON}}}
 />
 
-{/* MANUAL-CONTENT-START:intro */}
 [{{TOOL_NAME}}]({{SERVICE_URL}}) is {{SERVICE_DESCRIPTION}}.
 
 With {{TOOL_NAME}}, you can:
@@ -32,7 +32,6 @@ With {{TOOL_NAME}}, you can:
 - **{{CAPABILITY_1}}**: {{CAPABILITY_1_DESC}}
 - **{{CAPABILITY_2}}**: {{CAPABILITY_2_DESC}}
 - **{{CAPABILITY_3}}**: {{CAPABILITY_3_DESC}}
-{/* MANUAL-CONTENT-END */}
 
 ## Configuration
 

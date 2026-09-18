@@ -61,16 +61,6 @@ export function stripLocaleFromPathname(pathname: string): {
   }
 }
 
-function prefixLocalePathname(locale: LocaleCode, pathname: string, includeDefaultLocale = true) {
-  const normalized = pathname === '/' ? '/' : pathname.replace(/\/+$/, '')
-
-  if (!includeDefaultLocale && locale === defaultLocale) {
-    return normalized
-  }
-
-  return normalized === '/' ? `/${locale}` : `/${locale}${normalized}`
-}
-
 function isLocalizedInternalPathname(pathname: string) {
   const firstSegment = pathname.split(/[?#]/, 1)[0].split('/').filter(Boolean)[0]
   return Boolean(firstSegment && isLocaleCode(firstSegment))
@@ -130,7 +120,10 @@ export function normalizeCallbackUrl(
 
 export function localizeUrl(baseUrl: string, locale: LocaleInput, pathname: string) {
   assertCanonicalInternalPathname(pathname)
-  return `${baseUrl.replace(/\/+$/, '')}${prefixLocalePathname(normalizeLocaleCode(locale), pathname)}`
+  const suffixIndex = pathname.search(/[?#]/)
+  const path = suffixIndex < 0 ? pathname : pathname.slice(0, suffixIndex)
+  const suffix = suffixIndex < 0 ? '' : pathname.slice(suffixIndex)
+  return `${baseUrl.replace(/\/+$/, '')}/${normalizeLocaleCode(locale)}${path.replace(/\/+$/, '')}${suffix}`
 }
 
 export function localizeSiteUrl(locale: LocaleCode, pathname: string) {
@@ -138,8 +131,7 @@ export function localizeSiteUrl(locale: LocaleCode, pathname: string) {
 }
 
 export function localizeDocsUrl(locale: LocaleCode, pathname = '/') {
-  assertCanonicalInternalPathname(pathname)
-  return `${DOCS_BASE_URL}${prefixLocalePathname(locale, pathname, false)}`
+  return localizeUrl(DOCS_BASE_URL, locale, pathname)
 }
 
 export function getOpenGraphLocale(locale: LocaleCode) {

@@ -1,0 +1,168 @@
+---
+title: 定时触发器
+description: 按计划触发工作流执行
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="schedule"
+  color=""
+/>
+
+按计划触发工作流执行
+
+<Callout type="info">
+  这是**基于计划**的触发器。TradingGoose 会按配置的计划运行工作流。
+</Callout>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="定时"
+    type="schedule"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "scheduleType",
+            "type": "dropdown",
+            "title": "运行频率",
+            "required": true,
+            "options": [
+                {
+                    "id": "minutes",
+                    "label": "每 X 分钟"
+                },
+                {
+                    "id": "hourly",
+                    "label": "每小时"
+                },
+                {
+                    "id": "daily",
+                    "label": "每天"
+                },
+                {
+                    "id": "weekly",
+                    "label": "每周"
+                },
+                {
+                    "id": "monthly",
+                    "label": "每月"
+                },
+                {
+                    "id": "custom",
+                    "label": "自定义 Cron"
+                }
+            ],
+            "defaultValue": "daily"
+        },
+        {
+            "id": "minutesInterval",
+            "type": "short-input",
+            "title": "间隔（分钟）",
+            "placeholder": "15",
+            "required": true,
+            "description": "当 scheduleType 为 'minutes' 时显示。"
+        },
+        {
+            "id": "hourlyMinute",
+            "type": "short-input",
+            "title": "分钟",
+            "placeholder": "0-59",
+            "required": true,
+            "description": "当 scheduleType 为 'hourly' 时显示。"
+        },
+        {
+            "id": "dailyTime",
+            "type": "time-input",
+            "title": "时间",
+            "required": true,
+            "description": "当 scheduleType 为 'daily' 时显示。"
+        },
+        {
+            "id": "weeklyDay",
+            "type": "dropdown",
+            "title": "星期",
+            "required": true,
+            "options": [
+                {
+                    "id": "MON",
+                    "label": "周一"
+                },
+                {
+                    "id": "TUE",
+                    "label": "周二"
+                },
+                {
+                    "id": "WED",
+                    "label": "周三"
+                },
+                {
+                    "id": "THU",
+                    "label": "周四"
+                },
+                {
+                    "id": "FRI",
+                    "label": "周五"
+                },
+                {
+                    "id": "SAT",
+                    "label": "周六"
+                },
+                {
+                    "id": "SUN",
+                    "label": "周日"
+                }
+            ],
+            "description": "当 scheduleType 为 'weekly' 时显示。"
+        },
+        {
+            "id": "weeklyDayTime",
+            "type": "time-input",
+            "title": "时间",
+            "required": true,
+            "description": "当 scheduleType 为 'weekly' 时显示。"
+        },
+        {
+            "id": "monthlyDay",
+            "type": "short-input",
+            "title": "日期",
+            "placeholder": "1-31",
+            "required": true,
+            "description": "当 scheduleType 为 'monthly' 时显示。"
+        },
+        {
+            "id": "monthlyTime",
+            "type": "time-input",
+            "title": "时间",
+            "required": true,
+            "description": "当 scheduleType 为 'monthly' 时显示。"
+        },
+        {
+            "id": "cronExpression",
+            "type": "short-input",
+            "title": "Cron 表达式",
+            "placeholder": "0 0 * * *",
+            "required": true,
+            "description": "当 scheduleType 为 'custom' 时显示。"
+        },
+        {
+            "id": "timezone",
+            "type": "dropdown",
+            "title": "时区",
+            "required": false,
+            "defaultValue": "UTC",
+            "description": "当 scheduleType 不是 'minutes' 或 'hourly' 时显示。"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 输出架构
+
+此触发器未声明额外输出字段。

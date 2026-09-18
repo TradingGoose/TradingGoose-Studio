@@ -1,0 +1,72 @@
+---
+title: Webhooks
+description: Activa workflows desde solicitudes HTTP de webhook externas
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="generic_webhook"
+  color=""
+  icon={true}
+/>
+
+Los webhooks permiten que servicios externos activen la ejecución de un workflow enviando solicitudes HTTP. TradingGoose admite dos enfoques para triggers basados en webhook.
+
+<Callout type="info">
+  Este es un trigger **basado en webhook**. Configura la URL del webhook en tu servicio externo para enviar eventos a TradingGoose.
+</Callout>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Webhook genérico"
+    type="generic_webhook"
+    hideHeader
+    subBlocks={[
+      { "id": "webhookUrlDisplay", "title": "Webhook URL", "type": "short-input", "description": "Copy the generated endpoint into the external service" },
+      { "id": "requireAuth", "title": "Require Authentication", "type": "switch", "defaultValue": false },
+      { "id": "token", "title": "Authentication Token", "type": "short-input", "password": true },
+      { "id": "secretHeaderName", "title": "Secret Header Name (Optional)", "type": "short-input", "placeholder": "X-Secret-Key" },
+      { "id": "inputFormat", "title": "Input Format", "type": "input-format", "description": "Optional expected JSON schema" }
+    ]}
+  />
+</ShowcaseCard>
+
+Activa **Require Authentication** y configura **Authentication Token** para exigir un token. Sin Secret Header Name, envía `Authorization: Bearer TOKEN`; de lo contrario, usa el encabezado personalizado. Guarda el disparador y despliega el flujo antes de enviar solicitudes externas. La respuesta confirma la puesta en cola, no la finalización del flujo.
+
+### Cómo funciona
+
+1. **Agregar bloque Generic Webhook** — Arrastra el bloque Generic Webhook para iniciar tu workflow
+2. **Obtener URL del webhook** — Copia el endpoint único generado automáticamente
+3. **Integración externa** — Configura tu servicio externo para enviar solicitudes POST a esta URL
+4. **Ejecución** — Las solicitudes aceptadas encolan una ejecución del flujo desplegado.
+
+### Características
+
+- **Payload flexible** — Acepta cualquier estructura de payload JSON
+- **Parseo automático** — Los datos del webhook se parsean automáticamente y quedan disponibles para los bloques siguientes
+- **Autenticación** — Autenticación opcional con bearer token o encabezado personalizado
+- **Limitación de tasa** — Protección integrada contra abusos
+
+## Modo trigger para bloques de servicio
+
+Como alternativa, puedes usar bloques de servicio específicos (como Slack, GitHub, etc.) en "modo trigger" para crear endpoints de webhook más especializados.
+
+**Usa Generic Webhook cuando:**
+- Integres con aplicaciones o servicios personalizados
+- Necesites la máxima flexibilidad en la estructura del payload
+- Trabajes con servicios que no tienen bloques dedicados
+
+**Usa Trigger Mode cuando:**
+- Trabajes con servicios compatibles (Slack, GitHub, etc.)
+- Quieras un filtrado de eventos específico del servicio
+- Necesites el registro automático de webhooks
+
+<Callout>
+Solo las solicitudes válidas y aceptadas activan ejecuciones. La autenticación, el estado del despliegue y los límites de la plataforma pueden rechazar solicitudes antes de encolarlas.
+</Callout>

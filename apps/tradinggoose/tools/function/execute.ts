@@ -116,7 +116,7 @@ export const functionExecuteTool: ToolConfig<CodeExecutionInput, CodeExecutionOu
   },
 
   outputs: {
-    result: { type: 'string', description: 'The result of the code execution' },
+    result: { type: 'json', description: 'The returned value of the code execution.' },
     stdout: { type: 'string', description: 'The standard output of the code execution' },
   },
 }

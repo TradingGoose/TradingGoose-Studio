@@ -1,0 +1,140 @@
+---
+title: RSS 触发器
+description: 当 RSS 源发布新条目时触发
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="rss"
+  color=""
+/>
+
+当 RSS 源发布新条目时触发
+
+<Callout type="info">
+  这是**轮询型**触发器。TradingGoose 会按固定间隔检查来源是否出现匹配的变更。
+</Callout>
+
+## 设置说明
+
+<div class="mb-3"><strong>1.</strong> 输入要监控的任意 RSS 或 Atom 源 URL</div><div class="mb-3"><strong>2.</strong> 系统每分钟检查该源是否有新条目</div><div class="mb-3"><strong>3.</strong> 发布新条目时，工作流会被触发，并带上该条目的数据</div>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="RSS 源触发器"
+    type="rss_poller"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "feedUrl",
+            "type": "short-input",
+            "title": "源 URL",
+            "placeholder": "https://example.com/feed.xml",
+            "description": "要监控的 RSS 或 Atom 源 URL",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 输出结构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "item",
+          "type": "object",
+          "children": [
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "条目标题"
+              },
+              {
+                  "name": "link",
+                  "type": "string",
+                  "description": "条目链接/URL"
+              },
+              {
+                  "name": "pubDate",
+                  "type": "string",
+                  "description": "发布日期"
+              },
+              {
+                  "name": "guid",
+                  "type": "string",
+                  "description": "唯一标识符"
+              },
+              {
+                  "name": "summary",
+                  "type": "string",
+                  "description": "条目描述/摘要"
+              },
+              {
+                  "name": "content",
+                  "type": "string",
+                  "description": "完整内容（content:encoded）"
+              },
+              {
+                  "name": "contentSnippet",
+                  "type": "string",
+                  "description": "不含 HTML 的内容摘要"
+              },
+              {
+                  "name": "author",
+                  "type": "string",
+                  "description": "作者名称"
+              },
+              {
+                  "name": "categories",
+                  "type": "json",
+                  "description": "分类/标签数组"
+              },
+              {
+                  "name": "enclosure",
+                  "type": "json",
+                  "description": "媒体附件信息（url、type、length）"
+              },
+              {
+                  "name": "isoDate",
+                  "type": "string",
+                  "description": "ISO 格式的发布日期"
+              }
+          ]
+      },
+      {
+          "name": "feed",
+          "type": "object",
+          "children": [
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "源标题"
+              },
+              {
+                  "name": "link",
+                  "type": "string",
+                  "description": "源网站链接"
+              },
+              {
+                  "name": "feedDescription",
+                  "type": "string",
+                  "description": "源描述"
+              }
+          ]
+      },
+      {
+          "name": "timestamp",
+          "type": "string",
+          "description": "事件时间戳"
+      }
+  ]}
+/>

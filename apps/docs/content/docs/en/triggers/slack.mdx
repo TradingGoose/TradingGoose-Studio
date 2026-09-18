@@ -18,7 +18,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 Trigger workflow from Slack events like mentions, messages, and reactions
 
 <Callout type="info">
-  This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
+  This is a **webhook-based** trigger. Configure the external service to send events to the workflow webhook URL.
 </Callout>
 
 <Cards>
@@ -27,6 +27,10 @@ Trigger workflow from Slack events like mentions, messages, and reactions
   </Card>
 </Cards>
 
+
+## Setup Instructions
+
+<div class="mb-3"><strong>1.</strong> Go to <a href="https://api.slack.com/apps" target="_blank" rel="noopener noreferrer" class="text-muted-foreground underline transition-colors hover:text-muted-foreground/80">Slack Apps page</a></div><div class="mb-3"><strong>2.</strong> If you don't have an app:<br /><ul class="mt-1 ml-5 list-disc"><li>Create an app from scratch</li><li>Give it a name and select your workspace</li></ul></div><div class="mb-3"><strong>3.</strong> Go to "Basic Information", find the "Signing Secret", and paste it in the field above.</div><div class="mb-3"><strong>4.</strong> Go to "OAuth & Permissions" and add bot token scopes:<br /><ul class="mt-1 ml-5 list-disc"><li><code>app_mentions:read</code> - For viewing messages that tag your bot with an @</li><li><code>chat:write</code> - To send messages to channels your bot is a part of</li></ul></div><div class="mb-3"><strong>5.</strong> Go to "Event Subscriptions":<br /><ul class="mt-1 ml-5 list-disc"><li>Enable events</li><li>Under "Subscribe to Bot Events", add <code>app_mention</code> to listen to messages that mention your bot</li><li>Paste the Webhook URL above into the "Request URL" field</li></ul></div><div class="mb-3"><strong>6.</strong> Go to "Install App" in the left sidebar and install the app into your desired Slack workspace and channel.</div><div class="mb-3"><strong>7.</strong> Save changes in both Slack and here.</div>
 
 ## Configuration
 
@@ -42,14 +46,14 @@ Trigger workflow from Slack events like mentions, messages, and reactions
             "title": "Signing Secret",
             "placeholder": "Enter your Slack app signing secret",
             "description": "The signing secret from your Slack app to validate request authenticity.",
-            "required": true,
-            "password": true
+            "password": true,
+            "required": true
         }
     ]}
   />
 </ShowcaseCard>
 
-#### Output Schema
+## Output Schema
 
 <SchemaTree
   title="Event Payload"
@@ -57,7 +61,6 @@ Trigger workflow from Slack events like mentions, messages, and reactions
       {
           "name": "event",
           "type": "object",
-          "description": "event",
           "children": [
               {
                   "name": "event_type",
@@ -113,5 +116,3 @@ Trigger workflow from Slack events like mentions, messages, and reactions
       }
   ]}
 />
-
-

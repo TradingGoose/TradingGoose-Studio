@@ -9,6 +9,7 @@ import {
   type ReactNode,
   useImperativeHandle,
 } from 'react'
+import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
@@ -21,6 +22,7 @@ import {
 } from '@/lib/yjs/dashboard-layout-session'
 import { DashboardClient } from '@/app/workspace/[workspaceId]/dashboard/dashboard-client'
 import type { LayoutTab } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
+import { type LocaleCode, locales } from '@/i18n/utils'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { DashboardLayoutTopologyNode } from '@/widgets/layout-document'
 import type { PairColor } from '@/widgets/pair-colors'
@@ -31,6 +33,8 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 const copilotContextMocks = vi.hoisted(() => ({ publishDashboardContext: vi.fn() }))
 
 const mockFetch = vi.fn()
+const mockRouterPush = vi.fn()
+let mockDocumentationUrl = 'https://docs.tradinggoose.ai/'
 let mockSelectLayout: ((layoutId: string) => void) | null = null
 let mockLayoutTabsLayouts: LayoutTab[] = []
 let mockDashboardLayoutList: {
@@ -58,14 +62,25 @@ let mockResizeHandleProps: MockResizeHandleProps | undefined
 
 vi.mock('@/i18n/navigation', () => ({
   useRouter: () => ({
-    push: vi.fn(),
+    push: mockRouterPush,
   }),
 }))
 
 vi.mock('@/lib/branding/branding', () => ({
   useBrandConfig: () => ({
-    documentationUrl: 'https://docs.tradinggoose.ai/',
+    documentationUrl: mockDocumentationUrl,
   }),
+}))
+
+vi.mock('@/blocks', () => ({
+  getAllBlocks: () => [
+    {
+      type: 'agent',
+      name: 'Agent docs',
+      docsLink: 'https://docs.tradinggoose.ai/blocks/agent?tab=usage#examples',
+    },
+    { type: 'external', name: 'External docs', docsLink: 'https://docs.example.com/guide' },
+  ],
 }))
 
 vi.mock('@/hooks/use-knowledge', () => ({
@@ -149,7 +164,12 @@ vi.mock(
 )
 
 vi.mock('@/global-navbar', () => ({
-  GlobalNavbarHeader: ({ center }: { center?: ReactNode }) => <>{center}</>,
+  GlobalNavbarHeader: ({ left, center }: { left?: ReactNode; center?: ReactNode }) => (
+    <>
+      {left}
+      {center}
+    </>
+  ),
 }))
 
 vi.mock('@/global-navbar/copilot-context', () => ({
@@ -269,21 +289,25 @@ describe('DashboardClient', () => {
     workspaceId = 'ws-a',
     ownerUserId = 'user-a',
     layoutId = 'layout-a',
+    locale = 'en',
   }: {
     topology: DashboardLayoutTopologyNode
     workspaceId?: string
     ownerUserId?: string
     layoutId?: string
+    locale?: LocaleCode
   }) {
     await act(async () => {
       root.render(
-        <DashboardClient
-          initialTopology={topology}
-          workspaceId={workspaceId}
-          ownerUserId={ownerUserId}
-          layoutId={layoutId}
-          initialLayouts={createLayouts(layoutId)}
-        />
+        <NextIntlClientProvider locale={locale}>
+          <DashboardClient
+            initialTopology={topology}
+            workspaceId={workspaceId}
+            ownerUserId={ownerUserId}
+            layoutId={layoutId}
+            initialLayouts={createLayouts(layoutId)}
+          />
+        </NextIntlClientProvider>
       )
     })
   }
@@ -294,6 +318,7 @@ describe('DashboardClient', () => {
     document.body.appendChild(container)
     root = createRoot(container)
     vi.clearAllMocks()
+    mockDocumentationUrl = 'https://docs.tradinggoose.ai/'
     mockFetch.mockResolvedValue({ ok: true, json: async () => ({ workspaces: [] }) })
     mockSelectLayout = null
     mockLayoutTabsLayouts = []
@@ -313,6 +338,45 @@ describe('DashboardClient', () => {
     resetDashboardStores()
     vi.stubGlobal('fetch', mockFetch)
   })
+
+  it.each<[LocaleCode, string?]>([
+    ...locales.map((locale): [LocaleCode] => [locale]),
+    ['en', 'https://brand.example.com/manual?lang=custom#start'],
+  ])(
+    'opens %s dashboard docs with brand override %s without changing external destinations',
+    async (locale, customDocsUrl) => {
+      if (customDocsUrl) mockDocumentationUrl = customDocsUrl
+      const open = vi.spyOn(window, 'open').mockReturnValue(null)
+      try {
+        await renderDashboard({ topology: createPanelLayout('panel-a', 'wf-a'), locale })
+        for (const [label, expectedUrl, newTab] of [
+          ['Docs', customDocsUrl ?? `https://docs.tradinggoose.ai/${locale}`, false],
+          [
+            'Agent docs',
+            `https://docs.tradinggoose.ai/${locale}/blocks/agent?tab=usage#examples`,
+            true,
+          ],
+          ['External docs', 'https://docs.example.com/guide', true],
+        ] as const) {
+          await act(async () => {
+            container
+              .querySelector('input')!
+              .dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+          })
+          const button = Array.from(container.querySelectorAll('button')).find(
+            (candidate) => candidate.textContent === label
+          )
+          expect(button).toBeDefined()
+          await act(async () => button!.click())
+          if (newTab)
+            expect(open).toHaveBeenLastCalledWith(expectedUrl, '_blank', 'noopener,noreferrer')
+          else expect(mockRouterPush).toHaveBeenLastCalledWith(expectedUrl)
+        }
+      } finally {
+        open.mockRestore()
+      }
+    }
+  )
 
   afterEach(() => {
     act(() => {

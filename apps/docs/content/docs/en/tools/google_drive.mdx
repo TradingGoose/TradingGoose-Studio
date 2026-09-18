@@ -30,25 +30,25 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "create_folder",
             "options": [
                 {
-                    "label": "Create Folder",
-                    "id": "create_folder"
+                    "id": "create_folder",
+                    "label": "Create Folder"
                 },
                 {
-                    "label": "Create File",
-                    "id": "create_file"
+                    "id": "create_file",
+                    "label": "Create File"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "upload"
+                    "id": "upload",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "List Files",
-                    "id": "list"
+                    "id": "list",
+                    "label": "List Files"
                 }
-            ],
-            "defaultValue": "create_folder"
+            ]
         },
         {
             "id": "credential",
@@ -58,13 +58,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "placeholder": "Select Google Drive account",
             "provider": "google-drive",
             "required": true
-        },
-        {
-            "id": "fileId",
-            "type": "short-input",
-            "title": "Or Enter File ID Manually",
-            "layout": "full",
-            "placeholder": "ID of the file to get content from"
         },
         {
             "id": "fileName",
@@ -103,12 +96,13 @@ Create a new folder in Google Drive
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `fileName` | string | Yes | Name of the folder to create |
-| `folderSelector` | string | No | Select the parent folder to create the folder in |
-| `folderId` | string | No | ID of the parent folder \(internal use\) |
+| `folderId` | string | No | ID of the parent folder |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `file` | json | Created folder metadata including ID, name, and parent information |
 
 </div>
 
@@ -130,25 +124,25 @@ Refer to the block outputs for this operation.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "create_file",
             "options": [
                 {
-                    "label": "Create Folder",
-                    "id": "create_folder"
+                    "id": "create_folder",
+                    "label": "Create Folder"
                 },
                 {
-                    "label": "Create File",
-                    "id": "create_file"
+                    "id": "create_file",
+                    "label": "Create File"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "upload"
+                    "id": "upload",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "List Files",
-                    "id": "list"
+                    "id": "list",
+                    "label": "List Files"
                 }
-            ],
-            "defaultValue": "create_file"
+            ]
         },
         {
             "id": "credential",
@@ -158,13 +152,6 @@ Refer to the block outputs for this operation.
             "placeholder": "Select Google Drive account",
             "provider": "google-drive",
             "required": true
-        },
-        {
-            "id": "fileId",
-            "type": "short-input",
-            "title": "Or Enter File ID Manually",
-            "layout": "full",
-            "placeholder": "ID of the file to get content from"
         },
         {
             "id": "fileName",
@@ -188,34 +175,35 @@ Refer to the block outputs for this operation.
             "title": "MIME Type",
             "layout": "full",
             "placeholder": "Select file type",
+            "required": false,
             "options": [
                 {
-                    "label": "Plain Text (text/plain)",
-                    "id": "text/plain"
+                    "id": "text/plain",
+                    "label": "Plain Text (text/plain)"
                 },
                 {
-                    "label": "Google Doc",
-                    "id": "application/vnd.google-apps.document"
+                    "id": "application/vnd.google-apps.document",
+                    "label": "Google Doc"
                 },
                 {
-                    "label": "Google Sheet",
-                    "id": "application/vnd.google-apps.spreadsheet"
+                    "id": "application/vnd.google-apps.spreadsheet",
+                    "label": "Google Sheet"
                 },
                 {
-                    "label": "Google Slides",
-                    "id": "application/vnd.google-apps.presentation"
+                    "id": "application/vnd.google-apps.presentation",
+                    "label": "Google Slides"
                 },
                 {
-                    "label": "HTML (text/html)",
-                    "id": "text/html"
+                    "id": "text/html",
+                    "label": "HTML (text/html)"
                 },
                 {
-                    "label": "CSV (text/csv)",
-                    "id": "text/csv"
+                    "id": "text/csv",
+                    "label": "CSV (text/csv)"
                 },
                 {
-                    "label": "PDF (application/pdf)",
-                    "id": "application/pdf"
+                    "id": "application/pdf",
+                    "label": "PDF (application/pdf)"
                 }
             ]
         },
@@ -239,12 +227,24 @@ Refer to the block outputs for this operation.
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Create File (<code>google_drive_upload</code>)</div>
+
+Upload a file to Google Drive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `fileName` | string | Yes | The name of the file to upload |
+| `file` | file | No | Binary file to upload \(UserFile object\) |
+| `content` | string | No | Text content to upload \(use this OR file, not both\) |
+| `folderId` | string | No | The ID of the folder to upload the file to |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `file` | json | File data |
-| `files` | json | Files list |
+| `file` | json | Uploaded file metadata including ID, name, and links |
 
 </div>
 
@@ -266,25 +266,25 @@ Refer to the block outputs for this operation.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "upload",
             "options": [
                 {
-                    "label": "Create Folder",
-                    "id": "create_folder"
+                    "id": "create_folder",
+                    "label": "Create Folder"
                 },
                 {
-                    "label": "Create File",
-                    "id": "create_file"
+                    "id": "create_file",
+                    "label": "Create File"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "upload"
+                    "id": "upload",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "List Files",
-                    "id": "list"
+                    "id": "list",
+                    "label": "List Files"
                 }
-            ],
-            "defaultValue": "upload"
+            ]
         },
         {
             "id": "credential",
@@ -294,13 +294,6 @@ Refer to the block outputs for this operation.
             "placeholder": "Select Google Drive account",
             "provider": "google-drive",
             "required": true
-        },
-        {
-            "id": "fileId",
-            "type": "short-input",
-            "title": "Or Enter File ID Manually",
-            "layout": "full",
-            "placeholder": "ID of the file to get content from"
         },
         {
             "id": "fileName",
@@ -315,14 +308,16 @@ Refer to the block outputs for this operation.
             "type": "file-upload",
             "title": "Upload File",
             "layout": "full",
-            "placeholder": "Upload a file to Google Drive"
+            "placeholder": "Upload a file to Google Drive",
+            "required": false
         },
         {
             "id": "file",
             "type": "short-input",
             "title": "File Reference",
             "layout": "full",
-            "placeholder": "Reference file from previous block (e.g., {{block_name.file}})"
+            "placeholder": "Reference file from previous block (e.g., {{block_name.file}})",
+            "required": false
         },
         {
             "id": "folderSelector",
@@ -355,13 +350,13 @@ Upload a file to Google Drive
 | `fileName` | string | Yes | The name of the file to upload |
 | `file` | file | No | Binary file to upload \(UserFile object\) |
 | `content` | string | No | Text content to upload \(use this OR file, not both\) |
-| `mimeType` | string | No | The MIME type of the file to upload \(auto-detected from file if not provided\) |
-| `folderSelector` | string | No | Select the folder to upload the file to |
-| `folderId` | string | No | The ID of the folder to upload the file to \(internal use\) |
+| `folderId` | string | No | The ID of the folder to upload the file to |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `file` | json | Uploaded file metadata including ID, name, and links |
 
 </div>
 
@@ -383,25 +378,25 @@ Refer to the block outputs for this operation.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "list",
             "options": [
                 {
-                    "label": "Create Folder",
-                    "id": "create_folder"
+                    "id": "create_folder",
+                    "label": "Create Folder"
                 },
                 {
-                    "label": "Create File",
-                    "id": "create_file"
+                    "id": "create_file",
+                    "label": "Create File"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "upload"
+                    "id": "upload",
+                    "label": "Upload File"
                 },
                 {
-                    "label": "List Files",
-                    "id": "list"
+                    "id": "list",
+                    "label": "List Files"
                 }
-            ],
-            "defaultValue": "list"
+            ]
         },
         {
             "id": "credential",
@@ -411,13 +406,6 @@ Refer to the block outputs for this operation.
             "placeholder": "Select Google Drive account",
             "provider": "google-drive",
             "required": true
-        },
-        {
-            "id": "fileId",
-            "type": "short-input",
-            "title": "Or Enter File ID Manually",
-            "layout": "full",
-            "placeholder": "ID of the file to get content from"
         },
         {
             "id": "folderSelector",
@@ -446,8 +434,7 @@ Refer to the block outputs for this operation.
             "type": "short-input",
             "title": "Results Per Page",
             "layout": "full",
-            "placeholder": "Number of results (default: 100, max: 1000)",
-            "max": 1000
+            "placeholder": "Number of results (default: 100, max: 1000)"
         }
     ]}
   />
@@ -462,15 +449,15 @@ List files and folders in Google Drive
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `folderSelector` | string | No | Select the folder to list files from |
-| `folderId` | string | No | The ID of the folder to list files from \(internal use\) |
+| `folderId` | string | No | The ID of the folder to list files from |
 | `query` | string | No | A query to filter the files |
 | `pageSize` | number | No | The number of files to return |
-| `pageToken` | string | No | The page token to use for pagination |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `files` | json | Array of file metadata objects from the specified folder |
 
 </div>
 

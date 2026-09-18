@@ -1,0 +1,798 @@
+---
+title: Telegram
+description: Interactuar con Telegram
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="telegram"
+  color="#24A1DE"
+/>
+
+<Cards>
+  <Card title="Usar como activador" href="/triggers/telegram">
+    Consulta los eventos del activador, la configuración y los payloads de eventos de Telegram.
+  </Card>
+</Cards>
+
+## Configuración
+
+### Enviar mensaje
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color="#24A1DE"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "telegram_message",
+            "options": [
+                {
+                    "id": "telegram_message",
+                    "label": "Enviar mensaje"
+                },
+                {
+                    "id": "telegram_send_photo",
+                    "label": "Enviar foto"
+                },
+                {
+                    "id": "telegram_send_video",
+                    "label": "Enviar vídeo"
+                },
+                {
+                    "id": "telegram_send_audio",
+                    "label": "Enviar audio"
+                },
+                {
+                    "id": "telegram_send_animation",
+                    "label": "Enviar animación"
+                },
+                {
+                    "id": "telegram_send_document",
+                    "label": "Enviar documento"
+                },
+                {
+                    "id": "telegram_delete_message",
+                    "label": "Eliminar mensaje"
+                }
+            ]
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Token del bot",
+            "layout": "full",
+            "placeholder": "Introduce el token de tu bot de Telegram",
+            "description": "Cómo obtener el token del bot:\n1. Si aún no lo has hecho, envía el mensaje \"/newbot\" a @BotFather\n2. Elige un nombre para tu bot\n3. Copia el token que te proporciona y pégalo aquí",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "ID del chat",
+            "layout": "full",
+            "placeholder": "Introduce el ID de chat de Telegram",
+            "description": "Cómo obtener el ID del chat:\n1. Añade tu bot como miembro al canal de Telegram deseado\n2. Envía cualquier mensaje al canal (p. ej. \"Me encanta TradingGoose\")\n3. Visita https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates\n4. Busca el campo chat en la respuesta JSON, al final, donde encontrarás el ID del chat",
+            "required": true
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Mensaje",
+            "layout": "full",
+            "placeholder": "Introduce el mensaje que enviar",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Enviar mensaje (<code>telegram_message</code>)</div>
+
+Envía mensajes a canales o usuarios de Telegram a través de la Telegram Bot API. Permite la comunicación directa y las notificaciones, con seguimiento de mensajes y confirmación del chat.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | string | Sí | Tu token de la API de Telegram Bot |
+| `chatId` | string | Sí | ID del chat de Telegram de destino |
+| `text` | string | Sí | Texto del mensaje a enviar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de éxito o error |
+| `data` | object | Datos del mensaje de Telegram |
+
+</div>
+
+---
+
+### Enviar foto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color="#24A1DE"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "telegram_send_photo",
+            "options": [
+                {
+                    "id": "telegram_message",
+                    "label": "Enviar mensaje"
+                },
+                {
+                    "id": "telegram_send_photo",
+                    "label": "Enviar foto"
+                },
+                {
+                    "id": "telegram_send_video",
+                    "label": "Enviar vídeo"
+                },
+                {
+                    "id": "telegram_send_audio",
+                    "label": "Enviar audio"
+                },
+                {
+                    "id": "telegram_send_animation",
+                    "label": "Enviar animación"
+                },
+                {
+                    "id": "telegram_send_document",
+                    "label": "Enviar documento"
+                },
+                {
+                    "id": "telegram_delete_message",
+                    "label": "Eliminar mensaje"
+                }
+            ]
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Token del bot",
+            "layout": "full",
+            "placeholder": "Introduce el token del bot de Telegram",
+            "description": "Obtener el token del bot:\n1. Si aún no lo has hecho, envía \"/newbot\" a @BotFather\n2. Elige un nombre para tu bot\n3. Copia el token que te proporciona y pégalo aquí",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "ID del chat",
+            "layout": "full",
+            "placeholder": "Introduce el ID del chat de Telegram",
+            "description": "Obtener el ID del chat:\n1. Añade tu bot como miembro al canal de Telegram deseado\n2. Envía cualquier mensaje al canal (p. ej., \"Me encanta TradingGoose\")\n3. Visita https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates\n4. Busca el campo chat en la respuesta JSON, al final, donde encontrarás el ID del chat",
+            "required": true
+        },
+        {
+            "id": "photo",
+            "type": "short-input",
+            "title": "Foto",
+            "layout": "full",
+            "placeholder": "Introduce la URL de la foto o el file_id",
+            "description": "Foto que se enviará. Pasa un file_id o una URL HTTP",
+            "required": true
+        },
+        {
+            "id": "caption",
+            "type": "long-input",
+            "title": "Leyenda",
+            "layout": "full",
+            "placeholder": "Introduce una leyenda opcional",
+            "description": "Leyenda del medio (opcional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Enviar foto (<code>telegram_send_photo</code>)</div>
+
+Envía fotos a canales o usuarios de Telegram a través de Telegram Bot API.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | string | Sí | Tu token de Telegram Bot API |
+| `chatId` | string | Sí | ID de chat de Telegram de destino |
+| `photo` | string | Sí | Foto que se enviará. Pasa un file_id o una URL HTTP |
+| `caption` | string | No | Pie de foto \(opcional\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de éxito o error |
+| `data` | object | Datos del mensaje de Telegram, incluidas las foto\(s\) opcionales |
+
+</div>
+
+---
+
+### Enviar vídeo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color="#24A1DE"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "telegram_send_video",
+            "options": [
+                {
+                    "id": "telegram_message",
+                    "label": "Enviar mensaje"
+                },
+                {
+                    "id": "telegram_send_photo",
+                    "label": "Enviar foto"
+                },
+                {
+                    "id": "telegram_send_video",
+                    "label": "Enviar vídeo"
+                },
+                {
+                    "id": "telegram_send_audio",
+                    "label": "Enviar audio"
+                },
+                {
+                    "id": "telegram_send_animation",
+                    "label": "Enviar animación"
+                },
+                {
+                    "id": "telegram_send_document",
+                    "label": "Enviar documento"
+                },
+                {
+                    "id": "telegram_delete_message",
+                    "label": "Eliminar mensaje"
+                }
+            ]
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Token del bot",
+            "layout": "full",
+            "placeholder": "Introduce el token de tu bot de Telegram",
+            "description": "Obtener el token del bot:\n1. Si aún no lo has hecho, envía \"/newbot\" a @BotFather\n2. Elige un nombre para tu bot\n3. Copia el token que te proporciona y pégalo aquí",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "ID de chat",
+            "layout": "full",
+            "placeholder": "Introduce el ID de chat de Telegram",
+            "description": "Obtener el ID de chat:\n1. Añade tu bot como miembro al canal de Telegram deseado\n2. Envía cualquier mensaje al canal (p. ej. \"Me encanta TradingGoose\")\n3. Visita https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates\n4. Busca el campo chat en la respuesta JSON, al final, donde encontrarás el ID de chat",
+            "required": true
+        },
+        {
+            "id": "video",
+            "type": "short-input",
+            "title": "Vídeo",
+            "layout": "full",
+            "placeholder": "Introduce la URL del vídeo o el file_id",
+            "description": "Vídeo que se enviará. Pasa un file_id o una URL HTTP",
+            "required": true
+        },
+        {
+            "id": "caption",
+            "type": "long-input",
+            "title": "Leyenda",
+            "layout": "full",
+            "placeholder": "Introduce una leyenda opcional",
+            "description": "Leyenda del medio (opcional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Enviar vídeo (<code>telegram_send_video</code>)</div>
+
+Envía vídeos a canales o usuarios de Telegram a través de la Telegram Bot API.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | string | Sí | Tu token de la Telegram Bot API |
+| `chatId` | string | Sí | ID del chat de Telegram de destino |
+| `video` | string | Sí | Vídeo que se enviará. Pasa un file_id o una URL HTTP |
+| `caption` | string | No | Leyenda del vídeo \(opcional\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de éxito o error |
+| `data` | object | Datos del mensaje de Telegram, incluido el contenido multimedia opcional |
+
+</div>
+
+---
+
+### Enviar audio
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color="#24A1DE"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "telegram_send_audio",
+            "options": [
+                {
+                    "id": "telegram_message",
+                    "label": "Enviar mensaje"
+                },
+                {
+                    "id": "telegram_send_photo",
+                    "label": "Enviar foto"
+                },
+                {
+                    "id": "telegram_send_video",
+                    "label": "Enviar vídeo"
+                },
+                {
+                    "id": "telegram_send_audio",
+                    "label": "Enviar audio"
+                },
+                {
+                    "id": "telegram_send_animation",
+                    "label": "Enviar animación"
+                },
+                {
+                    "id": "telegram_send_document",
+                    "label": "Enviar documento"
+                },
+                {
+                    "id": "telegram_delete_message",
+                    "label": "Eliminar mensaje"
+                }
+            ]
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Token del bot",
+            "layout": "full",
+            "placeholder": "Introduce el token de tu bot de Telegram",
+            "description": "Obtener el token del bot:\n1. Si aún no lo has hecho, envía \"/newbot\" a @BotFather\n2. Elige un nombre para tu bot\n3. Copia el token que te proporciona y pégalo aquí",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "ID del chat",
+            "layout": "full",
+            "placeholder": "Introduce el ID del chat de Telegram",
+            "description": "Obtener el ID del chat:\n1. Añade tu bot como miembro al canal de Telegram deseado\n2. Envía cualquier mensaje al canal (p. ej., \"Me encanta TradingGoose\")\n3. Visita https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates\n4. Busca el campo chat en la respuesta JSON, al final, donde encontrarás el ID del chat",
+            "required": true
+        },
+        {
+            "id": "audio",
+            "type": "short-input",
+            "title": "Audio",
+            "layout": "full",
+            "placeholder": "Introduce la URL del audio o el file_id",
+            "description": "Archivo de audio que se enviará. Pasa un file_id o una URL HTTP",
+            "required": true
+        },
+        {
+            "id": "caption",
+            "type": "long-input",
+            "title": "Leyenda",
+            "layout": "full",
+            "placeholder": "Introduce una leyenda opcional",
+            "description": "Leyenda del contenido multimedia (opcional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Enviar audio (<code>telegram_send_audio</code>)</div>
+
+Envía archivos de audio a canales o usuarios de Telegram a través de la Telegram Bot API.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | string | Sí | Token de la API de tu bot de Telegram |
+| `chatId` | string | Sí | ID del chat de Telegram de destino |
+| `audio` | string | Sí | Archivo de audio que se enviará. Pasa un file_id o una URL HTTP |
+| `caption` | string | No | Leyenda del audio \(opcional\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de éxito o error |
+| `data` | object | Datos del mensaje de Telegram, incluida la información de voz/audio |
+
+</div>
+
+---
+
+### Enviar animación
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color="#24A1DE"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "telegram_send_animation",
+            "options": [
+                {
+                    "id": "telegram_message",
+                    "label": "Enviar mensaje"
+                },
+                {
+                    "id": "telegram_send_photo",
+                    "label": "Enviar foto"
+                },
+                {
+                    "id": "telegram_send_video",
+                    "label": "Enviar vídeo"
+                },
+                {
+                    "id": "telegram_send_audio",
+                    "label": "Enviar audio"
+                },
+                {
+                    "id": "telegram_send_animation",
+                    "label": "Enviar animación"
+                },
+                {
+                    "id": "telegram_send_document",
+                    "label": "Enviar documento"
+                },
+                {
+                    "id": "telegram_delete_message",
+                    "label": "Eliminar mensaje"
+                }
+            ]
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Token del bot",
+            "layout": "full",
+            "placeholder": "Introduce el token de tu bot de Telegram",
+            "description": "Obtener el token del bot:\n1. Si aún no lo has hecho, envía el mensaje \"/newbot\" a @BotFather\n2. Elige un nombre para tu bot\n3. Copia el token que te proporciona y pégalo aquí",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "ID del chat",
+            "layout": "full",
+            "placeholder": "Introduce el ID del chat de Telegram",
+            "description": "Obtener el ID del chat:\n1. Añade tu bot como miembro al canal de Telegram deseado\n2. Envía cualquier mensaje al canal (p. ej., \"Me encanta TradingGoose\")\n3. Visita https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates\n4. Busca el campo chat en la respuesta JSON, al final, donde encontrarás el ID del chat",
+            "required": true
+        },
+        {
+            "id": "animation",
+            "type": "short-input",
+            "title": "Animación",
+            "layout": "full",
+            "placeholder": "Introduce la URL de la animación o el file_id",
+            "description": "Animación (GIF) que se enviará. Pasa un file_id o una URL HTTP",
+            "required": true
+        },
+        {
+            "id": "caption",
+            "type": "long-input",
+            "title": "Leyenda",
+            "layout": "full",
+            "placeholder": "Introduce una leyenda opcional",
+            "description": "Leyenda del contenido (opcional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Enviar animación (<code>telegram_send_animation</code>)</div>
+
+Envía animaciones (GIF) a canales o usuarios de Telegram a través de la Telegram Bot API.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | string | Sí | Tu token de Telegram Bot API |
+| `chatId` | string | Sí | ID del chat de Telegram de destino |
+| `animation` | string | Sí | Animación que se enviará. Pasa un file_id o una URL HTTP |
+| `caption` | string | No | Pie de animación \(opcional\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de éxito o error |
+| `data` | object | Datos del mensaje de Telegram, incluidos los medios opcionales |
+
+</div>
+
+---
+
+### Enviar documento
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color="#24A1DE"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "telegram_send_document",
+            "options": [
+                {
+                    "id": "telegram_message",
+                    "label": "Enviar mensaje"
+                },
+                {
+                    "id": "telegram_send_photo",
+                    "label": "Enviar foto"
+                },
+                {
+                    "id": "telegram_send_video",
+                    "label": "Enviar video"
+                },
+                {
+                    "id": "telegram_send_audio",
+                    "label": "Enviar audio"
+                },
+                {
+                    "id": "telegram_send_animation",
+                    "label": "Enviar animación"
+                },
+                {
+                    "id": "telegram_send_document",
+                    "label": "Enviar documento"
+                },
+                {
+                    "id": "telegram_delete_message",
+                    "label": "Eliminar mensaje"
+                }
+            ]
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Token del bot",
+            "layout": "full",
+            "placeholder": "Introduce el token de tu bot de Telegram",
+            "description": "Cómo obtener el token del bot:\n1. Si aún no lo has hecho, envía el mensaje \"/newbot\" a @BotFather\n2. Elige un nombre para tu bot\n3. Copia el token que te proporciona y pégalo aquí",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "ID de chat",
+            "layout": "full",
+            "placeholder": "Introduce el ID de chat de Telegram",
+            "description": "Cómo obtener el ID de chat:\n1. Añade tu bot como miembro al canal de Telegram deseado\n2. Envía cualquier mensaje al canal (p. ej., \"Me gusta TradingGoose\")\n3. Visita https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates\n4. Busca el campo chat en la respuesta JSON, al final, donde encontrarás el ID de chat",
+            "required": true
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "Documento",
+            "layout": "full",
+            "placeholder": "Sube el archivo de documento",
+            "description": "Archivo de documento que se enviará (PDF, ZIP, DOC, etc.). Tamaño máximo: 50 MB",
+            "required": false
+        },
+        {
+            "id": "files",
+            "type": "short-input",
+            "title": "Documento",
+            "layout": "full",
+            "placeholder": "Referencia un documento de bloques anteriores",
+            "description": "Referencia un archivo de documento de un bloque anterior",
+            "required": false
+        },
+        {
+            "id": "caption",
+            "type": "long-input",
+            "title": "Pie de foto",
+            "layout": "full",
+            "placeholder": "Introduce un pie de foto opcional",
+            "description": "Pie de foto del medio (opcional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Enviar documento (<code>telegram_send_document</code>)</div>
+
+Envía documentos (PDF, ZIP, DOC, etc.) a canales o usuarios de Telegram a través de la Telegram Bot API.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | string | Sí | Tu token de Telegram Bot API |
+| `chatId` | string | Sí | ID del chat de Telegram de destino |
+| `files` | file[] | No | Archivo de documento que se enviará \(PDF, ZIP, DOC, etc.\). Tamaño máximo: 50 MB |
+| `caption` | string | No | Leyenda del documento \(opcional\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de éxito o error |
+| `data` | object | Datos del mensaje de Telegram, incluido el documento |
+
+</div>
+
+---
+
+### Eliminar mensaje
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color="#24A1DE"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "telegram_delete_message",
+            "options": [
+                {
+                    "id": "telegram_message",
+                    "label": "Enviar mensaje"
+                },
+                {
+                    "id": "telegram_send_photo",
+                    "label": "Enviar foto"
+                },
+                {
+                    "id": "telegram_send_video",
+                    "label": "Enviar vídeo"
+                },
+                {
+                    "id": "telegram_send_audio",
+                    "label": "Enviar audio"
+                },
+                {
+                    "id": "telegram_send_animation",
+                    "label": "Enviar animación"
+                },
+                {
+                    "id": "telegram_send_document",
+                    "label": "Enviar documento"
+                },
+                {
+                    "id": "telegram_delete_message",
+                    "label": "Eliminar mensaje"
+                }
+            ]
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Token del bot",
+            "layout": "full",
+            "placeholder": "Introduce el token de tu bot de Telegram",
+            "description": "Obtener el token del bot:\n1. Si aún no lo has hecho, envía \"/newbot\" a @BotFather\n2. Elige un nombre para tu bot\n3. Copia el token que te proporciona y pégalo aquí",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "ID del chat",
+            "layout": "full",
+            "placeholder": "Introduce el ID del chat de Telegram",
+            "description": "Obtener el ID del chat:\n1. Añade tu bot como miembro al canal de Telegram deseado\n2. Envía cualquier mensaje al canal (p. ej. \"Me encanta TradingGoose\")\n3. Visita https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates\n4. Busca el campo chat en la respuesta JSON al final, donde encontrarás el ID del chat",
+            "required": true
+        },
+        {
+            "id": "messageId",
+            "type": "short-input",
+            "title": "ID del mensaje",
+            "layout": "full",
+            "placeholder": "Introduce el ID del mensaje que quieres eliminar",
+            "description": "El identificador único del mensaje que quieres eliminar",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar mensaje (<code>telegram_delete_message</code>)</div>
+
+Elimina mensajes en canales o chats de Telegram a través de la Telegram Bot API. Requiere el ID del mensaje que se va a eliminar.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | string | Sí | Tu token de la Telegram Bot API |
+| `chatId` | string | Sí | ID del chat de Telegram de destino |
+| `messageId` | string | Sí | ID del mensaje que se va a eliminar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de éxito o error |
+| `data` | object | Resultado de la operación de eliminación |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Telegram en el flujo de trabajo. Permite enviar y eliminar mensajes. Se puede usar en modo de activación para activar un flujo de trabajo cuando se envía un mensaje a un chat.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `telegram`

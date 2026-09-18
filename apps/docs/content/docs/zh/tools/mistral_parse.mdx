@@ -1,0 +1,221 @@
+---
+title: Mistral 解析器
+description: 从 PDF 文档中提取文本
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="mistral_parse"
+  color=""
+/>
+
+## 配置
+
+### PDF 文档 URL
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mistral 解析器"
+    type="mistral_parse"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "inputMethod",
+            "type": "dropdown",
+            "title": "选择输入方式",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "url",
+                    "label": "PDF 文档 URL"
+                },
+                {
+                    "id": "upload",
+                    "label": "上传 PDF 文档"
+                }
+            ],
+            "defaultValue": "url"
+        },
+        {
+            "id": "resultType",
+            "type": "dropdown",
+            "title": "输出格式",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "markdown",
+                    "label": "Markdown（格式化）"
+                },
+                {
+                    "id": "text",
+                    "label": "纯文本"
+                },
+                {
+                    "id": "json",
+                    "label": "JSON（原始）"
+                }
+            ]
+        },
+        {
+            "id": "pages",
+            "type": "short-input",
+            "title": "指定页面",
+            "layout": "full",
+            "placeholder": "例如 0,1,2（留空表示全部页面）"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Mistral API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "filePath",
+            "type": "short-input",
+            "title": "PDF 文档 URL",
+            "layout": "full",
+            "placeholder": "输入 PDF 文档的完整 URL（https://example.com/document.pdf）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">PDF 文档 URL (<code>mistral_parser</code>)</div>
+
+使用 Mistral OCR API 解析 PDF 文档
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `filePath` | string | 是 | 要处理的 PDF 文档 URL |
+| `resultType` | string | 否 | 解析结果类型 \(markdown、text 或 json\)。默认为 markdown。 |
+| `pages` | array | 否 | 要处理的指定页面 \(页码数组，从 0 开始\) |
+| `apiKey` | string | 是 | 本次请求使用的 Mistral API 密钥。 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 是否成功解析 PDF |
+| `content` | string | 按请求格式提取的内容 \(markdown、text 或 JSON\) |
+| `metadata` | object | 处理元数据，包括 jobId、fileType、pageCount 和使用信息 |
+
+</div>
+
+---
+
+### 上传 PDF 文档
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mistral 解析器"
+    type="mistral_parse"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "inputMethod",
+            "type": "dropdown",
+            "title": "选择输入方式",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "url",
+                    "label": "PDF 文档 URL"
+                },
+                {
+                    "id": "upload",
+                    "label": "上传 PDF 文档"
+                }
+            ],
+            "defaultValue": "upload"
+        },
+        {
+            "id": "resultType",
+            "type": "dropdown",
+            "title": "输出格式",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "markdown",
+                    "label": "Markdown（带格式）"
+                },
+                {
+                    "id": "text",
+                    "label": "纯文本"
+                },
+                {
+                    "id": "json",
+                    "label": "JSON（原始）"
+                }
+            ]
+        },
+        {
+            "id": "pages",
+            "type": "short-input",
+            "title": "指定页面",
+            "layout": "full",
+            "placeholder": "例如 0,1,2（留空则处理全部页面）"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Mistral API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "fileUpload",
+            "type": "file-upload",
+            "title": "上传 PDF",
+            "layout": "full"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">上传 PDF 文档（<code>mistral_parser</code>）</div>
+
+使用 Mistral OCR API 解析 PDF 文档
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `filePath` | string | 是 | 待处理 PDF 文档的 URL |
+| `resultType` | string | 否 | 解析结果类型 \(markdown、text 或 json\)。默认为 markdown。 |
+| `pages` | array | 否 | 要处理的指定页面 \(页码数组，从 0 开始\) |
+| `apiKey` | string | 是 | 本次请求使用的 Mistral API 密钥。 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | PDF 是否解析成功 |
+| `content` | string | 按请求格式提取的内容（markdown、text 或 JSON） |
+| `metadata` | object | 处理元数据，包括 jobId、fileType、pageCount 和使用信息 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Mistral Parse 集成到工作流中。可从已上传的 PDF 文档或 URL 提取文本。
+
+## 备注
+
+- 分类：`tools`
+- 类型：`mistral_parse`

@@ -1,0 +1,667 @@
+---
+title: Amazon RDS
+description: Conéctate a Amazon RDS mediante la Data API
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="rds"
+  color="#527FFF"
+/>
+
+## Configuración
+
+### Consulta (SELECT)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon RDS"
+    type="rds"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "query",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Consulta (SELECT)"
+                },
+                {
+                    "id": "insert",
+                    "label": "Insertar datos"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar datos"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar datos"
+                },
+                {
+                    "id": "execute",
+                    "label": "Ejecutar SQL sin procesar"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "Región de AWS",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "ID de clave de acceso de AWS",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "Clave de acceso secreta de AWS",
+            "placeholder": "Tu clave de acceso secreta",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "resourceArn",
+            "type": "short-input",
+            "title": "ARN del recurso",
+            "placeholder": "arn:aws:rds:us-east-1:123456789:cluster:my-cluster",
+            "required": true
+        },
+        {
+            "id": "secretArn",
+            "type": "short-input",
+            "title": "ARN del secreto",
+            "placeholder": "arn:aws:secretsmanager:us-east-1:123456789:secret:my-secret",
+            "required": true
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "placeholder": "tu_base_de_datos",
+            "required": false
+        },
+        {
+            "id": "query",
+            "type": "code",
+            "title": "Consulta SQL",
+            "placeholder": "SELECT * FROM users WHERE active = true",
+            "language": "sql",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Consulta (SELECT) (<code>rds_query</code>)</div>
+
+Ejecuta una consulta SELECT en Amazon RDS mediante la Data API
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | Sí | Región de AWS \(p. ej., us-east-1\) |
+| `accessKeyId` | string | Sí | ID de clave de acceso de AWS |
+| `secretAccessKey` | string | Sí | Clave de acceso secreta de AWS |
+| `resourceArn` | string | Sí | ARN del clúster de base de datos Aurora |
+| `secretArn` | string | Sí | ARN del secreto de Secrets Manager que contiene las credenciales de la base de datos |
+| `database` | string | No | Nombre de la base de datos \(opcional\) |
+| `query` | string | Sí | Consulta SQL SELECT que se va a ejecutar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `rows` | array | Arreglo de filas devueltas por la consulta |
+| `rowCount` | number | Número de filas devueltas |
+
+</div>
+
+---
+
+### Insertar datos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon RDS"
+    type="rds"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "insert",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Consulta (SELECT)"
+                },
+                {
+                    "id": "insert",
+                    "label": "Insertar datos"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar datos"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar datos"
+                },
+                {
+                    "id": "execute",
+                    "label": "Ejecutar SQL sin procesar"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "Región de AWS",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "ID de clave de acceso de AWS",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "Clave de acceso secreta de AWS",
+            "placeholder": "Tu clave de acceso secreta",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "resourceArn",
+            "type": "short-input",
+            "title": "ARN del recurso",
+            "placeholder": "arn:aws:rds:us-east-1:123456789:cluster:my-cluster",
+            "required": true
+        },
+        {
+            "id": "secretArn",
+            "type": "short-input",
+            "title": "ARN del secreto",
+            "placeholder": "arn:aws:secretsmanager:us-east-1:123456789:secret:my-secret",
+            "required": true
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "placeholder": "your_database",
+            "required": false
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "Nombre de la tabla",
+            "placeholder": "users",
+            "required": true
+        },
+        {
+            "id": "data",
+            "type": "code",
+            "title": "Datos (JSON)",
+            "placeholder": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"active\": true\n}",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Insertar datos (<code>rds_insert</code>)</div>
+
+Insertar datos en una tabla de Amazon RDS con la Data API
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | Sí | Región de AWS \(p. ej., us-east-1\) |
+| `accessKeyId` | string | Sí | ID de clave de acceso de AWS |
+| `secretAccessKey` | string | Sí | Clave de acceso secreta de AWS |
+| `resourceArn` | string | Sí | ARN del clúster de base de datos Aurora |
+| `secretArn` | string | Sí | ARN del secreto de Secrets Manager que contiene las credenciales de la base de datos |
+| `database` | string | No | Nombre de la base de datos \(opcional\) |
+| `table` | string | Sí | Nombre de la tabla en la que se insertarán los datos |
+| `data` | object | Sí | Datos que se insertarán como pares clave-valor |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `rows` | array | Array de filas insertadas |
+| `rowCount` | number | Número de filas insertadas |
+
+</div>
+
+---
+
+### Actualizar datos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon RDS"
+    type="rds"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "update",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Consulta (SELECT)"
+                },
+                {
+                    "id": "insert",
+                    "label": "Insertar datos"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar datos"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar datos"
+                },
+                {
+                    "id": "execute",
+                    "label": "Ejecutar SQL sin procesar"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "Región de AWS",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "ID de clave de acceso de AWS",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "Clave de acceso secreta de AWS",
+            "placeholder": "Tu clave de acceso secreta",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "resourceArn",
+            "type": "short-input",
+            "title": "ARN del recurso",
+            "placeholder": "arn:aws:rds:us-east-1:123456789:cluster:my-cluster",
+            "required": true
+        },
+        {
+            "id": "secretArn",
+            "type": "short-input",
+            "title": "ARN del secreto",
+            "placeholder": "arn:aws:secretsmanager:us-east-1:123456789:secret:my-secret",
+            "required": true
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "placeholder": "your_database",
+            "required": false
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "Nombre de la tabla",
+            "placeholder": "users",
+            "required": true
+        },
+        {
+            "id": "data",
+            "type": "code",
+            "title": "Datos para actualizar (JSON)",
+            "placeholder": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\"\n}",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "conditions",
+            "type": "code",
+            "title": "Condiciones (JSON)",
+            "placeholder": "{\n  \"id\": 1\n}",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar datos (<code>rds_update</code>)</div>
+
+Actualizar datos en una tabla de Amazon RDS usando la API de datos
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | Sí | Región de AWS \(p. ej., us-east-1\) |
+| `accessKeyId` | string | Sí | ID de clave de acceso de AWS |
+| `secretAccessKey` | string | Sí | Clave de acceso secreta de AWS |
+| `resourceArn` | string | Sí | ARN del clúster de base de datos Aurora |
+| `secretArn` | string | Sí | ARN del secreto de Secrets Manager que contiene las credenciales de la base de datos |
+| `database` | string | No | Nombre de la base de datos \(opcional\) |
+| `table` | string | Sí | Nombre de la tabla a actualizar |
+| `data` | object | Sí | Datos a actualizar como pares clave-valor |
+| `conditions` | object | Sí | Condiciones para la actualización \(p. ej., \{"id": 1\}\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `rows` | array | Array de filas actualizadas |
+| `rowCount` | number | Número de filas actualizadas |
+
+</div>
+
+---
+
+### Eliminar datos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon RDS"
+    type="rds"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "delete",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Consulta (SELECT)"
+                },
+                {
+                    "id": "insert",
+                    "label": "Insertar datos"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar datos"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar datos"
+                },
+                {
+                    "id": "execute",
+                    "label": "Ejecutar SQL sin procesar"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "Región de AWS",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "ID de clave de acceso de AWS",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "Clave de acceso secreta de AWS",
+            "placeholder": "Your secret access key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "resourceArn",
+            "type": "short-input",
+            "title": "ARN del recurso",
+            "placeholder": "arn:aws:rds:us-east-1:123456789:cluster:my-cluster",
+            "required": true
+        },
+        {
+            "id": "secretArn",
+            "type": "short-input",
+            "title": "ARN del secreto",
+            "placeholder": "arn:aws:secretsmanager:us-east-1:123456789:secret:my-secret",
+            "required": true
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "placeholder": "your_database",
+            "required": false
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "Nombre de la tabla",
+            "placeholder": "users",
+            "required": true
+        },
+        {
+            "id": "conditions",
+            "type": "code",
+            "title": "Condiciones (JSON)",
+            "placeholder": "{\n  \"id\": 1\n}",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar datos (<code>rds_delete</code>)</div>
+
+Eliminar datos de una tabla de Amazon RDS usando la Data API
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | Sí | Región de AWS \(p. ej., us-east-1\) |
+| `accessKeyId` | string | Sí | ID de clave de acceso de AWS |
+| `secretAccessKey` | string | Sí | Clave de acceso secreta de AWS |
+| `resourceArn` | string | Sí | ARN del clúster de base de datos Aurora |
+| `secretArn` | string | Sí | ARN del secreto de Secrets Manager que contiene credenciales de base de datos |
+| `database` | string | No | Nombre de la base de datos \(opcional\) |
+| `table` | string | Sí | Nombre de la tabla de la que se eliminarán los datos |
+| `conditions` | object | Sí | Condiciones para la eliminación \(p. ej., \{\"id\": 1\}\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `rows` | array | Array de filas eliminadas |
+| `rowCount` | number | Número de filas eliminadas |
+
+</div>
+
+---
+
+### Ejecutar SQL sin procesar
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon RDS"
+    type="rds"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "execute",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Consulta (SELECT)"
+                },
+                {
+                    "id": "insert",
+                    "label": "Insertar datos"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar datos"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar datos"
+                },
+                {
+                    "id": "execute",
+                    "label": "Ejecutar SQL sin procesar"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "Región de AWS",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "ID de clave de acceso de AWS",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "Clave de acceso secreta de AWS",
+            "placeholder": "Tu clave de acceso secreta",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "resourceArn",
+            "type": "short-input",
+            "title": "ARN del recurso",
+            "placeholder": "arn:aws:rds:us-east-1:123456789:cluster:my-cluster",
+            "required": true
+        },
+        {
+            "id": "secretArn",
+            "type": "short-input",
+            "title": "ARN del secreto",
+            "placeholder": "arn:aws:secretsmanager:us-east-1:123456789:secret:my-secret",
+            "required": true
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "placeholder": "tu_base_de_datos",
+            "required": false
+        },
+        {
+            "id": "query",
+            "type": "code",
+            "title": "Consulta SQL",
+            "placeholder": "SELECT * FROM table_name",
+            "language": "sql",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Ejecutar SQL sin procesar (<code>rds_execute</code>)</div>
+
+Ejecutar SQL sin procesar en Amazon RDS mediante la Data API
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | Sí | Región de AWS \(por ejemplo, us-east-1\) |
+| `accessKeyId` | string | Sí | ID de clave de acceso de AWS |
+| `secretAccessKey` | string | Sí | Clave de acceso secreta de AWS |
+| `resourceArn` | string | Sí | ARN del clúster de base de datos Aurora |
+| `secretArn` | string | Sí | ARN del secreto de Secrets Manager que contiene las credenciales de la base de datos |
+| `database` | string | No | Nombre de la base de datos \(opcional\) |
+| `query` | string | Sí | Consulta SQL sin procesar que se ejecutará |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `rows` | array | Array de filas devueltas o afectadas |
+| `rowCount` | number | Número de filas afectadas |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Amazon RDS Aurora Serverless en el flujo de trabajo mediante la Data API. Permite consultar, insertar, actualizar, eliminar y ejecutar SQL sin procesar sin administrar conexiones de base de datos.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `rds`

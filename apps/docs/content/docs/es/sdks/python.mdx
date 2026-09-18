@@ -1,0 +1,60 @@
+---
+title: Python SDK
+description: Cliente de Python para workflows de TradingGoose
+---
+
+## Estado de desarrollo
+
+El SDK de Python es una vista previa local del repositorio. `tradinggoose-sdk` no está publicado actualmente en PyPI, por lo que `pip install tradinggoose-sdk` no está disponible. Los colaboradores del repositorio pueden instalar el paquete desde [`packages/python-sdk`](https://github.com/TradingGoose/TradingGoose-Studio/tree/staging/packages/python-sdk) con `pip install -e .` desde ese directorio.
+
+Para integraciones en producción, usa la [Execution API](/execution/api) compatible. Los ejemplos siguientes describen el paquete de vista previa cuando se instala desde el código fuente del repositorio.
+
+## Ejecutar un workflow
+
+```python
+import os
+from tradinggoose import TradingGooseClient
+
+client = TradingGooseClient(
+    api_key=os.environ["TRADINGGOOSE_API_KEY"],
+    base_url="https://www.tradinggoose.ai",
+)
+
+result = client.execute_workflow(
+    "workflow-id",
+    input_data={"message": "Analyze this"},
+    timeout=30.0,
+)
+```
+
+`timeout` se mide en segundos y su valor predeterminado es `30.0`.
+
+## Limitación de streaming
+
+El streaming hace que la Execution API devuelva `text/event-stream`. El SDK de vista previa no expone el streaming ni los parámetros de salida seleccionada porque no implementa un lector SSE. Usa la [Execution API](/execution/api) directamente para consumir SSE y seleccionar las salidas de bloques transmitidas.
+
+## Estado y validación
+
+- `get_workflow_status(workflow_id)` devuelve `WorkflowStatus`.
+- `validate_workflow(workflow_id)` devuelve si el workflow está implementado.
+- `set_api_key(api_key)`, `set_base_url(base_url)` y `close()` gestionan el cliente.
+- El cliente admite la gestión de contexto de `with TradingGooseClient(...) as client`.
+
+## Reintentos y límites
+
+`execute_with_retry` solo reintenta `RATE_LIMIT_EXCEEDED`. Sus valores predeterminados son `max_retries=3`, `initial_delay=1.0` segundos, `max_delay=30.0` segundos y `backoff_multiplier=2.0`. El endpoint de workflow actual no emite `Retry-After`, por lo que el cliente usa retroceso exponencial con una fluctuación de ±25%. Una implementación compatible que proporcione el encabezado anula ese retraso. Python expone estas opciones como argumentos de palabra clave en lugar de un tipo separado de opciones de reintento.
+
+- `get_rate_limit_info()` normalmente devuelve `None` porque los endpoints actuales de workflow y de uso no emiten encabezados de límite de velocidad. Una implementación o proxy compatible puede proporcionar `limit`, `remaining`, una marca de tiempo ISO `reset` y un `retry_after` opcional almacenado en milisegundos.
+- `get_usage_limits()` devuelve `UsageLimits(success, rate_limit, usage, storage)`; las cargas útiles de límite de velocidad, uso y almacenamiento son diccionarios que coinciden con la respuesta de la API.
+
+## Errores y resultados
+
+`TradingGooseError` conserva API `code` y HTTP `status`. El cliente usa `TIMEOUT`, `EXECUTION_ERROR`, `STATUS_ERROR`, `RATE_LIMIT_EXCEEDED` y `USAGE_ERROR` para sus propias rutas de error.
+
+`execute_workflow()` y `execute_with_retry()` devuelven `WorkflowExecutionResponse`, definido como `WorkflowExecutionResult | Dict[str, Any]`. Para un flujo de trabajo sin un bloque Response, `WorkflowExecutionResult` contiene `success`, `output`, `error` opcional y metadatos de temporización opcionales (`duration`, `startTime` y `endTime`).
+
+Mientras espera una revisión humana, el mismo modelo de resultado tiene `success=True`, `status="paused"` y los detalles de la revisión en `output`. Las ejecuciones completadas tienen `status=None`.
+
+Un flujo de trabajo con un bloque Response, en cambio, devuelve el cuerpo JSON configurado, el estado HTTP y los encabezados de ese bloque. Para una respuesta 2xx exitosa, el cliente de Python devuelve como diccionarios los cuerpos que no coinciden con la envoltura de ejecución estándar. No expone los encabezados de la respuesta y trata un estado personalizado que no sea 2xx como `TradingGooseError`; usa la [Execution API](/execution/api) directamente cuando el estado o los encabezados importen.
+
+Consulta el [README del paquete Python SDK](https://github.com/TradingGoose/TradingGoose-Studio/blob/staging/packages/python-sdk/README.md) para ver ejemplos completos y el comportamiento de carga de archivos.

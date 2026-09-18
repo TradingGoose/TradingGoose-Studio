@@ -1,0 +1,195 @@
+---
+title: Disparador IMAP
+description: Se dispara cuando se reciben correos nuevos por IMAP (funciona con
+  cualquier proveedor de correo)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="imap"
+  color=""
+/>
+
+Se dispara cuando se reciben correos nuevos por IMAP (funciona con cualquier proveedor de correo)
+
+<Callout type="info">
+  Este es un disparador basado en **sondeo**. TradingGoose comprueba el origen en busca de cambios coincidentes a intervalos regulares.
+</Callout>
+
+## Instrucciones de configuración
+
+<div class="mb-3"><strong>1.</strong> Introduce los datos del servidor IMAP (host, puerto, configuración SSL)</div><div class="mb-3"><strong>2.</strong> Introduce tus credenciales de correo (usuario y contraseña)</div><div class="mb-3"><strong>3.</strong> Para Gmail: usa una <a href="https://support.google.com/accounts/answer/185833" target="_blank">Contraseña de aplicación</a> en lugar de tu contraseña habitual</div><div class="mb-3"><strong>4.</strong> Selecciona el buzón a supervisar (INBOX es el más habitual)</div><div class="mb-3"><strong>5.</strong> Si lo deseas, configura los criterios de búsqueda y las opciones de procesamiento</div><div class="mb-3"><strong>6.</strong> El sistema comprobará automáticamente si hay correos nuevos y disparará tu flujo de trabajo</div>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Disparador de correo IMAP"
+    type="imap_poller"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Servidor IMAP",
+            "placeholder": "imap.example.com",
+            "description": "Nombre de host del servidor IMAP (p. ej., imap.gmail.com, outlook.office365.com)",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto",
+            "placeholder": "993",
+            "description": "Puerto IMAP (993 para SSL/TLS, 143 para STARTTLS)",
+            "required": true,
+            "defaultValue": "993"
+        },
+        {
+            "id": "secure",
+            "type": "switch",
+            "title": "Usar SSL/TLS",
+            "description": "Activa el cifrado SSL/TLS (recomendado para el puerto 993)",
+            "required": false,
+            "defaultValue": true
+        },
+        {
+            "id": "rejectUnauthorized",
+            "type": "switch",
+            "title": "Verificar certificado TLS",
+            "description": "Verifica el certificado TLS del servidor. Desactívalo para certificados autofirmados.",
+            "required": false,
+            "defaultValue": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Usuario",
+            "placeholder": "user@example.com",
+            "description": "Dirección de correo o nombre de usuario para la autenticación",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "placeholder": "Contraseña de aplicación o contraseña del correo",
+            "description": "Contraseña o contraseña de aplicación (para Gmail, usa una Contraseña de aplicación)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "mailbox",
+            "type": "dropdown",
+            "title": "Buzones a supervisar",
+            "placeholder": "Selecciona los buzones a supervisar",
+            "description": "Elige qué buzón o carpetas supervisar para correos nuevos. Déjalo vacío para supervisar INBOX.",
+            "required": false
+        },
+        {
+            "id": "searchCriteria",
+            "type": "code",
+            "title": "Criterios de búsqueda",
+            "placeholder": "{ \"unseen\": true }",
+            "description": "Criterios de búsqueda de ImapFlow como objeto JSON. Predeterminado: solo mensajes no leídos.",
+            "required": false,
+            "defaultValue": "{ \"unseen\": true }"
+        },
+        {
+            "id": "markAsRead",
+            "type": "switch",
+            "title": "Marcar como leído",
+            "description": "Marca automáticamente los correos como leídos (SEEN) tras procesarlos",
+            "required": false,
+            "defaultValue": true
+        },
+        {
+            "id": "includeAttachments",
+            "type": "switch",
+            "title": "Incluir adjuntos",
+            "description": "Descarga e incluye los adjuntos del correo en el payload del disparador",
+            "required": false,
+            "defaultValue": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Esquema de salida
+
+<SchemaTree
+  title="Carga útil del evento"
+  fields={[
+      {
+          "name": "email",
+          "type": "object",
+          "children": [
+              {
+                  "name": "messageId",
+                  "type": "string",
+                  "description": "Encabezado Message-ID de RFC"
+              },
+              {
+                  "name": "subject",
+                  "type": "string",
+                  "description": "Asunto del correo"
+              },
+              {
+                  "name": "from",
+                  "type": "string",
+                  "description": "Dirección de correo del remitente"
+              },
+              {
+                  "name": "to",
+                  "type": "string",
+                  "description": "Dirección de correo del destinatario"
+              },
+              {
+                  "name": "cc",
+                  "type": "string",
+                  "description": "Destinatarios en CC"
+              },
+              {
+                  "name": "date",
+                  "type": "string",
+                  "description": "Fecha del correo en formato ISO"
+              },
+              {
+                  "name": "bodyText",
+                  "type": "string",
+                  "description": "Cuerpo del correo en texto plano"
+              },
+              {
+                  "name": "bodyHtml",
+                  "type": "string",
+                  "description": "Cuerpo HTML del correo"
+              },
+              {
+                  "name": "mailbox",
+                  "type": "string",
+                  "description": "Buzón/carpeta donde se recibió el correo"
+              },
+              {
+                  "name": "hasAttachments",
+                  "type": "boolean",
+                  "description": "Indica si el correo tiene adjuntos"
+              },
+              {
+                  "name": "attachments",
+                  "type": "file[]",
+                  "description": "Array de adjuntos del correo como archivos (si includeAttachments está habilitado)"
+              }
+          ]
+      },
+      {
+          "name": "timestamp",
+          "type": "string",
+          "description": "Marca de tiempo del evento"
+      }
+  ]}
+/>

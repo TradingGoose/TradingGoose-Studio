@@ -1,0 +1,65 @@
+---
+title: 快速下单
+description: 通过紧凑的交易表单校验并提交券商订单。
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## 概述
+
+| 属性 | 值 |
+|----------|-------|
+| **键** | `quick_order` |
+| **分类** | 交易 |
+
+快速下单为所选券商账户和标的提供专注的买入/卖出表单。
+
+## 功能
+
+- **能力适配控件** -- 订单类型按提供商和标的筛选；有效期选项按提供商支持情况筛选。
+- **规模限制** -- 仅在提供商和资产支持时显示数量和名义金额模式。
+- **条件价格** -- 适用的订单类型会显示限价、止损和跟踪输入。
+- **校验与提交** -- 提交前检查账户、标的、规模、价格和提供商约束。
+
+## 用法
+
+选择买入或卖出，选定标的，然后选择支持的规模模式、订单类型和有效期。按要求输入数量或名义金额。跟踪订单接受 `trailPrice` 或 `trailPercent` 之一；二者互斥。提交前请查看校验反馈。
+
+<Callout type="warn">提交表单会向所选券商账户发送订单。订单为模拟还是实盘取决于该账户的环境，提交前请确认账户。</Callout>
+
+## 配置
+
+已保存的小组件配置：
+
+| 参数 | 说明 |
+|-----------|-------------|
+| `provider` | 交易提供商。 |
+| `serviceId` | 券商服务标识符。 |
+| `portfolioIdentity` | 规范的券商账户标识。 |
+| `marketProvider` | 用于标的发现的行情数据提供商。 |
+| `marketProviderParams` | 提供商特定的市场参数。 |
+| `marketAuth` | 可选的行情提供商凭证。 |
+| `side` | 已保存的买入或卖出方向。 |
+
+临时表单状态：
+
+| 参数 | 说明 |
+|-----------|-------------|
+| `listing` | 此订单所选的标的。 |
+| `sizingMode` | 数量或名义规模。 |
+| `orderType` | 提供商/标的支持的订单类型。 |
+| `timeInForce` | 提供商支持的有效期值。 |
+| `quantity` | 单位数量。 |
+| `notional` | 货币金额。 |
+| `limitPrice` | 需要时的限价。 |
+| `stopPrice` | 需要时的止损价。 |
+| `trailPrice` | 绝对跟踪金额。 |
+| `trailPercent` | 百分比跟踪金额。 |
+
+## 相关
+
+<Cards>
+  <Card title="投资组合快照" href="/widgets/portfolio-snapshot">查看该订单所用的账户。</Card>
+  <Card title="交易操作工具" href="/tools/trading_action">查看用于交易操作的工作流工具契约。</Card>
+</Cards>

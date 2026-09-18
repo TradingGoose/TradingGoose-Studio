@@ -1,0 +1,284 @@
+---
+title: Agente
+description: Crea un agente usando modelos de IA con integración de herramientas
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { BlockConfigPreview } from '@/components/ui/block-config-preview'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
+
+<BlockInfoCard
+  type="agent"
+  color="#2873f6"
+/>
+
+El bloque Agente sirve como interfaz entre tu flujo de trabajo y los grandes modelos de lenguaje (LLM). Ejecuta solicitudes de inferencia contra varios proveedores de IA, procesa entradas en lenguaje natural según las instrucciones definidas y genera salidas estructuradas o no estructuradas para su consumo posterior.
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Agent"
+    type="agent"
+    color="#2873f6"
+    hideHeader
+    subBlocks={[
+      { "id": "systemPrompt", "title": "System Prompt", "type": "long-input", "layout": "full", "placeholder": "Enter system prompt..." },
+      { "id": "userPrompt", "title": "User Prompt", "type": "long-input", "layout": "full", "placeholder": "Enter context or user message..." },
+      { "id": "memories", "title": "Memories", "type": "short-input", "layout": "full", "placeholder": "Connect memory block output..." },
+      { "id": "model", "title": "Model", "type": "combobox", "layout": "half", "placeholder": "Type or select a model...", "required": true },
+      { "id": "temperature", "title": "Temperature", "type": "slider", "layout": "half", "defaultValue": 0.5 },
+      { "id": "reasoningEffort", "title": "Reasoning Effort", "type": "dropdown", "layout": "half", "placeholder": "Select reasoning effort...", "options": [{ "label": "minimal", "id": "minimal" }, { "label": "low", "id": "low" }, { "label": "medium", "id": "medium" }, { "label": "high", "id": "high" }] },
+      { "id": "verbosity", "title": "Verbosity", "type": "dropdown", "layout": "half", "placeholder": "Select verbosity...", "options": [{ "label": "low", "id": "low" }, { "label": "medium", "id": "medium" }, { "label": "high", "id": "high" }] },
+      { "id": "apiKey", "title": "API Key", "type": "short-input", "layout": "full", "placeholder": "Enter your API key", "password": true, "required": true },
+      { "id": "azureEndpoint", "title": "Azure OpenAI Endpoint", "type": "short-input", "layout": "full", "password": true, "placeholder": "https://your-resource.openai.azure.com" },
+      { "id": "azureApiVersion", "title": "Azure API Version", "type": "short-input", "layout": "full", "placeholder": "2024-07-01-preview" },
+      { "id": "tools", "title": "Tools", "type": "tool-input", "layout": "full", "defaultValue": [] },
+      { "id": "skills", "title": "Skills", "type": "skill-input", "layout": "full", "defaultValue": [] },
+      { "id": "responseFormat", "title": "Response Format", "type": "code", "layout": "full", "placeholder": "Enter JSON schema..." }
+    ]}
+  />
+</ShowcaseCard>
+
+## Descripción general
+
+El bloque Agent te permite:
+
+<Steps>
+  <Step>
+    <strong>Procesar lenguaje natural</strong>: Analiza la entrada del usuario y genera respuestas contextuales
+  </Step>
+  <Step>
+    <strong>Ejecutar tareas con IA</strong>: Realiza análisis, generación y toma de decisiones de contenido
+  </Step>
+  <Step>
+    <strong>Llamar a herramientas externas</strong>: Accede a APIs, bases de datos y servicios durante el procesamiento
+  </Step>
+  <Step>
+    <strong>Generar salida estructurada</strong>: Devuelve datos JSON que coincidan con los requisitos de tu esquema
+  </Step>
+</Steps>
+
+## Opciones de configuración
+
+### Prompt del sistema
+
+El prompt del sistema establece los parámetros operativos y las restricciones de comportamiento del agente. Esta configuración define el rol del agente, la metodología de respuesta y los límites de procesamiento para todas las solicitudes entrantes.
+
+```markdown
+You are a helpful assistant that specializes in financial analysis.
+Always provide clear explanations and cite sources when possible.
+When responding to questions about investments, include risk disclaimers.
+```
+
+### Prompt del usuario
+
+El prompt del usuario representa los datos de entrada principales para el procesamiento de inferencia. Este parámetro acepta texto en lenguaje natural o datos estructurados que el agente analizará y a los que responderá. Las fuentes de entrada incluyen:
+
+- **Configuración estática**: Texto introducido directamente en la configuración del bloque
+- **Entrada dinámica**: Datos transferidos desde bloques anteriores a través de interfaces de conexión
+- **Generación en tiempo de ejecución**: Contenido generado mediante programación durante la ejecución del workflow
+
+### Selección de modelo
+
+El bloque Agent admite varios proveedores de LLM a través de una interfaz de inferencia unificada. Su selector de modelos se agrupa por proveedor y refleja el catálogo integrado actual de la implementación, junto con los modelos detectados en las conexiones de OpenRouter y Ollama configuradas. Usa el selector como fuente de verdad en lugar de basarte en una lista fija de modelos.
+
+### Temperatura
+
+Controla la creatividad y la aleatoriedad de las respuestas:
+
+<Tabs items={['Baja (0-0.3)', 'Media (0.3-0.7)', 'Alta (0.7-2.0)']}>
+  <Tab>
+    Respuestas más deterministas y enfocadas. Ideal para tareas factuales, atención al cliente y
+    situaciones en las que la precisión es crítica.
+  </Tab>
+  <Tab>
+    Equilibrio entre creatividad y enfoque. Adecuado para aplicaciones de uso general que requieren
+    precisión y algo de creatividad.
+  </Tab>
+  <Tab>
+    Respuestas más creativas y variadas. Ideal para escritura creativa, lluvia de ideas y generar
+    ideas diversas.
+  </Tab>
+</Tabs>
+
+<div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
+  El rango de temperatura (0-1 o 0-2) varía según el modelo seleccionado.
+</div>
+
+### Clave de API
+
+Cuando se muestra este campo, introduce una clave de API para el proveedor seleccionado. Los modelos alojados en el despliegue gestionado y los modelos locales de Ollama no muestran este campo.
+
+### Herramientas
+
+Las herramientas amplían las capacidades del agente mediante integraciones con API externas y conexiones de servicios. El sistema de herramientas habilita las llamadas a funciones, lo que permite al agente ejecutar operaciones más allá de la generación de texto.
+
+**Proceso de integración de herramientas**:
+1. Accede a la sección de configuración de Herramientas dentro del bloque Agent
+2. Selecciona una integración nativa, una herramienta MCP conectada o una herramienta personalizada
+3. Configura los parámetros de autenticación y las restricciones operativas
+
+**Categorías de herramientas disponibles**:
+- **Comunicación**: Gmail, Slack, Telegram, WhatsApp, Microsoft Teams
+- **Fuentes de datos**: Notion, Google Sheets, Airtable, Supabase, Pinecone
+- **Servicios web**: Firecrawl, Google Search, Exa AI, automatización de navegador
+- **Desarrollo**: GitHub, Jira, Linear, gestión de repositorios e incidencias
+- **Servicios de IA**: OpenAI, Perplexity, Hugging Face, ElevenLabs
+
+**Control de ejecución de herramientas**:
+- **Auto**: El modelo determina la invocación de la herramienta según el contexto y la necesidad
+- **Force**: Se indica al proveedor que use esta herramienta en la respuesta
+- **None**: La herramienta se excluye de la solicitud al proveedor
+
+### Formato de respuesta
+
+El parámetro Formato de respuesta solicita una salida estructurada mediante un JSON Schema:
+
+```json
+{
+  "name": "user_analysis",
+  "description": "Classifies sentiment with a confidence score",
+  "strict": true,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "sentiment": {
+        "type": "string",
+        "enum": ["positive", "negative", "neutral"]
+      },
+      "confidence": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+      }
+    },
+    "required": ["sentiment", "confidence"],
+    "additionalProperties": false
+  }
+}
+```
+
+Cuando el modelo devuelve un JSON válido, los campos del esquema se exponen directamente en la raíz de salida del bloque Agent. Si la respuesta tiene un formato incorrecto, el bloque recurre a su salida estándar e incluye `_responseFormatWarning`.
+
+### Acceso a los resultados
+
+Sin un formato de respuesta, un Agent expone estas salidas estándar:
+
+- **`<agent.content>`**: Texto de respuesta del agente
+- **`<agent.model>`**: Modelo utilizado para la respuesta
+- **`<agent.tokens>`**: Estadísticas de uso de tokens reportadas por el proveedor
+- **`<agent.toolCalls>`**: Detalles de las herramientas que el agente utilizó durante la ejecución
+- **`<agent.toolResults>`**: Resultados devueltos por esas herramientas
+- **`<agent.cost>`**: Costo estimado de la llamada a la API (si está disponible)
+
+Con un formato de respuesta válido, haga referencia a cada campo del esquema directamente, como `<agent.sentiment>`. Los metadatos de tokens, herramientas, tiempos y costos permanecen disponibles junto con esos campos.
+
+## Funciones avanzadas
+
+### Memoria + Agente: Historial de conversación
+
+Un Agent puede usar el arreglo de mensajes de Get Memory, por ejemplo `<memory.memories>`, en el campo Memories. Guarda los mensajes de usuario y asistente con Add Memory y recupera la conversación en ejecuciones posteriores usando el mismo ID y flujo de trabajo. Las variables del flujo no conservan por sí solas el historial entre ejecuciones. Consulta [Memory](/blocks/memory).
+
+## Entradas y salidas
+
+<Tabs items={['Configuración', 'Variables', 'Resultados']}>
+  <Tab>
+    <ul className="list-disc space-y-2 pl-6">
+      <li>
+        <strong>Prompt del sistema</strong>: Instrucciones que definen el comportamiento y el rol del agente
+      </li>
+      <li>
+        <strong>Prompt del usuario</strong>: Texto o datos de entrada a procesar
+      </li>
+      <li>
+        <strong>Modelo</strong>: Selección de modelo de IA (OpenAI, Anthropic, Google, etc.)
+      </li>
+      <li>
+        <strong>Temperatura</strong>: Control de aleatoriedad de la respuesta (0-2)
+      </li>
+      <li>
+        <strong>Herramientas</strong>: Matriz de herramientas disponibles para llamadas a funciones
+      </li>
+      <li>
+        <strong>Formato de respuesta</strong>: Esquema JSON para salida estructurada
+      </li>
+    </ul>
+  </Tab>
+  <Tab>
+    <ul className="list-disc space-y-2 pl-6">
+      <li>
+        <strong>agent.content</strong>: Texto de respuesta del agente o datos estructurados
+      </li>
+      <li>
+        <strong>agent.tokens</strong>: Objeto de estadísticas de uso de tokens
+      </li>
+      <li>
+        <strong>agent.toolCalls</strong>: Detalles de ejecución de herramientas y recuento
+      </li>
+      <li>
+        <strong>agent.toolResults</strong>: Resultados devueltos por las herramientas invocadas
+      </li>
+    </ul>
+  </Tab>
+  <Tab>
+    <ul className="list-disc space-y-2 pl-6">
+      <li>
+        <strong>Contenido</strong>: Salida de respuesta principal del agente
+      </li>
+      <li>
+        <strong>Metadatos</strong>: Estadísticas de uso y detalles de ejecución
+      </li>
+      <li>
+        <strong>Acceso</strong>: Disponible en bloques después del agente
+      </li>
+    </ul>
+  </Tab>
+</Tabs>
+
+## Casos de uso de ejemplo
+
+### Automatización de atención al cliente
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">Escenario: Gestionar consultas de clientes con acceso a la base de datos</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>El usuario envía un ticket de soporte mediante el disparador API</li>
+    <li>El agente consulta pedidos/suscripciones en Postgres y busca en la base de conocimiento para obtener orientación</li>
+    <li>Si se necesita escalar, el agente crea un issue en Linear con el contexto relevante</li>
+    <li>El agente redacta una respuesta de correo clara</li>
+    <li>Gmail envía la respuesta al cliente</li>
+    <li>Guarda los mensajes con Memory Add y carga el historial mediante Get Memory en ejecuciones posteriores</li>
+  </ol>
+</div>
+
+### Análisis de contenido con múltiples modelos
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">Escenario: Analizar contenido con diferentes modelos de IA</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>El bloque de función procesa el documento subido</li>
+    <li>El agente con GPT-4o realiza el análisis técnico</li>
+    <li>El agente con Claude analiza el sentimiento y el tono</li>
+    <li>El bloque de función combina los resultados para el informe final</li>
+  </ol>
+</div>
+
+### Asistente de investigación con herramientas
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">Escenario: Asistente de investigación con búsqueda web y acceso a documentos</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>Consulta del usuario recibida mediante la entrada</li>
+    <li>El agente busca en la web con la herramienta de búsqueda de Google</li>
+    <li>El agente accede a la base de datos de Notion para documentos internos</li>
+    <li>El agente recopila un informe de investigación completo</li>
+  </ol>
+</div>
+
+## Buenas prácticas
+
+- **Sé específico en los prompts del sistema**: Define con claridad el rol, el tono y las limitaciones del agente. Cuanto más específicas sean tus instrucciones, mejor podrá el agente cumplir su propósito previsto.
+- **Elige el valor de temperatura adecuado**: Usa valores de temperatura bajos (0-0.3) cuando la precisión sea importante, o aumenta la temperatura (0.7-2.0) para respuestas más creativas o variadas
+- **Aprovecha las herramientas de forma eficaz**: Integra herramientas que complementen el propósito del agente y potencien sus capacidades. Sé selectivo con las herramientas que proporcionas para no saturar al agente. Para tareas con poca superposición, usa otro bloque Agent para obtener los mejores resultados.

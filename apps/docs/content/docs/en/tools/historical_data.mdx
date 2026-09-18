@@ -25,7 +25,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     subBlocks={[
         {
             "id": "provider",
-            "type": "dropdown",
+            "type": "market-provider-selector",
             "title": "Data Provider",
             "layout": "full",
             "required": true
@@ -38,18 +38,57 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "required": true
         },
         {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "layout": "full",
+            "placeholder": "ALPHAVANTAGE_API_KEY",
+            "password": true,
+            "description": "Shown when provider is one of 'alpha-vantage', 'alpaca', 'finnhub'."
+        },
+        {
+            "id": "apiSecret",
+            "type": "short-input",
+            "title": "API Secret",
+            "layout": "full",
+            "placeholder": "APCA-API-SECRET-KEY",
+            "password": true,
+            "description": "Shown when provider is 'alpaca'."
+        },
+        {
+            "id": "feed",
+            "type": "dropdown",
+            "title": "Feed",
+            "layout": "full",
+            "placeholder": "Select feed",
+            "password": false,
+            "options": [
+                {
+                    "id": "sip",
+                    "label": "SIP"
+                },
+                {
+                    "id": "iex",
+                    "label": "IEX"
+                }
+            ],
+            "description": "Shown when provider is 'alpaca'."
+        },
+        {
             "id": "interval",
             "type": "dropdown",
             "title": "Interval",
             "layout": "full",
-            "placeholder": "Select interval"
+            "placeholder": "Select interval",
+            "description": "Shown when provider is one of 'alpha-vantage', 'alpaca', 'yahoo-finance', 'finnhub'."
         },
         {
             "id": "normalizationMode",
             "type": "dropdown",
             "title": "Normalization",
             "layout": "full",
-            "placeholder": "Optional normalization mode"
+            "placeholder": "Optional normalization mode",
+            "description": "Shown when provider is one of 'alpha-vantage', 'alpaca', 'yahoo-finance'."
         },
         {
             "id": "start",
@@ -72,6 +111,38 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 ## Tools
+
+### `historical_data_fetch`
+
+Fetch and normalize market series data from registered market providers.
+
+#### Input
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | Yes | Market data provider id \(e.g., alpaca, finnhub, yahoo-finance\). |
+| `listing` | listingIdentity | Yes | Structured listing payload from TradingGoose Market. |
+| `apiKey` | string | Yes | Alpha Vantage API key. |
+| `apiSecret` | string | Yes | Alpaca API secret key. |
+| `feed` | string | Yes | Alpaca data feed \(required for stock bars\). |
+| `interval` | string | No | Series interval/timeframe supported by the provider. |
+| `normalizationMode` | string | No | Normalization mode supported by the provider \(optional\). |
+| `window` | json | Yes | Primary series window \(range, bars, or absolute\). |
+| `fallbackWindow` | json | No | Fallback series window if the primary is unsupported or invalid. |
+| `providerParams` | json | No | Optional provider-specific parameters. |
+
+#### Output
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `listingBase` | string | Listing base symbol |
+| `listingQuote` | string | Listing quote currency |
+| `listing` | listingIdentity | Structured listing identifier payload |
+| `bars` | array | OHLCV bars with timestamps |
+| `start` | string | Start of the returned series |
+| `end` | string | End of the returned series |
+| `timezone` | string | Exchange timezone for the series |
+| `normalizationMode` | string | Normalization mode used |
 
 
 ## Usage Instructions

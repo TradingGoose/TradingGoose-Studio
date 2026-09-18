@@ -1,0 +1,53 @@
+---
+title: MCP 服务器列表
+description: 浏览、选择、创建、重命名和删除工作区中的 MCP 服务器。
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card'
+import { Callout } from 'fumadocs-ui/components/callout'
+
+## 概览
+
+| 属性 | 值 |
+|----------|-------|
+| **键** | `list_mcp` |
+| **类别** | 列表 |
+
+MCP 服务器列表按字母顺序显示当前工作区的 MCP 服务器。选择一台服务器即可将其 `mcpServerId` 发布到已关联的 [MCP 编辑器](/widgets/editor-mcp)；列表不会自动选中第一台服务器。
+
+## 功能
+
+- **创建** -- 编辑者可添加一台已禁用、连接设置为空的 Streamable HTTP 服务器，然后在 MCP 编辑器中配置。
+- **选择** -- 点击服务器即可将其高亮，并在关联的编辑器中打开。
+- **重命名** -- 编辑者可在行内重命名服务器。按 Enter 或离开该字段以保存，按 Escape 取消。
+- **删除** -- 编辑者可在确认后永久删除服务器。无法从此组件删除最后一台剩余服务器。
+- **工作区状态** -- 该组件会显示专用的加载、错误、空工作区和无服务器状态。
+
+列表不显示工具或连接设置。请使用 MCP 编辑器编辑 URL、传输、请求头、超时和启用状态，并测试连接或刷新其工具。
+
+## 与 MCP 编辑器配对
+
+1. 在仪表盘中添加 **MCP 服务器列表** 和 **MCP 编辑器**。
+2. 为两个组件指定相同的配对颜色。
+3. 在列表中选择一台服务器，即可在编辑器中打开。
+
+<Callout>
+  未配对的灰色组件会保留自身的选择，而不会与其他组件同步。
+</Callout>
+
+## 配置
+
+| 参数 | 类型 | 说明 |
+|-----------|------|-------------|
+| `mcpServerId` | string \| null | 显式选定的 MCP 服务器。默认值为 `null`。 |
+
+## 相关
+
+<Cards>
+  <Card title="MCP 编辑器" href="/widgets/editor-mcp">
+    配置、测试并检查所选 MCP 服务器。
+  </Card>
+  <Card title="MCP 指南" href="/utilities/mcp">
+    了解 Studio 如何连接 MCP 服务器，以及如何向智能体提供 MCP 工具。
+  </Card>
+</Cards>

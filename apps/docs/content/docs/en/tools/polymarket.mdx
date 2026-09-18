@@ -29,77 +29,77 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_markets",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Tags",
-                    "id": "get_tags"
+                    "id": "get_tags",
+                    "label": "Get Tags"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Get Series",
-                    "id": "get_series"
+                    "id": "get_series",
+                    "label": "Get Series"
                 },
                 {
-                    "label": "Get Series by ID",
-                    "id": "get_series_by_id"
+                    "id": "get_series_by_id",
+                    "label": "Get Series by ID"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Price",
-                    "id": "get_price"
+                    "id": "get_price",
+                    "label": "Get Price"
                 },
                 {
-                    "label": "Get Midpoint",
-                    "id": "get_midpoint"
+                    "id": "get_midpoint",
+                    "label": "Get Midpoint"
                 },
                 {
-                    "label": "Get Price History",
-                    "id": "get_price_history"
+                    "id": "get_price_history",
+                    "label": "Get Price History"
                 },
                 {
-                    "label": "Get Last Trade Price",
-                    "id": "get_last_trade_price"
+                    "id": "get_last_trade_price",
+                    "label": "Get Last Trade Price"
                 },
                 {
-                    "label": "Get Spread",
-                    "id": "get_spread"
+                    "id": "get_spread",
+                    "label": "Get Spread"
                 },
                 {
-                    "label": "Get Tick Size",
-                    "id": "get_tick_size"
+                    "id": "get_tick_size",
+                    "label": "Get Tick Size"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 }
-            ],
-            "defaultValue": "get_markets"
+            ]
         },
         {
             "id": "closed",
@@ -107,12 +107,16 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Status",
             "options": [
                 {
-                    "label": "Active Only",
-                    "id": "false"
+                    "id": "",
+                    "label": "All"
                 },
                 {
-                    "label": "Closed Only",
-                    "id": "true"
+                    "id": "false",
+                    "label": "Active Only"
+                },
+                {
+                    "id": "true",
+                    "label": "Closed Only"
                 }
             ]
         },
@@ -122,28 +126,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Sort By",
             "options": [
                 {
-                    "label": "Volume",
-                    "id": "volumeNum"
+                    "id": "",
+                    "label": "Default"
                 },
                 {
-                    "label": "Liquidity",
-                    "id": "liquidityNum"
+                    "id": "volumeNum",
+                    "label": "Volume"
                 },
                 {
-                    "label": "Start Date",
-                    "id": "startDate"
+                    "id": "liquidityNum",
+                    "label": "Liquidity"
                 },
                 {
-                    "label": "End Date",
-                    "id": "endDate"
+                    "id": "startDate",
+                    "label": "Start Date"
                 },
                 {
-                    "label": "Created At",
-                    "id": "createdAt"
+                    "id": "endDate",
+                    "label": "End Date"
                 },
                 {
-                    "label": "Updated At",
-                    "id": "updatedAt"
+                    "id": "createdAt",
+                    "label": "Created At"
+                },
+                {
+                    "id": "updatedAt",
+                    "label": "Updated At"
                 }
             ]
         },
@@ -153,12 +161,12 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Sort Order",
             "options": [
                 {
-                    "label": "Descending",
-                    "id": "false"
+                    "id": "false",
+                    "label": "Descending"
                 },
                 {
-                    "label": "Ascending",
-                    "id": "true"
+                    "id": "true",
+                    "label": "Ascending"
                 }
             ]
         },
@@ -202,7 +210,9 @@ Retrieve a list of prediction markets from Polymarket with optional filtering
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `markets` | array | Array of market objects |
 
 </div>
 
@@ -223,77 +233,77 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_market",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Tags",
-                    "id": "get_tags"
+                    "id": "get_tags",
+                    "label": "Get Tags"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Get Series",
-                    "id": "get_series"
+                    "id": "get_series",
+                    "label": "Get Series"
                 },
                 {
-                    "label": "Get Series by ID",
-                    "id": "get_series_by_id"
+                    "id": "get_series_by_id",
+                    "label": "Get Series by ID"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Price",
-                    "id": "get_price"
+                    "id": "get_price",
+                    "label": "Get Price"
                 },
                 {
-                    "label": "Get Midpoint",
-                    "id": "get_midpoint"
+                    "id": "get_midpoint",
+                    "label": "Get Midpoint"
                 },
                 {
-                    "label": "Get Price History",
-                    "id": "get_price_history"
+                    "id": "get_price_history",
+                    "label": "Get Price History"
                 },
                 {
-                    "label": "Get Last Trade Price",
-                    "id": "get_last_trade_price"
+                    "id": "get_last_trade_price",
+                    "label": "Get Last Trade Price"
                 },
                 {
-                    "label": "Get Spread",
-                    "id": "get_spread"
+                    "id": "get_spread",
+                    "label": "Get Spread"
                 },
                 {
-                    "label": "Get Tick Size",
-                    "id": "get_tick_size"
+                    "id": "get_tick_size",
+                    "label": "Get Tick Size"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 }
-            ],
-            "defaultValue": "get_market"
+            ]
         },
         {
             "id": "marketId",
@@ -325,7 +335,9 @@ Retrieve details of a specific prediction market by ID or slug
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `market` | object | Market object with details |
 
 </div>
 
@@ -346,77 +358,77 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_events",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Tags",
-                    "id": "get_tags"
+                    "id": "get_tags",
+                    "label": "Get Tags"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Get Series",
-                    "id": "get_series"
+                    "id": "get_series",
+                    "label": "Get Series"
                 },
                 {
-                    "label": "Get Series by ID",
-                    "id": "get_series_by_id"
+                    "id": "get_series_by_id",
+                    "label": "Get Series by ID"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Price",
-                    "id": "get_price"
+                    "id": "get_price",
+                    "label": "Get Price"
                 },
                 {
-                    "label": "Get Midpoint",
-                    "id": "get_midpoint"
+                    "id": "get_midpoint",
+                    "label": "Get Midpoint"
                 },
                 {
-                    "label": "Get Price History",
-                    "id": "get_price_history"
+                    "id": "get_price_history",
+                    "label": "Get Price History"
                 },
                 {
-                    "label": "Get Last Trade Price",
-                    "id": "get_last_trade_price"
+                    "id": "get_last_trade_price",
+                    "label": "Get Last Trade Price"
                 },
                 {
-                    "label": "Get Spread",
-                    "id": "get_spread"
+                    "id": "get_spread",
+                    "label": "Get Spread"
                 },
                 {
-                    "label": "Get Tick Size",
-                    "id": "get_tick_size"
+                    "id": "get_tick_size",
+                    "label": "Get Tick Size"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 }
-            ],
-            "defaultValue": "get_events"
+            ]
         },
         {
             "id": "closed",
@@ -424,12 +436,16 @@ Refer to the block outputs for this operation.
             "title": "Status",
             "options": [
                 {
-                    "label": "Active Only",
-                    "id": "false"
+                    "id": "",
+                    "label": "All"
                 },
                 {
-                    "label": "Closed Only",
-                    "id": "true"
+                    "id": "false",
+                    "label": "Active Only"
+                },
+                {
+                    "id": "true",
+                    "label": "Closed Only"
                 }
             ]
         },
@@ -439,28 +455,32 @@ Refer to the block outputs for this operation.
             "title": "Sort By",
             "options": [
                 {
-                    "label": "Volume",
-                    "id": "volume"
+                    "id": "",
+                    "label": "Default"
                 },
                 {
-                    "label": "Liquidity",
-                    "id": "liquidity"
+                    "id": "volume",
+                    "label": "Volume"
                 },
                 {
-                    "label": "Start Date",
-                    "id": "startDate"
+                    "id": "liquidity",
+                    "label": "Liquidity"
                 },
                 {
-                    "label": "End Date",
-                    "id": "endDate"
+                    "id": "startDate",
+                    "label": "Start Date"
                 },
                 {
-                    "label": "Created At",
-                    "id": "createdAt"
+                    "id": "endDate",
+                    "label": "End Date"
                 },
                 {
-                    "label": "Updated At",
-                    "id": "updatedAt"
+                    "id": "createdAt",
+                    "label": "Created At"
+                },
+                {
+                    "id": "updatedAt",
+                    "label": "Updated At"
                 }
             ]
         },
@@ -470,12 +490,12 @@ Refer to the block outputs for this operation.
             "title": "Sort Order",
             "options": [
                 {
-                    "label": "Descending",
-                    "id": "false"
+                    "id": "false",
+                    "label": "Descending"
                 },
                 {
-                    "label": "Ascending",
-                    "id": "true"
+                    "id": "true",
+                    "label": "Ascending"
                 }
             ]
         },
@@ -519,7 +539,9 @@ Retrieve a list of events from Polymarket with optional filtering
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `events` | array | Array of event objects |
 
 </div>
 
@@ -540,77 +562,77 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_event",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Tags",
-                    "id": "get_tags"
+                    "id": "get_tags",
+                    "label": "Get Tags"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Get Series",
-                    "id": "get_series"
+                    "id": "get_series",
+                    "label": "Get Series"
                 },
                 {
-                    "label": "Get Series by ID",
-                    "id": "get_series_by_id"
+                    "id": "get_series_by_id",
+                    "label": "Get Series by ID"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Price",
-                    "id": "get_price"
+                    "id": "get_price",
+                    "label": "Get Price"
                 },
                 {
-                    "label": "Get Midpoint",
-                    "id": "get_midpoint"
+                    "id": "get_midpoint",
+                    "label": "Get Midpoint"
                 },
                 {
-                    "label": "Get Price History",
-                    "id": "get_price_history"
+                    "id": "get_price_history",
+                    "label": "Get Price History"
                 },
                 {
-                    "label": "Get Last Trade Price",
-                    "id": "get_last_trade_price"
+                    "id": "get_last_trade_price",
+                    "label": "Get Last Trade Price"
                 },
                 {
-                    "label": "Get Spread",
-                    "id": "get_spread"
+                    "id": "get_spread",
+                    "label": "Get Spread"
                 },
                 {
-                    "label": "Get Tick Size",
-                    "id": "get_tick_size"
+                    "id": "get_tick_size",
+                    "label": "Get Tick Size"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 }
-            ],
-            "defaultValue": "get_event"
+            ]
         },
         {
             "id": "eventId",
@@ -642,7 +664,9 @@ Retrieve details of a specific event by ID or slug
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `event` | object | Event object with details |
 
 </div>
 
@@ -663,77 +687,77 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_tags",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Tags",
-                    "id": "get_tags"
+                    "id": "get_tags",
+                    "label": "Get Tags"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Get Series",
-                    "id": "get_series"
+                    "id": "get_series",
+                    "label": "Get Series"
                 },
                 {
-                    "label": "Get Series by ID",
-                    "id": "get_series_by_id"
+                    "id": "get_series_by_id",
+                    "label": "Get Series by ID"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Price",
-                    "id": "get_price"
+                    "id": "get_price",
+                    "label": "Get Price"
                 },
                 {
-                    "label": "Get Midpoint",
-                    "id": "get_midpoint"
+                    "id": "get_midpoint",
+                    "label": "Get Midpoint"
                 },
                 {
-                    "label": "Get Price History",
-                    "id": "get_price_history"
+                    "id": "get_price_history",
+                    "label": "Get Price History"
                 },
                 {
-                    "label": "Get Last Trade Price",
-                    "id": "get_last_trade_price"
+                    "id": "get_last_trade_price",
+                    "label": "Get Last Trade Price"
                 },
                 {
-                    "label": "Get Spread",
-                    "id": "get_spread"
+                    "id": "get_spread",
+                    "label": "Get Spread"
                 },
                 {
-                    "label": "Get Tick Size",
-                    "id": "get_tick_size"
+                    "id": "get_tick_size",
+                    "label": "Get Tick Size"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 }
-            ],
-            "defaultValue": "get_tags"
+            ]
         },
         {
             "id": "limit",
@@ -765,7 +789,9 @@ Retrieve available tags for filtering markets from Polymarket
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `tags` | array | Array of tag objects with id, label, and slug |
 
 </div>
 
@@ -786,77 +812,77 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "search",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Tags",
-                    "id": "get_tags"
+                    "id": "get_tags",
+                    "label": "Get Tags"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Get Series",
-                    "id": "get_series"
+                    "id": "get_series",
+                    "label": "Get Series"
                 },
                 {
-                    "label": "Get Series by ID",
-                    "id": "get_series_by_id"
+                    "id": "get_series_by_id",
+                    "label": "Get Series by ID"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Price",
-                    "id": "get_price"
+                    "id": "get_price",
+                    "label": "Get Price"
                 },
                 {
-                    "label": "Get Midpoint",
-                    "id": "get_midpoint"
+                    "id": "get_midpoint",
+                    "label": "Get Midpoint"
                 },
                 {
-                    "label": "Get Price History",
-                    "id": "get_price_history"
+                    "id": "get_price_history",
+                    "label": "Get Price History"
                 },
                 {
-                    "label": "Get Last Trade Price",
-                    "id": "get_last_trade_price"
+                    "id": "get_last_trade_price",
+                    "label": "Get Last Trade Price"
                 },
                 {
-                    "label": "Get Spread",
-                    "id": "get_spread"
+                    "id": "get_spread",
+                    "label": "Get Spread"
                 },
                 {
-                    "label": "Get Tick Size",
-                    "id": "get_tick_size"
+                    "id": "get_tick_size",
+                    "label": "Get Tick Size"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 }
-            ],
-            "defaultValue": "search"
+            ]
         },
         {
             "id": "query",
@@ -896,7 +922,9 @@ Search for markets, events, and profiles on Polymarket
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `results` | object | Search results containing markets, events, and profiles arrays |
 
 </div>
 
@@ -917,77 +945,77 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_series",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Tags",
-                    "id": "get_tags"
+                    "id": "get_tags",
+                    "label": "Get Tags"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Get Series",
-                    "id": "get_series"
+                    "id": "get_series",
+                    "label": "Get Series"
                 },
                 {
-                    "label": "Get Series by ID",
-                    "id": "get_series_by_id"
+                    "id": "get_series_by_id",
+                    "label": "Get Series by ID"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Price",
-                    "id": "get_price"
+                    "id": "get_price",
+                    "label": "Get Price"
                 },
                 {
-                    "label": "Get Midpoint",
-                    "id": "get_midpoint"
+                    "id": "get_midpoint",
+                    "label": "Get Midpoint"
                 },
                 {
-                    "label": "Get Price History",
-                    "id": "get_price_history"
+                    "id": "get_price_history",
+                    "label": "Get Price History"
                 },
                 {
-                    "label": "Get Last Trade Price",
-                    "id": "get_last_trade_price"
+                    "id": "get_last_trade_price",
+                    "label": "Get Last Trade Price"
                 },
                 {
-                    "label": "Get Spread",
-                    "id": "get_spread"
+                    "id": "get_spread",
+                    "label": "Get Spread"
                 },
                 {
-                    "label": "Get Tick Size",
-                    "id": "get_tick_size"
+                    "id": "get_tick_size",
+                    "label": "Get Tick Size"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 }
-            ],
-            "defaultValue": "get_series"
+            ]
         },
         {
             "id": "limit",
@@ -1019,7 +1047,9 @@ Retrieve series (related market groups) from Polymarket
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `series` | array | Array of series objects |
 
 </div>
 
@@ -1040,77 +1070,77 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_series_by_id",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Tags",
-                    "id": "get_tags"
+                    "id": "get_tags",
+                    "label": "Get Tags"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Get Series",
-                    "id": "get_series"
+                    "id": "get_series",
+                    "label": "Get Series"
                 },
                 {
-                    "label": "Get Series by ID",
-                    "id": "get_series_by_id"
+                    "id": "get_series_by_id",
+                    "label": "Get Series by ID"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Price",
-                    "id": "get_price"
+                    "id": "get_price",
+                    "label": "Get Price"
                 },
                 {
-                    "label": "Get Midpoint",
-                    "id": "get_midpoint"
+                    "id": "get_midpoint",
+                    "label": "Get Midpoint"
                 },
                 {
-                    "label": "Get Price History",
-                    "id": "get_price_history"
+                    "id": "get_price_history",
+                    "label": "Get Price History"
                 },
                 {
-                    "label": "Get Last Trade Price",
-                    "id": "get_last_trade_price"
+                    "id": "get_last_trade_price",
+                    "label": "Get Last Trade Price"
                 },
                 {
-                    "label": "Get Spread",
-                    "id": "get_spread"
+                    "id": "get_spread",
+                    "label": "Get Spread"
                 },
                 {
-                    "label": "Get Tick Size",
-                    "id": "get_tick_size"
+                    "id": "get_tick_size",
+                    "label": "Get Tick Size"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 }
-            ],
-            "defaultValue": "get_series_by_id"
+            ]
         },
         {
             "id": "seriesId",
@@ -1136,7 +1166,9 @@ Retrieve a specific series (related market group) by ID from Polymarket
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `series` | object | Series object with details |
 
 </div>
 
@@ -1157,77 +1189,77 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_orderbook",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Tags",
-                    "id": "get_tags"
+                    "id": "get_tags",
+                    "label": "Get Tags"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Get Series",
-                    "id": "get_series"
+                    "id": "get_series",
+                    "label": "Get Series"
                 },
                 {
-                    "label": "Get Series by ID",
-                    "id": "get_series_by_id"
+                    "id": "get_series_by_id",
+                    "label": "Get Series by ID"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Price",
-                    "id": "get_price"
+                    "id": "get_price",
+                    "label": "Get Price"
                 },
                 {
-                    "label": "Get Midpoint",
-                    "id": "get_midpoint"
+                    "id": "get_midpoint",
+                    "label": "Get Midpoint"
                 },
                 {
-                    "label": "Get Price History",
-                    "id": "get_price_history"
+                    "id": "get_price_history",
+                    "label": "Get Price History"
                 },
                 {
-                    "label": "Get Last Trade Price",
-                    "id": "get_last_trade_price"
+                    "id": "get_last_trade_price",
+                    "label": "Get Last Trade Price"
                 },
                 {
-                    "label": "Get Spread",
-                    "id": "get_spread"
+                    "id": "get_spread",
+                    "label": "Get Spread"
                 },
                 {
-                    "label": "Get Tick Size",
-                    "id": "get_tick_size"
+                    "id": "get_tick_size",
+                    "label": "Get Tick Size"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 }
-            ],
-            "defaultValue": "get_orderbook"
+            ]
         },
         {
             "id": "tokenId",
@@ -1253,7 +1285,9 @@ Retrieve the order book summary for a specific token
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `orderbook` | object | Order book with bids and asks arrays |
 
 </div>
 
@@ -1274,77 +1308,77 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_price",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Tags",
-                    "id": "get_tags"
+                    "id": "get_tags",
+                    "label": "Get Tags"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Get Series",
-                    "id": "get_series"
+                    "id": "get_series",
+                    "label": "Get Series"
                 },
                 {
-                    "label": "Get Series by ID",
-                    "id": "get_series_by_id"
+                    "id": "get_series_by_id",
+                    "label": "Get Series by ID"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Price",
-                    "id": "get_price"
+                    "id": "get_price",
+                    "label": "Get Price"
                 },
                 {
-                    "label": "Get Midpoint",
-                    "id": "get_midpoint"
+                    "id": "get_midpoint",
+                    "label": "Get Midpoint"
                 },
                 {
-                    "label": "Get Price History",
-                    "id": "get_price_history"
+                    "id": "get_price_history",
+                    "label": "Get Price History"
                 },
                 {
-                    "label": "Get Last Trade Price",
-                    "id": "get_last_trade_price"
+                    "id": "get_last_trade_price",
+                    "label": "Get Last Trade Price"
                 },
                 {
-                    "label": "Get Spread",
-                    "id": "get_spread"
+                    "id": "get_spread",
+                    "label": "Get Spread"
                 },
                 {
-                    "label": "Get Tick Size",
-                    "id": "get_tick_size"
+                    "id": "get_tick_size",
+                    "label": "Get Tick Size"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 }
-            ],
-            "defaultValue": "get_price"
+            ]
         },
         {
             "id": "tokenId",
@@ -1360,12 +1394,12 @@ Refer to the block outputs for this operation.
             "required": true,
             "options": [
                 {
-                    "label": "Buy",
-                    "id": "buy"
+                    "id": "buy",
+                    "label": "Buy"
                 },
                 {
-                    "label": "Sell",
-                    "id": "sell"
+                    "id": "sell",
+                    "label": "Sell"
                 }
             ]
         }
@@ -1387,7 +1421,9 @@ Retrieve the market price for a specific token and side
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `price` | string | Market price |
 
 </div>
 
@@ -1408,77 +1444,77 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_midpoint",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Tags",
-                    "id": "get_tags"
+                    "id": "get_tags",
+                    "label": "Get Tags"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Get Series",
-                    "id": "get_series"
+                    "id": "get_series",
+                    "label": "Get Series"
                 },
                 {
-                    "label": "Get Series by ID",
-                    "id": "get_series_by_id"
+                    "id": "get_series_by_id",
+                    "label": "Get Series by ID"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Price",
-                    "id": "get_price"
+                    "id": "get_price",
+                    "label": "Get Price"
                 },
                 {
-                    "label": "Get Midpoint",
-                    "id": "get_midpoint"
+                    "id": "get_midpoint",
+                    "label": "Get Midpoint"
                 },
                 {
-                    "label": "Get Price History",
-                    "id": "get_price_history"
+                    "id": "get_price_history",
+                    "label": "Get Price History"
                 },
                 {
-                    "label": "Get Last Trade Price",
-                    "id": "get_last_trade_price"
+                    "id": "get_last_trade_price",
+                    "label": "Get Last Trade Price"
                 },
                 {
-                    "label": "Get Spread",
-                    "id": "get_spread"
+                    "id": "get_spread",
+                    "label": "Get Spread"
                 },
                 {
-                    "label": "Get Tick Size",
-                    "id": "get_tick_size"
+                    "id": "get_tick_size",
+                    "label": "Get Tick Size"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 }
-            ],
-            "defaultValue": "get_midpoint"
+            ]
         },
         {
             "id": "tokenId",
@@ -1504,7 +1540,9 @@ Retrieve the midpoint price for a specific token
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `midpoint` | string | Midpoint price |
 
 </div>
 
@@ -1525,77 +1563,77 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_price_history",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Tags",
-                    "id": "get_tags"
+                    "id": "get_tags",
+                    "label": "Get Tags"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Get Series",
-                    "id": "get_series"
+                    "id": "get_series",
+                    "label": "Get Series"
                 },
                 {
-                    "label": "Get Series by ID",
-                    "id": "get_series_by_id"
+                    "id": "get_series_by_id",
+                    "label": "Get Series by ID"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Price",
-                    "id": "get_price"
+                    "id": "get_price",
+                    "label": "Get Price"
                 },
                 {
-                    "label": "Get Midpoint",
-                    "id": "get_midpoint"
+                    "id": "get_midpoint",
+                    "label": "Get Midpoint"
                 },
                 {
-                    "label": "Get Price History",
-                    "id": "get_price_history"
+                    "id": "get_price_history",
+                    "label": "Get Price History"
                 },
                 {
-                    "label": "Get Last Trade Price",
-                    "id": "get_last_trade_price"
+                    "id": "get_last_trade_price",
+                    "label": "Get Last Trade Price"
                 },
                 {
-                    "label": "Get Spread",
-                    "id": "get_spread"
+                    "id": "get_spread",
+                    "label": "Get Spread"
                 },
                 {
-                    "label": "Get Tick Size",
-                    "id": "get_tick_size"
+                    "id": "get_tick_size",
+                    "label": "Get Tick Size"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 }
-            ],
-            "defaultValue": "get_price_history"
+            ]
         },
         {
             "id": "tokenId",
@@ -1610,28 +1648,32 @@ Refer to the block outputs for this operation.
             "title": "Interval",
             "options": [
                 {
-                    "label": "1 Minute",
-                    "id": "1m"
+                    "id": "",
+                    "label": "None (use timestamps)"
                 },
                 {
-                    "label": "1 Hour",
-                    "id": "1h"
+                    "id": "1m",
+                    "label": "1 Minute"
                 },
                 {
-                    "label": "6 Hours",
-                    "id": "6h"
+                    "id": "1h",
+                    "label": "1 Hour"
                 },
                 {
-                    "label": "1 Day",
-                    "id": "1d"
+                    "id": "6h",
+                    "label": "6 Hours"
                 },
                 {
-                    "label": "1 Week",
-                    "id": "1w"
+                    "id": "1d",
+                    "label": "1 Day"
                 },
                 {
-                    "label": "Max",
-                    "id": "max"
+                    "id": "1w",
+                    "label": "1 Week"
+                },
+                {
+                    "id": "max",
+                    "label": "Max"
                 }
             ]
         },
@@ -1674,7 +1716,9 @@ Retrieve historical price data for a specific market token
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `history` | array | Array of price history entries with timestamp \(t\) and price \(p\) |
 
 </div>
 
@@ -1695,77 +1739,77 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_last_trade_price",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Tags",
-                    "id": "get_tags"
+                    "id": "get_tags",
+                    "label": "Get Tags"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Get Series",
-                    "id": "get_series"
+                    "id": "get_series",
+                    "label": "Get Series"
                 },
                 {
-                    "label": "Get Series by ID",
-                    "id": "get_series_by_id"
+                    "id": "get_series_by_id",
+                    "label": "Get Series by ID"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Price",
-                    "id": "get_price"
+                    "id": "get_price",
+                    "label": "Get Price"
                 },
                 {
-                    "label": "Get Midpoint",
-                    "id": "get_midpoint"
+                    "id": "get_midpoint",
+                    "label": "Get Midpoint"
                 },
                 {
-                    "label": "Get Price History",
-                    "id": "get_price_history"
+                    "id": "get_price_history",
+                    "label": "Get Price History"
                 },
                 {
-                    "label": "Get Last Trade Price",
-                    "id": "get_last_trade_price"
+                    "id": "get_last_trade_price",
+                    "label": "Get Last Trade Price"
                 },
                 {
-                    "label": "Get Spread",
-                    "id": "get_spread"
+                    "id": "get_spread",
+                    "label": "Get Spread"
                 },
                 {
-                    "label": "Get Tick Size",
-                    "id": "get_tick_size"
+                    "id": "get_tick_size",
+                    "label": "Get Tick Size"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 }
-            ],
-            "defaultValue": "get_last_trade_price"
+            ]
         },
         {
             "id": "tokenId",
@@ -1791,7 +1835,9 @@ Retrieve the last trade price for a specific token
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `price` | string | Last trade price |
 
 </div>
 
@@ -1812,77 +1858,77 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_spread",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Tags",
-                    "id": "get_tags"
+                    "id": "get_tags",
+                    "label": "Get Tags"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Get Series",
-                    "id": "get_series"
+                    "id": "get_series",
+                    "label": "Get Series"
                 },
                 {
-                    "label": "Get Series by ID",
-                    "id": "get_series_by_id"
+                    "id": "get_series_by_id",
+                    "label": "Get Series by ID"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Price",
-                    "id": "get_price"
+                    "id": "get_price",
+                    "label": "Get Price"
                 },
                 {
-                    "label": "Get Midpoint",
-                    "id": "get_midpoint"
+                    "id": "get_midpoint",
+                    "label": "Get Midpoint"
                 },
                 {
-                    "label": "Get Price History",
-                    "id": "get_price_history"
+                    "id": "get_price_history",
+                    "label": "Get Price History"
                 },
                 {
-                    "label": "Get Last Trade Price",
-                    "id": "get_last_trade_price"
+                    "id": "get_last_trade_price",
+                    "label": "Get Last Trade Price"
                 },
                 {
-                    "label": "Get Spread",
-                    "id": "get_spread"
+                    "id": "get_spread",
+                    "label": "Get Spread"
                 },
                 {
-                    "label": "Get Tick Size",
-                    "id": "get_tick_size"
+                    "id": "get_tick_size",
+                    "label": "Get Tick Size"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 }
-            ],
-            "defaultValue": "get_spread"
+            ]
         },
         {
             "id": "tokenId",
@@ -1908,7 +1954,9 @@ Retrieve the bid-ask spread for a specific token
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `spread` | object | Bid-ask spread with bid and ask prices |
 
 </div>
 
@@ -1929,77 +1977,77 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_tick_size",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Tags",
-                    "id": "get_tags"
+                    "id": "get_tags",
+                    "label": "Get Tags"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Get Series",
-                    "id": "get_series"
+                    "id": "get_series",
+                    "label": "Get Series"
                 },
                 {
-                    "label": "Get Series by ID",
-                    "id": "get_series_by_id"
+                    "id": "get_series_by_id",
+                    "label": "Get Series by ID"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Price",
-                    "id": "get_price"
+                    "id": "get_price",
+                    "label": "Get Price"
                 },
                 {
-                    "label": "Get Midpoint",
-                    "id": "get_midpoint"
+                    "id": "get_midpoint",
+                    "label": "Get Midpoint"
                 },
                 {
-                    "label": "Get Price History",
-                    "id": "get_price_history"
+                    "id": "get_price_history",
+                    "label": "Get Price History"
                 },
                 {
-                    "label": "Get Last Trade Price",
-                    "id": "get_last_trade_price"
+                    "id": "get_last_trade_price",
+                    "label": "Get Last Trade Price"
                 },
                 {
-                    "label": "Get Spread",
-                    "id": "get_spread"
+                    "id": "get_spread",
+                    "label": "Get Spread"
                 },
                 {
-                    "label": "Get Tick Size",
-                    "id": "get_tick_size"
+                    "id": "get_tick_size",
+                    "label": "Get Tick Size"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 }
-            ],
-            "defaultValue": "get_tick_size"
+            ]
         },
         {
             "id": "tokenId",
@@ -2025,7 +2073,9 @@ Retrieve the minimum tick size for a specific token
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `tickSize` | string | Minimum tick size |
 
 </div>
 
@@ -2046,77 +2096,77 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_positions",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Tags",
-                    "id": "get_tags"
+                    "id": "get_tags",
+                    "label": "Get Tags"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Get Series",
-                    "id": "get_series"
+                    "id": "get_series",
+                    "label": "Get Series"
                 },
                 {
-                    "label": "Get Series by ID",
-                    "id": "get_series_by_id"
+                    "id": "get_series_by_id",
+                    "label": "Get Series by ID"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Price",
-                    "id": "get_price"
+                    "id": "get_price",
+                    "label": "Get Price"
                 },
                 {
-                    "label": "Get Midpoint",
-                    "id": "get_midpoint"
+                    "id": "get_midpoint",
+                    "label": "Get Midpoint"
                 },
                 {
-                    "label": "Get Price History",
-                    "id": "get_price_history"
+                    "id": "get_price_history",
+                    "label": "Get Price History"
                 },
                 {
-                    "label": "Get Last Trade Price",
-                    "id": "get_last_trade_price"
+                    "id": "get_last_trade_price",
+                    "label": "Get Last Trade Price"
                 },
                 {
-                    "label": "Get Spread",
-                    "id": "get_spread"
+                    "id": "get_spread",
+                    "label": "Get Spread"
                 },
                 {
-                    "label": "Get Tick Size",
-                    "id": "get_tick_size"
+                    "id": "get_tick_size",
+                    "label": "Get Tick Size"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 }
-            ],
-            "defaultValue": "get_positions"
+            ]
         },
         {
             "id": "user",
@@ -2149,7 +2199,9 @@ Retrieve user positions from Polymarket
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `positions` | array | Array of position objects |
 
 </div>
 
@@ -2170,77 +2222,77 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_trades",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Tags",
-                    "id": "get_tags"
+                    "id": "get_tags",
+                    "label": "Get Tags"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Get Series",
-                    "id": "get_series"
+                    "id": "get_series",
+                    "label": "Get Series"
                 },
                 {
-                    "label": "Get Series by ID",
-                    "id": "get_series_by_id"
+                    "id": "get_series_by_id",
+                    "label": "Get Series by ID"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Price",
-                    "id": "get_price"
+                    "id": "get_price",
+                    "label": "Get Price"
                 },
                 {
-                    "label": "Get Midpoint",
-                    "id": "get_midpoint"
+                    "id": "get_midpoint",
+                    "label": "Get Midpoint"
                 },
                 {
-                    "label": "Get Price History",
-                    "id": "get_price_history"
+                    "id": "get_price_history",
+                    "label": "Get Price History"
                 },
                 {
-                    "label": "Get Last Trade Price",
-                    "id": "get_last_trade_price"
+                    "id": "get_last_trade_price",
+                    "label": "Get Last Trade Price"
                 },
                 {
-                    "label": "Get Spread",
-                    "id": "get_spread"
+                    "id": "get_spread",
+                    "label": "Get Spread"
                 },
                 {
-                    "label": "Get Tick Size",
-                    "id": "get_tick_size"
+                    "id": "get_tick_size",
+                    "label": "Get Tick Size"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 }
-            ],
-            "defaultValue": "get_trades"
+            ]
         },
         {
             "id": "user",
@@ -2286,7 +2338,9 @@ Retrieve trade history from Polymarket
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `trades` | array | Array of trade objects |
 
 </div>
 

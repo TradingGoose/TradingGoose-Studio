@@ -6,7 +6,7 @@ import type {
 import { loadWorkflowSnapshotForCopilot } from '@/lib/copilot/tools/server/entities/workflow'
 import { createLogger } from '@/lib/logs/console/logger'
 import { applyAutoLayout } from '@/lib/workflows/autolayout'
-import { resolveBlockRuntimeState } from '@/lib/workflows/block-outputs'
+import { readBlockOutputs } from '@/lib/workflows/block-outputs'
 import { WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 import {
   parseGraphOnlyWorkflowMermaid,
@@ -16,6 +16,7 @@ import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
 import { getAbsoluteBlockPosition } from '@/lib/workflows/workflow-direction'
 import { createWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { getBlock } from '@/blocks'
+import { resolveOutputType } from '@/blocks/utils'
 import type { BlockState, Position } from '@/stores/workflows/workflow/types'
 import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/workflow/utils'
 import {
@@ -94,20 +95,14 @@ function buildDefaultBlock(
   const initialSubBlocks = buildInitialSubBlockStates(
     blockConfig.subBlocks
   ) as BlockState['subBlocks']
-  const runtimeState = resolveBlockRuntimeState({
-    blockType,
-    blockConfig,
-    subBlocks: initialSubBlocks,
-    triggerMode: false,
-  })
 
   return {
     id: blockId,
     type: blockType,
     name: name?.trim() || blockConfig.name,
     position: getInitialPosition(parentId),
-    subBlocks: runtimeState.subBlocks as BlockState['subBlocks'],
-    outputs: runtimeState.outputs,
+    subBlocks: initialSubBlocks,
+    outputs: resolveOutputType(readBlockOutputs(blockType, initialSubBlocks, false)),
     enabled: true,
     ...(data ? { data } : {}),
   }

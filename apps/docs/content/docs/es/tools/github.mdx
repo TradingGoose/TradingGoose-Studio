@@ -1,0 +1,448 @@
+---
+title: GitHub
+description: Interactuar con GitHub o activar flujos de trabajo desde eventos de GitHub
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="github"
+  color=""
+/>
+
+<Cards>
+  <Card title="Usar como disparador" href="/triggers/github">
+    Consulta los eventos de disparo, la configuración y los payloads de eventos de GitHub.
+  </Card>
+</Cards>
+
+## Configuración
+
+### Obtener detalles de PR
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub"
+    type="github"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "github_pr",
+            "options": [
+                {
+                    "id": "github_pr",
+                    "label": "Obtener detalles de PR"
+                },
+                {
+                    "id": "github_comment",
+                    "label": "Crear comentario en PR"
+                },
+                {
+                    "id": "github_repo_info",
+                    "label": "Obtener información del repositorio"
+                },
+                {
+                    "id": "github_latest_commit",
+                    "label": "Obtener último commit"
+                }
+            ]
+        },
+        {
+            "id": "owner",
+            "type": "short-input",
+            "title": "Propietario del repositorio",
+            "layout": "half",
+            "placeholder": "p. ej., microsoft",
+            "required": true
+        },
+        {
+            "id": "repo",
+            "type": "short-input",
+            "title": "Nombre del repositorio",
+            "layout": "half",
+            "placeholder": "p. ej., vscode",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de GitHub",
+            "layout": "full",
+            "placeholder": "Introduce el token de GitHub",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "pullNumber",
+            "type": "short-input",
+            "title": "Número de Pull Request",
+            "layout": "half",
+            "placeholder": "p. ej., 123",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener detalles de PR (<code>github_pr</code>)</div>
+
+Obtener detalles del PR incluyendo el diff y los archivos modificados
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `owner` | string | Sí | Propietario del repositorio |
+| `repo` | string | Sí | Nombre del repositorio |
+| `pullNumber` | number | Sí | Número de Pull Request |
+| `apiKey` | string | Sí | Token de API de GitHub |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Resumen del PR legible para humanos |
+| `metadata` | object | Metadatos detallados del PR, incluidos los cambios de archivos |
+
+</div>
+
+---
+
+### Crear comentario en el PR
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub"
+    type="github"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "github_comment",
+            "options": [
+                {
+                    "id": "github_pr",
+                    "label": "Obtener detalles del PR"
+                },
+                {
+                    "id": "github_comment",
+                    "label": "Crear comentario en el PR"
+                },
+                {
+                    "id": "github_repo_info",
+                    "label": "Obtener información del repositorio"
+                },
+                {
+                    "id": "github_latest_commit",
+                    "label": "Obtener el último commit"
+                }
+            ]
+        },
+        {
+            "id": "owner",
+            "type": "short-input",
+            "title": "Propietario del repositorio",
+            "layout": "half",
+            "placeholder": "p. ej., microsoft",
+            "required": true
+        },
+        {
+            "id": "repo",
+            "type": "short-input",
+            "title": "Nombre del repositorio",
+            "layout": "half",
+            "placeholder": "p. ej., vscode",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de GitHub",
+            "layout": "full",
+            "placeholder": "Introduce el token de GitHub",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "Comentario",
+            "layout": "full",
+            "placeholder": "Introduce el texto del comentario",
+            "required": true
+        },
+        {
+            "id": "pullNumber",
+            "type": "short-input",
+            "title": "Número de pull request",
+            "layout": "half",
+            "placeholder": "p. ej., 123",
+            "required": true
+        },
+        {
+            "id": "commentType",
+            "type": "dropdown",
+            "title": "Tipo de comentario",
+            "layout": "half",
+            "options": [
+                {
+                    "id": "pr_comment",
+                    "label": "Comentario general del PR"
+                },
+                {
+                    "id": "file_comment",
+                    "label": "Comentario específico de archivo"
+                }
+            ]
+        },
+        {
+            "id": "path",
+            "type": "short-input",
+            "title": "Ruta del archivo",
+            "layout": "half",
+            "placeholder": "p. ej., src/main.ts",
+            "description": "Se muestra cuando commentType es 'file_comment'."
+        },
+        {
+            "id": "line",
+            "type": "short-input",
+            "title": "Número de línea",
+            "layout": "half",
+            "placeholder": "p. ej., 42",
+            "description": "Se muestra cuando commentType es 'file_comment'."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear comentario de PR (<code>github_comment</code>)</div>
+
+Crear comentarios en PRs de GitHub
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `owner` | string | Sí | Propietario del repositorio |
+| `repo` | string | Sí | Nombre del repositorio |
+| `body` | string | Sí | Contenido del comentario |
+| `pullNumber` | number | Sí | Número de pull request |
+| `path` | string | No | Ruta de archivo para comentario de revisión |
+| `commentType` | string | No | Tipo de comentario \(pr_comment o file_comment\) |
+| `apiKey` | string | Sí | Token de API de GitHub |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Confirmación del comentario legible por humanos |
+| `metadata` | object | Metadatos del comentario |
+
+</div>
+
+---
+
+### Obtener información del repositorio
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub"
+    type="github"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "github_repo_info",
+            "options": [
+                {
+                    "id": "github_pr",
+                    "label": "Obtener detalles del PR"
+                },
+                {
+                    "id": "github_comment",
+                    "label": "Crear comentario de PR"
+                },
+                {
+                    "id": "github_repo_info",
+                    "label": "Obtener información del repositorio"
+                },
+                {
+                    "id": "github_latest_commit",
+                    "label": "Obtener último commit"
+                }
+            ]
+        },
+        {
+            "id": "owner",
+            "type": "short-input",
+            "title": "Propietario del repositorio",
+            "layout": "half",
+            "placeholder": "p. ej., microsoft",
+            "required": true
+        },
+        {
+            "id": "repo",
+            "type": "short-input",
+            "title": "Nombre del repositorio",
+            "layout": "half",
+            "placeholder": "p. ej., vscode",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de GitHub",
+            "layout": "full",
+            "placeholder": "Introduce el token de GitHub",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener información del repositorio (<code>github_repo_info</code>)</div>
+
+Recupera metadatos completos del repositorio de GitHub, incluyendo estrellas, bifurcaciones, incidencias y lenguaje principal. Compatible con repositorios públicos y privados con autenticación opcional.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `owner` | string | Sí | Propietario del repositorio \(usuario u organización\) |
+| `repo` | string | Sí | Nombre del repositorio |
+| `apiKey` | string | Sí | Token de acceso personal de GitHub |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Resumen del repositorio legible por humanos |
+| `metadata` | object | Metadatos del repositorio |
+
+</div>
+
+---
+
+### Obtener el último commit
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitHub"
+    type="github"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "github_latest_commit",
+            "options": [
+                {
+                    "id": "github_pr",
+                    "label": "Obtener detalles de PR"
+                },
+                {
+                    "id": "github_comment",
+                    "label": "Crear comentario en PR"
+                },
+                {
+                    "id": "github_repo_info",
+                    "label": "Obtener información del repositorio"
+                },
+                {
+                    "id": "github_latest_commit",
+                    "label": "Obtener el último commit"
+                }
+            ]
+        },
+        {
+            "id": "owner",
+            "type": "short-input",
+            "title": "Propietario del repositorio",
+            "layout": "half",
+            "placeholder": "p. ej., microsoft",
+            "required": true
+        },
+        {
+            "id": "repo",
+            "type": "short-input",
+            "title": "Nombre del repositorio",
+            "layout": "half",
+            "placeholder": "p. ej., vscode",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de GitHub",
+            "layout": "full",
+            "placeholder": "Ingresa el token de GitHub",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "branch",
+            "type": "short-input",
+            "title": "Nombre de la rama",
+            "layout": "half",
+            "placeholder": "p. ej., main (déjalo vacío para usar el predeterminado)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener el último commit (<code>github_latest_commit</code>)</div>
+
+Obtener el último commit de un repositorio de GitHub
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `owner` | string | Sí | Propietario del repositorio \(usuario u organización\) |
+| `repo` | string | Sí | Nombre del repositorio |
+| `branch` | string | No | Nombre de la rama \(por defecto, la rama predeterminada del repositorio\) |
+| `apiKey` | string | Sí | Token de la API de GitHub |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Resumen del commit legible para humanos |
+| `metadata` | object | Metadatos del commit |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integrar Github en el flujo de trabajo. Puede obtener detalles de PR, crear comentarios de PR, obtener información del repositorio y obtener el último commit. Se puede usar en modo trigger para activar un flujo de trabajo cuando se crea un PR, se comenta en él o se hace push de un commit.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `github`

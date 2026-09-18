@@ -72,7 +72,7 @@ async function waitForApiWorkflowResult(params: {
       throw new Error('Queued workflow execution was not found')
     }
 
-    if (state.status === 'completed') {
+    if (state.status === 'completed' || state.status === 'paused') {
       if (!isExecutionResult(state.result)) {
         throw new Error('Queued workflow execution result is missing')
       }
@@ -90,7 +90,7 @@ async function waitForApiWorkflowResult(params: {
 }
 
 function createApiWorkflowResponse(result: ExecutionResult) {
-  if (workflowHasResponseBlock(result)) {
+  if (result.status !== 'paused' && workflowHasResponseBlock(result)) {
     return createHttpResponseFromBlock(result)
   }
 

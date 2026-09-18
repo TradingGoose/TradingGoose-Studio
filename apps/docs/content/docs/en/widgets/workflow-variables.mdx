@@ -19,8 +19,8 @@ The Workflow Variables widget gives you a dedicated panel for viewing and editin
 
 - **Live variable list** -- displays all variables for the active workflow, updated in real time through the collaborative workflow store
 - **Inline editing** -- edit variable names, types, and values directly in the panel; changes propagate immediately to other connected clients
-- **Add variable** -- a **+** button in the header dispatches a custom `WORKFLOW_VARIABLES_ADD_EVENT` that creates a new empty string variable in the workflow; the event is scoped to the correct panel and channel so it only affects the target widget instance
-- **Collaborative sync** -- uses `useCollaborativeWorkflow` under the hood, so additions and edits are broadcast to all users viewing the same workflow
+- **Add variable** -- a **+** button in the header dispatches a custom `WORKFLOW_VARIABLES_ADD_EVENT` that creates a new empty plain-text (`plain`) variable in the workflow; the event is scoped to the correct panel and channel so it only affects the target widget instance
+- **Collaborative sync** -- uses the shared workflow session, so additions and edits are broadcast to all users viewing the same workflow
 - **Workflow selector** -- a header dropdown lets you switch between workflows; respects pair-color syncing when linked to an editor
 
 ## Usage
@@ -38,7 +38,7 @@ Open the widget picker and select **Workflow Variables**. It loads the variable 
 
 1. Browse the variable list to see names, types, and current values
 2. Click a variable to edit its value inline
-3. Click the **+** button in the header to append a new variable (defaults to type `string` with an empty value)
+3. Click the **+** button in the header to append a new variable (defaults to type `plain` with an empty value)
 4. Changes save automatically and are visible to other collaborators in real time
 
 ### Pair color syncing

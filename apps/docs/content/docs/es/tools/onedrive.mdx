@@ -1,0 +1,455 @@
+---
+title: OneDrive
+description: Crear, cargar y listar archivos
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="onedrive"
+  color="#28A8EA"
+/>
+
+## Configuración
+
+### Crear carpeta
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="OneDrive"
+    type="onedrive"
+    color="#28A8EA"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "create_folder",
+                    "label": "Crear carpeta"
+                },
+                {
+                    "id": "create_file",
+                    "label": "Crear archivo"
+                },
+                {
+                    "id": "upload",
+                    "label": "Cargar archivo"
+                },
+                {
+                    "id": "list",
+                    "label": "Listar archivos"
+                }
+            ],
+            "defaultValue": "create_folder"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "onedrive"
+        },
+        {
+            "id": "folderName",
+            "type": "short-input",
+            "title": "Nombre de carpeta",
+            "layout": "full",
+            "placeholder": "Nombre de la carpeta nueva"
+        },
+        {
+            "id": "folderSelector",
+            "type": "file-selector",
+            "title": "Seleccionar carpeta principal",
+            "layout": "full",
+            "placeholder": "Seleccionar una carpeta principal",
+            "provider": "microsoft"
+        },
+        {
+            "id": "manualFolderId",
+            "type": "short-input",
+            "title": "ID de carpeta principal",
+            "layout": "full",
+            "placeholder": "Introducir ID de carpeta principal (dejar vacío para la carpeta raíz)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear carpeta (<code>onedrive_create_folder</code>)</div>
+
+Crear una carpeta nueva en OneDrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `folderName` | string | Sí | Nombre de la carpeta que se va a crear |
+| `folderId` | string | No | ID de la carpeta principal donde se creará la carpeta |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Indica si la carpeta se creó correctamente |
+| `file` | object | Objeto de la carpeta creada con metadatos, incluidos id, name, webViewLink y marcas de tiempo |
+
+</div>
+
+---
+
+### Crear archivo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="OneDrive"
+    type="onedrive"
+    color="#28A8EA"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "create_folder",
+                    "label": "Crear carpeta"
+                },
+                {
+                    "id": "create_file",
+                    "label": "Crear archivo"
+                },
+                {
+                    "id": "upload",
+                    "label": "Cargar archivo"
+                },
+                {
+                    "id": "list",
+                    "label": "Listar archivos"
+                }
+            ],
+            "defaultValue": "create_file"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "onedrive"
+        },
+        {
+            "id": "fileName",
+            "type": "short-input",
+            "title": "Nombre de archivo",
+            "layout": "full",
+            "placeholder": "Nombre del archivo",
+            "required": true
+        },
+        {
+            "id": "mimeType",
+            "type": "dropdown",
+            "title": "Tipo de archivo",
+            "layout": "full",
+            "placeholder": "Seleccionar tipo de archivo",
+            "required": true,
+            "options": [
+                {
+                    "id": "text/plain",
+                    "label": "Archivo de texto (.txt)"
+                },
+                {
+                    "id": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "label": "Archivo de Excel (.xlsx)"
+                }
+            ]
+        },
+        {
+            "id": "values",
+            "type": "long-input",
+            "title": "Valores",
+            "layout": "full",
+            "placeholder": "Introducir valores como un array JSON de arrays (p. ej., [[\"A1\",\"B1\"],[\"A2\",\"B2\"]]) o un array de objetos",
+            "description": "Se muestra cuando mimeType es 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'."
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Contenido de texto",
+            "layout": "full",
+            "placeholder": "Contenido de texto del archivo",
+            "description": "Se muestra cuando mimeType es 'text/plain'."
+        },
+        {
+            "id": "folderSelector",
+            "type": "file-selector",
+            "title": "Seleccionar carpeta principal",
+            "layout": "full",
+            "placeholder": "Seleccionar una carpeta principal",
+            "provider": "microsoft"
+        },
+        {
+            "id": "manualFolderId",
+            "type": "short-input",
+            "title": "ID de carpeta principal",
+            "layout": "full",
+            "placeholder": "Introducir ID de carpeta principal (dejar vacío para la carpeta raíz)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear archivo (<code>onedrive_upload</code>)</div>
+
+Cargar un archivo en OneDrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `fileName` | string | Sí | El nombre del archivo que se va a cargar |
+| `file` | file | No | El archivo que se va a cargar \(binario\) |
+| `content` | string | No | El contenido de texto que se va a cargar \(si no se proporciona ningún archivo\) |
+| `mimeType` | string | No | El tipo MIME del archivo que se va a crear \(p. ej., text/plain para .txt, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet para .xlsx\) |
+| `folderId` | string | No | ID de carpeta en la que cargar el archivo |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Si el archivo se subió correctamente |
+| `file` | object | El objeto del archivo subido con metadatos, incluidos id, name, webViewLink, webContentLink y marcas de tiempo |
+
+</div>
+
+---
+
+### Subir archivo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="OneDrive"
+    type="onedrive"
+    color="#28A8EA"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "create_folder",
+                    "label": "Crear carpeta"
+                },
+                {
+                    "id": "create_file",
+                    "label": "Crear archivo"
+                },
+                {
+                    "id": "upload",
+                    "label": "Subir archivo"
+                },
+                {
+                    "id": "list",
+                    "label": "Listar archivos"
+                }
+            ],
+            "defaultValue": "upload"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "onedrive"
+        },
+        {
+            "id": "fileName",
+            "type": "short-input",
+            "title": "Nombre del archivo",
+            "layout": "full",
+            "placeholder": "Nombre del archivo",
+            "required": true
+        },
+        {
+            "id": "file",
+            "type": "file-upload",
+            "title": "Archivo",
+            "layout": "full",
+            "placeholder": "Subir un archivo",
+            "required": false
+        },
+        {
+            "id": "fileReference",
+            "type": "short-input",
+            "title": "Archivo",
+            "layout": "full",
+            "placeholder": "Archivo de referencia del bloque anterior (p. ej., {{block_1.file}})",
+            "required": false
+        },
+        {
+            "id": "folderSelector",
+            "type": "file-selector",
+            "title": "Seleccionar carpeta padre",
+            "layout": "full",
+            "placeholder": "Seleccionar una carpeta padre",
+            "provider": "microsoft"
+        },
+        {
+            "id": "manualFolderId",
+            "type": "short-input",
+            "title": "ID de carpeta padre",
+            "layout": "full",
+            "placeholder": "Introducir el ID de la carpeta padre (dejar vacío para la carpeta raíz)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Subir archivo (<code>onedrive_upload</code>)</div>
+
+Subir un archivo a OneDrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `fileName` | string | Sí | El nombre del archivo que se va a subir |
+| `file` | file | No | El archivo que se va a subir \(binario\) |
+| `content` | string | No | El contenido de texto que se va a subir \(si no se proporciona un archivo\) |
+| `mimeType` | string | No | El tipo MIME del archivo que se va a crear \(p. ej., text/plain para .txt, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet para .xlsx\) |
+| `folderId` | string | No | ID de la carpeta en la que se subirá el archivo |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Si el archivo se cargó correctamente |
+| `file` | object | El objeto del archivo cargado con metadatos, incluidos id, name, webViewLink, webContentLink y marcas de tiempo |
+
+</div>
+
+---
+
+### Listar archivos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="OneDrive"
+    type="onedrive"
+    color="#28A8EA"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "create_folder",
+                    "label": "Crear carpeta"
+                },
+                {
+                    "id": "create_file",
+                    "label": "Crear archivo"
+                },
+                {
+                    "id": "upload",
+                    "label": "Cargar archivo"
+                },
+                {
+                    "id": "list",
+                    "label": "Listar archivos"
+                }
+            ],
+            "defaultValue": "list"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Microsoft",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Microsoft",
+            "provider": "onedrive"
+        },
+        {
+            "id": "folderSelector",
+            "type": "file-selector",
+            "title": "Seleccionar carpeta",
+            "layout": "full",
+            "placeholder": "Seleccionar una carpeta para listar archivos",
+            "provider": "microsoft"
+        },
+        {
+            "id": "manualFolderId",
+            "type": "short-input",
+            "title": "ID de carpeta",
+            "layout": "full",
+            "placeholder": "Introducir ID de carpeta (dejar vacío para la carpeta raíz)"
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "Consulta de búsqueda",
+            "layout": "full",
+            "placeholder": "Buscar archivos específicos (p. ej., name contains \"report\")"
+        },
+        {
+            "id": "pageSize",
+            "type": "short-input",
+            "title": "Resultados por página",
+            "layout": "full",
+            "placeholder": "Número de resultados (predeterminado: 100, máx.: 1000)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar archivos (<code>onedrive_list</code>)</div>
+
+Listar archivos y carpetas en OneDrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `folderId` | string | No | El ID de la carpeta desde la que listar archivos |
+| `query` | string | No | Una consulta para filtrar los archivos |
+| `pageSize` | number | No | El número de archivos que devolver |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Si los archivos se listaron correctamente |
+| `files` | array | Array de objetos de archivos y carpetas con metadatos |
+| `nextPageToken` | string | Token para obtener la página siguiente de resultados \(opcional\) |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra OneDrive en el flujo de trabajo. Permite crear archivos de texto y Excel, cargar archivos y listar archivos.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `onedrive`

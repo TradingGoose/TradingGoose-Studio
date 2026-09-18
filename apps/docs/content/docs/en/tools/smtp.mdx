@@ -35,7 +35,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "short-input",
             "title": "SMTP Port",
             "placeholder": "587",
-            "required": true
+            "required": true,
+            "defaultValue": "587"
         },
         {
             "id": "smtpUsername",
@@ -57,18 +58,19 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Security Mode",
             "required": true,
+            "defaultValue": "TLS",
             "options": [
                 {
-                    "label": "TLS (Port 587)",
-                    "id": "TLS"
+                    "id": "TLS",
+                    "label": "TLS (Port 587)"
                 },
                 {
-                    "label": "SSL (Port 465)",
-                    "id": "SSL"
+                    "id": "SSL",
+                    "label": "SSL (Port 465)"
                 },
                 {
-                    "label": "None (Port 25)",
-                    "id": "None"
+                    "id": "None",
+                    "label": "None (Port 25)"
                 }
             ]
         },
@@ -104,14 +106,16 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "contentType",
             "type": "dropdown",
             "title": "Content Type",
+            "required": false,
+            "defaultValue": "text",
             "options": [
                 {
-                    "label": "Plain Text",
-                    "id": "text"
+                    "id": "text",
+                    "label": "Plain Text"
                 },
                 {
-                    "label": "HTML",
-                    "id": "html"
+                    "id": "html",
+                    "label": "HTML"
                 }
             ]
         },
@@ -119,37 +123,43 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "attachmentFiles",
             "type": "file-upload",
             "title": "Attachments",
-            "placeholder": "Upload files to attach"
+            "placeholder": "Upload files to attach",
+            "required": false
         },
         {
             "id": "attachments",
             "type": "short-input",
             "title": "Attachments",
-            "placeholder": "Reference files from previous blocks"
+            "placeholder": "Reference files from previous blocks",
+            "required": false
         },
         {
             "id": "fromName",
             "type": "short-input",
             "title": "From Name",
-            "placeholder": "Display name for sender"
+            "placeholder": "Display name for sender",
+            "required": false
         },
         {
             "id": "cc",
             "type": "short-input",
             "title": "CC",
-            "placeholder": "cc1@example.com, cc2@example.com"
+            "placeholder": "cc1@example.com, cc2@example.com",
+            "required": false
         },
         {
             "id": "bcc",
             "type": "short-input",
             "title": "BCC",
-            "placeholder": "bcc1@example.com, bcc2@example.com"
+            "placeholder": "bcc1@example.com, bcc2@example.com",
+            "required": false
         },
         {
             "id": "replyTo",
             "type": "short-input",
             "title": "Reply To",
-            "placeholder": "reply@example.com"
+            "placeholder": "reply@example.com",
+            "required": false
         }
     ]}
   />
@@ -189,6 +199,7 @@ Send emails via SMTP server
 | `messageId` | string | Message ID from SMTP server |
 | `to` | string | Recipient email address |
 | `subject` | string | Email subject |
+| `error` | string | Error message if sending failed |
 
 
 ## Usage Instructions

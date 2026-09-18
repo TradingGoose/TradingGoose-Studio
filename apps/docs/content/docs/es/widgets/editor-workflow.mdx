@@ -1,0 +1,99 @@
+---
+title: Editor de flujos de trabajo
+description: Interfaz de lienzo para crear y editar flujos de trabajo.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Información general
+
+| Propiedad | Valor |
+|----------|-------|
+| **Clave** | `editor_workflow` |
+| **Categoría** | Editor |
+
+El Editor de flujos de trabajo es el lienzo principal para crear flujos de trabajo de IA. Renderiza un grafo completo de React Flow donde colocas bloques, trazas conexiones entre ellos y configuras cada paso de tu pipeline de automatización. Cada editor se vincula a la sesión en tiempo real del flujo de trabajo seleccionado, de modo que las vistas del mismo flujo de trabajo permanecen sincronizadas, mientras que los editores asignados a flujos de trabajo distintos se mantienen independientes.
+
+## Características
+
+- **Lienzo de React Flow** con desplazamiento, zoom y selección de nodos integrados
+- **Barra de bloques** en el encabezado con un menú desplegable con búsqueda que lista bloques, herramientas y disparadores agrupados por categoría; arrastra un bloque desde la barra al lienzo para añadirlo
+- **Bloques de bucle y paralelo** disponibles como elementos especiales de la barra para la lógica de control de flujo
+- **Controles flotantes** para acciones rápidas del lienzo (activados de forma predeterminada en la configuración del widget)
+- **Controles de exportación** en la barra de encabezado descargan el flujo de trabajo actual como JSON de exportación de TradingGoose e incluyen las habilidades del espacio de trabajo cuando están presentes.
+- **Selector de disparador de flujo vacío** para elegir el primer disparador disponible
+- **Posicionamiento según el viewport** -- el widget rastrea su propio bounding rect para que los bloques nuevos se coloquen en el centro visible del lienzo, incluso cuando el widget está incrustado en un panel pequeño
+- **Validación de subflujos anidados** con resaltado de errores en tiempo real cuando una referencia de subflujo no es válida
+- **Diálogo de advertencia de disparador** que se muestra cuando añades un disparador duplicado o incumples otra restricción de disparador
+
+## Uso
+
+### Añadir el widget
+
+Abre el selector de widgets en cualquier panel del espacio de trabajo y selecciona **Editor de flujos de trabajo**. Selecciona un flujo de trabajo en el encabezado o empareja el widget con otro widget compatible con flujos de trabajo para compartir su selección. Si aún no hay flujos de trabajo, el editor muestra un mensaje de marcador de posición.
+
+### Diseño del encabezado
+
+El encabezado se divide en tres secciones:
+
+- **Izquierda**: la barra de herramientas de bloques -- un menú desplegable para explorar y buscar bloques, herramientas y disparadores disponibles, y luego añadirlos al lienzo
+- **Centro**: un menú desplegable de selección de flujos de trabajo que te permite cambiar entre flujos de trabajo del espacio de trabajo
+- **Derecha**: la barra de control con diseño automático, ejecución, exportación, despliegue y acciones a nivel de flujo de trabajo
+
+### Interacciones clave
+
+1. **Añadir un bloque** -- abre el menú desplegable de la barra de herramientas, busca o explora y, a continuación, haz clic en un bloque para colocarlo en el centro de la vista
+2. **Conectar bloques** -- arrastra desde un conector de salida hasta un conector de entrada para crear una arista
+3. **Seleccionar y configurar** -- haz clic en un nodo para seleccionarlo y editar su configuración; las herramientas emparejadas del espacio de trabajo pueden seguir el flujo de trabajo activo
+4. **Eliminar** -- usa la barra de acciones de un bloque para quitarlo, o selecciona una arista y pulsa Delete o Backspace
+5. **Deshacer / Rehacer** -- atajos de teclado estándar
+
+### Sincronización del color de emparejamiento
+
+Cuando se le asigna un color de emparejamiento, el editor sincroniza su flujo de trabajo activo con otros widgets que comparten el mismo color. Al cambiar el flujo de trabajo en el selector del encabezado, la selección se transmite a todos los widgets emparejados. Cuando el color de emparejamiento es `gray` (desvinculado), el widget gestiona su propia selección de forma independiente mediante los parámetros del widget.
+
+<Callout>
+Empareja este widget con **Consola**, **Chat** o **Variables** usando colores de emparejamiento coincidentes. Los colores de emparejamiento sincronizan solo los widgets del dashboard; el panel global de Copilot sigue el diseño activo.
+</Callout>
+
+## Configuración
+
+La IU del canvas se controla con `WorkflowCanvasUIConfig`:
+
+| Opción | Predeterminado | Descripción |
+|--------|---------|-------------|
+| `floatingControls` | `true` | Mostrar botones de acción flotantes en el canvas |
+| `triggerList` | `true` | Mostrar el selector de triggers cuando un workflow editable está vacío |
+| `controlBar` | `false` | Mostrar una barra de control de canvas integrada |
+
+Estos son los valores efectivos que proporciona el widget del dashboard.
+
+## Relacionado
+
+<Cards>
+  <Card title="Descripción general de bloques" href="/blocks">
+    Explora todos los bloques de workflow disponibles.
+  </Card>
+  <Card title="Descripción general de herramientas" href="/tools">
+    Explora todas las herramientas de workflow disponibles.
+  </Card>
+  <Card title="Descripción general de triggers" href="/triggers">
+    Explora todos los triggers de workflow disponibles.
+  </Card>
+  <Card title="Lista de workflows" href="/widgets/list-workflow">
+    Explora, crea e importa archivos de workflow.
+  </Card>
+  <Card title="Consola de workflow" href="/widgets/workflow-console">
+    Consulta los registros de ejecución y la salida en streaming.
+  </Card>
+  <Card title="Chat de workflow" href="/widgets/workflow-chat">
+    Interactúa con un workflow en ejecución.
+  </Card>
+  <Card title="Copilot" href="/copilot">
+    Asistente global del workspace para workflows, MCP, skills, herramientas personalizadas y más.
+  </Card>
+  <Card title="Variables de workflow" href="/widgets/workflow-variables">
+    Inspecciona y edita el estado de las variables.
+  </Card>
+</Cards>

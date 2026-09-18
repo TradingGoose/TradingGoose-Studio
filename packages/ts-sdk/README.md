@@ -1,16 +1,19 @@
 # TradingGoose TypeScript SDK
 
-The official TypeScript/JavaScript SDK for [TradingGoose](https://tradinggoose.ai), allowing you to execute workflows programmatically from your applications.
+Repository-local preview of the TradingGoose TypeScript/JavaScript client for Node.js.
 
-## Installation
+> **Development status:** `tradinggoose-ts-sdk` is not currently published to npm. For production integrations, use the supported [Execution API](https://docs.tradinggoose.ai/execution/api).
+
+## Install from source
 
 ```bash
-npm install tradinggoose-ts-sdk
-# or 
-yarn add tradinggoose-ts-sdk
-# or
-bun add tradinggoose-ts-sdk
+git clone https://github.com/TradingGoose/TradingGoose-Studio.git
+cd TradingGoose-Studio
+bun install
+bun run --cwd packages/ts-sdk build
 ```
+
+The import name used below assumes this workspace package has been linked into your application. The package is intended for repository development while it remains unpublished.
 
 ## Quick Start
 
@@ -20,7 +23,7 @@ import { TradingGooseClient } from 'tradinggoose-ts-sdk';
 // Initialize the client
 const client = new TradingGooseClient({
   apiKey: 'your-api-key-here',
-  baseUrl: 'https://tradinggoose.ai' // optional, defaults to https://tradinggoose.ai
+  baseUrl: 'https://www.tradinggoose.ai' // optional
 });
 
 // Execute a workflow
@@ -43,7 +46,7 @@ new TradingGooseClient(config: TradingGooseConfig)
 ```
 
 - `config.apiKey` (string): Your TradingGoose API key
-- `config.baseUrl` (string, optional): Base URL for the TradingGoose API (defaults to `https://tradinggoose.ai`)
+- `config.baseUrl` (string, optional): Base URL for the TradingGoose API (defaults to `https://www.tradinggoose.ai`)
 
 #### Methods
 
@@ -61,10 +64,16 @@ const result = await client.executeWorkflow('workflow-id', {
 **Parameters:**
 - `workflowId` (string): The ID of the workflow to execute
 - `options` (ExecutionOptions, optional):
-  - `input` (any): Input data to pass to the workflow. File objects are automatically converted to base64.
+  - `input` (`Record<string, unknown>`): Input object to pass to the workflow. File objects are automatically converted to base64 on Node.js 20+; provide an encoded file object on older Node.js versions.
   - `timeout` (number): Timeout in milliseconds (default: 30000)
 
-**Returns:** `Promise<WorkflowExecutionResult>`
+**Returns:** `Promise<TResult>`, where `TResult` defaults to `WorkflowExecutionResult`
+
+For a workflow with a Response block, the endpoint returns the block's custom JSON body instead of `WorkflowExecutionResult`. Supply that body type as `executeWorkflow<MyResponse>(...)`. The client does not expose custom response headers, and a non-2xx custom status becomes `TradingGooseError`; use the direct [Execution API](https://docs.tradinggoose.ai/execution/api) when the status or headers matter.
+
+#### Streaming
+
+Streaming makes the API return `text/event-stream`. This preview SDK does not expose streaming or selected-output options because it does not implement an SSE reader. Consume the [Execution API](https://docs.tradinggoose.ai/execution/api) directly for streaming.
 
 ##### getWorkflowStatus(workflowId)
 
@@ -112,32 +121,99 @@ Update the base URL.
 client.setBaseUrl('https://my-custom-domain.com');
 ```
 
+##### executeWithRetry(workflowId, options?, retryOptions?)
+
+Execute a workflow and retry only `RATE_LIMIT_EXCEEDED` responses. Defaults are 3 retries, a 1000 ms initial delay, a 30000 ms maximum delay, and a 2× backoff multiplier. The current workflow endpoint does not emit `Retry-After`, so retries use exponential backoff with ±25% jitter. A compatible deployment that supplies the header overrides that delay.
+
+```typescript
+const result = await client.executeWithRetry(
+  'workflow-id',
+  { input: { message: 'Hello' } },
+  { maxRetries: 3, initialDelay: 1000, maxDelay: 30000, backoffMultiplier: 2 }
+);
+```
+
+Like `executeWorkflow`, this method accepts a result type parameter for a successful custom Response-block body.
+
+##### getRateLimitInfo()
+
+Return the most recently observed `RateLimitInfo`. The current workflow and usage endpoints do not emit rate-limit headers, so this normally remains `null`; a compatible deployment or proxy may supply them. `retryAfter` is measured in milliseconds.
+
+##### getUsageLimits()
+
+Fetch current sync/async rate limits and account usage from `/api/users/me/usage-limits`.
+
+```typescript
+const limits = await client.getUsageLimits();
+console.log(limits.rateLimit.sync.remaining, limits.usage.currentPeriodCost);
+```
+
 ## Types
+
+### ExecutionOptions and RetryOptions
+
+```typescript
+interface ExecutionOptions {
+  input?: Record<string, unknown>;
+  timeout?: number; // milliseconds; default 30000
+}
+
+interface RetryOptions {
+  maxRetries?: number; // default 3
+  initialDelay?: number; // milliseconds; default 1000
+  maxDelay?: number; // milliseconds; default 30000
+  backoffMultiplier?: number; // default 2
+}
+```
+
+### RateLimitInfo and UsageLimits
+
+```typescript
+interface RateLimitInfo {
+  limit: number;
+  remaining: number;
+  reset: string; // ISO timestamp
+  retryAfter?: number; // milliseconds
+}
+
+interface UsageLimits {
+  success: boolean;
+  rateLimit: {
+    sync: { isLimited: boolean; limit: number; remaining: number; resetAt: string };
+    async: { isLimited: boolean; limit: number; remaining: number; resetAt: string };
+    authType: string;
+  };
+  usage: { currentPeriodCost: number; limit: number; tier: Record<string, unknown> };
+  storage: { usedBytes: number; limitBytes: number; percentUsed: number };
+}
+```
 
 ### WorkflowExecutionResult
 
 ```typescript
 interface WorkflowExecutionResult {
   success: boolean;
-  output?: any;
+  output: any;
   error?: string;
-  logs?: any[];
+  status?: 'paused';
   metadata?: {
     duration?: number;
-    executionId?: string;
-    [key: string]: any;
+    startTime?: string;
+    endTime?: string;
   };
-  traceSpans?: any[];
-  totalDuration?: number;
 }
 ```
+
+This is the normal non-streaming response for a workflow without a Response block. A Response block can return any JSON body; use the generic `executeWorkflow<TResponse>()` result type for that body.
+
+An execution waiting for human review returns `success: true`, `status: 'paused'`, and review details in `output`. Completed executions omit `status`.
 
 ### WorkflowStatus
 
 ```typescript
 interface WorkflowStatus {
   isDeployed: boolean;
-  deployedAt?: string;
+  deployedAt: string | null;
   needsRedeployment: boolean;
 }
 ```
@@ -150,6 +226,8 @@ class TradingGooseError extends Error {
   status?: number;
 }
 ```
+
+HTTP failures preserve the API error code and status. Timeouts use `TIMEOUT`; transport or unexpected execution failures use `EXECUTION_ERROR`; usage-limit request failures use `USAGE_ERROR`; HTTP 429 uses `RATE_LIMIT_EXCEEDED`.
 
 ## Examples
 
@@ -207,21 +285,22 @@ async function executeWithErrorHandling() {
     return result;
   } catch (error) {
     if (error instanceof TradingGooseError) {
-      switch (error.code) {
-        case 'UNAUTHORIZED':
-          console.error('Invalid API key');
-          break;
-        case 'TIMEOUT':
-          console.error('Workflow execution timed out');
-          break;
-        case 'USAGE_LIMIT_EXCEEDED':
-          console.error('Usage limit exceeded');
-          break;
-        case 'INVALID_JSON':
-          console.error('Invalid JSON in request body');
-          break;
-        default:
-          console.error('Workflow error:', error.message);
+      if (error.status === 401) {
+        console.error('Invalid API key');
+      } else {
+        switch (error.code) {
+          case 'TIMEOUT':
+            console.error('Workflow execution timed out');
+            break;
+          case 'USAGE_LIMIT_EXCEEDED':
+            console.error('Usage limit exceeded');
+            break;
+          case 'INVALID_JSON_IN_REQUEST_BODY':
+            console.error('Invalid JSON in request body');
+            break;
+          default:
+            console.error('Workflow error:', error.message);
+        }
       }
     } else {
       console.error('Unexpected error:', error);
@@ -243,7 +322,7 @@ const client = new TradingGooseClient({
 
 ### File Upload
 
-File objects are automatically detected and converted to base64 format. Include them in your input under the field name matching your workflow's API trigger input format:
+File objects are automatically detected and converted to base64 in Node.js 20+, where `File` is globally available. Include them in your input under the field name matching your workflow's API trigger input format. On older Node.js versions, provide the encoded file object shown below instead.
 
 The SDK converts File objects to this format:
 ```typescript
@@ -273,7 +352,7 @@ const client = new TradingGooseClient({
   apiKey: process.env.TRADINGGOOSE_API_KEY!
 });
 
-// Node.js: Read file and create File object
+// Node.js 20+: Read a file and create a global File object
 const fileBuffer = fs.readFileSync('./document.pdf');
 const file = new File([fileBuffer], 'document.pdf', { type: 'application/pdf' });
 
@@ -285,23 +364,11 @@ const result = await client.executeWorkflow('workflow-id', {
   }
 });
 
-// Browser: From file input
-const handleFileUpload = async (event: Event) => {
-  const input = event.target as HTMLInputElement;
-  const files = Array.from(input.files || []);
-
-  const result = await client.executeWorkflow('workflow-id', {
-    input: {
-      attachments: files,  // Field name must match your API trigger's file input field
-      query: 'Analyze these files'
-    }
-  });
-};
 ```
 
 ## Getting Your API Key
 
-1. Log in to your [TradingGoose](https://tradinggoose.ai) account
+1. Log in to your [TradingGoose](https://www.tradinggoose.ai) account
 2. Navigate to your workflow
 3. Click on "Deploy" to deploy your workflow
 4. Select or create an API key during the deployment process
@@ -343,12 +410,12 @@ This will compile TypeScript files to JavaScript and generate type declarations 
 For development with auto-rebuild:
 
 ```bash
-bun run dev
+bun run dev:watch
 ```
 
 ## Requirements
 
-- Node.js 18+
+- Node.js 16+
 - TypeScript 5.0+ (for TypeScript projects)
 
 ## License

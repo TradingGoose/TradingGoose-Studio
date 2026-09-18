@@ -1,0 +1,152 @@
+---
+title: 历史数据
+description: 从注册提供商获取历史市场序列。
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="historical_data"
+  color="#0EA5E9"
+/>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="历史数据"
+    type="historical_data"
+    color="#0EA5E9"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "market-provider-selector",
+            "title": "数据提供商",
+            "layout": "full",
+            "required": true
+        },
+        {
+            "id": "listing",
+            "type": "market-selector",
+            "title": "标的",
+            "layout": "full",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "ALPHAVANTAGE_API_KEY",
+            "password": true,
+            "description": "当提供商为 'alpha-vantage'、'alpaca' 或 'finnhub' 时显示。"
+        },
+        {
+            "id": "apiSecret",
+            "type": "short-input",
+            "title": "API 私钥",
+            "layout": "full",
+            "placeholder": "APCA-API-SECRET-KEY",
+            "password": true,
+            "description": "当提供商为 'alpaca' 时显示。"
+        },
+        {
+            "id": "feed",
+            "type": "dropdown",
+            "title": "数据源",
+            "layout": "full",
+            "placeholder": "选择数据源",
+            "password": false,
+            "options": [
+                {
+                    "id": "sip",
+                    "label": "SIP"
+                },
+                {
+                    "id": "iex",
+                    "label": "IEX"
+                }
+            ],
+            "description": "当提供商为 'alpaca' 时显示。"
+        },
+        {
+            "id": "interval",
+            "type": "dropdown",
+            "title": "时间间隔",
+            "layout": "full",
+            "placeholder": "选择时间间隔",
+            "description": "当提供商为 'alpha-vantage'、'alpaca'、'yahoo-finance' 或 'finnhub' 之一时显示。"
+        },
+        {
+            "id": "normalizationMode",
+            "type": "dropdown",
+            "title": "标准化",
+            "layout": "full",
+            "placeholder": "可选的标准化模式",
+            "description": "当提供商为 'alpha-vantage'、'alpaca' 或 'yahoo-finance' 之一时显示。"
+        },
+        {
+            "id": "start",
+            "type": "datetime-input",
+            "title": "开始",
+            "layout": "full",
+            "placeholder": "开始时间",
+            "required": true
+        },
+        {
+            "id": "end",
+            "type": "datetime-input",
+            "title": "结束",
+            "layout": "full",
+            "placeholder": "结束时间",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+### `historical_data_fetch`
+
+从注册的市场提供商获取并标准化市场序列数据。
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | 是 | 市场数据提供商 ID（例如：alpaca、finnhub、yahoo-finance）。 |
+| `listing` | listingIdentity | 是 | 来自 TradingGoose Market 的结构化标的负载。 |
+| `apiKey` | string | 是 | Alpha Vantage API 密钥。 |
+| `apiSecret` | string | 是 | Alpaca API 私钥。 |
+| `feed` | string | 是 | Alpaca 数据源（股票 K 线所需）。 |
+| `interval` | string | 否 | 提供商支持的序列间隔/时间范围。 |
+| `normalizationMode` | string | 否 | 提供商支持的标准化模式（可选）。 |
+| `window` | json | 是 | 主序列窗口（范围、K 线或绝对时间）。 |
+| `fallbackWindow` | json | 否 | 如果主序列不支持或无效，则使用备用序列窗口。 |
+| `providerParams` | json | 否 | 可选的提供商特定参数。 |
+
+#### 输出
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `listingBase` | string | 列表基础符号 |
+| `listingQuote` | string | 列表报价货币 |
+| `listing` | listingIdentity | 结构化列表标识符载荷 |
+| `bars` | array | 带时间戳的OHLCV柱状数据 |
+| `start` | string | 返回序列的开始 |
+| `end` | string | 返回序列的结束 |
+| `timezone` | string | 序列的交易所时区 |
+| `normalizationMode` | string | 使用的规范化模式 |
+
+## 使用说明
+
+选择市场数据提供商，选择一个规范列表，并获取包含开盘价、最高价、最低价、收盘价、成交量和时间戳的K线数据。开始和结束时间可以是ISO字符串或UNIX时间戳。
+
+## 说明
+
+- 类别：`tools`
+- 类型：`historical_data`

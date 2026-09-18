@@ -1,0 +1,32 @@
+---
+title: Descripción general
+description: Conecta tus bloques entre sí.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+Las conexiones son las rutas que permiten que los datos fluyan entre los bloques de tu flujo de trabajo. Definen cómo se transmite la información de un bloque a otro y te permiten crear procesos sofisticados de varios pasos.
+
+<Callout type="info">
+  Las conexiones configuradas correctamente son esenciales para crear flujos de trabajo eficaces. Determinan cómo
+  se mueven los datos por tu sistema y cómo interactúan los bloques entre sí.
+</Callout>
+
+Para crear una conexión, arrastra desde el puerto de salida de un bloque hasta el puerto de entrada de otro. Una vez conectados, los datos producidos por el bloque de origen quedan disponibles en el bloque de destino a través de las etiquetas de conexión.
+
+## Tipos de conexión
+
+TradingGoose admite distintos tipos de conexiones que permiten diversos patrones de flujo de trabajo:
+
+<Cards>
+  <Card title="Fundamentos de las conexiones" href="/connections/basics">
+    Aprende cómo funcionan las conexiones y cómo crearlas en tus flujos de trabajo
+  </Card>
+  <Card title="Etiquetas de conexión" href="/connections/tags">
+    Entiende cómo usar las etiquetas de conexión para referenciar datos entre bloques
+  </Card>
+  <Card title="Estructura de datos" href="/connections/data-structure">
+    Explora las estructuras de datos de salida de los distintos tipos de bloques
+  </Card>
+</Cards>

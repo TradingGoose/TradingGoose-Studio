@@ -22,6 +22,7 @@ describe('internal auth tokens', () => {
         source: 'workflow_block',
         parentWorkflowId: 'parent-workflow-1',
         parentExecutionId: 'parent-execution-1',
+        parentPendingExecutionId: 'parent-execution-1:resume:2',
         parentBlockId: 'workflow-block-1',
       },
     })
@@ -33,6 +34,7 @@ describe('internal auth tokens', () => {
         source: 'workflow_block',
         parentWorkflowId: 'parent-workflow-1',
         parentExecutionId: 'parent-execution-1',
+        parentPendingExecutionId: 'parent-execution-1:resume:2',
         parentBlockId: 'workflow-block-1',
       },
     })

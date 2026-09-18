@@ -49,6 +49,10 @@ async function postUpload(options?: Parameters<typeof createUploadRequest>[0]) {
 describe('File Upload API Route', () => {
   beforeEach(() => {
     vi.resetModules()
+    vi.doMock('@/lib/workflows/utils', () => ({
+      readWorkflowAccessContext: vi.fn().mockResolvedValue(null),
+      hasWorkflowWriteAccess: vi.fn().mockReturnValue(false),
+    }))
     vi.doMock('@/lib/uploads/setup.server', () => ({
       UPLOAD_DIR_SERVER: '/tmp/test-uploads',
     }))

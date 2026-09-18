@@ -14,7 +14,7 @@ import {
 import LineChart, {
   type LineChartPoint,
 } from '@/app/workspace/[workspaceId]/records/components/stats/components/line-chart'
-import { extractOutput, formatDate } from '@/app/workspace/[workspaceId]/records/utils'
+import { formatDate } from '@/app/workspace/[workspaceId]/records/utils'
 import { useRouter } from '@/i18n/navigation'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
@@ -30,26 +30,12 @@ export interface WorkflowDetailsData {
 }
 
 const readWorkflowLogOutputText = (log: WorkflowLog) => {
-  const output = extractOutput(log)
+  const output = log.executionData?.finalOutput
   if (output === null || typeof output === 'undefined') {
     return '—'
   }
 
   return typeof output === 'string' ? output : JSON.stringify(output)
-}
-
-const readWorkflowLogErrorText = (log: WorkflowLog) => {
-  const blockExecutions = Array.isArray(log.executionData?.blockExecutions)
-    ? log.executionData.blockExecutions
-    : []
-  for (let index = blockExecutions.length - 1; index >= 0; index -= 1) {
-    const errorMessage = blockExecutions[index]?.errorMessage
-    if (typeof errorMessage === 'string' && errorMessage.trim()) {
-      return errorMessage
-    }
-  }
-
-  return null
 }
 
 export function WorkflowDetails({
@@ -363,7 +349,7 @@ export function WorkflowDetails({
                           ? formatDate(logDate.toISOString(), locale)
                           : ({ compactDate: '—', compactTime: '' } as any)
                       const outputsStr = readWorkflowLogOutputText(log)
-                      const errorStr = readWorkflowLogErrorText(log) || ''
+                      const errorStr = log.executionData?.errorMessage
                       const isExpanded = expandedRowId === log.id
                       const levelOption = getLogLevelOption(log.level)
                       const triggerOption = getLogTriggerOption(log.trigger)

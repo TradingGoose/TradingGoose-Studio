@@ -1,0 +1,40 @@
+---
+title: 思考
+description: 强制模型梳理其思考过程。
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="thinking"
+  color="#909090"
+/>
+
+## 工具
+
+### `thinking_tool`
+
+处理所提供的思考/指令，使其可供后续步骤使用。
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `thought` | string | 是 | 内部推理、分析或思考过程。用于在回复前逐步分析问题。 |
+
+#### 输出
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `acknowledgedThought` | string | 已处理并确认的思考内容 |
+
+## 使用说明
+
+添加一个步骤，让模型在继续之前明确列出思考过程。通过鼓励逐步分析，可提升推理质量。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`thinking`

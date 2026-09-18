@@ -1,3 +1,10 @@
+export interface DocCondition {
+  field: string
+  value: string | number | boolean | Array<string | number | boolean>
+  not?: boolean
+  and?: DocCondition | DocCondition[]
+}
+
 /** Serializable subset of SubBlockConfig for doc rendering */
 export interface DocSubBlock {
   id: string
@@ -16,7 +23,9 @@ export interface DocSubBlock {
   language?: string
   provider?: string
   /** Condition that controls when this field is visible (e.g., which operation is selected) */
-  condition?: { field: string; value: string | string[] }
+  condition?: DocCondition
+  /** Condition that controls when this field is required. Resolved before preview rendering. */
+  requiredCondition?: DocCondition
 }
 
 export interface BlockConfig {
@@ -26,10 +35,13 @@ export interface BlockConfig {
   longDescription?: string
   category: string
   bgColor?: string
+  inputs?: Record<string, { type: string; description?: string; required?: boolean }>
   outputs?: Record<string, any>
   tools?: { access?: string[] }
   subBlocks?: DocSubBlock[]
-  /** Maps operation ID → tool name (extracted from tools.config.tool switch) */
+  /** Static sub-block used to select an operation. */
+  operationFieldId?: string
+  /** Maps operation ID to the runtime tool selected by tools.config.tool. */
   operationToolMap?: Record<string, string>
 }
 
@@ -37,6 +49,23 @@ export interface ToolInfo {
   description: string
   params: Array<{ name: string; type: string; required: boolean; description: string }>
   outputs: Record<string, any>
+}
+
+export interface ToolDocSource {
+  config: BlockConfig
+  toolInfo: Map<string, ToolInfo>
+  blockInfo?: ToolInfo
+}
+
+export interface TriggerConfig {
+  id: string
+  name: string
+  provider: string
+  description: string
+  subBlocks: DocSubBlock[]
+  outputs: Record<string, any>
+  delivery: 'webhook' | 'polling' | 'schedule'
+  instructions?: string | string[]
 }
 
 export interface RelatedDocPage {
@@ -47,7 +76,5 @@ export interface RelatedDocPage {
 
 export interface GeneratorContext {
   rootDir: string
-  blocksPath: string
-  toolsPath: string
   docsOutputPath: string
 }

@@ -1,0 +1,431 @@
+---
+title: Activador de Stripe
+description: Se activa cuando ocurren eventos de Stripe (pagos, suscripciones,
+  facturas, etc.)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="stripe"
+  color=""
+/>
+
+Se activa cuando ocurren eventos de Stripe (pagos, suscripciones, facturas, etc.)
+
+<Callout type="info">
+  Este es un activador **basado en webhook**. Configura el servicio externo para que envíe eventos a la URL de webhook del flujo de trabajo.
+</Callout>
+
+<Cards>
+  <Card title="Usar como herramienta" href="/tools/stripe">
+    Consulta las acciones del flujo de trabajo, las operaciones y las entradas de la herramienta para Stripe.
+  </Card>
+</Cards>
+
+## Instrucciones de configuración
+
+<div class="mb-3"><strong>1.</strong> Abre la <a href="https://dashboard.stripe.com/webhooks" target="_blank" rel="noopener noreferrer">configuración de webhooks de Stripe</a></div><div class="mb-3"><strong>2.</strong> Haz clic en el botón "Add destination"</div><div class="mb-3"><strong>3.</strong> En "Events to send", selecciona los eventos que quieres escuchar (deben coincidir con los eventos seleccionados arriba, o elige "Select all events" para recibirlos todos)</div><div class="mb-3"><strong>4.</strong> Selecciona <code>Webhook Endpoint</code>, pulsa continuar y pega la <strong>URL del webhook</strong> de arriba en el campo "Endpoint URL"</div><div class="mb-3"><strong>5.</strong> Haz clic en "Create Destination" para guardar</div><div class="mb-3"><strong>6.</strong> Tras crear el endpoint, haz clic en "Reveal" junto a "Signing secret" y cópialo</div><div class="mb-3"><strong>7.</strong> Pega el secreto de firma en el campo <strong>Secreto de firma del webhook</strong> de arriba</div><div class="mb-3"><strong>8.</strong> Haz clic en "Guardar" para activar tu activador de webhook</div>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Webhook de Stripe"
+    type="stripe_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "eventTypes",
+            "type": "dropdown",
+            "title": "Tipos de eventos a escuchar",
+            "placeholder": "Dejar vacío para recibir todos los eventos",
+            "description": "Selecciona eventos específicos de Stripe para filtrar. Déjalo vacío para recibir todos los eventos de Stripe.",
+            "options": [
+                {
+                    "id": "payment_intent.succeeded",
+                    "label": "payment_intent.succeeded"
+                },
+                {
+                    "id": "payment_intent.created",
+                    "label": "payment_intent.created"
+                },
+                {
+                    "id": "payment_intent.payment_failed",
+                    "label": "payment_intent.payment_failed"
+                },
+                {
+                    "id": "payment_intent.canceled",
+                    "label": "payment_intent.canceled"
+                },
+                {
+                    "id": "payment_intent.amount_capturable_updated",
+                    "label": "payment_intent.amount_capturable_updated"
+                },
+                {
+                    "id": "payment_intent.processing",
+                    "label": "payment_intent.processing"
+                },
+                {
+                    "id": "payment_intent.requires_action",
+                    "label": "payment_intent.requires_action"
+                },
+                {
+                    "id": "charge.succeeded",
+                    "label": "charge.succeeded"
+                },
+                {
+                    "id": "charge.failed",
+                    "label": "charge.failed"
+                },
+                {
+                    "id": "charge.captured",
+                    "label": "charge.captured"
+                },
+                {
+                    "id": "charge.refunded",
+                    "label": "charge.refunded"
+                },
+                {
+                    "id": "charge.updated",
+                    "label": "charge.updated"
+                },
+                {
+                    "id": "charge.dispute.created",
+                    "label": "charge.dispute.created"
+                },
+                {
+                    "id": "charge.dispute.closed",
+                    "label": "charge.dispute.closed"
+                },
+                {
+                    "id": "charge.expired",
+                    "label": "charge.expired"
+                },
+                {
+                    "id": "charge.dispute.funds_withdrawn",
+                    "label": "charge.dispute.funds_withdrawn"
+                },
+                {
+                    "id": "charge.dispute.funds_reinstated",
+                    "label": "charge.dispute.funds_reinstated"
+                },
+                {
+                    "id": "customer.created",
+                    "label": "customer.created"
+                },
+                {
+                    "id": "customer.updated",
+                    "label": "customer.updated"
+                },
+                {
+                    "id": "customer.deleted",
+                    "label": "customer.deleted"
+                },
+                {
+                    "id": "customer.source.created",
+                    "label": "customer.source.created"
+                },
+                {
+                    "id": "customer.source.updated",
+                    "label": "customer.source.updated"
+                },
+                {
+                    "id": "customer.source.deleted",
+                    "label": "customer.source.deleted"
+                },
+                {
+                    "id": "customer.subscription.created",
+                    "label": "customer.subscription.created"
+                },
+                {
+                    "id": "customer.subscription.updated",
+                    "label": "customer.subscription.updated"
+                },
+                {
+                    "id": "customer.subscription.deleted",
+                    "label": "customer.subscription.deleted"
+                },
+                {
+                    "id": "customer.discount.created",
+                    "label": "customer.discount.created"
+                },
+                {
+                    "id": "customer.discount.deleted",
+                    "label": "customer.discount.deleted"
+                },
+                {
+                    "id": "customer.discount.updated",
+                    "label": "customer.discount.updated"
+                },
+                {
+                    "id": "customer.subscription.trial_will_end",
+                    "label": "customer.subscription.trial_will_end"
+                },
+                {
+                    "id": "customer.subscription.paused",
+                    "label": "customer.subscription.paused"
+                },
+                {
+                    "id": "customer.subscription.resumed",
+                    "label": "customer.subscription.resumed"
+                },
+                {
+                    "id": "invoice.created",
+                    "label": "invoice.created"
+                },
+                {
+                    "id": "invoice.finalized",
+                    "label": "invoice.finalized"
+                },
+                {
+                    "id": "invoice.finalization_failed",
+                    "label": "invoice.finalization_failed"
+                },
+                {
+                    "id": "invoice.paid",
+                    "label": "invoice.paid"
+                },
+                {
+                    "id": "invoice.payment_failed",
+                    "label": "invoice.payment_failed"
+                },
+                {
+                    "id": "invoice.payment_succeeded",
+                    "label": "invoice.payment_succeeded"
+                },
+                {
+                    "id": "invoice.payment_action_required",
+                    "label": "invoice.payment_action_required"
+                },
+                {
+                    "id": "invoice.sent",
+                    "label": "invoice.sent"
+                },
+                {
+                    "id": "invoice.upcoming",
+                    "label": "invoice.upcoming"
+                },
+                {
+                    "id": "invoice.updated",
+                    "label": "invoice.updated"
+                },
+                {
+                    "id": "invoice.voided",
+                    "label": "invoice.voided"
+                },
+                {
+                    "id": "invoice.marked_uncollectible",
+                    "label": "invoice.marked_uncollectible"
+                },
+                {
+                    "id": "invoice.overdue",
+                    "label": "invoice.overdue"
+                },
+                {
+                    "id": "product.created",
+                    "label": "product.created"
+                },
+                {
+                    "id": "product.updated",
+                    "label": "product.updated"
+                },
+                {
+                    "id": "product.deleted",
+                    "label": "product.deleted"
+                },
+                {
+                    "id": "price.created",
+                    "label": "price.created"
+                },
+                {
+                    "id": "price.updated",
+                    "label": "price.updated"
+                },
+                {
+                    "id": "price.deleted",
+                    "label": "price.deleted"
+                },
+                {
+                    "id": "payment_method.attached",
+                    "label": "payment_method.attached"
+                },
+                {
+                    "id": "payment_method.detached",
+                    "label": "payment_method.detached"
+                },
+                {
+                    "id": "payment_method.updated",
+                    "label": "payment_method.updated"
+                },
+                {
+                    "id": "payment_method.automatically_updated",
+                    "label": "payment_method.automatically_updated"
+                },
+                {
+                    "id": "setup_intent.succeeded",
+                    "label": "setup_intent.succeeded"
+                },
+                {
+                    "id": "setup_intent.setup_failed",
+                    "label": "setup_intent.setup_failed"
+                },
+                {
+                    "id": "setup_intent.canceled",
+                    "label": "setup_intent.canceled"
+                },
+                {
+                    "id": "refund.created",
+                    "label": "refund.created"
+                },
+                {
+                    "id": "refund.updated",
+                    "label": "refund.updated"
+                },
+                {
+                    "id": "refund.failed",
+                    "label": "refund.failed"
+                },
+                {
+                    "id": "checkout.session.completed",
+                    "label": "checkout.session.completed"
+                },
+                {
+                    "id": "checkout.session.expired",
+                    "label": "checkout.session.expired"
+                },
+                {
+                    "id": "checkout.session.async_payment_succeeded",
+                    "label": "checkout.session.async_payment_succeeded"
+                },
+                {
+                    "id": "checkout.session.async_payment_failed",
+                    "label": "checkout.session.async_payment_failed"
+                },
+                {
+                    "id": "payout.created",
+                    "label": "payout.created"
+                },
+                {
+                    "id": "payout.updated",
+                    "label": "payout.updated"
+                },
+                {
+                    "id": "payout.paid",
+                    "label": "payout.paid"
+                },
+                {
+                    "id": "payout.failed",
+                    "label": "payout.failed"
+                },
+                {
+                    "id": "payout.canceled",
+                    "label": "payout.canceled"
+                },
+                {
+                    "id": "coupon.created",
+                    "label": "coupon.created"
+                },
+                {
+                    "id": "coupon.updated",
+                    "label": "coupon.updated"
+                },
+                {
+                    "id": "coupon.deleted",
+                    "label": "coupon.deleted"
+                },
+                {
+                    "id": "credit_note.created",
+                    "label": "credit_note.created"
+                },
+                {
+                    "id": "credit_note.updated",
+                    "label": "credit_note.updated"
+                },
+                {
+                    "id": "credit_note.voided",
+                    "label": "credit_note.voided"
+                },
+                {
+                    "id": "account.updated",
+                    "label": "account.updated"
+                },
+                {
+                    "id": "account.application.deauthorized",
+                    "label": "account.application.deauthorized"
+                },
+                {
+                    "id": "balance.available",
+                    "label": "balance.available"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Secreto de firma del webhook",
+            "placeholder": "whsec_...",
+            "description": "Tu secreto de firma de webhook del panel de Stripe. Se usa para verificar la autenticidad del webhook.",
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Esquema de salida
+
+<SchemaTree
+  title="Carga útil del evento"
+  fields={[
+      {
+          "name": "id",
+          "type": "string",
+          "description": "Identificador único del evento"
+      },
+      {
+          "name": "type",
+          "type": "string",
+          "description": "Tipo de evento (p. ej., payment_intent.succeeded, customer.created, invoice.paid)"
+      },
+      {
+          "name": "object",
+          "type": "string",
+          "description": "Siempre \"event\""
+      },
+      {
+          "name": "api_version",
+          "type": "string",
+          "description": "Versión de la API de Stripe usada para renderizar el evento"
+      },
+      {
+          "name": "created",
+          "type": "number",
+          "description": "Marca de tiempo Unix de creación del evento"
+      },
+      {
+          "name": "data",
+          "type": "json",
+          "description": "Datos del evento que contienen el objeto de Stripe afectado"
+      },
+      {
+          "name": "livemode",
+          "type": "boolean",
+          "description": "Indica si el evento ocurrió en modo live (true) o en modo test (false)"
+      },
+      {
+          "name": "pending_webhooks",
+          "type": "number",
+          "description": "Número de webhooks pendientes de entrega para este evento"
+      },
+      {
+          "name": "request",
+          "type": "json",
+          "description": "Información sobre la solicitud que activó este evento"
+      }
+  ]}
+/>

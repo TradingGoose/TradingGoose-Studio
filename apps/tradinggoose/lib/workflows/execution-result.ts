@@ -27,6 +27,7 @@ export function createPublicExecutionResult(result: ExecutionResult) {
 
   return {
     success: result.success,
+    ...(result.status === 'paused' ? { status: 'paused' as const } : {}),
     output: result.output,
     ...(result.error ? { error: result.error } : {}),
     ...(metadata && Object.keys(metadata).length > 0 ? { metadata } : {}),

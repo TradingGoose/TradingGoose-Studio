@@ -29,73 +29,73 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "send_mail",
             "options": [
                 {
-                    "label": "Send Mail",
-                    "id": "send_mail"
+                    "id": "send_mail",
+                    "label": "Send Mail"
                 },
                 {
-                    "label": "Add Contact",
-                    "id": "add_contact"
+                    "id": "add_contact",
+                    "label": "Add Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contacts",
-                    "id": "delete_contacts"
+                    "id": "delete_contacts",
+                    "label": "Delete Contacts"
                 },
                 {
-                    "label": "Create List",
-                    "id": "create_list"
+                    "id": "create_list",
+                    "label": "Create List"
                 },
                 {
-                    "label": "Get List",
-                    "id": "get_list"
+                    "id": "get_list",
+                    "label": "Get List"
                 },
                 {
-                    "label": "List All Lists",
-                    "id": "list_all_lists"
+                    "id": "list_all_lists",
+                    "label": "List All Lists"
                 },
                 {
-                    "label": "Delete List",
-                    "id": "delete_list"
+                    "id": "delete_list",
+                    "label": "Delete List"
                 },
                 {
-                    "label": "Add Contacts to List",
-                    "id": "add_contacts_to_list"
+                    "id": "add_contacts_to_list",
+                    "label": "Add Contacts to List"
                 },
                 {
-                    "label": "Remove Contacts from List",
-                    "id": "remove_contacts_from_list"
+                    "id": "remove_contacts_from_list",
+                    "label": "Remove Contacts from List"
                 },
                 {
-                    "label": "Create Template",
-                    "id": "create_template"
+                    "id": "create_template",
+                    "label": "Create Template"
                 },
                 {
-                    "label": "Get Template",
-                    "id": "get_template"
+                    "id": "get_template",
+                    "label": "Get Template"
                 },
                 {
-                    "label": "List Templates",
-                    "id": "list_templates"
+                    "id": "list_templates",
+                    "label": "List Templates"
                 },
                 {
-                    "label": "Delete Template",
-                    "id": "delete_template"
+                    "id": "delete_template",
+                    "label": "Delete Template"
                 },
                 {
-                    "label": "Create Template Version",
-                    "id": "create_template_version"
+                    "id": "create_template_version",
+                    "label": "Create Template Version"
                 }
-            ],
-            "defaultValue": "send_mail"
+            ]
         },
         {
             "id": "apiKey",
@@ -147,14 +147,15 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "contentType",
             "type": "dropdown",
             "title": "Content Type",
+            "defaultValue": "text/plain",
             "options": [
                 {
-                    "label": "Plain Text",
-                    "id": "text/plain"
+                    "id": "text/plain",
+                    "label": "Plain Text"
                 },
                 {
-                    "label": "HTML",
-                    "id": "text/html"
+                    "id": "text/html",
+                    "label": "HTML"
                 }
             ]
         },
@@ -199,48 +200,53 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "attachmentFiles",
             "type": "file-upload",
             "title": "Attachments",
-            "placeholder": "Upload files to attach"
+            "placeholder": "Upload files to attach",
+            "required": false
         },
         {
             "id": "attachments",
             "type": "short-input",
             "title": "Attachments",
-            "placeholder": "Reference files from previous blocks"
+            "placeholder": "Reference files from previous blocks",
+            "required": false
         }
     ]}
   />
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Send Mail (<code>sendgrid_send_mail</code>)</div>
+
+Send an email using SendGrid API
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | SendGrid API key |
+| `from` | string | Yes | Sender email address \(must be verified in SendGrid\) |
+| `fromName` | string | No | Sender name |
+| `to` | string | Yes | Recipient email address |
+| `toName` | string | No | Recipient name |
+| `subject` | string | No | Email subject \(required unless using a template with pre-defined subject\) |
+| `content` | string | No | Email body content \(required unless using a template with pre-defined content\) |
+| `contentType` | string | No | Content type \(text/plain or text/html\) |
+| `cc` | string | No | CC email address |
+| `bcc` | string | No | BCC email address |
+| `replyTo` | string | No | Reply-to email address |
+| `replyToName` | string | No | Reply-to name |
+| `attachments` | file[] | No | Files to attach to the email |
+| `templateId` | string | No | SendGrid template ID to use |
+| `dynamicTemplateData` | json | No | JSON object of dynamic template data |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success status |
-| `message` | string | Status or success message |
-| `messageId` | string | Email message ID \(send_mail\) |
-| `to` | string | Recipient email address \(send_mail\) |
-| `subject` | string | Email subject \(send_mail, create_template_version\) |
-| `id` | string | Resource ID |
-| `jobId` | string | Job ID for async operations |
-| `email` | string | Contact email address |
-| `firstName` | string | Contact first name |
-| `lastName` | string | Contact last name |
-| `createdAt` | string | Creation timestamp |
-| `updatedAt` | string | Last update timestamp |
-| `listIds` | json | Array of list IDs the contact belongs to |
-| `customFields` | json | Custom field values |
-| `contacts` | json | Array of contacts |
-| `contactCount` | number | Number of contacts |
-| `lists` | json | Array of lists |
-| `name` | string | Resource name |
-| `templates` | json | Array of templates |
-| `generation` | string | Template generation |
-| `versions` | json | Array of template versions |
-| `templateId` | string | Template ID |
-| `active` | boolean | Whether template version is active |
-| `htmlContent` | string | HTML content |
-| `plainContent` | string | Plain text content |
+| `success` | boolean | Whether the email was sent successfully |
+| `messageId` | string | SendGrid message ID |
+| `to` | string | Recipient email address |
+| `subject` | string | Email subject |
 
 </div>
 
@@ -261,73 +267,73 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "add_contact",
             "options": [
                 {
-                    "label": "Send Mail",
-                    "id": "send_mail"
+                    "id": "send_mail",
+                    "label": "Send Mail"
                 },
                 {
-                    "label": "Add Contact",
-                    "id": "add_contact"
+                    "id": "add_contact",
+                    "label": "Add Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contacts",
-                    "id": "delete_contacts"
+                    "id": "delete_contacts",
+                    "label": "Delete Contacts"
                 },
                 {
-                    "label": "Create List",
-                    "id": "create_list"
+                    "id": "create_list",
+                    "label": "Create List"
                 },
                 {
-                    "label": "Get List",
-                    "id": "get_list"
+                    "id": "get_list",
+                    "label": "Get List"
                 },
                 {
-                    "label": "List All Lists",
-                    "id": "list_all_lists"
+                    "id": "list_all_lists",
+                    "label": "List All Lists"
                 },
                 {
-                    "label": "Delete List",
-                    "id": "delete_list"
+                    "id": "delete_list",
+                    "label": "Delete List"
                 },
                 {
-                    "label": "Add Contacts to List",
-                    "id": "add_contacts_to_list"
+                    "id": "add_contacts_to_list",
+                    "label": "Add Contacts to List"
                 },
                 {
-                    "label": "Remove Contacts from List",
-                    "id": "remove_contacts_from_list"
+                    "id": "remove_contacts_from_list",
+                    "label": "Remove Contacts from List"
                 },
                 {
-                    "label": "Create Template",
-                    "id": "create_template"
+                    "id": "create_template",
+                    "label": "Create Template"
                 },
                 {
-                    "label": "Get Template",
-                    "id": "get_template"
+                    "id": "get_template",
+                    "label": "Get Template"
                 },
                 {
-                    "label": "List Templates",
-                    "id": "list_templates"
+                    "id": "list_templates",
+                    "label": "List Templates"
                 },
                 {
-                    "label": "Delete Template",
-                    "id": "delete_template"
+                    "id": "delete_template",
+                    "label": "Delete Template"
                 },
                 {
-                    "label": "Create Template Version",
-                    "id": "create_template_version"
+                    "id": "create_template_version",
+                    "label": "Create Template Version"
                 }
-            ],
-            "defaultValue": "add_contact"
+            ]
         },
         {
             "id": "apiKey",
@@ -374,35 +380,30 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Add Contact (<code>sendgrid_add_contact</code>)</div>
+
+Add a new contact to SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | SendGrid API key |
+| `email` | string | Yes | Contact email address |
+| `firstName` | string | No | Contact first name |
+| `lastName` | string | No | Contact last name |
+| `customFields` | json | No | JSON object of custom field key-value pairs \(use field IDs like e1_T, e2_N, e3_D, not field names\) |
+| `listIds` | string | No | Comma-separated list IDs to add the contact to |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success status |
-| `message` | string | Status or success message |
-| `messageId` | string | Email message ID \(send_mail\) |
-| `to` | string | Recipient email address \(send_mail\) |
-| `subject` | string | Email subject \(send_mail, create_template_version\) |
-| `id` | string | Resource ID |
-| `jobId` | string | Job ID for async operations |
+| `jobId` | string | Job ID for tracking the async contact creation |
 | `email` | string | Contact email address |
 | `firstName` | string | Contact first name |
 | `lastName` | string | Contact last name |
-| `createdAt` | string | Creation timestamp |
-| `updatedAt` | string | Last update timestamp |
-| `listIds` | json | Array of list IDs the contact belongs to |
-| `customFields` | json | Custom field values |
-| `contacts` | json | Array of contacts |
-| `contactCount` | number | Number of contacts |
-| `lists` | json | Array of lists |
-| `name` | string | Resource name |
-| `templates` | json | Array of templates |
-| `generation` | string | Template generation |
-| `versions` | json | Array of template versions |
-| `templateId` | string | Template ID |
-| `active` | boolean | Whether template version is active |
-| `htmlContent` | string | HTML content |
-| `plainContent` | string | Plain text content |
+| `message` | string | Status message |
 
 </div>
 
@@ -423,73 +424,73 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_contact",
             "options": [
                 {
-                    "label": "Send Mail",
-                    "id": "send_mail"
+                    "id": "send_mail",
+                    "label": "Send Mail"
                 },
                 {
-                    "label": "Add Contact",
-                    "id": "add_contact"
+                    "id": "add_contact",
+                    "label": "Add Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contacts",
-                    "id": "delete_contacts"
+                    "id": "delete_contacts",
+                    "label": "Delete Contacts"
                 },
                 {
-                    "label": "Create List",
-                    "id": "create_list"
+                    "id": "create_list",
+                    "label": "Create List"
                 },
                 {
-                    "label": "Get List",
-                    "id": "get_list"
+                    "id": "get_list",
+                    "label": "Get List"
                 },
                 {
-                    "label": "List All Lists",
-                    "id": "list_all_lists"
+                    "id": "list_all_lists",
+                    "label": "List All Lists"
                 },
                 {
-                    "label": "Delete List",
-                    "id": "delete_list"
+                    "id": "delete_list",
+                    "label": "Delete List"
                 },
                 {
-                    "label": "Add Contacts to List",
-                    "id": "add_contacts_to_list"
+                    "id": "add_contacts_to_list",
+                    "label": "Add Contacts to List"
                 },
                 {
-                    "label": "Remove Contacts from List",
-                    "id": "remove_contacts_from_list"
+                    "id": "remove_contacts_from_list",
+                    "label": "Remove Contacts from List"
                 },
                 {
-                    "label": "Create Template",
-                    "id": "create_template"
+                    "id": "create_template",
+                    "label": "Create Template"
                 },
                 {
-                    "label": "Get Template",
-                    "id": "get_template"
+                    "id": "get_template",
+                    "label": "Get Template"
                 },
                 {
-                    "label": "List Templates",
-                    "id": "list_templates"
+                    "id": "list_templates",
+                    "label": "List Templates"
                 },
                 {
-                    "label": "Delete Template",
-                    "id": "delete_template"
+                    "id": "delete_template",
+                    "label": "Delete Template"
                 },
                 {
-                    "label": "Create Template Version",
-                    "id": "create_template_version"
+                    "id": "create_template_version",
+                    "label": "Create Template Version"
                 }
-            ],
-            "defaultValue": "get_contact"
+            ]
         },
         {
             "id": "apiKey",
@@ -511,17 +512,22 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Get Contact (<code>sendgrid_get_contact</code>)</div>
+
+Get a specific contact by ID from SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | SendGrid API key |
+| `contactId` | string | Yes | Contact ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success status |
-| `message` | string | Status or success message |
-| `messageId` | string | Email message ID \(send_mail\) |
-| `to` | string | Recipient email address \(send_mail\) |
-| `subject` | string | Email subject \(send_mail, create_template_version\) |
-| `id` | string | Resource ID |
-| `jobId` | string | Job ID for async operations |
+| `id` | string | Contact ID |
 | `email` | string | Contact email address |
 | `firstName` | string | Contact first name |
 | `lastName` | string | Contact last name |
@@ -529,17 +535,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 | `updatedAt` | string | Last update timestamp |
 | `listIds` | json | Array of list IDs the contact belongs to |
 | `customFields` | json | Custom field values |
-| `contacts` | json | Array of contacts |
-| `contactCount` | number | Number of contacts |
-| `lists` | json | Array of lists |
-| `name` | string | Resource name |
-| `templates` | json | Array of templates |
-| `generation` | string | Template generation |
-| `versions` | json | Array of template versions |
-| `templateId` | string | Template ID |
-| `active` | boolean | Whether template version is active |
-| `htmlContent` | string | HTML content |
-| `plainContent` | string | Plain text content |
 
 </div>
 
@@ -560,73 +555,73 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "search_contacts",
             "options": [
                 {
-                    "label": "Send Mail",
-                    "id": "send_mail"
+                    "id": "send_mail",
+                    "label": "Send Mail"
                 },
                 {
-                    "label": "Add Contact",
-                    "id": "add_contact"
+                    "id": "add_contact",
+                    "label": "Add Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contacts",
-                    "id": "delete_contacts"
+                    "id": "delete_contacts",
+                    "label": "Delete Contacts"
                 },
                 {
-                    "label": "Create List",
-                    "id": "create_list"
+                    "id": "create_list",
+                    "label": "Create List"
                 },
                 {
-                    "label": "Get List",
-                    "id": "get_list"
+                    "id": "get_list",
+                    "label": "Get List"
                 },
                 {
-                    "label": "List All Lists",
-                    "id": "list_all_lists"
+                    "id": "list_all_lists",
+                    "label": "List All Lists"
                 },
                 {
-                    "label": "Delete List",
-                    "id": "delete_list"
+                    "id": "delete_list",
+                    "label": "Delete List"
                 },
                 {
-                    "label": "Add Contacts to List",
-                    "id": "add_contacts_to_list"
+                    "id": "add_contacts_to_list",
+                    "label": "Add Contacts to List"
                 },
                 {
-                    "label": "Remove Contacts from List",
-                    "id": "remove_contacts_from_list"
+                    "id": "remove_contacts_from_list",
+                    "label": "Remove Contacts from List"
                 },
                 {
-                    "label": "Create Template",
-                    "id": "create_template"
+                    "id": "create_template",
+                    "label": "Create Template"
                 },
                 {
-                    "label": "Get Template",
-                    "id": "get_template"
+                    "id": "get_template",
+                    "label": "Get Template"
                 },
                 {
-                    "label": "List Templates",
-                    "id": "list_templates"
+                    "id": "list_templates",
+                    "label": "List Templates"
                 },
                 {
-                    "label": "Delete Template",
-                    "id": "delete_template"
+                    "id": "delete_template",
+                    "label": "Delete Template"
                 },
                 {
-                    "label": "Create Template Version",
-                    "id": "create_template_version"
+                    "id": "create_template_version",
+                    "label": "Create Template Version"
                 }
-            ],
-            "defaultValue": "search_contacts"
+            ]
         },
         {
             "id": "apiKey",
@@ -640,7 +635,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "query",
             "type": "long-input",
             "title": "Search Query",
-            "placeholder": "Describe the search criteria...",
+            "placeholder": "email LIKE '%example.com%'",
             "required": true
         }
     ]}
@@ -648,35 +643,23 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Search Contacts (<code>sendgrid_search_contacts</code>)</div>
+
+Search for contacts in SendGrid using a query
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | SendGrid API key |
+| `query` | string | Yes | Search query \(e.g., "email LIKE '%example.com%' AND CONTAINS\(list_ids, 'list-id'\)"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success status |
-| `message` | string | Status or success message |
-| `messageId` | string | Email message ID \(send_mail\) |
-| `to` | string | Recipient email address \(send_mail\) |
-| `subject` | string | Email subject \(send_mail, create_template_version\) |
-| `id` | string | Resource ID |
-| `jobId` | string | Job ID for async operations |
-| `email` | string | Contact email address |
-| `firstName` | string | Contact first name |
-| `lastName` | string | Contact last name |
-| `createdAt` | string | Creation timestamp |
-| `updatedAt` | string | Last update timestamp |
-| `listIds` | json | Array of list IDs the contact belongs to |
-| `customFields` | json | Custom field values |
-| `contacts` | json | Array of contacts |
-| `contactCount` | number | Number of contacts |
-| `lists` | json | Array of lists |
-| `name` | string | Resource name |
-| `templates` | json | Array of templates |
-| `generation` | string | Template generation |
-| `versions` | json | Array of template versions |
-| `templateId` | string | Template ID |
-| `active` | boolean | Whether template version is active |
-| `htmlContent` | string | HTML content |
-| `plainContent` | string | Plain text content |
+| `contacts` | json | Array of matching contacts |
+| `contactCount` | number | Total number of contacts found |
 
 </div>
 
@@ -697,73 +680,73 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "delete_contacts",
             "options": [
                 {
-                    "label": "Send Mail",
-                    "id": "send_mail"
+                    "id": "send_mail",
+                    "label": "Send Mail"
                 },
                 {
-                    "label": "Add Contact",
-                    "id": "add_contact"
+                    "id": "add_contact",
+                    "label": "Add Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contacts",
-                    "id": "delete_contacts"
+                    "id": "delete_contacts",
+                    "label": "Delete Contacts"
                 },
                 {
-                    "label": "Create List",
-                    "id": "create_list"
+                    "id": "create_list",
+                    "label": "Create List"
                 },
                 {
-                    "label": "Get List",
-                    "id": "get_list"
+                    "id": "get_list",
+                    "label": "Get List"
                 },
                 {
-                    "label": "List All Lists",
-                    "id": "list_all_lists"
+                    "id": "list_all_lists",
+                    "label": "List All Lists"
                 },
                 {
-                    "label": "Delete List",
-                    "id": "delete_list"
+                    "id": "delete_list",
+                    "label": "Delete List"
                 },
                 {
-                    "label": "Add Contacts to List",
-                    "id": "add_contacts_to_list"
+                    "id": "add_contacts_to_list",
+                    "label": "Add Contacts to List"
                 },
                 {
-                    "label": "Remove Contacts from List",
-                    "id": "remove_contacts_from_list"
+                    "id": "remove_contacts_from_list",
+                    "label": "Remove Contacts from List"
                 },
                 {
-                    "label": "Create Template",
-                    "id": "create_template"
+                    "id": "create_template",
+                    "label": "Create Template"
                 },
                 {
-                    "label": "Get Template",
-                    "id": "get_template"
+                    "id": "get_template",
+                    "label": "Get Template"
                 },
                 {
-                    "label": "List Templates",
-                    "id": "list_templates"
+                    "id": "list_templates",
+                    "label": "List Templates"
                 },
                 {
-                    "label": "Delete Template",
-                    "id": "delete_template"
+                    "id": "delete_template",
+                    "label": "Delete Template"
                 },
                 {
-                    "label": "Create Template Version",
-                    "id": "create_template_version"
+                    "id": "create_template_version",
+                    "label": "Create Template Version"
                 }
-            ],
-            "defaultValue": "delete_contacts"
+            ]
         },
         {
             "id": "apiKey",
@@ -785,35 +768,22 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Delete Contacts (<code>sendgrid_delete_contacts</code>)</div>
+
+Delete one or more contacts from SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | SendGrid API key |
+| `contactIds` | string | Yes | Comma-separated contact IDs to delete |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success status |
-| `message` | string | Status or success message |
-| `messageId` | string | Email message ID \(send_mail\) |
-| `to` | string | Recipient email address \(send_mail\) |
-| `subject` | string | Email subject \(send_mail, create_template_version\) |
-| `id` | string | Resource ID |
-| `jobId` | string | Job ID for async operations |
-| `email` | string | Contact email address |
-| `firstName` | string | Contact first name |
-| `lastName` | string | Contact last name |
-| `createdAt` | string | Creation timestamp |
-| `updatedAt` | string | Last update timestamp |
-| `listIds` | json | Array of list IDs the contact belongs to |
-| `customFields` | json | Custom field values |
-| `contacts` | json | Array of contacts |
-| `contactCount` | number | Number of contacts |
-| `lists` | json | Array of lists |
-| `name` | string | Resource name |
-| `templates` | json | Array of templates |
-| `generation` | string | Template generation |
-| `versions` | json | Array of template versions |
-| `templateId` | string | Template ID |
-| `active` | boolean | Whether template version is active |
-| `htmlContent` | string | HTML content |
-| `plainContent` | string | Plain text content |
+| `jobId` | string | Job ID for the deletion request |
 
 </div>
 
@@ -834,73 +804,73 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create_list",
             "options": [
                 {
-                    "label": "Send Mail",
-                    "id": "send_mail"
+                    "id": "send_mail",
+                    "label": "Send Mail"
                 },
                 {
-                    "label": "Add Contact",
-                    "id": "add_contact"
+                    "id": "add_contact",
+                    "label": "Add Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contacts",
-                    "id": "delete_contacts"
+                    "id": "delete_contacts",
+                    "label": "Delete Contacts"
                 },
                 {
-                    "label": "Create List",
-                    "id": "create_list"
+                    "id": "create_list",
+                    "label": "Create List"
                 },
                 {
-                    "label": "Get List",
-                    "id": "get_list"
+                    "id": "get_list",
+                    "label": "Get List"
                 },
                 {
-                    "label": "List All Lists",
-                    "id": "list_all_lists"
+                    "id": "list_all_lists",
+                    "label": "List All Lists"
                 },
                 {
-                    "label": "Delete List",
-                    "id": "delete_list"
+                    "id": "delete_list",
+                    "label": "Delete List"
                 },
                 {
-                    "label": "Add Contacts to List",
-                    "id": "add_contacts_to_list"
+                    "id": "add_contacts_to_list",
+                    "label": "Add Contacts to List"
                 },
                 {
-                    "label": "Remove Contacts from List",
-                    "id": "remove_contacts_from_list"
+                    "id": "remove_contacts_from_list",
+                    "label": "Remove Contacts from List"
                 },
                 {
-                    "label": "Create Template",
-                    "id": "create_template"
+                    "id": "create_template",
+                    "label": "Create Template"
                 },
                 {
-                    "label": "Get Template",
-                    "id": "get_template"
+                    "id": "get_template",
+                    "label": "Get Template"
                 },
                 {
-                    "label": "List Templates",
-                    "id": "list_templates"
+                    "id": "list_templates",
+                    "label": "List Templates"
                 },
                 {
-                    "label": "Delete Template",
-                    "id": "delete_template"
+                    "id": "delete_template",
+                    "label": "Delete Template"
                 },
                 {
-                    "label": "Create Template Version",
-                    "id": "create_template_version"
+                    "id": "create_template_version",
+                    "label": "Create Template Version"
                 }
-            ],
-            "defaultValue": "create_list"
+            ]
         },
         {
             "id": "apiKey",
@@ -922,35 +892,24 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Create List (<code>sendgrid_create_list</code>)</div>
+
+Create a new contact list in SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | SendGrid API key |
+| `name` | string | Yes | List name |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success status |
-| `message` | string | Status or success message |
-| `messageId` | string | Email message ID \(send_mail\) |
-| `to` | string | Recipient email address \(send_mail\) |
-| `subject` | string | Email subject \(send_mail, create_template_version\) |
-| `id` | string | Resource ID |
-| `jobId` | string | Job ID for async operations |
-| `email` | string | Contact email address |
-| `firstName` | string | Contact first name |
-| `lastName` | string | Contact last name |
-| `createdAt` | string | Creation timestamp |
-| `updatedAt` | string | Last update timestamp |
-| `listIds` | json | Array of list IDs the contact belongs to |
-| `customFields` | json | Custom field values |
-| `contacts` | json | Array of contacts |
-| `contactCount` | number | Number of contacts |
-| `lists` | json | Array of lists |
-| `name` | string | Resource name |
-| `templates` | json | Array of templates |
-| `generation` | string | Template generation |
-| `versions` | json | Array of template versions |
-| `templateId` | string | Template ID |
-| `active` | boolean | Whether template version is active |
-| `htmlContent` | string | HTML content |
-| `plainContent` | string | Plain text content |
+| `id` | string | List ID |
+| `name` | string | List name |
+| `contactCount` | number | Number of contacts in the list |
 
 </div>
 
@@ -971,73 +930,73 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_list",
             "options": [
                 {
-                    "label": "Send Mail",
-                    "id": "send_mail"
+                    "id": "send_mail",
+                    "label": "Send Mail"
                 },
                 {
-                    "label": "Add Contact",
-                    "id": "add_contact"
+                    "id": "add_contact",
+                    "label": "Add Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contacts",
-                    "id": "delete_contacts"
+                    "id": "delete_contacts",
+                    "label": "Delete Contacts"
                 },
                 {
-                    "label": "Create List",
-                    "id": "create_list"
+                    "id": "create_list",
+                    "label": "Create List"
                 },
                 {
-                    "label": "Get List",
-                    "id": "get_list"
+                    "id": "get_list",
+                    "label": "Get List"
                 },
                 {
-                    "label": "List All Lists",
-                    "id": "list_all_lists"
+                    "id": "list_all_lists",
+                    "label": "List All Lists"
                 },
                 {
-                    "label": "Delete List",
-                    "id": "delete_list"
+                    "id": "delete_list",
+                    "label": "Delete List"
                 },
                 {
-                    "label": "Add Contacts to List",
-                    "id": "add_contacts_to_list"
+                    "id": "add_contacts_to_list",
+                    "label": "Add Contacts to List"
                 },
                 {
-                    "label": "Remove Contacts from List",
-                    "id": "remove_contacts_from_list"
+                    "id": "remove_contacts_from_list",
+                    "label": "Remove Contacts from List"
                 },
                 {
-                    "label": "Create Template",
-                    "id": "create_template"
+                    "id": "create_template",
+                    "label": "Create Template"
                 },
                 {
-                    "label": "Get Template",
-                    "id": "get_template"
+                    "id": "get_template",
+                    "label": "Get Template"
                 },
                 {
-                    "label": "List Templates",
-                    "id": "list_templates"
+                    "id": "list_templates",
+                    "label": "List Templates"
                 },
                 {
-                    "label": "Delete Template",
-                    "id": "delete_template"
+                    "id": "delete_template",
+                    "label": "Delete Template"
                 },
                 {
-                    "label": "Create Template Version",
-                    "id": "create_template_version"
+                    "id": "create_template_version",
+                    "label": "Create Template Version"
                 }
-            ],
-            "defaultValue": "get_list"
+            ]
         },
         {
             "id": "apiKey",
@@ -1059,35 +1018,24 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Get List (<code>sendgrid_get_list</code>)</div>
+
+Get a specific list by ID from SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | SendGrid API key |
+| `listId` | string | Yes | List ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success status |
-| `message` | string | Status or success message |
-| `messageId` | string | Email message ID \(send_mail\) |
-| `to` | string | Recipient email address \(send_mail\) |
-| `subject` | string | Email subject \(send_mail, create_template_version\) |
-| `id` | string | Resource ID |
-| `jobId` | string | Job ID for async operations |
-| `email` | string | Contact email address |
-| `firstName` | string | Contact first name |
-| `lastName` | string | Contact last name |
-| `createdAt` | string | Creation timestamp |
-| `updatedAt` | string | Last update timestamp |
-| `listIds` | json | Array of list IDs the contact belongs to |
-| `customFields` | json | Custom field values |
-| `contacts` | json | Array of contacts |
-| `contactCount` | number | Number of contacts |
-| `lists` | json | Array of lists |
-| `name` | string | Resource name |
-| `templates` | json | Array of templates |
-| `generation` | string | Template generation |
-| `versions` | json | Array of template versions |
-| `templateId` | string | Template ID |
-| `active` | boolean | Whether template version is active |
-| `htmlContent` | string | HTML content |
-| `plainContent` | string | Plain text content |
+| `id` | string | List ID |
+| `name` | string | List name |
+| `contactCount` | number | Number of contacts in the list |
 
 </div>
 
@@ -1108,73 +1056,73 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "list_all_lists",
             "options": [
                 {
-                    "label": "Send Mail",
-                    "id": "send_mail"
+                    "id": "send_mail",
+                    "label": "Send Mail"
                 },
                 {
-                    "label": "Add Contact",
-                    "id": "add_contact"
+                    "id": "add_contact",
+                    "label": "Add Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contacts",
-                    "id": "delete_contacts"
+                    "id": "delete_contacts",
+                    "label": "Delete Contacts"
                 },
                 {
-                    "label": "Create List",
-                    "id": "create_list"
+                    "id": "create_list",
+                    "label": "Create List"
                 },
                 {
-                    "label": "Get List",
-                    "id": "get_list"
+                    "id": "get_list",
+                    "label": "Get List"
                 },
                 {
-                    "label": "List All Lists",
-                    "id": "list_all_lists"
+                    "id": "list_all_lists",
+                    "label": "List All Lists"
                 },
                 {
-                    "label": "Delete List",
-                    "id": "delete_list"
+                    "id": "delete_list",
+                    "label": "Delete List"
                 },
                 {
-                    "label": "Add Contacts to List",
-                    "id": "add_contacts_to_list"
+                    "id": "add_contacts_to_list",
+                    "label": "Add Contacts to List"
                 },
                 {
-                    "label": "Remove Contacts from List",
-                    "id": "remove_contacts_from_list"
+                    "id": "remove_contacts_from_list",
+                    "label": "Remove Contacts from List"
                 },
                 {
-                    "label": "Create Template",
-                    "id": "create_template"
+                    "id": "create_template",
+                    "label": "Create Template"
                 },
                 {
-                    "label": "Get Template",
-                    "id": "get_template"
+                    "id": "get_template",
+                    "label": "Get Template"
                 },
                 {
-                    "label": "List Templates",
-                    "id": "list_templates"
+                    "id": "list_templates",
+                    "label": "List Templates"
                 },
                 {
-                    "label": "Delete Template",
-                    "id": "delete_template"
+                    "id": "delete_template",
+                    "label": "Delete Template"
                 },
                 {
-                    "label": "Create Template Version",
-                    "id": "create_template_version"
+                    "id": "create_template_version",
+                    "label": "Create Template Version"
                 }
-            ],
-            "defaultValue": "list_all_lists"
+            ]
         },
         {
             "id": "apiKey",
@@ -1195,35 +1143,22 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">List All Lists (<code>sendgrid_list_all_lists</code>)</div>
+
+Get all contact lists from SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | SendGrid API key |
+| `pageSize` | number | No | Number of lists to return per page \(default: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success status |
-| `message` | string | Status or success message |
-| `messageId` | string | Email message ID \(send_mail\) |
-| `to` | string | Recipient email address \(send_mail\) |
-| `subject` | string | Email subject \(send_mail, create_template_version\) |
-| `id` | string | Resource ID |
-| `jobId` | string | Job ID for async operations |
-| `email` | string | Contact email address |
-| `firstName` | string | Contact first name |
-| `lastName` | string | Contact last name |
-| `createdAt` | string | Creation timestamp |
-| `updatedAt` | string | Last update timestamp |
-| `listIds` | json | Array of list IDs the contact belongs to |
-| `customFields` | json | Custom field values |
-| `contacts` | json | Array of contacts |
-| `contactCount` | number | Number of contacts |
 | `lists` | json | Array of lists |
-| `name` | string | Resource name |
-| `templates` | json | Array of templates |
-| `generation` | string | Template generation |
-| `versions` | json | Array of template versions |
-| `templateId` | string | Template ID |
-| `active` | boolean | Whether template version is active |
-| `htmlContent` | string | HTML content |
-| `plainContent` | string | Plain text content |
 
 </div>
 
@@ -1244,73 +1179,73 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "delete_list",
             "options": [
                 {
-                    "label": "Send Mail",
-                    "id": "send_mail"
+                    "id": "send_mail",
+                    "label": "Send Mail"
                 },
                 {
-                    "label": "Add Contact",
-                    "id": "add_contact"
+                    "id": "add_contact",
+                    "label": "Add Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contacts",
-                    "id": "delete_contacts"
+                    "id": "delete_contacts",
+                    "label": "Delete Contacts"
                 },
                 {
-                    "label": "Create List",
-                    "id": "create_list"
+                    "id": "create_list",
+                    "label": "Create List"
                 },
                 {
-                    "label": "Get List",
-                    "id": "get_list"
+                    "id": "get_list",
+                    "label": "Get List"
                 },
                 {
-                    "label": "List All Lists",
-                    "id": "list_all_lists"
+                    "id": "list_all_lists",
+                    "label": "List All Lists"
                 },
                 {
-                    "label": "Delete List",
-                    "id": "delete_list"
+                    "id": "delete_list",
+                    "label": "Delete List"
                 },
                 {
-                    "label": "Add Contacts to List",
-                    "id": "add_contacts_to_list"
+                    "id": "add_contacts_to_list",
+                    "label": "Add Contacts to List"
                 },
                 {
-                    "label": "Remove Contacts from List",
-                    "id": "remove_contacts_from_list"
+                    "id": "remove_contacts_from_list",
+                    "label": "Remove Contacts from List"
                 },
                 {
-                    "label": "Create Template",
-                    "id": "create_template"
+                    "id": "create_template",
+                    "label": "Create Template"
                 },
                 {
-                    "label": "Get Template",
-                    "id": "get_template"
+                    "id": "get_template",
+                    "label": "Get Template"
                 },
                 {
-                    "label": "List Templates",
-                    "id": "list_templates"
+                    "id": "list_templates",
+                    "label": "List Templates"
                 },
                 {
-                    "label": "Delete Template",
-                    "id": "delete_template"
+                    "id": "delete_template",
+                    "label": "Delete Template"
                 },
                 {
-                    "label": "Create Template Version",
-                    "id": "create_template_version"
+                    "id": "create_template_version",
+                    "label": "Create Template Version"
                 }
-            ],
-            "defaultValue": "delete_list"
+            ]
         },
         {
             "id": "apiKey",
@@ -1332,35 +1267,22 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Delete List (<code>sendgrid_delete_list</code>)</div>
+
+Delete a contact list from SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | SendGrid API key |
+| `listId` | string | Yes | List ID to delete |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success status |
-| `message` | string | Status or success message |
-| `messageId` | string | Email message ID \(send_mail\) |
-| `to` | string | Recipient email address \(send_mail\) |
-| `subject` | string | Email subject \(send_mail, create_template_version\) |
-| `id` | string | Resource ID |
-| `jobId` | string | Job ID for async operations |
-| `email` | string | Contact email address |
-| `firstName` | string | Contact first name |
-| `lastName` | string | Contact last name |
-| `createdAt` | string | Creation timestamp |
-| `updatedAt` | string | Last update timestamp |
-| `listIds` | json | Array of list IDs the contact belongs to |
-| `customFields` | json | Custom field values |
-| `contacts` | json | Array of contacts |
-| `contactCount` | number | Number of contacts |
-| `lists` | json | Array of lists |
-| `name` | string | Resource name |
-| `templates` | json | Array of templates |
-| `generation` | string | Template generation |
-| `versions` | json | Array of template versions |
-| `templateId` | string | Template ID |
-| `active` | boolean | Whether template version is active |
-| `htmlContent` | string | HTML content |
-| `plainContent` | string | Plain text content |
+| `message` | string | Success message |
 
 </div>
 
@@ -1381,73 +1303,73 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "add_contacts_to_list",
             "options": [
                 {
-                    "label": "Send Mail",
-                    "id": "send_mail"
+                    "id": "send_mail",
+                    "label": "Send Mail"
                 },
                 {
-                    "label": "Add Contact",
-                    "id": "add_contact"
+                    "id": "add_contact",
+                    "label": "Add Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contacts",
-                    "id": "delete_contacts"
+                    "id": "delete_contacts",
+                    "label": "Delete Contacts"
                 },
                 {
-                    "label": "Create List",
-                    "id": "create_list"
+                    "id": "create_list",
+                    "label": "Create List"
                 },
                 {
-                    "label": "Get List",
-                    "id": "get_list"
+                    "id": "get_list",
+                    "label": "Get List"
                 },
                 {
-                    "label": "List All Lists",
-                    "id": "list_all_lists"
+                    "id": "list_all_lists",
+                    "label": "List All Lists"
                 },
                 {
-                    "label": "Delete List",
-                    "id": "delete_list"
+                    "id": "delete_list",
+                    "label": "Delete List"
                 },
                 {
-                    "label": "Add Contacts to List",
-                    "id": "add_contacts_to_list"
+                    "id": "add_contacts_to_list",
+                    "label": "Add Contacts to List"
                 },
                 {
-                    "label": "Remove Contacts from List",
-                    "id": "remove_contacts_from_list"
+                    "id": "remove_contacts_from_list",
+                    "label": "Remove Contacts from List"
                 },
                 {
-                    "label": "Create Template",
-                    "id": "create_template"
+                    "id": "create_template",
+                    "label": "Create Template"
                 },
                 {
-                    "label": "Get Template",
-                    "id": "get_template"
+                    "id": "get_template",
+                    "label": "Get Template"
                 },
                 {
-                    "label": "List Templates",
-                    "id": "list_templates"
+                    "id": "list_templates",
+                    "label": "List Templates"
                 },
                 {
-                    "label": "Delete Template",
-                    "id": "delete_template"
+                    "id": "delete_template",
+                    "label": "Delete Template"
                 },
                 {
-                    "label": "Create Template Version",
-                    "id": "create_template_version"
+                    "id": "create_template_version",
+                    "label": "Create Template Version"
                 }
-            ],
-            "defaultValue": "add_contacts_to_list"
+            ]
         },
         {
             "id": "apiKey",
@@ -1477,35 +1399,24 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Add Contacts to List (<code>sendgrid_add_contacts_to_list</code>)</div>
+
+Add or update contacts and assign them to a list in SendGrid (uses PUT /v3/marketing/contacts)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | SendGrid API key |
+| `listId` | string | Yes | List ID to add contacts to |
+| `contacts` | json | Yes | JSON array of contact objects. Each contact must have at least: email \(or phone_number_id/external_id/anonymous_id\). Example: \[\{"email": "user@example.com", "first_name": "John"\}\] |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success status |
-| `message` | string | Status or success message |
-| `messageId` | string | Email message ID \(send_mail\) |
-| `to` | string | Recipient email address \(send_mail\) |
-| `subject` | string | Email subject \(send_mail, create_template_version\) |
-| `id` | string | Resource ID |
-| `jobId` | string | Job ID for async operations |
-| `email` | string | Contact email address |
-| `firstName` | string | Contact first name |
-| `lastName` | string | Contact last name |
-| `createdAt` | string | Creation timestamp |
-| `updatedAt` | string | Last update timestamp |
-| `listIds` | json | Array of list IDs the contact belongs to |
-| `customFields` | json | Custom field values |
-| `contacts` | json | Array of contacts |
-| `contactCount` | number | Number of contacts |
-| `lists` | json | Array of lists |
-| `name` | string | Resource name |
-| `templates` | json | Array of templates |
-| `generation` | string | Template generation |
-| `versions` | json | Array of template versions |
-| `templateId` | string | Template ID |
-| `active` | boolean | Whether template version is active |
-| `htmlContent` | string | HTML content |
-| `plainContent` | string | Plain text content |
+| `jobId` | string | Job ID for tracking the async operation |
+| `message` | string | Status message |
 
 </div>
 
@@ -1526,73 +1437,73 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "remove_contacts_from_list",
             "options": [
                 {
-                    "label": "Send Mail",
-                    "id": "send_mail"
+                    "id": "send_mail",
+                    "label": "Send Mail"
                 },
                 {
-                    "label": "Add Contact",
-                    "id": "add_contact"
+                    "id": "add_contact",
+                    "label": "Add Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contacts",
-                    "id": "delete_contacts"
+                    "id": "delete_contacts",
+                    "label": "Delete Contacts"
                 },
                 {
-                    "label": "Create List",
-                    "id": "create_list"
+                    "id": "create_list",
+                    "label": "Create List"
                 },
                 {
-                    "label": "Get List",
-                    "id": "get_list"
+                    "id": "get_list",
+                    "label": "Get List"
                 },
                 {
-                    "label": "List All Lists",
-                    "id": "list_all_lists"
+                    "id": "list_all_lists",
+                    "label": "List All Lists"
                 },
                 {
-                    "label": "Delete List",
-                    "id": "delete_list"
+                    "id": "delete_list",
+                    "label": "Delete List"
                 },
                 {
-                    "label": "Add Contacts to List",
-                    "id": "add_contacts_to_list"
+                    "id": "add_contacts_to_list",
+                    "label": "Add Contacts to List"
                 },
                 {
-                    "label": "Remove Contacts from List",
-                    "id": "remove_contacts_from_list"
+                    "id": "remove_contacts_from_list",
+                    "label": "Remove Contacts from List"
                 },
                 {
-                    "label": "Create Template",
-                    "id": "create_template"
+                    "id": "create_template",
+                    "label": "Create Template"
                 },
                 {
-                    "label": "Get Template",
-                    "id": "get_template"
+                    "id": "get_template",
+                    "label": "Get Template"
                 },
                 {
-                    "label": "List Templates",
-                    "id": "list_templates"
+                    "id": "list_templates",
+                    "label": "List Templates"
                 },
                 {
-                    "label": "Delete Template",
-                    "id": "delete_template"
+                    "id": "delete_template",
+                    "label": "Delete Template"
                 },
                 {
-                    "label": "Create Template Version",
-                    "id": "create_template_version"
+                    "id": "create_template_version",
+                    "label": "Create Template Version"
                 }
-            ],
-            "defaultValue": "remove_contacts_from_list"
+            ]
         },
         {
             "id": "apiKey",
@@ -1621,35 +1532,23 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Remove Contacts from List (<code>sendgrid_remove_contacts_from_list</code>)</div>
+
+Remove contacts from a specific list in SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | SendGrid API key |
+| `listId` | string | Yes | List ID |
+| `contactIds` | string | Yes | Comma-separated contact IDs to remove from the list |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success status |
-| `message` | string | Status or success message |
-| `messageId` | string | Email message ID \(send_mail\) |
-| `to` | string | Recipient email address \(send_mail\) |
-| `subject` | string | Email subject \(send_mail, create_template_version\) |
-| `id` | string | Resource ID |
-| `jobId` | string | Job ID for async operations |
-| `email` | string | Contact email address |
-| `firstName` | string | Contact first name |
-| `lastName` | string | Contact last name |
-| `createdAt` | string | Creation timestamp |
-| `updatedAt` | string | Last update timestamp |
-| `listIds` | json | Array of list IDs the contact belongs to |
-| `customFields` | json | Custom field values |
-| `contacts` | json | Array of contacts |
-| `contactCount` | number | Number of contacts |
-| `lists` | json | Array of lists |
-| `name` | string | Resource name |
-| `templates` | json | Array of templates |
-| `generation` | string | Template generation |
-| `versions` | json | Array of template versions |
-| `templateId` | string | Template ID |
-| `active` | boolean | Whether template version is active |
-| `htmlContent` | string | HTML content |
-| `plainContent` | string | Plain text content |
+| `jobId` | string | Job ID for the request |
 
 </div>
 
@@ -1670,73 +1569,73 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create_template",
             "options": [
                 {
-                    "label": "Send Mail",
-                    "id": "send_mail"
+                    "id": "send_mail",
+                    "label": "Send Mail"
                 },
                 {
-                    "label": "Add Contact",
-                    "id": "add_contact"
+                    "id": "add_contact",
+                    "label": "Add Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contacts",
-                    "id": "delete_contacts"
+                    "id": "delete_contacts",
+                    "label": "Delete Contacts"
                 },
                 {
-                    "label": "Create List",
-                    "id": "create_list"
+                    "id": "create_list",
+                    "label": "Create List"
                 },
                 {
-                    "label": "Get List",
-                    "id": "get_list"
+                    "id": "get_list",
+                    "label": "Get List"
                 },
                 {
-                    "label": "List All Lists",
-                    "id": "list_all_lists"
+                    "id": "list_all_lists",
+                    "label": "List All Lists"
                 },
                 {
-                    "label": "Delete List",
-                    "id": "delete_list"
+                    "id": "delete_list",
+                    "label": "Delete List"
                 },
                 {
-                    "label": "Add Contacts to List",
-                    "id": "add_contacts_to_list"
+                    "id": "add_contacts_to_list",
+                    "label": "Add Contacts to List"
                 },
                 {
-                    "label": "Remove Contacts from List",
-                    "id": "remove_contacts_from_list"
+                    "id": "remove_contacts_from_list",
+                    "label": "Remove Contacts from List"
                 },
                 {
-                    "label": "Create Template",
-                    "id": "create_template"
+                    "id": "create_template",
+                    "label": "Create Template"
                 },
                 {
-                    "label": "Get Template",
-                    "id": "get_template"
+                    "id": "get_template",
+                    "label": "Get Template"
                 },
                 {
-                    "label": "List Templates",
-                    "id": "list_templates"
+                    "id": "list_templates",
+                    "label": "List Templates"
                 },
                 {
-                    "label": "Delete Template",
-                    "id": "delete_template"
+                    "id": "delete_template",
+                    "label": "Delete Template"
                 },
                 {
-                    "label": "Create Template Version",
-                    "id": "create_template_version"
+                    "id": "create_template_version",
+                    "label": "Create Template Version"
                 }
-            ],
-            "defaultValue": "create_template"
+            ]
         },
         {
             "id": "apiKey",
@@ -1757,14 +1656,15 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "generation",
             "type": "dropdown",
             "title": "Template Generation",
+            "defaultValue": "dynamic",
             "options": [
                 {
-                    "label": "Dynamic",
-                    "id": "dynamic"
+                    "id": "dynamic",
+                    "label": "Dynamic"
                 },
                 {
-                    "label": "Legacy",
-                    "id": "legacy"
+                    "id": "legacy",
+                    "label": "Legacy"
                 }
             ]
         }
@@ -1773,35 +1673,27 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Create Template (<code>sendgrid_create_template</code>)</div>
+
+Create a new email template in SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | SendGrid API key |
+| `name` | string | Yes | Template name |
+| `generation` | string | No | Template generation type \(legacy or dynamic, default: dynamic\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success status |
-| `message` | string | Status or success message |
-| `messageId` | string | Email message ID \(send_mail\) |
-| `to` | string | Recipient email address \(send_mail\) |
-| `subject` | string | Email subject \(send_mail, create_template_version\) |
-| `id` | string | Resource ID |
-| `jobId` | string | Job ID for async operations |
-| `email` | string | Contact email address |
-| `firstName` | string | Contact first name |
-| `lastName` | string | Contact last name |
-| `createdAt` | string | Creation timestamp |
-| `updatedAt` | string | Last update timestamp |
-| `listIds` | json | Array of list IDs the contact belongs to |
-| `customFields` | json | Custom field values |
-| `contacts` | json | Array of contacts |
-| `contactCount` | number | Number of contacts |
-| `lists` | json | Array of lists |
-| `name` | string | Resource name |
-| `templates` | json | Array of templates |
+| `id` | string | Template ID |
+| `name` | string | Template name |
 | `generation` | string | Template generation |
+| `updatedAt` | string | Last update timestamp |
 | `versions` | json | Array of template versions |
-| `templateId` | string | Template ID |
-| `active` | boolean | Whether template version is active |
-| `htmlContent` | string | HTML content |
-| `plainContent` | string | Plain text content |
 
 </div>
 
@@ -1822,73 +1714,73 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_template",
             "options": [
                 {
-                    "label": "Send Mail",
-                    "id": "send_mail"
+                    "id": "send_mail",
+                    "label": "Send Mail"
                 },
                 {
-                    "label": "Add Contact",
-                    "id": "add_contact"
+                    "id": "add_contact",
+                    "label": "Add Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contacts",
-                    "id": "delete_contacts"
+                    "id": "delete_contacts",
+                    "label": "Delete Contacts"
                 },
                 {
-                    "label": "Create List",
-                    "id": "create_list"
+                    "id": "create_list",
+                    "label": "Create List"
                 },
                 {
-                    "label": "Get List",
-                    "id": "get_list"
+                    "id": "get_list",
+                    "label": "Get List"
                 },
                 {
-                    "label": "List All Lists",
-                    "id": "list_all_lists"
+                    "id": "list_all_lists",
+                    "label": "List All Lists"
                 },
                 {
-                    "label": "Delete List",
-                    "id": "delete_list"
+                    "id": "delete_list",
+                    "label": "Delete List"
                 },
                 {
-                    "label": "Add Contacts to List",
-                    "id": "add_contacts_to_list"
+                    "id": "add_contacts_to_list",
+                    "label": "Add Contacts to List"
                 },
                 {
-                    "label": "Remove Contacts from List",
-                    "id": "remove_contacts_from_list"
+                    "id": "remove_contacts_from_list",
+                    "label": "Remove Contacts from List"
                 },
                 {
-                    "label": "Create Template",
-                    "id": "create_template"
+                    "id": "create_template",
+                    "label": "Create Template"
                 },
                 {
-                    "label": "Get Template",
-                    "id": "get_template"
+                    "id": "get_template",
+                    "label": "Get Template"
                 },
                 {
-                    "label": "List Templates",
-                    "id": "list_templates"
+                    "id": "list_templates",
+                    "label": "List Templates"
                 },
                 {
-                    "label": "Delete Template",
-                    "id": "delete_template"
+                    "id": "delete_template",
+                    "label": "Delete Template"
                 },
                 {
-                    "label": "Create Template Version",
-                    "id": "create_template_version"
+                    "id": "create_template_version",
+                    "label": "Create Template Version"
                 }
-            ],
-            "defaultValue": "get_template"
+            ]
         },
         {
             "id": "apiKey",
@@ -1910,35 +1802,26 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Get Template (<code>sendgrid_get_template</code>)</div>
+
+Get a specific template by ID from SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | SendGrid API key |
+| `templateId` | string | Yes | Template ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success status |
-| `message` | string | Status or success message |
-| `messageId` | string | Email message ID \(send_mail\) |
-| `to` | string | Recipient email address \(send_mail\) |
-| `subject` | string | Email subject \(send_mail, create_template_version\) |
-| `id` | string | Resource ID |
-| `jobId` | string | Job ID for async operations |
-| `email` | string | Contact email address |
-| `firstName` | string | Contact first name |
-| `lastName` | string | Contact last name |
-| `createdAt` | string | Creation timestamp |
-| `updatedAt` | string | Last update timestamp |
-| `listIds` | json | Array of list IDs the contact belongs to |
-| `customFields` | json | Custom field values |
-| `contacts` | json | Array of contacts |
-| `contactCount` | number | Number of contacts |
-| `lists` | json | Array of lists |
-| `name` | string | Resource name |
-| `templates` | json | Array of templates |
+| `id` | string | Template ID |
+| `name` | string | Template name |
 | `generation` | string | Template generation |
+| `updatedAt` | string | Last update timestamp |
 | `versions` | json | Array of template versions |
-| `templateId` | string | Template ID |
-| `active` | boolean | Whether template version is active |
-| `htmlContent` | string | HTML content |
-| `plainContent` | string | Plain text content |
 
 </div>
 
@@ -1959,73 +1842,73 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "list_templates",
             "options": [
                 {
-                    "label": "Send Mail",
-                    "id": "send_mail"
+                    "id": "send_mail",
+                    "label": "Send Mail"
                 },
                 {
-                    "label": "Add Contact",
-                    "id": "add_contact"
+                    "id": "add_contact",
+                    "label": "Add Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contacts",
-                    "id": "delete_contacts"
+                    "id": "delete_contacts",
+                    "label": "Delete Contacts"
                 },
                 {
-                    "label": "Create List",
-                    "id": "create_list"
+                    "id": "create_list",
+                    "label": "Create List"
                 },
                 {
-                    "label": "Get List",
-                    "id": "get_list"
+                    "id": "get_list",
+                    "label": "Get List"
                 },
                 {
-                    "label": "List All Lists",
-                    "id": "list_all_lists"
+                    "id": "list_all_lists",
+                    "label": "List All Lists"
                 },
                 {
-                    "label": "Delete List",
-                    "id": "delete_list"
+                    "id": "delete_list",
+                    "label": "Delete List"
                 },
                 {
-                    "label": "Add Contacts to List",
-                    "id": "add_contacts_to_list"
+                    "id": "add_contacts_to_list",
+                    "label": "Add Contacts to List"
                 },
                 {
-                    "label": "Remove Contacts from List",
-                    "id": "remove_contacts_from_list"
+                    "id": "remove_contacts_from_list",
+                    "label": "Remove Contacts from List"
                 },
                 {
-                    "label": "Create Template",
-                    "id": "create_template"
+                    "id": "create_template",
+                    "label": "Create Template"
                 },
                 {
-                    "label": "Get Template",
-                    "id": "get_template"
+                    "id": "get_template",
+                    "label": "Get Template"
                 },
                 {
-                    "label": "List Templates",
-                    "id": "list_templates"
+                    "id": "list_templates",
+                    "label": "List Templates"
                 },
                 {
-                    "label": "Delete Template",
-                    "id": "delete_template"
+                    "id": "delete_template",
+                    "label": "Delete Template"
                 },
                 {
-                    "label": "Create Template Version",
-                    "id": "create_template_version"
+                    "id": "create_template_version",
+                    "label": "Create Template Version"
                 }
-            ],
-            "defaultValue": "list_templates"
+            ]
         },
         {
             "id": "apiKey",
@@ -2052,35 +1935,23 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">List Templates (<code>sendgrid_list_templates</code>)</div>
+
+Get all email templates from SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | SendGrid API key |
+| `generations` | string | No | Filter by generation \(legacy, dynamic, or both\) |
+| `pageSize` | number | No | Number of templates to return per page \(default: 20\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success status |
-| `message` | string | Status or success message |
-| `messageId` | string | Email message ID \(send_mail\) |
-| `to` | string | Recipient email address \(send_mail\) |
-| `subject` | string | Email subject \(send_mail, create_template_version\) |
-| `id` | string | Resource ID |
-| `jobId` | string | Job ID for async operations |
-| `email` | string | Contact email address |
-| `firstName` | string | Contact first name |
-| `lastName` | string | Contact last name |
-| `createdAt` | string | Creation timestamp |
-| `updatedAt` | string | Last update timestamp |
-| `listIds` | json | Array of list IDs the contact belongs to |
-| `customFields` | json | Custom field values |
-| `contacts` | json | Array of contacts |
-| `contactCount` | number | Number of contacts |
-| `lists` | json | Array of lists |
-| `name` | string | Resource name |
 | `templates` | json | Array of templates |
-| `generation` | string | Template generation |
-| `versions` | json | Array of template versions |
-| `templateId` | string | Template ID |
-| `active` | boolean | Whether template version is active |
-| `htmlContent` | string | HTML content |
-| `plainContent` | string | Plain text content |
 
 </div>
 
@@ -2101,73 +1972,73 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "delete_template",
             "options": [
                 {
-                    "label": "Send Mail",
-                    "id": "send_mail"
+                    "id": "send_mail",
+                    "label": "Send Mail"
                 },
                 {
-                    "label": "Add Contact",
-                    "id": "add_contact"
+                    "id": "add_contact",
+                    "label": "Add Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contacts",
-                    "id": "delete_contacts"
+                    "id": "delete_contacts",
+                    "label": "Delete Contacts"
                 },
                 {
-                    "label": "Create List",
-                    "id": "create_list"
+                    "id": "create_list",
+                    "label": "Create List"
                 },
                 {
-                    "label": "Get List",
-                    "id": "get_list"
+                    "id": "get_list",
+                    "label": "Get List"
                 },
                 {
-                    "label": "List All Lists",
-                    "id": "list_all_lists"
+                    "id": "list_all_lists",
+                    "label": "List All Lists"
                 },
                 {
-                    "label": "Delete List",
-                    "id": "delete_list"
+                    "id": "delete_list",
+                    "label": "Delete List"
                 },
                 {
-                    "label": "Add Contacts to List",
-                    "id": "add_contacts_to_list"
+                    "id": "add_contacts_to_list",
+                    "label": "Add Contacts to List"
                 },
                 {
-                    "label": "Remove Contacts from List",
-                    "id": "remove_contacts_from_list"
+                    "id": "remove_contacts_from_list",
+                    "label": "Remove Contacts from List"
                 },
                 {
-                    "label": "Create Template",
-                    "id": "create_template"
+                    "id": "create_template",
+                    "label": "Create Template"
                 },
                 {
-                    "label": "Get Template",
-                    "id": "get_template"
+                    "id": "get_template",
+                    "label": "Get Template"
                 },
                 {
-                    "label": "List Templates",
-                    "id": "list_templates"
+                    "id": "list_templates",
+                    "label": "List Templates"
                 },
                 {
-                    "label": "Delete Template",
-                    "id": "delete_template"
+                    "id": "delete_template",
+                    "label": "Delete Template"
                 },
                 {
-                    "label": "Create Template Version",
-                    "id": "create_template_version"
+                    "id": "create_template_version",
+                    "label": "Create Template Version"
                 }
-            ],
-            "defaultValue": "delete_template"
+            ]
         },
         {
             "id": "apiKey",
@@ -2189,7 +2060,18 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Delete Template (<code>sendgrid_delete_template</code>)</div>
+
+Delete an email template from SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | SendGrid API key |
+| `templateId` | string | Yes | Template ID to delete |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output (block-level contract)</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
@@ -2238,73 +2120,73 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create_template_version",
             "options": [
                 {
-                    "label": "Send Mail",
-                    "id": "send_mail"
+                    "id": "send_mail",
+                    "label": "Send Mail"
                 },
                 {
-                    "label": "Add Contact",
-                    "id": "add_contact"
+                    "id": "add_contact",
+                    "label": "Add Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contacts",
-                    "id": "delete_contacts"
+                    "id": "delete_contacts",
+                    "label": "Delete Contacts"
                 },
                 {
-                    "label": "Create List",
-                    "id": "create_list"
+                    "id": "create_list",
+                    "label": "Create List"
                 },
                 {
-                    "label": "Get List",
-                    "id": "get_list"
+                    "id": "get_list",
+                    "label": "Get List"
                 },
                 {
-                    "label": "List All Lists",
-                    "id": "list_all_lists"
+                    "id": "list_all_lists",
+                    "label": "List All Lists"
                 },
                 {
-                    "label": "Delete List",
-                    "id": "delete_list"
+                    "id": "delete_list",
+                    "label": "Delete List"
                 },
                 {
-                    "label": "Add Contacts to List",
-                    "id": "add_contacts_to_list"
+                    "id": "add_contacts_to_list",
+                    "label": "Add Contacts to List"
                 },
                 {
-                    "label": "Remove Contacts from List",
-                    "id": "remove_contacts_from_list"
+                    "id": "remove_contacts_from_list",
+                    "label": "Remove Contacts from List"
                 },
                 {
-                    "label": "Create Template",
-                    "id": "create_template"
+                    "id": "create_template",
+                    "label": "Create Template"
                 },
                 {
-                    "label": "Get Template",
-                    "id": "get_template"
+                    "id": "get_template",
+                    "label": "Get Template"
                 },
                 {
-                    "label": "List Templates",
-                    "id": "list_templates"
+                    "id": "list_templates",
+                    "label": "List Templates"
                 },
                 {
-                    "label": "Delete Template",
-                    "id": "delete_template"
+                    "id": "delete_template",
+                    "label": "Delete Template"
                 },
                 {
-                    "label": "Create Template Version",
-                    "id": "create_template_version"
+                    "id": "create_template_version",
+                    "label": "Create Template Version"
                 }
-            ],
-            "defaultValue": "create_template_version"
+            ]
         },
         {
             "id": "apiKey",
@@ -2352,14 +2234,15 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "active",
             "type": "dropdown",
             "title": "Active",
+            "defaultValue": "true",
             "options": [
                 {
-                    "label": "Yes",
-                    "id": "true"
+                    "id": "true",
+                    "label": "Yes"
                 },
                 {
-                    "label": "No",
-                    "id": "false"
+                    "id": "false",
+                    "label": "No"
                 }
             ]
         }
@@ -2368,35 +2251,34 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Create Template Version (<code>sendgrid_create_template_version</code>)</div>
+
+Create a new version of an email template in SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | SendGrid API key |
+| `templateId` | string | Yes | Template ID |
+| `name` | string | Yes | Version name |
+| `subject` | string | Yes | Email subject line |
+| `htmlContent` | string | No | HTML content of the template |
+| `plainContent` | string | No | Plain text content of the template |
+| `active` | boolean | No | Whether this version is active \(default: true\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success status |
-| `message` | string | Status or success message |
-| `messageId` | string | Email message ID \(send_mail\) |
-| `to` | string | Recipient email address \(send_mail\) |
-| `subject` | string | Email subject \(send_mail, create_template_version\) |
-| `id` | string | Resource ID |
-| `jobId` | string | Job ID for async operations |
-| `email` | string | Contact email address |
-| `firstName` | string | Contact first name |
-| `lastName` | string | Contact last name |
-| `createdAt` | string | Creation timestamp |
-| `updatedAt` | string | Last update timestamp |
-| `listIds` | json | Array of list IDs the contact belongs to |
-| `customFields` | json | Custom field values |
-| `contacts` | json | Array of contacts |
-| `contactCount` | number | Number of contacts |
-| `lists` | json | Array of lists |
-| `name` | string | Resource name |
-| `templates` | json | Array of templates |
-| `generation` | string | Template generation |
-| `versions` | json | Array of template versions |
+| `id` | string | Version ID |
 | `templateId` | string | Template ID |
-| `active` | boolean | Whether template version is active |
+| `name` | string | Version name |
+| `subject` | string | Email subject |
+| `active` | boolean | Whether this version is active |
 | `htmlContent` | string | HTML content |
 | `plainContent` | string | Plain text content |
+| `updatedAt` | string | Last update timestamp |
 
 </div>
 

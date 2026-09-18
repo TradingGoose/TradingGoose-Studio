@@ -29,33 +29,33 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "sftp_upload",
             "options": [
                 {
-                    "label": "Upload Files",
-                    "id": "sftp_upload"
+                    "id": "sftp_upload",
+                    "label": "Upload Files"
                 },
                 {
-                    "label": "Create File",
-                    "id": "sftp_create"
+                    "id": "sftp_create",
+                    "label": "Create File"
                 },
                 {
-                    "label": "Download File",
-                    "id": "sftp_download"
+                    "id": "sftp_download",
+                    "label": "Download File"
                 },
                 {
-                    "label": "List Directory",
-                    "id": "sftp_list"
+                    "id": "sftp_list",
+                    "label": "List Directory"
                 },
                 {
-                    "label": "Delete File/Directory",
-                    "id": "sftp_delete"
+                    "id": "sftp_delete",
+                    "label": "Delete File/Directory"
                 },
                 {
-                    "label": "Create Directory",
-                    "id": "sftp_mkdir"
+                    "id": "sftp_mkdir",
+                    "label": "Create Directory"
                 }
-            ],
-            "defaultValue": "sftp_upload"
+            ]
         },
         {
             "id": "host",
@@ -68,7 +68,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "port",
             "type": "short-input",
             "title": "SFTP Port",
-            "placeholder": "22"
+            "placeholder": "22",
+            "defaultValue": "22"
         },
         {
             "id": "username",
@@ -81,14 +82,15 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "password",
             "options": [
                 {
-                    "label": "Password",
-                    "id": "password"
+                    "id": "password",
+                    "label": "Password"
                 },
                 {
-                    "label": "Private Key",
-                    "id": "privateKey"
+                    "id": "privateKey",
+                    "label": "Private Key"
                 }
             ]
         },
@@ -97,21 +99,24 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "short-input",
             "title": "Password",
             "placeholder": "Your SFTP password",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'password'."
         },
         {
             "id": "privateKey",
             "type": "code",
             "title": "Private Key",
-            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
-            "language": "plaintext"
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "passphrase",
             "type": "short-input",
             "title": "Passphrase",
             "placeholder": "Passphrase for encrypted key (optional)",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "remotePath",
@@ -124,13 +129,15 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "uploadFiles",
             "type": "file-upload",
             "title": "Files to Upload",
-            "placeholder": "Select files to upload"
+            "placeholder": "Select files to upload",
+            "required": false
         },
         {
             "id": "files",
             "type": "short-input",
             "title": "File Reference",
-            "placeholder": "Reference file from previous block (e.g., {{block_name.file}})"
+            "placeholder": "Reference file from previous block (e.g., {{block_name.file}})",
+            "required": false
         },
         {
             "id": "overwrite",
@@ -176,6 +183,7 @@ Upload files to a remote SFTP server
 | --------- | ---- | ----------- |
 | `success` | boolean | Whether the upload was successful |
 | `uploadedFiles` | json | Array of uploaded file details \(name, remotePath, size\) |
+| `message` | string | Operation status message |
 
 </div>
 
@@ -196,33 +204,33 @@ Upload files to a remote SFTP server
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "sftp_create",
             "options": [
                 {
-                    "label": "Upload Files",
-                    "id": "sftp_upload"
+                    "id": "sftp_upload",
+                    "label": "Upload Files"
                 },
                 {
-                    "label": "Create File",
-                    "id": "sftp_create"
+                    "id": "sftp_create",
+                    "label": "Create File"
                 },
                 {
-                    "label": "Download File",
-                    "id": "sftp_download"
+                    "id": "sftp_download",
+                    "label": "Download File"
                 },
                 {
-                    "label": "List Directory",
-                    "id": "sftp_list"
+                    "id": "sftp_list",
+                    "label": "List Directory"
                 },
                 {
-                    "label": "Delete File/Directory",
-                    "id": "sftp_delete"
+                    "id": "sftp_delete",
+                    "label": "Delete File/Directory"
                 },
                 {
-                    "label": "Create Directory",
-                    "id": "sftp_mkdir"
+                    "id": "sftp_mkdir",
+                    "label": "Create Directory"
                 }
-            ],
-            "defaultValue": "sftp_create"
+            ]
         },
         {
             "id": "host",
@@ -235,7 +243,8 @@ Upload files to a remote SFTP server
             "id": "port",
             "type": "short-input",
             "title": "SFTP Port",
-            "placeholder": "22"
+            "placeholder": "22",
+            "defaultValue": "22"
         },
         {
             "id": "username",
@@ -248,14 +257,15 @@ Upload files to a remote SFTP server
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "password",
             "options": [
                 {
-                    "label": "Password",
-                    "id": "password"
+                    "id": "password",
+                    "label": "Password"
                 },
                 {
-                    "label": "Private Key",
-                    "id": "privateKey"
+                    "id": "privateKey",
+                    "label": "Private Key"
                 }
             ]
         },
@@ -264,21 +274,24 @@ Upload files to a remote SFTP server
             "type": "short-input",
             "title": "Password",
             "placeholder": "Your SFTP password",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'password'."
         },
         {
             "id": "privateKey",
             "type": "code",
             "title": "Private Key",
-            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
-            "language": "plaintext"
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "passphrase",
             "type": "short-input",
             "title": "Passphrase",
             "placeholder": "Passphrase for encrypted key (optional)",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "remotePath",
@@ -319,21 +332,34 @@ Upload files to a remote SFTP server
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Create File (<code>sftp_upload</code>)</div>
+
+Upload files to a remote SFTP server
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Yes | SFTP server hostname or IP address |
+| `port` | number | Yes | SFTP server port \(default: 22\) |
+| `username` | string | Yes | SFTP username |
+| `password` | string | No | Password for authentication \(if not using private key\) |
+| `privateKey` | string | No | Private key for authentication \(OpenSSH format\) |
+| `passphrase` | string | No | Passphrase for encrypted private key |
+| `remotePath` | string | Yes | Destination directory on the remote server |
+| `files` | file[] | No | Files to upload |
+| `fileContent` | string | No | Direct file content to upload \(for text files\) |
+| `fileName` | string | No | File name when using direct content |
+| `overwrite` | boolean | No | Whether to overwrite existing files \(default: true\) |
+| `permissions` | string | No | File permissions \(e.g., 0644\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Whether the operation was successful |
-| `uploadedFiles` | json | Array of uploaded file details |
-| `fileName` | string | Downloaded file name |
-| `content` | string | Downloaded file content |
-| `size` | number | File size in bytes |
-| `entries` | json | Directory listing entries |
-| `count` | number | Number of entries |
-| `deletedPath` | string | Path that was deleted |
-| `createdPath` | string | Directory that was created |
+| `success` | boolean | Whether the upload was successful |
+| `uploadedFiles` | json | Array of uploaded file details \(name, remotePath, size\) |
 | `message` | string | Operation status message |
-| `error` | string | Error message if operation failed |
 
 </div>
 
@@ -354,33 +380,33 @@ Upload files to a remote SFTP server
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "sftp_download",
             "options": [
                 {
-                    "label": "Upload Files",
-                    "id": "sftp_upload"
+                    "id": "sftp_upload",
+                    "label": "Upload Files"
                 },
                 {
-                    "label": "Create File",
-                    "id": "sftp_create"
+                    "id": "sftp_create",
+                    "label": "Create File"
                 },
                 {
-                    "label": "Download File",
-                    "id": "sftp_download"
+                    "id": "sftp_download",
+                    "label": "Download File"
                 },
                 {
-                    "label": "List Directory",
-                    "id": "sftp_list"
+                    "id": "sftp_list",
+                    "label": "List Directory"
                 },
                 {
-                    "label": "Delete File/Directory",
-                    "id": "sftp_delete"
+                    "id": "sftp_delete",
+                    "label": "Delete File/Directory"
                 },
                 {
-                    "label": "Create Directory",
-                    "id": "sftp_mkdir"
+                    "id": "sftp_mkdir",
+                    "label": "Create Directory"
                 }
-            ],
-            "defaultValue": "sftp_download"
+            ]
         },
         {
             "id": "host",
@@ -393,7 +419,8 @@ Upload files to a remote SFTP server
             "id": "port",
             "type": "short-input",
             "title": "SFTP Port",
-            "placeholder": "22"
+            "placeholder": "22",
+            "defaultValue": "22"
         },
         {
             "id": "username",
@@ -406,14 +433,15 @@ Upload files to a remote SFTP server
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "password",
             "options": [
                 {
-                    "label": "Password",
-                    "id": "password"
+                    "id": "password",
+                    "label": "Password"
                 },
                 {
-                    "label": "Private Key",
-                    "id": "privateKey"
+                    "id": "privateKey",
+                    "label": "Private Key"
                 }
             ]
         },
@@ -422,21 +450,24 @@ Upload files to a remote SFTP server
             "type": "short-input",
             "title": "Password",
             "placeholder": "Your SFTP password",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'password'."
         },
         {
             "id": "privateKey",
             "type": "code",
             "title": "Private Key",
-            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
-            "language": "plaintext"
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "passphrase",
             "type": "short-input",
             "title": "Passphrase",
             "placeholder": "Passphrase for encrypted key (optional)",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "remotePath",
@@ -449,14 +480,15 @@ Upload files to a remote SFTP server
             "id": "encoding",
             "type": "dropdown",
             "title": "Output Encoding",
+            "defaultValue": "utf-8",
             "options": [
                 {
-                    "label": "UTF-8 (Text)",
-                    "id": "utf-8"
+                    "id": "utf-8",
+                    "label": "UTF-8 (Text)"
                 },
                 {
-                    "label": "Base64 (Binary)",
-                    "id": "base64"
+                    "id": "base64",
+                    "label": "Base64 (Binary)"
                 }
             ]
         }
@@ -491,6 +523,7 @@ Download a file from a remote SFTP server
 | `content` | string | File content \(text or base64 encoded\) |
 | `size` | number | File size in bytes |
 | `encoding` | string | Content encoding \(utf-8 or base64\) |
+| `message` | string | Operation status message |
 
 </div>
 
@@ -511,33 +544,33 @@ Download a file from a remote SFTP server
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "sftp_list",
             "options": [
                 {
-                    "label": "Upload Files",
-                    "id": "sftp_upload"
+                    "id": "sftp_upload",
+                    "label": "Upload Files"
                 },
                 {
-                    "label": "Create File",
-                    "id": "sftp_create"
+                    "id": "sftp_create",
+                    "label": "Create File"
                 },
                 {
-                    "label": "Download File",
-                    "id": "sftp_download"
+                    "id": "sftp_download",
+                    "label": "Download File"
                 },
                 {
-                    "label": "List Directory",
-                    "id": "sftp_list"
+                    "id": "sftp_list",
+                    "label": "List Directory"
                 },
                 {
-                    "label": "Delete File/Directory",
-                    "id": "sftp_delete"
+                    "id": "sftp_delete",
+                    "label": "Delete File/Directory"
                 },
                 {
-                    "label": "Create Directory",
-                    "id": "sftp_mkdir"
+                    "id": "sftp_mkdir",
+                    "label": "Create Directory"
                 }
-            ],
-            "defaultValue": "sftp_list"
+            ]
         },
         {
             "id": "host",
@@ -550,7 +583,8 @@ Download a file from a remote SFTP server
             "id": "port",
             "type": "short-input",
             "title": "SFTP Port",
-            "placeholder": "22"
+            "placeholder": "22",
+            "defaultValue": "22"
         },
         {
             "id": "username",
@@ -563,14 +597,15 @@ Download a file from a remote SFTP server
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "password",
             "options": [
                 {
-                    "label": "Password",
-                    "id": "password"
+                    "id": "password",
+                    "label": "Password"
                 },
                 {
-                    "label": "Private Key",
-                    "id": "privateKey"
+                    "id": "privateKey",
+                    "label": "Private Key"
                 }
             ]
         },
@@ -579,21 +614,24 @@ Download a file from a remote SFTP server
             "type": "short-input",
             "title": "Password",
             "placeholder": "Your SFTP password",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'password'."
         },
         {
             "id": "privateKey",
             "type": "code",
             "title": "Private Key",
-            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
-            "language": "plaintext"
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "passphrase",
             "type": "short-input",
             "title": "Passphrase",
             "placeholder": "Passphrase for encrypted key (optional)",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "remotePath",
@@ -638,6 +676,7 @@ List files and directories on a remote SFTP server
 | `path` | string | Directory path that was listed |
 | `entries` | json | Array of directory entries with name, type, size, permissions, modifiedAt |
 | `count` | number | Number of entries in the directory |
+| `message` | string | Operation status message |
 
 </div>
 
@@ -658,33 +697,33 @@ List files and directories on a remote SFTP server
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "sftp_delete",
             "options": [
                 {
-                    "label": "Upload Files",
-                    "id": "sftp_upload"
+                    "id": "sftp_upload",
+                    "label": "Upload Files"
                 },
                 {
-                    "label": "Create File",
-                    "id": "sftp_create"
+                    "id": "sftp_create",
+                    "label": "Create File"
                 },
                 {
-                    "label": "Download File",
-                    "id": "sftp_download"
+                    "id": "sftp_download",
+                    "label": "Download File"
                 },
                 {
-                    "label": "List Directory",
-                    "id": "sftp_list"
+                    "id": "sftp_list",
+                    "label": "List Directory"
                 },
                 {
-                    "label": "Delete File/Directory",
-                    "id": "sftp_delete"
+                    "id": "sftp_delete",
+                    "label": "Delete File/Directory"
                 },
                 {
-                    "label": "Create Directory",
-                    "id": "sftp_mkdir"
+                    "id": "sftp_mkdir",
+                    "label": "Create Directory"
                 }
-            ],
-            "defaultValue": "sftp_delete"
+            ]
         },
         {
             "id": "host",
@@ -697,7 +736,8 @@ List files and directories on a remote SFTP server
             "id": "port",
             "type": "short-input",
             "title": "SFTP Port",
-            "placeholder": "22"
+            "placeholder": "22",
+            "defaultValue": "22"
         },
         {
             "id": "username",
@@ -710,14 +750,15 @@ List files and directories on a remote SFTP server
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "password",
             "options": [
                 {
-                    "label": "Password",
-                    "id": "password"
+                    "id": "password",
+                    "label": "Password"
                 },
                 {
-                    "label": "Private Key",
-                    "id": "privateKey"
+                    "id": "privateKey",
+                    "label": "Private Key"
                 }
             ]
         },
@@ -726,21 +767,24 @@ List files and directories on a remote SFTP server
             "type": "short-input",
             "title": "Password",
             "placeholder": "Your SFTP password",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'password'."
         },
         {
             "id": "privateKey",
             "type": "code",
             "title": "Private Key",
-            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
-            "language": "plaintext"
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "passphrase",
             "type": "short-input",
             "title": "Passphrase",
             "placeholder": "Passphrase for encrypted key (optional)",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "remotePath",
@@ -783,6 +827,7 @@ Delete a file or directory on a remote SFTP server
 | --------- | ---- | ----------- |
 | `success` | boolean | Whether the deletion was successful |
 | `deletedPath` | string | Path that was deleted |
+| `message` | string | Operation status message |
 
 </div>
 
@@ -803,33 +848,33 @@ Delete a file or directory on a remote SFTP server
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "sftp_mkdir",
             "options": [
                 {
-                    "label": "Upload Files",
-                    "id": "sftp_upload"
+                    "id": "sftp_upload",
+                    "label": "Upload Files"
                 },
                 {
-                    "label": "Create File",
-                    "id": "sftp_create"
+                    "id": "sftp_create",
+                    "label": "Create File"
                 },
                 {
-                    "label": "Download File",
-                    "id": "sftp_download"
+                    "id": "sftp_download",
+                    "label": "Download File"
                 },
                 {
-                    "label": "List Directory",
-                    "id": "sftp_list"
+                    "id": "sftp_list",
+                    "label": "List Directory"
                 },
                 {
-                    "label": "Delete File/Directory",
-                    "id": "sftp_delete"
+                    "id": "sftp_delete",
+                    "label": "Delete File/Directory"
                 },
                 {
-                    "label": "Create Directory",
-                    "id": "sftp_mkdir"
+                    "id": "sftp_mkdir",
+                    "label": "Create Directory"
                 }
-            ],
-            "defaultValue": "sftp_mkdir"
+            ]
         },
         {
             "id": "host",
@@ -842,7 +887,8 @@ Delete a file or directory on a remote SFTP server
             "id": "port",
             "type": "short-input",
             "title": "SFTP Port",
-            "placeholder": "22"
+            "placeholder": "22",
+            "defaultValue": "22"
         },
         {
             "id": "username",
@@ -855,14 +901,15 @@ Delete a file or directory on a remote SFTP server
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "password",
             "options": [
                 {
-                    "label": "Password",
-                    "id": "password"
+                    "id": "password",
+                    "label": "Password"
                 },
                 {
-                    "label": "Private Key",
-                    "id": "privateKey"
+                    "id": "privateKey",
+                    "label": "Private Key"
                 }
             ]
         },
@@ -871,21 +918,24 @@ Delete a file or directory on a remote SFTP server
             "type": "short-input",
             "title": "Password",
             "placeholder": "Your SFTP password",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'password'."
         },
         {
             "id": "privateKey",
             "type": "code",
             "title": "Private Key",
-            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\\n...",
-            "language": "plaintext"
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "passphrase",
             "type": "short-input",
             "title": "Passphrase",
             "placeholder": "Passphrase for encrypted key (optional)",
-            "password": true
+            "password": true,
+            "description": "Shown when authMethod is 'privateKey'."
         },
         {
             "id": "remotePath",
@@ -928,6 +978,7 @@ Create a directory on a remote SFTP server
 | --------- | ---- | ----------- |
 | `success` | boolean | Whether the directory was created successfully |
 | `createdPath` | string | Path of the created directory |
+| `message` | string | Operation status message |
 
 </div>
 

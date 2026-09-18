@@ -1,0 +1,452 @@
+---
+title: Airtable
+description: 读取、创建和更新 Airtable
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="airtable"
+  color=""
+/>
+
+<Cards>
+  <Card title="用作触发器" href="/triggers/airtable">
+    查看 Airtable 的触发事件、设置和事件负载。
+  </Card>
+</Cards>
+
+## 配置
+
+### 列出记录
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Airtable"
+    type="airtable"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "list",
+            "options": [
+                {
+                    "id": "list",
+                    "label": "列出记录"
+                },
+                {
+                    "id": "get",
+                    "label": "获取记录"
+                },
+                {
+                    "id": "create",
+                    "label": "创建记录"
+                },
+                {
+                    "id": "update",
+                    "label": "更新记录"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Airtable 账户",
+            "layout": "full",
+            "placeholder": "选择 Airtable 账户",
+            "provider": "airtable",
+            "required": true
+        },
+        {
+            "id": "baseId",
+            "type": "short-input",
+            "title": "Base ID",
+            "layout": "full",
+            "placeholder": "输入你的 Base ID（例如 appXXXXXXXXXXXXXX）",
+            "required": true
+        },
+        {
+            "id": "tableId",
+            "type": "short-input",
+            "title": "Table ID",
+            "layout": "full",
+            "placeholder": "输入 Table ID（例如 tblXXXXXXXXXXXXXX）",
+            "required": true
+        },
+        {
+            "id": "maxRecords",
+            "type": "short-input",
+            "title": "最大记录数",
+            "layout": "half",
+            "placeholder": "要返回的最大记录数（可选）"
+        },
+        {
+            "id": "filterFormula",
+            "type": "long-input",
+            "title": "筛选公式",
+            "layout": "full",
+            "placeholder": "用于筛选记录的 Airtable 公式（可选）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出记录 (<code>airtable_list_records</code>)</div>
+
+从 Airtable 表中读取记录
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `baseId` | string | 是 | Airtable Base 的 ID |
+| `tableId` | string | 是 | 表的 ID |
+| `maxRecords` | number | 否 | 要返回的最大记录数 |
+| `filterFormula` | string | 否 | 用于筛选记录的公式 \(例如 "\(\{Field Name\} = 'Value'\)"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `records` | json | 获取到的 Airtable 记录数组 |
+| `metadata` | json | 操作元数据，包括分页偏移量和记录总数 |
+
+</div>
+
+---
+
+### 获取记录
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Airtable"
+    type="airtable"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "get",
+            "options": [
+                {
+                    "id": "list",
+                    "label": "列出记录"
+                },
+                {
+                    "id": "get",
+                    "label": "获取记录"
+                },
+                {
+                    "id": "create",
+                    "label": "创建记录"
+                },
+                {
+                    "id": "update",
+                    "label": "更新记录"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Airtable 账户",
+            "layout": "full",
+            "placeholder": "选择 Airtable 账户",
+            "provider": "airtable",
+            "required": true
+        },
+        {
+            "id": "baseId",
+            "type": "short-input",
+            "title": "基础 ID",
+            "layout": "full",
+            "placeholder": "输入您的基础 ID (例如 appXXXXXXXXXXXXXX)",
+            "required": true
+        },
+        {
+            "id": "tableId",
+            "type": "short-input",
+            "title": "表格 ID",
+            "layout": "full",
+            "placeholder": "输入表格 ID (例如 tblXXXXXXXXXXXXXX)",
+            "required": true
+        },
+        {
+            "id": "recordId",
+            "type": "short-input",
+            "title": "记录 ID",
+            "layout": "full",
+            "placeholder": "记录的 ID (例如 recXXXXXXXXXXXXXX)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取记录 (<code>airtable_get_record</code>)</div>
+
+根据 ID 从 Airtable 表中检索单条记录
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 是否必需 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `baseId` | string | 是 | Airtable 基础 ID |
+| `tableId` | string | 是 | 表格的 ID 或名称 |
+| `recordId` | string | 是 | 要检索的记录的 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `record` | json | 检索到的 Airtable 记录，包含 id、createdTime 和字段 |
+| `metadata` | json | 操作元数据，包含记录数量 |
+
+</div>
+
+---
+
+### 创建记录
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Airtable"
+    type="airtable"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "create",
+            "options": [
+                {
+                    "id": "list",
+                    "label": "列出记录"
+                },
+                {
+                    "id": "get",
+                    "label": "获取记录"
+                },
+                {
+                    "id": "create",
+                    "label": "创建记录"
+                },
+                {
+                    "id": "update",
+                    "label": "更新记录"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Airtable 账户",
+            "layout": "full",
+            "placeholder": "选择 Airtable 账户",
+            "provider": "airtable",
+            "required": true
+        },
+        {
+            "id": "baseId",
+            "type": "short-input",
+            "title": "Base ID",
+            "layout": "full",
+            "placeholder": "输入 Base ID（例如 appXXXXXXXXXXXXXX）",
+            "required": true
+        },
+        {
+            "id": "tableId",
+            "type": "short-input",
+            "title": "Table ID",
+            "layout": "full",
+            "placeholder": "输入 Table ID（例如 tblXXXXXXXXXXXXXX）",
+            "required": true
+        },
+        {
+            "id": "records",
+            "type": "code",
+            "title": "记录（JSON 数组）",
+            "layout": "full",
+            "placeholder": "创建时：`[{ \"fields\": { ... } }]`\n",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建记录（<code>airtable_create_records</code>）</div>
+
+向 Airtable 表写入新记录
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `baseId` | string | 是 | Airtable base 的 ID |
+| `tableId` | string | 是 | 表的 ID 或名称 |
+| `records` | json | 是 | 待创建的记录数组，每条记录包含一个 `fields` 对象 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `records` | json | 创建的 Airtable 记录数组 |
+| `metadata` | json | 操作元数据 |
+
+</div>
+
+---
+
+### 更新记录
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Airtable"
+    type="airtable"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "update",
+            "options": [
+                {
+                    "id": "list",
+                    "label": "列出记录"
+                },
+                {
+                    "id": "get",
+                    "label": "获取记录"
+                },
+                {
+                    "id": "create",
+                    "label": "创建记录"
+                },
+                {
+                    "id": "update",
+                    "label": "更新记录"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Airtable 账户",
+            "layout": "full",
+            "placeholder": "选择 Airtable 账户",
+            "provider": "airtable",
+            "required": true
+        },
+        {
+            "id": "baseId",
+            "type": "short-input",
+            "title": "基础 ID",
+            "layout": "full",
+            "placeholder": "输入您的基础 ID（例如：appXXXXXXXXXXXXXX）",
+            "required": true
+        },
+        {
+            "id": "tableId",
+            "type": "short-input",
+            "title": "表 ID",
+            "layout": "full",
+            "placeholder": "输入表 ID（例如：tblXXXXXXXXXXXXXX）",
+            "required": true
+        },
+        {
+            "id": "recordId",
+            "type": "short-input",
+            "title": "记录 ID",
+            "layout": "full",
+            "placeholder": "记录的 ID（例如：recXXXXXXXXXXXXXX）",
+            "required": true
+        },
+        {
+            "id": "fields",
+            "type": "code",
+            "title": "字段（JSON 对象）",
+            "layout": "full",
+            "placeholder": "要更新的字段：`{ \"Field Name\": \"New Value\" }`",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新记录 (<code>airtable_update_record</code>)</div>
+
+通过 ID 更新 Airtable 表中的现有记录
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必需 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `baseId` | string | 是 | Airtable 基础 ID |
+| `tableId` | string | 是 | 表的 ID 或名称 |
+| `recordId` | string | 是 | 要更新的记录 ID |
+| `fields` | json | 是 | 包含字段名称及其新值的对象 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `record` | json | 更新后的 Airtable 记录，包含 id、createdTime 和 fields |
+| `metadata` | json | 操作元数据，包括记录数和更新后的字段名 |
+
+</div>
+
+---
+
+## 其他工具
+
+此块声明的其他工具，包括上述操作中依赖输入的变体。
+
+### `airtable_update_multiple_records`
+
+更新 Airtable 表中的多条现有记录
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `baseId` | string | 是 | Airtable 基座的 ID |
+| `tableId` | string | 是 | 表的 ID 或名称 |
+| `records` | json | 是 | 要更新的记录数组，每条记录包含一个 `id` 和一个 `fields` 对象 |
+
+#### 输出
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `records` | json | 更新后的 Airtable 记录数组 |
+| `metadata` | json | 操作元数据，包括记录数量和更新后的记录 ID |
+
+## 使用说明
+
+将 Airtable 集成到工作流中。可以创建、获取、列出或更新 Airtable 记录。可用于触发器模式，在 Airtable 表发生更新时触发工作流。
+
+## 注意事项
+
+- 类别：`tools`
+- 类型：`airtable`

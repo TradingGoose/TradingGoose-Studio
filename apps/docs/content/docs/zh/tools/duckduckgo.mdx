@@ -1,0 +1,83 @@
+---
+title: DuckDuckGo
+description: 使用 DuckDuckGo 搜索
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="duckduckgo"
+  color="#FFFFFF"
+/>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="DuckDuckGo"
+    type="duckduckgo"
+    color="#FFFFFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "搜索查询",
+            "placeholder": "输入搜索查询...",
+            "required": true
+        },
+        {
+            "id": "noHtml",
+            "type": "switch",
+            "title": "移除 HTML",
+            "defaultValue": true
+        },
+        {
+            "id": "skipDisambig",
+            "type": "switch",
+            "title": "跳过消歧"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+### `duckduckgo_search`
+
+使用 DuckDuckGo Instant Answers API 搜索网页。返回与查询对应的即时答案、摘要和相关主题。免费使用，无需 API 密钥。
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | 是 | 要执行的搜索查询 |
+| `noHtml` | boolean | 否 | 从结果文本中移除 HTML \(默认：true\) |
+| `skipDisambig` | boolean | 否 | 跳过消歧结果 \(默认：false\) |
+
+#### 输出
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `heading` | string | 即时答案的标题/名称 |
+| `abstract` | string | 主题的简短摘要 |
+| `abstractText` | string | 摘要的纯文本版本 |
+| `abstractSource` | string | 摘要的来源 \(例如 Wikipedia\) |
+| `abstractURL` | string | 摘要来源的 URL |
+| `image` | string | 与主题相关图片的 URL |
+| `answer` | string | 如可用，则为直接答案 \(例如用于计算\) |
+| `answerType` | string | 答案类型 \(例如 calc、ip 等\) |
+| `type` | string | 响应类型：A \(文章\)、D \(消歧义\)、C \(分类\)、N \(名称\)、E \(独占\) |
+| `relatedTopics` | array | 包含 URL 和描述的相关主题数组 |
+| `results` | array | 外部链接结果数组 |
+
+## 使用说明
+
+使用 DuckDuckGo Instant Answers API 搜索网页。返回即时答案、摘要、相关主题等。无需 API 密钥即可免费使用。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`duckduckgo`

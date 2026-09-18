@@ -1,0 +1,32 @@
+---
+title: 概览
+description: 将你的区块相互连接。
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+连接是让数据在工作流的区块之间流动的通道。它们定义了信息如何从一个区块传递到另一个区块，使你能够创建复杂多步骤的流程。
+
+<Callout type="info">
+  正确配置的连接对于创建高效的工作流至关重要。它们决定了
+  数据如何在你系统中流转，以及区块之间如何相互交互。
+</Callout>
+
+要创建连接，请从一个区块的输出端口拖动到另一个区块的输入端口。连接后，源区块产生的数据将通过连接标签在目标区块中可用。
+
+## 连接类型
+
+TradingGoose 支持不同类型的连接，可实现各种工作流模式：
+
+<Cards>
+  <Card title="连接基础" href="/connections/basics">
+    了解连接如何运作，以及如何在你的工作流中创建它们
+  </Card>
+  <Card title="连接标签" href="/connections/tags">
+    了解如何使用连接标签在区块之间引用数据
+  </Card>
+  <Card title="数据结构" href="/connections/data-structure">
+    探索不同区块类型的输出数据结构
+  </Card>
+</Cards>

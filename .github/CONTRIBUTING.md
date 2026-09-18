@@ -483,7 +483,7 @@ In addition, you will need to update the registries:
 8. **Generate Documentation:**  
    Run the documentation generator to create docs for your new tool:
    ```bash
-   ./scripts/generate-docs.sh
+   bun run docs:generate
    ```
 
 ### Naming Conventions

@@ -1,0 +1,167 @@
+---
+title: Hugging Face
+description: 使用 Hugging Face Inference API
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="huggingface"
+  color="#FFD21E"
+/>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Hugging Face"
+    type="huggingface"
+    color="#FFD21E"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "systemPrompt",
+            "type": "long-input",
+            "title": "系统提示",
+            "layout": "full",
+            "placeholder": "输入系统提示，用于引导模型行为..."
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "用户提示",
+            "layout": "full",
+            "placeholder": "在此输入消息...",
+            "required": true
+        },
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "提供商",
+            "layout": "half",
+            "required": true,
+            "defaultValue": "novita",
+            "options": [
+                {
+                    "id": "novita",
+                    "label": "Novita"
+                },
+                {
+                    "id": "cerebras",
+                    "label": "Cerebras"
+                },
+                {
+                    "id": "cohere",
+                    "label": "Cohere"
+                },
+                {
+                    "id": "fal",
+                    "label": "Fal AI"
+                },
+                {
+                    "id": "fireworks",
+                    "label": "Fireworks"
+                },
+                {
+                    "id": "hyperbolic",
+                    "label": "Hyperbolic"
+                },
+                {
+                    "id": "hf-inference",
+                    "label": "HF Inference"
+                },
+                {
+                    "id": "nebius",
+                    "label": "Nebius"
+                },
+                {
+                    "id": "nscale",
+                    "label": "Nscale"
+                },
+                {
+                    "id": "replicate",
+                    "label": "Replicate"
+                },
+                {
+                    "id": "sambanova",
+                    "label": "SambaNova"
+                },
+                {
+                    "id": "together",
+                    "label": "Together"
+                }
+            ]
+        },
+        {
+            "id": "model",
+            "type": "short-input",
+            "title": "模型",
+            "layout": "full",
+            "placeholder": "例如：Qwen/Qwen2.5-7B-Instruct, llama3.1-8b, meta-llama/Llama-3.2-3B-Instruct-Turbo",
+            "description": "所选提供商必须支持该模型。",
+            "required": true
+        },
+        {
+            "id": "temperature",
+            "type": "slider",
+            "title": "温度",
+            "layout": "half",
+            "min": 0,
+            "max": 2,
+            "defaultValue": "0.7"
+        },
+        {
+            "id": "maxTokens",
+            "type": "short-input",
+            "title": "最大令牌数",
+            "layout": "half",
+            "placeholder": "例如：1000"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 令牌",
+            "layout": "full",
+            "placeholder": "输入你的 Hugging Face API 令牌",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+### `huggingface_chat`
+
+使用 Hugging Face Inference API 生成补全
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `systemPrompt` | string | 否 | 用于引导模型行为的系统提示 |
+| `content` | string | 是 | 发送给模型的用户消息内容 |
+| `provider` | string | 是 | 用于 API 请求的提供商 \(例如 novita、cerebras 等\) |
+| `model` | string | 是 | 用于聊天补全的模型 \(例如 Qwen/Qwen2.5-7B-Instruct\) |
+| `maxTokens` | number | 否 | 生成的最大 token 数 |
+| `temperature` | number | 否 | 采样温度 \(0-2\)。值越高，输出越随机 |
+| `apiKey` | string | 是 | Hugging Face API 令牌 |
+
+#### 输出
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作成功状态 |
+| `output` | object | 聊天补全结果 |
+
+## 使用说明
+
+将 Hugging Face 集成到工作流中。可使用 Hugging Face Inference API 生成补全。
+
+## 备注
+
+- 类别: `tools`
+- 类型: `huggingface`

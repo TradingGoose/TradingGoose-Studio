@@ -1,0 +1,54 @@
+---
+title: Lista de servidores MCP
+description: Explora, selecciona, crea, cambia el nombre y elimina los
+  servidores MCP de un espacio de trabajo.
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card'
+import { Callout } from 'fumadocs-ui/components/callout'
+
+## Descripción general
+
+| Propiedad | Valor |
+|----------|-------|
+| **Clave** | `list_mcp` |
+| **Categoría** | Lista |
+
+La lista de servidores MCP muestra los servidores MCP del espacio de trabajo actual en orden alfabético. Selecciona un servidor para publicar su `mcpServerId` en un [Editor MCP](/widgets/editor-mcp) vinculado; la lista no selecciona el primer servidor de forma automática.
+
+## Funciones
+
+- **Crear** -- Los editores pueden añadir un servidor Streamable HTTP deshabilitado con ajustes de conexión vacíos y configurarlo después en el Editor MCP.
+- **Seleccionar** -- Haz clic en un servidor para resaltarlo y abrirlo en un editor vinculado.
+- **Renombrar** -- Los editores pueden cambiar el nombre de un servidor en línea. Pulsa Intro o sal del campo para guardar, o pulsa Escape para cancelar.
+- **Eliminar** -- Los editores pueden eliminar un servidor de forma permanente tras la confirmación. El último servidor restante no se puede eliminar desde este widget.
+- **Estados del espacio de trabajo** -- El widget muestra estados específicos de carga, error, espacio de trabajo vacío y sin servidores.
+
+La lista no muestra las herramientas ni los ajustes de conexión. Usa el Editor MCP para editar la URL, el transporte, los encabezados, el tiempo de espera y el estado habilitado, y para probar la conexión o actualizar sus herramientas.
+
+## Emparejar con el Editor MCP
+
+1. Añade una **Lista de servidores MCP** y un **Editor MCP** al dashboard.
+2. Asigna el mismo color de emparejamiento a ambos widgets.
+3. Selecciona un servidor en la lista para abrirlo en el editor.
+
+<Callout>
+  Un widget gris no emparejado mantiene su propia selección en lugar de sincronizarse con otro widget.
+</Callout>
+
+## Configuración
+
+| Parámetro | Tipo | Descripción |
+|-----------|------|-------------|
+| `mcpServerId` | string \| null | Servidor MCP seleccionado de forma explícita. El valor predeterminado es `null`. |
+
+## Relacionado
+
+<Cards>
+  <Card title="Editor MCP" href="/widgets/editor-mcp">
+    Configura, prueba e inspecciona el servidor MCP seleccionado.
+  </Card>
+  <Card title="Guía MCP" href="/utilities/mcp">
+    Aprende cómo Studio se conecta a servidores MCP y expone herramientas MCP a los agentes.
+  </Card>
+</Cards>

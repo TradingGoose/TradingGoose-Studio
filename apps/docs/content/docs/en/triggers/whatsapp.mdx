@@ -1,5 +1,5 @@
 ---
-title: Whatsapp Trigger
+title: WhatsApp Trigger
 description: Trigger workflow from WhatsApp messages and events via Business Platform webhooks
 ---
 
@@ -18,15 +18,19 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 Trigger workflow from WhatsApp messages and events via Business Platform webhooks
 
 <Callout type="info">
-  This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
+  This is a **webhook-based** trigger. Configure the external service to send events to the workflow webhook URL.
 </Callout>
 
 <Cards>
   <Card title="Use as a Tool" href="/tools/whatsapp">
-    See workflow actions, operations, and tool inputs for Whatsapp.
+    See workflow actions, operations, and tool inputs for WhatsApp.
   </Card>
 </Cards>
 
+
+## Setup Instructions
+
+<div class="mb-3"><strong>1.</strong> Go to your <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer" class="text-muted-foreground underline transition-colors hover:text-muted-foreground/80">Meta for Developers Apps</a> page and navigate to the "Build with us" --> "App Events" section.</div><div class="mb-3"><strong>2.</strong> If you don't have an app:<br /><ul class="mt-1 ml-5 list-disc"><li>Create an app from scratch</li><li>Give it a name and select your workspace</li></ul></div><div class="mb-3"><strong>3.</strong> Select your App, then navigate to WhatsApp > Configuration.</div><div class="mb-3"><strong>4.</strong> Find the Webhooks section and click "Edit".</div><div class="mb-3"><strong>5.</strong> Paste the <strong>Webhook URL</strong> above into the "Callback URL" field.</div><div class="mb-3"><strong>6.</strong> Paste the <strong>Verification Token</strong> into the "Verify token" field.</div><div class="mb-3"><strong>7.</strong> Click "Verify and save".</div><div class="mb-3"><strong>8.</strong> Click "Manage" next to Webhook fields and subscribe to <code>messages</code>.</div>
 
 ## Configuration
 
@@ -42,14 +46,14 @@ Trigger workflow from WhatsApp messages and events via Business Platform webhook
             "title": "Verification Token",
             "placeholder": "Generate or enter a verification token",
             "description": "Enter any secure token here. You'll need to provide the same token in your WhatsApp Business Platform dashboard.",
-            "required": true,
-            "password": true
+            "password": true,
+            "required": true
         }
     ]}
   />
 </ShowcaseCard>
 
-#### Output Schema
+## Output Schema
 
 <SchemaTree
   title="Event Payload"
@@ -86,5 +90,3 @@ Trigger workflow from WhatsApp messages and events via Business Platform webhook
       }
   ]}
 />
-
-
