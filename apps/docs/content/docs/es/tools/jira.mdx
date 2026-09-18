@@ -364,6 +364,28 @@ Escribir una incidencia de Jira
 
 ---
 
+## Herramientas adicionales
+
+Herramientas adicionales declaradas por este bloque, incluyendo variantes dependientes de la entrada de las operaciones anteriores.
+
+### `jira_bulk_read`
+
+Recuperar varias incidencias de Jira de forma masiva
+
+#### Entrada
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | Sí | Tu dominio de Jira \(p. ej., yourcompany.atlassian.net\) |
+| `projectId` | string | Sí | ID de proyecto de Jira |
+| `cloudId` | string | No | ID de Jira Cloud |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `issues` | array | Array de incidencias de Jira con resumen, descripción, marcas de tiempo de creación y actualización |
+
 ## Instrucciones de uso
 
 Integra Jira en el flujo de trabajo. Puede leer, escribir y actualizar incidencias.

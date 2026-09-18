@@ -364,9 +364,31 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 ---
 
+## 其他工具
+
+此块声明的其他工具，包括上述操作中依赖输入的变体。
+
+### `jira_bulk_read`
+
+批量获取多个 Jira 问题
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | 是 | 你的 Jira 域名 \(例如 yourcompany.atlassian.net\) |
+| `projectId` | string | 是 | Jira 项目 ID |
+| `cloudId` | string | 否 | Jira 云 ID |
+
+#### 输出
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `issues` | array | Jira 问题数组，包含摘要、描述、创建和更新时间戳 |
+
 ## 使用说明
 
-将 Jira 集成到工作流中。可以读取、写入和更新问题。
+将 Jira 集成到工作流中。可读取、写入和更新问题。
 
 ## 备注
 

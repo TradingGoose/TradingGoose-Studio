@@ -428,6 +428,29 @@ Update an existing record in an Airtable table by ID
 
 ---
 
+## Additional Tools
+
+Additional tools declared by this block, including input-dependent variants of the operations above.
+
+### `airtable_update_multiple_records`
+
+Update multiple existing records in an Airtable table
+
+#### Input
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `baseId` | string | Yes | ID of the Airtable base |
+| `tableId` | string | Yes | ID or name of the table |
+| `records` | json | Yes | Array of records to update, each with an `id` and a `fields` object |
+
+#### Output
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `records` | json | Array of updated Airtable records |
+| `metadata` | json | Operation metadata including record count and updated record IDs |
+
 
 ## Usage Instructions
 

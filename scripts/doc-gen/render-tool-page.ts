@@ -64,7 +64,6 @@ export function renderToolPage(
     category,
     bgColor,
     outputs = {},
-    tools = { access: [] },
     subBlocks = [],
     operationFieldId = '',
     operationToolMap,
@@ -90,7 +89,17 @@ export function renderToolPage(
       outputs
     )
   } else {
-    body = buildSimpleBody(name, type, bgColor, subBlocks, tools, toolInfoMap, outputs)
+    body = buildSimpleBody(name, type, bgColor, subBlocks)
+  }
+  const operationTools = new Set(isTabbed ? Object.values(operationToolMap!) : [])
+  const remainingTools = [...toolInfoMap.keys()].filter((id) => !operationTools.has(id))
+  if (remainingTools.length) {
+    body += isTabbed
+      ? '## Additional Tools\n\nAdditional tools declared by this block, including input-dependent variants of the operations above.\n\n'
+      : '## Tools\n\n'
+    for (const toolId of remainingTools) {
+      body += renderToolSection(toolId, undefined, toolInfoMap, outputs)
+    }
   }
   if (blockInfo) body += renderBlockContract(blockInfo)
 
@@ -138,10 +147,7 @@ function buildSimpleBody(
   name: string,
   type: string,
   bgColor: string | undefined,
-  subBlocks: DocSubBlock[],
-  tools: { access?: string[] },
-  toolInfoMap: Map<string, ToolInfo>,
-  outputs: Record<string, any>
+  subBlocks: DocSubBlock[]
 ): string {
   let result = ''
 
@@ -160,14 +166,6 @@ function buildSimpleBody(
 </ShowcaseCard>
 
 `
-  }
-
-  const documentedToolIds = (tools.access ?? []).filter((toolId) => toolInfoMap.has(toolId))
-  if (documentedToolIds.length > 0) {
-    result += '## Tools\n\n'
-    for (const toolId of documentedToolIds) {
-      result += renderToolSection(toolId, undefined, toolInfoMap, outputs)
-    }
   }
 
   return result
@@ -295,7 +293,7 @@ function renderToolSection(
   let result = ''
 
   const toolInfo = toolInfoMap.get(toolId)
-  if (!toolInfo) return ''
+  if (!toolInfo) throw new Error(`Missing tool metadata: ${toolId}`)
   const hasToolOutputs = Object.keys(toolInfo.outputs).length > 0
   const hasBlockOutputs = Boolean(outputs && Object.keys(outputs).length > 0)
   const usesBlockOutputContract = !hasToolOutputs && hasBlockOutputs

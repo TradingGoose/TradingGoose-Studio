@@ -1209,6 +1209,52 @@ Recupera todos los negocios de la cuenta de HubSpot con soporte de paginación
 
 ---
 
+## Herramientas adicionales
+
+Herramientas adicionales declaradas por este bloque, incluidas las variantes dependientes de la entrada de las operaciones anteriores.
+
+### `hubspot_get_contact`
+
+Recuperar un solo contacto por ID o correo electrónico desde HubSpot
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `contactId` | string | Sí | El ID o correo electrónico del contacto que se va a recuperar |
+| `idProperty` | string | No | Propiedad que se usará como identificador único \(p. ej., "email"\). Si no se especifica, se usa el ID del registro |
+| `properties` | string | No | Lista de propiedades que se devolverán, separadas por comas |
+| `associations` | string | No | Lista de tipos de objeto para los que se recuperarán los ID asociados, separados por comas |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `contact` | object | Objeto de contacto de HubSpot con propiedades |
+| `metadata` | object | Metadatos de la operación |
+| `success` | boolean | Estado de éxito de la operación |
+
+### `hubspot_get_company`
+
+Recuperar una sola empresa por ID o dominio desde HubSpot
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `companyId` | string | Sí | El ID o dominio de la empresa que se va a recuperar |
+| `idProperty` | string | No | Propiedad que se usará como identificador único \(p. ej., "domain"\). Si no se especifica, se usa el ID del registro |
+| `properties` | string | No | Lista de propiedades que se devolverán, separadas por comas |
+| `associations` | string | No | Lista de tipos de objeto para los que se recuperarán los ID asociados, separados por comas |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `company` | object | Objeto de empresa de HubSpot con propiedades |
+| `metadata` | object | Metadatos de la operación |
+| `success` | boolean | Estado de éxito de la operación |
+
 ## Instrucciones de uso
 
 Integra HubSpot en tu flujo de trabajo. Gestiona contactos, empresas, negocios, tickets y otros objetos de CRM con potentes capacidades de automatización. Se puede usar en modo desencadenador para iniciar flujos de trabajo cuando se crean, eliminan o actualizan contactos.

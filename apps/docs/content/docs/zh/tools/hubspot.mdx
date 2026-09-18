@@ -1209,11 +1209,57 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 
 ---
 
+## 其他工具
+
+此区块声明的其他工具，包括上述操作的输入相关变体。
+
+### `hubspot_get_contact`
+
+通过 ID 或邮箱从 HubSpot 获取单个联系人
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `contactId` | string | 是 | 要获取的联系人的 ID 或邮箱 |
+| `idProperty` | string | 否 | 用作唯一标识符的属性 \(例如 "email"\)。若不指定，则使用记录 ID |
+| `properties` | string | 否 | 以逗号分隔的要返回的属性列表 |
+| `associations` | string | 否 | 以逗号分隔的要获取关联 ID 的对象类型列表 |
+
+#### 输出
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `contact` | object | 包含属性的 HubSpot 联系人对象 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+### `hubspot_get_company`
+
+通过 ID 或域名从 HubSpot 获取单个公司
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `companyId` | string | 是 | 要获取的公司的 ID 或域名 |
+| `idProperty` | string | 否 | 用作唯一标识符的属性 \(例如 "domain"\)。若不指定，则使用记录 ID |
+| `properties` | string | 否 | 以逗号分隔的要返回的属性列表 |
+| `associations` | string | 否 | 以逗号分隔的要获取关联 ID 的对象类型列表 |
+
+#### 输出
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `company` | object | 包含属性的 HubSpot 公司对象 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
 ## 使用说明
 
-将 HubSpot 集成到你的工作流。管理联系人、公司、交易、工单及其他 CRM 对象，并具备强大的自动化能力。可用于触发器模式，在联系人被创建、删除或更新时启动工作流。
+将 HubSpot 集成到您的工作流中。通过强大的自动化功能管理联系人、公司、交易、工单和其他 CRM 对象。可在触发模式下使用，当联系人创建、删除或更新时启动工作流。
 
-## 备注
+## 注意事项
 
 - 类别：`tools`
 - 类型：`hubspot`

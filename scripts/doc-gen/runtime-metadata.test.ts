@@ -21,6 +21,7 @@ interface MetadataSnapshot {
   translateModelHasDefault: boolean
   translateApiKeyRequired?: boolean
   invalidOperationMappings: string[]
+  undocumentedTools: string[]
   translateToolIds: string[]
   translateParams: string[]
   translateOutputs: string[]
@@ -55,13 +56,19 @@ beforeAll(() => {
       loadToolDocSources,
     } = await import('./scripts/doc-gen/runtime-metadata')
     const { renderTriggerPage } = await import('./scripts/doc-gen/render-trigger-page')
+    const { renderToolPage } = await import('./scripts/doc-gen/render-tool-page')
     const { readFileSync } = await import('node:fs')
     const sources = await loadToolDocSources(process.cwd())
     const byType = new Map(sources.map((source) => [source.config.type, source]))
     const triggers = getTriggerDocConfigs()
     const byTriggerId = new Map(triggers.map((trigger) => [trigger.id, trigger]))
     const invalidOperationMappings = []
+    const undocumentedTools = []
     for (const source of sources) {
+      const page = renderToolPage(source.config, source.toolInfo, undefined, source.blockInfo)
+      for (const toolId of source.toolInfo.keys()) {
+        if (!page.includes(toolId)) undocumentedTools.push(source.config.type + ': ' + toolId)
+      }
       const operationField = source.config.subBlocks.find(
         (subBlock) => subBlock.id === source.config.operationFieldId
       )
@@ -120,6 +127,7 @@ beforeAll(() => {
         (param) => param.name === 'apiKey'
       )?.required,
       invalidOperationMappings,
+      undocumentedTools,
       translateToolIds: [...translate.toolInfo.keys()],
       translateParams: translate.blockInfo.params.map((param) => param.name),
       translateOutputs: Object.keys(translate.blockInfo.outputs),
@@ -168,6 +176,7 @@ describe('runtime documentation metadata', () => {
     expect(metadata.vaultCreateMatters).toBe('google_vault_create_matters')
     expect(metadata.vaultParamsWithoutDescriptions).toEqual([])
     expect(metadata.invalidOperationMappings).toEqual([])
+    expect(metadata.undocumentedTools).toEqual([])
   })
 
   it('normalizes dynamic preview values without changing the runtime block', () => {

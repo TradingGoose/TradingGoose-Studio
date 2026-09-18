@@ -419,9 +419,32 @@ Actualiza un registro existente en una tabla de Airtable por ID
 
 ---
 
+## Herramientas adicionales
+
+Herramientas adicionales declaradas por este bloque, incluidas las variantes dependientes de la entrada de las operaciones anteriores.
+
+### `airtable_update_multiple_records`
+
+Actualizar varios registros existentes en una tabla de Airtable
+
+#### Entrada
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `baseId` | string | Sí | ID de la base de Airtable |
+| `tableId` | string | Sí | ID o nombre de la tabla |
+| `records` | json | Sí | Arreglo de registros para actualizar, cada uno con un `id` y un objeto `fields` |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `records` | json | Arreglo de registros de Airtable actualizados |
+| `metadata` | json | Metadatos de la operación, que incluyen el recuento de registros y los ID de registros actualizados |
+
 ## Instrucciones de uso
 
-Integra Airtable en el flujo de trabajo. Puede crear, obtener, listar o actualizar registros de Airtable. Se puede usar en modo de disparo para disparar un flujo de trabajo cuando se realiza una actualización en una tabla de Airtable.
+Integra Airtable en el flujo de trabajo. Puede crear, obtener, listar o actualizar registros de Airtable. Se puede utilizar en modo de activación para activar un flujo de trabajo cuando se realiza una actualización en una tabla de Airtable.
 
 ## Notas
 

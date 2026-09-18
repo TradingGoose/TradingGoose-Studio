@@ -1230,6 +1230,52 @@ Retrieve all deals from HubSpot account with pagination support
 
 ---
 
+## Additional Tools
+
+Additional tools declared by this block, including input-dependent variants of the operations above.
+
+### `hubspot_get_contact`
+
+Retrieve a single contact by ID or email from HubSpot
+
+#### Input
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `contactId` | string | Yes | The ID or email of the contact to retrieve |
+| `idProperty` | string | No | Property to use as unique identifier \(e.g., "email"\). If not specified, uses record ID |
+| `properties` | string | No | Comma-separated list of properties to return |
+| `associations` | string | No | Comma-separated list of object types to retrieve associated IDs for |
+
+#### Output
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `contact` | object | HubSpot contact object with properties |
+| `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
+
+### `hubspot_get_company`
+
+Retrieve a single company by ID or domain from HubSpot
+
+#### Input
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `companyId` | string | Yes | The ID or domain of the company to retrieve |
+| `idProperty` | string | No | Property to use as unique identifier \(e.g., "domain"\). If not specified, uses record ID |
+| `properties` | string | No | Comma-separated list of properties to return |
+| `associations` | string | No | Comma-separated list of object types to retrieve associated IDs for |
+
+#### Output
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `company` | object | HubSpot company object with properties |
+| `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
+
 
 ## Usage Instructions
 

@@ -372,6 +372,28 @@ Write a Jira issue
 
 ---
 
+## Additional Tools
+
+Additional tools declared by this block, including input-dependent variants of the operations above.
+
+### `jira_bulk_read`
+
+Retrieve multiple Jira issues in bulk
+
+#### Input
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | Yes | Your Jira domain \(e.g., yourcompany.atlassian.net\) |
+| `projectId` | string | Yes | Jira project ID |
+| `cloudId` | string | No | Jira cloud ID |
+
+#### Output
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `issues` | array | Array of Jira issues with summary, description, created and updated timestamps |
+
 
 ## Usage Instructions
 

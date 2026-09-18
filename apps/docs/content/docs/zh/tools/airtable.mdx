@@ -419,9 +419,32 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 
 ---
 
+## 其他工具
+
+此块声明的其他工具，包括上述操作中依赖输入的变体。
+
+### `airtable_update_multiple_records`
+
+更新 Airtable 表中的多条现有记录
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `baseId` | string | 是 | Airtable 基座的 ID |
+| `tableId` | string | 是 | 表的 ID 或名称 |
+| `records` | json | 是 | 要更新的记录数组，每条记录包含一个 `id` 和一个 `fields` 对象 |
+
+#### 输出
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `records` | json | 更新后的 Airtable 记录数组 |
+| `metadata` | json | 操作元数据，包括记录数量和更新后的记录 ID |
+
 ## 使用说明
 
-将 Airtable 集成到工作流中。可以创建、获取、列出或更新 Airtable 记录。可以在触发器模式下使用，当 Airtable 表发生更新时触发工作流。
+将 Airtable 集成到工作流中。可以创建、获取、列出或更新 Airtable 记录。可用于触发器模式，在 Airtable 表发生更新时触发工作流。
 
 ## 注意事项
 

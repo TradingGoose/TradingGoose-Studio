@@ -19,6 +19,23 @@ const pages = new Map(
 const processor = remark().use(remarkMdx).use(remarkGfm).use(remarkHeading)
 
 describe('documentation references', () => {
+  test.each(i18n.languages)('%s tool references preserve input-dependent schemas', (locale) => {
+    for (const [provider, toolId, input, output] of [
+      ['hubspot', 'hubspot_get_contact', 'contactId', 'contact'],
+      ['hubspot', 'hubspot_get_company', 'companyId', 'company'],
+      ['jira', 'jira_bulk_read', 'projectId', 'issues'],
+      ['airtable', 'airtable_update_multiple_records', 'records', 'records'],
+    ]) {
+      const page = pages.get(`/${locale}/tools/${provider}`)!
+      const heading = `### \`${toolId}\``
+      expect(page.split(heading)).toHaveLength(2)
+      const section = page.slice(page.indexOf(heading)).split('\n### ')[0]
+      expect(section).toContain(`| \`${input}\` |`)
+      expect(section).toContain(`| \`${output}\` |`)
+      expect(() => processor.parse(page)).not.toThrow()
+    }
+  })
+
   test.each(i18n.languages)('%s section links target actual localized heading IDs', (locale) => {
     let checked = 0
     for (const [pathname, content] of pages) {
