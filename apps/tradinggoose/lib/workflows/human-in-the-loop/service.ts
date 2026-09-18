@@ -8,6 +8,8 @@ import {
   PENDING_EXECUTION_CANCELLATION_ERROR,
 } from '@/lib/execution/pending-execution'
 import { readWorkflowExecutionEventState } from '@/lib/execution/workflow-execution-events'
+import { executionLogger } from '@/lib/logs/execution/logger'
+import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { decryptSecret, encryptSecret } from '@/lib/utils-server'
 import { validateWorkflowPauseInput } from '@/lib/workflows/human-in-the-loop/form'
 import { workflowPauseLinks } from '@/lib/workflows/human-in-the-loop/links'
@@ -82,7 +84,7 @@ export async function saveWorkflowCheckpoint(args: {
   }
   const { encrypted } = await encryptSecret(JSON.stringify(args.snapshot))
   const pausePoints = args.pausePoints.map(({ notification: _notification, ...point }) => point)
-  return db.transaction(async (tx) => {
+  const saved = await db.transaction(async (tx) => {
     const [row] = await executionLogQuery(args.executionId, tx).for('update')
     if (!row || row.endedAt)
       throw new WorkflowCheckpointError('Execution is already terminal or its log is missing')
@@ -102,7 +104,7 @@ export async function saveWorkflowCheckpoint(args: {
       throw new WorkflowCheckpointError(PENDING_EXECUTION_CANCELLATION_ERROR)
     const previous = data.checkpoint
     if (previous && data.pause)
-      return { revision: previous.revision, pausePoints: previous.pausePoints }
+      return { revision: previous.revision, pausePoints: previous.pausePoints, usage: undefined }
     if (previous && !previous.activeJobId)
       throw new WorkflowCheckpointError('Execution is being cancelled')
     const revision = (previous?.revision ?? 0) + 1
@@ -112,18 +114,29 @@ export async function saveWorkflowCheckpoint(args: {
       pausePoints,
       activeJobId: null,
     }
+    const { traceSpans } = buildTraceSpans({
+      success: true,
+      output: {},
+      logs: args.snapshot.executor.context.blockLogs,
+      metadata: args.snapshot.executor.context.metadata,
+    })
     await tx
       .update(workflowExecutionLogs)
       .set({
+        totalDurationMs: args.snapshot.executor.context.metadata.duration,
         executionData: {
           ...data,
+          traceSpans,
           checkpoint,
           pause: { ...workflowPauseLinks(args.workflowId, args.executionId), revision },
         },
       })
       .where(eq(workflowExecutionLogs.id, row.id))
-    return { revision, pausePoints }
+    const usage = await executionLogger.settleWorkflowExecutionUsage(args.executionId, tx)
+    return { revision, pausePoints, usage }
   })
+  await executionLogger.notifyWorkflowUsage(saved.usage)
+  return { revision: saved.revision, pausePoints: saved.pausePoints }
 }
 
 export async function claimWorkflowCheckpoint(args: {

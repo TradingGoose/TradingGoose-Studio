@@ -17,6 +17,7 @@ import {
 } from '@/lib/execution/pending-execution'
 import { readWorkflowExecutionEventState } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
+import { executionLogger } from '@/lib/logs/execution/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import type { ExecutionTrigger, WorkflowState } from '@/lib/logs/types'
@@ -242,6 +243,7 @@ export async function terminalizeWorkflowExecution(
     typeof row.payload.resumeExecutionId === 'string' ? row.payload.resumeExecutionId : row.id
   const existingLog = await getWorkflowExecutionLog(executionId)
   if (existingLog?.endedAt) {
+    await executionLogger.settleWorkflowExecutionUsage(executionId)
     const terminal = await readWorkflowExecutionEventState({
       pendingExecutionId: executionId,
       workflowId: row.workflowId,
@@ -291,11 +293,13 @@ export async function terminalizeWorkflowExecution(
   }
 
   await loggingSession.complete({
-    totalDurationMs: Math.max(0, Math.round(durationMs + (progress?.totalDuration ?? 0))),
+    totalDurationMs: Math.max(
+      0,
+      Math.round(durationMs + (snapshot?.executor.context.metadata.duration ?? 0))
+    ),
     success: false,
     failureReason: message,
     workspaceId: row.workspaceId,
-    actorUserId: row.userId,
     billable,
     ...(progress ? { traceSpans: progress.traceSpans } : {}),
   })

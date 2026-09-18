@@ -114,6 +114,7 @@ async function completeSkippedWebhookExecution(params: {
   })
 
   await loggingSession.complete({
+    workspaceId: params.workspaceId,
     endedAt: new Date().toISOString(),
     totalDurationMs: 0,
     finalOutput: { message: params.message },
@@ -155,6 +156,7 @@ async function logWebhookFailure(params: {
   })
 
   await loggingSession.complete({
+    workspaceId: params.workspaceId,
     endedAt: new Date().toISOString(),
     totalDurationMs: 0,
     success: false,

@@ -5,172 +5,103 @@ import {
   userStats,
 } from '@tradinggoose/db/schema'
 import { and, eq, sql } from 'drizzle-orm'
-import {
-  getOrganizationBillingLedger,
-  getOrganizationMemberBillingLedger,
-} from '@/lib/billing/core/organization'
 import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
 import { checkAndBillOverageThreshold } from '@/lib/billing/threshold-billing'
 import {
   resolveWorkflowBillingContext,
   resolveWorkspaceBillingContext,
+  type WorkspaceBillingContext,
 } from '@/lib/billing/workspace-billing'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('BillingUsageAccrual')
+export type UsageTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
-export async function accrueUserUsageCost(params: {
-  userId: string
-  workspaceId?: string | null
-  workflowId?: string | null
-  cost: number
-  extraUpdates?: Record<string, any>
-  skipThresholdBilling?: boolean
-  reason: string
-}): Promise<boolean> {
-  const {
-    userId,
-    workspaceId,
-    workflowId,
-    cost,
-    extraUpdates = {},
-    skipThresholdBilling = false,
-    reason,
-  } = params
-
-  if (!(await isBillingEnabledForRuntime()) || cost <= 0) {
+export async function accrueUserUsageCost(
+  params: {
+    userId: string
+    workspaceId?: string | null
+    workflowId?: string | null
+    cost: number
+    extraUpdates?: Record<string, any>
+    skipThresholdBilling?: boolean
+    billingContext?: WorkspaceBillingContext
+    reason: string
+  },
+  transaction?: UsageTransaction
+): Promise<boolean> {
+  const { userId, workspaceId, workflowId, cost, extraUpdates = {}, reason } = params
+  if (
+    (!params.billingContext && !(await isBillingEnabledForRuntime())) ||
+    (cost <= 0 && Object.keys(extraUpdates).length === 0)
+  )
     return false
-  }
 
-  const billingContext = workflowId
-    ? await resolveWorkflowBillingContext({ workflowId, actorUserId: userId })
-    : workspaceId
-      ? await resolveWorkspaceBillingContext({ workspaceId, actorUserId: userId })
-      : null
+  const context =
+    params.billingContext ??
+    (workflowId
+      ? await resolveWorkflowBillingContext({ workflowId, actorUserId: userId })
+      : workspaceId
+        ? await resolveWorkspaceBillingContext({ workspaceId, actorUserId: userId })
+        : null)
+  const billingUserId = context?.billingUserId ?? userId
+  const organizationId =
+    context?.billingOwner.type === 'organization' ? context.billingOwner.organizationId : null
+  const targets = organizationId
+    ? [
+        {
+          table: organizationBillingLedger,
+          where: eq(organizationBillingLedger.organizationId, organizationId),
+        },
+        ...(context?.scopeType === 'organization_member'
+          ? [
+              {
+                table: organizationMemberBillingLedger,
+                where: and(
+                  eq(organizationMemberBillingLedger.organizationId, organizationId),
+                  eq(organizationMemberBillingLedger.userId, billingUserId)
+                ),
+              },
+            ]
+          : []),
+      ]
+    : [{ table: userStats, where: eq(userStats.userId, billingUserId) }]
 
-  const billingScopeType = billingContext?.scopeType ?? 'user'
-  const billingScopeId = billingContext?.scopeId ?? userId
-  const billingUserId = billingContext?.billingUserId ?? userId
-
-  if (billingScopeType === 'organization') {
-    const billingLedger = await getOrganizationBillingLedger(billingScopeId)
-    if (!billingLedger) {
-      logger.warn('Usage cost accrual skipped - organization ledger record not found', {
-        actorUserId: userId,
-        billingScopeId,
-        workspaceId,
-        workflowId,
-        reason,
-      })
-      return false
+  const accrue = async (tx: UsageTransaction) => {
+    // Lock every required ledger before changing either organization/member total.
+    for (const target of targets) {
+      const rows = await tx
+        .select({ exists: sql`1` })
+        .from(target.table)
+        .where(target.where)
+        .for('update')
+      if (!rows.length) {
+        logger.warn('Usage cost accrual skipped - billing ledger record not found', {
+          userId,
+          workspaceId,
+          workflowId,
+          reason,
+        })
+        return false
+      }
     }
-
-    await db
-      .update(organizationBillingLedger)
-      .set({
-        totalCost: sql`total_cost + ${cost}`,
-        currentPeriodCost: sql`current_period_cost + ${cost}`,
-        lastActive: new Date(),
-        updatedAt: new Date(),
-        ...extraUpdates,
-      })
-      .where(eq(organizationBillingLedger.organizationId, billingScopeId))
-  } else if (
-    billingScopeType === 'organization_member' &&
-    billingContext?.billingOwner.type === 'organization'
-  ) {
-    const organizationId = billingContext.billingOwner.organizationId
-    const [organizationLedger, memberLedger] = await Promise.all([
-      getOrganizationBillingLedger(organizationId),
-      getOrganizationMemberBillingLedger(organizationId, billingUserId),
-    ])
-
-    if (!organizationLedger || !memberLedger) {
-      logger.warn('Usage cost accrual skipped - organization member ledger record not found', {
-        actorUserId: userId,
-        billingUserId,
-        organizationId,
-        workspaceId,
-        workflowId,
-        reason,
-      })
-      return false
-    }
-
-    await Promise.all([
-      db
-        .update(organizationMemberBillingLedger)
+    for (const target of targets) {
+      await tx
+        .update(target.table)
         .set({
           totalCost: sql`total_cost + ${cost}`,
           currentPeriodCost: sql`current_period_cost + ${cost}`,
           lastActive: new Date(),
-          updatedAt: new Date(),
+          ...(organizationId ? { updatedAt: new Date() } : {}),
           ...extraUpdates,
         })
-        .where(
-          and(
-            eq(organizationMemberBillingLedger.organizationId, organizationId),
-            eq(organizationMemberBillingLedger.userId, billingUserId)
-          )
-        ),
-      db
-        .update(organizationBillingLedger)
-        .set({
-          totalCost: sql`total_cost + ${cost}`,
-          currentPeriodCost: sql`current_period_cost + ${cost}`,
-          lastActive: new Date(),
-          updatedAt: new Date(),
-          ...extraUpdates,
-        })
-        .where(eq(organizationBillingLedger.organizationId, organizationId)),
-    ])
-  } else {
-    const statsRows = await db
-      .select({ id: userStats.id })
-      .from(userStats)
-      .where(eq(userStats.userId, billingUserId))
-      .limit(1)
-
-    if (statsRows.length === 0) {
-      logger.warn('Usage cost accrual skipped - user stats record not found', {
-        actorUserId: userId,
-        billingUserId,
-        workspaceId,
-        workflowId,
-        reason,
-      })
-      return false
+        .where(target.where)
     }
-
-    await db
-      .update(userStats)
-      .set({
-        totalCost: sql`total_cost + ${cost}`,
-        currentPeriodCost: sql`current_period_cost + ${cost}`,
-        lastActive: new Date(),
-        ...extraUpdates,
-      })
-      .where(eq(userStats.userId, billingUserId))
+    return true
   }
-
-  if (!skipThresholdBilling) {
-    await checkAndBillOverageThreshold({
-      userId,
-      workspaceId,
-      workflowId,
-    })
+  const accrued = transaction ? await accrue(transaction) : await db.transaction(accrue)
+  if (accrued && !params.skipThresholdBilling) {
+    await checkAndBillOverageThreshold({ userId, workspaceId, workflowId })
   }
-
-  logger.info('Accrued usage cost', {
-    actorUserId: userId,
-    billingUserId,
-    billingScopeType,
-    billingScopeId,
-    workspaceId,
-    workflowId,
-    cost,
-    reason,
-  })
-
-  return true
+  return accrued
 }

@@ -360,7 +360,12 @@ export async function runPreparedWorkflowExecution(params: {
   const isChildExecution =
     params.contextExtensions?.isChildExecution === true ||
     (params.resume?.snapshot.executor.context.workflowDepth ?? 0) > 0
-  let result: ExecutionResult
+  let result: ExecutionResult = {
+    success: false,
+    output: {},
+    logs: params.resume?.snapshot.executor.context.blockLogs ?? [],
+    metadata: params.resume?.snapshot.executor.context.metadata ?? { duration: 0 },
+  }
   let dispatchFailureReason: WorkflowDispatchFailureReason | undefined
   try {
     if (params.startupError) {
@@ -516,21 +521,21 @@ export async function runPreparedWorkflowExecution(params: {
       success: false,
       output: {},
       error: message,
-      logs: params.resume?.snapshot.executor.context.blockLogs ?? [],
+      logs: result.logs,
+      metadata: result.metadata,
     }
   }
 
-  const { traceSpans, totalDuration } = buildTraceSpans(result)
+  const { traceSpans } = buildTraceSpans(result)
 
   await loggingSession.complete({
-    totalDurationMs: totalDuration,
+    totalDurationMs: result.metadata?.duration ?? 0,
     finalOutput: result.output,
     success: result.success,
     failureReason: result.error,
     traceSpans,
     workflowInput: params.workflowInput,
     workspaceId,
-    actorUserId: params.actorUserId,
     hasResponseBlock:
       result.logs?.some((log) => log.success && log.blockType === 'response') === true,
     variables: encryptedEnvVars,

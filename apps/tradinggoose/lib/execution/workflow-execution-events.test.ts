@@ -113,6 +113,50 @@ it('writes and reads a terminal stream without a pending execution row', async (
   })
 })
 
+it.each(['info', 'error'])(
+  'keeps the durable %s result when settlement emits a failure event',
+  async (level) => {
+    mocks.storageMode = 'local'
+    const params = {
+      pendingExecutionId: `settlement-${level}`,
+      workflowId: 'workflow-1',
+      afterEventId: 0,
+    }
+    await createWorkflowExecutionEventWriter(params).write({
+      type: 'execution:error',
+      data: {
+        error: 'Usage ledger unavailable',
+        result: { success: false, output: {}, error: 'Usage ledger unavailable' },
+      },
+    })
+    mocks.logRows.push({
+      level,
+      startedAt: new Date('2026-09-17T10:00:00Z'),
+      endedAt: new Date('2026-09-17T11:00:03Z'),
+      totalDurationMs: 5000,
+      executionData: {
+        finalOutput: { completedWork: true },
+        ...(level === 'error' ? { errorMessage: 'Block failed' } : {}),
+        billing: { accountedCost: 2 },
+      },
+    })
+
+    const state = await readWorkflowExecutionEventState(params)
+    expect(state).toMatchObject({
+      status: level === 'error' ? 'failed' : 'completed',
+      result: {
+        success: level !== 'error',
+        output: { completedWork: true },
+        metadata: { duration: 5000 },
+      },
+      failureReason: level === 'error' ? 'Block failed' : null,
+      events: [],
+    })
+    expect(JSON.stringify(state)).not.toContain('accountedCost')
+    expect(JSON.stringify(state)).not.toContain('Usage ledger unavailable')
+  }
+)
+
 it.each([
   ['reconstructed pause', 'paused', null],
   ['stale pause after claim', 'processing', 1],

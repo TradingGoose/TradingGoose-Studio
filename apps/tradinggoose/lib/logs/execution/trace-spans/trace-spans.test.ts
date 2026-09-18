@@ -1,8 +1,69 @@
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
+import { calculateCostSummary } from '@/lib/logs/execution/logging-factory'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
+import { BlockType } from '@/executor/consts'
 import type { ExecutionResult } from '@/executor/types'
 
+vi.mock('@tradinggoose/db', () => ({ db: {} }))
+
 describe('buildTraceSpans', () => {
+  test.each([BlockType.WORKFLOW, BlockType.WORKFLOW_INPUT])(
+    'retains %s child traces without billing their model usage again',
+    (blockType) => {
+      const modelLog = {
+        blockId: 'local-agent',
+        blockType: 'agent',
+        startedAt: '2026-09-17T00:00:00.000Z',
+        endedAt: '2026-09-17T00:00:00.001Z',
+        durationMs: 1,
+        success: true,
+        output: { model: 'test-model', cost: { total: 1 }, tokens: { total: 10 } },
+      }
+      const result = { success: true, output: {}, metadata: { duration: 1 } }
+      const child = buildTraceSpans({
+        ...result,
+        logs: [
+          {
+            ...modelLog,
+            blockId: 'child-agent',
+            output: {
+              model: 'test-model',
+              cost: { total: 2 },
+              tokens: { total: 20 },
+            },
+          },
+        ],
+      }).traceSpans
+      const parent = buildTraceSpans({
+        ...result,
+        logs: [
+          modelLog,
+          {
+            ...modelLog,
+            blockId: 'child-call',
+            blockType,
+            output: {
+              childTraceSpans: child,
+            },
+          },
+        ],
+      }).traceSpans
+      const snapshot = structuredClone(parent)
+
+      expect(parent[0].children?.[1].children).toMatchObject([{ blockId: 'child-agent' }])
+      expect(calculateCostSummary([{ type: 'parallel', children: parent }], 0.25, 2)).toMatchObject(
+        {
+          totalCost: 2.25,
+          modelCost: 2,
+          totalTokens: 10,
+          models: { 'test-model': { total: 2, tokens: { total: 10 } } },
+        }
+      )
+      expect(calculateCostSummary(child)).toMatchObject({ modelCost: 2, totalTokens: 20 })
+      expect(parent).toEqual(snapshot)
+    }
+  )
+
   test('should extract sequential segments from timeSegments data', () => {
     const mockExecutionResult: ExecutionResult = {
       success: true,

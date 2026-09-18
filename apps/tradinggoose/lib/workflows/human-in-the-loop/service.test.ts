@@ -11,6 +11,8 @@ const state = vi.hoisted(() => ({
   authorize: vi.fn(),
   readChild: vi.fn(),
   isCancellationRequested: vi.fn(),
+  settleUsage: vi.fn(),
+  notifyUsage: vi.fn(),
   children: [] as Record<string, any>[],
 }))
 
@@ -112,6 +114,12 @@ vi.mock('@/lib/utils-server', () => ({
   decryptSecret: async (value: string) => ({ decrypted: value.slice('encrypted:'.length) }),
 }))
 vi.mock('@/lib/urls/utils', () => ({ getBaseUrl: () => 'https://studio.test' }))
+vi.mock('@/lib/logs/execution/logger', () => ({
+  executionLogger: {
+    settleWorkflowExecutionUsage: state.settleUsage,
+    notifyWorkflowUsage: state.notifyUsage,
+  },
+}))
 
 import { db } from '@tradinggoose/db'
 import { workflowExecutionLogs } from '@tradinggoose/db/schema'
@@ -129,7 +137,7 @@ import {
 } from './service'
 
 const snapshot = {
-  executor: { context: {} },
+  executor: { context: { blockLogs: [], metadata: { duration: 5000 } } },
   blueprint: { workflowId: 'workflow' },
   workflowLogId: 'log',
 } as unknown as WorkflowCheckpointSnapshot
@@ -191,6 +199,8 @@ describe('durable workflow checkpoint lifecycle', () => {
     state.authorize.mockResolvedValue({ ok: true, userId: 'original', workspaceId: 'workspace' })
     state.readChild.mockResolvedValue(null)
     state.isCancellationRequested.mockResolvedValue(false)
+    state.settleUsage.mockResolvedValue(undefined)
+    state.notifyUsage.mockResolvedValue(undefined)
     state.enqueue.mockImplementation(async (args) => {
       const ready = await db.transaction(args.beforeEnqueue)
       if (ready && !state.admitted.includes(args.pendingExecutionId))
@@ -210,6 +220,30 @@ describe('durable workflow checkpoint lifecycle', () => {
     expect(JSON.stringify(view)).not.toContain('notification')
     expect(JSON.stringify(view)).not.toContain('reviewerId')
     expect(state.log.executionData.checkpoint?.pausePoints[0].reviewerId).toBe('reviewer')
+  })
+
+  it('accounts completed work before exposing a pause, rolling back on ledger failure', async () => {
+    state.settleUsage.mockImplementationOnce(async (_id, tx) => {
+      expect(tx).toBeDefined()
+      expect(state.log.totalDurationMs).toBe(5000)
+      expect(state.log.executionData.traceSpans).toEqual([])
+      expect(state.log.executionData.pause).toBeDefined()
+      throw new Error('ledger unavailable')
+    })
+    await expect(save()).rejects.toThrow('ledger unavailable')
+    expect(state.log.executionData.checkpoint).toBeUndefined()
+    expect(state.log.executionData.pause).toBeUndefined()
+    expect(state.notifyUsage).not.toHaveBeenCalled()
+    await save()
+    expect(state.log.executionData.pause.revision).toBe(1)
+    expect(state.notifyUsage).toHaveBeenCalledOnce()
+  })
+
+  it('replays an already-accounted pause without another billing lookup', async () => {
+    const paused = await save()
+    state.settleUsage.mockRejectedValue(new Error('billing unavailable'))
+    await expect(save()).resolves.toEqual(paused)
+    expect(state.settleUsage).toHaveBeenCalledOnce()
   })
 
   it.each([false, true])(

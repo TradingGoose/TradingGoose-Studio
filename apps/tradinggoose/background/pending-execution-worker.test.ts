@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   loggerError: vi.fn(),
   loggingComplete: vi.fn(),
   completeWorkflowExecution: vi.fn(),
+  settleWorkflowExecutionUsage: vi.fn(),
   loggingStart: vi.fn(),
   cancelPendingExecutionTriggerRun: vi.fn(),
   triggerAndWait: vi.fn(),
@@ -87,20 +88,10 @@ vi.mock('@/lib/logs/execution/logging-session', () => ({
   }),
 }))
 vi.mock('@/lib/logs/execution/logger', () => ({
-  executionLogger: { completeWorkflowExecution: mocks.completeWorkflowExecution },
-}))
-vi.mock('@/lib/billing/settings', () => ({
-  getResolvedBillingSettings: async () => ({
-    billingEnabled: true,
-    workflowExecutionChargeUsd: 0.25,
-  }),
-}))
-vi.mock('@/lib/billing/tiers', () => ({
-  getTierWorkflowExecutionMultiplier: () => 1,
-  getTierWorkflowModelCostMultiplier: () => 1,
-}))
-vi.mock('@/lib/billing/workspace-billing', () => ({
-  resolveWorkspaceBillingContext: async () => ({ tier: 'free' }),
+  executionLogger: {
+    completeWorkflowExecution: mocks.completeWorkflowExecution,
+    settleWorkflowExecutionUsage: mocks.settleWorkflowExecutionUsage,
+  },
 }))
 vi.mock('@/lib/telemetry/tracer', () => ({ trackPlatformEvent: vi.fn() }))
 
@@ -197,6 +188,7 @@ describe('pending execution worker', () => {
     mocks.settlePendingExecutionOwner.mockResolvedValue(undefined)
     mocks.logLimit.mockResolvedValue([])
     mocks.loggingComplete.mockResolvedValue(undefined)
+    mocks.settleWorkflowExecutionUsage.mockResolvedValue(undefined)
     mocks.loggingStart.mockResolvedValue('workflow-log-1')
     mocks.triggerAndWait.mockResolvedValue({
       ok: true,
@@ -419,9 +411,13 @@ describe('pending execution worker', () => {
     expect(mocks.loggingComplete).not.toHaveBeenCalled()
   })
 
-  it.each(['Permission revoked', 'Workflow execution was cancelled'])(
-    'bills restored checkpoint costs once on the original log: %s',
-    async (message) => {
+  it.each([
+    ['Permission revoked', 500],
+    ['Workflow execution was cancelled', 500],
+    ['Workflow execution was cancelled', 0],
+  ] as const)(
+    'restores active duration and costs once after multiple pauses: %s (%sms current attempt)',
+    async (message, durationMs) => {
       const row = processingRow({
         id: 'original:resume:2',
         source: 'human_in_the_loop',
@@ -454,21 +450,35 @@ describe('pending execution worker', () => {
                   tokens: { prompt: 100, completion: 50, total: 150 },
                 },
               },
+              {
+                blockId: 'between-pauses',
+                blockType: 'function',
+                startedAt: '2026-09-01T06:00:00Z',
+                endedAt: '2026-09-01T06:00:04Z',
+                durationMs: 4000,
+                success: true,
+                output: {},
+              },
             ],
-            metadata: { duration: 1000 },
+            metadata: { duration: 5000 },
           },
         },
       })
-      await finalizePendingExecutionFailure(row, message, 500)
+      await finalizePendingExecutionFailure(row, message, durationMs)
       expect(mocks.loggingStart).not.toHaveBeenCalled()
       expect(mocks.loggingComplete).toHaveBeenCalledWith(
         expect.objectContaining({
-          totalDurationMs: 1500,
-          actorUserId: 'user-1',
+          totalDurationMs: 5000 + durationMs,
           billable: true,
           traceSpans: [
             expect.objectContaining({
-              children: [expect.objectContaining({ blockId: 'before-pause', cost: { total: 2 } })],
+              startTime: '2026-09-01T00:00:00.000Z',
+              endTime: '2026-09-01T06:00:04.000Z',
+              duration: 21_604_000,
+              children: [
+                expect.objectContaining({ blockId: 'before-pause', cost: { total: 2 } }),
+                expect.objectContaining({ blockId: 'between-pauses', duration: 4000 }),
+              ],
             }),
           ],
         })
@@ -487,16 +497,21 @@ describe('pending execution worker', () => {
         expect.objectContaining({
           executionId: 'original',
           workflowLogId: 'original-log',
-          costSummary: expect.objectContaining({
-            totalCost: 2.25,
-            modelCost: 2,
-            baseExecutionCharge: 0.25,
-            totalTokens: 150,
-          }),
+          totalDurationMs: 5000 + durationMs,
+          traceSpans: [
+            expect.objectContaining({
+              children: expect.arrayContaining([
+                expect.objectContaining({
+                  cost: { total: 2 },
+                  tokens: { input: 100, output: 50, total: 150 },
+                }),
+              ]),
+            }),
+          ],
         })
       )
       mocks.logLimit.mockResolvedValueOnce([{ id: 'original-log', endedAt: new Date() }])
-      await terminalizeWorkflowExecution(row, 500, message)
+      await terminalizeWorkflowExecution(row, durationMs, message)
       expect(mocks.loggingComplete).toHaveBeenCalledOnce()
       expect(mocks.completeWorkflowExecution).toHaveBeenCalledOnce()
     }
@@ -532,21 +547,37 @@ describe('pending execution worker', () => {
     )
   })
 
-  it('retries parent notification from the existing terminal log without rebilling', async () => {
-    const row = processingRow({
-      id: 'original:resume:1',
-      payload: { resumeExecutionId: 'original' },
-    })
-    mocks.logLimit.mockResolvedValueOnce([{ id: 'original-log', endedAt: new Date() }])
-    const result = { success: true, output: { result: 42 } }
-    mocks.readWorkflowExecutionEventState.mockResolvedValueOnce({ status: 'completed', result })
-    await finalizePendingExecutionFailure(row, 'Late failure', 50)
-    expect(mocks.loggingComplete).not.toHaveBeenCalled()
-    expect(mocks.completeWorkflowCheckpointChild).toHaveBeenCalledWith({
-      childExecutionId: 'original',
-      input: result,
-    })
-  })
+  it.each(['completed', 'failed'])(
+    'retries accounting before notifying parents of a %s execution without rerunning actions',
+    async (status) => {
+      const row = processingRow({
+        id: 'original:resume:1',
+        payload: { resumeExecutionId: 'original' },
+      })
+      mocks.logLimit.mockResolvedValue([{ id: 'original-log', endedAt: new Date() }])
+      const result = { success: status === 'completed', output: { result: 42 } }
+      mocks.readWorkflowExecutionEventState.mockResolvedValue({ status, result })
+      mocks.settleWorkflowExecutionUsage.mockRejectedValueOnce(new Error('Ledger unavailable'))
+      await expect(finalizePendingExecutionFailure(row, 'Late failure', 50)).rejects.toThrow(
+        'Ledger unavailable'
+      )
+      expect(mocks.settlePendingExecutionOwner).not.toHaveBeenCalled()
+      expect(mocks.completeWorkflowCheckpointChild).not.toHaveBeenCalled()
+
+      await finalizePendingExecutionFailure(row, 'Late failure', 50)
+      expect(mocks.settleWorkflowExecutionUsage).toHaveBeenCalledTimes(2)
+      expect(mocks.settleWorkflowExecutionUsage).toHaveBeenLastCalledWith('original')
+      expect(mocks.loggingComplete).not.toHaveBeenCalled()
+      expect(mocks.executePendingExecutionJob).not.toHaveBeenCalled()
+      expect(mocks.completeWorkflowCheckpointChild).toHaveBeenCalledExactlyOnceWith({
+        childExecutionId: 'original',
+        input: result,
+      })
+      expect(mocks.settlePendingExecutionOwner).toHaveBeenCalledExactlyOnceWith(row, {
+        wake: false,
+      })
+    }
+  )
 
   it('cancels stored paused children that have no pending queue row', async () => {
     const row = processingRow()

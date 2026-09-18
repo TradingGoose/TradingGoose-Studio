@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { calculateCostSummary } from '@/lib/logs/execution/logging-factory'
 import type {
   WorkflowCheckpointSnapshot,
   WorkflowPausePoint,
@@ -70,10 +71,6 @@ vi.mock('@/lib/logs/execution/logging-session', () => ({
       complete: mocks.complete,
     }
   }),
-}))
-
-vi.mock('@/lib/logs/execution/trace-spans/trace-spans', () => ({
-  buildTraceSpans: vi.fn().mockReturnValue({ traceSpans: [], totalDuration: 12 }),
 }))
 
 vi.mock('@/lib/utils-server', () => ({
@@ -163,6 +160,7 @@ describe('runPreparedWorkflowExecution', () => {
       success: true,
       output: { result: 'ok' },
       logs: [],
+      metadata: { duration: 12 },
     })
     mocks.complete.mockResolvedValue(undefined)
     mocks.checkServerSideUsageLimits.mockResolvedValue({ isExceeded: false })
@@ -392,7 +390,18 @@ describe('runPreparedWorkflowExecution', () => {
         environmentVariables: { TOKEN: 'decrypted-original' },
         workflowVariables: { risk: { value: 5 } },
         executedBlocks: ['upstream'],
-        blockLogs: [{ blockId: 'upstream', success: true }],
+        metadata: { duration: 2000 },
+        blockLogs: [
+          {
+            blockId: 'upstream',
+            blockType: 'agent',
+            startedAt: '2026-09-17T10:00:00.000Z',
+            endedAt: '2026-09-17T10:00:02.000Z',
+            durationMs: 2000,
+            success: true,
+            output: { model: 'test-model', cost: { total: 2 }, tokens: { total: 150 } },
+          },
+        ],
       },
     },
   } as unknown as WorkflowCheckpointSnapshot
@@ -407,6 +416,110 @@ describe('runPreparedWorkflowExecution', () => {
     checkpoint: snapshot.executor,
     pausePoints: [pausePoint],
   }
+  const latestResult = {
+    ...pausedResult,
+    output: {},
+    metadata: { duration: 5000 },
+    logs: [
+      ...snapshot.executor.context.blockLogs,
+      {
+        blockId: 'downstream',
+        blockType: 'agent',
+        startedAt: '2026-09-17T11:00:00.000Z',
+        endedAt: '2026-09-17T11:00:03.000Z',
+        durationMs: 3000,
+        success: true,
+        output: { model: 'test-model', cost: { total: 1 }, tokens: { total: 75 } },
+      },
+    ],
+  }
+
+  it.each([
+    { resumed: false, failure: 'checkpoint write failed' },
+    { resumed: true, failure: 'checkpoint write failed' },
+    { resumed: false, failure: 'Execution was cancelled' },
+    { resumed: true, failure: 'Execution was cancelled' },
+  ])('preserves completed work when saving a pause fails: %j', async ({ resumed, failure }) => {
+    mocks.execute.mockResolvedValueOnce(latestResult)
+    mocks.saveWorkflowCheckpoint.mockRejectedValueOnce(new Error(failure))
+
+    const { result } = await runPreparedWorkflowExecution({
+      ...runParams,
+      ...(resumed ? { resume: { snapshot, pausePoints: [pausePoint] } } : {}),
+    })
+
+    expect(result).toEqual({
+      success: false,
+      output: {},
+      error: failure,
+      logs: latestResult.logs,
+      metadata: latestResult.metadata,
+    })
+    expect(mocks.complete).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        success: false,
+        failureReason: failure,
+        totalDurationMs: 5000,
+      })
+    )
+    expect(calculateCostSummary(mocks.complete.mock.calls[0][0].traceSpans)).toMatchObject({
+      modelCost: 3,
+      totalTokens: 225,
+    })
+    expect(mocks.dispatchWorkflowPauseNotifications).not.toHaveBeenCalled()
+    expect(mocks.cancelPendingExecutionDescendants).toHaveBeenCalledExactlyOnceWith('execution-1')
+  })
+
+  it('persists active duration without changing trace timestamps across an approval wait', async () => {
+    const {
+      checkpoint: _checkpoint,
+      pausePoints: _pausePoints,
+      status: _status,
+      ...completed
+    } = latestResult
+    mocks.execute.mockResolvedValueOnce(completed)
+
+    await runPreparedWorkflowExecution({
+      ...runParams,
+      resume: { snapshot, pausePoints: [pausePoint] },
+    })
+
+    const logged = mocks.complete.mock.calls[0][0]
+    expect(logged.totalDurationMs).toBe(5000)
+    expect(logged.traceSpans).toMatchObject([
+      {
+        startTime: '2026-09-17T10:00:00.000Z',
+        endTime: '2026-09-17T11:00:03.000Z',
+        children: [
+          { startTime: '2026-09-17T10:00:00.000Z' },
+          { startTime: '2026-09-17T11:00:00.000Z' },
+        ],
+      },
+    ])
+  })
+
+  it('retains checkpoint progress when a resumed execution is rejected by the usage gate', async () => {
+    mocks.checkServerSideUsageLimits.mockResolvedValueOnce({
+      isExceeded: true,
+      message: 'Usage limit exceeded',
+    })
+
+    const { result } = await runPreparedWorkflowExecution({
+      ...runParams,
+      resume: { snapshot, pausePoints: [pausePoint] },
+    })
+
+    expect(mocks.execute).not.toHaveBeenCalled()
+    expect(result.metadata?.duration).toBe(2000)
+    expect(result.logs).toEqual(snapshot.executor.context.blockLogs)
+    expect(mocks.complete).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        totalDurationMs: 2000,
+        success: false,
+        failureReason: 'Usage limit exceeded',
+      })
+    )
+  })
 
   it('persists a pause before notifying without terminal logging, run counts, or exposing private snapshots', async () => {
     const onExecutionEvent = vi.fn().mockResolvedValue(undefined)

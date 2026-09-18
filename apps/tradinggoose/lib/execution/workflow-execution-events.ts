@@ -398,16 +398,18 @@ export async function readWorkflowExecutionEventState(params: {
       )
       .limit(1),
   ])
-  // A prior segment can publish a delayed pause event after approval has already
-  // resumed the run. The durable log, not that stale event, owns current status.
+  // Durable state owns status: delayed pauses and post-completion failures cannot
+  // override a resumed or finished execution. Streams reconstruct its final event.
   const logData = isRecord(logRow?.executionData) ? logRow.executionData : {}
   const pause = isRecord(logData.pause) && !logRow?.endedAt ? logData.pause : null
-  const visibleEvents = events.filter(
-    ({ event }) =>
+  const visibleEvents = events.filter(({ event }) => {
+    if (logRow?.endedAt) return !isTerminalWorkflowExecutionEvent(event)
+    return (
       event.type !== 'execution:paused' ||
       !logRow ||
       (pause && event.data.result.output.revision === pause.revision)
-  )
+    )
+  })
   const terminalEvent = findTerminalEvent(visibleEvents)
   if (terminalEvent) {
     return {
