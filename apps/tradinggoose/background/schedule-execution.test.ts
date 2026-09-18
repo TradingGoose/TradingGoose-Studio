@@ -36,9 +36,6 @@ vi.mock('@/lib/api-key/service', () => ({ getApiKeyOwnerUserId: async () => 'act
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({ info: mocks.info, warn: vi.fn(), error: vi.fn() }),
 }))
-vi.mock('@/lib/timezone/timezone-resolver', () => ({
-  resolveTimezoneOffsetMinutes: async () => 0,
-}))
 vi.mock('@/lib/workflows/execution-runner', () => ({
   loadWorkflowExecutionBlueprint: mocks.loadWorkflowExecutionBlueprint,
   runPreparedWorkflowExecution: async (...args: unknown[]) => {
@@ -56,7 +53,7 @@ const payload = {
   scheduleId: 'schedule-1',
   workflowId: 'workflow-1',
   blockId: 'trigger-1',
-  timezone: 'UTC',
+  utcOffset: 0,
   cronExpression: '*/2 * * * *',
   now: '2026-09-16T12:00:00.000Z',
   failedCount: 2,
@@ -75,10 +72,17 @@ describe('executeScheduleJob', () => {
   })
   afterEach(() => vi.useRealTimers())
 
-  it.each(['executionId', 'cronExpression'])(
+  it.each(['executionId', 'cronExpression', 'utcOffset'])(
     'requires canonical queued schedule field %s',
     (field) => {
       expect(isScheduleExecutionPayload({ ...payload, [field]: undefined })).toBe(false)
+    }
+  )
+
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, '0', undefined])(
+    'rejects unresolved or non-finite offsets: %s',
+    (utcOffset) => {
+      expect(isScheduleExecutionPayload({ ...payload, timezone: 'UTC', utcOffset })).toBe(false)
     }
   )
 
@@ -90,6 +94,17 @@ describe('executeScheduleJob', () => {
       failedCount: 3,
       status: 'disabled',
       lastFailedAt: new Date(payload.now),
+    })
+  })
+
+  it('uses the admitted offset when advancing the configured local schedule', async () => {
+    mocks.runPreparedWorkflowExecution.mockResolvedValue({ result: { success: true, output: {} } })
+    await executeScheduleJob({ ...payload, cronExpression: '0 9 * * *', utcOffset: -240 })
+    expect(mocks.set).toHaveBeenCalledExactlyOnceWith({
+      updatedAt: new Date(payload.now),
+      nextRunAt: new Date('2026-09-16T13:00:00.000Z'),
+      lastRanAt: new Date(payload.now),
+      failedCount: 0,
     })
   })
 

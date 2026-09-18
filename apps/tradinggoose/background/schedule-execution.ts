@@ -3,7 +3,6 @@ import { Cron } from 'croner'
 import { eq } from 'drizzle-orm'
 import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
 import { createLogger } from '@/lib/logs/console/logger'
-import { resolveTimezoneOffsetMinutes } from '@/lib/timezone/timezone-resolver'
 import {
   loadWorkflowExecutionBlueprint,
   runPreparedWorkflowExecution,
@@ -20,7 +19,7 @@ export type ScheduleExecutionPayload = {
   blockId: string
   cronExpression: string
   failedCount?: number
-  timezone: string
+  utcOffset: number
   now: string
 }
 
@@ -36,7 +35,8 @@ export function isScheduleExecutionPayload(value: unknown): value is ScheduleExe
     typeof candidate.blockId === 'string' &&
     typeof candidate.executionId === 'string' &&
     typeof candidate.cronExpression === 'string' &&
-    typeof candidate.timezone === 'string' &&
+    typeof candidate.utcOffset === 'number' &&
+    Number.isFinite(candidate.utcOffset) &&
     typeof candidate.now === 'string'
   )
 }
@@ -70,8 +70,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
   }
 
   try {
-    const utcOffset = await resolveTimezoneOffsetMinutes(payload.timezone)
-    cron = new Cron(payload.cronExpression, { utcOffset })
+    cron = new Cron(payload.cronExpression, { utcOffset: payload.utcOffset })
     if (!cron.nextRun()) throw new Error('Schedule has no future occurrences')
     const [workflowRecord] = await db
       .select()

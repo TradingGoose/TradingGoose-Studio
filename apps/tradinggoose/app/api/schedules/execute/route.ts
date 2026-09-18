@@ -8,6 +8,8 @@ import {
   isPendingExecutionLimitError,
 } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
+import { validateCronExpression } from '@/lib/schedules/utils'
+import { resolveTimezoneOffsetMinutes } from '@/lib/timezone/timezone-resolver'
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { generateRequestId } from '@/lib/utils'
 
@@ -73,7 +75,12 @@ export async function GET(request: NextRequest) {
             return null
           }
 
-          const pendingExecutionId = `schedule_execution:${schedule.id}:${schedule.nextRunAt?.toISOString() ?? now.toISOString()}`
+          if (!schedule.cronExpression) throw new Error('Schedule cron expression is required')
+          const utcOffset = await resolveTimezoneOffsetMinutes(schedule.timezone)
+          const validation = validateCronExpression(schedule.cronExpression, utcOffset)
+          if (!validation.isValid) throw new Error(validation.error)
+
+          const pendingExecutionId = `schedule_execution:${schedule.id}:${schedule.nextRunAt!.toISOString()}`
           const payload = {
             executionId: pendingExecutionId,
             scheduleId: schedule.id,
@@ -81,7 +88,7 @@ export async function GET(request: NextRequest) {
             blockId: schedule.blockId,
             cronExpression: schedule.cronExpression,
             failedCount: schedule.failedCount || 0,
-            timezone: schedule.timezone,
+            utcOffset,
             now: now.toISOString(),
           }
 
