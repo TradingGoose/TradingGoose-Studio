@@ -65,7 +65,7 @@ export const buildOrderRoutePayload = (params: TradingOrderRoutePayloadParams) =
 export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionResponse> = {
   id: 'trading_place_order',
   name: 'Trading: Place Order',
-  description: 'Place buy or sell orders via Alpaca or Tradier.',
+  description: 'Place buy or sell orders through a connected trading provider.',
   version: '1.0.0',
   execution: {
     workspace: { required: true, access: 'write' },

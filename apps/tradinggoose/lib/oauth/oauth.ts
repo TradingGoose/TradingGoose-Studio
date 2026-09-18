@@ -186,7 +186,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
       robinhood: {
         id: 'robinhood',
         name: 'Robinhood',
-        description: 'Connect on desktop to access Robinhood market data.',
+        description: 'Connect on desktop to access Robinhood market data and trading.',
         providerId: 'robinhood',
         icon: (props) => DollarIcon(props),
         baseProviderIcon: (props) => DollarIcon(props),
