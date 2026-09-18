@@ -35,7 +35,7 @@ import {
   tradingOrderTypeUsesField,
 } from '@/providers/trading/order-types'
 import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
-import { fetchBrokerJson, TradingBrokerRequestError } from '@/providers/trading/portfolio-utils'
+import { TradingBrokerRequestError } from '@/providers/trading/portfolio-utils'
 import type { TradingOrderTypeDefinition } from '@/providers/trading/providers'
 import { getTradingOrderCapabilities } from '@/providers/trading/providers'
 import type { TradingOrder, TradingOrderType } from '@/providers/trading/types'
@@ -175,11 +175,6 @@ const validateOrderFields = (
   return orderSizingMode
 }
 
-const toFetchBody = (body: string | Record<string, any> | undefined) => {
-  if (typeof body === 'string' || body === undefined) return body
-  return JSON.stringify(body)
-}
-
 const toRecord = (value: unknown): Record<string, any> | undefined =>
   value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, any>)
@@ -221,7 +216,7 @@ const resolveOrderListing = async (
   return resolved
 }
 
-const buildOrderRequest = ({
+const submitProviderOrder = ({
   providerId,
   data,
   listing,
@@ -421,7 +416,7 @@ export async function submitTradingOrder({
       let rawOrder: unknown
       let normalizedOrder: TradingOrder
       try {
-        const providerRequest = buildOrderRequest({
+        rawOrder = await submitProviderOrder({
           providerId: baseContext.providerId,
           data: requestData,
           listing: resolvedListing,
@@ -432,15 +427,6 @@ export async function submitTradingOrder({
           orderTypeDefinition,
           timeInForce,
           orderSizingMode,
-        })
-        rawOrder = await fetchBrokerJson<unknown>({
-          providerId: baseContext.providerId,
-          url: providerRequest.url,
-          init: {
-            method: providerRequest.method,
-            headers: providerRequest.headers,
-            body: toFetchBody(providerRequest.body),
-          },
         })
         const provider = getTradingProviderAdapter(baseContext.providerId)
         const providerOrder = provider.normalizeOrder
@@ -460,7 +446,10 @@ export async function submitTradingOrder({
               success: false,
               clientOrderId,
               errorMessage: error instanceof Error ? error.message : 'Order submission failed',
-              status: 'failed',
+              status:
+                error instanceof TradingBrokerRequestError && error.submissionUnknown
+                  ? 'unknown'
+                  : 'failed',
               httpStatus: error instanceof TradingBrokerRequestError ? error.status : undefined,
               raw:
                 (error instanceof TradingBrokerRequestError && toRecord(error.payload)) ||
@@ -474,6 +463,13 @@ export async function submitTradingOrder({
           })
         }
         if (error instanceof TradingBrokerRequestError) {
+          if (error.submissionUnknown) {
+            throw new TradingServiceError(
+              'Order status is unknown; it may have completed. Check the broker before placing another order.',
+              502
+            )
+          }
+          if (error.status === 422) throw new TradingServiceError(error.message, 422)
           throw new TradingServiceError('Broker request failed', 502)
         }
         throw new TradingServiceError(

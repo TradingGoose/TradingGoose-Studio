@@ -3,6 +3,10 @@ import { getAlpacaTradingAccountPerformance } from '@/providers/trading/alpaca/p
 import { getAlpacaTradingAccountSnapshot } from '@/providers/trading/alpaca/snapshot'
 import type { PortfolioDetail, PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import { getTradingPortfolioDetailCapabilities } from '@/providers/trading/providers'
+import {
+  getRobinhoodTradingAccountSnapshot,
+  getRobinhoodTradingAccounts,
+} from '@/providers/trading/robinhood/portfolio'
 import { getTradierTradingAccounts } from '@/providers/trading/tradier/accounts'
 import { getTradierTradingAccountPerformance } from '@/providers/trading/tradier/performance'
 import { getTradierTradingAccountSnapshot } from '@/providers/trading/tradier/snapshot'
@@ -29,6 +33,8 @@ export async function listPortfolioIdentities(
   context: TradingPortfolioBaseContext
 ): Promise<PortfolioIdentity[]> {
   switch (context.providerId) {
+    case 'robinhood':
+      return getRobinhoodTradingAccounts(context)
     case 'alpaca':
       return getAlpacaTradingAccounts(context)
     case 'tradier':
@@ -42,6 +48,8 @@ export async function getPortfolioDetail(
   context: TradingPortfolioAccountContext
 ): Promise<PortfolioDetail> {
   switch (context.providerId) {
+    case 'robinhood':
+      return getRobinhoodTradingAccountSnapshot(context)
     case 'alpaca':
       return getAlpacaTradingAccountSnapshot(context)
     case 'tradier':

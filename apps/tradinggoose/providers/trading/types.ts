@@ -4,7 +4,7 @@ import type { AssetClass } from '@/providers/market/types'
 import type { PortfolioDetail } from '@/providers/trading/portfolio-identity'
 import type { HttpMethod } from '@/tools/types'
 
-export type TradingProviderId = 'alpaca' | 'tradier' | (string & {})
+export type TradingProviderId = 'alpaca' | 'tradier' | 'robinhood' | (string & {})
 
 export type TradingAuthType = 'oauth'
 
