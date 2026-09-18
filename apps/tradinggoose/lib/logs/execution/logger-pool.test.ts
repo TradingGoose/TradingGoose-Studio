@@ -34,6 +34,7 @@ vi.mock('@tradinggoose/db', async () => {
         orderBy: () => chain,
         limit: () => chain,
         for: () => chain,
+        returning: () => chain,
         onConflictDoUpdate: () => chain,
         then: (resolve: (rows: unknown) => unknown, reject: (error: unknown) => unknown) =>
           Promise.resolve()

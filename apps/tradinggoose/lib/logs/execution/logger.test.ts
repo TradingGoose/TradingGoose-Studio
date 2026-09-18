@@ -1,4 +1,5 @@
 /** @vitest-environment node */
+import { db } from '@tradinggoose/db'
 import {
   organizationBillingLedger,
   userStats,
@@ -157,20 +158,14 @@ vi.mock('@/lib/billing/tiers', () => ({
   getTierWorkflowExecutionMultiplier: state.baseMultiplier,
   getTierWorkflowModelCostMultiplier: state.modelMultiplier,
   getTierDisplayName: () => 'Plan',
-  getTierUsageAllowanceUsd: () => 10,
+  getTierUsageAllowanceUsd: () => 100,
   isFreeBillingTier: () => false,
 }))
-vi.mock('@/lib/billing/core/organization', () => ({
-  getOrganizationBillingLedger: async () => state.ledgers.organization,
-  getOrganizationMemberBillingLedger: async () => state.ledgers.member,
-}))
 vi.mock('@/lib/billing/core/billing', () => ({
-  getBillingTierPricing: () => ({ usageAllowance: 10 }),
+  getBillingTierPricing: () => ({ usageAllowance: 100 }),
 }))
 vi.mock('@/lib/billing/core/usage', () => ({
-  checkUsageStatus: async () => ({
-    usageData: { limit: 10, currentUsage: state.ledgers.user?.currentPeriodCost ?? 0 },
-  }),
+  getUserUsageLimit: async () => 100,
   maybeSendUsageThresholdEmail: state.email,
 }))
 vi.mock('@/lib/billing/threshold-billing', () => ({
@@ -267,6 +262,50 @@ beforeEach(() => {
 })
 
 describe('canonical workflow usage settlement', () => {
+  it.each(['user', 'organization', 'organization_member'])(
+    'preserves each committed %s usage interval when notifications are delayed',
+    async (scopeType) => {
+      state.settings.mockResolvedValue({ billingEnabled: true, workflowExecutionChargeUsd: 0 })
+      state.context.scopeType = scopeType
+      if (scopeType !== 'user') {
+        state.context.scopeId = 'organization'
+        state.context.billingOwner = { type: 'organization', organizationId: 'organization' }
+      }
+      const ledger = state.ledgers[scopeType === 'organization_member' ? 'member' : scopeType]!
+      Object.assign(ledger, { totalCost: 79, currentPeriodCost: 79 })
+      if (scopeType === 'organization_member')
+        Object.assign(state.ledgers.organization!, { totalCost: 179, currentPeriodCost: 179 })
+
+      const first = await db.transaction((tx) =>
+        logger.settleWorkflowExecutionUsage('execution', tx)
+      )
+      state.log.executionData.traceSpans = [span(4, 300)]
+      const second = await db.transaction((tx) =>
+        logger.settleWorkflowExecutionUsage('execution', tx)
+      )
+      expect(ledger.currentPeriodCost).toBe(83)
+      expect(state.email).not.toHaveBeenCalled()
+      await logger.notifyWorkflowUsage(first)
+      await logger.notifyWorkflowUsage(second)
+      expect(
+        state.email.mock.calls.map(([receipt]) => [
+          receipt.percentBefore,
+          receipt.percentAfter,
+          receipt.currentUsageAfter,
+        ])
+      ).toEqual([
+        [79, 81, 81],
+        [81, 83, 83],
+      ])
+      await logger.settleWorkflowExecutionUsage('execution')
+      expect(ledger).toMatchObject({ totalCost: 83, totalTokensUsed: 300, totalApiCalls: 1 })
+      expect(state.email).toHaveBeenCalledTimes(2)
+      expect(state.threshold).toHaveBeenCalledTimes(2)
+      if (scopeType === 'organization_member')
+        expect(state.ledgers.organization?.currentPeriodCost).toBe(183)
+    }
+  )
+
   it.each([true, false])(
     'settles pause, resumed work and terminal state exactly once (success=%s)',
     async (success) => {

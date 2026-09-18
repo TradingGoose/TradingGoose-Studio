@@ -2,11 +2,7 @@ import { db } from '@tradinggoose/db'
 import { organization, user as userTable, workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
-import {
-  getOrganizationBillingLedger,
-  getOrganizationMemberBillingLedger,
-} from '@/lib/billing/core/organization'
-import { checkUsageStatus, maybeSendUsageThresholdEmail } from '@/lib/billing/core/usage'
+import { getUserUsageLimit, maybeSendUsageThresholdEmail } from '@/lib/billing/core/usage'
 import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import { checkAndBillOverageThreshold } from '@/lib/billing/threshold-billing'
 import {
@@ -16,7 +12,11 @@ import {
   getTierWorkflowModelCostMultiplier,
   isFreeBillingTier,
 } from '@/lib/billing/tiers'
-import { accrueUserUsageCost, type UsageTransaction } from '@/lib/billing/usage-accrual'
+import {
+  accrueUserUsageCost,
+  type UsageAccrual,
+  type UsageTransaction,
+} from '@/lib/billing/usage-accrual'
 import {
   resolveWorkspaceBillingContext,
   type WorkspaceBillingContext,
@@ -44,7 +44,7 @@ type ExecutionBilling = {
   accountedTokens?: number
   counted?: boolean
 }
-type UsageReceipt = {
+type UsageReceipt = UsageAccrual & {
   context: WorkspaceBillingContext
   workflowId: string | null
   costDelta: number
@@ -398,7 +398,7 @@ export class ExecutionLogger {
         billing.accountedCost = (billing.accountedCost ?? 0) + costDelta
         billing.accountedTokens = (billing.accountedTokens ?? 0) + tokenDelta
         billing.counted = true
-        receipt = { context, workflowId: row.workflowId, costDelta }
+        receipt = { context, workflowId: row.workflowId, costDelta, ...accrued }
       }
       await tx
         .update(workflowExecutionLogs)
@@ -422,7 +422,7 @@ export class ExecutionLogger {
 
   async notifyWorkflowUsage(receipt?: UsageReceipt): Promise<void> {
     if (!receipt || receipt.costDelta <= 0) return
-    const { context, workflowId, costDelta } = receipt
+    const { context, workflowId, currentUsageBefore, currentUsageAfter } = receipt
     try {
       await checkAndBillOverageThreshold({
         userId: context.actorUserId ?? context.billingUserId,
@@ -438,35 +438,20 @@ export class ExecutionLogger {
         .from(userTable)
         .where(eq(userTable.id, context.billingUserId))
         .limit(1)
-      let currentUsageAfter: number
       let limit: number
       if (context.scopeType === 'organization') {
-        const [ledger, orgRows] = await Promise.all([
-          getOrganizationBillingLedger(context.scopeId),
-          db
-            .select({ orgUsageLimit: organization.orgUsageLimit })
-            .from(organization)
-            .where(eq(organization.id, context.scopeId))
-            .limit(1),
-        ])
+        const [org] = await db
+          .select({ orgUsageLimit: organization.orgUsageLimit })
+          .from(organization)
+          .where(eq(organization.id, context.scopeId))
+          .limit(1)
         const { getBillingTierPricing } = await import('@/lib/billing/core/billing')
         const { usageAllowance } = getBillingTierPricing(context.subscription)
-        limit = Math.max(Number(orgRows[0]?.orgUsageLimit ?? 0), usageAllowance)
-        currentUsageAfter = ledger?.currentPeriodCost ?? 0
-      } else if (
-        context.scopeType === 'organization_member' &&
-        context.billingOwner.type === 'organization'
-      ) {
-        const ledger = await getOrganizationMemberBillingLedger(
-          context.billingOwner.organizationId,
-          context.billingUserId
-        )
+        limit = Math.max(Number(org?.orgUsageLimit ?? 0), usageAllowance)
+      } else if (context.scopeType === 'organization_member') {
         limit = getTierUsageAllowanceUsd(context.subscription?.tier ?? context.tier)
-        currentUsageAfter = ledger?.currentPeriodCost ?? 0
       } else {
-        const status = await checkUsageStatus(context.billingUserId)
-        limit = status.usageData.limit
-        currentUsageAfter = status.usageData.currentUsage
+        limit = await getUserUsageLimit(context.billingUserId)
       }
       if (context.scopeType !== 'organization' && !billingUser?.email) return
       await maybeSendUsageThresholdEmail({
@@ -480,8 +465,7 @@ export class ExecutionLogger {
             }),
         planName: getTierDisplayName(context.tier),
         isFreeTier: context.scopeType !== 'organization' && isFreeBillingTier(context.tier),
-        percentBefore:
-          limit > 0 ? Math.min(100, (Math.max(0, currentUsageAfter - costDelta) / limit) * 100) : 0,
+        percentBefore: limit > 0 ? Math.min(100, (currentUsageBefore / limit) * 100) : 0,
         percentAfter: limit > 0 ? Math.min(100, (currentUsageAfter / limit) * 100) : 0,
         currentUsageAfter,
         limit,

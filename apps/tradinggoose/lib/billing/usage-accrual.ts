@@ -16,6 +16,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('BillingUsageAccrual')
 export type UsageTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
+export type UsageAccrual = { currentUsageBefore: number; currentUsageAfter: number }
 
 export async function accrueUserUsageCost(
   params: {
@@ -29,13 +30,13 @@ export async function accrueUserUsageCost(
     reason: string
   },
   transaction?: UsageTransaction
-): Promise<boolean> {
+): Promise<UsageAccrual | null> {
   const { userId, workspaceId, workflowId, cost, extraUpdates = {}, reason } = params
   if (
     (!params.billingContext && !(await isBillingEnabledForRuntime())) ||
     (cost <= 0 && Object.keys(extraUpdates).length === 0)
   )
-    return false
+    return null
 
   const context =
     params.billingContext ??
@@ -68,25 +69,28 @@ export async function accrueUserUsageCost(
     : [{ table: userStats, where: eq(userStats.userId, billingUserId) }]
 
   const accrue = async (tx: UsageTransaction) => {
+    const usage: UsageAccrual = { currentUsageBefore: 0, currentUsageAfter: 0 }
     // Lock every required ledger before changing either organization/member total.
+    // The last target is the effective scope: the member ledger for individual organization usage.
     for (const target of targets) {
-      const rows = await tx
-        .select({ exists: sql`1` })
+      const [row] = await tx
+        .select({ currentPeriodCost: target.table.currentPeriodCost })
         .from(target.table)
         .where(target.where)
         .for('update')
-      if (!rows.length) {
+      if (!row) {
         logger.warn('Usage cost accrual skipped - billing ledger record not found', {
           userId,
           workspaceId,
           workflowId,
           reason,
         })
-        return false
+        return null
       }
+      usage.currentUsageBefore = Number(row.currentPeriodCost)
     }
     for (const target of targets) {
-      await tx
+      const [updated] = await tx
         .update(target.table)
         .set({
           totalCost: sql`total_cost + ${cost}`,
@@ -96,8 +100,10 @@ export async function accrueUserUsageCost(
           ...extraUpdates,
         })
         .where(target.where)
+        .returning({ currentPeriodCost: target.table.currentPeriodCost })
+      usage.currentUsageAfter = Number(updated.currentPeriodCost)
     }
-    return true
+    return usage
   }
   const accrued = transaction ? await accrue(transaction) : await db.transaction(accrue)
   if (accrued && !params.skipThresholdBilling) {
