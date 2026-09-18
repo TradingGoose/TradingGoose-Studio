@@ -49,7 +49,7 @@ When configured with Azure or [Mistral OCR](https://docs.mistral.ai/ocr/):
 
 ## Using The Knowledge Block in Workflows
 
-Once your documents are processed, add a Knowledge block, select a knowledgebase, and configure a search query. To use the results for Retrieval-Augmented Generation (RAG), explicitly reference the block's results in the downstream Agent prompt, for example `<knowledge.results>` when the block is named `knowledge`. Connecting the blocks alone does not inject retrieved content. You can also configure Knowledge as an Agent tool for the agent to invoke.
+Once your documents are processed, add a Knowledge block, select a knowledgebase, and configure a search query. To use the results for Retrieval-Augmented Generation (RAG), explicitly reference the block's results in the downstream Agent prompt, for example `<knowledge.results>` when the block is named `knowledge`. Connecting the blocks alone does not inject retrieved content.
 
 The Knowledge block supports query-only, tag-only, and combined searches. In Advanced mode, configure text-equality tag filters; the block converts them to the API's `filters` contract. Repeated values for one tag use OR, while different tags use AND. Unknown tags and unsupported operators are rejected. Tags organize retrieval but are not an access-control boundary. See [Tags and Filtering](/knowledgebase/tags).
 
