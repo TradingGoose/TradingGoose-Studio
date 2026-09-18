@@ -12,8 +12,7 @@ import type { WorkflowCheckpointLogData } from '@/lib/workflows/human-in-the-loo
 
 export type PendingExecutionCancellationResult =
   | { status: 'not_found' }
-  | { status: 'cancelling' }
-  | { status: 'finished' }
+  | { status: 'cancelling' | 'finished'; pendingExecutionId?: string }
 
 async function readWorkflowExecutionCancellationResult(params: {
   executionId: string
@@ -76,7 +75,7 @@ export async function cancelPendingWorkflowExecution(params: {
     payload: sql`${pendingExecution.payload} || jsonb_build_object('cancelRequestedAt', ${new Date().toISOString()})`,
     updatedAt: new Date(),
   }
-  let processingCancellationRequested = false
+  let processingCancellationId: string | undefined
   if (row?.status === 'processing' && row.workflowId) {
     if (!params.descendantCancellation) {
       const access = await authorizeWorkflowScope(
@@ -91,7 +90,7 @@ export async function cancelPendingWorkflowExecution(params: {
       .set(cancellation)
       .where(and(eq(pendingExecution.id, row.id), eq(pendingExecution.status, 'processing')))
       .returning({ id: pendingExecution.id })
-    processingCancellationRequested = cancellingRows.length > 0
+    processingCancellationId = cancellingRows[0]?.id
   }
 
   if (
@@ -142,15 +141,19 @@ export async function cancelPendingWorkflowExecution(params: {
         const checkpoint = data.checkpoint
         const activeJobId = checkpoint?.activeJobId
         if (activeJobId) {
-          if (processingCancellationRequested && activeJobId === row?.id) return { active: true }
+          if (activeJobId === processingCancellationId)
+            return { active: true, pendingExecutionId: activeJobId }
           const active = await tx
             .update(pendingExecution)
             .set(cancellation)
             .where(eq(pendingExecution.id, activeJobId))
             .returning({ id: pendingExecution.id })
-          if (active.length) return { active: true }
+          if (active.length) return { active: true, pendingExecutionId: activeJobId }
         }
-        if (!checkpoint) return processingCancellationRequested ? { active: true } : null
+        if (!checkpoint)
+          return processingCancellationId
+            ? { active: true, pendingExecutionId: processingCancellationId }
+            : null
         const { pause: _pause, ...cancelledData } = data
         await tx
           .update(workflowExecutionLogs)
@@ -158,9 +161,9 @@ export async function cancelPendingWorkflowExecution(params: {
             executionData: { ...cancelledData, checkpoint: { ...checkpoint, activeJobId: null } },
           })
           .where(eq(workflowExecutionLogs.id, current.id))
-        return { active: false }
+        return { active: false, pendingExecutionId: processingCancellationId }
       })
-      if (!decision) return { status: 'finished' }
+      if (!decision) return { status: 'finished', pendingExecutionId: processingCancellationId }
       if (!decision.active) {
         const { terminalizeWorkflowExecution } = await import(
           '@/background/pending-execution-worker'
@@ -185,7 +188,7 @@ export async function cancelPendingWorkflowExecution(params: {
         )
         await cancelPendingExecutionDescendants(log.executionId)
       }
-      return { status: 'cancelling' }
+      return { status: 'cancelling', pendingExecutionId: decision.pendingExecutionId }
     }
   }
 
@@ -245,7 +248,8 @@ export async function cancelPendingWorkflowExecution(params: {
     }
   }
 
-  if (processingCancellationRequested) return { status: 'cancelling' }
+  if (processingCancellationId)
+    return { status: 'cancelling', pendingExecutionId: processingCancellationId }
 
   return readWorkflowExecutionCancellationResult({
     executionId,

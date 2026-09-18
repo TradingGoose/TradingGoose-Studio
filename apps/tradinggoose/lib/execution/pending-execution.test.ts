@@ -1649,7 +1649,7 @@ describe('cancelPendingWorkflowExecution', () => {
           userId: 'user-1',
           descendantCancellation: true,
         })
-      ).resolves.toEqual({ status: 'cancelling' })
+      ).resolves.toEqual({ status: 'cancelling', pendingExecutionId: 'paused-1' })
 
       expect(updateReturningMock).toHaveBeenCalledOnce()
       expect(updateReturningMock.mock.invocationCallOrder[0]).toBeLessThan(
@@ -1742,13 +1742,15 @@ describe('cancelPendingWorkflowExecution', () => {
               ]
             : []
         )
-        .mockResolvedValueOnce([paused])
+        .mockResolvedValueOnce([checkpoint()])
       txSelectLimitMock.mockResolvedValueOnce([paused])
       updateReturningMock.mockResolvedValueOnce([{ id: 'paused-1:resume:1' }])
-      await cancelPendingWorkflowExecution({
-        pendingExecutionId: directAttempt ? 'paused-1:resume:1' : 'paused-1',
-        userId: 'user-1',
-      })
+      await expect(
+        cancelPendingWorkflowExecution({
+          pendingExecutionId: directAttempt ? 'paused-1:resume:1' : 'paused-1',
+          userId: 'user-1',
+        })
+      ).resolves.toEqual({ status: 'cancelling', pendingExecutionId: 'paused-1:resume:1' })
       expect(updateReturningMock).toHaveBeenCalledOnce()
       expect(authorizeWorkflowScopeMock).toHaveBeenCalledOnce()
       expect(eqMock).toHaveBeenCalledWith('pendingExecution.id', 'paused-1:resume:1')
@@ -1756,6 +1758,30 @@ describe('cancelPendingWorkflowExecution', () => {
       expect(updateChain.set).not.toHaveBeenCalledWith(
         expect.objectContaining({ executionData: expect.anything() })
       )
+    }
+  )
+
+  it.each([false, true])(
+    'returns the processing owner even when its log already finished (resumed: %s)',
+    async (resumed) => {
+      const pendingExecutionId = resumed ? 'paused-1:resume:1' : 'paused-1'
+      const finished = { ...checkpoint(), endedAt: new Date() }
+      selectLimitMock
+        .mockResolvedValueOnce([
+          createPendingRow({
+            id: pendingExecutionId,
+            status: 'processing',
+            payload: resumed ? { resumeExecutionId: 'paused-1' } : {},
+          }),
+        ])
+        .mockResolvedValueOnce([finished])
+      txSelectLimitMock.mockResolvedValueOnce([finished])
+      updateReturningMock.mockResolvedValueOnce([{ id: pendingExecutionId }])
+
+      await expect(
+        cancelPendingWorkflowExecution({ pendingExecutionId, userId: 'user-1' })
+      ).resolves.toEqual({ status: 'finished', pendingExecutionId })
+      expect(terminalizeWorkflowExecutionMock).not.toHaveBeenCalled()
     }
   )
 
@@ -1885,7 +1911,7 @@ describe('cancelPendingWorkflowExecution', () => {
         pendingExecutionId: 'pending-1',
         userId: 'user-1',
       })
-    ).resolves.toEqual({ status: 'cancelling' })
+    ).resolves.toEqual({ status: 'cancelling', pendingExecutionId: 'pending-1' })
 
     expect(updateReturningMock.mock.invocationCallOrder[0]).toBeLessThan(
       selectLimitMock.mock.invocationCallOrder[1]

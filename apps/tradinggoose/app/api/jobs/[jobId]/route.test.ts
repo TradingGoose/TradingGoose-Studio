@@ -407,7 +407,10 @@ describe('DELETE /api/jobs/[jobId]', () => {
       success: true,
       userId: 'user-1',
     })
-    cancelPendingWorkflowExecutionMock.mockResolvedValue({ status: 'cancelling' })
+    cancelPendingWorkflowExecutionMock.mockResolvedValue({
+      status: 'cancelling',
+      pendingExecutionId: 'job-1:resume:2',
+    })
   })
 
   it('requires authentication', async () => {

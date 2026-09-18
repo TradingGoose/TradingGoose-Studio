@@ -330,43 +330,39 @@ export async function cancelPendingExecutionDescendants(
 ) {
   if (visited.has(parentExecutionId)) return
   visited.add(parentExecutionId)
-  const children = await listChildPendingWorkflowExecutions({ executionId: parentExecutionId })
-  const pausedChildren = await readWorkflowCheckpointChildren(parentExecutionId)
-  for (const child of pausedChildren) {
-    if (visited.has(child.id) || children.some((queued) => queued.id === child.id)) continue
-    await cancelPendingWorkflowExecution({
-      pendingExecutionId: child.id,
-      userId: child.userId,
-      wake: false,
-      descendantCancellation: true,
-    })
-    await cancelPendingExecutionDescendants(child.id, visited)
-  }
-
+  const queuedChildren = await listChildPendingWorkflowExecutions({
+    executionId: parentExecutionId,
+  })
+  const checkpointChildren = await readWorkflowCheckpointChildren(parentExecutionId)
+  const children = [
+    ...new Map(
+      [...queuedChildren, ...checkpointChildren].map((child) => [child.id, child])
+    ).values(),
+  ]
   await mapWithConcurrency(children, DESCENDANT_CANCELLATION_CONCURRENCY, async (child) => {
     if (visited.has(child.id)) return
-    await cancelPendingWorkflowExecution({
+    const result = await cancelPendingWorkflowExecution({
       pendingExecutionId: child.id,
       userId: child.userId,
       wake: false,
       descendantCancellation: true,
     })
     await cancelPendingExecutionDescendants(child.id, visited)
+    if (result.status === 'not_found' || !result.pendingExecutionId) return
+    const processingChild = await getProcessingPendingExecution(result.pendingExecutionId)
+    if (!processingChild) return
     let cancellation: Awaited<ReturnType<typeof cancelPendingExecutionTriggerRun>>
     try {
-      cancellation = await cancelPendingExecutionTriggerRun(child)
+      cancellation = await cancelPendingExecutionTriggerRun(processingChild)
     } catch (error) {
       logger.error('Failed to cancel Trigger run for pending execution', {
-        pendingExecutionId: child.id,
+        pendingExecutionId: processingChild.id,
         error,
       })
       return
     }
 
     if (cancellation.type === 'local' || cancellation.type === 'missing') return
-
-    const processingChild = await getProcessingPendingExecution(child.id)
-    if (!processingChild) return
 
     if (cancellation.run.status !== 'CANCELED') {
       if (cancellation.run.status === 'COMPLETED') {
