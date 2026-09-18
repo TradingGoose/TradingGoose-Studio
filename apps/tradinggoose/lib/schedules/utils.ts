@@ -6,17 +6,26 @@ import { formatDateTime } from '@/lib/utils'
 
 const logger = createLogger('ScheduleUtils')
 
+/** Apply a server-resolved offset without interpreting timestamps in the host timezone. */
+export function createScheduleCron(expression: string, utcOffsetMinutes = 0): Cron {
+  let pattern: string | Date = expression
+  if (expression.includes(':')) {
+    const hasOffset = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(expression)
+    pattern = new Date(hasOffset ? expression : `${expression}Z`)
+    if (!hasOffset) pattern.setUTCMinutes(pattern.getUTCMinutes() - utcOffsetMinutes)
+  }
+  return new Cron(pattern, { utcOffset: utcOffsetMinutes })
+}
+
 /**
  * Validates a cron expression and returns validation results
  * @param cronExpression - The cron expression to validate
  * @param utcOffsetMinutes - Optional UTC offset in minutes (e.g., -420). Defaults to 0
- * @param after - Optional reference time; defaults to now when creating a schedule
  * @returns Validation result with isValid flag, error message, and next run date
  */
 export function validateCronExpression(
   cronExpression: string,
-  utcOffsetMinutes = 0,
-  after?: Date
+  utcOffsetMinutes = 0
 ): {
   isValid: boolean
   error?: string
@@ -31,8 +40,8 @@ export function validateCronExpression(
 
   try {
     // Validate using explicit UTC offset for deterministic scheduling
-    const cron = new Cron(cronExpression, { utcOffset: utcOffsetMinutes })
-    const nextRun = cron.nextRun(after)
+    const cron = createScheduleCron(cronExpression, utcOffsetMinutes)
+    const nextRun = cron.nextRun()
 
     if (!nextRun) {
       return {
@@ -159,7 +168,7 @@ export function getScheduleTimeValues(scheduleBlock: BlockState): {
  *
  * Example:
  *   const cronExpr = generateCronExpression('daily', { dailyTime: [14, 30], timezone: 'UTC' })
- *   const cron = new Cron(cronExpr, { utcOffset: -420 })
+ *   const cron = createScheduleCron(cronExpr, -420)
  *
  * @param scheduleType - Type of schedule (minutes, hourly, daily, weekly, monthly, custom)
  * @param scheduleValues - Object containing schedule configuration including timezone
@@ -221,9 +230,7 @@ export function calculateNextRunTime(
     const cronExpression = generateCronExpression(scheduleType, scheduleValues)
     logger.debug(`Using cron expression: ${cronExpression} with utcOffset: ${utcOffsetMinutes}`)
 
-    const cron = new Cron(cronExpression, {
-      utcOffset: utcOffsetMinutes,
-    })
+    const cron = createScheduleCron(cronExpression, utcOffsetMinutes)
 
     const nextDate = cron.nextRun()
 

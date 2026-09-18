@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocale } from 'next-intl'
-import { resolveTimezoneOffset } from '@/components/timezone-selector/fetchers'
 import { Button } from '@/components/ui/button'
 import { createLogger } from '@/lib/logs/console/logger'
 import { parseCronToHumanReadable } from '@/lib/schedules/utils'
@@ -51,17 +50,18 @@ export function ScheduleConfig({
     lastRanAt: string | null
     cronExpression: string | null
     timezone: string
+    utcOffset: string | null
   }>({
     id: null,
     nextRunAt: null,
     lastRanAt: null,
     cronExpression: null,
     timezone: 'UTC',
+    utcOffset: null,
   })
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [resolvedUtcOffset, setResolvedUtcOffset] = useState<string | null>(null)
 
   const workflowId = useWorkflowId()
   const channelId = useWorkflowChannelId()
@@ -104,7 +104,8 @@ export function ScheduleConfig({
             nextRunAt: data.schedule.nextRunAt,
             lastRanAt: data.schedule.lastRanAt,
             cronExpression: data.schedule.cronExpression,
-            timezone: data.schedule.timezone || 'UTC',
+            timezone: data.schedule.timezone,
+            utcOffset: data.schedule.utcOffset,
           })
         } else {
           setScheduleData({
@@ -113,6 +114,7 @@ export function ScheduleConfig({
             lastRanAt: null,
             cronExpression: null,
             timezone: 'UTC',
+            utcOffset: null,
           })
         }
       }
@@ -127,26 +129,6 @@ export function ScheduleConfig({
   useEffect(() => {
     fetchSchedule()
   }, [fetchSchedule])
-
-  useEffect(() => {
-    const timezoneValue = scheduleData.timezone || 'UTC'
-    let active = true
-
-    resolveTimezoneOffset(timezoneValue)
-      .then((offset) => {
-        if (!active) return
-        setResolvedUtcOffset(offset)
-      })
-      .catch((error) => {
-        logger.error('Failed to resolve timezone offset', error)
-        if (!active) return
-        setResolvedUtcOffset(null)
-      })
-
-    return () => {
-      active = false
-    }
-  }, [scheduleData.timezone])
 
   // Separate effect for event listener to avoid removing/re-adding on every dependency change
   useEffect(() => {
@@ -183,12 +165,16 @@ export function ScheduleConfig({
         <div className='text-muted-foreground text-xs'>
           <div>
             {copy.nextRun}{' '}
-            {formatDateTime(new Date(scheduleData.nextRunAt), resolvedUtcOffset ?? undefined)}
+            {scheduleData.utcOffset
+              ? formatDateTime(new Date(scheduleData.nextRunAt), scheduleData.utcOffset)
+              : '—'}
           </div>
           {scheduleData.lastRanAt && (
             <div>
               {copy.lastRun}{' '}
-              {formatDateTime(new Date(scheduleData.lastRanAt), resolvedUtcOffset ?? undefined)}
+              {scheduleData.utcOffset
+                ? formatDateTime(new Date(scheduleData.lastRanAt), scheduleData.utcOffset)
+                : '—'}
             </div>
           )}
         </div>
@@ -369,6 +355,7 @@ export function ScheduleConfig({
         lastRanAt: null,
         cronExpression: null,
         timezone: 'UTC',
+        utcOffset: null,
       })
       setScheduleType('daily')
       setMinutesInterval('')

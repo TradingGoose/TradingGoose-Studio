@@ -75,7 +75,9 @@ vi.mock('@/lib/execution/pending-execution', () => ({
   isPendingExecutionLimitError: () => false,
 }))
 vi.mock('@/lib/timezone/timezone-resolver', () => ({
-  resolveTimezoneOffsetMinutes: state.resolveOffset,
+  resolveTimezoneState: async (value: string) => ({
+    utcOffsetMinutes: await state.resolveOffset(value),
+  }),
 }))
 vi.mock('@/lib/trigger/settings', () => ({
   TriggerExecutionUnavailableError: class extends Error {
@@ -165,8 +167,8 @@ describe('schedule admission', () => {
     expect(state.enqueue).toHaveBeenCalledTimes(2)
   })
 
-  it.each([null, 'invalid', '2000-01-01T00:00:00Z'])(
-    'does not admit missing, invalid or exhausted cron: %s',
+  it.each([null, 'invalid', 'invalid:date'])(
+    'does not admit missing or invalid cron: %s',
     async (cronExpression) => {
       state.schedules[0].cronExpression = cronExpression
       expect(await (await GET(request)).json()).toMatchObject({ executedCount: 0 })
@@ -190,13 +192,41 @@ describe('schedule admission', () => {
   )
 
   it.each([
+    ['2026-09-17T09:00:00', '2026-09-17T14:00:00Z', -240],
+    ['2026-09-17T09:00:00', '2026-09-17T13:00:00Z', -300],
+    ['2000-01-01T00:00:00Z', '2026-09-17T12:00:00Z', -240],
+  ])(
+    'consumes %s at its saved occurrence %s without applying current offset %d',
+    async (cronExpression, savedOccurrence, currentOffset) => {
+      const nextRunAt = new Date(savedOccurrence)
+      Object.assign(state.schedules[0], { cronExpression, nextRunAt })
+      state.resolveOffset.mockResolvedValue(currentOffset)
+      vi.setSystemTime(nextRunAt)
+      expect(await (await GET(request)).json()).toMatchObject({ executedCount: 1 })
+      const payload = state.enqueue.mock.calls[0][0].payload
+      expect(payload).toMatchObject({
+        executionId: `schedule_execution:schedule-1:${nextRunAt.toISOString()}`,
+        cronExpression: nextRunAt.toISOString(),
+        utcOffset: 0,
+      })
+      await executeScheduleJob(payload)
+      expect(state.schedules[0]).toMatchObject({ nextRunAt: null, status: 'disabled' })
+      vi.setSystemTime(new Date('2026-09-18T00:00:00Z'))
+      expect(await (await GET(request)).json()).toMatchObject({ executedCount: 0 })
+      expect(state.enqueue).toHaveBeenCalledTimes(1)
+      expect(state.run).toHaveBeenCalledTimes(1)
+      expect(state.resolveOffset).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each([
     ['success', 0],
     ['success', 60_000],
     ['paused', 60_000],
     ['failure', 60_000],
     ['exception', 60_000],
     ['usage_limit_exceeded', 60_000],
-    ['timezone_recovery', 60_000],
+    ['timezone_outage', 60_000],
   ] as const)('settles an accepted one-time occurrence: %s, %d ms late', async (outcome, delay) => {
     vi.setSystemTime(occurrence.getTime() - 60_000)
     const cronExpression = occurrence.toISOString()
@@ -214,11 +244,8 @@ describe('schedule admission', () => {
     expect(await (await GET(request)).json()).toMatchObject({ executedCount: 0 })
 
     vi.setSystemTime(nextRunAt.getTime() + delay)
-    if (outcome === 'timezone_recovery') {
-      state.resolveOffset.mockRejectedValueOnce(new Error('Timezone unavailable'))
-      expect(await (await GET(request)).json()).toMatchObject({ executedCount: 0 })
-      expect(state.enqueue).not.toHaveBeenCalled()
-      expect(state.schedules[0]).toMatchObject({ failedCount: 1, nextRunAt })
+    if (outcome === 'timezone_outage') {
+      state.resolveOffset.mockRejectedValue(new Error('Timezone unavailable'))
     }
     expect(await (await GET(request)).json()).toMatchObject({ executedCount: 1 })
     const payload = state.enqueue.mock.calls[0][0].payload
@@ -242,6 +269,7 @@ describe('schedule admission', () => {
     })
     expect(await (await GET(request)).json()).toMatchObject({ executedCount: 0 })
     expect(state.enqueue).toHaveBeenCalledTimes(1)
+    expect(state.resolveOffset).not.toHaveBeenCalled()
   })
 
   it('keeps a timezone outage retryable and counts only distinct accepted executions', async () => {

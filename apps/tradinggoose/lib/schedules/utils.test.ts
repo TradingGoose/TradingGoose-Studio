@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   type BlockState,
   calculateNextRunTime,
+  createScheduleCron,
   generateCronExpression,
   getScheduleTimeValues,
   getSubBlockValue,
@@ -14,6 +15,23 @@ import {
 } from '@/lib/schedules/utils'
 
 describe('Schedule Utilities', () => {
+  describe('createScheduleCron', () => {
+    it.each([
+      ['2026-09-20T09:00:00', -300, '2026-09-20T14:00:00.000Z'],
+      ['2026-09-20T09:00:00', -240, '2026-09-20T13:00:00.000Z'],
+      ['2026-09-20T09:00:00Z', -300, '2026-09-20T09:00:00.000Z'],
+      ['2026-09-20T09:00:00-05:00', -300, '2026-09-20T14:00:00.000Z'],
+      ['0 9 * * *', -300, '2026-09-20T14:00:00.000Z'],
+      ['2026-09-20T09:00:00', 330, '2026-09-20T03:30:00.000Z'],
+    ])(
+      'resolves %s at offset %i without host timezone inference',
+      (expression, offset, expected) => {
+        const cron = createScheduleCron(expression, offset)
+        expect(cron.nextRun(new Date('2026-09-20T00:00:00Z'))?.toISOString()).toBe(expected)
+      }
+    )
+  })
+
   describe('parseTimeString', () => {
     it.concurrent('should parse valid time strings', () => {
       expect(parseTimeString('09:30')).toEqual([9, 30])

@@ -1,8 +1,9 @@
 import { db, workflow, workflowSchedule } from '@tradinggoose/db'
-import { Cron } from 'croner'
+import type { Cron } from 'croner'
 import { eq } from 'drizzle-orm'
 import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
 import { createLogger } from '@/lib/logs/console/logger'
+import { createScheduleCron } from '@/lib/schedules/utils'
 import {
   loadWorkflowExecutionBlueprint,
   runPreparedWorkflowExecution,
@@ -75,7 +76,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
   }
 
   try {
-    cron = new Cron(payload.cronExpression, { utcOffset: payload.utcOffset })
+    cron = createScheduleCron(payload.cronExpression, payload.utcOffset)
     const [workflowRecord] = await db
       .select()
       .from(workflow)

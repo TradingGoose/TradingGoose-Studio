@@ -8,8 +8,8 @@ import {
   isPendingExecutionLimitError,
 } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
-import { validateCronExpression } from '@/lib/schedules/utils'
-import { resolveTimezoneOffsetMinutes } from '@/lib/timezone/timezone-resolver'
+import { createScheduleCron } from '@/lib/schedules/utils'
+import { resolveTimezoneState } from '@/lib/timezone/timezone-resolver'
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { generateRequestId } from '@/lib/utils'
 
@@ -76,14 +76,12 @@ export async function GET(request: NextRequest) {
           }
 
           if (!schedule.cronExpression) throw new Error('Schedule cron expression is required')
-          const utcOffset = await resolveTimezoneOffsetMinutes(schedule.timezone)
-          // Validate the accepted occurrence, not whether it has a successor.
-          const validation = validateCronExpression(
-            schedule.cronExpression,
-            utcOffset,
-            new Date(schedule.nextRunAt!.getTime() - 1)
-          )
-          if (!validation.isValid) throw new Error(validation.error)
+          const oneTime = schedule.cronExpression.includes(':')
+          const utcOffset = oneTime
+            ? 0
+            : (await resolveTimezoneState(schedule.timezone)).utcOffsetMinutes
+          // The persisted UTC occurrence is already accepted; only validate expression syntax.
+          createScheduleCron(schedule.cronExpression, utcOffset)
 
           const pendingExecutionId = `schedule_execution:${schedule.id}:${schedule.nextRunAt!.toISOString()}`
           const payload = {
@@ -91,7 +89,7 @@ export async function GET(request: NextRequest) {
             scheduleId: schedule.id,
             workflowId: schedule.workflowId,
             blockId: schedule.blockId,
-            cronExpression: schedule.cronExpression,
+            cronExpression: oneTime ? schedule.nextRunAt!.toISOString() : schedule.cronExpression,
             failedCount: schedule.failedCount,
             utcOffset,
             now: now.toISOString(),
