@@ -324,6 +324,10 @@ describe('subscription billing helpers', () => {
     const createdCount = await backfillDefaultUserSubscriptions()
 
     expect(createdCount).toBe(1)
+    const { id, stripeCustomerId, ...resetValues } = insertCalls[0].values
+    expect(id).toBe('sub_default_user_123')
+    expect(stripeCustomerId).toBeNull()
+    expect(insertCalls[0].set).toEqual(resetValues)
     expect(mockSql).toHaveBeenCalledTimes(1)
     expect(insertCalls).toEqual([
       expect.objectContaining({

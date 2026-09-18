@@ -335,13 +335,13 @@ export class ExecutionLogger {
       const billing: ExecutionBilling = data.billing ?? {}
       let context: WorkspaceBillingContext | undefined
       let quote = billing.quote
-      const settings = await getResolvedBillingSettings()
+      const settings = await getResolvedBillingSettings(tx)
       if (!quote) {
         if (settings.billingEnabled) {
-          context = await resolveWorkspaceBillingContext({
-            workspaceId: row.workspaceId,
-            actorUserId: readExecutionActorUserId(data),
-          })
+          context = await resolveWorkspaceBillingContext(
+            { workspaceId: row.workspaceId, actorUserId: readExecutionActorUserId(data) },
+            tx
+          )
         }
         quote = {
           enabled: settings.billingEnabled,
@@ -362,10 +362,10 @@ export class ExecutionLogger {
         quote.enabled &&
         (costDelta > 0 || tokenDelta > 0 || !billing.counted)
       ) {
-        context ??= await resolveWorkspaceBillingContext({
-          workspaceId: row.workspaceId,
-          actorUserId: readExecutionActorUserId(data),
-        })
+        context ??= await resolveWorkspaceBillingContext(
+          { workspaceId: row.workspaceId, actorUserId: readExecutionActorUserId(data) },
+          tx
+        )
         const counters = {
           manual: ['totalManualExecutions', 'total_manual_executions'],
           api: ['totalApiCalls', 'total_api_calls'],

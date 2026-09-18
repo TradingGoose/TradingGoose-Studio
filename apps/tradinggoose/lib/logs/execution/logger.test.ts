@@ -312,10 +312,10 @@ describe('canonical workflow usage settlement', () => {
       expect(result.executionData).not.toHaveProperty('pause')
       expect(result.level).toBe(success ? 'info' : 'error')
       expect(state.emit).toHaveBeenCalledExactlyOnceWith(result)
-      expect(state.contextLookup).toHaveBeenCalledWith({
-        workspaceId: 'workspace',
-        actorUserId: 'actor',
-      })
+      expect(state.contextLookup).toHaveBeenCalledWith(
+        { workspaceId: 'workspace', actorUserId: 'actor' },
+        expect.objectContaining({ select: expect.any(Function) })
+      )
       expect(state.locks).toContain(workflowExecutionLogs)
       expect(state.locks).toContain(userStats)
     }

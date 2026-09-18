@@ -97,13 +97,14 @@ function resolveBillingUserId(params: {
 }
 
 export async function getWorkspaceBillingSettings(
-  workspaceId: string
+  workspaceId: string,
+  store: Pick<typeof db, 'select'> = db
 ): Promise<WorkspaceBillingSettings | null> {
   if (!workspaceId) {
     return null
   }
 
-  const rows = await db
+  const rows = await store
     .select({
       ownerId: workspace.ownerId,
       billingOwnerType: workspace.billingOwnerType,
@@ -132,25 +133,29 @@ type ResolveWorkspaceBillingParams = {
 }
 
 async function getBillingOwnerSubscription(
-  billingOwner: WorkspaceBillingOwner
+  billingOwner: WorkspaceBillingOwner,
+  store: Pick<typeof db, 'insert' | 'select'>
 ): Promise<SubscriptionWithTier | null> {
   if (billingOwner.type === 'organization') {
-    return getOrganizationSubscription(billingOwner.organizationId)
+    return getOrganizationSubscription(billingOwner.organizationId, store)
   }
 
-  return getActiveSubscriptionForReference({
-    referenceType: 'user',
-    referenceId: billingOwner.userId,
-  })
+  return getActiveSubscriptionForReference(
+    { referenceType: 'user', referenceId: billingOwner.userId },
+    store
+  )
 }
 
-async function hydrateBillingContext(params: {
-  workspaceId: string | null
-  actorUserId: string | null
-  ownerId: string | null
-  billingOwner: WorkspaceBillingOwner
-}): Promise<WorkspaceBillingContext> {
-  const subscription = await getBillingOwnerSubscription(params.billingOwner)
+async function hydrateBillingContext(
+  params: {
+    workspaceId: string | null
+    actorUserId: string | null
+    ownerId: string | null
+    billingOwner: WorkspaceBillingOwner
+  },
+  store: Pick<typeof db, 'insert' | 'select'> = db
+): Promise<WorkspaceBillingContext> {
+  const subscription = await getBillingOwnerSubscription(params.billingOwner, store)
   const billingUserId = resolveBillingUserId({
     ownerId: params.ownerId,
     billingOwner: params.billingOwner,
@@ -178,39 +183,38 @@ async function hydrateBillingContext(params: {
 }
 
 export async function resolveWorkspaceBillingContext(
-  params: ResolveWorkspaceBillingParams
+  params: ResolveWorkspaceBillingParams,
+  store: Pick<typeof db, 'insert' | 'select'> = db
 ): Promise<WorkspaceBillingContext> {
   const workspaceId = params.workspaceId ?? null
   const actorUserId = params.actorUserId ?? null
 
   if (workspaceId) {
-    const settings = await getWorkspaceBillingSettings(workspaceId)
+    const settings = await getWorkspaceBillingSettings(workspaceId, store)
 
     if (!settings) {
       throw new Error(`Workspace ${workspaceId} not found`)
     }
 
-    return hydrateBillingContext({
-      workspaceId,
-      actorUserId,
-      ownerId: settings.ownerId,
-      billingOwner: settings.billingOwner,
-    })
+    return hydrateBillingContext(
+      { workspaceId, actorUserId, ownerId: settings.ownerId, billingOwner: settings.billingOwner },
+      store
+    )
   }
 
   if (!actorUserId) {
     throw new Error('Cannot resolve billing context without a workspace or actor user')
   }
 
-  return hydrateBillingContext({
-    workspaceId: null,
-    actorUserId,
-    ownerId: actorUserId,
-    billingOwner: {
-      type: 'user',
-      userId: actorUserId,
+  return hydrateBillingContext(
+    {
+      workspaceId: null,
+      actorUserId,
+      ownerId: actorUserId,
+      billingOwner: { type: 'user', userId: actorUserId },
     },
-  })
+    store
+  )
 }
 
 export async function resolveWorkflowBillingContext(params: {
