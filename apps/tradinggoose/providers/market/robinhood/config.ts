@@ -1,6 +1,8 @@
 import type { MarketProviderConfig } from '@/providers/market/providers'
 import type { MarketInterval } from '@/providers/market/types'
 
+export const ROBINHOOD_MCP_URL = 'https://agent.robinhood.com/mcp/trading'
+
 // Fixed intervals exposed by Robinhood's get_equity_historicals tool.
 // Discovery reference: github.com/alphillips-lab/robinhoodmcp/blob/main/src/robinhoodmcp/client.py
 export const ROBINHOOD_INTERVALS = {

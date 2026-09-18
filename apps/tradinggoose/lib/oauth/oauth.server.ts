@@ -10,7 +10,6 @@ import {
   loadSystemOAuthClientCredentials,
   loadSystemOAuthClientCredentialsForProvider,
 } from '@/lib/oauth/system-managed-config'
-import { ROBINHOOD_MCP_URL, ROBINHOOD_TOKEN_URL } from '@/lib/robinhood/constants'
 
 const logger = createLogger('OAuth')
 
@@ -50,11 +49,11 @@ function getProviderAuthTemplate(
   switch (providerId) {
     case 'robinhood':
       return {
-        tokenEndpoint: ROBINHOOD_TOKEN_URL,
+        tokenEndpoint: 'https://api.robinhood.com/oauth2/token/',
         useBasicAuth: false,
         requiresClientSecret: false,
         supportsRefreshTokenRotation: true,
-        additionalBodyParams: { resource: ROBINHOOD_MCP_URL },
+        additionalBodyParams: { resource: 'https://agent.robinhood.com/mcp/trading' },
       }
     case 'google':
       return {

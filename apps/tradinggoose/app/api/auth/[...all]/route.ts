@@ -11,11 +11,10 @@ import { getBillingTierById } from '@/lib/billing/tiers'
 import { getOccupiedSeatCount } from '@/lib/billing/validation/seat-management'
 import { isSignInOAuthProviderId } from '@/lib/oauth'
 import {
+  ensureRobinhoodOAuthClient,
   loadSystemOAuthClientCredentials,
   runWithSystemOAuthClientCredentials,
 } from '@/lib/oauth/system-managed-config'
-import { getRobinhoodRedirectUri, ROBINHOOD_PROVIDER_ID } from '@/lib/robinhood/constants'
-import { ensureRobinhoodOAuthClient } from '@/lib/robinhood/registration'
 import { getBaseUrl } from '@/lib/urls/utils'
 
 export const dynamic = 'force-dynamic'
@@ -234,7 +233,7 @@ export const handleAuthRequest = async (request: Request) => {
     return Response.json({ error: 'OAuth provider is not configured' }, { status: 400 })
   }
 
-  if (providerId === ROBINHOOD_PROVIDER_ID && !credentials[providerId].clientId) {
+  if (providerId === 'robinhood' && !credentials[providerId].clientId) {
     if (request.method !== 'POST' || pathname !== '/api/auth/oauth2/link') {
       return Response.json({ error: 'OAuth provider is not configured' }, { status: 400 })
     }
@@ -244,7 +243,9 @@ export const handleAuthRequest = async (request: Request) => {
     }
 
     try {
-      const clientId = await ensureRobinhoodOAuthClient(getRobinhoodRedirectUri(getBaseUrl()))
+      const clientId = await ensureRobinhoodOAuthClient(
+        `${getBaseUrl()}/api/auth/oauth2/callback/${providerId}`
+      )
       credentials[providerId].clientId = clientId
       credentials[providerId].fields.client_id = clientId
     } catch {

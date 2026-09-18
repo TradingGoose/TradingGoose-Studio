@@ -90,16 +90,13 @@ vi.mock('@/lib/oauth', () => ({
 }))
 
 vi.mock('@/lib/oauth/system-managed-config', () => ({
+  ensureRobinhoodOAuthClient: (...args: unknown[]) => mockEnsureRobinhoodOAuthClient(...args),
   loadSystemOAuthClientCredentials: (providerIds: string[]) =>
     mockLoadSystemOAuthClientCredentials(providerIds),
   runWithSystemOAuthClientCredentials: (
     callback: () => Promise<Response>,
     credentials: Record<string, unknown>
   ) => mockRunWithSystemOAuthClientCredentials(callback, credentials),
-}))
-
-vi.mock('@/lib/robinhood/registration', () => ({
-  ensureRobinhoodOAuthClient: (...args: unknown[]) => mockEnsureRobinhoodOAuthClient(...args),
 }))
 
 vi.mock('@/lib/urls/utils', () => ({

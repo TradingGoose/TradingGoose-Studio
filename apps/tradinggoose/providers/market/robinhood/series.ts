@@ -1,11 +1,11 @@
 import { z } from 'zod'
-import { callRobinhoodTool } from '@/lib/robinhood/client'
 import { MarketProviderError } from '@/providers/market/errors'
 import {
   resolveLatestSessionEndMs,
   resolveListingId,
   toDate,
 } from '@/providers/market/market-hours'
+import { callRobinhoodTool } from '@/providers/market/robinhood/client'
 import { ROBINHOOD_INTERVALS, robinhoodProviderConfig } from '@/providers/market/robinhood/config'
 import { intervalToMs } from '@/providers/market/series-planner'
 import { normalizeSeriesWindows, rangeToMs } from '@/providers/market/series-window'

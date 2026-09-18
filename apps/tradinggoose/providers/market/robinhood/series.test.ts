@@ -1,9 +1,9 @@
 import { StreamableHTTPError } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { callRobinhoodTool, getRobinhoodUserInfo } from '@/lib/robinhood/client'
-import { ROBINHOOD_MCP_URL } from '@/lib/robinhood/constants'
+import { ROBINHOOD_MCP_URL } from '@/providers/market/robinhood/config'
 import type { MarketSeriesRequest } from '@/providers/market/types'
+import { callRobinhoodTool } from './client'
 import { robinhoodProvider } from './index'
 import { fetchRobinhoodSeries } from './series'
 
@@ -142,9 +142,11 @@ describe('Robinhood market provider and MCP boundary', () => {
 
   it('rejects disallowed tools, missing credentials, and oversized requests before connecting', async () => {
     await expect(
-      callRobinhoodTool('token', 'place_equity_order' as 'get_accounts', {})
+      callRobinhoodTool('token', 'place_equity_order' as 'get_equity_historicals', {})
     ).rejects.toThrow('Unsupported')
-    await expect(callRobinhoodTool(' ', 'get_accounts', {})).rejects.toMatchObject({ status: 401 })
+    await expect(callRobinhoodTool(' ', 'get_equity_historicals', {})).rejects.toMatchObject({
+      status: 401,
+    })
     await expect(fetchRobinhoodSeries({ ...request, auth: {} })).rejects.toThrow('connection')
     await expect(
       fetchRobinhoodSeries({ ...request, start: '2020-01-01T00:00:00Z' })
@@ -186,18 +188,5 @@ describe('Robinhood market provider and MCP boundary', () => {
       windows: [{ mode: 'range', range: { value: 1, unit: 'week' } }],
     })
     expect(sdk.callTool.mock.lastCall?.[0].arguments.start_time).toBe('2026-09-02T15:00:00.000Z')
-  })
-
-  it('identifies the default account and rejects ambiguous identity', async () => {
-    const primary = { account_number: 'primary', is_default: true }
-    sdk.callTool.mockResolvedValueOnce(
-      mcpResult({ data: { accounts: [{ account_number: 'other' }, primary] } })
-    )
-    await expect(getRobinhoodUserInfo('token')).resolves.toMatchObject({
-      id: 'primary',
-      emailVerified: false,
-    })
-    sdk.callTool.mockResolvedValueOnce(mcpResult({ data: { accounts: [primary, primary] } }))
-    await expect(getRobinhoodUserInfo('token')).rejects.toThrow('unique default account')
   })
 })

@@ -11,24 +11,12 @@ import {
   McpError,
 } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
-import { ROBINHOOD_MCP_URL } from '@/lib/robinhood/constants'
 import { MarketProviderError } from '@/providers/market/errors'
+import { ROBINHOOD_MCP_URL } from '@/providers/market/robinhood/config'
 
-const READ_TOOLS = ['get_accounts', 'get_equity_historicals'] as const
+const READ_TOOLS = ['get_equity_historicals'] as const
 const REQUEST_TIMEOUT_MS = 30_000
 const payloadSchema = z.record(z.string(), z.unknown())
-const accountsSchema = z.object({
-  data: z.object({
-    accounts: z
-      .array(
-        z.object({
-          account_number: z.string().trim().min(1),
-          is_default: z.boolean().optional(),
-        })
-      )
-      .min(1),
-  }),
-})
 
 const robinhoodError = (message: string, status?: number) =>
   new MarketProviderError({ code: 'PROVIDER ERROR', provider: 'robinhood', message, status })
@@ -87,26 +75,5 @@ export async function callRobinhoodTool(
     throw robinhoodError('Unable to retrieve Robinhood market data.', status)
   } finally {
     await client.close().catch(() => undefined)
-  }
-}
-
-export async function getRobinhoodUserInfo(accessToken: string) {
-  // Firsthand account shape: ssherman/robinhood-wizard, live verification notes §18.
-  const result = accountsSchema.safeParse(await callRobinhoodTool(accessToken, 'get_accounts', {}))
-  if (!result.success) {
-    throw robinhoodError('Robinhood returned an invalid account profile.')
-  }
-  const defaults = result.data.data.accounts.filter((account) => account.is_default)
-  if (defaults.length !== 1) {
-    throw robinhoodError('Robinhood did not identify a unique default account.')
-  }
-  // This identifies the linked default brokerage account, not a person or login email.
-  const accountNumber = defaults[0].account_number
-  return {
-    id: accountNumber,
-    name: accountNumber,
-    email: `${accountNumber}@robinhood.account`,
-    image: '',
-    emailVerified: false,
   }
 }
