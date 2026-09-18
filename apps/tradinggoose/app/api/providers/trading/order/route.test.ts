@@ -16,6 +16,7 @@ const mockResolveOrderHistoryContext = vi.fn()
 const mockRecordOrderHistory = vi.fn()
 const mockUpdateOrderHistoryResult = vi.fn()
 const mockFetch = vi.fn()
+const mockSubmitRobinhoodOrder = vi.fn()
 const idempotencyStore = new Map<string, unknown>()
 let idempotencyCounter = 0
 let routePost: typeof import('@/app/api/providers/trading/order/route').POST
@@ -74,6 +75,11 @@ vi.mock('@/providers/trading/portfolio', async () => {
   }
 })
 
+vi.mock('@/providers/trading/robinhood/orders', async (original) => ({
+  ...(await original<typeof import('@/providers/trading/robinhood/orders')>()),
+  submitRobinhoodOrder: mockSubmitRobinhoodOrder,
+}))
+
 beforeAll(async () => {
   ;({ POST: routePost } = await import('@/app/api/providers/trading/order/route'))
 })
@@ -111,10 +117,12 @@ const etfListing = {
 
 const workspaceId = 'workspace-1'
 
-const portfolioIdentityFor = (providerId: 'alpaca' | 'tradier', accountId = 'ACC-1') => ({
+type TestProviderId = 'alpaca' | 'tradier' | 'robinhood'
+
+const portfolioIdentityFor = (providerId: TestProviderId, accountId = 'ACC-1') => ({
   providerId,
   credentialId: `${providerId}-oauth-credential-1`,
-  serviceId: `${providerId}-live`,
+  serviceId: providerId === 'robinhood' ? 'robinhood' : `${providerId}-live`,
   accountId,
 })
 
@@ -138,10 +146,7 @@ const createOrderRequest = (body: Record<string, unknown>, idempotencyKey = next
     ...body,
   })
 
-const orderBodyFor = (
-  providerId: 'alpaca' | 'tradier',
-  overrides: Record<string, unknown> = {}
-) => ({
+const orderBodyFor = (providerId: TestProviderId, overrides: Record<string, unknown> = {}) => ({
   workspaceId,
   portfolioIdentity: portfolioIdentityFor(providerId),
   listing: stockListing,
@@ -151,7 +156,7 @@ const orderBodyFor = (
 })
 
 const createProviderOrderRequest = (
-  providerId: 'alpaca' | 'tradier',
+  providerId: TestProviderId,
   overrides?: Record<string, unknown>,
   idempotencyKey?: string
 ) => createOrderRequest(orderBodyFor(providerId, overrides), idempotencyKey)
@@ -173,7 +178,11 @@ describe('Trading provider order route', () => {
         Promise.resolve({
           tokenAccountId: accountId,
           credentialOwnerUserId: 'user-1',
-          providerId: accountId.startsWith('tradier') ? 'tradier-live' : 'alpaca-live',
+          providerId: accountId.startsWith('robinhood')
+            ? 'robinhood'
+            : accountId.startsWith('tradier')
+              ? 'tradier-live'
+              : 'alpaca-live',
         })
     )
     mockRefreshAccessTokenIfNeeded.mockResolvedValue('access-token')
@@ -189,7 +198,18 @@ describe('Trading provider order route', () => {
     })
     mockRecordOrderHistory.mockResolvedValue({ id: 'app-order-1' })
     mockUpdateOrderHistoryResult.mockResolvedValue({ id: 'app-order-1' })
+    mockSubmitRobinhoodOrder.mockResolvedValue({
+      id: 'robinhood-order-1',
+      symbol: 'AAPL',
+      side: 'buy',
+      state: 'confirmed',
+      quantity: '1',
+      cumulative_quantity: '0',
+      type: 'market',
+      time_in_force: 'gfd',
+    })
     mockListPortfolioIdentities.mockResolvedValue([
+      portfolioIdentityFor('robinhood'),
       {
         providerId: 'alpaca',
         credentialId: 'alpaca-oauth-credential-1',
@@ -971,5 +991,131 @@ describe('Trading provider order route', () => {
     expect(mockFetch).toHaveBeenCalledTimes(1)
     expect(mockRecordOrderHistory).toHaveBeenCalledTimes(1)
     expect(mockUpdateOrderHistoryResult).toHaveBeenCalledTimes(1)
+  })
+
+  it('reuses the Robinhood OAuth credential and selected account with normalized idempotent history', async () => {
+    const { POST } = await import('@/app/api/providers/trading/order/route')
+    const key = nextIdempotencyKey()
+    const first = await POST(createProviderOrderRequest('robinhood', undefined, key))
+    const second = await POST(createProviderOrderRequest('robinhood', undefined, key))
+    expect(first.status).toBe(200)
+    expect(second.status).toBe(200)
+    const result = await first.json()
+    await expect(second.json()).resolves.toEqual(result)
+    expect(result).toMatchObject({
+      provider: 'robinhood',
+      accountId: 'ACC-1',
+      appOrderId: 'app-order-1',
+      order: {
+        id: 'robinhood-order-1',
+        status: 'accepted',
+        quantity: 1,
+        filledQuantity: 0,
+        timeInForce: 'day',
+      },
+    })
+    expect(mockRefreshAccessTokenIfNeeded).toHaveBeenCalledWith(
+      'robinhood-oauth-credential-1',
+      'user-1',
+      expect.any(String)
+    )
+    expect(mockSubmitRobinhoodOrder).toHaveBeenCalledOnce()
+    expect(mockSubmitRobinhoodOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accessToken: 'access-token',
+        accountId: 'ACC-1',
+        environment: 'live',
+        clientOrderId: result.clientOrderId,
+        quantity: 1,
+      })
+    )
+    expect(mockRecordOrderHistory).toHaveBeenCalledOnce()
+    expect(mockRecordOrderHistory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request: expect.objectContaining({
+          credentialId: 'robinhood-oauth-credential-1',
+          serviceId: 'robinhood',
+          accountId: 'ACC-1',
+        }),
+      })
+    )
+    expect(mockUpdateOrderHistoryResult).toHaveBeenCalledOnce()
+    expect(mockUpdateOrderHistoryResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        response: expect.objectContaining({ success: true, orderId: 'robinhood-order-1' }),
+        normalizedOrder: expect.objectContaining({
+          status: 'accepted',
+          quantity: 1,
+          clientOrderId: result.clientOrderId,
+        }),
+      })
+    )
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('rejects a Robinhood account absent from the authorized Agentic account list before submission', async () => {
+    const { POST } = await import('@/app/api/providers/trading/order/route')
+    const response = await POST(
+      createProviderOrderRequest('robinhood', {
+        portfolioIdentity: portfolioIdentityFor('robinhood', 'PERSONAL-ACCOUNT'),
+      })
+    )
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({
+      error: 'Account not found for provider connection',
+    })
+    expect(mockSubmitRobinhoodOrder).not.toHaveBeenCalled()
+    expect(mockRecordOrderHistory).not.toHaveBeenCalled()
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('records ambiguous Robinhood submission as unknown and warns it may have completed', async () => {
+    const { POST } = await import('@/app/api/providers/trading/order/route')
+    const { TradingBrokerRequestError } = await import('@/providers/trading/portfolio-utils')
+    mockSubmitRobinhoodOrder.mockRejectedValueOnce(
+      new TradingBrokerRequestError({
+        providerId: 'robinhood',
+        url: 'https://agent.robinhood.com/mcp/trading',
+        status: 504,
+        submissionUnknown: true,
+        message: 'Robinhood request timed out.',
+      })
+    )
+    const response = await POST(createProviderOrderRequest('robinhood'))
+    expect(response.status).toBe(502)
+    await expect(response.json()).resolves.toEqual({
+      error: expect.stringContaining('may have completed'),
+    })
+    expect(mockSubmitRobinhoodOrder).toHaveBeenCalledOnce()
+    expect(mockUpdateOrderHistoryResult).toHaveBeenCalledOnce()
+    expect(mockUpdateOrderHistoryResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        response: expect.objectContaining({ success: false, status: 'unknown', httpStatus: 504 }),
+      })
+    )
+    expect(mockUpdateOrderHistoryResult.mock.calls[0][0]).not.toHaveProperty('normalizedOrder')
+  })
+
+  it('preserves Robinhood review rejection messages and records a failed order', async () => {
+    const { POST } = await import('@/app/api/providers/trading/order/route')
+    const { TradingBrokerRequestError } = await import('@/providers/trading/portfolio-utils')
+    const message = 'Robinhood order review returned unresolved warnings.'
+    mockSubmitRobinhoodOrder.mockRejectedValueOnce(
+      new TradingBrokerRequestError({
+        providerId: 'robinhood',
+        url: 'https://agent.robinhood.com/mcp/trading',
+        status: 422,
+        message,
+      })
+    )
+    const response = await POST(createProviderOrderRequest('robinhood'))
+    expect(response.status).toBe(422)
+    await expect(response.json()).resolves.toEqual({ error: message })
+    expect(mockSubmitRobinhoodOrder).toHaveBeenCalledOnce()
+    expect(mockUpdateOrderHistoryResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        response: expect.objectContaining({ success: false, status: 'failed', httpStatus: 422 }),
+      })
+    )
   })
 })
