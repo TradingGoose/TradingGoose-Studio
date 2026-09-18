@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@tradinggoose/db', () => ({
   workflow: { id: 'workflow.id' },
-  workflowSchedule: { id: 'workflowSchedule.id' },
+  workflowSchedule: { id: 'workflowSchedule.id', nextRunAt: 'workflowSchedule.nextRunAt' },
   db: {
     select: (fields?: Record<string, unknown>) => ({
       from: () => ({

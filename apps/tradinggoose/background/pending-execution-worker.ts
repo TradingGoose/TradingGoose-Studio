@@ -30,6 +30,7 @@ import {
 import { cancelPendingWorkflowExecution } from '@/lib/workflows/queued-execution-cancellation'
 import { markDocumentProcessingJobFailed } from './knowledge-processing'
 import { executePendingExecutionJob } from './pending-execution-job'
+import { isScheduleExecutionPayload, settleScheduleOccurrence } from './schedule-execution'
 
 const logger = createLogger('PendingExecutionWorker')
 const DESCENDANT_CANCELLATION_CONCURRENCY = 5
@@ -83,31 +84,16 @@ function getWorkflowState(row: Pick<PendingExecutionClaim, 'payload'>): Workflow
   }
 }
 
-async function getWorkflowExecutionLog(executionId: string) {
-  const [log] = await db
-    .select({
-      id: workflowExecutionLogs.id,
-      endedAt: workflowExecutionLogs.endedAt,
-    })
-    .from(workflowExecutionLogs)
-    .where(eq(workflowExecutionLogs.executionId, executionId))
-    .limit(1)
-
-  return log
-}
-
-async function dispatchPendingExecution(row: PendingExecutionClaim) {
-  await executePendingExecutionJob(row, { triggerRuntime: true })
-  await settlePendingExecutionOwner(row, { wake: false })
-}
-
 async function executePendingExecutionRun(payload: PendingExecutionRunTaskPayload) {
   const row = await getProcessingPendingExecution(payload.pendingExecutionId)
   if (!row) {
     return { success: true, skipped: 'not_processing' as const }
   }
 
-  await dispatchPendingExecution(row)
+  if (!(await recoverPendingExecutionCheckpoint(row))) {
+    await executePendingExecutionJob(row, { triggerRuntime: true })
+    await settlePendingExecutionOwner(row, { wake: false })
+  }
   return { success: true, pendingExecutionId: row.id }
 }
 
@@ -241,7 +227,14 @@ export async function terminalizeWorkflowExecution(
 
   const executionId =
     typeof row.payload.resumeExecutionId === 'string' ? row.payload.resumeExecutionId : row.id
-  const existingLog = await getWorkflowExecutionLog(executionId)
+  const [existingLog] = await db
+    .select({
+      id: workflowExecutionLogs.id,
+      endedAt: workflowExecutionLogs.endedAt,
+    })
+    .from(workflowExecutionLogs)
+    .where(eq(workflowExecutionLogs.executionId, executionId))
+    .limit(1)
   if (existingLog?.endedAt) {
     await executionLogger.settleWorkflowExecutionUsage(executionId)
     const terminal = await readWorkflowExecutionEventState({
@@ -380,11 +373,7 @@ export async function cancelPendingExecutionDescendants(
   })
 }
 
-export async function finalizePendingExecutionFailure(
-  row: PendingExecutionClaim,
-  message: string,
-  durationMs: number
-) {
+async function recoverPendingExecutionCheckpoint(row: PendingExecutionClaim) {
   if (
     row.executionType !== 'document' &&
     (await recoverWorkflowCheckpointSegment({
@@ -396,9 +385,22 @@ export async function finalizePendingExecutionFailure(
         typeof row.payload.checkpointRevision === 'number' ? row.payload.checkpointRevision : 0,
     }))
   ) {
+    if (row.executionType === 'schedule') {
+      if (!isScheduleExecutionPayload(row.payload)) throw new Error('Invalid schedule payload')
+      await settleScheduleOccurrence(row.payload, 'success')
+    }
     await settlePendingExecutionOwner(row, { wake: false })
     return true
   }
+  return false
+}
+
+export async function finalizePendingExecutionFailure(
+  row: PendingExecutionClaim,
+  message: string,
+  durationMs: number
+) {
+  if (await recoverPendingExecutionCheckpoint(row)) return true
   if (row.executionType === 'document') {
     await markDocumentProcessingJobFailed(row.payload, message)
   }

@@ -28,6 +28,7 @@ const mocks = vi.hoisted(() => ({
   readWorkflowCheckpointSnapshot: vi.fn(),
   readWorkflowExecutionEventState: vi.fn(),
   recoverWorkflowCheckpointSegment: vi.fn(),
+  settleScheduleOccurrence: vi.fn(),
 }))
 
 vi.mock('@trigger.dev/sdk', () => ({
@@ -114,6 +115,10 @@ vi.mock('./knowledge-processing', () => ({
 
 vi.mock('./pending-execution-job', () => ({
   executePendingExecutionJob: mocks.executePendingExecutionJob,
+}))
+vi.mock('./schedule-execution', () => ({
+  isScheduleExecutionPayload: () => true,
+  settleScheduleOccurrence: mocks.settleScheduleOccurrence,
 }))
 
 import {
@@ -396,7 +401,7 @@ describe('pending execution worker', () => {
     expect(mocks.settlePendingExecutionOwner).toHaveBeenCalledWith(row, { wake: false })
   })
 
-  it.each(['workflow', 'webhook', 'schedule', 'monitor'] as const)(
+  it.each(['workflow', 'webhook', 'monitor'] as const)(
     'preserves a newer %s checkpoint when old-segment maintenance fails',
     async (executionType) => {
       const row = processingRow({
@@ -417,6 +422,48 @@ describe('pending execution worker', () => {
       expect(mocks.settlePendingExecutionOwner).toHaveBeenCalledWith(row, { wake: false })
     }
   )
+
+  it('retries schedule advancement after checkpoint recovery before releasing the occurrence', async () => {
+    const row = processingRow({
+      executionType: 'schedule',
+      payload: {
+        scheduleId: 'schedule-1',
+        workflowId: 'workflow-1',
+        executionId: 'pending-workflow-1',
+        blockId: 'trigger-1',
+        cronExpression: '*/2 * * * *',
+        utcOffset: 0,
+        now: '2026-09-16T12:00:00Z',
+      },
+    })
+    mocks.getProcessingPendingExecution.mockResolvedValue(row)
+    mocks.triggerAndWait.mockImplementation(async () => {
+      try {
+        return { ok: true, output: await runExecution(row.id) }
+      } catch (error) {
+        return { ok: false, error }
+      }
+    })
+    mocks.recoverWorkflowCheckpointSegment.mockResolvedValue(true)
+    mocks.settleScheduleOccurrence
+      .mockRejectedValueOnce(new Error('Schedule write failed'))
+      .mockRejectedValueOnce(new Error('Schedule still unavailable'))
+      .mockResolvedValueOnce(undefined)
+
+    await expect(runSupervisor(row.id)).rejects.toThrow('Schedule still unavailable')
+    expect(mocks.settlePendingExecutionOwner).not.toHaveBeenCalled()
+    expect(mocks.wakePendingExecution).not.toHaveBeenCalled()
+
+    await expect(runSupervisor(row.id)).resolves.toMatchObject({ success: true })
+    expect(mocks.settleScheduleOccurrence).toHaveBeenCalledTimes(3)
+    expect(mocks.settleScheduleOccurrence).toHaveBeenLastCalledWith(row.payload, 'success')
+    expect(mocks.settleScheduleOccurrence.mock.invocationCallOrder[2]).toBeLessThan(
+      mocks.settlePendingExecutionOwner.mock.invocationCallOrder[0]
+    )
+    expect(mocks.executePendingExecutionJob).not.toHaveBeenCalled()
+    expect(mocks.loggingComplete).not.toHaveBeenCalled()
+    expect(mocks.cancelPendingWorkflowExecution).not.toHaveBeenCalled()
+  })
 
   it('retains the owner for supervisor retry while checkpoint reconciliation remains unavailable', async () => {
     mocks.recoverWorkflowCheckpointSegment.mockRejectedValueOnce(new Error('Database unavailable'))

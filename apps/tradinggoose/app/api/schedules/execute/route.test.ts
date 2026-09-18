@@ -7,7 +7,11 @@ import {
   validateCronExpression,
 } from '@/lib/schedules/utils'
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
-import { executeScheduleJob, isScheduleExecutionPayload } from '@/background/schedule-execution'
+import {
+  executeScheduleJob,
+  isScheduleExecutionPayload,
+  settleScheduleOccurrence,
+} from '@/background/schedule-execution'
 import { GET } from './route'
 
 const state = vi.hoisted(() => ({
@@ -60,7 +64,8 @@ vi.mock('@tradinggoose/db', () => {
 })
 vi.mock('drizzle-orm', () => ({
   eq: (key: string, value: unknown) => (row: Record<string, any>) => row[key] === value,
-  lte: (key: string, value: Date) => (row: Record<string, any>) => row[key] <= value,
+  lte: (key: string, value: Date) => (row: Record<string, any>) =>
+    row[key] != null && row[key] <= value,
   and:
     (...conditions: Array<(row: Record<string, any>) => boolean>) =>
     (row: Record<string, any>) =>
@@ -274,6 +279,43 @@ describe('schedule admission', () => {
     expect(state.enqueue).toHaveBeenCalledTimes(1)
     expect(state.resolveOffset).not.toHaveBeenCalled()
   })
+
+  it.each(['recurring', 'one_time', 'reconfigured'] as const)(
+    'recovers paused %s schedule writes without replaying work or advancing twice',
+    async (kind) => {
+      if (kind === 'one_time') state.schedules[0].cronExpression = occurrence.toISOString()
+      await GET(request)
+      const payload = state.enqueue.mock.calls[0][0].payload
+      state.run.mockResolvedValueOnce({ result: { success: true, status: 'paused', output: {} } })
+      const failedWrite = {
+        where: vi.fn().mockRejectedValue(new Error('Schedule write unavailable')),
+      }
+      state.set.mockReturnValueOnce(failedWrite).mockReturnValueOnce(failedWrite)
+      await expect(executeScheduleJob(payload)).rejects.toThrow('Schedule write unavailable')
+      await expect(settleScheduleOccurrence(payload, 'success')).rejects.toThrow(
+        'Schedule write unavailable'
+      )
+      expect(state.schedules[0].nextRunAt).toEqual(occurrence)
+      vi.setSystemTime(new Date('2026-09-17T12:02:05Z'))
+      if (kind === 'reconfigured') {
+        Object.assign(state.schedules[0], { nextRunAt: new Date('2026-09-18T00:00:00Z') })
+      }
+      await settleScheduleOccurrence(payload, 'success')
+      expect(state.schedules[0]).toMatchObject({
+        nextRunAt:
+          kind === 'one_time'
+            ? null
+            : new Date(kind === 'recurring' ? '2026-09-17T12:04:00Z' : '2026-09-18T00:00:00Z'),
+        status: kind === 'one_time' ? 'disabled' : 'active',
+        failedCount: kind === 'reconfigured' ? 1 : 0,
+      })
+      const settled = { ...state.schedules[0] }
+      vi.setSystemTime(new Date('2026-09-20T00:00:00Z'))
+      await settleScheduleOccurrence(payload, 'success')
+      expect(state.schedules[0]).toEqual(settled)
+      expect(state.run).toHaveBeenCalledTimes(1)
+    }
+  )
 
   it('keeps a timezone outage retryable and counts only distinct accepted executions', async () => {
     const error = new Error('Timezone service unavailable')

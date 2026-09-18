@@ -1,6 +1,6 @@
 import { db, workflow, workflowSchedule } from '@tradinggoose/db'
 import type { Cron } from 'croner'
-import { eq } from 'drizzle-orm'
+import { and, eq, lte } from 'drizzle-orm'
 import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
 import { readWorkflowExecutionEventState } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -43,10 +43,44 @@ export function isScheduleExecutionPayload(value: unknown): value is ScheduleExe
   )
 }
 
+export async function settleScheduleOccurrence(
+  payload: ScheduleExecutionPayload,
+  outcome: 'success' | 'failure' | 'usage_limited',
+  cron: Cron | null = createScheduleCron(payload.cronExpression, payload.utcOffset)
+) {
+  const now = new Date(payload.now)
+  const nextRunAt = cron?.nextRun()
+  const failedCount = outcome === 'success' ? 0 : (payload.failedCount ?? 0) + 1
+  const shouldDisable = failedCount >= MAX_CONSECUTIVE_FAILURES
+  if (outcome === 'failure' && shouldDisable) {
+    logger.warn(
+      `[${payload.executionId.slice(0, 8)}] Disabling schedule for workflow ${payload.workflowId} after ${MAX_CONSECUTIVE_FAILURES} consecutive failures`
+    )
+  }
+  await db
+    .update(workflowSchedule)
+    .set({
+      updatedAt: now,
+      ...(cron ? { nextRunAt } : {}),
+      ...(outcome !== 'usage_limited' ? { failedCount } : {}),
+      ...(outcome === 'success' ? { lastRanAt: now } : {}),
+      ...(outcome === 'failure'
+        ? { lastFailedAt: now, status: shouldDisable ? 'disabled' : 'active' }
+        : {}),
+      ...(cron && !nextRunAt ? { status: 'disabled' } : {}),
+    })
+    .where(
+      and(
+        eq(workflowSchedule.id, payload.scheduleId),
+        // A recovered checkpoint must not advance an already-settled or reconfigured occurrence.
+        lte(workflowSchedule.nextRunAt, now)
+      )
+    )
+}
+
 export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
   const executionId = payload.executionId
   const requestId = executionId.slice(0, 8)
-  const now = new Date(payload.now)
 
   logger.info(`[${requestId}] Starting schedule execution`, {
     scheduleId: payload.scheduleId,
@@ -54,28 +88,9 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
     executionId,
   })
 
-  let cron: Cron | undefined
+  let cron: Cron | null = null
   let executionSucceeded = false
   let failure: { error: unknown } | undefined
-  const updateScheduleNextRun = async (
-    fields: {
-      failedCount?: number
-      status?: 'active' | 'disabled'
-      lastRanAt?: Date
-      lastFailedAt?: Date
-    } = {}
-  ) => {
-    const nextRunAt = cron?.nextRun()
-    await db
-      .update(workflowSchedule)
-      .set({
-        updatedAt: now,
-        ...(cron ? { nextRunAt } : {}),
-        ...fields,
-        ...(cron && !nextRunAt ? { status: 'disabled' } : {}),
-      })
-      .where(eq(workflowSchedule.id, payload.scheduleId))
-  }
 
   try {
     cron = createScheduleCron(payload.cronExpression, payload.utcOffset)
@@ -136,7 +151,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
     })
 
     if (dispatchFailureReason === 'usage_limit_exceeded') {
-      await updateScheduleNextRun()
+      await settleScheduleOccurrence(payload, 'usage_limited', cron)
       return
     }
 
@@ -158,18 +173,6 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
     executionSucceeded = execution?.status === 'completed'
   }
 
-  const failedCount = executionSucceeded ? 0 : (payload.failedCount ?? 0) + 1
-  const shouldDisable = failedCount >= MAX_CONSECUTIVE_FAILURES
-  if (shouldDisable) {
-    logger.warn(
-      `[${requestId}] Disabling schedule for workflow ${payload.workflowId} after ${MAX_CONSECUTIVE_FAILURES} consecutive failures`
-    )
-  }
-  await updateScheduleNextRun({
-    failedCount,
-    ...(executionSucceeded
-      ? { lastRanAt: now }
-      : { lastFailedAt: now, status: shouldDisable ? 'disabled' : 'active' }),
-  })
+  await settleScheduleOccurrence(payload, executionSucceeded ? 'success' : 'failure', cron)
   if (failure) throw failure.error
 }
