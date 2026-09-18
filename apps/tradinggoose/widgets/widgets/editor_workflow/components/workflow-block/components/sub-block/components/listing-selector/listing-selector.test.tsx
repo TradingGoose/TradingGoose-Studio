@@ -7,9 +7,11 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
+import { SubBlock } from '../../sub-block'
 import { ListingSelectorInput } from './listing-selector'
 
 const listingSelectorMock = vi.hoisted(() => vi.fn())
+const credentialSelectorMock = vi.hoisted(() => vi.fn((_props: Record<string, unknown>) => null))
 const subBlockValues = vi.hoisted(() => new Map<string, unknown>())
 const setSubBlockValueMock = vi.hoisted(() => vi.fn())
 const reactActEnvironment = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -31,12 +33,28 @@ vi.mock(
   })
 )
 
+vi.mock('@/lib/yjs/use-workflow-doc', () => ({
+  useBlock: () => ({
+    subBlocks: Object.fromEntries([...subBlockValues].map(([id, value]) => [id, { value }])),
+  }),
+}))
+
 vi.mock(
-  '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-depends-on-gate',
-  () => ({
-    useDependsOnGate: () => ({ finalDisabled: false }),
+  '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components',
+  async () => ({
+    CredentialSelector: (await import('../credential-selector/credential-selector'))
+      .CredentialSelector,
   })
 )
+
+vi.mock(
+  '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/tool-credential-selector',
+  () => ({ ToolCredentialSelector: credentialSelectorMock })
+)
+
+vi.mock('@/widgets/widgets/editor_workflow/copy', () => ({
+  useWorkflowInspectorCopy: () => ({ workflowEditor: {} }),
+}))
 
 vi.mock('@/widgets/widgets/editor_workflow/context/workflow-route-context', () => ({
   useOptionalWorkflowRoute: () => ({
@@ -66,13 +84,14 @@ const unscopedConfig = {
   providerType: 'market',
 } satisfies SubBlockConfig
 
-describe('ListingSelectorInput', () => {
+describe('workflow market selectors', () => {
   let root: Root
   let container: HTMLDivElement
 
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     listingSelectorMock.mockClear()
+    credentialSelectorMock.mockClear()
     setSubBlockValueMock.mockClear()
     subBlockValues.clear()
     useListingSelectorStore.setState({ instances: {} })
@@ -87,6 +106,42 @@ describe('ListingSelectorInput', () => {
     useListingSelectorStore.setState({ instances: {} })
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
+
+  it.each([
+    ['nested without parent', undefined, { provider: 'robinhood' }, true],
+    ['nested with unrelated parent', 'openai', { provider: 'robinhood' }, true],
+    ['nested missing', 'robinhood', {}, false],
+    ['nested blank', 'robinhood', { provider: '' }, false],
+    ['nested non-OAuth', 'robinhood', { provider: 'polygon' }, false],
+    ['standalone', 'robinhood', undefined, true],
+  ] as const)(
+    'resolves credentials from the %s provider',
+    (_, parentProvider, contextValues, visible) => {
+      const id = contextValues ? 'tools-tool-0-credentialId' : 'credentialId'
+      subBlockValues.set('provider', parentProvider)
+      subBlockValues.set(id, 'saved-credential')
+
+      act(() => {
+        root.render(
+          <SubBlock
+            blockId='block-1'
+            config={{ id, type: 'oauth-input', providerType: 'market', dependsOn: ['provider'] }}
+            isConnecting={false}
+            contextValues={contextValues}
+          />
+        )
+      })
+
+      if (visible) {
+        expect(credentialSelectorMock.mock.lastCall?.[0]).toMatchObject({
+          provider: 'robinhood',
+          value: 'saved-credential',
+        })
+      } else {
+        expect(credentialSelectorMock).not.toHaveBeenCalled()
+      }
+    }
+  )
 
   it('enables market selectors with a selected trading provider when the route market provider is empty', () => {
     subBlockValues.set('provider', 'alpaca')

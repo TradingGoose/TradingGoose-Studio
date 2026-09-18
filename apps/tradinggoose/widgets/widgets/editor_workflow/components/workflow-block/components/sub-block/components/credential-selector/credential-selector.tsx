@@ -32,6 +32,7 @@ import type { LocaleCode } from '@/i18n/utils'
 import { formatTemplate } from '@/i18n/utils'
 import { getMarketProviderDefinition } from '@/providers/market/providers'
 import { ToolCredentialSelector } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/tool-credential-selector'
+import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-depends-on-gate'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
@@ -41,6 +42,7 @@ interface CredentialSelectorProps {
   blockId: string
   subBlock: SubBlockConfig
   disabled?: boolean
+  contextValues?: Record<string, any>
 }
 
 export function CredentialSelector(props: CredentialSelectorProps) {
@@ -51,8 +53,16 @@ export function CredentialSelector(props: CredentialSelectorProps) {
   )
 }
 
-function MarketConnectionSelector({ blockId, subBlock, disabled }: CredentialSelectorProps) {
-  const [providerId] = useSubBlockValue(blockId, 'provider')
+function MarketConnectionSelector({
+  blockId,
+  subBlock,
+  disabled,
+  contextValues,
+}: CredentialSelectorProps) {
+  const { dependsOn, dependencyValues } = useDependsOnGate(blockId, subBlock, {
+    contextValues,
+  })
+  const providerId = dependencyValues[dependsOn.indexOf('provider')]
   const [value, setValue] = useSubBlockValue(blockId, subBlock.id)
   const oauth = getMarketProviderDefinition(typeof providerId === 'string' ? providerId : '')?.oauth
   if (!oauth) return null

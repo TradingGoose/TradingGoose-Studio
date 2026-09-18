@@ -713,7 +713,14 @@ export const SubBlock = memo(
             />
           )
         case 'oauth-input':
-          return <CredentialSelector blockId={blockId} subBlock={config} disabled={isDisabled} />
+          return (
+            <CredentialSelector
+              blockId={blockId}
+              subBlock={config}
+              disabled={isDisabled}
+              contextValues={contextValues}
+            />
+          )
         case 'file-selector':
           return (
             <FileSelectorInput
