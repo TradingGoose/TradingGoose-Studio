@@ -189,4 +189,65 @@ describe('Robinhood market provider and MCP boundary', () => {
     })
     expect(sdk.callTool.mock.lastCall?.[0].arguments.start_time).toBe('2026-09-02T15:00:00.000Z')
   })
+
+  it.each([
+    [2_000, '1m', 1],
+    [10_000, '1m', 1],
+    [10_000, '5m', 5],
+    [10_000, '10m', 10],
+    [10_000, '30m', 30],
+    [10_000, '1h', 60],
+    [10_000, '4h', 240],
+    [2_000, '1m', 1, 1],
+  ] as const)(
+    'retrieves up to %i %s bars at Monday open across market closures',
+    async (barCount, interval, minutes, historyLimit?: number) => {
+      const end = Date.parse('2026-09-21T13:31:00Z')
+      const intervalMs = minutes * 60_000
+      const available = []
+      const dayMs = 86_400_000
+      const firstDay = Math.floor((end - barCount * intervalMs * 8) / dayMs) * dayMs
+      for (let day = firstDay; day <= end; day += dayMs) {
+        const date = new Date(day).toISOString().slice(0, 10)
+        if ([0, 6].includes(new Date(day).getUTCDay()) || date === '2026-09-07') continue
+        const close = Date.parse(`${date}T${date === '2026-09-18' ? '17' : '20'}:00:00Z`)
+        for (
+          let time = Date.parse(`${date}T13:30:00Z`);
+          time < Math.min(end, close);
+          time += intervalMs
+        ) {
+          available.push(rawBar(new Date(time).toISOString()))
+        }
+      }
+      const bars = available.slice(-(historyLimit ?? available.length))
+      sdk.session.mockResolvedValue(end)
+      sdk.callTool.mockImplementation(async ({ arguments: args }) =>
+        mcpResult(
+          history(
+            bars.filter(
+              (bar) =>
+                Date.parse(bar.begins_at) >= Date.parse(args.start_time) &&
+                Date.parse(bar.begins_at) <= Date.parse(args.end_time)
+            )
+          )
+        )
+      )
+      const result = await fetchRobinhoodSeries({
+        ...request,
+        start: undefined,
+        interval,
+        windows: [{ mode: 'bars', barCount }],
+      })
+      expect(result.bars.map((bar) => bar.timeStamp)).toEqual(
+        bars.slice(-barCount).map((bar) => bar.begins_at)
+      )
+      expect(result.bars).toHaveLength(historyLimit ?? barCount)
+      expect(sdk.callTool.mock.calls.length).toBeLessThanOrEqual(barCount === 2_000 ? 20 : 100)
+      for (const [{ arguments: args }] of sdk.callTool.mock.calls) {
+        expect(Date.parse(args.end_time) - Date.parse(args.start_time)).toBeLessThanOrEqual(
+          2_000 * intervalMs
+        )
+      }
+    }
+  )
 })

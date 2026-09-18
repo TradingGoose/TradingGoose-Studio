@@ -116,11 +116,13 @@ export async function fetchRobinhoodSeries(request: MarketSeriesRequest): Promis
   const rangeMs = window?.mode === 'range' ? rangeToMs(window.range) : null
   const startMs =
     barCount !== undefined
-      ? Math.max(0, endMs - Math.max(7 * DAY_MS, barCount * intervalMs * 6))
+      ? 0
       : (toDate(request.start)?.getTime() ?? endMs - (rangeMs ?? 30 * DAY_MS))
   if (startMs >= endMs) invalidRequest('Robinhood start time must precede end time')
   const pageMs =
     Math.min(BARS_PER_REQUEST, barCount ? Math.max(2, barCount * 2) : BARS_PER_REQUEST) * intervalMs
+  // Count windows allow the existing request budget per batch of requested bars.
+  const requestLimit = MAX_REQUESTS * Math.ceil((barCount ?? BARS_PER_REQUEST) / BARS_PER_REQUEST)
   if (!barCount && Math.ceil((endMs - startMs) / pageMs) > MAX_REQUESTS) {
     invalidRequest(
       'Robinhood range is too large for this interval. Choose a coarser interval or shorter range.'
@@ -129,8 +131,8 @@ export async function fetchRobinhoodSeries(request: MarketSeriesRequest): Promis
 
   const barsByTime = new Map<string, MarketBar>()
   let cursor = endMs
-  for (let page = 0; page < MAX_REQUESTS && cursor > startMs; page++) {
-    // Expand empty lookbacks across closures; bound each upstream call's bar count.
+  for (let page = 0; page < requestLimit && cursor > startMs; page++) {
+    // Continue through closures until the requested bars or request budget is reached.
     const span = barCount ? Math.min(BARS_PER_REQUEST * intervalMs, pageMs * 2 ** page) : pageMs
     const from = Math.max(startMs, cursor - span)
     const payload = await callRobinhoodTool(request.auth.accessToken, 'get_equity_historicals', {
@@ -149,11 +151,6 @@ export async function fetchRobinhoodSeries(request: MarketSeriesRequest): Promis
     }
     cursor = from
     if (barCount && barsByTime.size >= barCount) break
-  }
-  if (cursor > startMs && (!barCount || barsByTime.size < barCount)) {
-    invalidRequest(
-      'Robinhood history exceeded the request limit. Choose a coarser interval or shorter range.'
-    )
   }
   const ordered = [...barsByTime.values()].sort((a, b) => a.timeStamp.localeCompare(b.timeStamp))
   const bars = barCount ? ordered.slice(-barCount) : ordered
