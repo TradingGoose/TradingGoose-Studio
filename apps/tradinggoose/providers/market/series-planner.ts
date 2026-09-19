@@ -1,5 +1,6 @@
+import { toDate } from '@/providers/market/market-hours/date-utils'
 import { getMarketSeriesCapabilities } from '@/providers/market/providers'
-import { normalizeSeriesWindow, rangeToMs } from '@/providers/market/series-window'
+import { rangeToMs } from '@/providers/market/series-window'
 import type {
   MarketBar,
   MarketInterval,
@@ -53,18 +54,6 @@ const rangeParamFromMs = (rangeMs?: number | null): string | null => {
   if (dayCount % 365 === 0) return `${dayCount / 365}y`
   if (dayCount % 30 === 0) return `${dayCount / 30}mo`
   return `${dayCount}d`
-}
-
-const toEpochMs = (value?: string | number): number | null => {
-  if (value === undefined || value === null) return null
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value
-  }
-  if (typeof value === 'string') {
-    const parsed = Date.parse(value)
-    return Number.isFinite(parsed) ? parsed : null
-  }
-  return null
 }
 
 const resolveRetention = (providerId: string, interval?: string) => {
@@ -121,8 +110,8 @@ const normalizeWindow = (
   }
 
   if (window.mode === 'absolute') {
-    const startMs = toEpochMs(window.start)
-    const endMs = toEpochMs(window.end) ?? Date.now()
+    const startMs = toDate(window.start)?.getTime()
+    const endMs = toDate(window.end)?.getTime() ?? Date.now()
     if (startMs == null || !Number.isFinite(startMs) || !Number.isFinite(endMs)) return null
     if (startMs >= endMs) return null
 
@@ -192,9 +181,7 @@ export const planMarketSeriesRequest = (
 
   for (const candidate of requestedWindows) {
     if (!candidate || !allowedModes.includes(candidate.mode)) continue
-    const normalizedCandidate = normalizeSeriesWindow(candidate, [candidate.mode])
-    if (!normalizedCandidate) continue
-    const normalized = normalizeWindow(normalizedCandidate, intervalMs, retention)
+    const normalized = normalizeWindow(candidate, intervalMs, retention)
     if (normalized) {
       window = normalized
       resolvedMode = candidate.mode
@@ -220,9 +207,15 @@ export const planMarketSeriesRequest = (
   if (window.mode === 'absolute') {
     planned.start = new Date(window.startMs).toISOString()
     planned.end = new Date(window.endMs).toISOString()
+    planned.windows = [{ mode: 'absolute', start: planned.start, end: planned.end }]
   } else {
     Reflect.deleteProperty(planned, 'start')
     Reflect.deleteProperty(planned, 'end')
+    planned.windows = [
+      window.mode === 'bars'
+        ? window
+        : { mode: 'range', range: { value: window.rangeMs / DAY_MS, unit: 'day' } },
+    ]
   }
 
   // Range param preserves "latest available" semantics for providers that support range windows.

@@ -2,6 +2,7 @@ import { StreamableHTTPError } from '@modelcontextprotocol/sdk/client/streamable
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ROBINHOOD_MCP_URL } from '@/providers/market/robinhood/config'
+import { planMarketSeriesRequest } from '@/providers/market/series-planner'
 import type { MarketSeriesRequest } from '@/providers/market/types'
 import { callRobinhoodTool } from './client'
 import { robinhoodProvider } from './index'
@@ -199,14 +200,17 @@ describe('Robinhood market provider and MCP boundary', () => {
     [10_000, '1h', 60],
     [10_000, '4h', 240],
     [2_000, '1m', 1, 1],
+    [10, '1m', 1, undefined, false],
+    [10, '1m', 1, undefined, true],
   ] as const)(
     'retrieves up to %i %s bars at Monday open across market closures',
-    async (barCount, interval, minutes, historyLimit?: number) => {
+    async (barCount, interval, minutes, historyLimit?: number, withPrimary = false) => {
       const end = Date.parse('2026-09-21T13:31:00Z')
       const intervalMs = minutes * 60_000
       const available = []
       const dayMs = 86_400_000
-      const firstDay = Math.floor((end - barCount * intervalMs * 8) / dayMs) * dayMs
+      const firstDay =
+        Math.floor((end - Math.max(7 * dayMs, barCount * intervalMs * 8)) / dayMs) * dayMs
       for (let day = firstDay; day <= end; day += dayMs) {
         const date = new Date(day).toISOString().slice(0, 10)
         if ([0, 6].includes(new Date(day).getUTCDay()) || date === '2026-09-07') continue
@@ -232,12 +236,19 @@ describe('Robinhood market provider and MCP boundary', () => {
           )
         )
       )
-      const result = await fetchRobinhoodSeries({
+      const clock = vi.spyOn(Date, 'now').mockReturnValue(end)
+      const plan = planMarketSeriesRequest('robinhood', {
         ...request,
-        start: undefined,
         interval,
-        windows: [{ mode: 'bars', barCount }],
+        windows: [
+          ...(withPrimary ? [{ mode: 'absolute' as const, start: end, end: end - 60_000 }] : []),
+          { mode: 'bars', barCount },
+        ],
       })
+      clock.mockRestore()
+      expect(plan.window).toEqual({ mode: 'bars', barCount })
+      expect(plan.fallback).toBe(withPrimary)
+      const result = await fetchRobinhoodSeries(plan.request)
       expect(result.bars.map((bar) => bar.timeStamp)).toEqual(
         bars.slice(-barCount).map((bar) => bar.begins_at)
       )

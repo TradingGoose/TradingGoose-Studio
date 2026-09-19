@@ -8,7 +8,7 @@ import {
 import { callRobinhoodTool } from '@/providers/market/robinhood/client'
 import { ROBINHOOD_INTERVALS, robinhoodProviderConfig } from '@/providers/market/robinhood/config'
 import { intervalToMs } from '@/providers/market/series-planner'
-import { normalizeSeriesWindows, rangeToMs } from '@/providers/market/series-window'
+import { rangeToMs } from '@/providers/market/series-window'
 import type { MarketBar, MarketSeries, MarketSeriesRequest } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 
@@ -91,7 +91,7 @@ export async function fetchRobinhoodSeries(request: MarketSeriesRequest): Promis
     invalidRequest('Robinhood market data supports US stocks and ETFs quoted in USD')
   const symbol = resolveProviderSymbol(robinhoodProviderConfig, context).trim().toUpperCase()
   if (!symbol) invalidRequest('Robinhood requires a stock symbol')
-  const window = normalizeSeriesWindows(request.windows ?? [], ['bars', 'range', 'absolute'])[0]
+  const window = request.windows?.[0]
   const barCount =
     window?.mode === 'bars'
       ? window.barCount
