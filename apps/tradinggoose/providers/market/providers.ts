@@ -11,6 +11,7 @@ import {
   AlpacaIcon,
   AlphaVantageIcon,
   FinnhubIcon,
+  RobinHoodIcon,
   YahooIcon,
 } from '@/components/icons/provider-icons'
 import type { ListingIdentity } from '@/lib/listing/identity'
@@ -194,6 +195,7 @@ export const MARKET_PROVIDER_DEFINITIONS: Record<string, MarketProviderDefinitio
     name: 'Robinhood',
     description: 'Robinhood stock and ETF market data.',
     config: robinhoodProviderConfig,
+    icon: RobinHoodIcon,
     oauth: { provider: 'robinhood' },
   },
   'alpha-vantage': {

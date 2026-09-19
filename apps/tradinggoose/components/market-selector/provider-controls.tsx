@@ -1,14 +1,23 @@
 'use client'
 
-import { useMemo } from 'react'
 import { MarketProviderSelector } from '@/components/market-selector/provider-selector'
 import {
   MarketProviderSettingsButton,
   type MarketProviderSettingsSaveResult,
 } from '@/components/market-selector/provider-settings-button'
+import { providerSelectorTriggerClassName } from '@/components/provider-selector'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
+import {
+  sanitizeMarketProviderAuth,
+  sanitizeMarketProviderParamsForWidget,
+} from '@/lib/market/market-provider-settings'
 import { cn } from '@/lib/utils'
-import type { MarketProviderOption } from '@/providers/market/providers'
+import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
+import {
+  getMarketProviderDefinition,
+  type MarketProviderOption,
+} from '@/providers/market/providers'
+import { ToolCredentialSelector } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/tool-credential-selector'
 
 type MarketProviderControlsProps = {
   value?: string | null
@@ -35,10 +44,10 @@ export function MarketProviderControls({
   onSettingsSave,
   className,
 }: MarketProviderControlsProps) {
-  const selectedProvider = useMemo(
-    () => options.find((option) => option.id === value),
-    [options, value]
-  )
+  const copy = useWorkspaceWidgetsMessages().providerControls.accountSelector
+  const selectedProvider = options.find((option) => option.id === value)
+  const providerId = value?.trim() ?? ''
+  const oauth = getMarketProviderDefinition(providerId)?.oauth
 
   return (
     <div className={widgetHeaderButtonGroupClassName(cn('min-w-0', className))}>
@@ -49,6 +58,28 @@ export function MarketProviderControls({
         disabled={disabled}
         placeholder={placeholder}
       />
+      {oauth ? (
+        <ToolCredentialSelector
+          credentialSource='personal'
+          provider={oauth.provider}
+          serviceId={oauth.provider}
+          label={copy.placeholder}
+          value={
+            typeof providerParams?.credentialId === 'string' ? providerParams.credentialId : ''
+          }
+          disabled={disabled}
+          triggerClassName={providerSelectorTriggerClassName('widget', 'w-auto')}
+          onChange={(credentialId) =>
+            onSettingsSave({
+              providerParams: sanitizeMarketProviderParamsForWidget(providerId, {
+                ...providerParams,
+                credentialId,
+              }),
+              auth: sanitizeMarketProviderAuth(authParams),
+            })
+          }
+        />
+      ) : null}
       <MarketProviderSettingsButton
         providerId={value}
         providerName={selectedProvider?.name}

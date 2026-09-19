@@ -31,7 +31,7 @@ import {
   WebflowIcon,
   xIcon,
 } from '@/components/icons/icons'
-import { AlpacaIcon } from '@/components/icons/provider-icons'
+import { AlpacaIcon, RobinHoodIcon } from '@/components/icons/provider-icons'
 
 export type OAuthProvider =
   | 'google'
@@ -170,7 +170,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   robinhood: {
     id: 'robinhood',
     name: 'Robinhood',
-    icon: (props) => DollarIcon(props),
+    icon: (props) => RobinHoodIcon(props),
     credentialFields: [
       {
         key: 'client_id',
@@ -188,8 +188,8 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
         name: 'Robinhood',
         description: 'Connect on desktop to access Robinhood market data and trading.',
         providerId: 'robinhood',
-        icon: (props) => DollarIcon(props),
-        baseProviderIcon: (props) => DollarIcon(props),
+        icon: (props) => RobinHoodIcon(props),
+        baseProviderIcon: (props) => RobinHoodIcon(props),
         scopes: ['internal'],
       },
     },

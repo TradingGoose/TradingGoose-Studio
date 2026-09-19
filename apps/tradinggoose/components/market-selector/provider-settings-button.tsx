@@ -24,11 +24,7 @@ import {
   sanitizeMarketProviderParamsForWidget,
 } from '@/lib/market/market-provider-settings'
 import { cn } from '@/lib/utils'
-import {
-  getMarketProviderDefinition,
-  type MarketProviderParamDefinition,
-} from '@/providers/market/providers'
-import { ToolCredentialSelector } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/tool-credential-selector'
+import type { MarketProviderParamDefinition } from '@/providers/market/providers'
 
 export type MarketProviderSettingsSaveResult = {
   auth?: Record<string, unknown>
@@ -167,7 +163,6 @@ export function MarketProviderSettingsButton({
 }: MarketProviderSettingsButtonProps) {
   const trimmedProviderId = typeof providerId === 'string' ? providerId.trim() : ''
   const definitions = resolveMarketProviderSettingsDefinitions(trimmedProviderId)
-  const oauth = getMarketProviderDefinition(trimmedProviderId)?.oauth
   const [settingsOpen, setSettingsOpen] = useState(false)
   const paramValuesRef = useRef<Record<string, unknown>>({})
   const changedParamIdsRef = useRef<Set<string>>(new Set())
@@ -344,28 +339,15 @@ export function MarketProviderSettingsButton({
                 <Label htmlFor={inputId} className='text-xs'>
                   {inputLabel}
                 </Label>
-                {definition.id === 'credentialId' && oauth ? (
-                  <ToolCredentialSelector
-                    credentialSource='personal'
-                    id={inputId}
-                    label={inputLabel}
-                    provider={oauth.provider}
-                    serviceId={oauth.provider}
-                    value={controlledValue}
-                    disabled={disabled}
-                    onChange={onTextChange}
-                  />
-                ) : (
-                  <MarketProviderTextInput
-                    id={inputId}
-                    ariaLabel={inputLabel}
-                    definition={definition}
-                    isCredential={isCredential}
-                    value={controlledValue}
-                    onChange={onTextChange}
-                    workspaceId={workspaceId}
-                  />
-                )}
+                <MarketProviderTextInput
+                  id={inputId}
+                  ariaLabel={inputLabel}
+                  definition={definition}
+                  isCredential={isCredential}
+                  value={controlledValue}
+                  onChange={onTextChange}
+                  workspaceId={workspaceId}
+                />
               </div>
             )
           })}

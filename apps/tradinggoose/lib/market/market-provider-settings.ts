@@ -25,6 +25,7 @@ export const resolveMarketProviderSettingsDefinitions = (
   if (!trimmedProviderId) return []
 
   return getMarketProviderParamDefinitions(trimmedProviderId, 'series').filter((definition) => {
+    if (definition.id === 'credentialId') return false
     if (definition.visibility === 'hidden' || definition.visibility === 'llm-only') return false
     return definition.required === true || isMarketProviderCredentialDefinition(definition)
   })

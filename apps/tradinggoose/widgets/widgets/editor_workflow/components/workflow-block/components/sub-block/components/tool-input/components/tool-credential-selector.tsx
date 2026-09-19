@@ -20,6 +20,7 @@ import {
   type OAuthService,
   parseProvider,
 } from '@/lib/oauth'
+import { cn } from '@/lib/utils'
 import { useOAuthConnections } from '@/hooks/queries/oauth-connections'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
 import type { LocaleCode } from '@/i18n/utils'
@@ -66,6 +67,7 @@ interface ToolCredentialSelectorProps {
   label?: string
   serviceId?: OAuthService
   disabled?: boolean
+  triggerClassName?: string
 }
 
 export function ToolCredentialSelector({
@@ -78,6 +80,7 @@ export function ToolCredentialSelector({
   label,
   serviceId,
   disabled = false,
+  triggerClassName,
 }: ToolCredentialSelectorProps) {
   const locale = useLocale() as LocaleCode
   const copy = useWorkspaceBlockEditorMessages().toolInput
@@ -203,7 +206,7 @@ export function ToolCredentialSelector({
               variant='outline'
               role='combobox'
               aria-expanded={open}
-              className='h-10 w-full min-w-0 justify-between'
+              className={cn('h-10 w-full min-w-0 justify-between', triggerClassName)}
               disabled={disabled}
             />
           }
