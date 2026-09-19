@@ -28,7 +28,6 @@ import { CANDLE_TYPE_OPTIONS } from '@/widgets/widgets/data_chart/options'
 import { buildIndicatorRefs } from '@/widgets/widgets/data_chart/utils/indicator-refs'
 
 type DataChartIntervalDropdownProps = {
-  params: DataChartWidgetParams
   interval?: MarketInterval | string
   allowedIntervals: MarketInterval[]
   supportsInterval: boolean
@@ -37,7 +36,6 @@ type DataChartIntervalDropdownProps = {
 }
 
 export const DataChartIntervalDropdown = ({
-  params,
   interval,
   allowedIntervals,
   supportsInterval,
@@ -48,24 +46,8 @@ export const DataChartIntervalDropdown = ({
   const patchWidgetParams = useDataChartParamsPatch()
 
   const handleIntervalSelect = (nextInterval: string) => {
-    const {
-      window: _window,
-      fallbackWindow: _fallbackWindow,
-      ...nextDataBase
-    } = (params.data ?? {}) as Record<string, unknown>
-    const nextData = { ...nextDataBase }
-
-    const {
-      rangePresetId: _rangePresetId,
-      start: _start,
-      end: _end,
-      ...nextViewBase
-    } = (params.view ?? {}) as Record<string, unknown>
-    const nextView = { ...nextViewBase, interval: nextInterval }
-
     patchWidgetParams({
-      data: nextData,
-      view: nextView,
+      view: { interval: nextInterval, rangePresetId: null, start: null, end: null },
       runtime: { refreshAt: Date.now() },
     })
   }
@@ -228,7 +210,6 @@ export const DataChartChartControls = ({
   return (
     <div className={widgetHeaderButtonGroupClassName()}>
       <DataChartIntervalDropdown
-        params={params}
         interval={interval}
         allowedIntervals={allowedIntervals}
         supportsInterval={supportsInterval}

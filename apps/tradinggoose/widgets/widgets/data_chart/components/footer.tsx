@@ -496,29 +496,8 @@ export const DataChartFooter = ({
     const presetInterval = preset.interval
     const interval =
       presetInterval ?? chooseIntervalForRange(rangeMs, allowedIntervals) ?? fallbackInterval
-    const {
-      window: _window,
-      fallbackWindow: _fallbackWindow,
-      ...nextDataBase
-    } = (params.data ?? {}) as Record<string, unknown>
-    const nextData = { ...nextDataBase }
-
-    const {
-      start: _start,
-      end: _end,
-      ...nextViewBase
-    } = (params.view ?? {}) as Record<string, unknown>
-    const nextView: Record<string, unknown> = {
-      ...nextViewBase,
-      rangePresetId: preset.id,
-    }
-    if (interval) {
-      nextView.interval = interval
-    }
-
     patchWidgetParams({
-      data: nextData,
-      view: nextView,
+      view: { rangePresetId: preset.id, interval, start: null, end: null },
     })
   }
 

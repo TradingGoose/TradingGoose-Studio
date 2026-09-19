@@ -132,7 +132,7 @@ export const useChartDataLoader = ({
   const historicalCursorRef = useRef<number | null>(null)
   const pendingRangeRef = useRef<{ startMs: number; endMs: number } | null>(null)
   const backfillArmedAtRef = useRef<number>(Number.POSITIVE_INFINITY)
-  const { resetRescale, scheduleRescale, cancelRescale } = useChartRescale({
+  const { resetRescale, scheduleRescale } = useChartRescale({
     chartRef,
     chartContainerRef,
   })
@@ -403,6 +403,7 @@ export const useChartDataLoader = ({
         const { indexByOpenTimeMs, openTimeMsByIndex } = buildIndexMaps(barsMs)
         dataContext.indexByOpenTimeMsRef.current = indexByOpenTimeMs
         dataContext.openTimeMsByIndexRef.current = openTimeMsByIndex
+        dataContext.seriesVersion += 1
         onDataLoaded?.()
 
         const chartSeries = mainSeriesRef.current
@@ -761,7 +762,6 @@ export const useChartDataLoader = ({
     return () => {
       isDisposed = true
       loaderVersionRef.current += 1
-      cancelRescale()
       stopLiveSubscription()
       if (timeScale) {
         try {
@@ -791,7 +791,6 @@ export const useChartDataLoader = ({
     rescaleKey,
     requestInterval,
     retentionRule,
-    cancelRescale,
     resetRescale,
     scheduleRescale,
     startLiveSubscription,

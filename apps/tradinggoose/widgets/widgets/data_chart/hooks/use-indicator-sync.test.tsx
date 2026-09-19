@@ -20,6 +20,7 @@ const dataContext: DataChartDataContext = {
   openTimeMsByIndexRef: { current: [1_000] },
   marketSessionsRef: { current: [] },
   intervalMs: 1_000,
+  seriesVersion: 1,
   dataVersion: 1,
 }
 
@@ -54,7 +55,7 @@ const chart = {
 }
 const indicatorRuntimeRef = { current: new Map() }
 
-function Harness({ pineCode }: { pineCode?: string }) {
+function Harness({ pineCode, interval = '1m' }: { pineCode?: string; interval?: string }) {
   const chartRef = useRef(chart as any)
   const mainSeriesRef = useRef(mainSeries as any)
 
@@ -62,6 +63,7 @@ function Harness({ pineCode }: { pineCode?: string }) {
     chartRef,
     mainSeriesRef,
     dataContext,
+    interval,
     workspaceId: 'workspace-1',
     indicatorRefs: [{ id: 'custom-1', inputs: { Length: 14 } }],
     indicators: pineCode === undefined ? [] : [{ id: 'custom-1', pineCode }],
@@ -85,14 +87,18 @@ describe('useIndicatorSync live source changes', () => {
     root = createRoot(container)
     indicatorRuntimeRef.current = new Map()
     indicatorSeriesAttached = false
+    dataContext.barsMsRef.current = bars
+    dataContext.seriesVersion = 1
+    dataContext.dataVersion = 1
+    indicatorSeries.setData.mockClear()
     chart.addSeries.mockClear()
     chart.removeSeries.mockClear()
-    mockExecuteBrowserPineIndicator.mockResolvedValue({
+    mockExecuteBrowserPineIndicator.mockImplementation(async ({ barsMs }) => ({
       output: {
         series: [
           {
             plot: { title: 'Value', overlay: true, seriesType: 'Line' },
-            points: [{ time: 1, value: 1 }],
+            points: barsMs.map((bar: BarMs) => ({ time: bar.openTime / 1000, value: bar.close })),
           },
         ],
         fills: [],
@@ -101,7 +107,7 @@ describe('useIndicatorSync live source changes', () => {
         unsupported: { plots: [], styles: [] },
       },
       warnings: [],
-    })
+    }))
   })
 
   afterEach(() => {
@@ -111,6 +117,54 @@ describe('useIndicatorSync live source changes', () => {
     vi.useRealTimers()
     ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = false
   })
+
+  it.each(['same timestamps', 'shorter range', 'interval change'])(
+    'replaces indicator data after a history reload with %s',
+    async (change) => {
+      const render = async (interval = '1m') => {
+        await act(async () => root.render(<Harness pineCode='plot(close)' interval={interval} />))
+      }
+      dataContext.barsMsRef.current = [bars[0]!, { ...bars[0]!, openTime: 2_000 }]
+      await render()
+      await act(async () => {
+        await vi.runAllTimersAsync()
+      })
+      const interval = change === 'interval change' ? '5m' : '1m'
+      await render(interval)
+      await act(async () => {
+        await vi.runAllTimersAsync()
+      })
+      const previousExecutions = mockExecuteBrowserPineIndicator.mock.calls.length
+
+      dataContext.barsMsRef.current = dataContext.barsMsRef.current
+        .slice(change === 'shorter range' ? 1 : 0)
+        .map((bar) => ({ ...bar, close: 99 }))
+      dataContext.seriesVersion += 1
+      dataContext.dataVersion += 1
+      await render(interval)
+      expect(indicatorSeries.setData).toHaveBeenLastCalledWith([])
+      await act(async () => {
+        await vi.runAllTimersAsync()
+      })
+      expect(mockExecuteBrowserPineIndicator).toHaveBeenCalledTimes(previousExecutions + 1)
+      expect(indicatorSeries.setData).toHaveBeenLastCalledWith(
+        dataContext.barsMsRef.current.map((bar) => ({ time: bar.openTime / 1000, value: 99 }))
+      )
+      expect(chart.removeSeries).not.toHaveBeenCalled()
+
+      dataContext.barsMsRef.current = [
+        { ...bars[0]!, openTime: 0 },
+        ...dataContext.barsMsRef.current,
+      ]
+      dataContext.dataVersion += 1
+      await render(interval)
+      expect(indicatorSeries.setData.mock.lastCall?.[0]).not.toEqual([])
+      await act(async () => {
+        await vi.runAllTimersAsync()
+      })
+      expect(mockExecuteBrowserPineIndicator).toHaveBeenCalledTimes(previousExecutions + 2)
+    }
+  )
 
   it('re-executes the current bars when only the live Pine source changes', async () => {
     await act(async () => {

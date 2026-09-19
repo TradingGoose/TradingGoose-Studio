@@ -840,7 +840,21 @@ export const useIndicatorSync = ({
     accumulatedOutputRef.current.clear()
     processedRangeRef.current.clear()
     accumulationBaseRef.current.clear()
-  }, [executionContextKey])
+    const chart = chartRef.current
+    if (!chart) return
+    indicatorSeriesMapRef.current.forEach((seriesMap) => {
+      seriesMap.forEach((series) => {
+        if (isSeriesOnChart(chart, series)) series.setData([])
+      })
+    })
+    seriesMarkersMapRef.current.forEach((plugin, series) => {
+      if (isSeriesOnChart(chart, series)) plugin.setMarkers([])
+    })
+    indicatorFillPrimitiveMapRef.current.forEach((fillMap) => {
+      fillMap.forEach(({ series, primitive }) => safeDetachPrimitive(series, primitive))
+    })
+    indicatorFillPrimitiveMapRef.current.clear()
+  }, [chartRef, executionContextKey, dataContext, dataContext.seriesVersion])
 
   useEffect(() => {
     const chart = chartRef.current
@@ -1447,6 +1461,7 @@ export const useIndicatorSync = ({
     mainSeriesRef,
     dataContext,
     dataContext.dataVersion,
+    dataContext.seriesVersion,
     dataContext.intervalMs,
     workspaceId,
     indicatorIds,

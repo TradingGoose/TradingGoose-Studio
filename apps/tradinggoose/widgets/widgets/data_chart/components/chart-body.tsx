@@ -117,6 +117,7 @@ export const DataChartWidgetBody = ({ params, context, panelId, widget }: Widget
       openTimeMsByIndexRef: { current: [] as number[] },
       marketSessionsRef: { current: [] as MarketSessionWindow[] },
       intervalMs: null,
+      seriesVersion: 0,
       dataVersion: 0,
     }),
     [chartResetKey]
