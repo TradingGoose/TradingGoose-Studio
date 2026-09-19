@@ -274,13 +274,22 @@ export function QuickOrderWidgetBody({
     !providerAvailabilityQuery.isLoading &&
     !providerAvailabilityQuery.error &&
     providerOptions.length > 0
-  const { accountsQuery, activeServiceId, activePortfolioIdentity, services, portfolioIdentities } =
-    usePortfolioIdentitySelection({
-      providerId,
-      serviceId: quickOrderParams?.serviceId,
-      portfolioIdentity: quickOrderParams?.portfolioIdentity,
-      enabled: areProviderOptionsReady && hasSelectedProvider,
-    })
+  const {
+    accountsQuery,
+    activeServiceId,
+    activePortfolioIdentity,
+    selectedPortfolioIdentity,
+    services,
+    portfolioIdentities,
+  } = usePortfolioIdentitySelection({
+    providerId,
+    serviceId: quickOrderParams?.serviceId,
+    portfolioIdentity: quickOrderParams?.portfolioIdentity,
+    enabled:
+      areProviderOptionsReady &&
+      hasSelectedProvider &&
+      Boolean(quickOrderParams?.portfolioIdentity),
+  })
   const accountSnapshotQuery = usePortfolioDetail({
     workspaceId: workspaceId ?? undefined,
     provider: hasSelectedProvider && areProviderOptionsReady ? providerId : undefined,
@@ -578,6 +587,14 @@ export function QuickOrderWidgetBody({
       resetListingSelector(listingInstanceId)
     }
   }, [listingInstanceId, resetListingSelector])
+
+  if (!quickOrderParams?.provider?.trim()) {
+    return <CenterState>{copy.body.selectTradingProviderToGetStarted}</CenterState>
+  }
+
+  if (providerId && selectedPortfolioIdentity?.providerId !== providerId) {
+    return <CenterState>{copy.body.selectBrokerConnectionToSubmitAnOrder}</CenterState>
+  }
 
   if (providerAvailabilityQuery.isLoading) {
     return (
