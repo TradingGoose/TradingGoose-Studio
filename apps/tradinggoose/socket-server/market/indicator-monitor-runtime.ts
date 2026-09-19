@@ -27,7 +27,7 @@ import {
 import { decryptSecret } from '@/lib/utils-server'
 import type { MonitorExecutionPayload } from '@/background/monitor-execution'
 import { executeProviderRequest } from '@/providers/market'
-import { getMarketProviderConfig } from '@/providers/market/providers'
+import { getMarketProviderConfig, getMarketProviderDefinition } from '@/providers/market/providers'
 import type { MarketBar, MarketSeries } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 import { type AnyMarketProviderId, marketStreamManager } from '@/socket-server/market/manager'
@@ -72,6 +72,7 @@ type MonitorRuntimeConfig = {
   workflowId: string
   workspaceId: string
   userId: string
+  connectionOwnerUserId: string
   pinnedApiKeyId: string | null
   blockId: string
   providerId: AnyMarketProviderId
@@ -137,6 +138,10 @@ const normalizeProviderConfig = (
   const triggerBlockId = toTrimmedString(monitor.triggerBlockId)
 
   if (!providerId || !getMarketProviderConfig(providerId)) return null
+  const connectionOwnerUserId = getMarketProviderDefinition(providerId)?.oauth
+    ? toTrimmedString(monitor.connectionOwnerUserId)
+    : userId
+  if (!connectionOwnerUserId) return null
   if (!interval || !indicatorId || !listing.success) return null
   if (!triggerBlockId) return null
 
@@ -161,6 +166,7 @@ const normalizeProviderConfig = (
     workflowId: row.workflowId,
     workspaceId,
     userId,
+    connectionOwnerUserId,
     pinnedApiKeyId,
     blockId: triggerBlockId,
     providerId: providerId as AnyMarketProviderId,
@@ -668,7 +674,7 @@ export class IndicatorMonitorRuntime {
   ) {
     const syntheticSocket = {
       id: `indicator-monitor-runtime:${monitor.id}`,
-      userId: monitor.userId,
+      userId: monitor.connectionOwnerUserId,
       emit: (event: string, payload: any) => {
         if (event === 'market-bar') {
           const bar = payload?.bar as MarketBar | undefined
@@ -733,7 +739,7 @@ export class IndicatorMonitorRuntime {
         },
         windows: [{ mode: 'bars', barCount: MONITOR_WINDOW_BARS }],
       },
-      { userId: monitor.userId }
+      { userId: monitor.connectionOwnerUserId }
     )
 
     const marketSeries = result as MarketSeries

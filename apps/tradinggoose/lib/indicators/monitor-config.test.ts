@@ -1,9 +1,15 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   normalizeIndicatorInputOverrides,
   normalizeIndicatorMonitorConfig,
+  toPublicIndicatorMonitorProviderConfig,
 } from '@/lib/indicators/monitor-config'
 import type { InputMetaMap } from '@/lib/indicators/types'
+
+const connectionLookup = vi.hoisted(() => vi.fn())
+vi.mock('@/lib/credentials/oauth', () => ({
+  resolveOAuthConnectionAccountForUser: connectionLookup,
+}))
 
 const inputMeta: InputMetaMap = {
   Length: {
@@ -65,6 +71,7 @@ describe('normalizeIndicatorInputOverrides', () => {
 
 describe('normalizeIndicatorMonitorConfig', () => {
   const baseInput = {
+    userId: 'editor',
     triggerBlockId: 'trigger-1',
     providerId: 'alpaca',
     interval: '1m',
@@ -77,14 +84,26 @@ describe('normalizeIndicatorMonitorConfig', () => {
     indicatorId: 'rsi',
     providerParams: { feed: 'iex' },
   }
+  const savedMonitor = {
+    providerId: 'alpaca',
+    auth: {
+      encryptedSecrets: { apiKey: 'encrypted-api-key', apiSecret: 'encrypted-api-secret' },
+      secretVersion: 1 as const,
+    },
+  }
+  const oauthMonitor = {
+    providerId: 'robinhood',
+    providerParams: { credentialId: 'account-1' },
+    connectionOwnerUserId: 'saved-owner',
+  }
 
   it('requires complete auth even when preserving existing secrets', async () => {
     await expect(
       normalizeIndicatorMonitorConfig({
         ...baseInput,
-        previousAuth: {
-          encryptedSecrets: { apiKey: 'encrypted-api-key' },
-          secretVersion: 1,
+        previousMonitor: {
+          ...savedMonitor,
+          auth: { encryptedSecrets: { apiKey: 'encrypted-api-key' }, secretVersion: 1 },
         },
       })
     ).rejects.toThrow('Missing required auth secret values for provider fields: apiSecret')
@@ -96,13 +115,7 @@ describe('normalizeIndicatorMonitorConfig', () => {
       authInput: {
         secrets: { apiKey: 'new-api-key' },
       },
-      previousAuth: {
-        encryptedSecrets: {
-          apiKey: 'encrypted-api-key',
-          apiSecret: 'encrypted-api-secret',
-        },
-        secretVersion: 1,
-      },
+      previousMonitor: savedMonitor,
       requireCompleteAuth: false,
     })
 
@@ -115,13 +128,7 @@ describe('normalizeIndicatorMonitorConfig', () => {
     const result = await normalizeIndicatorMonitorConfig({
       ...baseInput,
       authInput: { secrets: {} },
-      previousAuth: {
-        encryptedSecrets: {
-          apiKey: 'encrypted-api-key',
-          apiSecret: 'encrypted-api-secret',
-        },
-        secretVersion: 1,
-      },
+      previousMonitor: savedMonitor,
       requireCompleteAuth: false,
     })
 
@@ -135,13 +142,7 @@ describe('normalizeIndicatorMonitorConfig', () => {
         authInput: {
           secrets: { apiKey: 'new-api-key' },
         },
-        previousAuth: {
-          encryptedSecrets: {
-            apiKey: 'encrypted-api-key',
-            apiSecret: 'encrypted-api-secret',
-          },
-          secretVersion: 1,
-        },
+        previousMonitor: savedMonitor,
         requireCompleteAuth: true,
       })
     ).rejects.toThrow('Missing required auth secret values for provider fields: apiSecret')
@@ -164,4 +165,66 @@ describe('normalizeIndicatorMonitorConfig', () => {
     expect(result.monitor.providerId).toBe('yahoo-finance')
     expect(result.monitor.interval).toBe('1m')
   })
+
+  it.each([null, { providerId: 'alpaca', credentialOwnerUserId: 'collaborator' }])(
+    'rejects an unavailable or wrong-provider personal connection: %j',
+    async (connection) => {
+      connectionLookup.mockResolvedValue(connection)
+      await expect(
+        normalizeIndicatorMonitorConfig({
+          ...baseInput,
+          providerId: 'robinhood',
+          providerParams: { credentialId: 'account-1' },
+        })
+      ).rejects.toThrow('Market provider connection not found')
+    }
+  )
+
+  it.each([
+    ['new', undefined, 'account-1', true, 'editor'],
+    ['unchanged', oauthMonitor, 'account-1', true, 'saved-owner'],
+    ['equivalent credential', oauthMonitor, ' account-1 ', true, 'saved-owner'],
+    ['replacement', oauthMonitor, 'account-2', true, 'editor'],
+    ['deactivation', oauthMonitor, 'account-1', false, 'saved-owner'],
+    [
+      'missing saved owner',
+      { ...oauthMonitor, connectionOwnerUserId: undefined },
+      'account-1',
+      true,
+      undefined,
+    ],
+  ] as const)(
+    'privately resolves the %s connection owner',
+    async (_, previousMonitor, credentialId, requireCompleteAuth, expectedOwner) => {
+      connectionLookup.mockReset().mockImplementation(async ({ userId }) => ({
+        providerId: 'robinhood',
+        credentialOwnerUserId: userId,
+      }))
+      const result = normalizeIndicatorMonitorConfig({
+        ...baseInput,
+        providerId: 'robinhood',
+        providerParams: { credentialId },
+        previousMonitor,
+        requireCompleteAuth,
+      })
+      if (!expectedOwner) {
+        await expect(result).rejects.toThrow('Missing market provider connection owner')
+        expect(connectionLookup).not.toHaveBeenCalled()
+        return
+      }
+      const config = await result
+      expect(config.monitor.connectionOwnerUserId).toBe(expectedOwner)
+      expect(toPublicIndicatorMonitorProviderConfig(config).monitor).not.toHaveProperty(
+        'connectionOwnerUserId'
+      )
+      if (requireCompleteAuth) {
+        expect(connectionLookup).toHaveBeenCalledWith({
+          userId: expectedOwner,
+          accountId: credentialId.trim(),
+        })
+      } else {
+        expect(connectionLookup).not.toHaveBeenCalled()
+      }
+    }
+  )
 })

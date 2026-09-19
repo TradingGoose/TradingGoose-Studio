@@ -265,6 +265,7 @@ async function buildProviderConfigForUpdate({
     : undefined
 
   const providerConfig = await normalizeIndicatorMonitorConfig({
+    userId,
     triggerBlockId: nextTriggerBlockId,
     providerId: nextProviderId,
     interval: indicatorPayload.interval ?? existingMonitor.interval,
@@ -274,7 +275,7 @@ async function buildProviderConfigForUpdate({
     providerParams: nextProviderParams,
     indicatorInputs: nextIndicatorInputs,
     indicatorInputMeta: indicatorMetadata?.inputMeta,
-    previousAuth: providerChanged ? undefined : existingMonitor.auth,
+    previousMonitor: existingMonitor,
     requireCompleteAuth,
   })
   if (!shouldNormalizeIndicatorInputs && typeof existingMonitor.indicatorInputs !== 'undefined') {
