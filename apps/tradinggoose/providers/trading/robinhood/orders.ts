@@ -17,8 +17,8 @@ import type {
 } from '@/providers/trading/types'
 import { listingIdentityToTradingSymbol } from '@/providers/trading/utils'
 
-// MCP tool schemas: alphillips-lab/robinhoodmcp, src/robinhoodmcp/client.py.
-// Live response capture: https://nexustrade.io/blog/robinhood-agentic-trading-mcp-review-20260708
+// Output schema captured from Robinhood's tools/list:
+// https://github.com/Slijeff/robinhood-rest2mcp/blob/d52abd068f98efdc6ec62b5670d04220615245a5/spec.json
 const orderSchema = z.object({
   id: z.string().min(1),
   symbol: z.string().min(1),
@@ -29,7 +29,9 @@ const orderSchema = z.object({
   ref_id: z.string().optional(),
   quantity: robinhoodNumber.nullish(),
   cumulative_quantity: robinhoodNumber.nullish(),
-  dollar_based_amount: robinhoodNumber.nullish(),
+  dollar_based_amount: z
+    .object({ amount: robinhoodNumber, currency_code: z.literal('USD') })
+    .nullish(),
   price: robinhoodNumber.nullish(),
   stop_price: robinhoodNumber.nullish(),
   average_price: robinhoodNumber.nullish(),
@@ -184,7 +186,7 @@ export function normalizeRobinhoodOrder(
       order.quantity == null || order.cumulative_quantity == null
         ? null
         : Math.max(0, order.quantity - order.cumulative_quantity),
-    notional: order.dollar_based_amount,
+    notional: order.dollar_based_amount?.amount,
     limitPrice: order.price,
     stopPrice: order.stop_price,
     averageFillPrice: order.average_price,

@@ -75,7 +75,7 @@ const brokerOrder = {
   cumulative_quantity: '0.5',
   average_price: '123.45',
   time_in_force: 'gfd',
-  dollar_based_amount: '25.50',
+  dollar_based_amount: null,
   created_at: '2026-09-18T14:00:00Z',
 }
 const toolNames = () => sdk.callTool.mock.calls.map(([request]) => request.name)
@@ -96,7 +96,10 @@ beforeEach(() => {
             ...args,
             symbol: '',
             ...(args.dollar_amount
-              ? { quantity: null, dollar_based_amount: args.dollar_amount }
+              ? {
+                  quantity: null,
+                  dollar_based_amount: { amount: args.dollar_amount, currency_code: 'USD' },
+                }
               : {}),
           },
         })
@@ -223,7 +226,9 @@ describe('Robinhood order review and placement', () => {
     { symbol: 'MSFT' },
     { side: 'sell' },
     { ref_id: 'different-order' },
-    { dollar_based_amount: { amount: '25.50' } },
+    { dollar_based_amount: { amount: '', currency_code: 'USD' } },
+    { dollar_based_amount: { amount: '25.50', currency_code: 'EUR' } },
+    { dollar_based_amount: '25.50' },
   ])('rejects an invalid or contradictory placement acknowledgement %j', async (override) => {
     sdk.callTool
       .mockImplementationOnce(sdk.callTool.getMockImplementation()!)
@@ -366,7 +371,12 @@ describe('Robinhood persisted order detail', () => {
           text: JSON.stringify({
             data: {
               orders: [
-                { ...brokerOrder, type: 'market', trigger: 'stop', dollar_based_amount: '5.04' },
+                {
+                  ...brokerOrder,
+                  type: 'market',
+                  trigger: 'stop',
+                  dollar_based_amount: { amount: '5.04', currency_code: 'USD' },
+                },
               ],
             },
           }),
@@ -393,7 +403,7 @@ describe('Robinhood persisted order detail', () => {
       remainingQuantity: 1.5,
       averageFillPrice: 123.45,
       notional: 5.04,
-      raw: { quantity: '2', dollar_based_amount: '5.04' },
+      raw: { quantity: '2', dollar_based_amount: { amount: '5.04', currency_code: 'USD' } },
     })
     expect(sdk.close).toHaveBeenCalledOnce()
   })
