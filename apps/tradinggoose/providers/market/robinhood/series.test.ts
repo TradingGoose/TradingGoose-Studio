@@ -45,7 +45,9 @@ const rawBar = (begins_at = '2026-09-09T14:30:00Z', close_price: unknown = '103.
   close_price,
   volume: 200,
 })
-const history = (bars: unknown[], symbol = 'AAPL') => ({ data: { results: [{ symbol, bars }] } })
+const history = (bars: unknown[] | null, symbol = 'AAPL') => ({
+  data: { results: [{ symbol, bars }] },
+})
 const mcpResult = (payload: unknown, text = false) =>
   text
     ? { content: [{ type: 'text', text: JSON.stringify(payload) }] }
@@ -166,6 +168,18 @@ describe('Robinhood market provider and MCP boundary', () => {
       '2026-09-09T14:40:00.000Z',
       '2026-09-09T14:45:00.000Z',
     ])
+    expect(sdk.callTool).toHaveBeenCalledTimes(2)
+  })
+
+  it.each([[], null])('continues past an empty history page (%j)', async (emptyBars) => {
+    sdk.callTool
+      .mockResolvedValueOnce(mcpResult(history(emptyBars)))
+      .mockResolvedValueOnce(mcpResult(history([rawBar('2026-09-09T14:57:00Z')])))
+    const result = await fetchRobinhoodSeries({
+      ...request,
+      windows: [{ mode: 'bars', barCount: 1 }],
+    })
+    expect(result.bars.map((bar) => bar.timeStamp)).toEqual(['2026-09-09T14:57:00.000Z'])
     expect(sdk.callTool).toHaveBeenCalledTimes(2)
   })
 

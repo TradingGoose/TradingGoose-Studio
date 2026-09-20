@@ -19,23 +19,26 @@ const numberValue = z
   .union([z.number(), z.string().trim().min(1)])
   .transform(Number)
   .pipe(z.number().finite())
-// Observed MCP envelope: data.results[].{symbol,bars}. Numeric prices are strings.
-// Reference: github.com/abiemann/RobinhoodEquityTradingAgent/blob/main/evaluate_candidates.py
+// Output schema captured from Robinhood's tools/list:
+// https://github.com/Slijeff/robinhood-rest2mcp/blob/d52abd068f98efdc6ec62b5670d04220615245a5/spec.json
 const responseSchema = z.object({
   data: z.object({
     results: z.array(
       z.object({
         symbol: z.string(),
-        bars: z.array(
-          z.object({
-            begins_at: z.string().datetime({ offset: true }),
-            open_price: numberValue,
-            high_price: numberValue,
-            low_price: numberValue,
-            close_price: numberValue,
-            volume: numberValue.refine((value) => value >= 0),
-          })
-        ),
+        bars: z
+          .array(
+            z.object({
+              begins_at: z.string().datetime({ offset: true }),
+              open_price: numberValue,
+              high_price: numberValue,
+              low_price: numberValue,
+              close_price: numberValue,
+              volume: numberValue.refine((value) => value >= 0),
+            })
+          )
+          .nullable()
+          .transform((bars) => bars ?? []),
       })
     ),
   }),
