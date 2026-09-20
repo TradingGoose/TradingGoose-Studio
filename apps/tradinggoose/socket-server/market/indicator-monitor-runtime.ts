@@ -30,7 +30,7 @@ import { executeProviderRequest } from '@/providers/market'
 import { getMarketProviderConfig, getMarketProviderDefinition } from '@/providers/market/providers'
 import type { MarketBar, MarketSeries } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
-import { type AnyMarketProviderId, marketStreamManager } from '@/socket-server/market/manager'
+import { marketStreamManager } from '@/socket-server/market/manager'
 import type { AuthenticatedSocket } from '@/socket-server/middleware/auth'
 import {
   createMonitorRuntimeLock,
@@ -75,7 +75,7 @@ type MonitorRuntimeConfig = {
   connectionOwnerUserId: string
   pinnedApiKeyId: string | null
   blockId: string
-  providerId: AnyMarketProviderId
+  providerId: string
   interval: string
   intervalMs: number | null
   indicatorId: string
@@ -169,7 +169,7 @@ const normalizeProviderConfig = (
     connectionOwnerUserId,
     pinnedApiKeyId,
     blockId: triggerBlockId,
-    providerId: providerId as AnyMarketProviderId,
+    providerId,
     interval,
     intervalMs,
     indicatorId,

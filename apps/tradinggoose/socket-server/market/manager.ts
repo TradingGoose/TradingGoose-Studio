@@ -38,17 +38,14 @@ import { FinnhubMarketStream } from './finnhub'
 
 const logger = createLogger('MarketStreamManager')
 const DEFAULT_POLLING_INTERVAL_MS = 15_000
-const MIN_POLLING_INTERVAL_MS = 5_000
 const POLLING_CONCURRENCY = 5
 
 export type MarketProviderId = 'alpaca' | 'finnhub'
-export type PollingMarketProviderId = string
-export type AnyMarketProviderId = string
 export type MarketStreamChannel = 'bars' | 'trades' | 'quotes'
 export type MarketChannel = MarketStreamChannel | 'quote-snapshots'
 
 export interface MarketSubscribePayload {
-  provider?: AnyMarketProviderId
+  provider?: string
   clientSubscriptionId?: string
   workspaceId?: string
   listing?: ListingIdentity
@@ -69,7 +66,7 @@ export interface MarketUnsubscribePayload {
   clientSubscriptionId?: string
   listing?: ListingIdentity
   symbol?: string
-  provider?: AnyMarketProviderId
+  provider?: string
 }
 
 export interface MarketSubscriptionInfo {
@@ -77,7 +74,7 @@ export interface MarketSubscriptionInfo {
   clientSubscriptionId?: string
   listing: ListingIdentity | null
   symbol: string
-  provider: AnyMarketProviderId
+  provider: string
   market: AlpacaMarket
   channel: MarketChannel
   interval?: string
@@ -100,7 +97,7 @@ type MarketStream = {
 
 interface StreamState {
   stream?: MarketStream
-  provider: AnyMarketProviderId
+  provider: string
   market: AlpacaMarket
   feed?: AlpacaFeed
   cryptoRegion?: AlpacaCryptoRegion
@@ -108,7 +105,6 @@ interface StreamState {
   providerParams?: MarketProviderParams
   pollingTimer?: ReturnType<typeof setInterval>
   pollingInFlight?: boolean
-  pollingIntervalMs?: number
   quoteSnapshotCache: Map<string, MarketQuoteSnapshot>
   marketBarCache: Map<string, MarketBar>
   subscribersBySymbol: Map<string, Map<string, MarketSubscriptionRecord>>
@@ -383,7 +379,7 @@ export class MarketStreamManager {
 
   private async subscribePollingProvider(
     socket: AuthenticatedSocket,
-    payload: MarketSubscribePayload & { provider: PollingMarketProviderId }
+    payload: MarketSubscribePayload & { provider: string }
   ): Promise<MarketSubscriptionInfo> {
     const listing = ListingIdentitySchema.parse(payload.listing)
 
@@ -438,7 +434,6 @@ export class MarketStreamManager {
       provider: payload.provider,
       auth: payload.auth,
       providerParams: payload.providerParams,
-      pollingIntervalMs: resolvePollingIntervalMs(payload.provider, payload.providerParams),
     })
 
     const intervalToken =
@@ -604,10 +599,9 @@ export class MarketStreamManager {
   private getOrCreatePollingStream(
     streamKey: string,
     config: {
-      provider: PollingMarketProviderId
+      provider: string
       auth?: MarketProviderAuth
       providerParams?: MarketProviderParams
-      pollingIntervalMs: number
     }
   ): StreamState {
     const existing = this.streams.get(streamKey)
@@ -618,7 +612,6 @@ export class MarketStreamManager {
       market: 'stocks',
       auth: config.auth,
       providerParams: config.providerParams,
-      pollingIntervalMs: config.pollingIntervalMs,
       quoteSnapshotCache: new Map(),
       marketBarCache: new Map(),
       subscribersBySymbol: new Map(),
@@ -790,7 +783,8 @@ export class MarketStreamManager {
 
   private ensurePolling(streamState: StreamState) {
     if (streamState.pollingTimer) return
-    const intervalMs = streamState.pollingIntervalMs ?? DEFAULT_POLLING_INTERVAL_MS
+    const intervalMs =
+      getMarketProviderPollingIntervalMs(streamState.provider) ?? DEFAULT_POLLING_INTERVAL_MS
     streamState.pollingTimer = setInterval(() => {
       void this.pollMarketData(streamState)
     }, intervalMs)
@@ -1043,7 +1037,7 @@ export class MarketStreamManager {
 
 export const marketStreamManager = new MarketStreamManager()
 
-function resolveProviderId(provider?: AnyMarketProviderId): AnyMarketProviderId {
+function resolveProviderId(provider?: string): string {
   const providerId = typeof provider === 'string' ? provider.trim() : ''
   if (providerId && getMarketProviderConfig(providerId)) return providerId
   throw new Error('market provider is required')
@@ -1135,7 +1129,7 @@ function buildFinnhubStreamKey(config: {
 }
 
 function buildPollingStreamKey(config: {
-  provider: PollingMarketProviderId
+  provider: string
   workspaceId?: string
   userId?: string
   auth?: MarketProviderAuth
@@ -1183,17 +1177,6 @@ function createSubscriptionId({
   return [streamKey, channel, symbol, interval, clientSubscriptionId?.trim() || randomUUID()].join(
     ':'
   )
-}
-
-function resolvePollingIntervalMs(
-  provider: PollingMarketProviderId,
-  providerParams?: MarketProviderParams
-): number {
-  const configured = Number(providerParams?.pollingIntervalMs ?? providerParams?.pollIntervalMs)
-  const providerDefault =
-    getMarketProviderPollingIntervalMs(provider) ?? DEFAULT_POLLING_INTERVAL_MS
-  const requested = Number.isFinite(configured) && configured > 0 ? configured : providerDefault
-  return Math.max(MIN_POLLING_INTERVAL_MS, requested)
 }
 
 function updateSnapshotFromTrade(
