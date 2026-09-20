@@ -24,6 +24,7 @@ import {
   INDICATOR_MONITOR_PROVIDER,
   isMonitorProviderConfigForProvider,
 } from '@/lib/monitors/sources'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { decryptSecret } from '@/lib/utils-server'
 import type { MonitorExecutionPayload } from '@/background/monitor-execution'
 import { executeProviderRequest } from '@/providers/market'
@@ -570,6 +571,17 @@ export class IndicatorMonitorRuntime {
           })
           this.skippedCount += 1
           continue
+        }
+
+        if (getMarketProviderDefinition(monitor.providerId)?.oauth) {
+          const access = await checkWorkspaceAccess(
+            monitor.workspaceId,
+            monitor.connectionOwnerUserId
+          )
+          if (!access.exists || !access.hasAccess) {
+            await this.disconnectMonitor(monitor.id, 'connection_owner_workspace_access_revoked')
+            continue
+          }
         }
 
         if (existing && existing.config.signature === monitor.signature) {

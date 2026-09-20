@@ -13,6 +13,7 @@ const {
   getRedisStorageModeMock,
   dbSelectMock,
   dbUpdateSetMock,
+  checkWorkspaceAccessMock,
 } = vi.hoisted(() => ({
   acquireLockMock: vi.fn(),
   renewLockMock: vi.fn(),
@@ -21,6 +22,7 @@ const {
   getRedisStorageModeMock: vi.fn(() => 'redis'),
   dbSelectMock: vi.fn(),
   dbUpdateSetMock: vi.fn(() => ({ where: vi.fn().mockResolvedValue(undefined) })),
+  checkWorkspaceAccessMock: vi.fn(),
 }))
 
 vi.mock('@tradinggoose/db', () => ({
@@ -59,6 +61,10 @@ vi.mock('drizzle-orm', () => ({
 
 vi.mock('@/lib/api-key/service', () => ({
   getApiKeyOwnerUserId: vi.fn().mockResolvedValue('billing-user'),
+}))
+
+vi.mock('@/lib/permissions/utils', () => ({
+  checkWorkspaceAccess: checkWorkspaceAccessMock,
 }))
 
 vi.mock('@/lib/environment/utils', () => ({
@@ -156,9 +162,14 @@ describe('IndicatorMonitorRuntime lock lifecycle', () => {
     vi.useRealTimers()
   })
 
-  it.each(['collaborator-user', undefined])(
-    'uses the saved OAuth owner %s for history and live data, requiring an owner',
-    async (connectionOwnerUserId) => {
+  it.each([
+    ['collaborator-user', true],
+    ['collaborator-user', false],
+    [undefined, true],
+  ] as const)(
+    'requires the saved OAuth owner %s to retain workspace access (%s)',
+    async (connectionOwnerUserId, hasAccess) => {
+      checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess })
       dbSelectMock.mockImplementation(() =>
         buildMonitorQuery([
           {
@@ -197,7 +208,7 @@ describe('IndicatorMonitorRuntime lock lifecycle', () => {
       const runtime = new IndicatorMonitorRuntime({ info: vi.fn(), warn: vi.fn(), error: vi.fn() })
       try {
         await runtime.start()
-        if (connectionOwnerUserId) {
+        if (connectionOwnerUserId && hasAccess) {
           expect(executeProviderRequest).toHaveBeenCalledWith(
             'robinhood',
             expect.objectContaining({
@@ -210,6 +221,19 @@ describe('IndicatorMonitorRuntime lock lifecycle', () => {
             expect.objectContaining({ providerParams: { credentialId: 'collaborator-account' } })
           )
           expect(runtime.getHealth().stats.activeSubscriptions).toBe(1)
+          expect(checkWorkspaceAccessMock).toHaveBeenCalledWith(
+            'workspace-1',
+            connectionOwnerUserId
+          )
+          checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: false })
+          await runtime.requestReconcile()
+          expect(marketStreamManager.removeSocket).toHaveBeenCalledWith(
+            'indicator-monitor-runtime:monitor-1'
+          )
+          expect(runtime.getHealth().stats.activeSubscriptions).toBe(0)
+          expect(dbUpdateSetMock).toHaveBeenCalledWith(expect.objectContaining({ isActive: false }))
+          expect(executeProviderRequest).toHaveBeenCalledTimes(1)
+          expect(marketStreamManager.subscribe).toHaveBeenCalledTimes(1)
         } else {
           expect(executeProviderRequest).not.toHaveBeenCalled()
           expect(marketStreamManager.subscribe).not.toHaveBeenCalled()

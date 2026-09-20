@@ -3,8 +3,13 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { getEffectiveDecryptedEnvMock } = vi.hoisted(() => ({
+const { getEffectiveDecryptedEnvMock, checkWorkspaceAccessMock } = vi.hoisted(() => ({
   getEffectiveDecryptedEnvMock: vi.fn(),
+  checkWorkspaceAccessMock: vi.fn(),
+}))
+
+vi.mock('@/lib/permissions/utils', () => ({
+  checkWorkspaceAccess: checkWorkspaceAccessMock,
 }))
 
 const { refreshAccessTokenIfNeededMock } = vi.hoisted(() => ({
@@ -454,39 +459,62 @@ describe('MarketStreamManager quote snapshots', () => {
     manager.removeSocket(secondSocket.id)
   })
 
-  it('authorizes connections before exposing isolated OAuth polling caches', async () => {
+  it.each(['bars', 'quote-snapshots'] as const)('authorizes OAuth %s', async (channel) => {
     vi.useFakeTimers()
     const manager = new MarketStreamManager()
     const owner = createSocket('owner-socket')
     const other = { ...createSocket('other-socket'), userId: 'other-user' }
     const payload: MarketSubscribePayload = {
       provider: 'robinhood',
+      workspaceId: 'workspace-1',
       listing,
-      channel: 'quote-snapshots',
+      channel,
+      interval: '1m',
       providerParams: { credentialId: 'connection' },
     }
     refreshAccessTokenIfNeededMock.mockResolvedValue('token')
+    checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: false })
+    await expect(manager.subscribe(owner, payload)).rejects.toThrow('workspace access')
+    expect(refreshAccessTokenIfNeededMock).not.toHaveBeenCalled()
+
+    checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: true })
     await manager.subscribe(owner, payload)
     refreshAccessTokenIfNeededMock.mockResolvedValueOnce(null)
     await expect(manager.subscribe(other, payload)).rejects.toThrow('Select or reconnect')
-    expect(buildMarketQuoteSnapshotMock).toHaveBeenCalledTimes(1)
+    const fetchData = channel === 'bars' ? executeProviderRequestMock : buildMarketQuoteSnapshotMock
+    expect(fetchData).toHaveBeenCalledTimes(1)
     expect(other.emit).not.toHaveBeenCalled()
+    expect(checkWorkspaceAccessMock).toHaveBeenCalledWith('workspace-1', 'user-1')
 
     await manager.subscribe(other, payload)
-    await Promise.resolve()
+    await vi.advanceTimersByTimeAsync(0)
     expect(refreshAccessTokenIfNeededMock).toHaveBeenCalledWith(
       'connection',
       'other-user',
       expect.any(String),
       'robinhood'
     )
-    expect(buildMarketQuoteSnapshotMock).toHaveBeenCalledTimes(2)
-    for (const userId of ['user-1', 'other-user']) {
-      expect(buildMarketQuoteSnapshotMock).toHaveBeenCalledWith(
-        expect.objectContaining({ context: { userId } })
-      )
-    }
-    manager.removeSocket(owner.id)
+    expect(
+      fetchData.mock.calls.map((args) => (channel === 'bars' ? args[2] : args[0].context))
+    ).toEqual([{ userId: 'user-1' }, { userId: 'other-user' }])
     manager.removeSocket(other.id)
+
+    checkWorkspaceAccessMock.mockRejectedValueOnce(new Error('Permission lookup unavailable'))
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(fetchData).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(fetchData).toHaveBeenCalledTimes(3)
+
+    checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: false })
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(fetchData).toHaveBeenCalledTimes(3)
+    expect(refreshAccessTokenIfNeededMock).toHaveBeenCalledTimes(3)
+    expect(manager.unsubscribe(owner, {})).toEqual([])
+    expect(owner.emit).toHaveBeenCalledWith(
+      'market-error',
+      expect.objectContaining({
+        message: expect.stringContaining('workspace access'),
+      })
+    )
   })
 })

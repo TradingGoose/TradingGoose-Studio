@@ -12,6 +12,7 @@ import {
   type MarketQuoteSnapshot,
 } from '@/lib/market/quote-snapshot-contract'
 import { buildMarketQuoteSnapshot } from '@/lib/market/quote-snapshots'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { executeProviderRequest } from '@/providers/market'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
@@ -82,6 +83,7 @@ export interface MarketSubscriptionInfo {
 
 interface MarketSubscriptionRecord extends MarketSubscriptionInfo {
   streamKey: string
+  workspaceId?: string
   socketId: string
   socket: AuthenticatedSocket
   upstreamChannel?: MarketStreamChannel
@@ -399,6 +401,12 @@ export class MarketStreamManager {
 
     const oauth = getMarketProviderDefinition(payload.provider)?.oauth
     if (oauth) {
+      if (socket.userId && payload.workspaceId) {
+        const access = await checkWorkspaceAccess(payload.workspaceId, socket.userId)
+        if (!access.exists || !access.hasAccess) {
+          throw new Error('Market connection owner no longer has workspace access')
+        }
+      }
       const { refreshAccessTokenIfNeeded } = await import('@/lib/oauth/tokens')
       const credentialId = payload.providerParams?.credentialId
       const hasConnection = typeof credentialId === 'string' && credentialId.trim().length > 0
@@ -459,6 +467,7 @@ export class MarketStreamManager {
       market,
       channel,
       interval: payload.interval,
+      workspaceId: payload.workspaceId,
       listingBase: context.base,
       listingQuote: context.quote,
     }
@@ -834,6 +843,28 @@ export class MarketStreamManager {
             const next = pending.shift()
             if (!next) return
             try {
+              const record = next.record
+              if (record.workspaceId && getMarketProviderDefinition(record.provider)?.oauth) {
+                const access =
+                  record.socket.userId &&
+                  (await checkWorkspaceAccess(record.workspaceId, record.socket.userId))
+                if (
+                  streamState.subscribersBySymbol.get(next.symbol)?.get(record.subscriptionId) !==
+                  record
+                ) {
+                  continue
+                }
+                if (!access || !access.exists || !access.hasAccess) {
+                  this.handleStreamError(
+                    record.streamKey,
+                    'Market connection owner no longer has workspace access'
+                  )
+                  streamState.subscribersBySymbol.forEach((subscribers) => {
+                    subscribers.forEach((subscriber) => this.removeRecord(subscriber))
+                  })
+                  return
+                }
+              }
               if (next.type === 'quote-snapshot') {
                 const snapshot = await buildMarketQuoteSnapshot({
                   provider: next.record.provider,
