@@ -24,7 +24,8 @@ const robinhoodError = (message: string, status?: number) =>
 export async function callRobinhoodTool(
   accessToken: string,
   tool: (typeof READ_TOOLS)[number],
-  args: Record<string, unknown>
+  args: Record<string, unknown>,
+  parentSignal?: AbortSignal
 ): Promise<unknown> {
   if (!READ_TOOLS.includes(tool)) {
     throw robinhoodError('Unsupported Robinhood market data tool.')
@@ -33,7 +34,8 @@ export async function callRobinhoodTool(
     throw robinhoodError('Reconnect Robinhood to authorize market data access.', 401)
   }
 
-  const signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+  const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+  const signal = parentSignal ? AbortSignal.any([parentSignal, timeout]) : timeout
   const client = new Client({ name: 'TradingGoose', version: '1.0.0' })
   const transport = new StreamableHTTPClientTransport(new URL(ROBINHOOD_MCP_URL), {
     requestInit: { headers: { Authorization: `Bearer ${accessToken}` } },
@@ -45,10 +47,12 @@ export async function callRobinhoodTool(
   })
 
   try {
+    signal.throwIfAborted()
     await client.connect(transport, { signal })
     const result = (await client.callTool({ name: tool, arguments: args }, CallToolResultSchema, {
       signal,
     })) as CallToolResult
+    signal.throwIfAborted()
     if (result.isError) {
       throw robinhoodError('Robinhood could not complete the market data request.')
     }
@@ -57,15 +61,15 @@ export async function callRobinhoodTool(
     const content = result.content.find((item) => item.type === 'text')
     return payloadSchema.parse(result.structuredContent ?? JSON.parse(content?.text ?? 'null'))
   } catch (error) {
+    if (signal.aborted || (error instanceof McpError && error.code === ErrorCode.RequestTimeout)) {
+      throw robinhoodError('Robinhood market data request timed out.', 504)
+    }
     if (error instanceof MarketProviderError) throw error
     if (
       error instanceof UnauthorizedError ||
       (error instanceof StreamableHTTPError && error.code === 401)
     ) {
       throw robinhoodError('Reconnect Robinhood to authorize market data access.', 401)
-    }
-    if (signal.aborted || (error instanceof McpError && error.code === ErrorCode.RequestTimeout)) {
-      throw robinhoodError('Robinhood market data request timed out.', 504)
     }
     const status =
       error instanceof StreamableHTTPError && error.code && error.code >= 400 && error.code <= 599

@@ -133,19 +133,25 @@ export async function fetchRobinhoodSeries(request: MarketSeriesRequest): Promis
   }
 
   const barsByTime = new Map<string, MarketBar>()
+  const deadline = AbortSignal.timeout(60_000)
   let cursor = endMs
   for (let page = 0; page < requestLimit && cursor > startMs; page++) {
     // Continue through closures until the requested bars or request budget is reached.
     const span = barCount ? Math.min(BARS_PER_REQUEST * intervalMs, pageMs * 2 ** page) : pageMs
     const from = Math.max(startMs, cursor - span)
-    const payload = await callRobinhoodTool(request.auth.accessToken, 'get_equity_historicals', {
-      symbols: [symbol],
-      interval: upstreamInterval,
-      start_time: new Date(from).toISOString(),
-      end_time: new Date(cursor).toISOString(),
-      bounds: session,
-      adjustment_type: normalizationMode === 'raw' ? 'none' : 'split',
-    })
+    const payload = await callRobinhoodTool(
+      request.auth.accessToken,
+      'get_equity_historicals',
+      {
+        symbols: [symbol],
+        interval: upstreamInterval,
+        start_time: new Date(from).toISOString(),
+        end_time: new Date(cursor).toISOString(),
+        bounds: session,
+        adjustment_type: normalizationMode === 'raw' ? 'none' : 'split',
+      },
+      deadline
+    )
     for (const bar of normalizeRobinhoodBars(payload, symbol)) {
       const timestamp = Date.parse(bar.timeStamp)
       if (timestamp >= from && timestamp <= cursor && !barsByTime.has(bar.timeStamp)) {

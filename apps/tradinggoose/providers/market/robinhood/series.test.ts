@@ -171,6 +171,46 @@ describe('Robinhood market provider and MCP boundary', () => {
     expect(sdk.callTool).toHaveBeenCalledTimes(2)
   })
 
+  it.each(['before', 'between', 'during', 'during-rejection'])(
+    'rejects the entire history request when its deadline expires %s pages',
+    async (stage) => {
+      const deadline = new AbortController()
+      const timeout = AbortSignal.timeout.bind(AbortSignal)
+      const deadlines = vi
+        .spyOn(AbortSignal, 'timeout')
+        .mockImplementation((ms) => (ms === 60_000 ? deadline.signal : timeout(ms)))
+      sdk.callTool.mockResolvedValue(mcpResult(history([rawBar('2026-09-09T14:45:00Z')])))
+      if (stage === 'before') deadline.abort()
+      if (stage === 'between') sdk.close.mockImplementationOnce(async () => deadline.abort())
+      if (stage.startsWith('during')) {
+        sdk.callTool
+          .mockResolvedValueOnce(mcpResult(history([rawBar('2026-09-09T14:45:00Z')])))
+          .mockImplementationOnce(async (_args, _schema, { signal }) => {
+            deadline.abort()
+            expect(signal.aborted).toBe(true)
+            if (stage === 'during-rejection') throw new StreamableHTTPError(401, 'upstream error')
+            return mcpResult(history([]))
+          })
+      }
+      try {
+        await expect(
+          fetchRobinhoodSeries({
+            ...request,
+            start: '2026-09-08T06:00:00Z',
+            end: '2026-09-11T00:00:00Z',
+          })
+        ).rejects.toMatchObject({ status: 504 })
+        expect(deadlines.mock.calls.filter(([ms]) => ms === 60_000)).toHaveLength(1)
+        expect(sdk.connect).toHaveBeenCalledTimes(
+          stage === 'before' ? 0 : stage === 'between' ? 1 : 2
+        )
+        expect(sdk.close).toHaveBeenCalledTimes(stage === 'before' ? 1 : 2)
+      } finally {
+        deadlines.mockRestore()
+      }
+    }
+  )
+
   it.each([[], null])('continues past an empty history page (%j)', async (emptyBars) => {
     sdk.callTool
       .mockResolvedValueOnce(mcpResult(history(emptyBars)))
