@@ -498,17 +498,30 @@ describe('MarketStreamManager quote snapshots', () => {
       fetchData.mock.calls.map((args) => (channel === 'bars' ? args[2] : args[0].context))
     ).toEqual([{ userId: 'user-1' }, { userId: 'other-user' }])
     manager.removeSocket(other.id)
+    await manager.subscribe(owner, {
+      ...payload,
+      channel: channel === 'bars' ? 'quote-snapshots' : 'bars',
+    })
+    const fetchOtherData =
+      channel === 'bars' ? buildMarketQuoteSnapshotMock : executeProviderRequestMock
+    checkWorkspaceAccessMock.mockClear()
 
     checkWorkspaceAccessMock.mockRejectedValueOnce(new Error('Permission lookup unavailable'))
     await vi.advanceTimersByTimeAsync(15_000)
     expect(fetchData).toHaveBeenCalledTimes(2)
+    expect(fetchOtherData).not.toHaveBeenCalled()
+    expect(checkWorkspaceAccessMock).toHaveBeenCalledTimes(1)
     await vi.advanceTimersByTimeAsync(15_000)
     expect(fetchData).toHaveBeenCalledTimes(3)
+    expect(fetchOtherData).toHaveBeenCalledTimes(1)
+    expect(checkWorkspaceAccessMock).toHaveBeenCalledTimes(2)
 
     checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: false })
     await vi.advanceTimersByTimeAsync(30_000)
     expect(fetchData).toHaveBeenCalledTimes(3)
-    expect(refreshAccessTokenIfNeededMock).toHaveBeenCalledTimes(3)
+    expect(fetchOtherData).toHaveBeenCalledTimes(1)
+    expect(checkWorkspaceAccessMock).toHaveBeenCalledTimes(3)
+    expect(refreshAccessTokenIfNeededMock).toHaveBeenCalledTimes(4)
     expect(manager.unsubscribe(owner, {})).toEqual([])
     expect(owner.emit).toHaveBeenCalledWith(
       'market-error',

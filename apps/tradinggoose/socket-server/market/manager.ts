@@ -835,6 +835,7 @@ export class MarketStreamManager {
 
     streamState.pollingInFlight = true
     try {
+      let workspaceAccess: ReturnType<typeof checkWorkspaceAccess> | undefined
       const pending = [...tasks]
       const workers = Array.from(
         { length: Math.min(POLLING_CONCURRENCY, pending.length) },
@@ -847,7 +848,10 @@ export class MarketStreamManager {
               if (record.workspaceId && getMarketProviderDefinition(record.provider)?.oauth) {
                 const access =
                   record.socket.userId &&
-                  (await checkWorkspaceAccess(record.workspaceId, record.socket.userId))
+                  (await (workspaceAccess ??= checkWorkspaceAccess(
+                    record.workspaceId,
+                    record.socket.userId
+                  )))
                 if (
                   streamState.subscribersBySymbol.get(next.symbol)?.get(record.subscriptionId) !==
                   record
