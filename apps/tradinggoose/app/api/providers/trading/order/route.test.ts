@@ -1069,9 +1069,11 @@ describe('Trading provider order route', () => {
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
-  it('records ambiguous Robinhood submission as unknown and warns it may have completed', async () => {
+  it.each([false, true])('replays unknown orders (history fails: %s)', async (historyFails) => {
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const { TradingBrokerRequestError } = await import('@/providers/trading/portfolio-utils')
+    if (historyFails)
+      mockUpdateOrderHistoryResult.mockRejectedValueOnce(new Error('History unavailable'))
     mockSubmitRobinhoodOrder.mockRejectedValueOnce(
       new TradingBrokerRequestError({
         providerId: 'robinhood',
@@ -1081,12 +1083,18 @@ describe('Trading provider order route', () => {
         message: 'Robinhood request timed out.',
       })
     )
-    const response = await POST(createProviderOrderRequest('robinhood'))
+    const key = nextIdempotencyKey()
+    const response = await POST(createProviderOrderRequest('robinhood', undefined, key))
+    const repeated = await POST(createProviderOrderRequest('robinhood', undefined, key))
     expect(response.status).toBe(502)
-    await expect(response.json()).resolves.toEqual({
+    expect(repeated.status).toBe(502)
+    const result = await response.json()
+    expect(result).toEqual({
       error: expect.stringContaining('may have completed'),
     })
+    await expect(repeated.json()).resolves.toEqual(result)
     expect(mockSubmitRobinhoodOrder).toHaveBeenCalledOnce()
+    expect(mockRecordOrderHistory).toHaveBeenCalledOnce()
     expect(mockUpdateOrderHistoryResult).toHaveBeenCalledOnce()
     expect(mockUpdateOrderHistoryResult).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1096,7 +1104,7 @@ describe('Trading provider order route', () => {
     expect(mockUpdateOrderHistoryResult.mock.calls[0][0]).not.toHaveProperty('normalizedOrder')
   })
 
-  it('preserves Robinhood review rejection messages and records a failed order', async () => {
+  it('preserves Robinhood review rejections and allows retrying an unsubmitted order', async () => {
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const { TradingBrokerRequestError } = await import('@/providers/trading/portfolio-utils')
     const message = 'Robinhood order review returned unresolved warnings.'
@@ -1108,7 +1116,8 @@ describe('Trading provider order route', () => {
         message,
       })
     )
-    const response = await POST(createProviderOrderRequest('robinhood'))
+    const key = nextIdempotencyKey()
+    const response = await POST(createProviderOrderRequest('robinhood', undefined, key))
     expect(response.status).toBe(422)
     await expect(response.json()).resolves.toEqual({ error: message })
     expect(mockSubmitRobinhoodOrder).toHaveBeenCalledOnce()
@@ -1117,5 +1126,8 @@ describe('Trading provider order route', () => {
         response: expect.objectContaining({ success: false, status: 'failed', httpStatus: 422 }),
       })
     )
+    const retried = await POST(createProviderOrderRequest('robinhood', undefined, key))
+    expect(retried.status).toBe(200)
+    expect(mockSubmitRobinhoodOrder).toHaveBeenCalledTimes(2)
   })
 })

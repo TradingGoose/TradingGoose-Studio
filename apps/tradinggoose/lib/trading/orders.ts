@@ -394,7 +394,9 @@ export async function submitTradingOrder({
     orderSizingMode,
     preview: requestData.preview,
   })
-  return tradingOrderIdempotency.executeWithIdempotency(
+  const result = await tradingOrderIdempotency.executeWithIdempotency<
+    TradingOrderSubmitResponse | { error: string; status: number }
+  >(
     baseContext.providerId,
     requestData.idempotencyKey,
     async () => {
@@ -464,10 +466,11 @@ export async function submitTradingOrder({
         }
         if (error instanceof TradingBrokerRequestError) {
           if (error.submissionUnknown) {
-            throw new TradingServiceError(
-              'Order status is unknown; it may have completed. Check the broker before placing another order.',
-              502
-            )
+            return {
+              error:
+                'Order status is unknown; it may have completed. Check the broker before placing another order.',
+              status: 502,
+            }
           }
           if (error.status === 422) throw new TradingServiceError(error.message, 422)
           throw new TradingServiceError('Broker request failed', 502)
@@ -518,4 +521,6 @@ export async function submitTradingOrder({
       userId,
     }
   )
+  if ('error' in result) throw new TradingServiceError(result.error, result.status)
+  return result
 }

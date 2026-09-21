@@ -1,5 +1,6 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
+import { rangeToMs } from '@/providers/market/series-window'
 import type {
   MarketBar,
   MarketInterval,
@@ -61,8 +62,12 @@ function resolveResolution(interval?: string): string {
 type FinnhubEndpoint = 'stock' | 'forex' | 'crypto'
 
 function resolveTimeRange(request: MarketSeriesRequest): { from?: number; to?: number } {
-  const to = toUnixSeconds(request.end)
-  const from = toUnixSeconds(request.start)
+  const window = request.windows?.[0]
+  const rangeMs = window?.mode === 'range' ? rangeToMs(window.range) : null
+  const to = toUnixSeconds(request.end) ?? (rangeMs ? Math.floor(Date.now() / 1000) : undefined)
+  const from =
+    toUnixSeconds(request.start) ??
+    (to != null && rangeMs ? Math.max(0, to - Math.ceil(rangeMs / 1000)) : undefined)
 
   if (from != null && to != null && from >= to) {
     return { from, to: undefined }
