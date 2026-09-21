@@ -220,18 +220,18 @@ function IndicatorMonitorFields({
               const fieldLabel = definition.title || definition.id
               if (definition.id === 'credentialId' && oauth) {
                 return (
-                  <div key={definition.id} {...getIssueProps(issues, key)}>
-                    <ToolCredentialSelector
-                      credentialSource='personal'
-                      id={fieldId}
-                      label={fieldLabel}
-                      provider={oauth.provider}
-                      serviceId={oauth.provider}
-                      value={value}
-                      disabled={saving}
-                      onChange={(accountId) => onUpdateProviderParamValue(definition.id, accountId)}
-                    />
-                  </div>
+                  <ToolCredentialSelector
+                    key={definition.id}
+                    credentialSource='personal'
+                    id={fieldId}
+                    label={fieldLabel}
+                    provider={oauth.provider}
+                    serviceId={oauth.provider}
+                    value={value}
+                    disabled={saving}
+                    {...getIssueProps(issues, key)}
+                    onChange={(accountId) => onUpdateProviderParamValue(definition.id, accountId)}
+                  />
                 )
               }
               return definition.options && definition.options.length > 0 ? (

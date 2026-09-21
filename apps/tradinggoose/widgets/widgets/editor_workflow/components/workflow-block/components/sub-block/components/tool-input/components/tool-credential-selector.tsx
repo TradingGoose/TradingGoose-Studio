@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Check, ChevronDown, ExternalLink, Plus, RefreshCw } from 'lucide-react'
 import { useLocale } from 'next-intl'
 import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
-import { Button } from '@/components/ui/button'
+import { Button, type ButtonProps } from '@/components/ui/button'
 import {
   Command,
   CommandEmpty,
@@ -57,7 +57,8 @@ const getProviderName = (providerName: OAuthProvider) => {
     .join(' ')
 }
 
-interface ToolCredentialSelectorProps {
+interface ToolCredentialSelectorProps
+  extends Pick<ButtonProps, 'aria-invalid' | 'aria-describedby'> {
   id?: string
   credentialSource?: 'workspace' | 'personal'
   value: string
@@ -81,6 +82,7 @@ export function ToolCredentialSelector({
   serviceId,
   disabled = false,
   triggerClassName,
+  ...ariaProps
 }: ToolCredentialSelectorProps) {
   const locale = useLocale() as LocaleCode
   const copy = useWorkspaceBlockEditorMessages().toolInput
@@ -201,6 +203,7 @@ export function ToolCredentialSelector({
           disabled={disabled}
           render={
             <Button
+              {...ariaProps}
               id={id}
               aria-label={labelText}
               variant='outline'
