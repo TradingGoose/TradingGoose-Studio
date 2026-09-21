@@ -79,10 +79,68 @@ it.each([false, true])(
       expect(state.isConnected).toBe(true)
       expect(state.isConnecting).toBe(false)
       expect(sockets.filter((socket) => socket.active)).toEqual([state.socket])
-      expect(globalThis.__socketRegistry?.get('user-1')).toBe(state.socket)
+      expect(globalThis.__socketRegistry?.get('user-1')?.socket).toBe(state.socket)
       act(() => root.unmount())
     }
     expect(sockets.every((socket) => !socket.active)).toBe(true)
     expect(globalThis.__socketRegistry?.size).toBe(0)
   }
 )
+
+it('keeps a shared socket until its final provider releases it', () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  ioMock.mockImplementation(() => new TestSocket())
+  const states: ReturnType<typeof useSocket>[] = []
+  function Probe({ index }: { index: number }) {
+    states[index] = useSocket()
+    return null
+  }
+  const root = createRoot(document.createElement('div'))
+  const renderProviders = (userId?: string, showFirst = true) =>
+    act(() =>
+      root.render(
+        <>
+          {showFirst && (
+            <SocketProvider key='first' user={userId ? { id: userId } : undefined}>
+              <Probe index={0} />
+            </SocketProvider>
+          )}
+          <SocketProvider key='second' user={{ id: 'user-1' }}>
+            <Probe index={1} />
+          </SocketProvider>
+        </>
+      )
+    )
+  renderProviders('user-1')
+  const shared = states[0].socket as unknown as TestSocket
+  expect(states[1].socket).toBe(shared)
+  expect(ioMock).toHaveBeenCalledTimes(1)
+  act(() => {
+    shared.connected = true
+    shared.emit('connect')
+  })
+  expect(states.every((state) => state.isConnected)).toBe(true)
+
+  renderProviders('user-2')
+  const other = states[0].socket as unknown as TestSocket
+  expect(shared.active).toBe(true)
+  expect(states[0].isConnected).toBe(false)
+  expect(states[1].isConnected).toBe(true)
+  renderProviders('user-1')
+  expect(other.active).toBe(false)
+  expect(states[0].socket).toBe(shared)
+  expect(states[0].isConnected).toBe(true)
+
+  renderProviders()
+  expect(states[0]).toEqual({ socket: null, isConnected: false, isConnecting: false })
+  expect(shared.active).toBe(true)
+  renderProviders('user-1')
+  expect(ioMock).toHaveBeenCalledTimes(2)
+  renderProviders(undefined, false)
+  expect(shared.active).toBe(true)
+  expect(shared.listenerCount('connect')).toBe(1)
+  act(() => root.unmount())
+  expect(shared.active).toBe(false)
+  expect(shared.listenerCount('connect')).toBe(0)
+  expect(globalThis.__socketRegistry?.size).toBe(0)
+})

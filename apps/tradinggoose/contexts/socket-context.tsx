@@ -54,6 +54,11 @@ interface SocketProviderProps {
   user?: User
 }
 
+interface SocketRegistryEntry {
+  socket: Socket
+  owners: number
+}
+
 /**
  * The socket registry is stored on `globalThis` rather than as a module-scoped
  * variable so that it survives Next.js Fast Refresh / HMR reloads in development.
@@ -62,61 +67,7 @@ interface SocketProviderProps {
  */
 declare global {
   // eslint-disable-next-line no-var
-  var __socketRegistry: Map<string, Socket> | undefined
-}
-
-/** Module-level empty map returned during SSR to avoid allocating a new Map per call. */
-const SSR_EMPTY_REGISTRY = new Map<string, Socket>()
-
-/**
- * Prune all stale (disconnected / destroyed) entries from the registry.
- * Called when the registry is accessed so that orphaned sockets from HMR
- * reloads do not accumulate.
- */
-const pruneStaleEntries = (registry: Map<string, Socket>): void => {
-  registry.forEach((entry, key) => {
-    if (!entry.connected && !entry.active) {
-      // Best-effort cleanup of the underlying socket
-      try {
-        entry.disconnect()
-      } catch {
-        // ignore — socket may already be fully torn down
-      }
-      registry.delete(key)
-    }
-  })
-}
-
-/**
- * Minimum interval (ms) between prune sweeps.
- * Development uses a shorter interval because HMR reloads create stale
- * entries more frequently. Production uses a longer interval since orphaned
- * sockets are rarer, but pruning is still necessary to avoid leaking
- * entries that were disconnected by transient network issues.
- */
-const PRUNE_INTERVAL_MS = process.env.NODE_ENV === 'development' ? 30_000 : 5 * 60_000
-
-let lastPruneTime = 0
-
-const maybePrune = (registry: Map<string, Socket>): void => {
-  const now = Date.now()
-  if (now - lastPruneTime < PRUNE_INTERVAL_MS) return
-  lastPruneTime = now
-  pruneStaleEntries(registry)
-}
-
-const getGlobalSocketRegistry = (): Map<string, Socket> => {
-  if (typeof window === 'undefined') {
-    return SSR_EMPTY_REGISTRY
-  }
-
-  if (!globalThis.__socketRegistry) {
-    globalThis.__socketRegistry = new Map<string, Socket>()
-  }
-
-  maybePrune(globalThis.__socketRegistry)
-
-  return globalThis.__socketRegistry
+  var __socketRegistry: Map<string, SocketRegistryEntry> | undefined
 }
 
 export function SocketProvider({ children, user }: SocketProviderProps) {
@@ -126,10 +77,6 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
   const [isConnecting, setIsConnecting] = useState(false)
   const callbackPathnameRef = useRef(pathname)
   callbackPathnameRef.current = pathname
-
-  // Track the socket independently of React's state updates for cleanup.
-  const socketRef = useRef<Socket | null>(null)
-  const userIdRef = useRef<string | undefined>(undefined)
 
   // Helper function to generate a fresh socket token
   const generateSocketToken = async (): Promise<string> => {
@@ -154,75 +101,19 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
   }
 
   useEffect(() => {
-    if (!user?.id) return
-
-    // Prune registry entry for previous user on login/logout transitions
-    if (userIdRef.current && userIdRef.current !== user.id) {
-      const registry = getGlobalSocketRegistry()
-      registry.get(userIdRef.current)?.disconnect()
-      registry.delete(userIdRef.current)
-    }
-    userIdRef.current = user.id
-
-    const registry = getGlobalSocketRegistry()
-    const entry = registry.get(user.id)
-    let setupSocketCleanup: (() => void) | undefined
-
-    const setupSocket = (socketInstance: Socket) => {
-      socketRef.current = socketInstance
-      setSocket(socketInstance)
-
-      const onConnect = () => {
-        setIsConnected(true)
-        setIsConnecting(false)
-        logger.info('Socket connected successfully', {
-          socketId: socketInstance?.id,
-          connected: socketInstance?.connected,
-        })
-      }
-
-      const onDisconnect = (reason: string) => {
-        setIsConnected(false)
-        setIsConnecting(false)
-        logger.info('Socket disconnected', { reason })
-      }
-
-      const onConnectError = (error: any) => {
-        setIsConnected(false)
-        setIsConnecting(false)
-        logSocketIssue(
-          'Socket connection error:',
-          {
-            message: error instanceof Error ? error.message : String(error),
-            type: error?.type,
-          },
-          callbackPathnameRef.current
-        )
-      }
-
-      socketInstance.on('connect', onConnect)
-      socketInstance.on('disconnect', onDisconnect)
-      socketInstance.on('connect_error', onConnectError)
-
-      // Initial check
-      if (socketInstance.connected) {
-        onConnect()
-      }
-
-      return () => {
-        socketInstance.off('connect', onConnect)
-        socketInstance.off('disconnect', onDisconnect)
-        socketInstance.off('connect_error', onConnectError)
-      }
+    if (!user?.id) {
+      setSocket(null)
+      setIsConnected(false)
+      setIsConnecting(false)
+      return
     }
 
+    const registry = (globalThis.__socketRegistry ??= new Map())
+    let entry = registry.get(user.id)
     if (entry) {
       logger.info('Reusing existing shared socket connection', { userId: user.id })
-      setIsConnecting(!entry.connected && entry.active)
-      setupSocketCleanup = setupSocket(entry)
     } else {
       logger.info('Initializing new socket connection for user:', user.id)
-      setIsConnecting(true)
 
       const socketUrl = getEnv('NEXT_PUBLIC_SOCKET_URL')?.trim() || 'http://localhost:3002'
 
@@ -256,20 +147,57 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
         },
       })
 
-      registry.set(user.id, socketInstance)
-      setupSocketCleanup = setupSocket(socketInstance)
+      entry = { socket: socketInstance, owners: 0 }
+      registry.set(user.id, entry)
     }
 
-    return () => {
-      setupSocketCleanup?.()
+    entry.owners += 1
+    const socketInstance = entry.socket
+    setSocket(socketInstance)
+    setIsConnected(socketInstance.connected)
+    setIsConnecting(!socketInstance.connected && socketInstance.active)
 
-      // Clean up socket and registry entry on unmount
-      const currentSocket = socketRef.current
-      if (currentSocket && user?.id) {
-        logger.info('Cleaning up socket connection on unmount')
-        getGlobalSocketRegistry().delete(user.id)
-        currentSocket.disconnect()
-        socketRef.current = null
+    const onConnect = () => {
+      setIsConnected(true)
+      setIsConnecting(false)
+      logger.info('Socket connected successfully', {
+        socketId: socketInstance.id,
+        connected: socketInstance.connected,
+      })
+    }
+
+    const onDisconnect = (reason: string) => {
+      setIsConnected(false)
+      setIsConnecting(false)
+      logger.info('Socket disconnected', { reason })
+    }
+
+    const onConnectError = (error: any) => {
+      setIsConnected(false)
+      setIsConnecting(false)
+      logSocketIssue(
+        'Socket connection error:',
+        {
+          message: error instanceof Error ? error.message : String(error),
+          type: error?.type,
+        },
+        callbackPathnameRef.current
+      )
+    }
+
+    socketInstance.on('connect', onConnect)
+    socketInstance.on('disconnect', onDisconnect)
+    socketInstance.on('connect_error', onConnectError)
+
+    return () => {
+      socketInstance.off('connect', onConnect)
+      socketInstance.off('disconnect', onDisconnect)
+      socketInstance.off('connect_error', onConnectError)
+      entry.owners -= 1
+      if (entry.owners === 0) {
+        logger.info('Cleaning up socket connection after final provider release')
+        if (registry.get(user.id) === entry) registry.delete(user.id)
+        socketInstance.disconnect()
       }
     }
   }, [user?.id])
