@@ -25,16 +25,19 @@ const portfolioSchema = z.object({
   total_value: robinhoodNumber,
   cash: robinhoodNumber,
   currency: z.literal('USD'),
-  buying_power: z.object({ buying_power: robinhoodNumber }),
+  buying_power: z.object({ buying_power: robinhoodNumber }).nullable(),
 })
 const positionsSchema = z.object({
-  positions: z.array(
-    z.object({
-      symbol: z.string().trim().min(1),
-      quantity: robinhoodNumber,
-      average_buy_price: robinhoodNumber.nullish(),
-    })
-  ),
+  positions: z
+    .array(
+      z.object({
+        symbol: z.string().trim().min(1),
+        quantity: robinhoodNumber,
+        average_buy_price: robinhoodNumber.nullish(),
+      })
+    )
+    .nullable()
+    .transform((positions) => positions ?? []),
   next: z.string().nullish(),
 })
 
@@ -118,7 +121,7 @@ export async function getRobinhoodTradingAccountSnapshot(context: TradingPortfol
       totalPortfolioValue: portfolio.total_value,
       totalCashValue: portfolio.cash,
       totalHoldingsValue: portfolio.total_value - portfolio.cash,
-      buyingPower: portfolio.buying_power.buying_power,
+      buyingPower: portfolio.buying_power?.buying_power,
       equity: portfolio.total_value,
     },
   })

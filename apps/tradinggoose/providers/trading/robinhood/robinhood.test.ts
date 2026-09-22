@@ -151,6 +151,9 @@ describe('Robinhood trading accounts and portfolio', () => {
         })
       )
       .mockResolvedValueOnce(
+        envelope({ positions: null, next: 'https://api.robinhood.com/positions/?cursor=page3' })
+      )
+      .mockResolvedValueOnce(
         envelope({
           positions: [{ symbol: 'SPY', quantity: '0.5', average_buy_price: null }],
           next: null,
@@ -181,6 +184,7 @@ describe('Robinhood trading accounts and portfolio', () => {
       { account_number: context.accountId },
       { account_number: context.accountId },
       { account_number: context.accountId, cursor: 'page2' },
+      { account_number: context.accountId, cursor: 'page3' },
     ])
     expect(sdk.listing).toHaveBeenCalledTimes(2)
   })
@@ -193,6 +197,34 @@ describe('Robinhood trading accounts and portfolio', () => {
         status: 502,
       })
       expect(toolNames()).toEqual(['get_portfolio'])
+      expect(sdk.close).toHaveBeenCalledOnce()
+    }
+  )
+
+  it.each([
+    { positions: null, buying_power: portfolio.buying_power },
+    { positions: [], buying_power: null },
+    { positions: null, buying_power: null },
+  ])(
+    'preserves balances with nullable portfolio fields: %j',
+    async ({ positions, buying_power }) => {
+      sdk.callTool
+        .mockResolvedValueOnce(
+          envelope({ ...portfolio, cash: '1000', total_value: '1000', buying_power })
+        )
+        .mockResolvedValueOnce(envelope({ positions }))
+      const snapshot = await getRobinhoodTradingAccountSnapshot(context)
+      expect(snapshot.positions).toEqual([])
+      expect(snapshot.cashBalances).toEqual([
+        { currency: 'USD', currencySymbol: '$', amount: 1000 },
+      ])
+      expect(snapshot.summary).toMatchObject({
+        totalPortfolioValue: 1000,
+        totalCashValue: 1000,
+        totalHoldingsValue: 0,
+        equity: 1000,
+      })
+      expect(snapshot.summary.buyingPower).toBe(buying_power ? 600 : undefined)
       expect(sdk.close).toHaveBeenCalledOnce()
     }
   )
