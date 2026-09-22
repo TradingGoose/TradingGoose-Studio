@@ -138,14 +138,15 @@ describe('useLiveBars', () => {
     }
   )
 
-  it.each(['initial', 'historical'])('sets the full series for an %s candle', (mode) => {
+  it.each(['initial', 'historical'])('inserts and corrects an %s candle', (mode) => {
     act(() => root.render(<Harness providerId='robinhood' />))
     controls.startLiveSubscription()
     if (mode === 'initial') dataContext.barsMsRef.current = []
+    const newerBars = dataContext.barsMsRef.current
     const { clientSubscriptionId } = socket.emit.mock.calls[0][1]
     handlers.get('market-bar')?.({
       clientSubscriptionId,
-      bar: { timeStamp: '2026-09-22T13:59:00Z', open: 9, high: 12, low: 8, close: 10 },
+      bar: { timeStamp: '2026-09-22T13:59:00Z', open: 9, high: 12, low: 8, close: 10, volume: 10 },
     })
     expect(series.setData).toHaveBeenCalledExactlyOnceWith([
       { time: openTime / 1000 - 60, open: 9, high: 12, low: 8, close: 10 },
@@ -155,6 +156,22 @@ describe('useLiveBars', () => {
     ])
     expect(series.update).not.toHaveBeenCalled()
     expect(onDataUpdated).toHaveBeenCalledTimes(1)
+    handlers.get('market-bar')?.({
+      clientSubscriptionId,
+      bar: { timeStamp: '2026-09-22T13:59:00Z', open: 9, high: 14, low: 7, close: 13, volume: 20 },
+    })
+    expect(dataContext.barsMsRef.current).toEqual([
+      expect.objectContaining({
+        openTime: openTime - 60_000,
+        open: 9,
+        high: 14,
+        low: 7,
+        close: 13,
+        volume: 20,
+      }),
+      ...newerBars,
+    ])
+    expect(onDataUpdated).toHaveBeenCalledTimes(2)
   })
 
   it.each([

@@ -911,6 +911,8 @@ export class MarketStreamManager {
     interval: string,
     record: MarketSubscriptionRecord
   ) {
+    const cacheKey = buildPollingBarCacheKey(symbol, interval)
+    const cached = streamState.marketBarCache.get(cacheKey)
     const response = await executeProviderRequest(
       record.provider,
       {
@@ -923,20 +925,18 @@ export class MarketStreamManager {
           ...(streamState.providerParams ?? {}),
           allowEmpty: true,
         },
-        windows: [{ mode: 'bars', barCount: 1 }],
+        // Include the last candle again to finalize it and recover any missed intervals.
+        windows: cached
+          ? [{ mode: 'absolute', start: cached.timeStamp, end: new Date().toISOString() }]
+          : [{ mode: 'bars', barCount: 1 }],
       },
       { userId: record.socket.userId }
     )
-    const series = response as MarketSeries
-    const bar = series.bars[series.bars.length - 1]
-    if (!bar) return
-
-    const cacheKey = buildPollingBarCacheKey(symbol, interval)
-    const cached = streamState.marketBarCache.get(cacheKey)
-    if (cached && areMarketBarsEqual(cached, bar)) return
-
-    streamState.marketBarCache.set(cacheKey, bar)
-    this.emitMarketBarToSymbolSubscribers(streamState, symbol, interval, bar)
+    for (const bar of (response as MarketSeries).bars) {
+      if (cached && areMarketBarsEqual(cached, bar)) continue
+      streamState.marketBarCache.set(cacheKey, bar)
+      this.emitMarketBarToSymbolSubscribers(streamState, symbol, interval, bar)
+    }
   }
 
   private emitMarketPollingError(

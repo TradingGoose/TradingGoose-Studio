@@ -482,6 +482,73 @@ describe('MarketStreamManager quote snapshots', () => {
     manager.removeSocket(secondSocket.id)
   })
 
+  it('corrects the previous candle and resumes missed bars after empty or failed polls', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-22T14:00:30Z'))
+    const manager = new MarketStreamManager()
+    const socket = createSocket('socket-1')
+    const partial = {
+      timeStamp: '2026-09-22T14:00:00.000Z',
+      open: 100,
+      high: 101,
+      low: 99,
+      close: 101,
+      volume: 10,
+    }
+    const finalized = { ...partial, high: 110, close: 110, volume: 20 }
+    const next = { ...partial, timeStamp: '2026-09-22T14:01:00.000Z' }
+    refreshAccessTokenIfNeededMock.mockResolvedValue('token')
+    checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: true })
+    executeProviderRequestMock.mockResolvedValue({ bars: [partial] })
+    await manager.subscribe(socket, {
+      provider: 'robinhood',
+      workspaceId: 'workspace-1',
+      listing,
+      channel: 'bars',
+      interval: '1m',
+      clientSubscriptionId: 'chart',
+      providerParams: { credentialId: 'connection' },
+    })
+    await vi.advanceTimersByTimeAsync(0)
+
+    executeProviderRequestMock.mockResolvedValue({ bars: [finalized, next] })
+    vi.setSystemTime(new Date('2026-09-22T14:01:00Z'))
+    await vi.advanceTimersByTimeAsync(15_000)
+    const emittedBars = () =>
+      socket.emit.mock.calls
+        .filter(([event]: [string]) => event === 'market-bar')
+        .map(([, payload]: [string, any]) => payload.bar)
+    expect(emittedBars()).toEqual([partial, finalized, next])
+    expect(executeProviderRequestMock.mock.lastCall?.[1].windows).toEqual([
+      { mode: 'absolute', start: partial.timeStamp, end: new Date().toISOString() },
+    ])
+
+    const missed = [2, 3].map((minute) => ({
+      ...finalized,
+      timeStamp: `2026-09-22T14:0${minute}:00.000Z`,
+    }))
+    executeProviderRequestMock
+      .mockResolvedValueOnce({ bars: [] })
+      .mockRejectedValueOnce(new Error('Temporary provider failure'))
+      .mockResolvedValue({ bars: [next, ...missed] })
+    vi.setSystemTime(new Date('2026-09-22T14:03:00Z'))
+    await vi.advanceTimersByTimeAsync(45_000)
+    expect(emittedBars()).toEqual([partial, finalized, next, ...missed])
+    for (const [, request] of executeProviderRequestMock.mock.calls.slice(-3)) {
+      expect(request.windows).toEqual([
+        { mode: 'absolute', start: next.timeStamp, end: expect.any(String) },
+      ])
+    }
+
+    executeProviderRequestMock.mockResolvedValue({ bars: [missed[1]] })
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(emittedBars()).toEqual([partial, finalized, next, ...missed])
+    expect(executeProviderRequestMock.mock.lastCall?.[1].windows).toEqual([
+      { mode: 'absolute', start: missed[1].timeStamp, end: new Date().toISOString() },
+    ])
+    manager.removeSocket(socket.id)
+  })
+
   it('isolates polled candles and their caches by normalization mode', async () => {
     vi.useFakeTimers()
     const manager = new MarketStreamManager()
