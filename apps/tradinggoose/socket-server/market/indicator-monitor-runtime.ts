@@ -819,7 +819,7 @@ export class IndicatorMonitorRuntime {
   }
 
   private async enqueueMonitorExecution(subscription: IndicatorMonitorSubscription) {
-    const monitor = subscription.config
+    const { config: monitor, bars } = subscription
 
     try {
       const actorUserId = await getApiKeyOwnerUserId(monitor.pinnedApiKeyId)
@@ -855,7 +855,7 @@ export class IndicatorMonitorRuntime {
           pineCode: subscription.indicator.pineCode,
         },
         inputsMap: subscription.inputsMap,
-        bars: subscription.bars,
+        bars,
         marketCode: subscription.marketCode,
         timezone: subscription.timezone,
       }

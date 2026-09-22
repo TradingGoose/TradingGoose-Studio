@@ -2,6 +2,9 @@
  * @vitest-environment node
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
+import { enqueuePendingExecution } from '@/lib/execution/pending-execution'
+import type { IndicatorMonitorExecutionPayload } from '@/background/indicator-monitor-execution'
 import { executeProviderRequest } from '@/providers/market'
 import { marketStreamManager } from '@/socket-server/market/manager'
 
@@ -60,7 +63,7 @@ vi.mock('drizzle-orm', () => ({
 }))
 
 vi.mock('@/lib/api-key/service', () => ({
-  getApiKeyOwnerUserId: vi.fn().mockResolvedValue('billing-user'),
+  getApiKeyOwnerUserId: vi.fn(),
 }))
 
 vi.mock('@/lib/permissions/utils', () => ({
@@ -91,12 +94,6 @@ vi.mock('@/lib/indicators/dispatch', () => ({
 vi.mock('@/lib/indicators/input-meta', () => ({
   buildInputsMapFromMeta: vi.fn(() => ({})),
   inferInputMetaFromPineCode: vi.fn(() => ({})),
-}))
-
-vi.mock('@/lib/indicators/series-data', () => ({
-  mapMarketBarToBarMs: vi.fn(),
-  mapMarketSeriesToBarsMs: vi.fn(() => []),
-  normalizeBarsMs: vi.fn(() => []),
 }))
 
 vi.mock('@/lib/redis', () => ({
@@ -145,7 +142,7 @@ function buildMonitorQuery(rows: unknown[] = []) {
   }
 }
 
-describe('IndicatorMonitorRuntime lock lifecycle', () => {
+describe('IndicatorMonitorRuntime', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.clearAllMocks()
@@ -156,10 +153,69 @@ describe('IndicatorMonitorRuntime lock lifecycle', () => {
     getRedisClientMock.mockReturnValue({})
     getRedisStorageModeMock.mockReturnValue('redis')
     dbSelectMock.mockImplementation(() => buildMonitorQuery())
+    vi.mocked(executeProviderRequest).mockResolvedValue({ bars: [] })
+    vi.mocked(getApiKeyOwnerUserId).mockResolvedValue('billing-user')
   })
 
   afterEach(() => {
     vi.useRealTimers()
+  })
+
+  it('queues each recovered candle snapshot while the API-key owner lookup is pending', async () => {
+    const ownerLookups: ((owner: string) => void)[] = []
+    vi.mocked(getApiKeyOwnerUserId).mockImplementation(
+      () => new Promise((resolve) => ownerLookups.push(resolve))
+    )
+    vi.mocked(enqueuePendingExecution).mockResolvedValue({
+      inserted: true,
+      pendingExecutionId: 'pending-1',
+    })
+    const runtime = new IndicatorMonitorRuntime({ info: vi.fn(), warn: vi.fn(), error: vi.fn() })
+    runtime['subscriptions'].set('monitor-1', {
+      config: {
+        id: 'monitor-1',
+        path: 'monitor-1',
+        workflowId: 'workflow-1',
+        workspaceId: 'workspace-1',
+        userId: 'workflow-owner',
+        connectionOwnerUserId: 'collaborator-user',
+        pinnedApiKeyId: 'api-key-1',
+        blockId: 'trigger-1',
+        providerId: 'robinhood',
+        interval: '1m',
+        intervalMs: 60_000,
+        indicatorId: 'rsi',
+        listing: { listing_id: 'AAPL', listing_type: 'default', base_id: '', quote_id: '' },
+        signature: 'monitor-1',
+      },
+      indicator: { id: 'rsi', name: 'RSI', pineCode: '' },
+      inputsMap: {},
+      assetType: 'stock',
+      bars: [],
+      stream: { close: vi.fn() },
+      symbol: 'AAPL',
+    })
+    const bars = [30, 31, 32, 32].map((minute, index) => ({
+      timeStamp: `2026-09-21T14:${minute}:00.000Z`,
+      close: 100 + index,
+    }))
+    const executions = bars.map((bar) => runtime['handleIncomingBar']('monitor-1', bar))
+    expect(enqueuePendingExecution).not.toHaveBeenCalled()
+
+    ownerLookups.forEach((resolve) => resolve('billing-user'))
+    await Promise.all(executions)
+
+    const snapshots = vi.mocked(enqueuePendingExecution).mock.calls.map(([{ payload }]) => {
+      const { bars } = payload as IndicatorMonitorExecutionPayload
+      return { count: bars.length, ...bars.at(-1) }
+    })
+    expect(snapshots).toMatchObject(
+      bars.map((bar, index) => ({
+        count: Math.min(index + 1, 3),
+        openTime: Date.parse(bar.timeStamp),
+        close: bar.close,
+      }))
+    )
   })
 
   it.each([
