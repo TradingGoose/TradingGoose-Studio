@@ -236,12 +236,11 @@ const resolveMissingChunk = (
 
   const firstOpenTime = bars[0]?.openTime
   const lastOpenTime = bars[bars.length - 1]?.openTime
-  if (
-    typeof firstOpenTime !== 'number' ||
-    typeof lastOpenTime !== 'number' ||
-    (range.startMs <= firstOpenTime && range.endMs >= lastOpenTime)
-  ) {
+  if (typeof firstOpenTime !== 'number' || typeof lastOpenTime !== 'number') {
     return null
+  }
+  if (range.startMs <= firstOpenTime && range.endMs >= lastOpenTime) {
+    return bars.slice(-maxBars)
   }
 
   const leftBoundaryIndex = bars.findIndex((bar) => bar.openTime >= range.startMs)

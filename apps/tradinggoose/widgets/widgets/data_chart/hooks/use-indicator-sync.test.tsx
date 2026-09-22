@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { act, useRef } from 'react'
+import { act, useMemo, useRef } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BarMs } from '@/widgets/widgets/data_chart/series-data'
@@ -54,10 +54,16 @@ const chart = {
   }),
 }
 const indicatorRuntimeRef = { current: new Map() }
+const indicatorRefs = [{ id: 'custom-1', inputs: { Length: 14 } }]
+const indicatorCopy = { executionErrorFallback: 'Execution failed' } as any
 
 function Harness({ pineCode, interval = '1m' }: { pineCode?: string; interval?: string }) {
   const chartRef = useRef(chart as any)
   const mainSeriesRef = useRef(mainSeries as any)
+  const indicators = useMemo(
+    () => (pineCode === undefined ? [] : [{ id: 'custom-1', pineCode }]),
+    [pineCode]
+  )
 
   useIndicatorSync({
     chartRef,
@@ -65,11 +71,11 @@ function Harness({ pineCode, interval = '1m' }: { pineCode?: string; interval?: 
     dataContext,
     interval,
     workspaceId: 'workspace-1',
-    indicatorRefs: [{ id: 'custom-1', inputs: { Length: 14 } }],
-    indicators: pineCode === undefined ? [] : [{ id: 'custom-1', pineCode }],
+    indicatorRefs,
+    indicators,
     chartReady: 1,
     indicatorRuntimeRef,
-    indicatorCopy: { executionErrorFallback: 'Execution failed' } as any,
+    indicatorCopy,
   })
 
   return null
@@ -165,6 +171,27 @@ describe('useIndicatorSync live source changes', () => {
       expect(mockExecuteBrowserPineIndicator).toHaveBeenCalledTimes(previousExecutions + 2)
     }
   )
+
+  it('updates the current candle without clearing indicator data or rerunning unchanged renders', async () => {
+    const render = async () => {
+      await act(async () => root.render(<Harness pineCode='plot(close)' />))
+      await act(async () => vi.runAllTimersAsync())
+    }
+    await render()
+    await render()
+    expect(mockExecuteBrowserPineIndicator).toHaveBeenCalledTimes(1)
+    indicatorSeries.setData.mockClear()
+
+    dataContext.barsMsRef.current = [{ ...bars[0]!, close: 12 }]
+    dataContext.dataVersion += 1
+    await render()
+    expect(mockExecuteBrowserPineIndicator).toHaveBeenCalledTimes(2)
+    expect(indicatorSeries.setData).toHaveBeenCalledExactlyOnceWith([{ time: 1, value: 12 }])
+    expect(chart.removeSeries).not.toHaveBeenCalled()
+    expect(dataContext.seriesVersion).toBe(1)
+    await render()
+    expect(mockExecuteBrowserPineIndicator).toHaveBeenCalledTimes(2)
+  })
 
   it('re-executes the current bars when only the live Pine source changes', async () => {
     await act(async () => {
