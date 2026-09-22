@@ -26,6 +26,7 @@ import type {
   MarketProviderAuth,
   MarketProviderParams,
   MarketSeries,
+  NormalizationMode,
 } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 import type { AuthenticatedSocket } from '@/socket-server/middleware/auth'
@@ -52,6 +53,7 @@ export interface MarketSubscribePayload {
   listing?: ListingIdentity
   channel?: MarketChannel
   interval?: string
+  normalizationMode?: NormalizationMode
   market?: AlpacaMarket
   feed?: AlpacaFeed
   cryptoRegion?: AlpacaCryptoRegion
@@ -105,6 +107,7 @@ interface StreamState {
   cryptoRegion?: AlpacaCryptoRegion
   auth?: MarketProviderAuth
   providerParams?: MarketProviderParams
+  normalizationMode?: NormalizationMode
   pollingTimer?: ReturnType<typeof setInterval>
   pollingInFlight?: boolean
   quoteSnapshotCache: Map<string, MarketQuoteSnapshot>
@@ -437,11 +440,13 @@ export class MarketStreamManager {
       userId: oauth ? socket.userId : undefined,
       auth: payload.auth,
       providerParams: payload.providerParams,
+      normalizationMode: payload.normalizationMode,
     })
     const streamState = this.getOrCreatePollingStream(streamKey, {
       provider: payload.provider,
       auth: payload.auth,
       providerParams: payload.providerParams,
+      normalizationMode: payload.normalizationMode,
     })
 
     const intervalToken =
@@ -611,6 +616,7 @@ export class MarketStreamManager {
       provider: string
       auth?: MarketProviderAuth
       providerParams?: MarketProviderParams
+      normalizationMode?: NormalizationMode
     }
   ): StreamState {
     const existing = this.streams.get(streamKey)
@@ -621,6 +627,7 @@ export class MarketStreamManager {
       market: 'stocks',
       auth: config.auth,
       providerParams: config.providerParams,
+      normalizationMode: config.normalizationMode,
       quoteSnapshotCache: new Map(),
       marketBarCache: new Map(),
       subscribersBySymbol: new Map(),
@@ -639,20 +646,7 @@ export class MarketStreamManager {
 
     subscribers.forEach((record) => {
       if (record.channel !== 'bars') return
-      record.socket.emit('market-bar', {
-        provider: record.provider,
-        market: record.market,
-        channel: record.channel,
-        subscriptionId: record.subscriptionId,
-        listing: record.listing,
-        listingBase: record.listingBase,
-        listingQuote: record.listingQuote,
-        symbol: record.symbol,
-        interval: record.interval,
-        bar,
-        receivedAt: new Date().toISOString(),
-        raw,
-      })
+      this.emitMarketBar(record, bar, raw)
     })
   }
 
@@ -681,6 +675,7 @@ export class MarketStreamManager {
         market: record.market,
         channel: record.channel,
         subscriptionId: record.subscriptionId,
+        clientSubscriptionId: record.clientSubscriptionId,
         listing: record.listing,
         listingBase: record.listingBase,
         listingQuote: record.listingQuote,
@@ -922,6 +917,7 @@ export class MarketStreamManager {
         kind: 'series',
         listing: record.listing as ListingIdentity,
         interval,
+        normalizationMode: streamState.normalizationMode,
         auth: streamState.auth,
         providerParams: {
           ...(streamState.providerParams ?? {}),
@@ -1169,6 +1165,7 @@ function buildPollingStreamKey(config: {
   userId?: string
   auth?: MarketProviderAuth
   providerParams?: MarketProviderParams
+  normalizationMode?: NormalizationMode
 }): string {
   const base = [
     config.provider,
@@ -1176,6 +1173,7 @@ function buildPollingStreamKey(config: {
     config.userId ?? '',
     stableStringifyJsonValue(config.auth ?? null),
     stableStringifyJsonValue(config.providerParams ?? null),
+    config.normalizationMode ?? '',
   ].join('|')
   return createHash('sha256').update(base).digest('hex')
 }

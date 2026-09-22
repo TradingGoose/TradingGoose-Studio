@@ -334,6 +334,29 @@ describe('MarketStreamManager quote snapshots', () => {
     manager.removeSocket(secondSocket.id)
   })
 
+  it.each(['bars', 'trades'] as const)(
+    'identifies each streaming %s subscriber',
+    async (channel) => {
+      const manager = new MarketStreamManager()
+      const socket = createSocket('socket-1')
+      await manager.subscribe(socket, {
+        provider: 'alpaca',
+        listing,
+        channel,
+        clientSubscriptionId: 'chart-1',
+        auth: { apiKey: 'key', apiSecret: 'secret' },
+      })
+      const event = channel === 'bars' ? 'bar' : 'trade'
+      const handler = channel === 'bars' ? 'onBar' : 'onTrade'
+      alpacaStreamInstances[0].handlers[handler]({ symbol: 'AAPL', [event]: { close: 101 } })
+      expect(socket.emit).toHaveBeenCalledWith(
+        `market-${event}`,
+        expect.objectContaining({ clientSubscriptionId: 'chart-1' })
+      )
+      manager.removeSocket(socket.id)
+    }
+  )
+
   it('uses one polling pull for duplicate polling-provider quote snapshots', async () => {
     vi.useFakeTimers()
     const manager = new MarketStreamManager()
@@ -457,6 +480,38 @@ describe('MarketStreamManager quote snapshots', () => {
 
     manager.removeSocket(firstSocket.id)
     manager.removeSocket(secondSocket.id)
+  })
+
+  it('isolates polled candles and their caches by normalization mode', async () => {
+    vi.useFakeTimers()
+    const manager = new MarketStreamManager()
+    const socket = createSocket('socket-1')
+    refreshAccessTokenIfNeededMock.mockResolvedValue('token')
+    checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: true })
+    for (const [index, normalizationMode] of (
+      ['raw', 'split_adjusted', 'raw'] as const
+    ).entries()) {
+      await manager.subscribe(socket, {
+        provider: 'robinhood',
+        workspaceId: 'workspace-1',
+        listing,
+        channel: 'bars',
+        interval: '1m',
+        normalizationMode,
+        clientSubscriptionId: `chart-${index}`,
+        providerParams: { credentialId: 'connection' },
+      })
+      await vi.advanceTimersByTimeAsync(0)
+    }
+    expect(
+      executeProviderRequestMock.mock.calls.map(([, request]) => request.normalizationMode)
+    ).toEqual(['raw', 'split_adjusted'])
+    expect(
+      socket.emit.mock.calls.filter(([event]: [string]) => event === 'market-bar')
+    ).toHaveLength(3)
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(executeProviderRequestMock).toHaveBeenCalledTimes(4)
+    manager.removeSocket(socket.id)
   })
 
   it.each(['bars', 'quote-snapshots'] as const)('authorizes OAuth %s', async (channel) => {
