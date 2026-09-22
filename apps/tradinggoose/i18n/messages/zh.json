@@ -18540,6 +18540,8 @@
           "output": "输出"
         },
         "toolInput": {
+          "useInWorkflow": "在此工作流中使用",
+          "failedToSaveConnection": "无法保存此连接。请重试。",
           "createMcpServer": "创建 MCP 服务器",
           "actions": "操作",
           "mcpTools": "MCP 工具",

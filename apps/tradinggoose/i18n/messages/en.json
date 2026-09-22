@@ -18553,6 +18553,8 @@
           "output": "Output"
         },
         "toolInput": {
+          "useInWorkflow": "Use in this workflow",
+          "failedToSaveConnection": "Could not save this connection. Try again.",
           "createMcpServer": "Create MCP Server",
           "actions": "Actions",
           "mcpTools": "MCP Tools",

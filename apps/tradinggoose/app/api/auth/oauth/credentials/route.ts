@@ -1,9 +1,10 @@
 import { db } from '@tradinggoose/db'
-import { workflow } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
+import { credential, workflow } from '@tradinggoose/db/schema'
+import { eq, isNotNull } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { AuthType, checkHybridAuth } from '@/lib/auth/hybrid'
-import { listOAuthCredentialsForUser } from '@/lib/credentials/oauth'
+import { listOAuthConnectionsForUser, listOAuthCredentialsForUser } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { OAuthService } from '@/lib/oauth'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
@@ -29,7 +30,7 @@ async function resolveWorkflowWorkspaceId(workflowId: string, requesterUserId: s
     return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
   }
 
-  return { workspaceId: wf.workspaceId }
+  return { workspaceId: wf.workspaceId, canWrite: access.canWrite }
 }
 
 export async function GET(request: NextRequest) {
@@ -81,9 +82,68 @@ export async function GET(request: NextRequest) {
       credentialId: credentialId || undefined,
     })
 
-    return NextResponse.json({ credentials }, { status: 200 })
+    const connections =
+      providerParam && authResult.authType === AuthType.SESSION
+        ? await listOAuthConnectionsForUser({
+            userId: requesterUserId,
+            providerIds: [providerParam],
+          })
+        : []
+    return NextResponse.json({
+      credentials,
+      connections: connections.filter(
+        (connection) => !credentials.some((entry) => entry.accountId === connection.id)
+      ),
+    })
   } catch (error) {
     logger.error(`[${requestId}] Error fetching OAuth credentials`, error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const auth = await checkHybridAuth(request, { requireWorkflowId: false })
+    if (!auth.success || !auth.userId || auth.authType !== AuthType.SESSION) {
+      return NextResponse.json({ error: 'User not authenticated' }, { status: 401 })
+    }
+    const parsed = z
+      .object({ workflowId: z.string().trim().min(1), accountId: z.string().trim().min(1) })
+      .safeParse(await request.json())
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Workflow and connection are required' }, { status: 400 })
+    }
+    const scope = await resolveWorkflowWorkspaceId(parsed.data.workflowId, auth.userId)
+    if (scope.error) return scope.error
+    if (!scope.canWrite) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+    const connection = (await listOAuthConnectionsForUser({ userId: auth.userId })).find(
+      (entry) => entry.id === parsed.data.accountId
+    )
+    if (!connection) {
+      return NextResponse.json({ error: 'Connection not found' }, { status: 404 })
+    }
+    const [saved] = await db
+      .insert(credential)
+      .values({
+        id: crypto.randomUUID(),
+        workspaceId: scope.workspaceId,
+        type: 'oauth',
+        providerId: connection.provider,
+        displayName: connection.name,
+        accountId: connection.id,
+        createdBy: auth.userId,
+      })
+      .onConflictDoUpdate({
+        target: [credential.workspaceId, credential.accountId],
+        targetWhere: isNotNull(credential.accountId),
+        set: { displayName: connection.name },
+      })
+      .returning({ id: credential.id })
+    return NextResponse.json({ credentialId: saved.id })
+  } catch (error) {
+    logger.error('Error saving OAuth credential', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

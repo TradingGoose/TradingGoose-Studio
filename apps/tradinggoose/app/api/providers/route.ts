@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
+import { authorizeCredentialUse, credentialAuthStatus } from '@/lib/auth/credential-access'
 import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
@@ -69,18 +70,48 @@ export async function POST(request: NextRequest) {
     }
 
     if (namespace === 'market') {
-      const auth = getMarketProviderDefinition(providerId.split('/')[0])?.oauth
-        ? await checkSessionOrInternalAuth(request, { requireWorkflowId: false })
-        : null
-      if (auth && (!auth.success || !auth.userId)) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      const marketBody = body as MarketProviderRouteBody
+      const oauth = getMarketProviderDefinition(providerId.split('/')[0])?.oauth
+      const searchParams = new URL(request.url).searchParams
+      const workflowId = searchParams.get('workflowId')?.trim()
+      let authUserId: string | undefined
+      if (oauth && workflowId) {
+        const credentialId = marketBody.providerParams?.credentialId
+        if (typeof credentialId !== 'string' || !credentialId.trim()) {
+          return NextResponse.json({ error: 'Credential ID is required' }, { status: 400 })
+        }
+        const authz = await authorizeCredentialUse(request, {
+          credentialId: credentialId.trim(),
+          workflowId,
+          workspaceId: searchParams.get('workspaceId')?.trim() || undefined,
+        })
+        if (!authz.ok || !authz.credentialOwnerUserId || !authz.resolvedTokenAccountId) {
+          return NextResponse.json(
+            { error: authz.error || 'Unauthorized' },
+            { status: credentialAuthStatus(authz.error) }
+          )
+        }
+        if (authz.resolvedProviderId !== oauth.provider) {
+          return NextResponse.json({ error: 'Credential provider mismatch' }, { status: 403 })
+        }
+        marketBody.providerParams = {
+          ...marketBody.providerParams,
+          credentialId: authz.resolvedTokenAccountId,
+        }
+        authUserId = authz.credentialOwnerUserId
+      } else if (oauth) {
+        const auth = await checkSessionOrInternalAuth(request, { requireWorkflowId: false })
+        if (!auth.success || !auth.userId) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+        authUserId = auth.userId
       }
       return handleMarketProviderRequest({
-        body: body as MarketProviderRouteBody,
+        body: marketBody,
         providerId,
         requestId,
         startTime,
-        authUserId: auth?.userId,
+        authUserId,
       })
     }
 

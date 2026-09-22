@@ -185,7 +185,10 @@ export async function listOAuthCredentialsForUser(
 
   return rows
     .filter((row) => usableCredentialIds.has(row.id))
-    .map((row) => toOAuthCredential({ ...row, requesterUserId: params.userId }))
+    .map((row) => ({
+      ...toOAuthCredential({ ...row, requesterUserId: params.userId }),
+      accountId: row.accountUserId === params.userId ? row.accountId : undefined,
+    }))
 }
 
 export async function listOAuthConnectionAccountsForUser(params: {
