@@ -8,9 +8,18 @@ import type { DataChartDataContext } from '@/widgets/widgets/data_chart/types'
 import { useIndicatorSync } from './use-indicator-sync'
 
 const mockExecuteBrowserPineIndicator = vi.hoisted(() => vi.fn())
+const mockSetMarkers = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/indicators/browser-execution', () => ({
   executeBrowserPineIndicator: mockExecuteBrowserPineIndicator,
+}))
+
+vi.mock('lightweight-charts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('lightweight-charts')>()),
+  createSeriesMarkers: (_series: unknown, markers: unknown[]) => {
+    mockSetMarkers(markers)
+    return { setMarkers: mockSetMarkers, detach: vi.fn() }
+  },
 }))
 
 const bars: BarMs[] = [{ openTime: 1_000, closeTime: 2_000, open: 10, high: 12, low: 9, close: 11 }]
@@ -99,6 +108,7 @@ describe('useIndicatorSync live source changes', () => {
     indicatorSeries.setData.mockClear()
     chart.addSeries.mockClear()
     chart.removeSeries.mockClear()
+    mockSetMarkers.mockClear()
     mockExecuteBrowserPineIndicator.mockImplementation(async ({ barsMs }) => ({
       output: {
         series: [
@@ -191,6 +201,47 @@ describe('useIndicatorSync live source changes', () => {
     expect(dataContext.seriesVersion).toBe(1)
     await render()
     expect(mockExecuteBrowserPineIndicator).toHaveBeenCalledTimes(2)
+  })
+
+  it('preserves historical Pine markers after backfill while replacing current-candle signals', async () => {
+    const { executeBrowserPineIndicator } = await vi.importActual<
+      typeof import('@/lib/indicators/browser-execution')
+    >('@/lib/indicators/browser-execution')
+    mockExecuteBrowserPineIndicator.mockImplementation(executeBrowserPineIndicator)
+    const pineCode = `indicator('Warmup Marker', { overlay: true });
+const avg = ta.sma(close, 14);
+plot(avg, 'SMA');
+plotshape(close > avg, {style: shape.triangleup, location: location.belowbar});`
+    const history = Array.from({ length: 2000 }, (_, index) => ({
+      openTime: 1_700_000_000_000 + index * 60_000,
+      closeTime: 1_700_000_000_000 + (index + 1) * 60_000,
+      open: 100 + (index % 2),
+      high: 102,
+      low: 99,
+      close: 100 + (index % 2),
+      volume: 1,
+    }))
+    const renderBars = async (nextBars: BarMs[]) => {
+      dataContext.barsMsRef.current = nextBars
+      dataContext.dataVersion += 1
+      await act(async () => root.render(<Harness pineCode={pineCode} />))
+      await act(async () => vi.runAllTimersAsync())
+    }
+    const markerTimes = () =>
+      mockSetMarkers.mock.lastCall![0].map(({ time }: { time: number }) => time)
+    await renderBars(history.slice(800))
+    await renderBars(history)
+    const before = markerTimes()
+    expect(before).toEqual(
+      expect.arrayContaining(
+        [801, 803, 805, 807, 809, 811].map((index) => history[index]!.openTime / 1000)
+      )
+    )
+    const latest = history.at(-1)!
+    expect(before).toContain(latest.openTime / 1000)
+
+    await renderBars([...history.slice(0, -1), { ...latest, close: 100 }])
+    expect(markerTimes()).toEqual(before.filter((time: number) => time !== latest.openTime / 1000))
   })
 
   it('re-executes the current bars when only the live Pine source changes', async () => {
