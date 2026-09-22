@@ -3,6 +3,7 @@
 import { act, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useOAuthConnections } from '@/hooks/queries/oauth-connections'
 import { ToolCredentialSelector } from './tool-credential-selector'
 
 vi.mock('next-intl', async (importOriginal) => ({
@@ -11,6 +12,7 @@ vi.mock('next-intl', async (importOriginal) => ({
 }))
 vi.mock('@/i18n/workspace-widget-hooks', () => ({
   useWorkspaceBlockEditorMessages: () => ({
+    dropdown: { noOptionsAvailable: 'No options available.' },
     toolInput: {
       selectProviderAccount: 'Select {provider} account',
       useInWorkflow: 'Use in this workflow',
@@ -28,11 +30,11 @@ vi.mock('@/components/oauth/oauth-required-modal', () => ({
   },
 }))
 vi.mock('@/hooks/queries/oauth-connections', () => ({
-  useOAuthConnections: () => ({
+  useOAuthConnections: vi.fn(() => ({
     data: [{ providerId: 'robinhood', accounts: [{ id: 'account', name: 'Personal' }] }],
     isLoading: false,
     refetch: stableRefetch,
-  }),
+  })),
 }))
 vi.mock('@/components/ui/popover', () => ({
   Popover: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -99,14 +101,22 @@ describe('ToolCredentialSelector workspace connections', () => {
     ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  const render = async (credentialSource: 'workspace' | 'personal' = 'workspace') => {
+  const render = async (
+    credentialSource: 'workspace' | 'personal' = 'workspace',
+    provider = 'robinhood'
+  ) => {
     await act(async () =>
       root.render(
         <ToolCredentialSelector
-          provider='robinhood'
+          provider={provider}
+          serviceId={provider}
           credentialSource={credentialSource}
           value=''
           onChange={onChange}
+          id='connection'
+          label='Connection'
+          aria-invalid
+          aria-describedby='connection-issue'
         />
       )
     )
@@ -117,6 +127,32 @@ describe('ToolCredentialSelector workspace connections', () => {
     )!
     await act(async () => button.click())
   }
+
+  it.each(['dropbox', 'asana', 'pipedrive'])(
+    'keeps the editor usable when %s OAuth metadata is unavailable',
+    async (provider) => {
+      await render()
+      await select('Select Robinhood account')
+      fetchMock.mockClear()
+      oauthModal.mockClear()
+      for (const source of ['workspace', 'personal'] as const) {
+        await render(source, provider)
+        const button = container.querySelector<HTMLButtonElement>('#connection')!
+        expect(button.disabled).toBe(true)
+        expect(button.textContent).toBe('No options available.')
+        expect(button.getAttribute('aria-label')).toBe('Connection')
+        expect(button.getAttribute('aria-invalid')).toBe('true')
+        expect(button.getAttribute('aria-describedby')).toBe('connection-issue')
+        expect(useOAuthConnections).toHaveBeenLastCalledWith({ enabled: false })
+        expect(fetchMock).not.toHaveBeenCalled()
+        expect(oauthModal).not.toHaveBeenCalled()
+      }
+      await render()
+      expect(fetchMock).toHaveBeenCalled()
+      expect(oauthModal).toHaveBeenLastCalledWith(expect.objectContaining({ isOpen: false }))
+      expect(onChange).not.toHaveBeenCalled()
+    }
+  )
 
   it('saves a personal connection before selecting its workspace credential', async () => {
     await render()

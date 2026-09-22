@@ -64,7 +64,7 @@ export function ToolCredentialSelector({
   ...ariaProps
 }: ToolCredentialSelectorProps) {
   const locale = useLocale() as LocaleCode
-  const copy = useWorkspaceBlockEditorMessages().toolInput
+  const { toolInput: copy, dropdown } = useWorkspaceBlockEditorMessages()
   const [open, setOpen] = useState(false)
   const [workspaceCredentials, setCredentials] = useState<
     Array<Credential & { connectionId?: string }>
@@ -88,15 +88,17 @@ export function ToolCredentialSelector({
       ),
     [provider, requiredScopes, serviceId, serviceIds]
   )
+  const baseProviderConfig = OAUTH_PROVIDERS[parseProvider(provider).baseProvider]
   const providerConfig =
-    effectiveServiceIds.length === 1
+    baseProviderConfig &&
+    (effectiveServiceIds.length === 1
       ? getServiceByProviderAndId(provider, effectiveServiceIds[0])
-      : OAUTH_PROVIDERS[parseProvider(provider).baseProvider]
+      : baseProviderConfig)
   const {
     data: connections,
     isLoading: connectionsLoading,
     refetch,
-  } = useOAuthConnections({ enabled: isPersonal && !disabled })
+  } = useOAuthConnections({ enabled: isPersonal && !disabled && !!providerConfig })
   const connectionService = connections?.find(
     (entry) => entry.providerId === getProviderIdFromServiceId(serviceId ?? provider)
   )
@@ -111,13 +113,14 @@ export function ToolCredentialSelector({
   const labelText = label ?? translateWorkflowLabel(locale, 'selectCredential')
 
   useEffect(() => {
-    if (disabled) {
+    if (disabled || !providerConfig) {
       setOpen(false)
       setConnectServiceId(null)
     }
-  }, [disabled])
+  }, [disabled, providerConfig])
 
   const fetchCredentials = useCallback(async () => {
+    if (!providerConfig) return
     if (isPersonal) {
       await refetch()
       return
@@ -148,7 +151,7 @@ export function ToolCredentialSelector({
     } finally {
       setIsLoading(false)
     }
-  }, [effectiveServiceIds, activeWorkflowId, isPersonal, refetch])
+  }, [effectiveServiceIds, activeWorkflowId, isPersonal, providerConfig, refetch])
 
   useEffect(() => {
     if (!isPersonal) void fetchCredentials()
@@ -174,6 +177,21 @@ export function ToolCredentialSelector({
       window.removeEventListener('pageshow', handlePageShow)
     }
   }, [fetchCredentials, isPersonal])
+
+  if (!providerConfig) {
+    return (
+      <Button
+        {...ariaProps}
+        id={id}
+        aria-label={labelText}
+        variant='outline'
+        disabled
+        className={cn('h-10 w-full min-w-0 justify-between', triggerClassName)}
+      >
+        {dropdown.noOptionsAvailable}
+      </Button>
+    )
+  }
 
   const handleSelect = async (credential: Credential & { connectionId?: string }) => {
     if (disabled || isSaving) return
