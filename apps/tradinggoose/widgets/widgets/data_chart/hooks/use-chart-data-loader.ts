@@ -173,7 +173,7 @@ export const useChartDataLoader = ({
 
   const liveEnabled = dataParams.data?.live?.enabled !== false
   const liveInterval = dataParams.data?.live?.interval ?? seriesWindow.interval ?? requestInterval
-  const { startLiveSubscription, stopLiveSubscription } = useLiveBars({
+  const { startLiveSubscription, stopLiveSubscription, liveError } = useLiveBars({
     socket,
     workspaceId,
     providerId,
@@ -185,7 +185,6 @@ export const useChartDataLoader = ({
     enabled: liveEnabled,
     mainSeriesRef,
     dataContext,
-    onError: setChartError,
     onDataUpdated,
   })
 
@@ -798,7 +797,7 @@ export const useChartDataLoader = ({
     errorCopy,
   ])
 
-  return { chartError, seriesTimezone, isLoading }
+  return { chartError: chartError ?? liveError, seriesTimezone, isLoading }
 }
 
 const applySeriesData = (

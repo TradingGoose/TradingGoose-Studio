@@ -18,7 +18,6 @@ const socket = {
 }
 const series = { seriesType: () => 'Candlestick', update: vi.fn(), setData: vi.fn() }
 const onDataUpdated = vi.fn()
-const onError = vi.fn()
 let controls: ReturnType<typeof useLiveBars>
 let dataContext: DataChartDataContext
 
@@ -35,7 +34,6 @@ function Harness({ providerId, enabled = true }: { providerId: string; enabled?:
     mainSeriesRef: { current: series as any },
     dataContext,
     onDataUpdated,
-    onError,
   })
   return null
 }
@@ -128,11 +126,30 @@ describe('useLiveBars', () => {
         clientSubscriptionId: 'another-chart',
         error: 'ignore',
       })
-      handlers.get('market-error')?.({ clientSubscriptionId, message: 'Connection revoked' })
-      expect(onError).toHaveBeenCalledExactlyOnceWith('Connection revoked')
+      expect(controls.liveError).toBeNull()
+      act(() => {
+        handlers.get('market-error')?.({ clientSubscriptionId, message: 'Polling failed' })
+      })
+      expect(controls.liveError).toBe('Polling failed')
       handlers.get('connect')?.()
       expect(socket.emit.mock.calls[1]).toEqual(socket.emit.mock.calls[0])
-      controls.stopLiveSubscription()
+      act(() => {
+        handlers.get(event)?.({ ...payload, clientSubscriptionId: 'another-chart' })
+        handlers.get(event)?.({ clientSubscriptionId })
+      })
+      expect(controls.liveError).toBe('Polling failed')
+      act(() => {
+        handlers.get(event)?.({ ...payload, clientSubscriptionId })
+      })
+      expect(controls.liveError).toBeNull()
+      expect(series.update).toHaveBeenCalledTimes(3)
+      expect(onDataUpdated).toHaveBeenCalledTimes(3)
+      act(() => {
+        handlers.get('market-subscribe-error')?.({ clientSubscriptionId, error: 'Denied' })
+      })
+      expect(controls.liveError).toBe('Denied')
+      act(() => controls.stopLiveSubscription())
+      expect(controls.liveError).toBeNull()
       expect(socket.emit).toHaveBeenLastCalledWith('market-unsubscribe', { clientSubscriptionId })
       expect(handlers.size).toBe(0)
     }

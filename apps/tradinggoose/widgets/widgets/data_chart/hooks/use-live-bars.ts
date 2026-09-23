@@ -1,6 +1,6 @@
 'use client'
 
-import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
+import { type MutableRefObject, useCallback, useEffect, useRef, useState } from 'react'
 import type { ISeriesApi } from 'lightweight-charts'
 import type { Socket } from 'socket.io-client'
 import type { ListingIdentity } from '@/lib/listing/identity'
@@ -41,7 +41,6 @@ type UseLiveBarsArgs = {
     ISeriesApi<'Candlestick'> | ISeriesApi<'Bar'> | ISeriesApi<'Area'> | null
   >
   dataContext: DataChartDataContext
-  onError?: (message: string) => void
   onDataUpdated?: () => void
 }
 
@@ -57,14 +56,15 @@ export const useLiveBars = ({
   enabled = true,
   mainSeriesRef,
   dataContext,
-  onError,
   onDataUpdated,
 }: UseLiveBarsArgs) => {
   const cleanupRef = useRef<(() => void) | null>(null)
+  const [liveError, setLiveError] = useState<string | null>(null)
 
   const stopLiveSubscription = useCallback(() => {
     cleanupRef.current?.()
     cleanupRef.current = null
+    setLiveError(null)
   }, [])
 
   const startLiveSubscription = useCallback(() => {
@@ -139,6 +139,7 @@ export const useLiveBars = ({
         }
       }
 
+      setLiveError(null)
       onDataUpdated?.()
     }
 
@@ -178,7 +179,7 @@ export const useLiveBars = ({
       if (payload.clientSubscriptionId !== clientSubscriptionId) return
       const message = payload.error ?? payload.message
       if (typeof message === 'string' && message.trim()) {
-        onError?.(message)
+        setLiveError(message)
       }
     }
 
@@ -217,7 +218,6 @@ export const useLiveBars = ({
     listing,
     normalizationMode,
     onDataUpdated,
-    onError,
     providerId,
     providerParams,
     socket,
@@ -229,5 +229,5 @@ export const useLiveBars = ({
 
   useEffect(() => stopLiveSubscription, [stopLiveSubscription])
 
-  return { startLiveSubscription, stopLiveSubscription }
+  return { startLiveSubscription, stopLiveSubscription, liveError }
 }
