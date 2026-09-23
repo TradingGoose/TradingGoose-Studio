@@ -21,6 +21,7 @@ import {
   getMarketProviderDefinition,
   getMarketProviderPollingIntervalMs,
 } from '@/providers/market/providers'
+import { intervalToMs } from '@/providers/market/series-planner'
 import type {
   MarketBar,
   MarketProviderAuth,
@@ -41,6 +42,7 @@ import { FinnhubMarketStream } from './finnhub'
 const logger = createLogger('MarketStreamManager')
 const DEFAULT_POLLING_INTERVAL_MS = 15_000
 const POLLING_CONCURRENCY = 5
+const MAX_RECOVERY_BARS = 2_000
 
 export type MarketProviderId = 'alpaca' | 'finnhub'
 export type MarketStreamChannel = 'bars' | 'trades' | 'quotes'
@@ -912,7 +914,11 @@ export class MarketStreamManager {
     record: MarketSubscriptionRecord
   ) {
     const cacheKey = buildPollingBarCacheKey(symbol, interval)
-    const cached = streamState.marketBarCache.get(cacheKey)
+    let cached = streamState.marketBarCache.get(cacheKey)
+    const now = Date.now()
+    const cachedTime = cached ? Date.parse(cached.timeStamp) : Number.NaN
+    if (!Number.isFinite(cachedTime) || cachedTime > now) cached = undefined
+    const intervalMs = intervalToMs(interval)
     const response = await executeProviderRequest(
       record.provider,
       {
@@ -925,15 +931,22 @@ export class MarketStreamManager {
           ...(streamState.providerParams ?? {}),
           allowEmpty: true,
         },
-        // Include the last candle again to finalize it and recover any missed intervals.
-        windows: cached
-          ? [{ mode: 'absolute', start: cached.timeStamp, end: new Date().toISOString() }]
-          : [{ mode: 'bars', barCount: 1 }],
+        // Include the last candle to finalize it and recover recent missed intervals.
+        windows:
+          cached && intervalMs && now - cachedTime < MAX_RECOVERY_BARS * intervalMs
+            ? [{ mode: 'absolute', start: cached.timeStamp, end: new Date(now).toISOString() }]
+            : [{ mode: 'bars', barCount: 1 }],
       },
       { userId: record.socket.userId }
     )
     for (const bar of (response as MarketSeries).bars) {
-      if (cached && areMarketBarsEqual(cached, bar)) continue
+      if (
+        cached &&
+        (Date.parse(bar.timeStamp) < Date.parse(cached.timeStamp) ||
+          areMarketBarsEqual(cached, bar))
+      )
+        continue
+      cached = bar
       streamState.marketBarCache.set(cacheKey, bar)
       this.emitMarketBarToSymbolSubscribers(streamState, symbol, interval, bar)
     }

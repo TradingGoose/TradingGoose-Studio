@@ -540,11 +540,44 @@ describe('MarketStreamManager quote snapshots', () => {
       ])
     }
 
-    executeProviderRequestMock.mockResolvedValue({ bars: [missed[1]] })
-    await vi.advanceTimersByTimeAsync(15_000)
+    executeProviderRequestMock
+      .mockResolvedValueOnce({ bars: [partial] })
+      .mockResolvedValue({ bars: [missed[1]] })
+    await vi.advanceTimersByTimeAsync(30_000)
     expect(emittedBars()).toEqual([partial, finalized, next, ...missed])
     expect(executeProviderRequestMock.mock.lastCall?.[1].windows).toEqual([
       { mode: 'absolute', start: missed[1].timeStamp, end: new Date().toISOString() },
+    ])
+    manager.removeSocket(socket.id)
+  })
+
+  it.each([
+    ['1m', 1999 * 60_000, 'absolute'],
+    ['1m', 2000 * 60_000, 'bars'],
+    ['1d', 2000 * 60_000, 'absolute'],
+    ['1m', -60_000, 'bars'],
+    ['1m', Number.NaN, 'bars'],
+    ['invalid', 60_000, 'bars'],
+  ] as const)('bounds recovery for %s with cached age %s', async (interval, ageMs, mode) => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-23T14:30:00Z'))
+    const manager = new MarketStreamManager()
+    const socket = createSocket('recovery')
+    const timeStamp = Number.isFinite(ageMs)
+      ? new Date(Date.now() - ageMs).toISOString()
+      : 'invalid'
+    executeProviderRequestMock.mockResolvedValue({ bars: [{ timeStamp, close: 100 }] })
+    await manager.subscribe(socket, {
+      provider: 'yahoo-finance',
+      listing,
+      channel: 'bars',
+      interval,
+    })
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(executeProviderRequestMock.mock.lastCall?.[1].windows).toEqual([
+      mode === 'absolute'
+        ? { mode, start: timeStamp, end: new Date().toISOString() }
+        : { mode, barCount: 1 },
     ])
     manager.removeSocket(socket.id)
   })

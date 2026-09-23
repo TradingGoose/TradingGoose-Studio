@@ -182,7 +182,7 @@ describe('useIndicatorSync live source changes', () => {
     }
   )
 
-  it('updates the current candle without clearing indicator data or rerunning unchanged renders', async () => {
+  it.each([12, null])('updates the current candle to %s without clearing data', async (value) => {
     const render = async () => {
       await act(async () => root.render(<Harness pineCode='plot(close)' />))
       await act(async () => vi.runAllTimersAsync())
@@ -192,11 +192,19 @@ describe('useIndicatorSync live source changes', () => {
     expect(mockExecuteBrowserPineIndicator).toHaveBeenCalledTimes(1)
     indicatorSeries.setData.mockClear()
 
+    const execute = mockExecuteBrowserPineIndicator.getMockImplementation()!
+    mockExecuteBrowserPineIndicator.mockImplementationOnce(async (args) => {
+      const result = await execute(args)
+      result.output.series[0].points[0].value = value
+      return result
+    })
     dataContext.barsMsRef.current = [{ ...bars[0]!, close: 12 }]
     dataContext.dataVersion += 1
     await render()
     expect(mockExecuteBrowserPineIndicator).toHaveBeenCalledTimes(2)
-    expect(indicatorSeries.setData).toHaveBeenCalledExactlyOnceWith([{ time: 1, value: 12 }])
+    expect(indicatorSeries.setData).toHaveBeenCalledExactlyOnceWith([
+      value === null ? { time: 1 } : { time: 1, value },
+    ])
     expect(chart.removeSeries).not.toHaveBeenCalled()
     expect(dataContext.seriesVersion).toBe(1)
     await render()
@@ -239,8 +247,14 @@ plotshape(close > avg, {style: shape.triangleup, location: location.belowbar});`
     )
     const latest = history.at(-1)!
     expect(before).toContain(latest.openTime / 1000)
+    const overlapValues = history.slice(800, 813).map((bar) => ({
+      time: bar.openTime / 1000,
+      value: 100.5,
+    }))
 
     await renderBars([...history.slice(0, -1), { ...latest, close: 100 }])
+    expect(mockExecuteBrowserPineIndicator.mock.lastCall![0].barsMs).toHaveLength(1200)
+    expect(indicatorSeries.setData.mock.lastCall![0]).toEqual(expect.arrayContaining(overlapValues))
     expect(markerTimes()).toEqual(before.filter((time: number) => time !== latest.openTime / 1000))
   })
 

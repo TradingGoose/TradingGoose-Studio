@@ -240,7 +240,7 @@ const resolveMissingChunk = (
     return null
   }
   if (range.startMs <= firstOpenTime && range.endMs >= lastOpenTime) {
-    return bars
+    return bars.slice(-maxBars)
   }
 
   const leftBoundaryIndex = bars.findIndex((bar) => bar.openTime >= range.startMs)
@@ -271,7 +271,8 @@ const resolveFillMergeKey = (entry: NormalizedPineOutput['fills'][number], index
 
 const mergeSeriesPoints = (
   existing: NormalizedPineOutput['series'][number]['points'],
-  incoming: NormalizedPineOutput['series'][number]['points']
+  incoming: NormalizedPineOutput['series'][number]['points'],
+  replacedRange?: ProcessedRange
 ) => {
   const byTime = new Map<number, NormalizedPineOutput['series'][number]['points'][number]>()
   existing.forEach((point) => {
@@ -279,7 +280,11 @@ const mergeSeriesPoints = (
   })
   incoming.forEach((point) => {
     const previous = byTime.get(point.time)
-    if (previous && point.value === null && previous.value !== null) return
+    const replacesPoint =
+      replacedRange &&
+      point.time * 1000 >= replacedRange.startMs &&
+      point.time * 1000 <= replacedRange.endMs
+    if (previous && point.value === null && previous.value !== null && !replacesPoint) return
     byTime.set(point.time, point)
   })
   return Array.from(byTime.values()).sort((a, b) => a.time - b.time)
@@ -301,7 +306,8 @@ const mergeFillPoints = (
 
 const mergeSeriesEntries = (
   existing: NormalizedPineOutput['series'],
-  incoming: NormalizedPineOutput['series']
+  incoming: NormalizedPineOutput['series'],
+  replacedRange?: ProcessedRange
 ): NormalizedPineOutput['series'] => {
   const existingByKey = new Map<string, NormalizedPineOutput['series'][number]>()
   existing.forEach((entry, index) => {
@@ -312,7 +318,7 @@ const mergeSeriesEntries = (
     if (!previous) return entry
     return {
       ...entry,
-      points: mergeSeriesPoints(previous.points, entry.points),
+      points: mergeSeriesPoints(previous.points, entry.points, replacedRange),
     }
   })
 }
@@ -377,7 +383,7 @@ const mergeIndicatorOutput = (
   replacedRange?: ProcessedRange
 ): NormalizedPineOutput => ({
   ...incoming,
-  series: mergeSeriesEntries(existing.series, incoming.series),
+  series: mergeSeriesEntries(existing.series, incoming.series, replacedRange),
   fills: mergeFillEntries(existing.fills, incoming.fills),
   markers: mergeMarkers(existing.markers, incoming.markers, replacedRange),
 })
@@ -1066,8 +1072,16 @@ export const useIndicatorSync = ({
         }
         const existingOutput = accumulatedOutputRef.current.get(indicatorId)
         const executedRange = executedRangeById.get(indicatorId)
+        const previousRange = processedRangeRef.current.get(indicatorId)
+        const replacedRange =
+          executedRange && previousRange && executedRange.endMs >= previousRange.endMs
+            ? {
+                startMs: Math.max(executedRange.startMs, previousRange.endMs),
+                endMs: executedRange.endMs,
+              }
+            : undefined
         const nextOutput = existingOutput
-          ? mergeIndicatorOutput(existingOutput, result.output, executedRange)
+          ? mergeIndicatorOutput(existingOutput, result.output, replacedRange)
           : result.output
         accumulatedOutputRef.current.set(indicatorId, nextOutput)
         extendProcessedRange(indicatorId, executedRange)
