@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, Plus, RefreshCw } from 'lucide-react'
 import { useLocale } from 'next-intl'
 import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
@@ -26,6 +26,7 @@ import {
 } from '@/lib/oauth'
 import { cn } from '@/lib/utils'
 import { useOAuthConnections } from '@/hooks/queries/oauth-connections'
+import { useLatestRef } from '@/hooks/use-latest-ref'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
 import type { LocaleCode } from '@/i18n/utils'
 import { formatTemplate } from '@/i18n/utils'
@@ -73,6 +74,7 @@ export function ToolCredentialSelector({
   const [connectServiceId, setConnectServiceId] = useState<OAuthService | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const selectionRequest = useRef(0)
   const activeWorkflowId = useOptionalWorkflowRoute()?.workflowId
   const isPersonal = credentialSource === 'personal'
   const effectiveServiceIds = useMemo(
@@ -88,6 +90,21 @@ export function ToolCredentialSelector({
       ),
     [provider, requiredScopes, serviceId, serviceIds]
   )
+  const selectionContext = JSON.stringify([
+    provider,
+    effectiveServiceIds,
+    activeWorkflowId,
+    credentialSource,
+    disabled,
+  ])
+  const latestSelectionContext = useLatestRef(selectionContext)
+  useEffect(() => {
+    setIsSaving(false)
+    setSaveError(null)
+    return () => {
+      selectionRequest.current += 1
+    }
+  }, [selectionContext])
   const baseProviderConfig = OAUTH_PROVIDERS[parseProvider(provider).baseProvider]
   const providerConfig =
     baseProviderConfig &&
@@ -195,6 +212,10 @@ export function ToolCredentialSelector({
 
   const handleSelect = async (credential: Credential & { connectionId?: string }) => {
     if (disabled || isSaving) return
+    const requestGeneration = ++selectionRequest.current
+    const ownsRequest = () =>
+      requestGeneration === selectionRequest.current &&
+      selectionContext === latestSelectionContext.current
     setSaveError(null)
     let credentialId = credential.id
     if (credential.connectionId) {
@@ -214,12 +235,13 @@ export function ToolCredentialSelector({
         }
         credentialId = data.credentialId
       } catch {
-        setSaveError(copy.failedToSaveConnection)
+        if (ownsRequest()) setSaveError(copy.failedToSaveConnection)
         return
       } finally {
-        setIsSaving(false)
+        if (ownsRequest()) setIsSaving(false)
       }
     }
+    if (!ownsRequest()) return
     onChange(credentialId)
     setOpen(false)
   }

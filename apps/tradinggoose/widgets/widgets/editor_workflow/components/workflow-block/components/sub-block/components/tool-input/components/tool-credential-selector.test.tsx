@@ -192,6 +192,39 @@ describe('ToolCredentialSelector workspace connections', () => {
     expect(container.querySelector('[role="alert"]')?.textContent).toContain('Could not save')
   })
 
+  it.each(['provider', 'round-trip', 'unmount', 'failure'])(
+    'discards an outdated connection publication after %s',
+    async (transition) => {
+      await render()
+      let finish!: (response: Response) => void
+      fetchMock.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve
+          })
+      )
+      await select('Personal')
+      if (transition === 'unmount') {
+        await act(async () => root.render(null))
+      } else {
+        await render('workspace', 'tradier')
+        if (transition === 'round-trip') await render()
+      }
+      await act(async () =>
+        finish(
+          Response.json(
+            { credentialId: 'old-credential' },
+            {
+              status: transition === 'failure' ? 403 : 200,
+            }
+          )
+        )
+      )
+      expect(onChange).not.toHaveBeenCalled()
+      expect(container.querySelector('[role="alert"]')).toBeNull()
+    }
+  )
+
   it.each(['workspace', 'personal'] as const)(
     'selects existing %s credentials without publishing',
     async (source) => {
