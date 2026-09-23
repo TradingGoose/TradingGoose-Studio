@@ -797,7 +797,7 @@ export const useChartDataLoader = ({
     errorCopy,
   ])
 
-  return { chartError: chartError ?? liveError, seriesTimezone, isLoading }
+  return { chartError, liveError, seriesTimezone, isLoading }
 }
 
 const applySeriesData = (

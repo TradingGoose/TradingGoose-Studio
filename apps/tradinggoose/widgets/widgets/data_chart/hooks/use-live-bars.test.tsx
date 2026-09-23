@@ -3,7 +3,10 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { resolveSeriesWindow } from '@/widgets/widgets/data_chart/series-window'
 import type { DataChartDataContext } from '@/widgets/widgets/data_chart/types'
+import { useChartDataLoader } from './use-chart-data-loader'
 import { useLiveBars } from './use-live-bars'
 
 const listing = { listing_id: 'AAPL', base_id: '', quote_id: '', listing_type: 'default' as const }
@@ -71,7 +74,51 @@ describe('useLiveBars', () => {
 
   afterEach(() => {
     act(() => root.unmount())
+    vi.unstubAllGlobals()
     ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = false
+  })
+
+  it('keeps loaded history usable after a live error without waiting for another candle', async () => {
+    const fetchSeries = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ bars: [{ timeStamp, close: 11 }] }),
+    })
+    vi.stubGlobal('fetch', fetchSeries)
+    const args: Parameters<typeof useChartDataLoader>[0] = {
+      chartRef: { current: { timeScale: () => null } as any },
+      chartContainerRef: { current: null },
+      mainSeriesRef: { current: series as any },
+      chartReady: 1,
+      socket: socket as any,
+      workspaceId: 'workspace-1',
+      providerId: 'robinhood',
+      listing,
+      seriesWindow: resolveSeriesWindow({ view: { interval: '1m' } }, 'robinhood'),
+      dataParams: { data: { providerParams } },
+      dataContext,
+      onDataUpdated,
+      errorCopy: getPublicCopy('en').workspace.widgets.dataChart.errors,
+    }
+    let loader: ReturnType<typeof useChartDataLoader>
+    function LoaderHarness() {
+      loader = useChartDataLoader(args)
+      return null
+    }
+    await act(async () => root.render(<LoaderHarness />))
+    const loadedBars = dataContext.barsMsRef.current
+    const { clientSubscriptionId } = socket.emit.mock.calls[0][1]
+    act(() => {
+      handlers.get('market-error')?.({ clientSubscriptionId, message: 'Polling failed' })
+    })
+    expect(loader!).toMatchObject({
+      chartError: null,
+      liveError: 'Polling failed',
+      isLoading: false,
+    })
+    expect(dataContext.barsMsRef.current).toBe(loadedBars)
+    expect(onDataUpdated).not.toHaveBeenCalled()
+    expect(fetchSeries).toHaveBeenCalledOnce()
+    expect(socket.emit).toHaveBeenCalledOnce()
   })
 
   it.each(['robinhood', 'alpaca', 'finnhub'])(
