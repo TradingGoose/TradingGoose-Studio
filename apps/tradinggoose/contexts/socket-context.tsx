@@ -131,10 +131,13 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
         reconnectionDelayMax: 30000,
         timeout: 10000,
         auth: async (cb) => {
+          const engine = socketInstance.io.engine
           try {
             const freshToken = await generateSocketToken()
+            if (!socketInstance.active || socketInstance.io.engine !== engine) return
             cb({ token: freshToken })
           } catch (error) {
+            if (!socketInstance.active || socketInstance.io.engine !== engine) return
             logSocketIssue(
               'Failed to generate fresh token for connection:',
               {
@@ -142,7 +145,7 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
               },
               callbackPathnameRef.current
             )
-            cb({ token: null })
+            engine.close()
           }
         },
       })

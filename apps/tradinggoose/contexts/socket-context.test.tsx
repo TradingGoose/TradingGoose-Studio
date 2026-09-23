@@ -4,6 +4,7 @@ import { EventEmitter } from 'node:events'
 import { act, StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
+import { handleAuthError } from '@/lib/auth/auth-error-handler'
 import { SocketProvider, useSocket } from './socket-context'
 
 const { ioMock } = vi.hoisted(() => ({ ioMock: vi.fn() }))
@@ -15,6 +16,14 @@ vi.mock('@/i18n/navigation', () => ({ usePathname: () => '/workspace' }))
 class TestSocket extends EventEmitter {
   connected = false
   active = true
+  io = {
+    engine: {
+      close: vi.fn(() => {
+        this.connected = false
+        this.emit('disconnect', 'forced close')
+      }),
+    },
+  }
   disconnect() {
     this.connected = false
     this.active = false
@@ -27,6 +36,67 @@ afterEach(() => {
   vi.unstubAllGlobals()
   vi.clearAllMocks()
 })
+
+it.each([500, 'network', 401] as const)(
+  'keeps token-service failures separate from authentication rejection (%s)',
+  async (failure) => {
+    vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockImplementationOnce(() =>
+          failure === 'network'
+            ? Promise.reject(new TypeError('Failed to fetch'))
+            : Promise.resolve(new Response(null, { status: failure }))
+        )
+        .mockResolvedValue(new Response(JSON.stringify({ token: 'retry-token' })))
+    )
+    const shared = new TestSocket()
+    ioMock.mockReturnValue(shared)
+    const states: ReturnType<typeof useSocket>[] = []
+    function Probe({ index }: { index: number }) {
+      states[index] = useSocket()
+      return null
+    }
+    const root = createRoot(document.createElement('div'))
+    act(() =>
+      root.render(
+        <>
+          {[0, 1].map((index) => (
+            <SocketProvider key={index} user={{ id: 'user-1' }}>
+              <Probe index={index} />
+            </SocketProvider>
+          ))}
+        </>
+      )
+    )
+    const authenticate = ioMock.mock.calls[0][1].auth
+    const handshake = vi.fn(({ token }) => {
+      if (!token) return shared.emit('connect_error', new Error('Authentication required'))
+      shared.connected = true
+      shared.emit('connect')
+    })
+    try {
+      await act(async () => authenticate(handshake))
+      expect(handshake).not.toHaveBeenCalled()
+      expect(shared.io.engine.close).toHaveBeenCalledOnce()
+      expect(handleAuthError).toHaveBeenCalledTimes(failure === 401 ? 1 : 0)
+      expect(states.every((state) => !state.isConnecting && !state.isConnected)).toBe(true)
+
+      if (failure !== 401) {
+        await act(async () => authenticate(handshake))
+        expect(handshake).toHaveBeenCalledWith({ token: 'retry-token' })
+        expect(states.every((state) => state.isConnected && !state.isConnecting)).toBe(true)
+        expect(handleAuthError).not.toHaveBeenCalled()
+        act(() => shared.emit('connect_error', new Error('Invalid session')))
+        expect(handleAuthError).toHaveBeenCalledWith('socket-auth', '/workspace')
+      }
+    } finally {
+      act(() => root.unmount())
+    }
+  }
+)
 
 it.each([false, true])(
   'owns socket cleanup across StrictMode while authentication is pending (unmount: %s)',

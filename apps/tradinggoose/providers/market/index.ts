@@ -174,7 +174,12 @@ export async function executeProviderRequest(
           }
         }
       }
-      const adjustedRequest = await clampToMarketSession(sessionAdjustedRequest)
+      const sessionInterval =
+        sessionAdjustedRequest.interval ||
+        (sessionAdjustedRequest.providerParams?.interval as string | undefined)
+      const adjustedRequest = isIntradayInterval(sessionInterval)
+        ? await clampToMarketSession(sessionAdjustedRequest)
+        : sessionAdjustedRequest
       const response = await provider.fetchMarketSeries(adjustedRequest)
       let marketSessions: MarketSessionWindow[] | null = null
       if (
@@ -192,8 +197,6 @@ export async function executeProviderRequest(
           )
         }
       }
-      const sessionInterval =
-        adjustedRequest.interval || (adjustedRequest.providerParams?.interval as string | undefined)
       const sessionMode =
         sessionPref === 'regular' || sessionPref === 'extended' ? sessionPref : null
       const shouldFilterSessions = Boolean(
