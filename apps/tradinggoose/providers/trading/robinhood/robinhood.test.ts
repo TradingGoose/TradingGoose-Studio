@@ -107,6 +107,13 @@ beforeEach(() => {
 })
 
 describe('Robinhood trading accounts and portfolio', () => {
+  it.each([null, []])('returns no accounts for an empty account response: %j', async (accounts) => {
+    sdk.callTool.mockResolvedValue(envelope({ accounts }))
+    await expect(getRobinhoodTradingAccounts(context)).resolves.toEqual([])
+    expect(toolNames()).toEqual(['get_accounts'])
+    expect(sdk.close).toHaveBeenCalledOnce()
+  })
+
   it('offers only Agentic-enabled accounts while preserving the shared OAuth credential', async () => {
     sdk.callTool.mockResolvedValue(
       envelope({

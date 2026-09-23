@@ -12,14 +12,17 @@ import { tradingSymbolToListingIdentity } from '@/providers/trading/utils'
 
 // Live-verified shapes: ssherman/robinhood-wizard, design notes "Phase 1 read shapes".
 const accountsSchema = z.object({
-  accounts: z.array(
-    z.object({
-      account_number: z.string().trim().min(1),
-      agentic_allowed: z.boolean(),
-      type: z.string(),
-      nickname: z.string().nullish(),
-    })
-  ),
+  accounts: z
+    .array(
+      z.object({
+        account_number: z.string().trim().min(1),
+        agentic_allowed: z.boolean(),
+        type: z.string(),
+        nickname: z.string().nullish(),
+      })
+    )
+    .nullable()
+    .transform((accounts) => accounts ?? []),
 })
 const portfolioSchema = z.object({
   total_value: robinhoodNumber,
