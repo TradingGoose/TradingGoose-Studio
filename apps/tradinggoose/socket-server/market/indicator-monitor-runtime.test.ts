@@ -171,6 +171,7 @@ describe('IndicatorMonitorRuntime', () => {
       pendingExecutionId: 'pending-1',
     })
     const runtime = new IndicatorMonitorRuntime({ info: vi.fn(), warn: vi.fn(), error: vi.fn() })
+    // biome-ignore lint/complexity/useLiteralKeys: This test intentionally accesses private state while retaining its exact type.
     runtime['subscriptions'].set('monitor-1', {
       config: {
         id: 'monitor-1',
@@ -199,6 +200,7 @@ describe('IndicatorMonitorRuntime', () => {
       timeStamp: `2026-09-21T14:${minute}:00.000Z`,
       close: 100 + index,
     }))
+    // biome-ignore lint/complexity/useLiteralKeys: This test intentionally invokes a private method while retaining its exact signature.
     const executions = bars.map((bar) => runtime['handleIncomingBar']('monitor-1', bar))
     expect(enqueuePendingExecution).not.toHaveBeenCalled()
 
