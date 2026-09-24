@@ -42,10 +42,12 @@ describe('order filters', () => {
     expect(normalizeOrderStatusFilterValue('Expired')).toBe('expired')
     expect(normalizeOrderStatusFilterValue('Rejected')).toBe('rejected')
     expect(normalizeOrderStatusFilterValue('Failed')).toBe('failed')
+    expect(normalizeOrderStatusFilterValue('Unknown')).toBe('unknown')
     expect(normalizeOrderStatusFilterValue('Submitted')).toBe('')
     expect(normalizeOrderStatusFilterValue('Invalid')).toBe('')
     expect(getOrderStatusRecordValues('open')).toContain('submitted')
     expect(getOrderStatusRecordValues('rejected')).toContain('invalid')
+    expect(getOrderStatusRecordValues('unknown')).toEqual(['unknown'])
   })
 
   it('derives order type filters from trading provider capabilities', () => {
