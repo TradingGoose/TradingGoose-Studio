@@ -326,12 +326,9 @@ export class MarketStreamManager {
       provider: 'finnhub',
       market,
       apiKey,
-      auth: {
-        apiKey,
-      },
+      auth: { apiKey },
       providerParams: payload.providerParams,
     })
-
     const intervalToken =
       typeof payload.interval === 'string' && payload.interval.trim()
         ? payload.interval.trim()
