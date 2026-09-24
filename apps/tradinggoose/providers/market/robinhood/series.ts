@@ -35,6 +35,7 @@ const responseSchema = z.object({
               low_price: numberValue,
               close_price: numberValue,
               volume: numberValue.refine((value) => value >= 0),
+              interpolated: z.boolean().optional(),
             })
           )
           .nullable()
@@ -50,14 +51,16 @@ function normalizeRobinhoodBars(payload: unknown, symbol: string): MarketBar[] {
   if (rows.length !== 1) {
     throw robinhoodError('Robinhood returned invalid historical data for the requested symbol', 502)
   }
-  return rows[0].bars.map((bar) => ({
-    timeStamp: new Date(bar.begins_at).toISOString(),
-    open: bar.open_price,
-    high: bar.high_price,
-    low: bar.low_price,
-    close: bar.close_price,
-    volume: bar.volume,
-  }))
+  return rows[0].bars
+    .filter((bar) => !bar.interpolated)
+    .map((bar) => ({
+      timeStamp: new Date(bar.begins_at).toISOString(),
+      open: bar.open_price,
+      high: bar.high_price,
+      low: bar.low_price,
+      close: bar.close_price,
+      volume: bar.volume,
+    }))
 }
 
 export async function fetchRobinhoodSeries(request: MarketSeriesRequest): Promise<MarketSeries> {

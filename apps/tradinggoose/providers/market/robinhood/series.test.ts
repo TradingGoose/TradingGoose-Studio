@@ -246,17 +246,20 @@ describe('Robinhood market provider and MCP boundary', () => {
     }
   )
 
-  it.each([[], null])('continues past an empty history page (%j)', async (emptyBars) => {
-    sdk.callTool
-      .mockResolvedValueOnce(mcpResult(history(emptyBars)))
-      .mockResolvedValueOnce(mcpResult(history([rawBar('2026-09-09T14:57:00Z')])))
-    const result = await fetchRobinhoodSeries({
-      ...request,
-      windows: [{ mode: 'bars', barCount: 1 }],
-    })
-    expect(result.bars.map((bar) => bar.timeStamp)).toEqual(['2026-09-09T14:57:00.000Z'])
-    expect(sdk.callTool).toHaveBeenCalledTimes(2)
-  })
+  it.each([[], null, [{ ...rawBar('2026-09-09T14:59:00Z'), interpolated: true, volume: 0 }]])(
+    'continues past an empty history page (%j)',
+    async (emptyBars) => {
+      sdk.callTool
+        .mockResolvedValueOnce(mcpResult(history(emptyBars)))
+        .mockResolvedValueOnce(mcpResult(history([rawBar('2026-09-09T14:57:00Z')])))
+      const result = await fetchRobinhoodSeries({
+        ...request,
+        windows: [{ mode: 'bars', barCount: 1 }],
+      })
+      expect(result.bars.map((bar) => bar.timeStamp)).toEqual(['2026-09-09T14:57:00.000Z'])
+      expect(sdk.callTool).toHaveBeenCalledTimes(2)
+    }
+  )
 
   it('anchors default and live bar windows to the last session and preserves range windows', async () => {
     const bars = Array.from({ length: 200 }, (_, i) =>
