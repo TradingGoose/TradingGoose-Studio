@@ -92,6 +92,7 @@ export interface OAuthCredentialFieldConfig {
   placeholder: string
   isSensitive: boolean
   required?: boolean
+  systemManaged?: boolean
   oauthProperty?: 'clientId' | 'clientSecret'
 }
 
@@ -179,7 +180,17 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
         placeholder: 'Automatically registered',
         isSensitive: false,
         required: false,
+        systemManaged: true,
         oauthProperty: 'clientId',
+      },
+      {
+        key: 'redirect_uri',
+        label: 'Redirect URI',
+        note: 'Registered automatically when connecting Robinhood',
+        placeholder: 'Automatically registered',
+        isSensitive: false,
+        required: false,
+        systemManaged: true,
       },
     ],
     services: {

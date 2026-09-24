@@ -4,6 +4,24 @@ const { mockResolveSystemIntegrationDefinitions } = vi.hoisted(() => ({
   mockResolveSystemIntegrationDefinitions: vi.fn(),
 }))
 
+const registration = vi.hoisted(() => ({
+  register: vi.fn(),
+  transaction: vi.fn(),
+}))
+
+vi.mock('@modelcontextprotocol/sdk/client/auth.js', () => ({
+  registerClient: registration.register,
+}))
+
+vi.mock('@tradinggoose/db', () => ({
+  db: { transaction: registration.transaction },
+}))
+
+vi.mock('@/lib/utils-server', () => ({
+  decryptSecret: async (value: string) => ({ decrypted: value.replace(/^encrypted:/, '') }),
+  encryptSecret: async (value: string) => ({ encrypted: `encrypted:${value}` }),
+}))
+
 vi.mock('@/lib/system-integrations/resolver', () => ({
   resolveSystemIntegrationDefinitions: (...args: unknown[]) =>
     mockResolveSystemIntegrationDefinitions(...args),
@@ -95,5 +113,44 @@ describe('system managed oauth client credentials', () => {
         },
       },
     })
+  })
+
+  it('rotates and persists a Robinhood registration when its redirect URI changes', async () => {
+    const lock = vi.fn()
+    const values = vi.fn(() => ({ onConflictDoNothing: vi.fn(), onConflictDoUpdate: vi.fn() }))
+    const where = vi
+      .fn()
+      .mockReturnValueOnce({ for: lock })
+      .mockReturnValueOnce([
+        { key: 'client_id', value: 'encrypted:existing-client' },
+        { key: 'redirect_uri', value: 'encrypted:https://old.example/callback' },
+      ])
+    const tx = {
+      insert: () => ({ values }),
+      select: () => ({ from: () => ({ where }) }),
+    }
+    registration.transaction.mockImplementation((callback: (store: typeof tx) => unknown) =>
+      callback(tx)
+    )
+    registration.register.mockResolvedValue({
+      client_id: 'registered-client',
+      redirect_uris: ['https://studio.example/callback'],
+      token_endpoint_auth_method: 'none',
+    })
+    const { ensureRobinhoodOAuthClient } = await import('./system-managed-config')
+
+    await expect(ensureRobinhoodOAuthClient('https://studio.example/callback')).resolves.toBe(
+      'registered-client'
+    )
+
+    expect(lock.mock.invocationCallOrder[0]).toBeLessThan(
+      registration.register.mock.invocationCallOrder[0]!
+    )
+    expect(values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: 'redirect_uri',
+        value: 'encrypted:https://studio.example/callback',
+      })
+    )
   })
 })

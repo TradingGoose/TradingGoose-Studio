@@ -644,9 +644,9 @@ describe('/api/auth/[...all] route', () => {
     expect(mockAuthHandler).not.toHaveBeenCalled()
   })
 
-  it('registers Robinhood only for an authenticated link and hydrates its public client ID', async () => {
+  it('ensures Robinhood registration for an authenticated link with an existing client', async () => {
     mockLoadSystemOAuthClientCredentials.mockResolvedValue({
-      robinhood: { clientId: '', clientSecret: '', fields: { client_id: '' } },
+      robinhood: { clientId: 'existing-client', clientSecret: '', fields: { client_id: '' } },
     })
     mockEnsureRobinhoodOAuthClient.mockResolvedValue('registered-client')
     mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))

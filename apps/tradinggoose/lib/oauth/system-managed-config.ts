@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 import { registerClient } from '@modelcontextprotocol/sdk/client/auth.js'
 import { db } from '@tradinggoose/db'
 import { systemIntegrationDefinition, systemIntegrationSecret } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import {
   getCanonicalScopesForProvider,
   getOAuthCredentialFields,
@@ -148,19 +148,18 @@ export async function ensureRobinhoodOAuthClient(redirectUri: string): Promise<s
       .where(eq(systemIntegrationDefinition.id, definitionId))
       .for('update')
 
-    const [existing] = await tx
-      .select({ value: systemIntegrationSecret.value })
+    const existing = await tx
+      .select({ key: systemIntegrationSecret.key, value: systemIntegrationSecret.value })
       .from(systemIntegrationSecret)
-      .where(
-        and(
-          eq(systemIntegrationSecret.definitionId, definitionId),
-          eq(systemIntegrationSecret.key, 'client_id')
-        )
-      )
-      .limit(1)
-    if (existing) {
-      const { decrypted } = await decryptSecret(existing.value)
-      if (decrypted.trim()) return decrypted.trim()
+      .where(eq(systemIntegrationSecret.definitionId, definitionId))
+    const stored = new Map<string, string>()
+    for (const { key, value } of existing) {
+      const { decrypted } = await decryptSecret(value)
+      stored.set(key, decrypted.trim())
+    }
+    const clientId = stored.get('client_id')
+    if (clientId && stored.get('redirect_uri') === redirectUri) {
+      return clientId
     }
 
     const registered = await registerClient(resource, {
@@ -182,29 +181,34 @@ export async function ensureRobinhoodOAuthClient(redirectUri: string): Promise<s
       fetchFn: (url, init) =>
         fetch(url, { ...init, redirect: 'error', signal: AbortSignal.timeout(15_000) }),
     })
-    const clientId = registered.client_id.trim()
+    const registeredClientId = registered.client_id.trim()
     if (
-      !clientId ||
+      !registeredClientId ||
       registered.token_endpoint_auth_method !== 'none' ||
       !registered.redirect_uris.includes(redirectUri)
     ) {
       throw new Error('Robinhood returned an incompatible OAuth client registration')
     }
 
-    const { encrypted } = await encryptSecret(clientId)
-    await tx
-      .insert(systemIntegrationSecret)
-      .values({
-        id: `system-integration-secret:${definitionId}:client_id`,
-        definitionId,
-        key: 'client_id',
-        value: encrypted,
-      })
-      .onConflictDoUpdate({
-        target: [systemIntegrationSecret.definitionId, systemIntegrationSecret.key],
-        set: { value: encrypted, updatedAt: new Date() },
-      })
+    for (const [key, value] of [
+      ['client_id', registeredClientId],
+      ['redirect_uri', redirectUri],
+    ] as const) {
+      const { encrypted } = await encryptSecret(value)
+      await tx
+        .insert(systemIntegrationSecret)
+        .values({
+          id: `system-integration-secret:${definitionId}:${key}`,
+          definitionId,
+          key,
+          value: encrypted,
+        })
+        .onConflictDoUpdate({
+          target: [systemIntegrationSecret.definitionId, systemIntegrationSecret.key],
+          set: { value: encrypted, updatedAt: new Date() },
+        })
+    }
 
-    return clientId
+    return registeredClientId
   })
 }

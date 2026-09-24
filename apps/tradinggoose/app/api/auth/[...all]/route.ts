@@ -233,26 +233,28 @@ export const handleAuthRequest = async (request: Request) => {
     return Response.json({ error: 'OAuth provider is not configured' }, { status: 400 })
   }
 
-  if (providerId === 'robinhood' && !credentials[providerId].clientId) {
-    if (request.method !== 'POST' || pathname !== '/api/auth/oauth2/link') {
+  if (providerId === 'robinhood') {
+    const isLinkRequest = request.method === 'POST' && pathname === '/api/auth/oauth2/link'
+    if (!isLinkRequest && !credentials[providerId].clientId) {
       return Response.json({ error: 'OAuth provider is not configured' }, { status: 400 })
     }
-    const session = await getSession(request.headers)
-    if (!session?.user?.id) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (isLinkRequest) {
+      const session = await getSession(request.headers)
+      if (!session?.user?.id) {
+        return Response.json({ error: 'Unauthorized' }, { status: 401 })
+      }
 
-    try {
-      const clientId = await ensureRobinhoodOAuthClient(
-        `${getBaseUrl()}/api/auth/oauth2/callback/${providerId}`
-      )
-      credentials[providerId].clientId = clientId
-      credentials[providerId].fields.client_id = clientId
-    } catch {
-      return Response.json(
-        { error: 'Could not register the Robinhood connection' },
-        { status: 502 }
-      )
+      try {
+        const redirectUri = `${getBaseUrl()}/api/auth/oauth2/callback/${providerId}`
+        const clientId = await ensureRobinhoodOAuthClient(redirectUri)
+        credentials[providerId].clientId = clientId
+        credentials[providerId].fields.client_id = clientId
+      } catch {
+        return Response.json(
+          { error: 'Could not register the Robinhood connection' },
+          { status: 502 }
+        )
+      }
     }
   }
 
