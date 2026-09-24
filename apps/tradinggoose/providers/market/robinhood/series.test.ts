@@ -58,9 +58,11 @@ const mcpResult = (payload: unknown, text = false) =>
 const rawQuote = {
   symbol: 'AAPL',
   last_trade_price: '110',
+  venue_last_trade_time: '2026-09-24T20:00:00Z',
   adjusted_previous_close: '100',
   previous_close: '102',
   last_non_reg_trade_price: '115',
+  venue_last_non_reg_trade_time: '2026-09-24T21:00:00Z',
   has_traded: true,
   state: 'active',
 }
@@ -91,7 +93,7 @@ beforeEach(() => {
 })
 
 describe('Robinhood market provider and MCP boundary', () => {
-  it('uses native regular-hours quotes and adjusted close through canonical OAuth', async () => {
+  it('uses the newest trade and adjusted close through canonical OAuth', async () => {
     sdk.callTool.mockResolvedValue(
       mcpResult({
         data: { results: [{ quote: rawQuote, close: { symbol: 'AAPL', price: '101' } }] },
@@ -104,7 +106,7 @@ describe('Robinhood market provider and MCP boundary', () => {
         providerParams: { credentialId: 'connection' },
         context: { userId: 'owner', requestId: 'request' },
       })
-    ).resolves.toEqual({ lastPrice: 110, previousClose: 100, change: 10, changePercent: 10 })
+    ).resolves.toEqual({ lastPrice: 115, previousClose: 100, change: 15, changePercent: 15 })
     expect(sdk.token).toHaveBeenCalledExactlyOnceWith('connection', 'owner', 'request', 'robinhood')
     expect(sdk.callTool).toHaveBeenCalledOnce()
     expect(sdk.callTool.mock.calls[0][0]).toEqual({
