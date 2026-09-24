@@ -21,37 +21,35 @@ const MAX_REQUESTS = 20
 const BARS_PER_REQUEST = 2_000
 // Output schema captured from Robinhood's tools/list:
 // https://github.com/Slijeff/robinhood-rest2mcp/blob/d52abd068f98efdc6ec62b5670d04220615245a5/spec.json
+const barSchema = z.object({
+  begins_at: z.string().datetime({ offset: true }),
+  open_price: numberValue,
+  high_price: numberValue,
+  low_price: numberValue,
+  close_price: numberValue,
+  volume: numberValue.refine((value) => value >= 0),
+  interpolated: z.boolean().optional(),
+})
 const responseSchema = z.object({
   data: z.object({
-    results: z.array(
-      z.object({
-        symbol: z.string(),
-        bars: z
-          .array(
-            z.object({
-              begins_at: z.string().datetime({ offset: true }),
-              open_price: numberValue,
-              high_price: numberValue,
-              low_price: numberValue,
-              close_price: numberValue,
-              volume: numberValue.refine((value) => value >= 0),
-              interpolated: z.boolean().optional(),
-            })
-          )
-          .nullable()
-          .transform((bars) => bars ?? []),
-      })
-    ),
+    results: z
+      .array(z.object({ symbol: z.string(), bars: z.array(barSchema.nullable()).nullable() }))
+      .nullable(),
   }),
 })
 
 function normalizeRobinhoodBars(payload: unknown, symbol: string): MarketBar[] {
   const result = responseSchema.safeParse(payload)
-  const rows = result.success ? result.data.data.results.filter((row) => row.symbol === symbol) : []
-  if (rows.length !== 1) {
+  if (!result.success) {
     throw robinhoodError('Robinhood returned invalid historical data for the requested symbol', 502)
   }
-  return rows[0].bars
+  const rows = result.data.data.results ?? []
+  if (rows.length === 0) return []
+  if (rows.length !== 1 || rows[0].symbol !== symbol) {
+    throw robinhoodError('Robinhood returned invalid historical data for the requested symbol', 502)
+  }
+  return (rows[0].bars ?? [])
+    .filter((bar) => bar !== null)
     .filter((bar) => !bar.interpolated)
     .map((bar) => ({
       timeStamp: new Date(bar.begins_at).toISOString(),

@@ -238,12 +238,17 @@ function createRobinhoodOAuthConfig(): SystemManagedGenericOAuthConfig {
       const result = z
         .object({
           data: z.object({
-            accounts: z.array(
-              z.object({
-                account_number: z.string().trim().min(1),
-                is_default: z.boolean().optional(),
-              })
-            ),
+            accounts: z
+              .array(
+                z
+                  .object({
+                    account_number: z.string().trim().min(1),
+                    is_default: z.boolean().optional(),
+                  })
+                  .nullable()
+              )
+              .nullable()
+              .transform((accounts) => (accounts ?? []).filter((account) => account !== null)),
           }),
         })
         .safeParse(payload)

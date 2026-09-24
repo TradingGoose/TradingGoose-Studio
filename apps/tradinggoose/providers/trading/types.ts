@@ -123,7 +123,13 @@ export interface TradingOrderRequest extends TradingOrderInput {
 
 export type UnifiedTradingEnvironment = 'live' | 'paper' | 'demo' | 'unknown'
 
-export type UnifiedTradingAccountType = 'cash' | 'margin' | 'portfolio' | 'paper' | 'unknown'
+export type UnifiedTradingAccountType =
+  | 'cash'
+  | 'margin'
+  | 'limited_margin'
+  | 'portfolio'
+  | 'paper'
+  | 'unknown'
 
 export type UnifiedTradingAccountStatus = 'active' | 'restricted' | 'closed' | 'unknown'
 

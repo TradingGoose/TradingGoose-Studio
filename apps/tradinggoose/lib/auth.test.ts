@@ -47,6 +47,7 @@ describe('Robinhood OAuth identity', () => {
         data: {
           accounts: [
             { account_number: '12345678', is_default: false, deactivated: true },
+            null,
             { account_number: '87654321', is_default: true },
           ],
         },
@@ -65,6 +66,12 @@ describe('Robinhood OAuth identity', () => {
   it('rejects ambiguous existing mappings', async () => {
     mocks.db.limit.mockResolvedValue([{ accountId: '12345678' }, { accountId: '87654321' }])
     await expect(getProfile()).rejects.toThrow('multiple connected account identities')
+  })
+
+  it('requires a default after normalizing null accounts', async () => {
+    const accounts = null
+    mocks.callTool.mockResolvedValue({ structuredContent: { data: { accounts } }, content: [] })
+    await expect(getProfile()).rejects.toThrow('unique default account')
   })
 
   it('requires an authenticated link owner', async () => {

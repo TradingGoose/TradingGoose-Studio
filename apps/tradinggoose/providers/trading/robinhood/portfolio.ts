@@ -17,15 +17,20 @@ import { tradingSymbolToListingIdentity } from '@/providers/trading/utils'
 const accountsSchema = z.object({
   accounts: z
     .array(
-      z.object({
-        account_number: z.string().trim().min(1),
-        agentic_allowed: z.boolean(),
-        type: z.string(),
-        nickname: z.string().nullish(),
-      })
+      z
+        .object({
+          account_number: z.string().trim().min(1),
+          agentic_allowed: z.boolean(),
+          type: z.string(),
+          nickname: z.string().nullish(),
+          state: z.string(),
+          deactivated: z.boolean(),
+          permanently_deactivated: z.boolean(),
+        })
+        .nullable()
     )
     .nullable()
-    .transform((accounts) => accounts ?? []),
+    .transform((accounts) => (accounts ?? []).filter((account) => account !== null)),
 })
 const portfolioSchema = z.object({
   total_value: robinhoodNumber,
@@ -37,14 +42,16 @@ const portfolioSchema = z.object({
 const positionsSchema = z.object({
   positions: z
     .array(
-      z.object({
-        symbol: z.string().trim().min(1),
-        quantity: robinhoodNumber,
-        average_buy_price: robinhoodNumber.nullish(),
-      })
+      z
+        .object({
+          symbol: z.string().trim().min(1),
+          quantity: robinhoodNumber,
+          average_buy_price: robinhoodNumber.nullish(),
+        })
+        .nullable()
     )
     .nullable()
-    .transform((positions) => positions ?? []),
+    .transform((positions) => (positions ?? []).filter((position) => position !== null)),
   next: z.string().nullish(),
 })
 
@@ -67,8 +74,15 @@ export async function getRobinhoodTradingAccounts(
           accountName: account.nickname,
         }),
         accountType:
-          account.type === 'cash' || account.type === 'margin' ? account.type : 'unknown',
+          account.type === 'cash' || account.type === 'margin' || account.type === 'limited_margin'
+            ? account.type
+            : 'unknown',
         baseCurrency: 'USD',
+        accountStatus: account.permanently_deactivated
+          ? 'closed'
+          : account.state === 'active' && !account.deactivated
+            ? 'active'
+            : 'restricted',
       }))
   })
 }

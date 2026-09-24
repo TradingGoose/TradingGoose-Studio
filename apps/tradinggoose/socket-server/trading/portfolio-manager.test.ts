@@ -81,6 +81,8 @@ const portfolioIdentity: PortfolioIdentity = {
 }
 const portfolioDetail = {
   ...portfolioIdentity,
+  accountType: undefined,
+  accountStatus: undefined,
   environment: 'live',
   asOf: '2026-04-30T12:00:00.000Z',
   cashBalances: [],

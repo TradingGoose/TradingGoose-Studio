@@ -52,6 +52,15 @@ const portfolio = {
   currency: 'USD',
   buying_power: { buying_power: '600' },
 }
+const rawAccount = (account_number: string, overrides: Record<string, unknown> = {}) => ({
+  account_number,
+  agentic_allowed: true,
+  type: 'cash',
+  state: 'active',
+  deactivated: false,
+  permanently_deactivated: false,
+  ...overrides,
+})
 const order: TradingOrderInput = {
   base: 'AAPL',
   quote: 'USD',
@@ -119,30 +128,38 @@ describe('Robinhood trading accounts and portfolio', () => {
     sdk.callTool.mockResolvedValue(
       envelope({
         accounts: [
-          { account_number: 'PERSONAL', agentic_allowed: false, type: 'cash' },
-          {
-            account_number: 'AGENT-1234',
-            agentic_allowed: true,
-            type: 'margin',
-            nickname: 'Agentic',
-          },
-          { account_number: 'AGENT-5678', agentic_allowed: true, type: 'other' },
+          rawAccount('PERSONAL', { agentic_allowed: false }),
+          null,
+          rawAccount('AGENT-1234', { type: 'margin', nickname: 'Agentic' }),
+          rawAccount('AGENT-5678', { type: 'limited_margin', deactivated: true }),
+          rawAccount('AGENT-9999', {
+            state: 'deactivated',
+            deactivated: true,
+            permanently_deactivated: true,
+          }),
         ],
       })
     )
     const accounts = await getRobinhoodTradingAccounts(context)
-    expect(accounts).toHaveLength(2)
+    expect(accounts).toHaveLength(3)
     expect(accounts[0]).toMatchObject({
       accountId: 'AGENT-1234',
       credentialId: context.credentialId,
       serviceId: 'robinhood',
       accountName: 'Agentic',
       accountType: 'margin',
+      accountStatus: 'active',
     })
     expect(accounts[1]).toMatchObject({
       accountId: 'AGENT-5678',
       accountName: 'Agentic • 5678',
-      accountType: 'unknown',
+      accountType: 'limited_margin',
+      accountStatus: 'restricted',
+    })
+    expect(accounts[2]).toMatchObject({
+      accountId: 'AGENT-9999',
+      accountType: 'cash',
+      accountStatus: 'closed',
     })
     expect(sdk.transport).toHaveBeenCalledWith(
       new URL(ROBINHOOD_MCP_URL),
@@ -158,7 +175,7 @@ describe('Robinhood trading accounts and portfolio', () => {
       .mockResolvedValueOnce(envelope(portfolio))
       .mockResolvedValueOnce(
         envelope({
-          positions: [{ symbol: 'AAPL', quantity: '2', average_buy_price: '100' }],
+          positions: [null, { symbol: 'AAPL', quantity: '2', average_buy_price: '100' }],
           next: 'https://api.robinhood.com/positions/?cursor=page2',
         })
       )
