@@ -81,6 +81,7 @@ const portfolioIdentity: PortfolioIdentity = {
 }
 const portfolioDetail = {
   ...portfolioIdentity,
+  accountName: undefined,
   accountType: undefined,
   accountStatus: undefined,
   environment: 'live',
