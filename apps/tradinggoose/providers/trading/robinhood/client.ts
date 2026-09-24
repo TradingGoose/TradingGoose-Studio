@@ -58,7 +58,10 @@ export async function withRobinhoodTradingClient<T>(
       const result = (await client.callTool({ name: tool, arguments: args }, CallToolResultSchema, {
         signal,
       })) as CallToolResult
-      if (result.isError) throw new Error('Robinhood tool request failed.')
+      if (result.isError) {
+        submissionStarted = false
+        throw new Error('Robinhood tool request failed.')
+      }
       const text = result.content.find((item) => item.type === 'text')
       return envelope.parse(result.structuredContent ?? JSON.parse(text?.text ?? 'null')).data
     })

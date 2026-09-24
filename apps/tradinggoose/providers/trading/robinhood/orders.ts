@@ -1,12 +1,8 @@
 import { v5 as uuidv5 } from 'uuid'
 import { z } from 'zod'
 import { ListingResolvedSchema } from '@/lib/listing/identity'
-import { TradingBrokerRequestError } from '@/providers/trading/portfolio-utils'
 import { robinhoodNumber, withRobinhoodTradingClient } from '@/providers/trading/robinhood/client'
-import {
-  ROBINHOOD_MCP_URL,
-  robinhoodTradingProviderConfig,
-} from '@/providers/trading/robinhood/config'
+import { robinhoodTradingProviderConfig } from '@/providers/trading/robinhood/config'
 import type {
   TradingOrder,
   TradingOrderDetailInput,
@@ -108,27 +104,19 @@ export async function submitRobinhoodOrder(params: TradingOrderInput): Promise<u
   // Adapt the canonical stable ID to Robinhood's UUID format; never regenerate on retry.
   const refId = uuidv5(`robinhood:${params.accountId}:${params.clientOrderId}`, uuidv5.URL)
   return withRobinhoodTradingClient(params.accessToken, async (call) => {
-    const review = reviewSchema.parse(await call('review_equity_order', args))
-    if (
-      review.symbol !== args.symbol ||
-      review.side !== args.side ||
-      review.type !== args.type ||
-      ['quantity', 'dollar_amount', 'limit_price', 'stop_price'].some(
-        (key) => args[key] !== undefined && Number(review[key]) !== Number(args[key])
-      )
-    ) {
-      throw new Error('Robinhood review does not match the requested order.')
-    }
-    if (params.preview) return { state: 'preview', symbol: args.symbol, side: args.side, review }
-    if (Object.keys(review.order_checks).length) {
-      throw new TradingBrokerRequestError({
-        providerId: 'robinhood',
-        url: ROBINHOOD_MCP_URL,
-        status: 422,
-        message:
-          'Robinhood blocked this order during review. Resolve the account or order restrictions in Robinhood before retrying.',
-        payload: { review },
-      })
+    if (params.preview) {
+      const review = reviewSchema.parse(await call('review_equity_order', args))
+      if (
+        review.symbol !== args.symbol ||
+        review.side !== args.side ||
+        review.type !== args.type ||
+        ['quantity', 'dollar_amount', 'limit_price', 'stop_price'].some(
+          (key) => args[key] !== undefined && Number(review[key]) !== Number(args[key])
+        )
+      ) {
+        throw new Error('Robinhood review does not match the requested order.')
+      }
+      return { state: 'preview', symbol: args.symbol, side: args.side, review }
     }
     const data = await call('place_equity_order', { ...args, ref_id: refId })
     const order = placementSchema.parse(data.order)

@@ -284,7 +284,7 @@ describe('Robinhood order review and placement', () => {
       status: 'accepted',
       raw: { id: brokerOrder.id, quantity: String(order.quantity) },
     })
-    expect(toolNames()).toEqual(['review_equity_order', 'place_equity_order'])
+    expect(toolNames()).toEqual(['place_equity_order'])
   })
 
   it.each([
@@ -298,9 +298,7 @@ describe('Robinhood order review and placement', () => {
     { dollar_based_amount: { amount: '25.50', currency_code: 'EUR' } },
     { dollar_based_amount: '25.50' },
   ])('rejects an invalid or contradictory placement acknowledgement %j', async (override) => {
-    sdk.callTool
-      .mockImplementationOnce(sdk.callTool.getMockImplementation()!)
-      .mockResolvedValueOnce(envelope({ order: { ...brokerOrder, ...override } }))
+    sdk.callTool.mockResolvedValueOnce(envelope({ order: { ...brokerOrder, ...override } }))
     await expect(submitRobinhoodOrder(order)).rejects.toMatchObject({ submissionUnknown: true })
     expect(placements()).toHaveLength(1)
   })
@@ -319,18 +317,14 @@ describe('Robinhood order review and placement', () => {
     expect(sdk.close).toHaveBeenCalledOnce()
   })
 
-  it.each([
-    { quantity: '999', order_checks: {} },
-    { symbol: 'MSFT', order_checks: {} },
-    { order_checks: undefined },
-    { order_checks: { warning: 'Review required' } },
-  ])('blocks placement after mismatched, malformed or warning review %j', async (override) => {
+  it('rejects a mismatched preview echo without placing an order', async () => {
     sdk.callTool.mockImplementation(async ({ arguments: args }) =>
-      envelope({ ...args, ...override })
+      envelope({ ...args, symbol: 'MSFT', order_checks: {} })
     )
-    const submission = submitRobinhoodOrder(order)
-    await expect(submission).rejects.toThrow()
-    await expect(submission).rejects.not.toMatchObject({ submissionUnknown: true })
+    await expect(submitRobinhoodOrder({ ...order, preview: true })).rejects.toMatchObject({
+      status: 502,
+      submissionUnknown: false,
+    })
     expect(toolNames()).toEqual(['review_equity_order'])
     expect(sdk.close).toHaveBeenCalledOnce()
   })
@@ -356,7 +350,7 @@ describe('Robinhood order review and placement', () => {
     { input: { quantity: 0.123456 }, expected: { quantity: '0.123456' } },
   ])('maps supported sizing/order fields %j', async ({ input, expected }) => {
     const result = await submitRobinhoodOrder({ ...order, ...input } as TradingOrderInput)
-    expect(toolNames()).toEqual(['review_equity_order', 'place_equity_order'])
+    expect(toolNames()).toEqual(['place_equity_order'])
     const args = placements()[0][0].arguments
     expect(args).toMatchObject({
       ...expected,
@@ -402,20 +396,19 @@ describe('Robinhood order review and placement', () => {
   })
 
   it.each(['timeout', 'tool-error'])(
-    'never retries an ambiguous mutation after %s and closes its client',
+    'classifies %s placement failures and closes its client',
     async (failure) => {
-      sdk.callTool.mockImplementation(async ({ name, arguments: args }) => {
-        if (name === 'review_equity_order') return envelope({ ...args, order_checks: {} })
+      sdk.callTool.mockImplementation(async () => {
         if (failure === 'timeout')
           throw new McpError(ErrorCode.RequestTimeout, 'private upstream body')
         return { isError: true, content: [{ type: 'text', text: 'private upstream body' }] }
       })
       await expect(submitRobinhoodOrder(order)).rejects.toMatchObject({
         status: failure === 'timeout' ? 504 : 502,
-        submissionUnknown: true,
+        submissionUnknown: failure === 'timeout',
         message: expect.not.stringContaining('private upstream body'),
       })
-      expect(toolNames()).toEqual(['review_equity_order', 'place_equity_order'])
+      expect(toolNames()).toEqual(['place_equity_order'])
       expect(sdk.connect).toHaveBeenCalledOnce()
       expect(sdk.close).toHaveBeenCalledOnce()
     }
