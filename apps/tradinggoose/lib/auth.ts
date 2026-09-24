@@ -7,7 +7,7 @@ import { db } from '@tradinggoose/db'
 import * as schema from '@tradinggoose/db/schema'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { APIError, createAuthMiddleware } from 'better-auth/api'
+import { APIError, createAuthMiddleware, getOAuthState } from 'better-auth/api'
 import { nextCookies } from 'better-auth/next-js'
 import {
   customSession,
@@ -21,7 +21,7 @@ import type { GenericOAuthConfig } from 'better-auth/plugins/generic-oauth'
 /** OAuth2 token type extracted from better-auth's GenericOAuthConfig */
 type OAuthTokens = Parameters<NonNullable<GenericOAuthConfig['getUserInfo']>>[0]
 
-import { eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import type Stripe from 'stripe'
 import { z } from 'zod'
@@ -204,6 +204,8 @@ function createRobinhoodOAuthConfig(): SystemManagedGenericOAuthConfig {
     disableSignUp: true,
     getUserInfo: async (tokens) => {
       if (!tokens.accessToken?.trim()) throw new Error('Robinhood access token is required')
+      const ownerUserId = (await getOAuthState())?.link?.userId
+      if (!ownerUserId) throw new Error('Robinhood requires an authenticated link')
       const signal = AbortSignal.timeout(30_000)
       const client = new Client({ name: 'TradingGoose', version: '1.0.0' })
       const transport = new StreamableHTTPClientTransport(new URL(resource), {
@@ -246,14 +248,32 @@ function createRobinhoodOAuthConfig(): SystemManagedGenericOAuthConfig {
         })
         .safeParse(payload)
       if (!result.success) throw new Error('Robinhood returned an invalid account profile.')
+      const existing = await db
+        .select({ accountId: schema.account.accountId })
+        .from(schema.account)
+        .where(
+          and(
+            eq(schema.account.providerId, providerId),
+            eq(schema.account.userId, ownerUserId),
+            inArray(
+              schema.account.accountId,
+              result.data.data.accounts.map((account) => account.account_number)
+            )
+          )
+        )
+        .limit(2)
+      if (existing.length > 1)
+        throw new Error(
+          'Robinhood has multiple connected account identities. Remove duplicate connections before reconnecting.'
+        )
       const defaults = result.data.data.accounts.filter((account) => account.is_default)
-      if (defaults.length !== 1)
+      if (!existing.length && defaults.length !== 1)
         throw new Error('Robinhood did not identify a unique default account.')
-      // OAuth identity is the default brokerage account; trading selects its own eligible account.
-      const accountNumber = defaults[0].account_number
+      // Preserve an authorized connection even when Robinhood changes its default account.
+      const accountNumber = existing[0]?.accountId ?? defaults[0].account_number
       return {
         id: accountNumber,
-        name: accountNumber,
+        name: 'Robinhood',
         email: `${accountNumber}@robinhood.account`,
         image: '',
         emailVerified: false,
