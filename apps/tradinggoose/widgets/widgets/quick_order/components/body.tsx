@@ -652,6 +652,7 @@ export function QuickOrderWidgetBody({
   const acceptedResponse = submitOrder.data?.response
   const order = acceptedResponse?.order
   const submittedSide = submitOrder.variables?.request.side ?? side
+  const submittedAccountLabel = submitOrder.variables?.request.portfolioIdentity.accountName
 
   const handleSubmit = () => {
     if (
@@ -967,11 +968,9 @@ export function QuickOrderWidgetBody({
                   ? `${order.id ? `${copy.body.orderPrefix} ${order.id}` : copy.body.orderSubmitted}${order.status ? ` · ${order.status}` : ''}`
                   : (acceptedResponse.message ?? copy.body.orderSubmitted)}
               </div>
-              {acceptedResponse.provider || acceptedResponse.accountId ? (
+              {acceptedResponse.provider || submittedAccountLabel ? (
                 <div>
-                  {[acceptedResponse.provider, acceptedResponse.accountId]
-                    .filter(Boolean)
-                    .join(' / ')}
+                  {[acceptedResponse.provider, submittedAccountLabel].filter(Boolean).join(' / ')}
                 </div>
               ) : null}
               {order ? (

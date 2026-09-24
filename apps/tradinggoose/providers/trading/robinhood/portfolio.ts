@@ -1,6 +1,9 @@
 import { z } from 'zod'
 import { buildPortfolioDetail } from '@/providers/trading/portfolio-detail'
-import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
+import {
+  getPortfolioAccountLabel,
+  type PortfolioIdentity,
+} from '@/providers/trading/portfolio-identity'
 import { robinhoodNumber, withRobinhoodTradingClient } from '@/providers/trading/robinhood/client'
 import { robinhoodTradingProviderConfig } from '@/providers/trading/robinhood/config'
 import type {
@@ -57,7 +60,11 @@ export async function getRobinhoodTradingAccounts(
         serviceId: context.serviceId,
         accountId: account.account_number,
         providerName: 'Robinhood',
-        accountName: account.nickname || `Agentic • ${account.account_number.slice(-4)}`,
+        accountName: getPortfolioAccountLabel({
+          providerId: 'robinhood',
+          accountId: account.account_number,
+          accountName: account.nickname,
+        }),
         accountType:
           account.type === 'cash' || account.type === 'margin' ? account.type : 'unknown',
         baseCurrency: 'USD',
@@ -114,6 +121,7 @@ export async function getRobinhoodTradingAccountSnapshot(context: TradingPortfol
       serviceId: context.serviceId,
       accountId: context.accountId,
       providerName: 'Robinhood',
+      accountName: getPortfolioAccountLabel(context),
       baseCurrency: 'USD',
     },
     environment: 'live',

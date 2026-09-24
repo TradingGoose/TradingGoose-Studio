@@ -10,6 +10,7 @@ import {
 } from '@/lib/monitors/sources'
 import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { useLogsList } from '@/hooks/queries/logs'
+import { getPortfolioAccountLabel } from '@/providers/trading/portfolio-identity'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
 import { buildMonitorBoardSections } from '../board/board-state'
 import type { MonitorRecord } from '../shared/types'
@@ -200,7 +201,7 @@ const toExecutionItem = (
     'unknown'
   const listingLabel = listing
     ? getListingIdentitySymbol(listing)
-    : accountId || 'Portfolio account'
+    : getPortfolioAccountLabel({ providerId, accountId }) || 'Portfolio account'
   const isPartial =
     !monitorId ||
     !providerId ||

@@ -138,7 +138,11 @@ describe('Robinhood trading accounts and portfolio', () => {
       accountName: 'Agentic',
       accountType: 'margin',
     })
-    expect(accounts[1]).toMatchObject({ accountId: 'AGENT-5678', accountType: 'unknown' })
+    expect(accounts[1]).toMatchObject({
+      accountId: 'AGENT-5678',
+      accountName: 'Agentic • 5678',
+      accountType: 'unknown',
+    })
     expect(sdk.transport).toHaveBeenCalledWith(
       new URL(ROBINHOOD_MCP_URL),
       expect.objectContaining({
@@ -169,6 +173,7 @@ describe('Robinhood trading accounts and portfolio', () => {
     const snapshot = await getRobinhoodTradingAccountSnapshot(context)
     expect(snapshot).toMatchObject({
       accountId: context.accountId,
+      accountName: 'Agentic • 1234',
       credentialId: context.credentialId,
       environment: 'live',
       summary: {

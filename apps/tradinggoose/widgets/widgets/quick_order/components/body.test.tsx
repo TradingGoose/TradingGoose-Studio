@@ -670,7 +670,8 @@ describe('QuickOrderWidgetBody', () => {
 
     expect(container.querySelectorAll('[role="status"]')).toHaveLength(1)
     expect(container.textContent).toContain('Order order-1')
-    expect(container.textContent).toContain('alpaca / acct-1')
+    expect(container.textContent).toContain('alpaca / Paper Account')
+    expect(container.textContent).not.toContain(portfolioIdentity.accountId)
     expect(container.textContent).toContain('AAPL · BUY')
     expect(container.textContent).toContain('Order accepted')
     expect(payload).not.toHaveProperty('tokenAccountId')
