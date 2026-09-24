@@ -262,6 +262,60 @@ describe('MarketStreamManager quote snapshots', () => {
     expect(finnhubStreamInstances).toHaveLength(0)
   })
 
+  it.each([
+    ['robinhood', 'disconnect'],
+    ['alpaca', 'unsubscribe'],
+    ['finnhub', 'unsubscribe'],
+  ])('cancels pending %s setup on %s', async (provider, action) => {
+    const manager = new MarketStreamManager()
+    const socket = createSocket('socket-1')
+    checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: true })
+    refreshAccessTokenIfNeededMock.mockResolvedValue('token')
+    resolveListingContextMock.mockImplementationOnce(async () => {
+      if (action === 'disconnect') manager.removeSocket(socket.id)
+      else manager.unsubscribe(socket, { clientSubscriptionId: 'chart' })
+      return { listing, base: 'AAPL', assetClass: 'stock' }
+    })
+    await expect(
+      manager.subscribe(socket, {
+        provider,
+        listing,
+        workspaceId: 'workspace-1',
+        channel: 'bars',
+        interval: '1m',
+        clientSubscriptionId: 'chart',
+        providerParams: { credentialId: 'connection' },
+        auth: { apiKey: 'key', apiSecret: 'secret' },
+      })
+    ).rejects.toThrow()
+    expect(manager.unsubscribe(socket, {})).toEqual([])
+  })
+
+  it('preserves unrelated pending subscriptions and a replacement after cancellation', async () => {
+    vi.useFakeTimers()
+    const manager = new MarketStreamManager()
+    const socket = createSocket('socket-1')
+    let resolveListing!: (context: unknown) => void
+    resolveListingContextMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolveListing = resolve
+      })
+    )
+    const payload = { provider: 'yahoo-finance', listing, clientSubscriptionId: 'chart' }
+    const pending = manager.subscribe(socket, payload)
+    const cancelled = expect(pending).rejects.toThrow()
+    const other = manager.subscribe(socket, { ...payload, clientSubscriptionId: 'other' })
+    await vi.advanceTimersByTimeAsync(0)
+    manager.unsubscribe(socket, { clientSubscriptionId: 'chart' })
+    const replacement = manager.subscribe(socket, payload)
+    resolveListing({ listing, base: 'AAPL', assetClass: 'stock' })
+    await Promise.all([cancelled, other, replacement])
+    expect(manager.unsubscribe(socket, {}).map((record) => record.clientSubscriptionId)).toEqual([
+      'other',
+      'chart',
+    ])
+  })
+
   it('shares one upstream trade subscription for duplicate streaming quote snapshots', async () => {
     const manager = new MarketStreamManager()
     const socket = createSocket('socket-1')

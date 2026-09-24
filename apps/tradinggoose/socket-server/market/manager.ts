@@ -1,11 +1,7 @@
 import { createHash, randomUUID } from 'crypto'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
-import {
-  areListingIdentitiesEqual,
-  type ListingIdentity,
-  ListingIdentitySchema,
-} from '@/lib/listing/identity'
+import { type ListingIdentity, ListingIdentitySchema } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   createEmptyMarketQuoteSnapshot,
@@ -69,9 +65,6 @@ export interface MarketSubscribePayload {
 export interface MarketUnsubscribePayload {
   subscriptionId?: string
   clientSubscriptionId?: string
-  listing?: ListingIdentity
-  symbol?: string
-  provider?: string
 }
 
 export interface MarketSubscriptionInfo {
@@ -117,42 +110,61 @@ interface StreamState {
   subscribersBySymbol: Map<string, Map<string, MarketSubscriptionRecord>>
 }
 
+export class MarketSubscriptionCancelledError extends Error {}
+
 export class MarketStreamManager {
   private streams = new Map<string, StreamState>()
   private socketSubscriptions = new Map<string, Map<string, MarketSubscriptionRecord>>()
+  private pendingSubscriptions = new Set<{
+    socketId: string
+    clientSubscriptionId?: string
+    cancelled: boolean
+  }>()
 
   async subscribe(
     socket: AuthenticatedSocket,
     payload: MarketSubscribePayload
   ): Promise<MarketSubscriptionInfo> {
-    const resolvedPayload = await resolveMarketSubscribeEnv(payload, socket.userId)
-    const provider = resolveProviderId(resolvedPayload.provider)
-
-    if (provider === 'alpaca') {
-      return this.subscribeAlpaca(socket, { ...resolvedPayload, provider })
+    const pending = {
+      socketId: socket.id,
+      clientSubscriptionId: payload.clientSubscriptionId,
+      cancelled: false,
     }
-
-    if (provider === 'finnhub') {
-      return this.subscribeFinnhub(socket, { ...resolvedPayload, provider })
+    this.pendingSubscriptions.add(pending)
+    const assertActive = () => {
+      if (pending.cancelled) throw new MarketSubscriptionCancelledError()
     }
-
-    return this.subscribePollingProvider(socket, { ...resolvedPayload, provider })
+    try {
+      const resolvedPayload = await resolveMarketSubscribeEnv(payload, socket.userId)
+      const provider = resolveProviderId(resolvedPayload.provider)
+      if (provider === 'alpaca') {
+        return await this.subscribeAlpaca(socket, { ...resolvedPayload, provider }, assertActive)
+      }
+      if (provider === 'finnhub') {
+        return await this.subscribeFinnhub(socket, { ...resolvedPayload, provider }, assertActive)
+      }
+      return await this.subscribePollingProvider(
+        socket,
+        { ...resolvedPayload, provider },
+        assertActive
+      )
+    } finally {
+      this.pendingSubscriptions.delete(pending)
+    }
   }
 
   unsubscribe(
     socket: AuthenticatedSocket,
     payload: MarketUnsubscribePayload
   ): MarketSubscriptionInfo[] {
+    if (!payload.subscriptionId) {
+      this.cancelPendingSubscriptions(socket.id, payload.clientSubscriptionId)
+    }
     const socketMap = this.socketSubscriptions.get(socket.id)
-    if (!socketMap || socketMap.size === 0) {
-      return []
-    }
+    if (!socketMap || socketMap.size === 0) return []
 
-    const listing = payload.listing ? ListingIdentitySchema.parse(payload.listing) : undefined
-    const matches = this.findMatchingSubscriptions(socketMap, { ...payload, listing })
-    if (!matches.length) {
-      return []
-    }
+    const matches = this.findMatchingSubscriptions(socketMap, payload)
+    if (!matches.length) return []
 
     matches.forEach((record) => this.removeRecord(record))
 
@@ -169,15 +181,28 @@ export class MarketStreamManager {
   }
 
   removeSocket(socketId: string) {
+    this.cancelPendingSubscriptions(socketId)
     const socketMap = this.socketSubscriptions.get(socketId)
     if (!socketMap) return
 
     socketMap.forEach((record) => this.removeRecord(record))
   }
 
+  private cancelPendingSubscriptions(socketId: string, clientSubscriptionId?: string) {
+    for (const pending of this.pendingSubscriptions) {
+      if (
+        pending.socketId === socketId &&
+        (!clientSubscriptionId || pending.clientSubscriptionId === clientSubscriptionId)
+      ) {
+        pending.cancelled = true
+      }
+    }
+  }
+
   private async subscribeAlpaca(
     socket: AuthenticatedSocket,
-    payload: MarketSubscribePayload
+    payload: MarketSubscribePayload,
+    assertActive: () => void
   ): Promise<MarketSubscriptionInfo> {
     const listing = ListingIdentitySchema.parse(payload.listing)
 
@@ -221,7 +246,7 @@ export class MarketStreamManager {
       keyId,
       secretKey,
     })
-
+    assertActive()
     const streamState = this.getOrCreateStream(streamKey, {
       provider: 'alpaca',
       market,
@@ -290,7 +315,8 @@ export class MarketStreamManager {
 
   private async subscribeFinnhub(
     socket: AuthenticatedSocket,
-    payload: MarketSubscribePayload
+    payload: MarketSubscribePayload,
+    assertActive: () => void
   ): Promise<MarketSubscriptionInfo> {
     const listing = ListingIdentitySchema.parse(payload.listing)
 
@@ -322,6 +348,7 @@ export class MarketStreamManager {
       workspaceId: payload.workspaceId,
       apiKey,
     })
+    assertActive()
     const streamState = this.getOrCreateStream(streamKey, {
       provider: 'finnhub',
       market,
@@ -383,7 +410,8 @@ export class MarketStreamManager {
 
   private async subscribePollingProvider(
     socket: AuthenticatedSocket,
-    payload: MarketSubscribePayload & { provider: string }
+    payload: MarketSubscribePayload & { provider: string },
+    assertActive: () => void
   ): Promise<MarketSubscriptionInfo> {
     const listing = ListingIdentitySchema.parse(payload.listing)
 
@@ -441,13 +469,13 @@ export class MarketStreamManager {
       providerParams: payload.providerParams,
       normalizationMode: payload.normalizationMode,
     })
+    assertActive()
     const streamState = this.getOrCreatePollingStream(streamKey, {
       provider: payload.provider,
       auth: payload.auth,
       providerParams: payload.providerParams,
       normalizationMode: payload.normalizationMode,
     })
-
     const intervalToken =
       typeof payload.interval === 'string' && payload.interval.trim()
         ? payload.interval.trim()
@@ -999,31 +1027,11 @@ export class MarketStreamManager {
       return match ? [match] : []
     }
 
-    if (payload.clientSubscriptionId) {
-      const matches: MarketSubscriptionRecord[] = []
-      socketMap.forEach((record) => {
-        if (record.clientSubscriptionId === payload.clientSubscriptionId) matches.push(record)
-      })
-      return matches
-    }
-
-    const symbol = payload.symbol ? normalizeSymbol(payload.symbol) : undefined
-    const provider = payload.provider ? resolveProviderId(payload.provider) : undefined
-
-    const matches: MarketSubscriptionRecord[] = []
-    socketMap.forEach((record) => {
-      if (provider && record.provider !== provider) return
-      if (
-        payload.listing &&
-        (!record.listing || !areListingIdentitiesEqual(payload.listing, record.listing))
-      ) {
-        return
-      }
-      if (symbol && record.symbol !== symbol) return
-      matches.push(record)
-    })
-
-    return matches
+    return [...socketMap.values()].filter(
+      (record) =>
+        !payload.clientSubscriptionId ||
+        record.clientSubscriptionId === payload.clientSubscriptionId
+    )
   }
 
   private removeRecord(record: MarketSubscriptionRecord) {
