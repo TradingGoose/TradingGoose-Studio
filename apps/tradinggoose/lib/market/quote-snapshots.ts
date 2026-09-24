@@ -3,7 +3,7 @@ import {
   createEmptyMarketQuoteSnapshot,
   type MarketQuoteSnapshot,
 } from '@/lib/market/quote-snapshot-contract'
-import { executeProviderRequest } from '@/providers/market'
+import { executeProviderRequest, getProvider } from '@/providers/market'
 import type { MarketProviderRequestContext, MarketSeries } from '@/providers/market/types'
 
 export {
@@ -104,6 +104,13 @@ export const buildMarketQuoteSnapshot = async ({
   context?: MarketProviderRequestContext
 }): Promise<MarketQuoteSnapshot> => {
   try {
+    if (getProvider(provider)?.fetchMarketQuote) {
+      return (await executeProviderRequest(
+        provider,
+        { kind: 'quote', listing, auth, providerParams },
+        context
+      )) as MarketQuoteSnapshot
+    }
     const daily = await buildDailyRequest({ provider, listing, auth, providerParams, context })
     const dailyBars = daily?.bars ?? []
     const latestDaily = dailyBars[dailyBars.length - 1]

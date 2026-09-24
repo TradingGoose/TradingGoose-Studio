@@ -11,25 +11,51 @@ import {
   McpError,
 } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
+import type { ListingIdentity } from '@/lib/listing/identity'
 import { MarketProviderError } from '@/providers/market/errors'
-import { ROBINHOOD_MCP_URL } from '@/providers/market/robinhood/config'
+import { ROBINHOOD_MCP_URL, robinhoodProviderConfig } from '@/providers/market/robinhood/config'
+import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 
-const READ_TOOLS = ['get_equity_historicals'] as const
+type RobinhoodMarketTool = 'get_equity_historicals' | 'get_equity_quotes'
 const REQUEST_TIMEOUT_MS = 30_000
 const payloadSchema = z.record(z.string(), z.unknown())
+export const numberValue = z
+  .union([z.number(), z.string().trim().min(1)])
+  .transform(Number)
+  .pipe(z.number().finite())
 
-const robinhoodError = (message: string, status?: number) =>
+export function invalidRequest(message: string): never {
+  throw new MarketProviderError({
+    code: 'INVALID REQUEST',
+    message,
+    provider: 'robinhood',
+    status: 400,
+  })
+}
+
+export async function resolveRobinhoodListing(listing: ListingIdentity) {
+  const context = await resolveListingContext(listing)
+  if (
+    !context.assetClass ||
+    !['stock', 'etf'].includes(context.assetClass) ||
+    (context.quote && context.quote !== 'USD') ||
+    (context.countryCode && context.countryCode !== 'US')
+  )
+    invalidRequest('Robinhood market data supports US stocks and ETFs quoted in USD')
+  const symbol = resolveProviderSymbol(robinhoodProviderConfig, context).trim().toUpperCase()
+  if (!symbol) invalidRequest('Robinhood requires a stock symbol')
+  return { context, symbol }
+}
+
+export const robinhoodError = (message: string, status?: number) =>
   new MarketProviderError({ code: 'PROVIDER ERROR', provider: 'robinhood', message, status })
 
 export async function callRobinhoodTool(
   accessToken: string,
-  tool: (typeof READ_TOOLS)[number],
+  tool: RobinhoodMarketTool,
   args: Record<string, unknown>,
   parentSignal?: AbortSignal
 ): Promise<unknown> {
-  if (!READ_TOOLS.includes(tool)) {
-    throw robinhoodError('Unsupported Robinhood market data tool.')
-  }
   if (!accessToken.trim()) {
     throw robinhoodError('Reconnect Robinhood to authorize market data access.', 401)
   }

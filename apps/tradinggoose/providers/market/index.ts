@@ -67,7 +67,10 @@ export async function executeProviderRequest(
   }
 
   const availability = provider.config.availability
-  const supportsKind = availability[request.kind] ?? false
+  const supportsKind =
+    request.kind === 'quote'
+      ? Boolean(provider.fetchMarketQuote)
+      : (availability[request.kind] ?? false)
 
   if (!supportsKind) {
     throw new MarketProviderError({
@@ -104,6 +107,8 @@ export async function executeProviderRequest(
   }
 
   switch (request.kind) {
+    case 'quote':
+      return provider.fetchMarketQuote!(request)
     case 'series': {
       if (!provider.fetchMarketSeries) {
         throw new MarketProviderError({

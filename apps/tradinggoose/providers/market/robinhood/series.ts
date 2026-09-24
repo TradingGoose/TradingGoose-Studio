@@ -1,24 +1,24 @@
 import { z } from 'zod'
-import { MarketProviderError } from '@/providers/market/errors'
 import {
   resolveLatestSessionEndMs,
   resolveListingId,
   toDate,
 } from '@/providers/market/market-hours'
-import { callRobinhoodTool } from '@/providers/market/robinhood/client'
-import { ROBINHOOD_INTERVALS, robinhoodProviderConfig } from '@/providers/market/robinhood/config'
+import {
+  callRobinhoodTool,
+  invalidRequest,
+  numberValue,
+  resolveRobinhoodListing,
+  robinhoodError,
+} from '@/providers/market/robinhood/client'
+import { ROBINHOOD_INTERVALS } from '@/providers/market/robinhood/config'
 import { intervalToMs } from '@/providers/market/series-planner'
 import { rangeToMs } from '@/providers/market/series-window'
 import type { MarketBar, MarketSeries, MarketSeriesRequest } from '@/providers/market/types'
-import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 
 const DAY_MS = 86_400_000
 const MAX_REQUESTS = 20
 const BARS_PER_REQUEST = 2_000
-const numberValue = z
-  .union([z.number(), z.string().trim().min(1)])
-  .transform(Number)
-  .pipe(z.number().finite())
 // Output schema captured from Robinhood's tools/list:
 // https://github.com/Slijeff/robinhood-rest2mcp/blob/d52abd068f98efdc6ec62b5670d04220615245a5/spec.json
 const responseSchema = z.object({
@@ -44,25 +44,11 @@ const responseSchema = z.object({
   }),
 })
 
-function invalidRequest(message: string): never {
-  throw new MarketProviderError({
-    code: 'INVALID REQUEST',
-    message,
-    provider: 'robinhood',
-    status: 400,
-  })
-}
-
 function normalizeRobinhoodBars(payload: unknown, symbol: string): MarketBar[] {
   const result = responseSchema.safeParse(payload)
   const rows = result.success ? result.data.data.results.filter((row) => row.symbol === symbol) : []
   if (rows.length !== 1) {
-    throw new MarketProviderError({
-      code: 'PROVIDER ERROR',
-      provider: 'robinhood',
-      status: 502,
-      message: 'Robinhood returned invalid historical data for the requested symbol',
-    })
+    throw robinhoodError('Robinhood returned invalid historical data for the requested symbol', 502)
   }
   return rows[0].bars.map((bar) => ({
     timeStamp: new Date(bar.begins_at).toISOString(),
@@ -84,16 +70,7 @@ export async function fetchRobinhoodSeries(request: MarketSeriesRequest): Promis
   if (normalizationMode !== 'raw' && normalizationMode !== 'split_adjusted') {
     invalidRequest('Unsupported Robinhood price normalization')
   }
-  const context = await resolveListingContext(request.listing)
-  if (
-    !context.assetClass ||
-    !['stock', 'etf'].includes(context.assetClass) ||
-    (context.quote && context.quote !== 'USD') ||
-    (context.countryCode && context.countryCode !== 'US')
-  )
-    invalidRequest('Robinhood market data supports US stocks and ETFs quoted in USD')
-  const symbol = resolveProviderSymbol(robinhoodProviderConfig, context).trim().toUpperCase()
-  if (!symbol) invalidRequest('Robinhood requires a stock symbol')
+  const { context, symbol } = await resolveRobinhoodListing(request.listing)
   const window = request.windows?.[0]
   const barCount =
     window?.mode === 'bars'

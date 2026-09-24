@@ -1,6 +1,7 @@
 import { MarketProviderError } from '@/providers/market/errors'
 import type { MarketProvider } from '@/providers/market/providers'
 import { robinhoodProviderConfig } from '@/providers/market/robinhood/config'
+import { fetchRobinhoodQuote } from '@/providers/market/robinhood/quote'
 import { fetchRobinhoodSeries } from '@/providers/market/robinhood/series'
 
 export const robinhoodProvider: MarketProvider = {
@@ -8,6 +9,7 @@ export const robinhoodProvider: MarketProvider = {
   name: 'Robinhood',
   config: robinhoodProviderConfig,
   fetchMarketSeries: fetchRobinhoodSeries,
+  fetchMarketQuote: fetchRobinhoodQuote,
   fetchMarketLive: async (request) => {
     const interval = request.interval ?? '1m'
     const series = await fetchRobinhoodSeries({

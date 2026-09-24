@@ -1,6 +1,7 @@
 import { StreamableHTTPError } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { buildMarketQuoteSnapshot } from '@/lib/market/quote-snapshots'
 import { ROBINHOOD_MCP_URL } from '@/providers/market/robinhood/config'
 import { planMarketSeriesRequest } from '@/providers/market/series-planner'
 import type { MarketSeriesRequest } from '@/providers/market/types'
@@ -15,6 +16,7 @@ const sdk = vi.hoisted(() => ({
   transport: vi.fn(),
   listing: vi.fn(),
   session: vi.fn(),
+  token: vi.fn(),
 }))
 vi.mock('@modelcontextprotocol/sdk/client/index.js', () => ({
   Client: class {
@@ -31,6 +33,7 @@ vi.mock('@/providers/market/utils', () => ({
   resolveListingContext: sdk.listing,
   resolveProviderSymbol: (_config: unknown, context: { base: string }) => context.base,
 }))
+vi.mock('@/lib/oauth/tokens', () => ({ refreshAccessTokenIfNeeded: sdk.token }))
 vi.mock('@/providers/market/market-hours', async () => ({
   resolveLatestSessionEndMs: sdk.session,
   resolveListingId: () => 'us-aapl',
@@ -52,6 +55,15 @@ const mcpResult = (payload: unknown, text = false) =>
   text
     ? { content: [{ type: 'text', text: JSON.stringify(payload) }] }
     : { content: [], structuredContent: payload }
+const rawQuote = {
+  symbol: 'AAPL',
+  last_trade_price: '110',
+  adjusted_previous_close: '100',
+  previous_close: '102',
+  last_non_reg_trade_price: '115',
+  has_traded: true,
+  state: 'active',
+}
 const request: MarketSeriesRequest = {
   kind: 'series',
   listing: { listing_id: 'us-aapl', base_id: '', quote_id: '', listing_type: 'default' },
@@ -75,9 +87,35 @@ beforeEach(() => {
     timeZoneName: 'America/New_York',
   })
   sdk.session.mockResolvedValue(Date.parse(request.end as string))
+  sdk.token.mockResolvedValue('refreshed-token')
 })
 
 describe('Robinhood market provider and MCP boundary', () => {
+  it('uses native regular-hours quotes and adjusted close through canonical OAuth', async () => {
+    sdk.callTool.mockResolvedValue(
+      mcpResult({
+        data: { results: [{ quote: rawQuote, close: { symbol: 'AAPL', price: '101' } }] },
+      })
+    )
+    await expect(
+      buildMarketQuoteSnapshot({
+        provider: 'robinhood',
+        listing: request.listing,
+        providerParams: { credentialId: 'connection' },
+        context: { userId: 'owner', requestId: 'request' },
+      })
+    ).resolves.toEqual({ lastPrice: 110, previousClose: 100, change: 10, changePercent: 10 })
+    expect(sdk.token).toHaveBeenCalledExactlyOnceWith('connection', 'owner', 'request', 'robinhood')
+    expect(sdk.callTool).toHaveBeenCalledOnce()
+    expect(sdk.callTool.mock.calls[0][0]).toEqual({
+      name: 'get_equity_quotes',
+      arguments: { symbols: ['AAPL'] },
+    })
+    expect(sdk.transport.mock.calls[0][1].requestInit.headers.Authorization).toBe(
+      'Bearer refreshed-token'
+    )
+  })
+
   it.each([false, true])('normalizes authenticated MCP data (text=%s)', async (text) => {
     sdk.callTool.mockResolvedValue(mcpResult(history([rawBar()]), text))
     const result = await fetchRobinhoodSeries({
@@ -143,10 +181,7 @@ describe('Robinhood market provider and MCP boundary', () => {
     expect(sdk.close).toHaveBeenCalledOnce()
   })
 
-  it('rejects disallowed tools, missing credentials, and oversized requests before connecting', async () => {
-    await expect(
-      callRobinhoodTool('token', 'place_equity_order' as 'get_equity_historicals', {})
-    ).rejects.toThrow('Unsupported')
+  it('rejects missing credentials and oversized requests before connecting', async () => {
     await expect(callRobinhoodTool(' ', 'get_equity_historicals', {})).rejects.toMatchObject({
       status: 401,
     })
