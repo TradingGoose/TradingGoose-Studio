@@ -47,6 +47,7 @@ const context = {
 }
 const portfolio = {
   total_value: '1300.50',
+  equity_value: '900',
   cash: '300.50',
   currency: 'USD',
   buying_power: { buying_power: '600' },
@@ -152,7 +153,7 @@ describe('Robinhood trading accounts and portfolio', () => {
     expect(sdk.close).toHaveBeenCalledOnce()
   })
 
-  it('paginates the selected account and preserves unavailable position valuations', async () => {
+  it('paginates equity holdings while preserving account-wide totals and unavailable valuations', async () => {
     sdk.callTool
       .mockResolvedValueOnce(envelope(portfolio))
       .mockResolvedValueOnce(
@@ -179,7 +180,7 @@ describe('Robinhood trading accounts and portfolio', () => {
       summary: {
         totalPortfolioValue: 1300.5,
         totalCashValue: 300.5,
-        totalHoldingsValue: 1000,
+        totalHoldingsValue: 900,
         buyingPower: 600,
       },
       cashBalances: [{ amount: 300.5 }],
@@ -222,7 +223,13 @@ describe('Robinhood trading accounts and portfolio', () => {
     async ({ positions, buying_power }) => {
       sdk.callTool
         .mockResolvedValueOnce(
-          envelope({ ...portfolio, cash: '1000', total_value: '1000', buying_power })
+          envelope({
+            ...portfolio,
+            cash: '1000',
+            total_value: '1000',
+            equity_value: '0',
+            buying_power,
+          })
         )
         .mockResolvedValueOnce(envelope({ positions }))
       const snapshot = await getRobinhoodTradingAccountSnapshot(context)
