@@ -61,7 +61,10 @@ export async function getPortfolioDetail(
     default:
       throw new Error(`Unsupported trading provider: ${context.providerId}`)
   }
-  return Object.assign(detail, context.portfolioIdentity)
+  detail.accountName = context.portfolioIdentity.accountName ?? detail.accountName
+  detail.accountType ??= context.portfolioIdentity.accountType
+  detail.accountStatus ??= context.portfolioIdentity.accountStatus
+  return detail
 }
 
 export async function getTradingAccountPerformance(
