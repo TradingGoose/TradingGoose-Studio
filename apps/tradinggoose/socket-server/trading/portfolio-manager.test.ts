@@ -81,9 +81,6 @@ const portfolioIdentity: PortfolioIdentity = {
 }
 const portfolioDetail = {
   ...portfolioIdentity,
-  accountName: undefined,
-  accountType: undefined,
-  accountStatus: undefined,
   environment: 'live',
   asOf: '2026-04-30T12:00:00.000Z',
   cashBalances: [],
@@ -210,6 +207,7 @@ describe('TradingPortfolioStreamManager', () => {
       environment: 'live',
       accessToken: 'oauth-token',
       accountId: 'acct-1',
+      portfolioIdentity,
     })
     expect(firstSocket.emit).toHaveBeenCalledWith(
       'trading-portfolio-snapshot',

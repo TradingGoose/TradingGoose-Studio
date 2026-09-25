@@ -78,6 +78,7 @@ export async function getTradingPortfolioDetail({
     environment: baseContext.environment,
     accessToken: baseContext.accessToken,
     accountId: accountContext.accountId,
+    portfolioIdentity: accountContext.portfolioIdentity,
   })
 
   return {

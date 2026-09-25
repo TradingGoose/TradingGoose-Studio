@@ -45,18 +45,23 @@ export async function listPortfolioIdentities(
 }
 
 export async function getPortfolioDetail(
-  context: TradingPortfolioAccountContext
+  context: TradingPortfolioAccountContext & { portfolioIdentity: PortfolioIdentity }
 ): Promise<PortfolioDetail> {
+  let detail: PortfolioDetail
   switch (context.providerId) {
     case 'robinhood':
-      return getRobinhoodTradingAccountSnapshot(context)
+      detail = await getRobinhoodTradingAccountSnapshot(context)
+      break
     case 'alpaca':
-      return getAlpacaTradingAccountSnapshot(context)
+      detail = await getAlpacaTradingAccountSnapshot(context)
+      break
     case 'tradier':
-      return getTradierTradingAccountSnapshot(context)
+      detail = await getTradierTradingAccountSnapshot(context)
+      break
     default:
       throw new Error(`Unsupported trading provider: ${context.providerId}`)
   }
+  return Object.assign(detail, context.portfolioIdentity)
 }
 
 export async function getTradingAccountPerformance(

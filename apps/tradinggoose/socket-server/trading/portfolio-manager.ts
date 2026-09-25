@@ -584,8 +584,8 @@ export class TradingPortfolioStreamManager {
         environment: context.environment,
         accessToken: context.accessToken,
         accountId: portfolioIdentity.accountId,
+        portfolioIdentity,
       })
-      Object.assign(portfolioDetail, portfolioIdentity)
       return {
         provider: streamState.providerId,
         workspaceId: streamState.workspaceId,
