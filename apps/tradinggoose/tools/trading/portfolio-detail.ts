@@ -8,7 +8,8 @@ export const tradingPortfolioDetailTool: ToolConfig<
 > = {
   id: 'trading_get_portfolio_detail',
   name: 'Trading: Get Portfolio Detail',
-  description: 'Fetch account summary, cash, positions, and orders from Alpaca or Tradier.',
+  description:
+    'Fetch account summary, cash, positions, and orders from a connected trading provider.',
   version: '1.0.0',
   execution: {
     workspace: { required: true, access: 'read' },

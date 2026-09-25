@@ -207,6 +207,7 @@ describe('TradingPortfolioStreamManager', () => {
       environment: 'live',
       accessToken: 'oauth-token',
       accountId: 'acct-1',
+      portfolioIdentity,
     })
     expect(firstSocket.emit).toHaveBeenCalledWith(
       'trading-portfolio-snapshot',
@@ -379,6 +380,7 @@ describe('TradingPortfolioStreamManager', () => {
       .filter(([event]: [string]) => event === 'trading-portfolio-snapshot')
       .map(([, payload]: [string, Record<string, unknown>]) => payload)
     expect(getPortfolioDetailMock).toHaveBeenCalledTimes(2)
+    expect(listTradingPortfolioIdentitiesMock).toHaveBeenCalledTimes(1)
     expect(
       [firstSnapshots, secondSnapshots, observingSnapshots].map((snapshots) =>
         snapshots.map((payload: Record<string, unknown>) => payload.refreshId)

@@ -73,10 +73,6 @@ describe('useMonitorReferenceData', () => {
         label: 'Portfolio Workflow - Portfolio Trigger',
       },
     ])
-    fetchOAuthProviderAvailabilityMock.mockResolvedValue({
-      'alpaca-paper': true,
-      'tradier-live': false,
-    })
   })
 
   afterEach(() => {
@@ -86,7 +82,12 @@ describe('useMonitorReferenceData', () => {
     vi.clearAllMocks()
   })
 
-  it('uses canonical OAuth service availability for portfolio monitor provider options', async () => {
+  it.each([true, false])('filters portfolio providers (Robinhood: %s)', async (available) => {
+    fetchOAuthProviderAvailabilityMock.mockResolvedValue({
+      'alpaca-paper': true,
+      'tradier-live': false,
+      robinhood: available,
+    })
     const snapshots: MonitorReferenceData[] = []
 
     await act(async () => {
@@ -105,6 +106,7 @@ describe('useMonitorReferenceData', () => {
       'alpaca-live',
       'alpaca-paper',
       'tradier-live',
+      'robinhood',
     ])
     expect(loadWorkflowTargetOptionsMock).toHaveBeenCalledWith('workspace-1', {
       workflowName: getPublicCopy('en').workspace.monitor.fields.workflow,
@@ -115,9 +117,13 @@ describe('useMonitorReferenceData', () => {
           getPublicCopy('en').workspace.widgets.blockEditor.blockNames.portfolio_state_trigger,
       },
     })
-    expect(snapshots.at(-1)?.tradingProviders).toEqual([{ id: 'alpaca', name: 'Alpaca' }])
+    expect(snapshots.at(-1)?.tradingProviders).toEqual([
+      { id: 'alpaca', name: 'Alpaca' },
+      ...(available ? [{ id: 'robinhood', name: 'Robinhood' }] : []),
+    ])
     expect(snapshots.at(-1)?.tradingProviderById).toEqual({
       alpaca: { id: 'alpaca', name: 'Alpaca' },
+      ...(available ? { robinhood: { id: 'robinhood', name: 'Robinhood' } } : {}),
     })
     expect(snapshots.at(-1)?.defaultPortfolioProviderId).toBe('alpaca')
     expect(snapshots.at(-1)?.createDisabledReason).toBeNull()

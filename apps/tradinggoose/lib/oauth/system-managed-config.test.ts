@@ -4,6 +4,24 @@ const { mockResolveSystemIntegrationDefinitions } = vi.hoisted(() => ({
   mockResolveSystemIntegrationDefinitions: vi.fn(),
 }))
 
+const registration = vi.hoisted(() => ({
+  register: vi.fn(),
+  transaction: vi.fn(),
+}))
+
+vi.mock('@modelcontextprotocol/sdk/client/auth.js', () => ({
+  registerClient: registration.register,
+}))
+
+vi.mock('@tradinggoose/db', () => ({
+  db: { transaction: registration.transaction },
+}))
+
+vi.mock('@/lib/utils-server', () => ({
+  decryptSecret: async (value: string) => ({ decrypted: value.replace(/^encrypted:/, '') }),
+  encryptSecret: async (value: string) => ({ encrypted: `encrypted:${value}` }),
+}))
+
 vi.mock('@/lib/system-integrations/resolver', () => ({
   resolveSystemIntegrationDefinitions: (...args: unknown[]) =>
     mockResolveSystemIntegrationDefinitions(...args),
@@ -95,5 +113,33 @@ describe('system managed oauth client credentials', () => {
         },
       },
     })
+  })
+
+  it('rejects a redirect URI change without replacing the Robinhood registration', async () => {
+    const lock = vi.fn()
+    const values = vi.fn(() => ({ onConflictDoNothing: vi.fn(), onConflictDoUpdate: vi.fn() }))
+    const where = vi
+      .fn()
+      .mockReturnValueOnce({ for: lock })
+      .mockReturnValueOnce([
+        { key: 'client_id', value: 'encrypted:existing-client' },
+        { key: 'redirect_uri', value: 'encrypted:https://old.example/callback' },
+      ])
+    const tx = {
+      insert: () => ({ values }),
+      select: () => ({ from: () => ({ where }) }),
+    }
+    registration.transaction.mockImplementation((callback: (store: typeof tx) => unknown) =>
+      callback(tx)
+    )
+    const { ensureRobinhoodOAuthClient } = await import('./system-managed-config')
+
+    await expect(ensureRobinhoodOAuthClient('https://studio.example/callback')).rejects.toThrow(
+      'Robinhood OAuth client is registered for a different redirect URI'
+    )
+
+    expect(lock).toHaveBeenCalledOnce()
+    expect(registration.register).not.toHaveBeenCalled()
+    expect(values).toHaveBeenCalledOnce()
   })
 })

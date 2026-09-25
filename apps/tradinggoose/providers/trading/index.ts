@@ -1,9 +1,11 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { alpacaProvider } from '@/providers/trading/alpaca'
+import { fetchBrokerJson } from '@/providers/trading/portfolio-utils'
 import {
   getTradingProviderDefinition,
   type TradingProviderAdapter,
 } from '@/providers/trading/providers'
+import { robinhoodProvider } from '@/providers/trading/robinhood'
 import { tradierProvider } from '@/providers/trading/tradier'
 import type {
   TradingOrderDetailInput,
@@ -11,12 +13,12 @@ import type {
   TradingOrderHistoryRecord,
   TradingOrderRequest,
   TradingProviderId,
-  TradingRequestConfig,
 } from '@/providers/trading/types'
 
 const logger = createLogger('TradingProviders')
 
 const providerAdapters: Record<string, TradingProviderAdapter> = {
+  robinhood: robinhoodProvider,
   alpaca: alpacaProvider,
   tradier: tradierProvider,
 }
@@ -30,10 +32,10 @@ export function getTradingProviderAdapter(providerId: TradingProviderId): Tradin
   return provider
 }
 
-export function executeTradingProviderRequest(
+export async function executeTradingProviderRequest(
   providerId: TradingProviderId,
   request: TradingOrderRequest
-): TradingRequestConfig {
+): Promise<unknown> {
   const provider = getTradingProviderAdapter(providerId)
   const supportsKind = getTradingProviderDefinition(providerId)?.config.availability.order
 
@@ -41,11 +43,24 @@ export function executeTradingProviderRequest(
     throw new Error(`Provider ${providerId} does not support ${request.kind}`)
   }
 
+  if (provider.submitOrder) return provider.submitOrder(request)
   if (!provider.buildOrderRequest) {
     throw new Error(`Provider ${providerId} does not support order requests`)
   }
 
-  return provider.buildOrderRequest(request)
+  const config = provider.buildOrderRequest(request)
+  return fetchBrokerJson({
+    providerId,
+    url: config.url,
+    init: {
+      method: config.method,
+      headers: config.headers,
+      body:
+        typeof config.body === 'string' || config.body === undefined
+          ? config.body
+          : JSON.stringify(config.body),
+    },
+  })
 }
 
 export async function executeTradingProviderOrderDetailRequest(

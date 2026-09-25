@@ -18553,6 +18553,8 @@
           "output": "Salida"
         },
         "toolInput": {
+          "useInWorkflow": "Usar en este flujo de trabajo",
+          "failedToSaveConnection": "No se pudo guardar esta conexión. Inténtalo de nuevo.",
           "createMcpServer": "Crear servidor MCP",
           "actions": "Acciones",
           "mcpTools": "Herramientas MCP",

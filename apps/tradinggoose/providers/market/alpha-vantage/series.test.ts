@@ -24,6 +24,22 @@ vi.mock('@/providers/market/utils', () => ({
   resolveProviderSymbol: (...args: unknown[]) => mockResolveProviderSymbol(...args),
 }))
 
+vi.mock('@/providers/market/market-hours/market-hours-api', () => ({
+  resolveMarketHours: vi.fn(),
+  resolveMarketHoursRange: vi.fn(
+    async () =>
+      new Map([
+        [
+          '2026-01-02',
+          {
+            timeZone: { utcOffset: '-05:00' },
+            marketHours: { market: { start: '09:30', end: '16:00' } },
+          },
+        ],
+      ])
+  ),
+}))
+
 const originalAlphaVantageApiKey = process.env.ALPHAVANTAGE_API_KEY
 
 describe('fetchAlphaVantageSeries', () => {
@@ -70,19 +86,26 @@ describe('fetchAlphaVantageSeries', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('uses explicit request auth for provider calls', async () => {
+  it.each([
+    ['1d', 'Time Series (Daily)'],
+    ['1w', 'Weekly Time Series'],
+    ['1mo', 'Monthly Time Series'],
+    ['1m', 'Time Series (1min)'],
+  ])('keeps %s candles and uses request auth', async (interval, seriesKey) => {
+    const candle = {
+      '1. open': '100',
+      '2. high': '102',
+      '3. low': '99',
+      '4. close': '101',
+      '5. volume': '1000',
+    }
     fetchMock.mockResolvedValue(
       new Response(
         JSON.stringify({
-          'Time Series (Daily)': {
-            '2026-01-02': {
-              '1. open': '100',
-              '2. high': '102',
-              '3. low': '99',
-              '4. close': '101',
-              '5. volume': '1000',
-            },
-          },
+          [seriesKey]:
+            interval === '1m'
+              ? { '2026-01-02 13:30:00': candle, '2026-01-02 14:30:00': candle }
+              : { '2026-01-02': candle },
         }),
         {
           status: 200,
@@ -93,9 +116,9 @@ describe('fetchAlphaVantageSeries', () => {
       )
     )
 
-    const { fetchAlphaVantageSeries } = await import('./series')
+    const { executeProviderRequest } = await import('@/providers/market')
 
-    await fetchAlphaVantageSeries({
+    const response = await executeProviderRequest('alpha-vantage', {
       kind: 'series',
       listing: {
         listing_id: 'AAPL',
@@ -106,9 +129,24 @@ describe('fetchAlphaVantageSeries', () => {
       auth: {
         apiKey: 'request-key',
       },
-      interval: '1d',
+      interval,
+      windows: [
+        {
+          mode: 'absolute',
+          start: '2026-01-02T00:00:00.000Z',
+          end: '2026-01-02T16:00:00.000Z',
+        },
+      ],
     })
 
+    expect(response).toMatchObject({
+      bars: [
+        {
+          timeStamp: interval === '1m' ? '2026-01-02T14:30:00.000Z' : '2026-01-02T00:00:00.000Z',
+          close: 101,
+        },
+      ],
+    })
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining('apikey=request-key'),
       expect.objectContaining({

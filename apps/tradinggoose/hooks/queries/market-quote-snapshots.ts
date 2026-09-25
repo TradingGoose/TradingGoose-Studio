@@ -256,7 +256,6 @@ export const useMarketQuoteSnapshots = ({
       for (const item of clientSubscriptionIds) {
         if (acknowledgedClientSubscriptionIds.has(item.clientSubscriptionId)) continue
         socket.emit('market-unsubscribe', {
-          provider,
           clientSubscriptionId: item.clientSubscriptionId,
         })
       }

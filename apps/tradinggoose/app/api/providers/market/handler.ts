@@ -39,6 +39,7 @@ interface HandleMarketProviderParams {
   providerId: string
   requestId: string
   startTime: number
+  authUserId?: string
 }
 
 export async function handleMarketProviderRequest({
@@ -46,6 +47,7 @@ export async function handleMarketProviderRequest({
   providerId,
   requestId,
   startTime,
+  authUserId,
 }: HandleMarketProviderParams) {
   try {
     const workspaceId =
@@ -175,7 +177,10 @@ export async function handleMarketProviderRequest({
         normalizedRequest.kind === 'series' ? normalizedRequest.normalizationMode : undefined,
     })
 
-    const response = await executeProviderRequest(providerId, normalizedRequest)
+    const response = await executeProviderRequest(providerId, normalizedRequest, {
+      userId: authUserId,
+      requestId,
+    })
 
     const executionTime = Date.now() - startTime
     logger.info(`[${requestId}] Market provider request completed`, {

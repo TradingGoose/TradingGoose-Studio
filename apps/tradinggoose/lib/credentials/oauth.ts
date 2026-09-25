@@ -56,7 +56,10 @@ function getCredentialDisplayName(row: {
   accountId: string
   idToken?: string | null
 }) {
-  const identity = readIdTokenDisplayName(row.idToken) || row.accountId
+  const identity =
+    row.providerId === 'robinhood'
+      ? `••••${row.accountId.slice(-4)}`
+      : readIdTokenDisplayName(row.idToken) || row.accountId
   try {
     const serviceName = getServiceByProviderAndId(row.providerId as OAuthProvider).name
     return identity ? `${serviceName} (${identity})` : serviceName
@@ -185,7 +188,10 @@ export async function listOAuthCredentialsForUser(
 
   return rows
     .filter((row) => usableCredentialIds.has(row.id))
-    .map((row) => toOAuthCredential({ ...row, requesterUserId: params.userId }))
+    .map((row) => ({
+      ...toOAuthCredential({ ...row, requesterUserId: params.userId }),
+      accountId: row.accountUserId === params.userId ? row.accountId : undefined,
+    }))
 }
 
 export async function listOAuthConnectionAccountsForUser(params: {

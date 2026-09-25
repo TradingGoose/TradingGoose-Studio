@@ -289,12 +289,14 @@ export async function closeRedisConnection(): Promise<void> {
   pingFailures = 0
   pingInFlight = false
 
-  if (!globalRedisClient) return
+  const redis = globalRedisClient
+  if (!redis) return
   try {
-    await globalRedisClient.quit()
+    await redis.quit()
   } catch (error) {
     logger.error('Error closing Redis connection', { error })
   } finally {
+    redis.disconnect()
     globalRedisClient = null
   }
 }

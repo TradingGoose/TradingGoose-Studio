@@ -4,7 +4,7 @@ import type { AssetClass } from '@/providers/market/types'
 import type { PortfolioDetail } from '@/providers/trading/portfolio-identity'
 import type { HttpMethod } from '@/tools/types'
 
-export type TradingProviderId = 'alpaca' | 'tradier' | (string & {})
+export type TradingProviderId = 'alpaca' | 'tradier' | 'robinhood' | (string & {})
 
 export type TradingAuthType = 'oauth'
 
@@ -123,7 +123,13 @@ export interface TradingOrderRequest extends TradingOrderInput {
 
 export type UnifiedTradingEnvironment = 'live' | 'paper' | 'demo' | 'unknown'
 
-export type UnifiedTradingAccountType = 'cash' | 'margin' | 'portfolio' | 'paper' | 'unknown'
+export type UnifiedTradingAccountType =
+  | 'cash'
+  | 'margin'
+  | 'limited_margin'
+  | 'portfolio'
+  | 'paper'
+  | 'unknown'
 
 export type UnifiedTradingAccountStatus = 'active' | 'restricted' | 'closed' | 'unknown'
 
@@ -261,6 +267,7 @@ export interface TradingOrder {
   id?: string
   clientOrderId?: string
   status?: string
+  warnings?: Record<string, unknown>
   submittedAt?: string
   filledQty?: number
   symbol?: string
@@ -285,6 +292,7 @@ export interface TradingActionResponse {
     appOrderId?: string
     clientOrderId?: string
     order?: Record<string, any>
+    warnings?: Record<string, unknown>
   }
   error?: string
 }

@@ -1,10 +1,13 @@
 import { sso } from '@better-auth/sso'
 import { stripe } from '@better-auth/stripe'
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import { type CallToolResult, CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js'
 import { db } from '@tradinggoose/db'
 import * as schema from '@tradinggoose/db/schema'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { APIError, createAuthMiddleware } from 'better-auth/api'
+import { APIError, createAuthMiddleware, getOAuthState } from 'better-auth/api'
 import { nextCookies } from 'better-auth/next-js'
 import {
   customSession,
@@ -18,9 +21,10 @@ import type { GenericOAuthConfig } from 'better-auth/plugins/generic-oauth'
 /** OAuth2 token type extracted from better-auth's GenericOAuthConfig */
 type OAuthTokens = Parameters<NonNullable<GenericOAuthConfig['getUserInfo']>>[0]
 
-import { eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import type Stripe from 'stripe'
+import { z } from 'zod'
 import {
   getEmailSubject,
   renderInvitationEmail,
@@ -182,6 +186,105 @@ function toSystemManagedGenericOAuthConfig(
 
 function toSystemManagedGenericOAuthConfigs(configs: SystemManagedGenericOAuthConfig[]) {
   return configs.map((config) => toSystemManagedGenericOAuthConfig(config))
+}
+
+function createRobinhoodOAuthConfig(): SystemManagedGenericOAuthConfig {
+  const providerId = 'robinhood'
+  const resource = 'https://agent.robinhood.com/mcp/trading'
+  return {
+    providerId,
+    authorizationUrl: 'https://robinhood.com/oauth',
+    tokenUrl: 'https://api.robinhood.com/oauth2/token/',
+    authorizationUrlParams: { resource },
+    tokenUrlParams: { resource },
+    authentication: 'post',
+    pkce: true,
+    scopes: getCanonicalScopesForProvider(providerId),
+    redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/${providerId}`,
+    disableSignUp: true,
+    getUserInfo: async (tokens) => {
+      if (!tokens.accessToken?.trim()) throw new Error('Robinhood access token is required')
+      const ownerUserId = (await getOAuthState())?.link?.userId
+      if (!ownerUserId) throw new Error('Robinhood requires an authenticated link')
+      const signal = AbortSignal.timeout(30_000)
+      const client = new Client({ name: 'TradingGoose', version: '1.0.0' })
+      const transport = new StreamableHTTPClientTransport(new URL(resource), {
+        requestInit: { headers: { Authorization: `Bearer ${tokens.accessToken}` } },
+        fetch: (url, init) =>
+          fetch(url, {
+            ...init,
+            signal: init?.signal ? AbortSignal.any([signal, init.signal]) : signal,
+          }),
+      })
+      let payload: unknown
+      try {
+        await client.connect(transport, { signal })
+        const result = (await client.callTool(
+          { name: 'get_accounts', arguments: {} },
+          CallToolResultSchema,
+          { signal }
+        )) as CallToolResult
+        if (result.isError) throw new Error('Robinhood account lookup failed')
+        const content = result.content.find((item) => item.type === 'text')
+        payload = result.structuredContent ?? JSON.parse(content?.text ?? 'null')
+      } catch {
+        // Upstream MCP errors may contain private account data.
+        throw new Error(
+          'Unable to retrieve Robinhood account profile. Reconnect Robinhood and try again.'
+        )
+      } finally {
+        await client.close().catch(() => undefined)
+      }
+      const result = z
+        .object({
+          data: z.object({
+            accounts: z
+              .array(
+                z
+                  .object({
+                    account_number: z.string().trim().min(1),
+                    is_default: z.boolean().optional(),
+                  })
+                  .nullable()
+              )
+              .nullable()
+              .transform((accounts) => (accounts ?? []).filter((account) => account !== null)),
+          }),
+        })
+        .safeParse(payload)
+      if (!result.success) throw new Error('Robinhood returned an invalid account profile.')
+      const existing = await db
+        .select({ accountId: schema.account.accountId })
+        .from(schema.account)
+        .where(
+          and(
+            eq(schema.account.providerId, providerId),
+            eq(schema.account.userId, ownerUserId),
+            inArray(
+              schema.account.accountId,
+              result.data.data.accounts.map((account) => account.account_number)
+            )
+          )
+        )
+        .limit(2)
+      if (existing.length > 1)
+        throw new Error(
+          'Robinhood has multiple connected account identities. Remove duplicate connections before reconnecting.'
+        )
+      const defaults = result.data.data.accounts.filter((account) => account.is_default)
+      if (!existing.length && defaults.length !== 1)
+        throw new Error('Robinhood did not identify a unique default account.')
+      // Preserve an authorized connection even when Robinhood changes its default account.
+      const accountNumber = existing[0]?.accountId ?? defaults[0].account_number
+      return {
+        id: accountNumber,
+        name: 'Robinhood',
+        email: `${accountNumber}@robinhood.account`,
+        image: '',
+        emailVerified: false,
+      }
+    },
+  }
 }
 
 function createAlpacaOAuthConfig(
@@ -734,6 +837,7 @@ export const auth = betterAuth({
     }),
     genericOAuth({
       config: toSystemManagedGenericOAuthConfigs([
+        createRobinhoodOAuthConfig(),
         createAlpacaOAuthConfig('alpaca-live', 'live'),
         createAlpacaOAuthConfig('alpaca-paper', 'paper'),
         createTradierOAuthConfig(),

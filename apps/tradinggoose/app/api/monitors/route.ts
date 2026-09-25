@@ -235,6 +235,7 @@ async function buildProviderConfigForCreate({
   )
 
   return normalizeIndicatorMonitorConfig({
+    userId,
     triggerBlockId: indicatorPayload.blockId,
     providerId: indicatorPayload.providerId,
     interval: indicatorPayload.interval,

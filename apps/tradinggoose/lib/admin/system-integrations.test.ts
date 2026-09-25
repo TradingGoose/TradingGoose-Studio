@@ -1,16 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockTransaction, mockEq, mockSelect, mockSelectFrom, mockSelectWhere } = vi.hoisted(() => ({
+const { mockTransaction, mockEq, mockCredentialFields } = vi.hoisted(() => ({
   mockTransaction: vi.fn(),
   mockEq: vi.fn((left: unknown, right: unknown) => ({ kind: 'eq', left, right })),
-  mockSelect: vi.fn(),
-  mockSelectFrom: vi.fn(),
-  mockSelectWhere: vi.fn(),
+  mockCredentialFields: vi.fn(),
 }))
 
 vi.mock('@tradinggoose/db', () => ({
   db: {
-    select: (...args: unknown[]) => mockSelect(...args),
     transaction: (...args: unknown[]) => mockTransaction(...args),
   },
 }))
@@ -102,6 +99,7 @@ vi.mock('@/lib/system-integrations/catalog', () => ({
       },
     ],
   })),
+  getSystemIntegrationCatalogCredentialFields: mockCredentialFields,
   getSystemIntegrationCatalogDefinitionIds: vi.fn(
     () => new Set(['bundle:airtable', 'airtable', 'bundle:alpaca', 'alpaca'])
   ),
@@ -112,30 +110,11 @@ import { updateSystemIntegrationBundle } from './system-integrations'
 describe('system integration bundle persistence', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockSelect.mockImplementation(() => ({
-      from: mockSelectFrom,
-    }))
-    mockSelectFrom.mockImplementation(() => ({
-      where: mockSelectWhere,
-    }))
-    mockSelectWhere.mockResolvedValue([])
+    mockCredentialFields.mockReturnValue([])
   })
 
   it('only replaces the target bundle subtree and its secrets', async () => {
-    const deleteWhere = vi.fn().mockResolvedValue(undefined)
-    const insertValues = vi.fn().mockResolvedValue(undefined)
-    const tx = {
-      delete: vi.fn(() => ({
-        where: deleteWhere,
-      })),
-      insert: vi.fn(() => ({
-        values: insertValues,
-      })),
-    }
-
-    mockTransaction.mockImplementation(async (callback: (innerTx: typeof tx) => unknown) =>
-      callback(tx)
-    )
+    const { deleteWhere, insertValues, tx } = configureTransaction()
 
     await updateSystemIntegrationBundle({
       definition: {
@@ -177,8 +156,8 @@ describe('system integration bundle persistence', () => {
       right: 'bundle:airtable',
     })
 
-    expect(tx.insert).toHaveBeenCalledTimes(2)
-    expect(insertValues).toHaveBeenNthCalledWith(1, [
+    expect(tx.insert).toHaveBeenCalledTimes(3)
+    expect(insertValues).toHaveBeenNthCalledWith(2, [
       {
         id: 'bundle:airtable',
         parentId: null,
@@ -192,7 +171,7 @@ describe('system integration bundle persistence', () => {
         isEnabled: true,
       },
     ])
-    expect(insertValues).toHaveBeenNthCalledWith(2, [
+    expect(insertValues).toHaveBeenNthCalledWith(3, [
       {
         id: 'system-integration-secret:bundle:airtable:client_id',
         definitionId: 'bundle:airtable',
@@ -209,20 +188,7 @@ describe('system integration bundle persistence', () => {
   })
 
   it('forces the bundle and child services disabled when required secrets are incomplete', async () => {
-    const deleteWhere = vi.fn().mockResolvedValue(undefined)
-    const insertValues = vi.fn().mockResolvedValue(undefined)
-    const tx = {
-      delete: vi.fn(() => ({
-        where: deleteWhere,
-      })),
-      insert: vi.fn(() => ({
-        values: insertValues,
-      })),
-    }
-
-    mockTransaction.mockImplementation(async (callback: (innerTx: typeof tx) => unknown) =>
-      callback(tx)
-    )
+    const { insertValues } = configureTransaction()
 
     await updateSystemIntegrationBundle({
       definition: {
@@ -257,7 +223,7 @@ describe('system integration bundle persistence', () => {
       ],
     })
 
-    expect(insertValues).toHaveBeenNthCalledWith(1, [
+    expect(insertValues).toHaveBeenNthCalledWith(2, [
       {
         id: 'bundle:airtable',
         parentId: null,
@@ -271,7 +237,7 @@ describe('system integration bundle persistence', () => {
         isEnabled: false,
       },
     ])
-    expect(insertValues).toHaveBeenNthCalledWith(2, [
+    expect(insertValues).toHaveBeenNthCalledWith(3, [
       {
         id: 'system-integration-secret:bundle:airtable:client_id',
         definitionId: 'bundle:airtable',
@@ -282,18 +248,8 @@ describe('system integration bundle persistence', () => {
   })
 
   it('preserves existing encrypted secrets when reads only expose presence flags', async () => {
-    const deleteWhere = vi.fn().mockResolvedValue(undefined)
-    const insertValues = vi.fn().mockResolvedValue(undefined)
-    const tx = {
-      delete: vi.fn(() => ({
-        where: deleteWhere,
-      })),
-      insert: vi.fn(() => ({
-        values: insertValues,
-      })),
-    }
-
-    mockSelectWhere.mockResolvedValue([
+    mockCredentialFields.mockReturnValue([{ key: 'client_id', systemManaged: true }])
+    const { insertValues, lock, readSecrets } = configureTransaction([
       {
         id: 'system-integration-secret:bundle:airtable:client_id',
         definitionId: 'bundle:airtable',
@@ -307,9 +263,6 @@ describe('system integration bundle persistence', () => {
         value: 'encrypted:existing-client-secret',
       },
     ])
-    mockTransaction.mockImplementation(async (callback: (innerTx: typeof tx) => unknown) =>
-      callback(tx)
-    )
 
     await updateSystemIntegrationBundle({
       definition: {
@@ -331,8 +284,8 @@ describe('system integration bundle persistence', () => {
           id: 'system-integration-secret:bundle:airtable:client_id',
           definitionId: 'bundle:airtable',
           key: 'client_id',
-          value: '',
-          hasValue: true,
+          value: 'admin-overwrite',
+          hasValue: false,
         },
         {
           id: 'system-integration-secret:bundle:airtable:client_secret',
@@ -344,7 +297,7 @@ describe('system integration bundle persistence', () => {
       ],
     })
 
-    expect(insertValues).toHaveBeenNthCalledWith(2, [
+    expect(insertValues).toHaveBeenNthCalledWith(3, [
       {
         id: 'system-integration-secret:bundle:airtable:client_id',
         definitionId: 'bundle:airtable',
@@ -358,5 +311,31 @@ describe('system integration bundle persistence', () => {
         value: 'encrypted:existing-client-secret',
       },
     ])
+    expect(lock.mock.invocationCallOrder[0]).toBeLessThan(readSecrets.mock.invocationCallOrder[0]!)
   })
 })
+
+function configureTransaction(
+  existingSecrets: Array<{ id: string; definitionId: string; key: string; value: string }> = []
+) {
+  const deleteWhere = vi.fn().mockResolvedValue(undefined)
+  const onConflictDoNothing = vi.fn().mockResolvedValue(undefined)
+  const insertValues = vi.fn().mockReturnValueOnce({ onConflictDoNothing })
+  insertValues.mockResolvedValue(undefined)
+  const lock = vi.fn().mockResolvedValue([])
+  const readSecrets = vi.fn().mockResolvedValue(existingSecrets)
+  const selectFrom = vi
+    .fn()
+    .mockReturnValueOnce({ where: () => ({ for: lock }) })
+    .mockReturnValue({ where: readSecrets })
+  const tx = {
+    delete: vi.fn(() => ({ where: deleteWhere })),
+    insert: vi.fn(() => ({ values: insertValues })),
+    select: vi.fn(() => ({ from: selectFrom })),
+  }
+  mockTransaction.mockImplementation(async (callback: (innerTx: typeof tx) => unknown) =>
+    callback(tx)
+  )
+
+  return { deleteWhere, insertValues, lock, readSecrets, tx }
+}

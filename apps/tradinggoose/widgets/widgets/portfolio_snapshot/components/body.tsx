@@ -596,11 +596,7 @@ export function PortfolioSnapshotWidgetBody({
                   )}
                   tone={getNumberTone(snapshot.summary.totalUnrealizedPnl)}
                 />
-                <MetricTile
-                  label={copy.positions}
-                  value={String(snapshot.positions.length)}
-                  hint={snapshot.accountId}
-                />
+                <MetricTile label={copy.positions} value={String(snapshot.positions.length)} />
               </MetricGroup>
             </div>
             <Separator className='my-3 bg-border/60' />

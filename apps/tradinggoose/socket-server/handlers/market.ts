@@ -1,6 +1,7 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   type MarketSubscribePayload,
+  MarketSubscriptionCancelledError,
   type MarketUnsubscribePayload,
   marketStreamManager,
 } from '@/socket-server/market/manager'
@@ -11,9 +12,10 @@ const logger = createLogger('MarketHandlers')
 export function setupMarketHandlers(socket: AuthenticatedSocket) {
   socket.on('market-subscribe', async (payload: MarketSubscribePayload) => {
     try {
-      const subscription = await marketStreamManager.subscribe(socket, payload)
+      const subscription = await marketStreamManager.subscribe(socket, payload, 'workspace')
       socket.emit('market-subscribed', subscription)
     } catch (error) {
+      if (error instanceof MarketSubscriptionCancelledError) return
       const message = error instanceof Error ? error.message : String(error)
       logger.warn('Market subscribe failed', {
         socketId: socket.id,
@@ -43,9 +45,7 @@ export function setupMarketHandlers(socket: AuthenticatedSocket) {
       })
       socket.emit('market-unsubscribe-error', {
         error: message,
-        provider: payload?.provider,
         clientSubscriptionId: payload?.clientSubscriptionId,
-        listing: payload?.listing,
       })
     }
   })

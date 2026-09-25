@@ -68,6 +68,10 @@ export const useChartRescale = ({ chartRef, chartContainerRef }: UseChartRescale
 
           if (resolvedLength > 0) {
             try {
+              chart.applyOptions({
+                leftPriceScale: { autoScale: true },
+                rightPriceScale: { autoScale: true },
+              })
               const timeScale = chart.timeScale()
               timeScale.resetTimeScale()
               timeScale.applyOptions({ rightOffset: DEFAULT_RIGHT_OFFSET })
@@ -128,5 +132,5 @@ export const useChartRescale = ({ chartRef, chartContainerRef }: UseChartRescale
     }
   }, [containerElement, scheduleRescale, cancelRescale])
 
-  return { resetRescale, scheduleRescale, cancelRescale }
+  return { resetRescale, scheduleRescale }
 }
