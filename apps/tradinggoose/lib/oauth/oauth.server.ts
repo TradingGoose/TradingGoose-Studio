@@ -12,6 +12,7 @@ import {
 } from '@/lib/oauth/system-managed-config'
 
 const logger = createLogger('OAuth')
+const TOKEN_REFRESH_TIMEOUT_MS = 15_000
 
 interface ProviderAuthConfig {
   tokenEndpoint: string
@@ -272,6 +273,7 @@ export async function refreshOAuthToken(
       method: 'POST',
       headers,
       body: useJsonBody ? JSON.stringify(bodyParams) : new URLSearchParams(bodyParams).toString(),
+      signal: AbortSignal.timeout(TOKEN_REFRESH_TIMEOUT_MS),
     })
 
     if (!response.ok) {

@@ -292,6 +292,7 @@ describe('OAuth Token Refresh', () => {
     const [url, requestOptions] = mockFetch.mock.calls[0]
     expect(url).toBe('https://api.robinhood.com/oauth2/token/')
     expect(requestOptions.headers.Authorization).toBeUndefined()
+    expect(requestOptions.signal).toBeInstanceOf(AbortSignal)
     expect(Object.fromEntries(new URLSearchParams(requestOptions.body))).toEqual({
       grant_type: 'refresh_token',
       refresh_token: 'old-refresh-token',

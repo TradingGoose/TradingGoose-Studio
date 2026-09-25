@@ -8,7 +8,7 @@ import { createMockRequest } from '@/app/api/__test-utils__/utils'
 
 describe('OAuth Token API Routes', () => {
   const mockGetOAuthTokenAccount = vi.fn()
-  const mockRefreshTokenIfNeeded = vi.fn()
+  const mockRefreshAccessTokenIfNeeded = vi.fn()
   const mockAuthorizeCredentialUse = vi.fn()
 
   const mockLogger = {
@@ -30,8 +30,7 @@ describe('OAuth Token API Routes', () => {
 
     vi.doMock('@/lib/oauth/tokens', () => ({
       getOAuthTokenAccount: mockGetOAuthTokenAccount,
-      refreshTokenIfNeeded: mockRefreshTokenIfNeeded,
-      refreshAccessTokenIfNeeded: vi.fn(),
+      refreshAccessTokenIfNeeded: mockRefreshAccessTokenIfNeeded,
     }))
 
     vi.doMock('@/lib/logs/console/logger', () => ({
@@ -69,10 +68,7 @@ describe('OAuth Token API Routes', () => {
         providerId: 'google',
         idToken: 'id-token-value',
       })
-      mockRefreshTokenIfNeeded.mockResolvedValueOnce({
-        accessToken: 'fresh-token',
-        refreshed: false,
-      })
+      mockRefreshAccessTokenIfNeeded.mockResolvedValueOnce('fresh-token')
 
       const req = createMockRequest('POST', {
         credentialId: 'credential-id',
@@ -89,7 +85,12 @@ describe('OAuth Token API Routes', () => {
 
       expect(mockAuthorizeCredentialUse).toHaveBeenCalled()
       expect(mockGetOAuthTokenAccount).toHaveBeenCalled()
-      expect(mockRefreshTokenIfNeeded).toHaveBeenCalled()
+      expect(mockRefreshAccessTokenIfNeeded).toHaveBeenCalledWith(
+        'account-id',
+        'owner-user-id',
+        mockRequestId,
+        'google'
+      )
     })
 
     it('should reject session token lookup before exposing raw owner tokens', async () => {
@@ -134,10 +135,7 @@ describe('OAuth Token API Routes', () => {
         accessTokenExpiresAt: new Date(Date.now() + 3600 * 1000),
         providerId: 'google',
       })
-      mockRefreshTokenIfNeeded.mockResolvedValueOnce({
-        accessToken: 'fresh-token',
-        refreshed: false,
-      })
+      mockRefreshAccessTokenIfNeeded.mockResolvedValueOnce('fresh-token')
 
       const req = createMockRequest('POST', {
         credentialId: 'credential-id',
@@ -258,7 +256,7 @@ describe('OAuth Token API Routes', () => {
         accessTokenExpiresAt: new Date(Date.now() - 3600 * 1000), // Expired
         providerId: 'google',
       })
-      mockRefreshTokenIfNeeded.mockRejectedValueOnce(new Error('Refresh failure'))
+      mockRefreshAccessTokenIfNeeded.mockResolvedValueOnce(null)
 
       const req = createMockRequest('POST', {
         credentialId: 'credential-id',
