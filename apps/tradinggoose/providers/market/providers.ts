@@ -193,14 +193,6 @@ export type MarketProviderOption = {
 }
 
 export const MARKET_PROVIDER_DEFINITIONS: Record<string, MarketProviderDefinition> = {
-  robinhood: {
-    id: 'robinhood',
-    name: 'Robinhood',
-    description: 'Robinhood stock and ETF market data.',
-    config: robinhoodProviderConfig,
-    icon: RobinHoodIcon,
-    oauth: { provider: 'robinhood' },
-  },
   'alpha-vantage': {
     id: 'alpha-vantage',
     name: 'Alpha Vantage',
@@ -228,6 +220,14 @@ export const MARKET_PROVIDER_DEFINITIONS: Record<string, MarketProviderDefinitio
     description: 'Finnhub market data (candles).',
     config: finnhubProviderConfig,
     icon: FinnhubIcon,
+  },
+  robinhood: {
+    id: 'robinhood',
+    name: 'Robinhood',
+    description: 'Robinhood stock and ETF market data.',
+    config: robinhoodProviderConfig,
+    icon: RobinHoodIcon,
+    oauth: { provider: 'robinhood' },
   },
 }
 
