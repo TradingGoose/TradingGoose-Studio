@@ -975,6 +975,10 @@ export class MarketStreamManager {
     const cachedTime = cached ? Date.parse(cached.timeStamp) : Number.NaN
     if (!Number.isFinite(cachedTime) || cachedTime > now) cached = undefined
     const intervalMs = intervalToMs(interval)
+    const recoveryStart =
+      cached && intervalMs
+        ? new Date(Math.max(cachedTime, now - MAX_RECOVERY_BARS * intervalMs)).toISOString()
+        : null
     const response = await executeProviderRequest(
       record.provider,
       {
@@ -988,10 +992,9 @@ export class MarketStreamManager {
           allowEmpty: true,
         },
         // Include the last candle to finalize it and recover recent missed intervals.
-        windows:
-          cached && intervalMs && now - cachedTime < MAX_RECOVERY_BARS * intervalMs
-            ? [{ mode: 'absolute', start: cached.timeStamp, end: new Date(now).toISOString() }]
-            : [{ mode: 'bars', barCount: 1 }],
+        windows: recoveryStart
+          ? [{ mode: 'absolute', start: recoveryStart, end: new Date(now).toISOString() }]
+          : [{ mode: 'bars', barCount: 1 }],
       },
       { userId: record.oauthConnection?.credentialOwnerUserId ?? record.socket.userId }
     )

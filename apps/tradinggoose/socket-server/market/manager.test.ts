@@ -616,13 +616,13 @@ describe('MarketStreamManager quote snapshots', () => {
   })
 
   it.each([
-    ['1m', 1999 * 60_000, 'absolute'],
-    ['1m', 2000 * 60_000, 'bars'],
-    ['1d', 2000 * 60_000, 'absolute'],
-    ['1m', -60_000, 'bars'],
-    ['1m', Number.NaN, 'bars'],
-    ['invalid', 60_000, 'bars'],
-  ] as const)('bounds recovery for %s with cached age %s', async (interval, ageMs, mode) => {
+    ['1m', 1999 * 60_000, 1999 * 60_000],
+    ['1m', 3932 * 60_000, 2000 * 60_000],
+    ['1d', 2000 * 60_000, 2000 * 60_000],
+    ['1m', -60_000, null],
+    ['1m', Number.NaN, null],
+    ['invalid', 60_000, null],
+  ] as const)('bounds recovery for %s with cached age %s', async (interval, ageMs, span) => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-09-23T14:30:00Z'))
     const manager = new MarketStreamManager()
@@ -639,9 +639,13 @@ describe('MarketStreamManager quote snapshots', () => {
     })
     await vi.advanceTimersByTimeAsync(5_000)
     expect(executeProviderRequestMock.mock.lastCall?.[1].windows).toEqual([
-      mode === 'absolute'
-        ? { mode, start: timeStamp, end: new Date().toISOString() }
-        : { mode, barCount: 1 },
+      span === null
+        ? { mode: 'bars', barCount: 1 }
+        : {
+            mode: 'absolute',
+            start: span === ageMs ? timeStamp : new Date(Date.now() - span).toISOString(),
+            end: new Date().toISOString(),
+          },
     ])
     manager.removeSocket(socket.id)
   })
