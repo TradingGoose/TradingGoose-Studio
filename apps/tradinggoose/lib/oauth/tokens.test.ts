@@ -16,10 +16,10 @@ describe('OAuth Tokens', () => {
     update: vi.fn().mockReturnThis(),
     set: vi.fn().mockReturnThis(),
     orderBy: vi.fn().mockReturnThis(),
+    transaction: vi.fn(),
   }
-  Object.assign(mockDb, {
-    transaction: vi.fn((action: (tx: typeof mockDb) => unknown) => action(mockDb)),
-  })
+  mockDb.transaction.mockImplementation((action: (tx: typeof mockDb) => unknown) => action(mockDb))
+  const mockLoadSystemOAuthClientCredentials = vi.fn(async () => ({}))
   const mockRefreshOAuthToken = vi.fn()
   const mockLogger = {
     info: vi.fn(),
@@ -47,6 +47,11 @@ describe('OAuth Tokens', () => {
 
     vi.doMock('@/lib/oauth/oauth.server', () => ({
       refreshOAuthToken: mockRefreshOAuthToken,
+    }))
+
+    vi.doMock('@/lib/oauth/system-managed-config', () => ({
+      loadSystemOAuthClientCredentials: mockLoadSystemOAuthClientCredentials,
+      runWithSystemOAuthClientCredentials: (callback: () => Promise<unknown>) => callback(),
     }))
 
     vi.doMock('@/lib/logs/console/logger', () => ({
@@ -164,13 +169,13 @@ describe('OAuth Tokens', () => {
       expect(token).toBe('valid-token')
     })
 
-    it('should refresh token when expired', async () => {
+    it('should load credentials before the transaction and refresh an expired token', async () => {
       const mockTokenAccount = {
         id: 'account-id',
         accessToken: 'expired-token',
         refreshToken: 'refresh-token',
         accessTokenExpiresAt: new Date(Date.now() - 3600 * 1000), // 1 hour in the past
-        providerId: 'google',
+        providerId: 'robinhood',
         userId: 'test-user-id',
       }
       mockDb.limit.mockReturnValueOnce([mockTokenAccount]).mockReturnValueOnce([mockTokenAccount])
@@ -187,10 +192,13 @@ describe('OAuth Tokens', () => {
         'account-id',
         'test-user-id',
         'request-id',
-        'google'
+        'robinhood'
       )
 
-      expect(mockRefreshOAuthToken).toHaveBeenCalledWith('google', 'refresh-token')
+      expect(mockRefreshOAuthToken).toHaveBeenCalledWith('robinhood', 'refresh-token')
+      expect(mockLoadSystemOAuthClientCredentials.mock.invocationCallOrder[0]).toBeLessThan(
+        mockDb.transaction.mock.invocationCallOrder[0]!
+      )
       expect(mockDb.update).toHaveBeenCalled()
       expect(mockDb.set).toHaveBeenCalled()
       expect(mockDb.for).toHaveBeenCalledWith('update')

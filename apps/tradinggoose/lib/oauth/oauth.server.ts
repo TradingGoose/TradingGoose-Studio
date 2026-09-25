@@ -7,8 +7,8 @@ import {
   type OAuthProviderAvailability,
 } from '@/lib/oauth/oauth'
 import {
+  getSystemOAuthClientCredentialsForRequest,
   loadSystemOAuthClientCredentials,
-  loadSystemOAuthClientCredentialsForProvider,
 } from '@/lib/oauth/system-managed-config'
 
 const logger = createLogger('OAuth')
@@ -178,25 +178,23 @@ function pickCredentials(
   }
 }
 
-async function getProviderAuthCredentials(
-  providerId: string
-): Promise<ProviderAuthCredentials | null> {
+function getProviderAuthCredentials(providerId: string): ProviderAuthCredentials | null {
   const normalizedProviderId = providerId.trim()
   if (!isSystemIntegrationManagedOAuthServiceProviderId(normalizedProviderId)) {
     return null
   }
 
   const authTemplate = getProviderAuthTemplate(getBaseProviderForService(normalizedProviderId))
-  const credentials = await loadSystemOAuthClientCredentialsForProvider(normalizedProviderId)
+  const credentials = getSystemOAuthClientCredentialsForRequest(normalizedProviderId)
   return pickCredentials(
-    credentials?.clientId,
-    credentials?.clientSecret,
+    credentials.clientId,
+    credentials.clientSecret,
     authTemplate.requiresClientSecret !== false
   )
 }
 
-async function getProviderAuthConfig(providerId: string): Promise<ProviderAuthConfig> {
-  const credentials = await getProviderAuthCredentials(providerId)
+function getProviderAuthConfig(providerId: string): ProviderAuthConfig {
+  const credentials = getProviderAuthCredentials(providerId)
 
   if (!credentials) {
     throw new Error(`Missing client credentials for provider: ${providerId}`)
@@ -265,7 +263,7 @@ export async function refreshOAuthToken(
   refreshToken: string
 ): Promise<{ accessToken: string; expiresIn: number; refreshToken: string } | null> {
   try {
-    const config = await getProviderAuthConfig(providerId)
+    const config = getProviderAuthConfig(providerId)
     const provider = getBaseProviderForService(providerId)
     const { headers, bodyParams, useJsonBody } = buildAuthRequest(config, refreshToken)
 

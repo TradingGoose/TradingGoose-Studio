@@ -9,6 +9,10 @@ import {
   PROACTIVE_REFRESH_THRESHOLD_DAYS,
 } from '@/lib/oauth/oauth'
 import { refreshOAuthToken } from '@/lib/oauth/oauth.server'
+import {
+  loadSystemOAuthClientCredentials,
+  runWithSystemOAuthClientCredentials,
+} from '@/lib/oauth/system-managed-config'
 
 const logger = createLogger('OAuthTokens')
 
@@ -47,7 +51,7 @@ async function refreshTokenAccount(
   requestId: string,
   tokenAccountId: string,
   ownerUserId: string,
-  expectedProviderId?: string
+  providerId: string
 ): Promise<string | null> {
   return db.transaction(async (tx) => {
     const [tokenAccount] = await tx
@@ -57,7 +61,7 @@ async function refreshTokenAccount(
       .for('update')
       .limit(1)
 
-    if (!tokenAccount || (expectedProviderId && tokenAccount.providerId !== expectedProviderId)) {
+    if (!tokenAccount || tokenAccount.providerId !== providerId) {
       return null
     }
 
@@ -188,7 +192,11 @@ export async function refreshAccessTokenIfNeeded(
   if (refreshState.shouldRefresh) {
     logger.info(`[${requestId}] Refreshing OAuth token account`)
     try {
-      return await refreshTokenAccount(requestId, tokenAccountId, ownerUserId, expectedProviderId)
+      const credentials = await loadSystemOAuthClientCredentials([tokenAccount.providerId])
+      return await runWithSystemOAuthClientCredentials(
+        () => refreshTokenAccount(requestId, tokenAccountId, ownerUserId, tokenAccount.providerId),
+        credentials
+      )
     } catch (error) {
       logger.error(`[${requestId}] Error refreshing OAuth token account`, {
         error: error instanceof Error ? error.message : String(error),

@@ -10,6 +10,8 @@ const mockCredentials: Record<string, MockOAuthCredentials | undefined> = {}
 const mockEnvValues: Record<string, string | undefined> = {}
 
 vi.mock('@/lib/oauth/system-managed-config', () => ({
+  getSystemOAuthClientCredentialsForRequest: (providerId: string) =>
+    mockCredentials[providerId] ?? { clientId: '', clientSecret: '', fields: {} },
   loadSystemOAuthClientCredentials: vi.fn(async (providerIds: string[]) =>
     Object.fromEntries(
       providerIds.flatMap((providerId) =>
@@ -19,9 +21,6 @@ vi.mock('@/lib/oauth/system-managed-config', () => ({
           : []
       )
     )
-  ),
-  loadSystemOAuthClientCredentialsForProvider: vi.fn(
-    async (providerId: string) => mockCredentials[providerId] ?? null
   ),
 }))
 
