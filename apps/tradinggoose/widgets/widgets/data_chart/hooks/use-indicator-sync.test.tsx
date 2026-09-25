@@ -218,8 +218,9 @@ describe('useIndicatorSync live source changes', () => {
     mockExecuteBrowserPineIndicator.mockImplementation(executeBrowserPineIndicator)
     const pineCode = `indicator('Warmup Marker', { overlay: true });
 const avg = ta.sma(close, 14);
+const signalAvg = ta.ema(close, 50);
 plot(avg, 'SMA');
-plotshape(close > avg, {style: shape.triangleup, location: location.belowbar});`
+plotshape(close > nz(signalAvg, 0), {style: shape.triangleup, location: location.belowbar});`
     const history = Array.from({ length: 2000 }, (_, index) => ({
       openTime: 1_700_000_000_000 + index * 60_000,
       closeTime: 1_700_000_000_000 + (index + 1) * 60_000,
@@ -229,6 +230,7 @@ plotshape(close > avg, {style: shape.triangleup, location: location.belowbar});`
       close: 100 + (index % 2),
       volume: 1,
     }))
+    const obsoleteMarkerTime = history[800]!.openTime / 1000
     const renderBars = async (nextBars: BarMs[]) => {
       dataContext.barsMsRef.current = nextBars
       dataContext.dataVersion += 1
@@ -238,7 +240,9 @@ plotshape(close > avg, {style: shape.triangleup, location: location.belowbar});`
     const markerTimes = () =>
       mockSetMarkers.mock.lastCall![0].map(({ time }: { time: number }) => time)
     await renderBars(history.slice(800))
+    expect(markerTimes()).toContain(obsoleteMarkerTime)
     await renderBars(history)
+    expect(markerTimes()).not.toContain(obsoleteMarkerTime)
     const before = markerTimes()
     expect(before).toEqual(
       expect.arrayContaining(

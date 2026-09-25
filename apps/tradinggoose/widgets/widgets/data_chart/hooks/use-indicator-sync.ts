@@ -346,13 +346,13 @@ const mergeMarkers = (
   incoming: NormalizedPineOutput['markers'],
   replacedRange?: ProcessedRange
 ): NormalizedPineOutput['markers'] => {
-  const existingMarkers =
+  const replacement =
     replacedRange && Number.isFinite(replacedRange.startMs) && Number.isFinite(replacedRange.endMs)
-      ? (() => {
-          const startSec = Math.floor(replacedRange.startMs / 1000)
-          const endSec = Math.floor(replacedRange.endMs / 1000)
-          return existing.filter((marker) => marker.time < startSec || marker.time > endSec)
-        })()
+      ? [Math.floor(replacedRange.startMs / 1000), Math.floor(replacedRange.endMs / 1000)]
+      : undefined
+  const existingMarkers =
+    replacement !== undefined
+      ? existing.filter((marker) => marker.time < replacement[0] || marker.time > replacement[1])
       : existing
 
   const byKey = new Map<string, NormalizedPineOutput['markers'][number]>()
@@ -371,6 +371,7 @@ const mergeMarkers = (
     byKey.set(toKey(marker), marker)
   })
   incoming.forEach((marker) => {
+    if (replacement && (marker.time < replacement[0] || marker.time > replacement[1])) return
     byKey.set(toKey(marker), marker)
   })
 
@@ -380,12 +381,13 @@ const mergeMarkers = (
 const mergeIndicatorOutput = (
   existing: NormalizedPineOutput,
   incoming: NormalizedPineOutput,
-  replacedRange?: ProcessedRange
+  replacedRange?: ProcessedRange,
+  replacedMarkerRange?: ProcessedRange
 ): NormalizedPineOutput => ({
   ...incoming,
   series: mergeSeriesEntries(existing.series, incoming.series, replacedRange),
   fills: mergeFillEntries(existing.fills, incoming.fills),
-  markers: mergeMarkers(existing.markers, incoming.markers, replacedRange),
+  markers: mergeMarkers(existing.markers, incoming.markers, replacedMarkerRange),
 })
 
 const buildInputsHash = (inputs: Record<string, unknown>) => {
@@ -1080,8 +1082,12 @@ export const useIndicatorSync = ({
                 endMs: executedRange.endMs,
               }
             : undefined
+        const replacedMarkerRange =
+          executedRange && previousRange && executedRange.startMs < previousRange.startMs
+            ? executedRange
+            : replacedRange
         const nextOutput = existingOutput
-          ? mergeIndicatorOutput(existingOutput, result.output, replacedRange)
+          ? mergeIndicatorOutput(existingOutput, result.output, replacedRange, replacedMarkerRange)
           : result.output
         accumulatedOutputRef.current.set(indicatorId, nextOutput)
         extendProcessedRange(indicatorId, executedRange)
