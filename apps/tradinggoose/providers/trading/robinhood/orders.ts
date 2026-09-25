@@ -17,7 +17,7 @@ import { listingIdentityToTradingSymbol } from '@/providers/trading/utils'
 // https://github.com/Slijeff/robinhood-rest2mcp/blob/d52abd068f98efdc6ec62b5670d04220615245a5/spec.json
 const orderSchema = z.object({
   id: z.string().min(1),
-  symbol: z.string().min(1),
+  symbol: z.string(),
   side: z.enum(['buy', 'sell']),
   state: z.string().min(1),
   type: z.string().optional(),
@@ -35,8 +35,6 @@ const orderSchema = z.object({
   created_at: z.string().optional(),
   last_transaction_at: z.string().nullish(),
 })
-// Placement acknowledges the order before Robinhood populates its symbol.
-const placementSchema = orderSchema.extend({ symbol: z.string() })
 const reviewSchema = z
   .object({
     symbol: z.string(),
@@ -122,7 +120,7 @@ export async function submitRobinhoodOrder(params: TradingOrderInput): Promise<u
       return { state: 'preview', review }
     }
     const data = await call('place_equity_order', { ...args, ref_id: refId })
-    const order = placementSchema.parse(data.order)
+    const order = orderSchema.parse(data.order)
     if (
       (order.symbol !== '' && order.symbol !== args.symbol) ||
       order.side !== args.side ||
@@ -166,7 +164,7 @@ export function normalizeRobinhoodOrder(
     submittedAt: order.created_at,
     updatedAt: order.last_transaction_at,
     filledQty: order.cumulative_quantity ?? undefined,
-    symbol: order.symbol,
+    symbol: order.symbol || undefined,
     side: order.side,
     orderType:
       order.type === 'stop_market' || (order.type === 'market' && order.trigger === 'stop')

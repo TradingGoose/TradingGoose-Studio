@@ -47,7 +47,6 @@ const context = {
 }
 const portfolio = {
   total_value: '1300.50',
-  equity_value: '900',
   cash: '300.50',
   currency: 'USD',
   buying_power: { buying_power: '600' },
@@ -197,7 +196,7 @@ describe('Robinhood trading accounts and portfolio', () => {
       summary: {
         totalPortfolioValue: 1300.5,
         totalCashValue: 300.5,
-        totalHoldingsValue: 900,
+        totalHoldingsValue: 1000,
         buyingPower: 600,
       },
       cashBalances: [{ amount: 300.5 }],
@@ -244,7 +243,6 @@ describe('Robinhood trading accounts and portfolio', () => {
             ...portfolio,
             cash: '1000',
             total_value: '1000',
-            equity_value: '0',
             buying_power,
           })
         )
@@ -440,6 +438,7 @@ describe('Robinhood persisted order detail', () => {
               orders: [
                 {
                   ...brokerOrder,
+                  symbol: '',
                   type: 'market',
                   trigger: 'stop',
                   dollar_based_amount: { amount: '5.04', currency_code: 'USD' },
@@ -472,6 +471,7 @@ describe('Robinhood persisted order detail', () => {
       notional: 5.04,
       raw: { quantity: '2', dollar_based_amount: { amount: '5.04', currency_code: 'USD' } },
     })
+    expect(result.orderDetail.symbol).toBeUndefined()
     expect(sdk.close).toHaveBeenCalledOnce()
   })
 })
