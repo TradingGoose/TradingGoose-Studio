@@ -3,13 +3,22 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { getEffectiveDecryptedEnvMock, checkWorkspaceAccessMock } = vi.hoisted(() => ({
+const {
+  getEffectiveDecryptedEnvMock,
+  checkWorkspaceAccessMock,
+  resolveOAuthCredentialAccountForUserMock,
+} = vi.hoisted(() => ({
   getEffectiveDecryptedEnvMock: vi.fn(),
   checkWorkspaceAccessMock: vi.fn(),
+  resolveOAuthCredentialAccountForUserMock: vi.fn(),
 }))
 
 vi.mock('@/lib/permissions/utils', () => ({
   checkWorkspaceAccess: checkWorkspaceAccessMock,
+}))
+
+vi.mock('@/lib/credentials/oauth', () => ({
+  resolveOAuthCredentialAccountForUser: resolveOAuthCredentialAccountForUserMock,
 }))
 
 const { refreshAccessTokenIfNeededMock } = vi.hoisted(() => ({
@@ -126,6 +135,15 @@ const listing = {
   base_id: '',
   quote_id: '',
   listing_type: 'default' as const,
+}
+
+const robinhoodBarsPayload: MarketSubscribePayload = {
+  provider: 'robinhood',
+  workspaceId: 'workspace-1',
+  listing,
+  channel: 'bars',
+  interval: '1m',
+  providerParams: { credentialId: 'connection' },
 }
 
 const quoteSnapshot = {
@@ -554,15 +572,7 @@ describe('MarketStreamManager quote snapshots', () => {
     refreshAccessTokenIfNeededMock.mockResolvedValue('token')
     checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: true })
     executeProviderRequestMock.mockResolvedValue({ bars: [partial] })
-    await manager.subscribe(socket, {
-      provider: 'robinhood',
-      workspaceId: 'workspace-1',
-      listing,
-      channel: 'bars',
-      interval: '1m',
-      clientSubscriptionId: 'chart',
-      providerParams: { credentialId: 'connection' },
-    })
+    await manager.subscribe(socket, { ...robinhoodBarsPayload, clientSubscriptionId: 'chart' })
     await vi.advanceTimersByTimeAsync(0)
 
     executeProviderRequestMock.mockResolvedValue({ bars: [finalized, next] })
@@ -646,14 +656,9 @@ describe('MarketStreamManager quote snapshots', () => {
       ['raw', 'split_adjusted', 'raw'] as const
     ).entries()) {
       await manager.subscribe(socket, {
-        provider: 'robinhood',
-        workspaceId: 'workspace-1',
-        listing,
-        channel: 'bars',
-        interval: '1m',
+        ...robinhoodBarsPayload,
         normalizationMode,
         clientSubscriptionId: `chart-${index}`,
-        providerParams: { credentialId: 'connection' },
       })
       await vi.advanceTimersByTimeAsync(0)
     }
@@ -674,12 +679,12 @@ describe('MarketStreamManager quote snapshots', () => {
     const owner = createSocket('owner-socket')
     const other = { ...createSocket('other-socket'), userId: 'other-user' }
     const payload: MarketSubscribePayload = {
-      provider: 'robinhood',
-      workspaceId: 'workspace-1',
-      listing,
+      ...robinhoodBarsPayload,
       channel,
-      interval: '1m',
-      providerParams: { credentialId: 'connection' },
+    }
+    const sharedPayload = {
+      ...payload,
+      providerParams: { credentialId: 'workspace-credential' },
     }
     refreshAccessTokenIfNeededMock.mockResolvedValue('token')
     checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: false })
@@ -688,25 +693,42 @@ describe('MarketStreamManager quote snapshots', () => {
 
     checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: true })
     await manager.subscribe(owner, payload)
-    refreshAccessTokenIfNeededMock.mockResolvedValueOnce(null)
-    await expect(manager.subscribe(other, payload)).rejects.toThrow('Select or reconnect')
+    resolveOAuthCredentialAccountForUserMock.mockResolvedValue({
+      credentialId: 'workspace-credential',
+      accountId: 'connection',
+      credentialOwnerUserId: 'user-1',
+      providerId: 'robinhood',
+      workspaceId: 'workspace-1',
+    })
     const fetchData = channel === 'bars' ? executeProviderRequestMock : buildMarketQuoteSnapshotMock
     expect(fetchData).toHaveBeenCalledTimes(1)
-    expect(other.emit).not.toHaveBeenCalled()
     expect(checkWorkspaceAccessMock).toHaveBeenCalledWith('workspace-1', 'user-1')
 
-    await manager.subscribe(other, payload)
+    await manager.subscribe(other, sharedPayload, 'workspace')
     await vi.advanceTimersByTimeAsync(0)
     expect(refreshAccessTokenIfNeededMock).toHaveBeenCalledWith(
       'connection',
-      'other-user',
+      'user-1',
       expect.any(String),
       'robinhood'
     )
     expect(
       fetchData.mock.calls.map((args) => (channel === 'bars' ? args[2] : args[0].context))
-    ).toEqual([{ userId: 'user-1' }, { userId: 'other-user' }])
-    manager.removeSocket(other.id)
+    ).toEqual([{ userId: 'user-1' }, { userId: 'user-1' }])
+    expect(resolveOAuthCredentialAccountForUserMock).toHaveBeenCalledWith({
+      credentialId: 'workspace-credential',
+      userId: 'other-user',
+      workspaceId: 'workspace-1',
+    })
+    resolveOAuthCredentialAccountForUserMock.mockResolvedValue(null)
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(other.emit).toHaveBeenCalledWith(
+      'market-error',
+      expect.objectContaining({ message: 'Market connection access was revoked' })
+    )
+    expect(manager.unsubscribe(other, {})).toEqual([])
+    executeProviderRequestMock.mockClear()
+    buildMarketQuoteSnapshotMock.mockClear()
     await manager.subscribe(owner, {
       ...payload,
       channel: channel === 'bars' ? 'quote-snapshots' : 'bars',
@@ -717,25 +739,25 @@ describe('MarketStreamManager quote snapshots', () => {
 
     checkWorkspaceAccessMock.mockRejectedValueOnce(new Error('Permission lookup unavailable'))
     await vi.advanceTimersByTimeAsync(15_000)
-    expect(fetchData).toHaveBeenCalledTimes(2)
+    expect(fetchData).not.toHaveBeenCalled()
     expect(fetchOtherData).not.toHaveBeenCalled()
     expect(checkWorkspaceAccessMock).toHaveBeenCalledTimes(1)
     await vi.advanceTimersByTimeAsync(15_000)
-    expect(fetchData).toHaveBeenCalledTimes(3)
+    expect(fetchData).toHaveBeenCalledTimes(1)
     expect(fetchOtherData).toHaveBeenCalledTimes(1)
     expect(checkWorkspaceAccessMock).toHaveBeenCalledTimes(2)
 
     checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: false })
     await vi.advanceTimersByTimeAsync(30_000)
-    expect(fetchData).toHaveBeenCalledTimes(3)
+    expect(fetchData).toHaveBeenCalledTimes(1)
     expect(fetchOtherData).toHaveBeenCalledTimes(1)
     expect(checkWorkspaceAccessMock).toHaveBeenCalledTimes(3)
-    expect(refreshAccessTokenIfNeededMock).toHaveBeenCalledTimes(4)
+    expect(refreshAccessTokenIfNeededMock).toHaveBeenCalledTimes(3)
     expect(manager.unsubscribe(owner, {})).toEqual([])
     expect(owner.emit).toHaveBeenCalledWith(
       'market-error',
       expect.objectContaining({
-        message: expect.stringContaining('workspace access'),
+        message: expect.stringContaining('access was revoked'),
       })
     )
   })

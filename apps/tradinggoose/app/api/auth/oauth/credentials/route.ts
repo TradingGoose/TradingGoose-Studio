@@ -25,12 +25,16 @@ async function resolveWorkflowWorkspaceId(workflowId: string, requesterUserId: s
     return { error: NextResponse.json({ error: 'Workflow not found' }, { status: 404 }) }
   }
 
-  const access = await checkWorkspaceAccess(wf.workspaceId, requesterUserId)
+  return resolveWorkspaceId(wf.workspaceId, requesterUserId)
+}
+
+async function resolveWorkspaceId(workspaceId: string, requesterUserId: string) {
+  const access = await checkWorkspaceAccess(workspaceId, requesterUserId)
   if (!access.hasAccess) {
     return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
   }
 
-  return { workspaceId: wf.workspaceId, canWrite: access.canWrite }
+  return { workspaceId, canWrite: access.canWrite }
 }
 
 export async function GET(request: NextRequest) {
@@ -48,7 +52,6 @@ export async function GET(request: NextRequest) {
       logger.warn(`[${requestId}] Unauthenticated credentials request rejected`)
       return NextResponse.json({ error: 'User not authenticated' }, { status: 401 })
     }
-
     const requesterUserId = authResult.userId
     const apiKeyWorkspaceId =
       authResult.authType === AuthType.API_KEY ? authResult.workspaceId : undefined
@@ -61,10 +64,8 @@ export async function GET(request: NextRequest) {
       }
       effectiveWorkspaceId = workflowScope.workspaceId
     } else if (effectiveWorkspaceId && !apiKeyWorkspaceId) {
-      const access = await checkWorkspaceAccess(effectiveWorkspaceId, requesterUserId)
-      if (!access.hasAccess) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-      }
+      const workspaceScope = await resolveWorkspaceId(effectiveWorkspaceId, requesterUserId)
+      if (workspaceScope.error) return workspaceScope.error
     }
     if (!effectiveWorkspaceId) {
       return NextResponse.json({ error: 'Credential scope is required' }, { status: 400 })
@@ -108,12 +109,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not authenticated' }, { status: 401 })
     }
     const parsed = z
-      .object({ workflowId: z.string().trim().min(1), accountId: z.string().trim().min(1) })
+      .object({
+        workflowId: z.string().trim().min(1).optional(),
+        workspaceId: z.string().trim().min(1).optional(),
+        accountId: z.string().trim().min(1),
+      })
+      .refine((value) => Boolean(value.workflowId) !== Boolean(value.workspaceId))
       .safeParse(await request.json())
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Workflow and connection are required' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Credential scope and connection are required' },
+        { status: 400 }
+      )
     }
-    const scope = await resolveWorkflowWorkspaceId(parsed.data.workflowId, auth.userId)
+    const scope = parsed.data.workflowId
+      ? await resolveWorkflowWorkspaceId(parsed.data.workflowId, auth.userId)
+      : await resolveWorkspaceId(parsed.data.workspaceId!, auth.userId)
     if (scope.error) return scope.error
     if (!scope.canWrite) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

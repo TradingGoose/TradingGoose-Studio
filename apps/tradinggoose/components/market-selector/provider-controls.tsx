@@ -60,9 +60,9 @@ export function MarketProviderControls({
       />
       {oauth ? (
         <ToolCredentialSelector
-          credentialSource='personal'
           provider={oauth.provider}
           serviceId={oauth.provider}
+          workspaceId={workspaceId}
           label={copy.placeholder}
           value={
             typeof providerParams?.credentialId === 'string' ? providerParams.credentialId : ''

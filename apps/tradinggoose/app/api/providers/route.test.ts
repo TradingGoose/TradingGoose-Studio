@@ -5,19 +5,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { POST } from './route'
 
 const mocks = vi.hoisted(() => ({
-  authenticate: vi.fn(),
   authorizeCredential: vi.fn(),
   credentialAuthStatus: vi.fn(),
   execute: vi.fn(),
-  getSession: vi.fn(),
 }))
 
-vi.mock('@/lib/auth/hybrid', () => ({ checkSessionOrInternalAuth: mocks.authenticate }))
+vi.mock('@/lib/auth/hybrid', () => ({ checkSessionOrInternalAuth: vi.fn() }))
 vi.mock('@/lib/auth/credential-access', () => ({
   authorizeCredentialUse: mocks.authorizeCredential,
   credentialAuthStatus: mocks.credentialAuthStatus,
 }))
-vi.mock('@/lib/auth', () => ({ getSession: mocks.getSession }))
+vi.mock('@/lib/auth', () => ({ getSession: vi.fn() }))
 vi.mock('@/lib/environment/utils', () => ({ getEffectiveDecryptedEnv: vi.fn() }))
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
@@ -39,12 +37,13 @@ const forgedIdentity = {
   _context: { userId: 'forged-user' },
   auth: { apiKey: 'key', apiSecret: 'secret', accessToken: 'forged-token' },
 }
-const marketRequest = (provider: string, credentialId: unknown, query = '') =>
+const marketRequest = (provider: string, credentialId: unknown, query = '', workspaceId?: string) =>
   new NextRequest(`http://localhost/api/providers${query}`, {
     method: 'POST',
     body: JSON.stringify({
       provider: `market:${provider}/series`,
       listing,
+      workspaceId,
       ...forgedIdentity,
       providerParams: { credentialId },
     }),
@@ -57,43 +56,31 @@ describe('market provider credential boundary', () => {
     mocks.execute.mockResolvedValue({ bars: [] })
   })
 
-  it.each([
-    { provider: 'robinhood', success: false, userId: undefined, status: 401 },
-    { provider: 'robinhood', success: true, userId: undefined, status: 401 },
-    { provider: 'robinhood', success: true, userId: 'owner', status: 200 },
-    { provider: 'alpaca', success: false, userId: undefined, status: 200 },
-  ])('$provider with session $success/$userId returns $status', async (testCase) => {
-    const { provider, status, userId } = testCase
-    mocks.authenticate.mockResolvedValue(testCase)
-    const request = marketRequest(provider, 'connection')
-    expect((await POST(request)).status).toBe(status)
-    expect(mocks.authenticate).toHaveBeenCalledTimes(provider === 'robinhood' ? 1 : 0)
+  it('passes non-OAuth market providers through without credential authorization', async () => {
+    const request = marketRequest('alpaca', 'connection')
+    expect((await POST(request)).status).toBe(200)
     expect(mocks.authorizeCredential).not.toHaveBeenCalled()
-    if (status === 401) {
-      expect(mocks.execute).not.toHaveBeenCalled()
-      return
-    }
     expect(mocks.execute).toHaveBeenCalledWith(
-      `${provider}/series`,
+      'alpaca/series',
       {
         kind: 'series',
         listing,
         auth: { apiKey: 'key', apiSecret: 'secret' },
         providerParams: { credentialId: 'connection' },
       },
-      { userId, requestId: 'server-request' }
+      { userId: undefined, requestId: 'server-request' }
     )
-    expect(mocks.getSession).not.toHaveBeenCalled()
   })
 
   it.each([
-    ['allowed collaborator', {}, 200],
+    ['allowed workflow collaborator', {}, 200, undefined],
+    ['allowed shared widget collaborator', {}, 200, 'workspace-1'],
     ['revoked access', { ok: false, error: 'Unauthorized' }, 403],
     ['unknown credential', { ok: false, error: 'Credential not found' }, 404],
     ['wrong provider', { resolvedProviderId: 'alpaca' }, 403],
     ['missing owner', { credentialOwnerUserId: undefined }, 401],
     ['missing account', { resolvedTokenAccountId: undefined }, 401],
-  ])('resolves workflow credentials: %s', async (_label, result, status) => {
+  ])('resolves market credentials: %s', async (_label, result, status, workspaceId = undefined) => {
     mocks.authorizeCredential.mockResolvedValue({
       ok: true,
       requesterUserId: 'execution-user',
@@ -106,24 +93,19 @@ describe('market provider credential boundary', () => {
     const request = marketRequest(
       'robinhood',
       'workspace-credential',
-      '?workflowId=workflow-1&workspaceId=workspace-1'
+      workspaceId ? '' : '?workflowId=workflow-1&workspaceId=workspace-1',
+      workspaceId
     )
     expect((await POST(request)).status).toBe(status)
     expect(mocks.authorizeCredential).toHaveBeenCalledWith(request, {
       credentialId: 'workspace-credential',
-      workflowId: 'workflow-1',
+      workflowId: workspaceId ? undefined : 'workflow-1',
       workspaceId: 'workspace-1',
     })
-    expect(mocks.authenticate).not.toHaveBeenCalled()
     if (status === 200) {
       expect(mocks.execute).toHaveBeenCalledWith(
         'robinhood/series',
-        {
-          kind: 'series',
-          listing,
-          auth: { apiKey: 'key', apiSecret: 'secret' },
-          providerParams: { credentialId: 'personal-account' },
-        },
+        expect.objectContaining({ providerParams: { credentialId: 'personal-account' } }),
         { userId: 'collaborator', requestId: 'server-request' }
       )
     } else {
@@ -132,7 +114,7 @@ describe('market provider credential boundary', () => {
   })
 
   it.each([undefined, '', ' ', 123])(
-    'rejects an invalid workflow credential: %s',
+    'rejects an invalid OAuth market credential: %s',
     async (credentialId) => {
       const response = await POST(
         marketRequest('robinhood', credentialId, '?workflowId=workflow-1')

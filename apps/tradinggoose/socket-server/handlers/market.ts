@@ -12,7 +12,7 @@ const logger = createLogger('MarketHandlers')
 export function setupMarketHandlers(socket: AuthenticatedSocket) {
   socket.on('market-subscribe', async (payload: MarketSubscribePayload) => {
     try {
-      const subscription = await marketStreamManager.subscribe(socket, payload)
+      const subscription = await marketStreamManager.subscribe(socket, payload, 'workspace')
       socket.emit('market-subscribed', subscription)
     } catch (error) {
       if (error instanceof MarketSubscriptionCancelledError) return

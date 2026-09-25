@@ -74,8 +74,12 @@ export async function POST(request: NextRequest) {
       const oauth = getMarketProviderDefinition(providerId.split('/')[0])?.oauth
       const searchParams = new URL(request.url).searchParams
       const workflowId = searchParams.get('workflowId')?.trim()
+      const workspaceId =
+        (typeof marketBody.workspaceId === 'string' && marketBody.workspaceId.trim()) ||
+        searchParams.get('workspaceId')?.trim() ||
+        undefined
       let authUserId: string | undefined
-      if (oauth && workflowId) {
+      if (oauth) {
         const credentialId = marketBody.providerParams?.credentialId
         if (typeof credentialId !== 'string' || !credentialId.trim()) {
           return NextResponse.json({ error: 'Credential ID is required' }, { status: 400 })
@@ -83,7 +87,7 @@ export async function POST(request: NextRequest) {
         const authz = await authorizeCredentialUse(request, {
           credentialId: credentialId.trim(),
           workflowId,
-          workspaceId: searchParams.get('workspaceId')?.trim() || undefined,
+          workspaceId,
         })
         if (!authz.ok || !authz.credentialOwnerUserId || !authz.resolvedTokenAccountId) {
           return NextResponse.json(
@@ -99,12 +103,6 @@ export async function POST(request: NextRequest) {
           credentialId: authz.resolvedTokenAccountId,
         }
         authUserId = authz.credentialOwnerUserId
-      } else if (oauth) {
-        const auth = await checkSessionOrInternalAuth(request, { requireWorkflowId: false })
-        if (!auth.success || !auth.userId) {
-          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
-        authUserId = auth.userId
       }
       return handleMarketProviderRequest({
         body: marketBody,

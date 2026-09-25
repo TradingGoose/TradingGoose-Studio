@@ -103,7 +103,8 @@ describe('ToolCredentialSelector workspace connections', () => {
 
   const render = async (
     credentialSource: 'workspace' | 'personal' = 'workspace',
-    provider = 'robinhood'
+    provider = 'robinhood',
+    workspaceId?: string
   ) => {
     await act(async () =>
       root.render(
@@ -111,6 +112,7 @@ describe('ToolCredentialSelector workspace connections', () => {
           provider={provider}
           serviceId={provider}
           credentialSource={credentialSource}
+          workspaceId={workspaceId}
           value=''
           onChange={onChange}
           id='connection'
@@ -155,14 +157,14 @@ describe('ToolCredentialSelector workspace connections', () => {
   )
 
   it('saves a personal connection before selecting its workspace credential', async () => {
-    await render()
-    expect(container.textContent).toContain('Use in this workflow')
+    await render('workspace', 'robinhood', 'workspace-1')
+    expect(fetchMock.mock.calls[0]?.[0]).toContain('workspaceId=workspace-1')
     await select('Personal')
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/auth/oauth/credentials',
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ workflowId: 'workflow', accountId: 'account' }),
+        body: JSON.stringify({ workspaceId: 'workspace-1', accountId: 'account' }),
       })
     )
     expect(onChange).toHaveBeenCalledExactlyOnceWith('workspace-credential')

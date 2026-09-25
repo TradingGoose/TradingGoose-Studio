@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'crypto'
+import { resolveOAuthCredentialAccountForUser } from '@/lib/credentials/oauth'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { type ListingIdentity, ListingIdentitySchema } from '@/lib/listing/identity'
@@ -67,6 +68,8 @@ export interface MarketUnsubscribePayload {
   clientSubscriptionId?: string
 }
 
+type OAuthConnection = NonNullable<Awaited<ReturnType<typeof resolveOAuthCredentialAccountForUser>>>
+
 export interface MarketSubscriptionInfo {
   subscriptionId: string
   clientSubscriptionId?: string
@@ -86,6 +89,7 @@ interface MarketSubscriptionRecord extends MarketSubscriptionInfo {
   upstreamChannel?: MarketStreamChannel
   listingBase?: string
   listingQuote?: string
+  oauthConnection?: OAuthConnection
 }
 
 type MarketStream = {
@@ -123,7 +127,8 @@ export class MarketStreamManager {
 
   async subscribe(
     socket: AuthenticatedSocket,
-    payload: MarketSubscribePayload
+    payload: MarketSubscribePayload,
+    credentialSource?: 'workspace'
   ): Promise<MarketSubscriptionInfo> {
     const pending = {
       socketId: socket.id,
@@ -135,8 +140,33 @@ export class MarketStreamManager {
       if (pending.cancelled) throw new MarketSubscriptionCancelledError()
     }
     try {
-      const resolvedPayload = await resolveMarketSubscribeEnv(payload, socket.userId)
+      let resolvedPayload = await resolveMarketSubscribeEnv(payload, socket.userId)
       const provider = resolveProviderId(resolvedPayload.provider)
+      const oauth = getMarketProviderDefinition(provider)?.oauth
+      let connection: OAuthConnection | undefined
+      if (oauth && credentialSource === 'workspace') {
+        const credentialId = toNonEmptyString(resolvedPayload.providerParams?.credentialId)
+        const workspaceId = toNonEmptyString(resolvedPayload.workspaceId)
+        if (!socket.userId || !workspaceId || !credentialId) {
+          throw new Error('Select or reconnect your market provider connection')
+        }
+        const resolvedConnection = await resolveOAuthCredentialAccountForUser({
+          credentialId,
+          userId: socket.userId,
+          workspaceId,
+        })
+        if (!resolvedConnection || resolvedConnection.providerId !== oauth.provider) {
+          throw new Error('Select or reconnect your market provider connection')
+        }
+        connection = resolvedConnection
+        resolvedPayload = {
+          ...resolvedPayload,
+          providerParams: {
+            ...resolvedPayload.providerParams,
+            credentialId: connection.accountId,
+          },
+        }
+      }
       if (provider === 'alpaca') {
         return await this.subscribeAlpaca(socket, { ...resolvedPayload, provider }, assertActive)
       }
@@ -146,7 +176,8 @@ export class MarketStreamManager {
       return await this.subscribePollingProvider(
         socket,
         { ...resolvedPayload, provider },
-        assertActive
+        assertActive,
+        connection
       )
     } finally {
       this.pendingSubscriptions.delete(pending)
@@ -411,7 +442,8 @@ export class MarketStreamManager {
   private async subscribePollingProvider(
     socket: AuthenticatedSocket,
     payload: MarketSubscribePayload & { provider: string },
-    assertActive: () => void
+    assertActive: () => void,
+    connection?: OAuthConnection
   ): Promise<MarketSubscriptionInfo> {
     const listing = ListingIdentitySchema.parse(payload.listing)
 
@@ -430,9 +462,10 @@ export class MarketStreamManager {
     }
 
     const oauth = getMarketProviderDefinition(payload.provider)?.oauth
+    const connectionOwnerUserId = connection?.credentialOwnerUserId ?? socket.userId
     if (oauth) {
-      if (socket.userId && payload.workspaceId) {
-        const access = await checkWorkspaceAccess(payload.workspaceId, socket.userId)
+      if (!connection && connectionOwnerUserId && payload.workspaceId) {
+        const access = await checkWorkspaceAccess(payload.workspaceId, connectionOwnerUserId)
         if (!access.exists || !access.hasAccess) {
           throw new Error('Market connection owner no longer has workspace access')
         }
@@ -441,10 +474,10 @@ export class MarketStreamManager {
       const credentialId = payload.providerParams?.credentialId
       const hasConnection = typeof credentialId === 'string' && credentialId.trim().length > 0
       const accessToken =
-        socket.userId && hasConnection
+        connectionOwnerUserId && hasConnection
           ? await refreshAccessTokenIfNeeded(
               credentialId.trim(),
-              socket.userId,
+              connectionOwnerUserId,
               randomUUID(),
               oauth.provider
             )
@@ -468,6 +501,7 @@ export class MarketStreamManager {
       auth: payload.auth,
       providerParams: payload.providerParams,
       normalizationMode: payload.normalizationMode,
+      workspaceCredentialId: connection?.credentialId,
     })
     assertActive()
     const streamState = this.getOrCreatePollingStream(streamKey, {
@@ -502,6 +536,7 @@ export class MarketStreamManager {
       workspaceId: payload.workspaceId,
       listingBase: context.base,
       listingQuote: context.quote,
+      oauthConnection: connection,
     }
 
     this.addSubscription(streamState, record)
@@ -857,7 +892,7 @@ export class MarketStreamManager {
 
     streamState.pollingInFlight = true
     try {
-      let workspaceAccess: ReturnType<typeof checkWorkspaceAccess> | undefined
+      let workspaceAccess: Promise<boolean> | undefined
       const pending = [...tasks]
       const workers = Array.from(
         { length: Math.min(POLLING_CONCURRENCY, pending.length) },
@@ -868,23 +903,15 @@ export class MarketStreamManager {
             try {
               const record = next.record
               if (record.workspaceId && getMarketProviderDefinition(record.provider)?.oauth) {
-                const access =
-                  record.socket.userId &&
-                  (await (workspaceAccess ??= checkWorkspaceAccess(
-                    record.workspaceId,
-                    record.socket.userId
-                  )))
+                const hasAccess = await (workspaceAccess ??= canUseOAuthMarketConnection(record))
                 if (
                   streamState.subscribersBySymbol.get(next.symbol)?.get(record.subscriptionId) !==
                   record
                 ) {
                   continue
                 }
-                if (!access || !access.exists || !access.hasAccess) {
-                  this.handleStreamError(
-                    record.streamKey,
-                    'Market connection owner no longer has workspace access'
-                  )
+                if (!hasAccess) {
+                  this.handleStreamError(record.streamKey, 'Market connection access was revoked')
                   streamState.subscribersBySymbol.forEach((subscribers) => {
                     subscribers.forEach((subscriber) => this.removeRecord(subscriber))
                   })
@@ -897,7 +924,11 @@ export class MarketStreamManager {
                   listing: next.record.listing as ListingIdentity,
                   auth: streamState.auth,
                   providerParams: streamState.providerParams,
-                  context: { userId: next.record.socket.userId },
+                  context: {
+                    userId:
+                      next.record.oauthConnection?.credentialOwnerUserId ??
+                      next.record.socket.userId,
+                  },
                 })
                 streamState.quoteSnapshotCache.set(next.symbol, snapshot)
                 this.emitQuoteSnapshotToSymbolSubscribers(streamState, next.symbol, snapshot)
@@ -962,7 +993,7 @@ export class MarketStreamManager {
             ? [{ mode: 'absolute', start: cached.timeStamp, end: new Date(now).toISOString() }]
             : [{ mode: 'bars', barCount: 1 }],
       },
-      { userId: record.socket.userId }
+      { userId: record.oauthConnection?.credentialOwnerUserId ?? record.socket.userId }
     )
     for (const bar of (response as MarketSeries).bars) {
       if (
@@ -1184,6 +1215,7 @@ function buildPollingStreamKey(config: {
   auth?: MarketProviderAuth
   providerParams?: MarketProviderParams
   normalizationMode?: NormalizationMode
+  workspaceCredentialId?: string
 }): string {
   const base = [
     config.provider,
@@ -1192,8 +1224,34 @@ function buildPollingStreamKey(config: {
     stableStringifyJsonValue(config.auth ?? null),
     stableStringifyJsonValue(config.providerParams ?? null),
     config.normalizationMode ?? '',
+    config.workspaceCredentialId ?? '',
   ].join('|')
   return createHash('sha256').update(base).digest('hex')
+}
+
+function toNonEmptyString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+async function canUseOAuthMarketConnection(record: MarketSubscriptionRecord) {
+  const ownerUserId = record.oauthConnection?.credentialOwnerUserId ?? record.socket.userId
+  if (!record.workspaceId || !ownerUserId) return false
+  if (!record.oauthConnection) {
+    const access = await checkWorkspaceAccess(record.workspaceId, ownerUserId)
+    return access.exists && access.hasAccess
+  }
+  if (!record.socket.userId) return false
+  const resolved = await resolveOAuthCredentialAccountForUser({
+    credentialId: record.oauthConnection.credentialId,
+    userId: record.socket.userId,
+    workspaceId: record.workspaceId,
+  })
+  return Boolean(
+    resolved &&
+      resolved.accountId === record.oauthConnection.accountId &&
+      resolved.credentialOwnerUserId === ownerUserId &&
+      resolved.providerId === getMarketProviderDefinition(record.provider)?.oauth?.provider
+  )
 }
 
 function buildPollingBarCacheKey(symbol: string, interval: string): string {

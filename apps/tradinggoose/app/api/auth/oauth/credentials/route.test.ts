@@ -160,9 +160,8 @@ describe('OAuth credentials API', () => {
         new NextRequest('http://localhost/api/auth/oauth/credentials', {
           method: 'POST',
           body: JSON.stringify({
-            workflowId: 'workflow-1',
+            workspaceId: 'workspace-1',
             accountId: 'personal-account',
-            workspaceId: 'forged',
             userId: 'forged',
           }),
         })

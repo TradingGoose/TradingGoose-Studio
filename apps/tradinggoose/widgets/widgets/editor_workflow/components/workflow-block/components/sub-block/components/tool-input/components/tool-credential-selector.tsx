@@ -46,6 +46,7 @@ interface ToolCredentialSelectorProps
   label?: string
   serviceId?: OAuthService
   serviceIds?: OAuthService[]
+  workspaceId?: string
   disabled?: boolean
   triggerClassName?: string
 }
@@ -60,6 +61,7 @@ export function ToolCredentialSelector({
   label,
   serviceId,
   serviceIds,
+  workspaceId,
   disabled = false,
   triggerClassName,
   ...ariaProps
@@ -94,6 +96,7 @@ export function ToolCredentialSelector({
     provider,
     effectiveServiceIds,
     activeWorkflowId,
+    workspaceId,
     credentialSource,
     disabled,
   ])
@@ -148,7 +151,8 @@ export function ToolCredentialSelector({
       const credentials = await Promise.all(
         providers.map(async (providerId) => {
           const params = new URLSearchParams({ provider: providerId })
-          if (activeWorkflowId) params.set('workflowId', activeWorkflowId)
+          if (workspaceId) params.set('workspaceId', workspaceId)
+          else if (activeWorkflowId) params.set('workflowId', activeWorkflowId)
           const response = await fetch(`/api/auth/oauth/credentials?${params.toString()}`)
           if (!response.ok) throw new Error(await response.text())
           const data = await response.json()
@@ -168,7 +172,7 @@ export function ToolCredentialSelector({
     } finally {
       setIsLoading(false)
     }
-  }, [effectiveServiceIds, activeWorkflowId, isPersonal, providerConfig, refetch])
+  }, [effectiveServiceIds, activeWorkflowId, workspaceId, isPersonal, providerConfig, refetch])
 
   useEffect(() => {
     if (!isPersonal) void fetchCredentials()
@@ -225,7 +229,7 @@ export function ToolCredentialSelector({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            workflowId: activeWorkflowId,
+            ...(workspaceId ? { workspaceId } : { workflowId: activeWorkflowId }),
             accountId: credential.connectionId,
           }),
         })
