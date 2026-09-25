@@ -115,7 +115,7 @@ describe('system managed oauth client credentials', () => {
     })
   })
 
-  it('rotates and persists a Robinhood registration when its redirect URI changes', async () => {
+  it('rejects a redirect URI change without replacing the Robinhood registration', async () => {
     const lock = vi.fn()
     const values = vi.fn(() => ({ onConflictDoNothing: vi.fn(), onConflictDoUpdate: vi.fn() }))
     const where = vi
@@ -132,25 +132,14 @@ describe('system managed oauth client credentials', () => {
     registration.transaction.mockImplementation((callback: (store: typeof tx) => unknown) =>
       callback(tx)
     )
-    registration.register.mockResolvedValue({
-      client_id: 'registered-client',
-      redirect_uris: ['https://studio.example/callback'],
-      token_endpoint_auth_method: 'none',
-    })
     const { ensureRobinhoodOAuthClient } = await import('./system-managed-config')
 
-    await expect(ensureRobinhoodOAuthClient('https://studio.example/callback')).resolves.toBe(
-      'registered-client'
+    await expect(ensureRobinhoodOAuthClient('https://studio.example/callback')).rejects.toThrow(
+      'Robinhood OAuth client is registered for a different redirect URI'
     )
 
-    expect(lock.mock.invocationCallOrder[0]).toBeLessThan(
-      registration.register.mock.invocationCallOrder[0]!
-    )
-    expect(values).toHaveBeenCalledWith(
-      expect.objectContaining({
-        key: 'redirect_uri',
-        value: 'encrypted:https://studio.example/callback',
-      })
-    )
+    expect(lock).toHaveBeenCalledOnce()
+    expect(registration.register).not.toHaveBeenCalled()
+    expect(values).toHaveBeenCalledOnce()
   })
 })

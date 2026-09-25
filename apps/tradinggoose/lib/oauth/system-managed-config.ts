@@ -158,7 +158,10 @@ export async function ensureRobinhoodOAuthClient(redirectUri: string): Promise<s
       stored.set(key, decrypted.trim())
     }
     const clientId = stored.get('client_id')
-    if (clientId && stored.get('redirect_uri') === redirectUri) {
+    if (clientId) {
+      if (stored.get('redirect_uri') !== redirectUri) {
+        throw new Error('Robinhood OAuth client is registered for a different redirect URI')
+      }
       return clientId
     }
 

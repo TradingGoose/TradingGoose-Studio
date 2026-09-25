@@ -339,6 +339,7 @@ export function AdminIntegrations() {
                                           statusClassName={ADMIN_STATUS_BADGE_CLASSNAME}
                                           isSensitive={credentialField.isSensitive}
                                           disabled={saveBundleMutation.isPending}
+                                          readOnly={credentialField.systemManaged}
                                           placeholder={
                                             isSecretConfigured
                                               ? formatTemplate(copy.placeholders.replaceValue, {
