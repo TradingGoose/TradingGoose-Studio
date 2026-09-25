@@ -111,12 +111,15 @@ export async function submitRobinhoodOrder(params: TradingOrderInput): Promise<u
         review.side !== args.side ||
         review.type !== args.type ||
         ['quantity', 'dollar_amount', 'limit_price', 'stop_price'].some(
-          (key) => args[key] !== undefined && Number(review[key]) !== Number(args[key])
+          (key) =>
+            args[key] !== undefined &&
+            review[key] !== undefined &&
+            Number(review[key]) !== Number(args[key])
         )
       ) {
         throw new Error('Robinhood review does not match the requested order.')
       }
-      return { state: 'preview', symbol: args.symbol, side: args.side, review }
+      return { state: 'preview', review }
     }
     const data = await call('place_equity_order', { ...args, ref_id: refId })
     const order = placementSchema.parse(data.order)
@@ -137,13 +140,17 @@ export function normalizeRobinhoodOrder(
   const preview = z
     .object({
       state: z.literal('preview'),
-      symbol: z.string(),
-      side: z.string(),
       review: reviewSchema,
     })
     .safeParse(data)
   if (preview.success)
-    return { status: 'preview', symbol: preview.data.symbol, side: preview.data.side, raw: data }
+    return {
+      status: 'preview',
+      symbol: preview.data.review.symbol,
+      side: preview.data.review.side,
+      warnings: preview.data.review.order_checks,
+      raw: data,
+    }
   const order = orderSchema.parse(data)
   const statuses: Record<string, string> = {
     queued: 'pending',

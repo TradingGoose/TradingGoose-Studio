@@ -168,14 +168,18 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
 
   transformResponse: async (response) => {
     const data = await response.json()
+    const preview = data.order?.status === 'preview'
     return {
       success: true,
       output: {
-        summary: `Order submitted to ${data.provider}`,
+        summary: preview
+          ? `Order previewed by ${data.provider}; no order was submitted.`
+          : `Order submitted to ${data.provider}`,
         provider: data.provider,
         appOrderId: data.appOrderId,
         clientOrderId: data.clientOrderId,
         order: data.order,
+        warnings: data.order?.warnings,
       },
     }
   },
@@ -186,5 +190,6 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
     appOrderId: { type: 'string', description: 'Trading Goose order ID.' },
     clientOrderId: { type: 'string', description: 'Broker client order identity for retries.' },
     order: { type: 'json', description: 'Normalized order details and raw response.' },
+    warnings: { type: 'json', description: 'Provider warnings returned during order preview.' },
   },
 }

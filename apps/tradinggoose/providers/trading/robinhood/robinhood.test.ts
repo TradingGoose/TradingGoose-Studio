@@ -303,15 +303,21 @@ describe('Robinhood order review and placement', () => {
     expect(placements()).toHaveLength(1)
   })
 
-  it('returns review warnings during preview without placing an order', async () => {
-    sdk.callTool.mockImplementation(async ({ arguments: args }) =>
-      envelope({ ...args, order_checks: { warning: 'Insufficient buying power' } })
+  it('accepts omitted numeric echoes and returns preview warnings', async () => {
+    sdk.callTool.mockResolvedValueOnce(
+      envelope({
+        symbol: 'AAPL',
+        side: 'buy',
+        type: 'market',
+        order_checks: { alert_type: 'BUYING_POWER' },
+      })
     )
     const result = await submitRobinhoodOrder({ ...order, preview: true })
     expect(normalizeRobinhoodOrder(result)).toMatchObject({
       status: 'preview',
       symbol: 'AAPL',
       side: 'buy',
+      warnings: { alert_type: 'BUYING_POWER' },
     })
     expect(toolNames()).toEqual(['review_equity_order'])
     expect(sdk.close).toHaveBeenCalledOnce()

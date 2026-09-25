@@ -155,13 +155,14 @@ describe('tradingActionTool canonical order route payload', () => {
   })
 
   it('transforms canonical route responses into tool output', async () => {
+    const warnings = { alert_type: 'BUYING_POWER' }
     const result = await tradingActionTool.transformResponse?.(
       new Response(
         JSON.stringify({
           appOrderId: 'app-order-1',
           clientOrderId: 'client-order-1',
-          provider: 'alpaca',
-          order: { id: 'provider-order-1', status: 'accepted' },
+          provider: 'robinhood',
+          order: { status: 'preview', warnings },
         })
       )
     )
@@ -169,10 +170,12 @@ describe('tradingActionTool canonical order route payload', () => {
     expect(result).toMatchObject({
       success: true,
       output: {
-        provider: 'alpaca',
+        summary: 'Order previewed by robinhood; no order was submitted.',
+        warnings,
+        provider: 'robinhood',
         appOrderId: 'app-order-1',
         clientOrderId: 'client-order-1',
-        order: { id: 'provider-order-1', status: 'accepted' },
+        order: { status: 'preview', warnings },
       },
     })
   })

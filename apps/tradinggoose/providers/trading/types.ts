@@ -267,6 +267,7 @@ export interface TradingOrder {
   id?: string
   clientOrderId?: string
   status?: string
+  warnings?: Record<string, unknown>
   submittedAt?: string
   filledQty?: number
   symbol?: string
@@ -291,6 +292,7 @@ export interface TradingActionResponse {
     appOrderId?: string
     clientOrderId?: string
     order?: Record<string, any>
+    warnings?: Record<string, unknown>
   }
   error?: string
 }
