@@ -222,6 +222,11 @@ type ProcessedRange = {
   endMs: number
 }
 
+const isTimeInRange = (time: number, range?: ProcessedRange) =>
+  range !== undefined &&
+  time >= Math.floor(range.startMs / 1000) &&
+  time <= Math.floor(range.endMs / 1000)
+
 const resolveMissingChunk = (
   bars: DataChartDataContext['barsMsRef']['current'],
   range: ProcessedRange | undefined,
@@ -344,16 +349,16 @@ const mergeFillEntries = (
 const mergeMarkers = (
   existing: NormalizedPineOutput['markers'],
   incoming: NormalizedPineOutput['markers'],
-  replacedRange?: ProcessedRange
+  replacedRange?: ProcessedRange,
+  executedRange?: ProcessedRange
 ): NormalizedPineOutput['markers'] => {
-  const replacement =
-    replacedRange && Number.isFinite(replacedRange.startMs) && Number.isFinite(replacedRange.endMs)
-      ? [Math.floor(replacedRange.startMs / 1000), Math.floor(replacedRange.endMs / 1000)]
-      : undefined
+  const isReplaced = (marker: NormalizedPineOutput['markers'][number]) =>
+    (isTimeInRange(marker.originTime, replacedRange) ||
+      isTimeInRange(marker.time, replacedRange)) &&
+    isTimeInRange(marker.originTime, executedRange) &&
+    isTimeInRange(marker.time, executedRange)
   const existingMarkers =
-    replacement !== undefined
-      ? existing.filter((marker) => marker.time < replacement[0] || marker.time > replacement[1])
-      : existing
+    replacedRange !== undefined ? existing.filter((marker) => !isReplaced(marker)) : existing
 
   const byKey = new Map<string, NormalizedPineOutput['markers'][number]>()
   const toKey = (marker: NormalizedPineOutput['markers'][number]) =>
@@ -371,7 +376,12 @@ const mergeMarkers = (
     byKey.set(toKey(marker), marker)
   })
   incoming.forEach((marker) => {
-    if (replacement && (marker.time < replacement[0] || marker.time > replacement[1])) return
+    if (
+      replacedRange &&
+      !isTimeInRange(marker.originTime, replacedRange) &&
+      !isTimeInRange(marker.time, replacedRange)
+    )
+      return
     byKey.set(toKey(marker), marker)
   })
 
@@ -382,12 +392,13 @@ const mergeIndicatorOutput = (
   existing: NormalizedPineOutput,
   incoming: NormalizedPineOutput,
   replacedRange?: ProcessedRange,
-  replacedMarkerRange?: ProcessedRange
+  replacedMarkerRange?: ProcessedRange,
+  executedRange?: ProcessedRange
 ): NormalizedPineOutput => ({
   ...incoming,
   series: mergeSeriesEntries(existing.series, incoming.series, replacedRange),
   fills: mergeFillEntries(existing.fills, incoming.fills),
-  markers: mergeMarkers(existing.markers, incoming.markers, replacedMarkerRange),
+  markers: mergeMarkers(existing.markers, incoming.markers, replacedMarkerRange, executedRange),
 })
 
 const buildInputsHash = (inputs: Record<string, unknown>) => {
@@ -1087,7 +1098,13 @@ export const useIndicatorSync = ({
             ? executedRange
             : replacedRange
         const nextOutput = existingOutput
-          ? mergeIndicatorOutput(existingOutput, result.output, replacedRange, replacedMarkerRange)
+          ? mergeIndicatorOutput(
+              existingOutput,
+              result.output,
+              replacedRange,
+              replacedMarkerRange,
+              executedRange
+            )
           : result.output
         accumulatedOutputRef.current.set(indicatorId, nextOutput)
         extendProcessedRange(indicatorId, executedRange)

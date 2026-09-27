@@ -86,6 +86,7 @@ export type SeriesMarkerShape = 'circle' | 'square' | 'arrowUp' | 'arrowDown'
 
 export type NormalizedPineMarker = {
   time: number
+  originTime: number
   position: SeriesMarkerPosition
   shape: SeriesMarkerShape
   source?: 'trigger'

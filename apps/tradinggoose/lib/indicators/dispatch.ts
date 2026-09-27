@@ -232,6 +232,7 @@ export const createTriggerMarkerFromSignal = (
   position: signal.position,
   shape: signal.signal === 'long' ? 'arrowUp' : signal.signal === 'short' ? 'arrowDown' : 'circle',
   time: signal.time,
+  originTime: signal.time,
 })
 
 export const buildManualIndicatorTriggerEventId = ({

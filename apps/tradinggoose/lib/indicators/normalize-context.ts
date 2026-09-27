@@ -160,6 +160,8 @@ const resolveFillColors = ({
   }
 }
 
+type ResolvedPlotPoint = NormalizedPineSeries['points'][number] & { originTime: number }
+
 const resolvePlotPoints = ({
   data,
   plotOptions,
@@ -170,7 +172,7 @@ const resolvePlotPoints = ({
   plotOptions?: Record<string, unknown>
   indexByOpenTimeMs?: Map<number, number>
   openTimeMsByIndex?: number[]
-}): NormalizedPineSeries['points'] =>
+}): ResolvedPlotPoint[] =>
   data
     .map((point: any) => {
       if (!point || typeof point !== 'object') return null
@@ -187,8 +189,9 @@ const resolvePlotPoints = ({
       const rawValue =
         typeof point.value === 'number' && Number.isFinite(point.value) ? point.value : null
 
-      const normalizedPoint: NormalizedPineSeries['points'][number] = {
+      const normalizedPoint: ResolvedPlotPoint = {
         time: mappedTime,
+        originTime: toSeconds(Number(point.time)),
         value: rawValue,
       }
 
@@ -201,7 +204,7 @@ const resolvePlotPoints = ({
 
       return normalizedPoint
     })
-    .filter((point: unknown): point is NormalizedPineSeries['points'][number] => Boolean(point))
+    .filter((point: unknown): point is ResolvedPlotPoint => Boolean(point))
 
 const resolveSeriesStyle = (style?: string) => {
   const normalized = style ?? 'style_line'
@@ -301,6 +304,7 @@ export function normalizeContext({
 
         const marker: NormalizedPineMarker = {
           time: mappedTime,
+          originTime: toSeconds(Number(point.time)),
           position: rawLocation,
           shape: rawShape,
           color:
@@ -478,7 +482,7 @@ export function normalizeContext({
       options: Object.keys(seriesOptions).length > 0 ? seriesOptions : undefined,
     }
 
-    const points = resolvePlotPoints({
+    const resolvedPoints = resolvePlotPoints({
       data,
       plotOptions,
       indexByOpenTimeMs,
@@ -498,10 +502,11 @@ export function normalizeContext({
         })
       }
 
-      points.forEach((point: NormalizedPineSeries['points'][number]) => {
+      resolvedPoints.forEach((point) => {
         if (typeof point.value !== 'number' || !Number.isFinite(point.value)) return
         markers.push({
           time: point.time,
+          originTime: point.originTime,
           position: 'atPriceMiddle',
           shape: 'circle',
           color: point.color ?? plotColor,
@@ -512,6 +517,7 @@ export function normalizeContext({
     }
 
     if (resolvedStyle.seriesType) {
+      const points = resolvedPoints.map(({ originTime: _originTime, ...point }) => point)
       series.push({ plot: plotDescriptor, points })
     }
   })
@@ -522,6 +528,7 @@ export function normalizeContext({
     markers.push({
       source: 'trigger',
       time: signal.time,
+      originTime: signal.time,
       position: signal.position,
       shape,
       color: signal.color ?? (signal.signal === 'flat' ? '#ffab00' : undefined),
