@@ -211,7 +211,7 @@ describe('useIndicatorSync live source changes', () => {
     expect(mockExecuteBrowserPineIndicator).toHaveBeenCalledTimes(2)
   })
 
-  it('preserves historical Pine markers after backfill while replacing current-candle signals', async () => {
+  it('preserves historical Pine markers while replacing live offset signals', async () => {
     const { executeBrowserPineIndicator } = await vi.importActual<
       typeof import('@/lib/indicators/browser-execution')
     >('@/lib/indicators/browser-execution')
@@ -220,14 +220,16 @@ describe('useIndicatorSync live source changes', () => {
 const avg = ta.sma(close, 14);
 const signalAvg = ta.ema(close, 50);
 plot(avg, 'SMA');
-plotshape(close > nz(signalAvg, 0), {style: shape.triangleup, location: location.belowbar});`
+plotshape(close > nz(signalAvg, 0), {style: shape.triangleup, location: location.belowbar});
+plotshape(close > 105, {offset: -2, style: shape.triangleup, location: location.belowbar, text: 'offset'});
+plotshape(close > 105, {offset: 2, style: shape.triangledown, location: location.abovebar, text: 'future'});`
     const history = Array.from({ length: 2000 }, (_, index) => ({
       openTime: 1_700_000_000_000 + index * 60_000,
       closeTime: 1_700_000_000_000 + (index + 1) * 60_000,
       open: 100 + (index % 2),
       high: 102,
       low: 99,
-      close: 100 + (index % 2),
+      close: index === 1098 || index === 1100 ? 110 : 100 + (index % 2),
       volume: 1,
     }))
     const obsoleteMarkerTime = history[800]!.openTime / 1000
@@ -243,6 +245,12 @@ plotshape(close > nz(signalAvg, 0), {style: shape.triangleup, location: location
     expect(markerTimes()).toContain(obsoleteMarkerTime)
     await renderBars(history)
     expect(markerTimes()).not.toContain(obsoleteMarkerTime)
+    expect(mockSetMarkers.mock.lastCall![0]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ time: history[1098]!.openTime / 1000, text: 'offset' }),
+        expect.objectContaining({ time: history[1100]!.openTime / 1000, text: 'future' }),
+      ])
+    )
     const before = markerTimes()
     expect(before).toEqual(
       expect.arrayContaining(
@@ -260,6 +268,16 @@ plotshape(close > nz(signalAvg, 0), {style: shape.triangleup, location: location
     expect(mockExecuteBrowserPineIndicator.mock.lastCall![0].barsMs).toHaveLength(1200)
     expect(indicatorSeries.setData.mock.lastCall![0]).toEqual(expect.arrayContaining(overlapValues))
     expect(markerTimes()).toEqual(before.filter((time: number) => time !== latest.openTime / 1000))
+
+    const offsetMarkerTime = history.at(-3)!.openTime / 1000
+    await renderBars([...history.slice(0, -1), { ...latest, close: 110 }])
+    expect(mockSetMarkers.mock.lastCall![0]).toContainEqual(
+      expect.objectContaining({ time: offsetMarkerTime, text: 'offset' })
+    )
+    await renderBars([...history.slice(0, -1), { ...latest, close: 100 }])
+    expect(mockSetMarkers.mock.lastCall![0]).not.toContainEqual(
+      expect.objectContaining({ time: offsetMarkerTime, text: 'offset' })
+    )
   })
 
   it('re-executes the current bars when only the live Pine source changes', async () => {
