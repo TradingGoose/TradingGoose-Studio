@@ -293,20 +293,6 @@ const mergeSeriesPoints = (
   return Array.from(byTime.values()).sort((a, b) => a.time - b.time)
 }
 
-const mergeFillPoints = (
-  existing: NormalizedPineOutput['fills'][number]['points'],
-  incoming: NormalizedPineOutput['fills'][number]['points']
-) => {
-  const byTime = new Map<number, NormalizedPineOutput['fills'][number]['points'][number]>()
-  existing.forEach((point) => {
-    byTime.set(point.time, point)
-  })
-  incoming.forEach((point) => {
-    byTime.set(point.time, point)
-  })
-  return Array.from(byTime.values()).sort((a, b) => a.time - b.time)
-}
-
 const mergeSeriesEntries = (
   existing: NormalizedPineOutput['series'],
   incoming: NormalizedPineOutput['series'],
@@ -326,20 +312,34 @@ const mergeSeriesEntries = (
   })
 }
 
-const mergeFillEntries = (
-  existing: NormalizedPineOutput['fills'],
-  incoming: NormalizedPineOutput['fills']
+const alignFillEntries = (
+  fills: NormalizedPineOutput['fills'],
+  series: NormalizedPineOutput['series'],
+  markers: NormalizedPineOutput['markers']
 ): NormalizedPineOutput['fills'] => {
-  const existingByKey = new Map<string, NormalizedPineOutput['fills'][number]>()
-  existing.forEach((entry, index) => {
-    existingByKey.set(resolveFillMergeKey(entry, index), entry)
+  const pointsByTitle = new Map(series.map((entry) => [entry.plot.title, entry.points]))
+  markers.forEach((marker) => {
+    if (!marker.plotTitle || marker.price === undefined) return
+    const points = pointsByTitle.get(marker.plotTitle) ?? []
+    if (points.length === 0) pointsByTitle.set(marker.plotTitle, points)
+    points.push({ time: marker.time, originTime: marker.originTime, value: marker.price })
   })
-  return incoming.map((entry, index) => {
-    const previous = existingByKey.get(resolveFillMergeKey(entry, index))
-    if (!previous) return entry
+  return fills.map((fill) => {
+    const upperPoints = pointsByTitle.get(fill.upperPlotTitle ?? '') ?? []
+    const lowerPoints = pointsByTitle.get(fill.lowerPlotTitle ?? '') ?? []
+    const lowerByTime = new Map(
+      lowerPoints.flatMap((point) =>
+        point.value === null ? [] : ([[point.time, point.value]] as const)
+      )
+    )
     return {
-      ...entry,
-      points: mergeFillPoints(previous.points, entry.points),
+      ...fill,
+      points: upperPoints.flatMap((point) => {
+        const lower = lowerByTime.get(point.time)
+        return point.value === null || lower === undefined
+          ? []
+          : [{ time: point.time, upper: point.value, lower }]
+      }),
     }
   })
 }
@@ -363,6 +363,7 @@ const mergeMarkers = (
     [
       marker.time,
       marker.source ?? '',
+      marker.plotTitle ?? '',
       marker.position,
       marker.shape,
       marker.text ?? '',
@@ -392,12 +393,21 @@ const mergeIndicatorOutput = (
   replacedRange?: ProcessedRange,
   replacedMarkerRange?: ProcessedRange,
   executedRange?: ProcessedRange
-): NormalizedPineOutput => ({
-  ...incoming,
-  series: mergeSeriesEntries(existing.series, incoming.series, replacedRange),
-  fills: mergeFillEntries(existing.fills, incoming.fills),
-  markers: mergeMarkers(existing.markers, incoming.markers, replacedMarkerRange, executedRange),
-})
+): NormalizedPineOutput => {
+  const series = mergeSeriesEntries(existing.series, incoming.series, replacedRange)
+  const markers = mergeMarkers(
+    existing.markers,
+    incoming.markers,
+    replacedMarkerRange,
+    executedRange
+  )
+  return {
+    ...incoming,
+    series,
+    fills: alignFillEntries(incoming.fills, series, markers),
+    markers,
+  }
+}
 
 const buildInputsHash = (inputs: Record<string, unknown>) => {
   const sortedKeys = Object.keys(inputs).sort()

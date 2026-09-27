@@ -507,6 +507,7 @@ export function normalizeContext({
         markers.push({
           time: point.time,
           originTime: point.originTime,
+          plotTitle: title,
           position: 'atPriceMiddle',
           shape: 'circle',
           color: point.color ?? plotColor,

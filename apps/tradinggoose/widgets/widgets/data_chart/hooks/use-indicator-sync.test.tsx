@@ -34,6 +34,9 @@ const dataContext: DataChartDataContext = {
 }
 
 let indicatorSeriesAttached = false
+let attachedFillPrimitive: any = null
+const mockFillTimeToCoordinate = vi.fn((time: number) => time)
+const mockFillPriceToCoordinate = vi.fn((price: number) => price)
 const mainPane = {
   paneIndex: () => 0,
   getSeries: () => [mainSeries, ...(indicatorSeriesAttached ? [indicatorSeries] : [])],
@@ -50,6 +53,14 @@ const indicatorSeries = {
   seriesType: () => 'Line',
   setData: vi.fn(),
   setSeriesOrder: vi.fn(),
+  attachPrimitive: vi.fn((primitive) => {
+    attachedFillPrimitive = primitive
+    primitive.attached({
+      chart: { timeScale: () => ({ timeToCoordinate: mockFillTimeToCoordinate }) },
+      series: { priceToCoordinate: mockFillPriceToCoordinate },
+      requestUpdate: vi.fn(),
+    })
+  }),
 }
 const chart = {
   addSeries: vi.fn(() => {
@@ -102,6 +113,7 @@ describe('useIndicatorSync live source changes', () => {
     root = createRoot(container)
     indicatorRuntimeRef.current = new Map()
     indicatorSeriesAttached = false
+    attachedFillPrimitive = null
     dataContext.barsMsRef.current = bars
     dataContext.seriesVersion = 1
     dataContext.dataVersion = 1
@@ -218,7 +230,9 @@ describe('useIndicatorSync live source changes', () => {
     mockExecuteBrowserPineIndicator.mockImplementation(executeBrowserPineIndicator)
     const pineCode = `indicator('Warmup Marker', { overlay: true });
 const signalAvg = ta.ema(close, 50);
-plot(signalAvg, 'EMA', { offset: -2 });
+const closePlot = plot(close, 'Close');
+const averagePlot = plot(signalAvg, 'EMA', { offset: -2 });
+fill(averagePlot, closePlot);
 plotshape(close > nz(signalAvg, 0), {style: shape.triangleup, location: location.belowbar});
 plotshape(close > 105, {offset: -2, style: shape.triangleup, location: location.belowbar, text: 'offset'});
 plotshape(close > 105, {offset: 2, style: shape.triangledown, location: location.abovebar, text: 'future'});`
@@ -278,6 +292,16 @@ plotshape(close > 105, {offset: 2, style: shape.triangledown, location: location
     expect(mockExecuteBrowserPineIndicator.mock.lastCall![0].barsMs).toHaveLength(1200)
     expect(indicatorSeries.setData.mock.lastCall![0]).toContainEqual(historicalPoint)
     expect(indicatorSeries.setData.mock.lastCall![0]).not.toContainEqual(offsetSeriesPoint)
+    expect(attachedFillPrimitive).not.toBeNull()
+    mockFillTimeToCoordinate.mockClear()
+    mockFillPriceToCoordinate.mockClear()
+    attachedFillPrimitive.updateAllViews()
+    const historicalIndex = mockFillTimeToCoordinate.mock.calls.findIndex(
+      ([time]) => time === historicalTime
+    )
+    expect(mockFillPriceToCoordinate.mock.calls[historicalIndex * 2]?.[0]).toBeCloseTo(
+      historicalPoint.value
+    )
     expect(markerTimes()).toEqual(before.filter((time: number) => time !== latest.openTime / 1000))
 
     await renderBars([...history.slice(0, -1), { ...latest, close: 110 }])
