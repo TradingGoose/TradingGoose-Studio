@@ -110,10 +110,9 @@ export function ToolCredentialSelector({
   }, [selectionContext])
   const baseProviderConfig = OAUTH_PROVIDERS[parseProvider(provider).baseProvider]
   const providerConfig =
-    baseProviderConfig &&
-    (effectiveServiceIds.length === 1
-      ? getServiceByProviderAndId(provider, effectiveServiceIds[0])
-      : baseProviderConfig)
+    effectiveServiceIds.length === 1
+      ? baseProviderConfig?.services[effectiveServiceIds[0]]
+      : baseProviderConfig
   const {
     data: connections,
     isLoading: connectionsLoading,

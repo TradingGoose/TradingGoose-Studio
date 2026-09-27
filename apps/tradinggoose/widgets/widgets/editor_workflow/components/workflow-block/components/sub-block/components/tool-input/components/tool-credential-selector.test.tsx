@@ -130,7 +130,7 @@ describe('ToolCredentialSelector workspace connections', () => {
     await act(async () => button.click())
   }
 
-  it.each(['dropbox', 'asana', 'pipedrive'])(
+  it.each(['dropbox', 'asana', 'pipedrive', 'google-groups'])(
     'keeps the editor usable when %s OAuth metadata is unavailable',
     async (provider) => {
       await render()
