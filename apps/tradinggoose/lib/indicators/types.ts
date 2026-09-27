@@ -49,6 +49,7 @@ export type NormalizedPinePlot = {
 
 export type NormalizedPineSeriesPoint = {
   time: number
+  originTime?: number
   value: number | null
   color?: string
 }

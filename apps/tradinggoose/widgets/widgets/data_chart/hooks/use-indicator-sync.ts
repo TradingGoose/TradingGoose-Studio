@@ -285,11 +285,9 @@ const mergeSeriesPoints = (
   })
   incoming.forEach((point) => {
     const previous = byTime.get(point.time)
-    const replacesPoint =
-      replacedRange &&
-      point.time * 1000 >= replacedRange.startMs &&
-      point.time * 1000 <= replacedRange.endMs
-    if (previous && point.value === null && previous.value !== null && !replacesPoint) return
+    const sourceTime = point.originTime ?? point.time
+    if (previous && replacedRange && !isTimeInRange(sourceTime, replacedRange)) return
+    if (previous && !replacedRange && point.value === null && previous.value !== null) return
     byTime.set(point.time, point)
   })
   return Array.from(byTime.values()).sort((a, b) => a.time - b.time)
@@ -1086,17 +1084,19 @@ export const useIndicatorSync = ({
         const existingOutput = accumulatedOutputRef.current.get(indicatorId)
         const executedRange = executedRangeById.get(indicatorId)
         const previousRange = processedRangeRef.current.get(indicatorId)
+        const expandsLeft =
+          executedRange && previousRange && executedRange.startMs < previousRange.startMs
         const replacedRange =
-          executedRange && previousRange && executedRange.endMs >= previousRange.endMs
+          executedRange &&
+          previousRange &&
+          !expandsLeft &&
+          executedRange.endMs >= previousRange.endMs
             ? {
                 startMs: Math.max(executedRange.startMs, previousRange.endMs),
                 endMs: executedRange.endMs,
               }
             : undefined
-        const replacedMarkerRange =
-          executedRange && previousRange && executedRange.startMs < previousRange.startMs
-            ? executedRange
-            : replacedRange
+        const replacedMarkerRange = expandsLeft ? executedRange : replacedRange
         const nextOutput = existingOutput
           ? mergeIndicatorOutput(
               existingOutput,

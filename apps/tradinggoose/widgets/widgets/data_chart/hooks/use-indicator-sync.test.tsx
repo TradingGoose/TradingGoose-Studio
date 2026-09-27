@@ -211,15 +211,14 @@ describe('useIndicatorSync live source changes', () => {
     expect(mockExecuteBrowserPineIndicator).toHaveBeenCalledTimes(2)
   })
 
-  it('preserves historical Pine markers while replacing live offset signals', async () => {
+  it('preserves backfilled Pine output while updating live offsets', async () => {
     const { executeBrowserPineIndicator } = await vi.importActual<
       typeof import('@/lib/indicators/browser-execution')
     >('@/lib/indicators/browser-execution')
     mockExecuteBrowserPineIndicator.mockImplementation(executeBrowserPineIndicator)
     const pineCode = `indicator('Warmup Marker', { overlay: true });
-const avg = ta.sma(close, 14);
 const signalAvg = ta.ema(close, 50);
-plot(avg, 'SMA');
+plot(signalAvg, 'EMA', { offset: -2 });
 plotshape(close > nz(signalAvg, 0), {style: shape.triangleup, location: location.belowbar});
 plotshape(close > 105, {offset: -2, style: shape.triangleup, location: location.belowbar, text: 'offset'});
 plotshape(close > 105, {offset: 2, style: shape.triangledown, location: location.abovebar, text: 'future'});`
@@ -241,8 +240,13 @@ plotshape(close > 105, {offset: 2, style: shape.triangledown, location: location
     }
     const markerTimes = () =>
       mockSetMarkers.mock.lastCall![0].map(({ time }: { time: number }) => time)
+    const historicalTime = history[850]!.openTime / 1000
     await renderBars(history.slice(800))
     expect(markerTimes()).toContain(obsoleteMarkerTime)
+    const coldHistoricalPoint = indicatorSeries.setData.mock.lastCall![0].find(
+      (point: { time: number }) => point.time === historicalTime
+    )
+    expect(coldHistoricalPoint).toBeDefined()
     await renderBars(history)
     expect(markerTimes()).not.toContain(obsoleteMarkerTime)
     expect(mockSetMarkers.mock.lastCall![0]).toEqual(
@@ -259,24 +263,30 @@ plotshape(close > 105, {offset: 2, style: shape.triangledown, location: location
     )
     const latest = history.at(-1)!
     expect(before).toContain(latest.openTime / 1000)
-    const overlapValues = history.slice(800, 813).map((bar) => ({
-      time: bar.openTime / 1000,
-      value: 100.5,
-    }))
+    const historicalPoint = indicatorSeries.setData.mock.lastCall![0].find(
+      (point: { time: number }) => point.time === historicalTime
+    )
+    const offsetSeriesTime = history.at(-3)!.openTime / 1000
+    const offsetSeriesPoint = indicatorSeries.setData.mock.lastCall![0].find(
+      (point: { time: number }) => point.time === offsetSeriesTime
+    )
+    expect(historicalPoint).toBeDefined()
+    expect(historicalPoint).not.toEqual(coldHistoricalPoint)
+    expect(offsetSeriesPoint).toBeDefined()
 
     await renderBars([...history.slice(0, -1), { ...latest, close: 100 }])
     expect(mockExecuteBrowserPineIndicator.mock.lastCall![0].barsMs).toHaveLength(1200)
-    expect(indicatorSeries.setData.mock.lastCall![0]).toEqual(expect.arrayContaining(overlapValues))
+    expect(indicatorSeries.setData.mock.lastCall![0]).toContainEqual(historicalPoint)
+    expect(indicatorSeries.setData.mock.lastCall![0]).not.toContainEqual(offsetSeriesPoint)
     expect(markerTimes()).toEqual(before.filter((time: number) => time !== latest.openTime / 1000))
 
-    const offsetMarkerTime = history.at(-3)!.openTime / 1000
     await renderBars([...history.slice(0, -1), { ...latest, close: 110 }])
     expect(mockSetMarkers.mock.lastCall![0]).toContainEqual(
-      expect.objectContaining({ time: offsetMarkerTime, text: 'offset' })
+      expect.objectContaining({ time: offsetSeriesTime, text: 'offset' })
     )
     await renderBars([...history.slice(0, -1), { ...latest, close: 100 }])
     expect(mockSetMarkers.mock.lastCall![0]).not.toContainEqual(
-      expect.objectContaining({ time: offsetMarkerTime, text: 'offset' })
+      expect.objectContaining({ time: offsetSeriesTime, text: 'offset' })
     )
   })
 

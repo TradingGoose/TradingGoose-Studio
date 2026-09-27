@@ -517,7 +517,9 @@ export function normalizeContext({
     }
 
     if (resolvedStyle.seriesType) {
-      const points = resolvedPoints.map(({ originTime: _originTime, ...point }) => point)
+      const points = resolvedPoints.map(({ originTime, ...point }) =>
+        originTime === point.time ? point : { ...point, originTime }
+      )
       series.push({ plot: plotDescriptor, points })
     }
   })
