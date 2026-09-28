@@ -223,6 +223,35 @@ describe('useIndicatorSync live source changes', () => {
     expect(mockExecuteBrowserPineIndicator).toHaveBeenCalledTimes(2)
   })
 
+  it('replaces indicator values after an older candle is corrected', async () => {
+    const render = async () => {
+      await act(async () => root.render(<Harness pineCode='plot(close)' />))
+      await act(async () => vi.runAllTimersAsync())
+    }
+    const history = Array.from({ length: 500 }, (_, index) => ({
+      ...bars[0]!,
+      openTime: (index + 1) * 1_000,
+      closeTime: (index + 2) * 1_000,
+      high: 100,
+      close: 11 + (index % 3),
+    }))
+    dataContext.barsMsRef.current = history
+    await render()
+
+    dataContext.barsMsRef.current = [
+      ...history.slice(0, 10),
+      { ...history[10]!, close: 99 },
+      ...history.slice(11),
+      { ...history[499]!, openTime: 501_000, closeTime: 502_000, close: 14 },
+    ]
+    dataContext.dataVersion += 1
+    await render()
+
+    expect(mockExecuteBrowserPineIndicator.mock.lastCall![0].barsMs[10].close).toBe(99)
+    expect(indicatorSeries.setData.mock.lastCall![0]).toContainEqual({ time: 11, value: 99 })
+    expect(indicatorSeries.setData.mock.lastCall![0]).toContainEqual({ time: 501, value: 14 })
+  })
+
   it('preserves backfilled Pine output while updating live offsets', async () => {
     const { executeBrowserPineIndicator } = await vi.importActual<
       typeof import('@/lib/indicators/browser-execution')

@@ -34,6 +34,7 @@ import {
   type DataChartCopy,
   formatDataChartIndicatorPlotFallback,
 } from '@/widgets/widgets/data_chart/copy'
+import type { BarMs } from '@/widgets/widgets/data_chart/series-data'
 import type {
   DataChartDataContext,
   IndicatorDocumentRuntimeSource,
@@ -222,6 +223,11 @@ type ProcessedRange = {
   endMs: number
 }
 
+type ProcessedState = ProcessedRange & { sourceBars: Map<number, string> }
+
+const getSourceBarSignature = (bar: BarMs) =>
+  [bar.closeTime, bar.open, bar.high, bar.low, bar.close, bar.volume, bar.turnover].join(':')
+
 const isTimeInRange = (time: number, range?: ProcessedRange) =>
   range !== undefined &&
   time >= Math.floor(range.startMs / 1000) &&
@@ -230,7 +236,8 @@ const isTimeInRange = (time: number, range?: ProcessedRange) =>
 const resolveMissingChunk = (
   bars: DataChartDataContext['barsMsRef']['current'],
   range: ProcessedRange | undefined,
-  maxBars: number
+  maxBars: number,
+  correctedStartMs?: number
 ) => {
   if (bars.length === 0) return null
   if (!range) {
@@ -243,6 +250,12 @@ const resolveMissingChunk = (
   const lastOpenTime = bars[bars.length - 1]?.openTime
   if (typeof firstOpenTime !== 'number' || typeof lastOpenTime !== 'number') {
     return null
+  }
+  const latestStartIndex = Math.max(0, bars.length - maxBars)
+  const correctedIndex =
+    correctedStartMs === undefined ? -1 : bars.findIndex((bar) => bar.openTime >= correctedStartMs)
+  if (correctedIndex >= latestStartIndex) {
+    return bars.slice(latestStartIndex)
   }
   if (range.startMs <= firstOpenTime && range.endMs >= lastOpenTime) {
     return bars.slice(-maxBars)
@@ -759,7 +772,7 @@ export const useIndicatorSync = ({
     new Map<string, Map<string, FillPrimitiveAttachment>>()
   )
   const accumulatedOutputRef = useRef(new Map<string, NormalizedPineOutput>())
-  const processedRangeRef = useRef(new Map<string, ProcessedRange>())
+  const processedRangeRef = useRef(new Map<string, ProcessedState>())
   const accumulationBaseRef = useRef(new Map<string, string>())
   const indicatorIdsRef = useRef<Set<string>>(new Set())
   const indicatorSignatureRef = useRef(new Map<string, string>())
@@ -985,11 +998,18 @@ export const useIndicatorSync = ({
         { bars: typeof executionBars; inputs: ExecutionInput[] }
       >()
       const executedRangeById = new Map<string, ProcessedRange>()
+      const executedBarsById = new Map<string, BarMs[]>()
       indicatorInputs.forEach((entry) => {
+        const processedState = processedRangeRef.current.get(entry.id)
+        const correctedStartMs = executionBars.slice(-MAX_EXECUTION_CHUNK_BARS).find((bar) => {
+          const previous = processedState?.sourceBars.get(bar.openTime)
+          return previous !== undefined && previous !== getSourceBarSignature(bar)
+        })?.openTime
         const chunk = resolveMissingChunk(
           executionBars,
-          processedRangeRef.current.get(entry.id),
-          MAX_EXECUTION_CHUNK_BARS
+          processedState,
+          MAX_EXECUTION_CHUNK_BARS,
+          correctedStartMs
         )
         if (!chunk || chunk.length === 0) return
         const startMs = chunk[0]!.openTime
@@ -1005,6 +1025,7 @@ export const useIndicatorSync = ({
           })
         }
         executedRangeById.set(entry.id, { startMs, endMs })
+        executedBarsById.set(entry.id, chunk)
       })
 
       const resultById = new Map<string, ExecuteResult>()
@@ -1071,12 +1092,13 @@ export const useIndicatorSync = ({
         if (!range) return
         const previous = processedRangeRef.current.get(indicatorId)
         if (!previous) {
-          processedRangeRef.current.set(indicatorId, range)
+          processedRangeRef.current.set(indicatorId, { ...range, sourceBars: new Map() })
           return
         }
         processedRangeRef.current.set(indicatorId, {
           startMs: Math.min(previous.startMs, range.startMs),
           endMs: Math.max(previous.endMs, range.endMs),
+          sourceBars: previous.sourceBars,
         })
       }
 
@@ -1093,16 +1115,23 @@ export const useIndicatorSync = ({
         }
         const existingOutput = accumulatedOutputRef.current.get(indicatorId)
         const executedRange = executedRangeById.get(indicatorId)
+        const executedBars = executedBarsById.get(indicatorId)
         const previousRange = processedRangeRef.current.get(indicatorId)
+        const processedBars = previousRange?.sourceBars
+        const correctedStartMs = executedBars?.reduce<number | undefined>((earliest, bar) => {
+          const previousBar = processedBars?.get(bar.openTime)
+          if (!previousBar || previousBar === getSourceBarSignature(bar)) return earliest
+          return earliest === undefined ? bar.openTime : Math.min(earliest, bar.openTime)
+        }, undefined)
         const expandsLeft =
           executedRange && previousRange && executedRange.startMs < previousRange.startMs
         const replacedRange =
           executedRange &&
           previousRange &&
-          !expandsLeft &&
-          executedRange.endMs >= previousRange.endMs
+          (correctedStartMs !== undefined ||
+            (!expandsLeft && executedRange.endMs >= previousRange.endMs))
             ? {
-                startMs: Math.max(executedRange.startMs, previousRange.endMs),
+                startMs: correctedStartMs ?? Math.max(executedRange.startMs, previousRange.endMs),
                 endMs: executedRange.endMs,
               }
             : undefined
@@ -1118,6 +1147,8 @@ export const useIndicatorSync = ({
           : result.output
         accumulatedOutputRef.current.set(indicatorId, nextOutput)
         extendProcessedRange(indicatorId, executedRange)
+        const sourceBars = processedRangeRef.current.get(indicatorId)?.sourceBars
+        executedBars?.forEach((bar) => sourceBars?.set(bar.openTime, getSourceBarSignature(bar)))
       })
 
       const markerEntries: Array<{
