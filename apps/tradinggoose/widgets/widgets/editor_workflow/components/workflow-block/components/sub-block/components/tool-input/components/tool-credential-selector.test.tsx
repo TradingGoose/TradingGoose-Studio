@@ -156,6 +156,20 @@ describe('ToolCredentialSelector workspace connections', () => {
     }
   )
 
+  it('normalizes the Gmail AI tool provider before reading service metadata', async () => {
+    fetchMock.mockResolvedValue(Response.json({ credentials: [], connections: [] }))
+    await render('workspace', 'google-email')
+
+    expect(container.querySelector('[data-trigger]')).not.toBeNull()
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/auth/oauth/credentials?provider=google-email&workflowId=workflow'
+    )
+    await select('Select Gmail account')
+    expect(oauthModal).toHaveBeenLastCalledWith(
+      expect.objectContaining({ isOpen: true, provider: 'google-email', serviceId: 'gmail' })
+    )
+  })
+
   it('saves a personal connection before selecting its workspace credential', async () => {
     await render('workspace', 'robinhood', 'workspace-1')
     expect(fetchMock.mock.calls[0]?.[0]).toContain('workspaceId=workspace-1')
