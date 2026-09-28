@@ -101,6 +101,7 @@ export function ToolCredentialSelector({
     disabled,
   ])
   const latestSelectionContext = useLatestRef(selectionContext)
+  const latestOnChange = useLatestRef(onChange)
   useEffect(() => {
     setIsSaving(false)
     setSaveError(null)
@@ -245,7 +246,7 @@ export function ToolCredentialSelector({
       }
     }
     if (!ownsRequest()) return
-    onChange(credentialId)
+    latestOnChange.current(credentialId)
     setOpen(false)
   }
 

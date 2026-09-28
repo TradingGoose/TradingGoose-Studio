@@ -104,7 +104,8 @@ describe('ToolCredentialSelector workspace connections', () => {
   const render = async (
     credentialSource: 'workspace' | 'personal' = 'workspace',
     provider = 'robinhood',
-    workspaceId?: string
+    workspaceId?: string,
+    handleChange = onChange
   ) => {
     await act(async () =>
       root.render(
@@ -114,7 +115,7 @@ describe('ToolCredentialSelector workspace connections', () => {
           credentialSource={credentialSource}
           workspaceId={workspaceId}
           value=''
-          onChange={onChange}
+          onChange={handleChange}
           id='connection'
           label='Connection'
           aria-invalid
@@ -208,10 +209,11 @@ describe('ToolCredentialSelector workspace connections', () => {
     expect(container.querySelector('[role="alert"]')?.textContent).toContain('Could not save')
   })
 
-  it.each(['provider', 'round-trip', 'unmount', 'failure'])(
-    'discards an outdated connection publication after %s',
+  it.each(['callback', 'provider', 'round-trip', 'unmount', 'failure'])(
+    'finishes pending connection publication safely after %s transition',
     async (transition) => {
       await render()
+      const latestChange = vi.fn()
       let finish!: (response: Response) => void
       fetchMock.mockImplementationOnce(
         () =>
@@ -220,7 +222,9 @@ describe('ToolCredentialSelector workspace connections', () => {
           })
       )
       await select('Personal')
-      if (transition === 'unmount') {
+      if (transition === 'callback') {
+        await render('workspace', 'robinhood', undefined, latestChange)
+      } else if (transition === 'unmount') {
         await act(async () => root.render(null))
       } else {
         await render('workspace', 'tradier')
@@ -237,6 +241,9 @@ describe('ToolCredentialSelector workspace connections', () => {
         )
       )
       expect(onChange).not.toHaveBeenCalled()
+      if (transition === 'callback') {
+        expect(latestChange).toHaveBeenCalledExactlyOnceWith('old-credential')
+      }
       expect(container.querySelector('[role="alert"]')).toBeNull()
     }
   )
