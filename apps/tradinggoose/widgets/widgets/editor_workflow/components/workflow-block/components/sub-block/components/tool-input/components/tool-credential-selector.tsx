@@ -84,9 +84,9 @@ export function ToolCredentialSelector({
       Array.from(
         new Set(
           serviceIds?.length
-            ? serviceIds
+            ? serviceIds.flatMap((id) => getServiceIdsFromScopes(id, []))
             : serviceId
-              ? [serviceId]
+              ? getServiceIdsFromScopes(serviceId, [])
               : getServiceIdsFromScopes(provider, requiredScopes ?? [])
         )
       ),
