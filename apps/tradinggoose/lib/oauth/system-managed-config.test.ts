@@ -135,7 +135,7 @@ describe('system managed oauth client credentials', () => {
     const { ensureRobinhoodOAuthClient } = await import('./system-managed-config')
 
     await expect(ensureRobinhoodOAuthClient('https://studio.example/callback')).rejects.toThrow(
-      'Robinhood OAuth client is registered for a different redirect URI'
+      'Robinhood OAuth registration bundle:robinhood uses stored redirect URI "https://old.example/callback". Delete its client_id and redirect_uri entries from system_integration_secret, then reconnect Robinhood accounts.'
     )
 
     expect(lock).toHaveBeenCalledOnce()

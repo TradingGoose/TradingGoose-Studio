@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { v4 as uuidv4 } from 'uuid'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import {
   getListingIdentityKey,
@@ -135,7 +136,7 @@ export const useMarketQuoteSnapshots = ({
     const acknowledgedClientSubscriptionIds = new Set<string>()
     const identityByClientSubscriptionId = new Map<string, string>()
     const clientSubscriptionIds = normalizedItems.subscriptions.map((item) => {
-      const clientSubscriptionId = `market-quote:${crypto.randomUUID()}`
+      const clientSubscriptionId = `market-quote:${uuidv4()}`
       identityByClientSubscriptionId.set(clientSubscriptionId, item.identityKey)
       return {
         ...item,

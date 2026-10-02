@@ -159,8 +159,11 @@ export async function ensureRobinhoodOAuthClient(redirectUri: string): Promise<s
     }
     const clientId = stored.get('client_id')
     if (clientId) {
-      if (stored.get('redirect_uri') !== redirectUri) {
-        throw new Error('Robinhood OAuth client is registered for a different redirect URI')
+      const storedRedirectUri = stored.get('redirect_uri')
+      if (storedRedirectUri !== redirectUri) {
+        throw new Error(
+          `Robinhood OAuth registration ${definitionId} uses stored redirect URI "${storedRedirectUri}". Delete its client_id and redirect_uri entries from system_integration_secret, then reconnect Robinhood accounts.`
+        )
       }
       return clientId
     }
