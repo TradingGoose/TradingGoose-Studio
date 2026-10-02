@@ -228,4 +228,35 @@ describe('useMarketQuoteSnapshots', () => {
       })
     )
   })
+
+  it('isolates pending subscriptions across hook instances', async () => {
+    const renderProviders = async (providers: string[]) =>
+      act(async () => {
+        root.render(
+          <>
+            {providers.map((provider) => (
+              <Harness key={provider} provider={provider} onUpdate={() => undefined} />
+            ))}
+          </>
+        )
+      })
+    await renderProviders(['alpaca', 'tradier'])
+
+    const subscribePayloads = socketMock.emit.mock.calls
+      .filter(([event]) => event === 'market-subscribe')
+      .map(([, payload]) => payload)
+    const first = subscribePayloads.find((payload) => payload.provider === 'alpaca')
+    const second = subscribePayloads.find((payload) => payload.provider === 'tradier')
+    expect(first.clientSubscriptionId).not.toBe(second.clientSubscriptionId)
+
+    socketMock.emit.mockClear()
+    await renderProviders(['tradier'])
+
+    expect(socketMock.emit).toHaveBeenCalledExactlyOnceWith('market-unsubscribe', {
+      clientSubscriptionId: first.clientSubscriptionId,
+    })
+    expect(socketMock.emit).not.toHaveBeenCalledWith('market-unsubscribe', {
+      clientSubscriptionId: second.clientSubscriptionId,
+    })
+  })
 })

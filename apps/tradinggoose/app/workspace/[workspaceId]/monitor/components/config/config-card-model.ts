@@ -1,5 +1,6 @@
 import { getListingIdentitySymbol, type ListingIdentity } from '@/lib/listing/identity'
 import { PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
+import { getPortfolioAccountLabel } from '@/providers/trading/portfolio-identity'
 import type { MonitorExecutionOutcome } from '../data/execution-ordering'
 import type { MonitorExecutionSummary } from '../data/use-monitor-execution-summaries'
 import type { MonitorRecord, MonitorReferenceData } from '../shared/types'
@@ -107,7 +108,7 @@ export const buildConfigMonitorCards = (
       listing: monitorConfig.listing ?? null,
       listingValue,
       listingLabel: isPortfolio
-        ? (monitorConfig.accountId ?? 'Portfolio account')
+        ? getPortfolioAccountLabel(monitorConfig) || 'Portfolio account'
         : monitorConfig.listing
           ? getListingIdentitySymbol(monitorConfig.listing)
           : (options?.unknownListingLabel ?? 'Unknown listing'),

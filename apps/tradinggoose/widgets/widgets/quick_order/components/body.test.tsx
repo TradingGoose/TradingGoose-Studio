@@ -344,6 +344,40 @@ describe('QuickOrderWidgetBody', () => {
     expect(mockUseOAuthConnections).toHaveBeenCalled()
   })
 
+  it.each(['alpaca', 'tradier', 'robinhood'])(
+    'prompts for configuration while %s accounts are being discovered',
+    async (provider) => {
+      mockUseOAuthProviderAvailability.mockReturnValue(queryResult({ isLoading: true }))
+      mockUseOAuthConnections.mockReturnValue(queryResult({ isLoading: true }))
+      mockUsePortfolioIdentities.mockReturnValue(queryResult({ isLoading: true }))
+      await renderBody(container, root, { provider, marketProvider: 'robinhood' })
+      expect(container.textContent).toContain('Select a broker connection to submit an order.')
+      expect(container.querySelector('svg')).toBeNull()
+
+      const serviceId = provider === 'robinhood' ? provider : `${provider}-live`
+      mockUseOAuthProviderAvailability.mockReturnValue(queryResult({ data: { [serviceId]: true } }))
+      mockUseOAuthConnections.mockReturnValue(
+        queryResult({ data: [{ providerId: serviceId, isConnected: true }] })
+      )
+      await renderBody(container, root, { provider, serviceId, marketProvider: 'robinhood' })
+      expect(container.textContent).toContain('Select a broker connection to submit an order.')
+      expect(container.querySelector('svg')).toBeNull()
+
+      const selected = { ...portfolioIdentity, providerId: provider, serviceId }
+      mockUsePortfolioIdentities.mockReturnValue(queryResult({ data: [selected] }))
+      await renderBody(container, root, { provider, serviceId, portfolioIdentity: selected })
+      expect(container.querySelector('[data-testid="listing-selector"]')).not.toBeNull()
+      expect(container.textContent).not.toContain('Select a broker connection to submit an order.')
+    }
+  )
+
+  it('does not show trading loading when only a market source is selected', async () => {
+    mockUseOAuthProviderAvailability.mockReturnValue(queryResult({ isLoading: true }))
+    await renderBody(container, root, { marketProvider: 'robinhood' })
+    expect(container.textContent).toContain('Select a trading provider to get started.')
+    expect(container.querySelector('svg')).toBeNull()
+  })
+
   it('keeps listing selector state scoped to a stable trading instance and resets on unmount', async () => {
     await renderBody(container, root, defaultParams)
 
@@ -636,7 +670,8 @@ describe('QuickOrderWidgetBody', () => {
 
     expect(container.querySelectorAll('[role="status"]')).toHaveLength(1)
     expect(container.textContent).toContain('Order order-1')
-    expect(container.textContent).toContain('alpaca / acct-1')
+    expect(container.textContent).toContain('alpaca / Paper Account')
+    expect(container.textContent).not.toContain(portfolioIdentity.accountId)
     expect(container.textContent).toContain('AAPL · BUY')
     expect(container.textContent).toContain('Order accepted')
     expect(payload).not.toHaveProperty('tokenAccountId')

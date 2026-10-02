@@ -443,6 +443,8 @@ describe('PortfolioSnapshotWidgetBody', () => {
 
     expect(container.textContent).toContain('Performance')
     expect(container.textContent).toContain('Current Summary')
+    expect(container.textContent).toContain(selectedPortfolioIdentity.accountName)
+    expect(container.textContent).not.toContain(selectedPortfolioIdentity.accountId)
     expect(container.textContent).toContain('Portfolio Value')
     expect(container.textContent).toContain('Market Quotes')
     expect(container.textContent).toContain('Quote Value')

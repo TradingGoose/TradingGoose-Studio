@@ -139,6 +139,7 @@ describe('WatchlistHeaderLeftControls', () => {
     })
 
     expect(mockPatchWidgetParams).toHaveBeenCalledWith({
+      provider: 'alpaca',
       providerParams: { feed: 'iex' },
       auth: { apiKey: '{{ ALPACA_API_KEY }}' },
       runtime: {

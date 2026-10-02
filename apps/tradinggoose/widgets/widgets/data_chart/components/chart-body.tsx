@@ -117,6 +117,7 @@ export const DataChartWidgetBody = ({ params, context, panelId, widget }: Widget
       openTimeMsByIndexRef: { current: [] as number[] },
       marketSessionsRef: { current: [] as MarketSessionWindow[] },
       intervalMs: null,
+      seriesVersion: 0,
       dataVersion: 0,
     }),
     [chartResetKey]
@@ -181,7 +182,7 @@ export const DataChartWidgetBody = ({ params, context, panelId, widget }: Widget
     setIndicatorRuntimeVersion((prev) => prev + 1)
   }, [])
 
-  const { seriesTimezone, chartError, isLoading } = useChartDataLoader({
+  const { seriesTimezone, chartError, liveError, isLoading } = useChartDataLoader({
     chartRef,
     chartContainerRef,
     mainSeriesRef,
@@ -508,6 +509,11 @@ export const DataChartWidgetBody = ({ params, context, panelId, widget }: Widget
         onChange={handleCustomIndicatorChange}
         onFailureChange={handleCustomIndicatorFailureChange}
       />
+      {!showEmptyState && !showErrorState && liveError && (
+        <div role='status' className='shrink-0 px-2 py-1 text-destructive text-xs'>
+          {liveError}
+        </div>
+      )}
       <div className='relative flex-1 overflow-hidden'>
         {!showEmptyState && !showErrorState && (
           <DrawToolsSidebar

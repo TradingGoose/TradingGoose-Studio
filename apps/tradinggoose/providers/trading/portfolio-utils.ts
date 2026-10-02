@@ -10,6 +10,7 @@ export class TradingBrokerRequestError extends Error {
   providerId: string
   url: string
   payload?: unknown
+  submissionUnknown?: boolean
 
   constructor(input: {
     message: string
@@ -17,6 +18,7 @@ export class TradingBrokerRequestError extends Error {
     status: number
     url: string
     payload?: unknown
+    submissionUnknown?: boolean
   }) {
     super(input.message)
     this.name = 'TradingBrokerRequestError'
@@ -24,6 +26,7 @@ export class TradingBrokerRequestError extends Error {
     this.providerId = input.providerId
     this.url = input.url
     this.payload = input.payload
+    this.submissionUnknown = input.submissionUnknown
   }
 }
 

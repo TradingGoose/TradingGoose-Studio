@@ -174,7 +174,7 @@ describe('documentation regeneration boundaries', () => {
 
     expect(first['trading_action.mdx']).toContain('title: Trading Action')
     expect(first['trading_action.mdx']).toContain(
-      `"description": "Shown when orderSizingMode is not 'notional' and provider is one of 'alpaca', 'tradier'."`
+      `"description": "Shown when orderSizingMode is not 'notional' and provider is one of 'alpaca', 'tradier', 'robinhood'."`
     )
     expect(first['historical_data.mdx']).not.toContain('STALE UNMARKED CONTENT')
     expect(first['supplemental-tool.mdx']).toBe('HAND-WRITTEN TOOL PAGE')

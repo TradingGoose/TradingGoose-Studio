@@ -173,7 +173,7 @@ export function MarketProviderSettingsButton({
     paramValuesRef.current = {}
     changedParamIdsRef.current = new Set()
     setInputValues({})
-  }, [settingsOpen])
+  }, [settingsOpen, trimmedProviderId])
 
   useEffect(() => {
     if (disabled) setSettingsOpen(false)
@@ -330,6 +330,10 @@ export function MarketProviderSettingsButton({
               )
             }
 
+            const onTextChange = (value: string) => {
+              setInputValues((current) => ({ ...current, [definition.id]: value }))
+              handleParamChange(definition.id, value)
+            }
             return (
               <div key={`${trimmedProviderId}-${definition.id}`} className='space-y-1'>
                 <Label htmlFor={inputId} className='text-xs'>
@@ -341,13 +345,7 @@ export function MarketProviderSettingsButton({
                   definition={definition}
                   isCredential={isCredential}
                   value={controlledValue}
-                  onChange={(value) => {
-                    setInputValues((current) => ({
-                      ...current,
-                      [definition.id]: value,
-                    }))
-                    handleParamChange(definition.id, value)
-                  }}
+                  onChange={onTextChange}
                   workspaceId={workspaceId}
                 />
               </div>

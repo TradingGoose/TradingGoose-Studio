@@ -274,13 +274,22 @@ export function QuickOrderWidgetBody({
     !providerAvailabilityQuery.isLoading &&
     !providerAvailabilityQuery.error &&
     providerOptions.length > 0
-  const { accountsQuery, activeServiceId, activePortfolioIdentity, services, portfolioIdentities } =
-    usePortfolioIdentitySelection({
-      providerId,
-      serviceId: quickOrderParams?.serviceId,
-      portfolioIdentity: quickOrderParams?.portfolioIdentity,
-      enabled: areProviderOptionsReady && hasSelectedProvider,
-    })
+  const {
+    accountsQuery,
+    activeServiceId,
+    activePortfolioIdentity,
+    selectedPortfolioIdentity,
+    services,
+    portfolioIdentities,
+  } = usePortfolioIdentitySelection({
+    providerId,
+    serviceId: quickOrderParams?.serviceId,
+    portfolioIdentity: quickOrderParams?.portfolioIdentity,
+    enabled:
+      areProviderOptionsReady &&
+      hasSelectedProvider &&
+      Boolean(quickOrderParams?.portfolioIdentity),
+  })
   const accountSnapshotQuery = usePortfolioDetail({
     workspaceId: workspaceId ?? undefined,
     provider: hasSelectedProvider && areProviderOptionsReady ? providerId : undefined,
@@ -579,6 +588,14 @@ export function QuickOrderWidgetBody({
     }
   }, [listingInstanceId, resetListingSelector])
 
+  if (!quickOrderParams?.provider?.trim()) {
+    return <CenterState>{copy.body.selectTradingProviderToGetStarted}</CenterState>
+  }
+
+  if (providerId && selectedPortfolioIdentity?.providerId !== providerId) {
+    return <CenterState>{copy.body.selectBrokerConnectionToSubmitAnOrder}</CenterState>
+  }
+
   if (providerAvailabilityQuery.isLoading) {
     return (
       <div className={centerStateClassName}>
@@ -635,6 +652,7 @@ export function QuickOrderWidgetBody({
   const acceptedResponse = submitOrder.data?.response
   const order = acceptedResponse?.order
   const submittedSide = submitOrder.variables?.request.side ?? side
+  const submittedAccountLabel = submitOrder.variables?.request.portfolioIdentity.accountName
 
   const handleSubmit = () => {
     if (
@@ -950,11 +968,9 @@ export function QuickOrderWidgetBody({
                   ? `${order.id ? `${copy.body.orderPrefix} ${order.id}` : copy.body.orderSubmitted}${order.status ? ` · ${order.status}` : ''}`
                   : (acceptedResponse.message ?? copy.body.orderSubmitted)}
               </div>
-              {acceptedResponse.provider || acceptedResponse.accountId ? (
+              {acceptedResponse.provider || submittedAccountLabel ? (
                 <div>
-                  {[acceptedResponse.provider, acceptedResponse.accountId]
-                    .filter(Boolean)
-                    .join(' / ')}
+                  {[acceptedResponse.provider, submittedAccountLabel].filter(Boolean).join(' / ')}
                 </div>
               ) : null}
               {order ? (

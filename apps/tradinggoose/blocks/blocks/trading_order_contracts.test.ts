@@ -130,14 +130,14 @@ describe('trading order block contracts', () => {
         field: 'orderSizingMode',
         value: ['notional'],
         not: true,
-        and: { field: 'provider', value: ['alpaca', 'tradier'] },
+        and: { field: 'provider', value: ['alpaca', 'tradier', 'robinhood'] },
       })
     )
     expect(notional?.condition).toEqual(
       expect.objectContaining({
         field: 'orderSizingMode',
         value: ['notional'],
-        and: { field: 'provider', value: ['alpaca'] },
+        and: { field: 'provider', value: ['alpaca', 'robinhood'] },
       })
     )
 

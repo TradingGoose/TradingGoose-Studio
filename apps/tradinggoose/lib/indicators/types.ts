@@ -49,6 +49,7 @@ export type NormalizedPinePlot = {
 
 export type NormalizedPineSeriesPoint = {
   time: number
+  originTime?: number
   value: number | null
   color?: string
 }
@@ -86,6 +87,8 @@ export type SeriesMarkerShape = 'circle' | 'square' | 'arrowUp' | 'arrowDown'
 
 export type NormalizedPineMarker = {
   time: number
+  originTime: number
+  plotTitle?: string
   position: SeriesMarkerPosition
   shape: SeriesMarkerShape
   source?: 'trigger'

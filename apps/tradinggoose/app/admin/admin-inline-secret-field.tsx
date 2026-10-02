@@ -17,6 +17,7 @@ interface AdminInlineSecretFieldProps {
   editStartValue?: string
   isSensitive?: boolean
   disabled?: boolean
+  readOnly?: boolean
   onSave: (value: string) => unknown
   onClear?: () => unknown
 }
@@ -32,6 +33,7 @@ export function AdminInlineSecretField({
   editStartValue = '',
   isSensitive = true,
   disabled = false,
+  readOnly = false,
   onSave,
   onClear,
 }: AdminInlineSecretFieldProps) {
@@ -66,7 +68,7 @@ export function AdminInlineSecretField({
         </Badge>
       </div>
 
-      {isEditing ? (
+      {isEditing && !readOnly ? (
         <div className='flex items-center gap-2'>
           <Button
             type='button'
@@ -134,18 +136,20 @@ export function AdminInlineSecretField({
               {hasValue ? MASKED_SECRET_VALUE : 'Not set'}
             </code>
           </div>
-          <Button
-            type='button'
-            variant='ghost'
-            size='icon'
-            className='h-8 w-8 text-muted-foreground'
-            disabled={isBusy}
-            onClick={() => setIsEditing(true)}
-          >
-            <Pencil className='h-4 w-4' />
-            <span className='sr-only'>Edit {label}</span>
-          </Button>
-          {onClear ? (
+          {readOnly ? null : (
+            <Button
+              type='button'
+              variant='ghost'
+              size='icon'
+              className='h-8 w-8 text-muted-foreground'
+              disabled={isBusy}
+              onClick={() => setIsEditing(true)}
+            >
+              <Pencil className='h-4 w-4' />
+              <span className='sr-only'>Edit {label}</span>
+            </Button>
+          )}
+          {!readOnly && onClear ? (
             <Button
               type='button'
               variant='outline'

@@ -1,29 +1,30 @@
 import { createHash, randomUUID } from 'crypto'
+import { resolveOAuthCredentialAccountForUser } from '@/lib/credentials/oauth'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
-import {
-  areListingIdentitiesEqual,
-  type ListingIdentity,
-  ListingIdentitySchema,
-} from '@/lib/listing/identity'
+import { type ListingIdentity, ListingIdentitySchema } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   createEmptyMarketQuoteSnapshot,
   type MarketQuoteSnapshot,
 } from '@/lib/market/quote-snapshot-contract'
 import { buildMarketQuoteSnapshot } from '@/lib/market/quote-snapshots'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { executeProviderRequest } from '@/providers/market'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
 import {
   getMarketProviderConfig,
+  getMarketProviderDefinition,
   getMarketProviderPollingIntervalMs,
 } from '@/providers/market/providers'
+import { intervalToMs } from '@/providers/market/series-planner'
 import type {
   MarketBar,
   MarketProviderAuth,
   MarketProviderParams,
   MarketSeries,
+  NormalizationMode,
 } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 import type { AuthenticatedSocket } from '@/socket-server/middleware/auth'
@@ -37,22 +38,21 @@ import { FinnhubMarketStream } from './finnhub'
 
 const logger = createLogger('MarketStreamManager')
 const DEFAULT_POLLING_INTERVAL_MS = 15_000
-const MIN_POLLING_INTERVAL_MS = 5_000
 const POLLING_CONCURRENCY = 5
+const MAX_RECOVERY_BARS = 2_000
 
 export type MarketProviderId = 'alpaca' | 'finnhub'
-export type PollingMarketProviderId = string
-export type AnyMarketProviderId = string
 export type MarketStreamChannel = 'bars' | 'trades' | 'quotes'
 export type MarketChannel = MarketStreamChannel | 'quote-snapshots'
 
 export interface MarketSubscribePayload {
-  provider?: AnyMarketProviderId
+  provider?: string
   clientSubscriptionId?: string
   workspaceId?: string
   listing?: ListingIdentity
   channel?: MarketChannel
   interval?: string
+  normalizationMode?: NormalizationMode
   market?: AlpacaMarket
   feed?: AlpacaFeed
   cryptoRegion?: AlpacaCryptoRegion
@@ -66,17 +66,16 @@ export interface MarketSubscribePayload {
 export interface MarketUnsubscribePayload {
   subscriptionId?: string
   clientSubscriptionId?: string
-  listing?: ListingIdentity
-  symbol?: string
-  provider?: AnyMarketProviderId
 }
+
+type OAuthConnection = NonNullable<Awaited<ReturnType<typeof resolveOAuthCredentialAccountForUser>>>
 
 export interface MarketSubscriptionInfo {
   subscriptionId: string
   clientSubscriptionId?: string
   listing: ListingIdentity | null
   symbol: string
-  provider: AnyMarketProviderId
+  provider: string
   market: AlpacaMarket
   channel: MarketChannel
   interval?: string
@@ -84,11 +83,13 @@ export interface MarketSubscriptionInfo {
 
 interface MarketSubscriptionRecord extends MarketSubscriptionInfo {
   streamKey: string
+  workspaceId?: string
   socketId: string
   socket: AuthenticatedSocket
   upstreamChannel?: MarketStreamChannel
   listingBase?: string
   listingQuote?: string
+  oauthConnection?: OAuthConnection
 }
 
 type MarketStream = {
@@ -99,56 +100,102 @@ type MarketStream = {
 
 interface StreamState {
   stream?: MarketStream
-  provider: AnyMarketProviderId
+  provider: string
   market: AlpacaMarket
   feed?: AlpacaFeed
   cryptoRegion?: AlpacaCryptoRegion
   auth?: MarketProviderAuth
   providerParams?: MarketProviderParams
+  normalizationMode?: NormalizationMode
   pollingTimer?: ReturnType<typeof setInterval>
   pollingInFlight?: boolean
-  pollingIntervalMs?: number
   quoteSnapshotCache: Map<string, MarketQuoteSnapshot>
   marketBarCache: Map<string, MarketBar>
   subscribersBySymbol: Map<string, Map<string, MarketSubscriptionRecord>>
 }
 
+export class MarketSubscriptionCancelledError extends Error {}
+
 export class MarketStreamManager {
   private streams = new Map<string, StreamState>()
   private socketSubscriptions = new Map<string, Map<string, MarketSubscriptionRecord>>()
+  private pendingSubscriptions = new Set<{
+    socketId: string
+    clientSubscriptionId?: string
+    cancelled: boolean
+  }>()
 
   async subscribe(
     socket: AuthenticatedSocket,
-    payload: MarketSubscribePayload
+    payload: MarketSubscribePayload,
+    credentialSource?: 'workspace'
   ): Promise<MarketSubscriptionInfo> {
-    const resolvedPayload = await resolveMarketSubscribeEnv(payload, socket.userId)
-    const provider = resolveProviderId(resolvedPayload.provider)
-
-    if (provider === 'alpaca') {
-      return this.subscribeAlpaca(socket, { ...resolvedPayload, provider })
+    const pending = {
+      socketId: socket.id,
+      clientSubscriptionId: payload.clientSubscriptionId,
+      cancelled: false,
     }
-
-    if (provider === 'finnhub') {
-      return this.subscribeFinnhub(socket, { ...resolvedPayload, provider })
+    this.pendingSubscriptions.add(pending)
+    const assertActive = () => {
+      if (pending.cancelled) throw new MarketSubscriptionCancelledError()
     }
-
-    return this.subscribePollingProvider(socket, { ...resolvedPayload, provider })
+    try {
+      let resolvedPayload = await resolveMarketSubscribeEnv(payload, socket.userId)
+      const provider = resolveProviderId(resolvedPayload.provider)
+      const oauth = getMarketProviderDefinition(provider)?.oauth
+      let connection: OAuthConnection | undefined
+      if (oauth && credentialSource === 'workspace') {
+        const credentialId = toNonEmptyString(resolvedPayload.providerParams?.credentialId)
+        const workspaceId = toNonEmptyString(resolvedPayload.workspaceId)
+        if (!socket.userId || !workspaceId || !credentialId) {
+          throw new Error('Select or reconnect your market provider connection')
+        }
+        const resolvedConnection = await resolveOAuthCredentialAccountForUser({
+          credentialId,
+          userId: socket.userId,
+          workspaceId,
+        })
+        if (!resolvedConnection || resolvedConnection.providerId !== oauth.provider) {
+          throw new Error('Select or reconnect your market provider connection')
+        }
+        connection = resolvedConnection
+        resolvedPayload = {
+          ...resolvedPayload,
+          providerParams: {
+            ...resolvedPayload.providerParams,
+            credentialId: connection.accountId,
+          },
+        }
+      }
+      if (provider === 'alpaca') {
+        return await this.subscribeAlpaca(socket, { ...resolvedPayload, provider }, assertActive)
+      }
+      if (provider === 'finnhub') {
+        return await this.subscribeFinnhub(socket, { ...resolvedPayload, provider }, assertActive)
+      }
+      return await this.subscribePollingProvider(
+        socket,
+        { ...resolvedPayload, provider },
+        assertActive,
+        connection
+      )
+    } finally {
+      this.pendingSubscriptions.delete(pending)
+    }
   }
 
   unsubscribe(
     socket: AuthenticatedSocket,
     payload: MarketUnsubscribePayload
   ): MarketSubscriptionInfo[] {
+    if (!payload.subscriptionId) {
+      this.cancelPendingSubscriptions(socket.id, payload.clientSubscriptionId)
+    }
     const socketMap = this.socketSubscriptions.get(socket.id)
-    if (!socketMap || socketMap.size === 0) {
-      return []
-    }
+    if (!socketMap || socketMap.size === 0) return []
 
-    const listing = payload.listing ? ListingIdentitySchema.parse(payload.listing) : undefined
-    const matches = this.findMatchingSubscriptions(socketMap, { ...payload, listing })
-    if (!matches.length) {
-      return []
-    }
+    const matches = this.findMatchingSubscriptions(socketMap, payload)
+    if (!matches.length) return []
 
     matches.forEach((record) => this.removeRecord(record))
 
@@ -165,15 +212,28 @@ export class MarketStreamManager {
   }
 
   removeSocket(socketId: string) {
+    this.cancelPendingSubscriptions(socketId)
     const socketMap = this.socketSubscriptions.get(socketId)
     if (!socketMap) return
 
     socketMap.forEach((record) => this.removeRecord(record))
   }
 
+  private cancelPendingSubscriptions(socketId: string, clientSubscriptionId?: string) {
+    for (const pending of this.pendingSubscriptions) {
+      if (
+        pending.socketId === socketId &&
+        (!clientSubscriptionId || pending.clientSubscriptionId === clientSubscriptionId)
+      ) {
+        pending.cancelled = true
+      }
+    }
+  }
+
   private async subscribeAlpaca(
     socket: AuthenticatedSocket,
-    payload: MarketSubscribePayload
+    payload: MarketSubscribePayload,
+    assertActive: () => void
   ): Promise<MarketSubscriptionInfo> {
     const listing = ListingIdentitySchema.parse(payload.listing)
 
@@ -217,7 +277,7 @@ export class MarketStreamManager {
       keyId,
       secretKey,
     })
-
+    assertActive()
     const streamState = this.getOrCreateStream(streamKey, {
       provider: 'alpaca',
       market,
@@ -286,7 +346,8 @@ export class MarketStreamManager {
 
   private async subscribeFinnhub(
     socket: AuthenticatedSocket,
-    payload: MarketSubscribePayload
+    payload: MarketSubscribePayload,
+    assertActive: () => void
   ): Promise<MarketSubscriptionInfo> {
     const listing = ListingIdentitySchema.parse(payload.listing)
 
@@ -318,16 +379,14 @@ export class MarketStreamManager {
       workspaceId: payload.workspaceId,
       apiKey,
     })
+    assertActive()
     const streamState = this.getOrCreateStream(streamKey, {
       provider: 'finnhub',
       market,
       apiKey,
-      auth: {
-        apiKey,
-      },
+      auth: { apiKey },
       providerParams: payload.providerParams,
     })
-
     const intervalToken =
       typeof payload.interval === 'string' && payload.interval.trim()
         ? payload.interval.trim()
@@ -382,7 +441,9 @@ export class MarketStreamManager {
 
   private async subscribePollingProvider(
     socket: AuthenticatedSocket,
-    payload: MarketSubscribePayload & { provider: PollingMarketProviderId }
+    payload: MarketSubscribePayload & { provider: string },
+    assertActive: () => void,
+    connection?: OAuthConnection
   ): Promise<MarketSubscriptionInfo> {
     const listing = ListingIdentitySchema.parse(payload.listing)
 
@@ -400,6 +461,32 @@ export class MarketStreamManager {
       throw new Error(`Market provider not found: ${payload.provider}`)
     }
 
+    const oauth = getMarketProviderDefinition(payload.provider)?.oauth
+    const connectionOwnerUserId = connection?.credentialOwnerUserId ?? socket.userId
+    if (oauth) {
+      if (!connection && connectionOwnerUserId && payload.workspaceId) {
+        const access = await checkWorkspaceAccess(payload.workspaceId, connectionOwnerUserId)
+        if (!access.exists || !access.hasAccess) {
+          throw new Error('Market connection owner no longer has workspace access')
+        }
+      }
+      const { refreshAccessTokenIfNeeded } = await import('@/lib/oauth/tokens')
+      const credentialId = payload.providerParams?.credentialId
+      const hasConnection = typeof credentialId === 'string' && credentialId.trim().length > 0
+      const accessToken =
+        connectionOwnerUserId && hasConnection
+          ? await refreshAccessTokenIfNeeded(
+              credentialId.trim(),
+              connectionOwnerUserId,
+              randomUUID(),
+              oauth.provider
+            )
+          : null
+      if (!accessToken) {
+        throw new Error('Select or reconnect your market provider connection')
+      }
+    }
+
     const context = await resolveListingContext(listing)
     const market = resolveMarket(payload, context.assetClass)
     const symbol = normalizeSymbol(resolveProviderSymbol(providerConfig, context))
@@ -410,16 +497,19 @@ export class MarketStreamManager {
     const streamKey = buildPollingStreamKey({
       provider: payload.provider,
       workspaceId: payload.workspaceId,
+      userId: oauth ? socket.userId : undefined,
       auth: payload.auth,
       providerParams: payload.providerParams,
+      normalizationMode: payload.normalizationMode,
+      workspaceCredentialId: connection?.credentialId,
     })
+    assertActive()
     const streamState = this.getOrCreatePollingStream(streamKey, {
       provider: payload.provider,
       auth: payload.auth,
       providerParams: payload.providerParams,
-      pollingIntervalMs: resolvePollingIntervalMs(payload.provider, payload.providerParams),
+      normalizationMode: payload.normalizationMode,
     })
-
     const intervalToken =
       typeof payload.interval === 'string' && payload.interval.trim()
         ? payload.interval.trim()
@@ -443,8 +533,10 @@ export class MarketStreamManager {
       market,
       channel,
       interval: payload.interval,
+      workspaceId: payload.workspaceId,
       listingBase: context.base,
       listingQuote: context.quote,
+      oauthConnection: connection,
     }
 
     this.addSubscription(streamState, record)
@@ -583,10 +675,10 @@ export class MarketStreamManager {
   private getOrCreatePollingStream(
     streamKey: string,
     config: {
-      provider: PollingMarketProviderId
+      provider: string
       auth?: MarketProviderAuth
       providerParams?: MarketProviderParams
-      pollingIntervalMs: number
+      normalizationMode?: NormalizationMode
     }
   ): StreamState {
     const existing = this.streams.get(streamKey)
@@ -597,7 +689,7 @@ export class MarketStreamManager {
       market: 'stocks',
       auth: config.auth,
       providerParams: config.providerParams,
-      pollingIntervalMs: config.pollingIntervalMs,
+      normalizationMode: config.normalizationMode,
       quoteSnapshotCache: new Map(),
       marketBarCache: new Map(),
       subscribersBySymbol: new Map(),
@@ -616,20 +708,7 @@ export class MarketStreamManager {
 
     subscribers.forEach((record) => {
       if (record.channel !== 'bars') return
-      record.socket.emit('market-bar', {
-        provider: record.provider,
-        market: record.market,
-        channel: record.channel,
-        subscriptionId: record.subscriptionId,
-        listing: record.listing,
-        listingBase: record.listingBase,
-        listingQuote: record.listingQuote,
-        symbol: record.symbol,
-        interval: record.interval,
-        bar,
-        receivedAt: new Date().toISOString(),
-        raw,
-      })
+      this.emitMarketBar(record, bar, raw)
     })
   }
 
@@ -658,6 +737,7 @@ export class MarketStreamManager {
         market: record.market,
         channel: record.channel,
         subscriptionId: record.subscriptionId,
+        clientSubscriptionId: record.clientSubscriptionId,
         listing: record.listing,
         listingBase: record.listingBase,
         listingQuote: record.listingQuote,
@@ -769,7 +849,8 @@ export class MarketStreamManager {
 
   private ensurePolling(streamState: StreamState) {
     if (streamState.pollingTimer) return
-    const intervalMs = streamState.pollingIntervalMs ?? DEFAULT_POLLING_INTERVAL_MS
+    const intervalMs =
+      getMarketProviderPollingIntervalMs(streamState.provider) ?? DEFAULT_POLLING_INTERVAL_MS
     streamState.pollingTimer = setInterval(() => {
       void this.pollMarketData(streamState)
     }, intervalMs)
@@ -811,6 +892,7 @@ export class MarketStreamManager {
 
     streamState.pollingInFlight = true
     try {
+      let workspaceAccess: Promise<boolean> | undefined
       const pending = [...tasks]
       const workers = Array.from(
         { length: Math.min(POLLING_CONCURRENCY, pending.length) },
@@ -819,12 +901,34 @@ export class MarketStreamManager {
             const next = pending.shift()
             if (!next) return
             try {
+              const record = next.record
+              if (record.workspaceId && getMarketProviderDefinition(record.provider)?.oauth) {
+                const hasAccess = await (workspaceAccess ??= canUseOAuthMarketConnection(record))
+                if (
+                  streamState.subscribersBySymbol.get(next.symbol)?.get(record.subscriptionId) !==
+                  record
+                ) {
+                  continue
+                }
+                if (!hasAccess) {
+                  this.handleStreamError(record.streamKey, 'Market connection access was revoked')
+                  streamState.subscribersBySymbol.forEach((subscribers) => {
+                    subscribers.forEach((subscriber) => this.removeRecord(subscriber))
+                  })
+                  return
+                }
+              }
               if (next.type === 'quote-snapshot') {
                 const snapshot = await buildMarketQuoteSnapshot({
                   provider: next.record.provider,
                   listing: next.record.listing as ListingIdentity,
                   auth: streamState.auth,
                   providerParams: streamState.providerParams,
+                  context: {
+                    userId:
+                      next.record.oauthConnection?.credentialOwnerUserId ??
+                      next.record.socket.userId,
+                  },
                 })
                 streamState.quoteSnapshotCache.set(next.symbol, snapshot)
                 this.emitQuoteSnapshotToSymbolSubscribers(streamState, next.symbol, snapshot)
@@ -865,27 +969,46 @@ export class MarketStreamManager {
     interval: string,
     record: MarketSubscriptionRecord
   ) {
-    const response = await executeProviderRequest(record.provider, {
-      kind: 'series',
-      listing: record.listing as ListingIdentity,
-      interval,
-      auth: streamState.auth,
-      providerParams: {
-        ...(streamState.providerParams ?? {}),
-        allowEmpty: true,
-      },
-      windows: [{ mode: 'bars', barCount: 1 }],
-    })
-    const series = response as MarketSeries
-    const bar = series.bars[series.bars.length - 1]
-    if (!bar) return
-
     const cacheKey = buildPollingBarCacheKey(symbol, interval)
-    const cached = streamState.marketBarCache.get(cacheKey)
-    if (cached && areMarketBarsEqual(cached, bar)) return
-
-    streamState.marketBarCache.set(cacheKey, bar)
-    this.emitMarketBarToSymbolSubscribers(streamState, symbol, interval, bar)
+    let cached = streamState.marketBarCache.get(cacheKey)
+    const now = Date.now()
+    const cachedTime = cached ? Date.parse(cached.timeStamp) : Number.NaN
+    if (!Number.isFinite(cachedTime) || cachedTime > now) cached = undefined
+    const intervalMs = intervalToMs(interval)
+    const recoveryStart =
+      cached && intervalMs
+        ? new Date(Math.max(cachedTime, now - MAX_RECOVERY_BARS * intervalMs)).toISOString()
+        : null
+    const response = await executeProviderRequest(
+      record.provider,
+      {
+        kind: 'series',
+        listing: record.listing as ListingIdentity,
+        interval,
+        normalizationMode: streamState.normalizationMode,
+        auth: streamState.auth,
+        providerParams: {
+          ...(streamState.providerParams ?? {}),
+          allowEmpty: true,
+        },
+        // Include the last candle to finalize it and recover recent missed intervals.
+        windows: recoveryStart
+          ? [{ mode: 'absolute', start: recoveryStart, end: new Date(now).toISOString() }]
+          : [{ mode: 'bars', barCount: 1 }],
+      },
+      { userId: record.oauthConnection?.credentialOwnerUserId ?? record.socket.userId }
+    )
+    for (const bar of (response as MarketSeries).bars) {
+      if (
+        cached &&
+        (Date.parse(bar.timeStamp) < Date.parse(cached.timeStamp) ||
+          areMarketBarsEqual(cached, bar))
+      )
+        continue
+      cached = bar
+      streamState.marketBarCache.set(cacheKey, bar)
+      this.emitMarketBarToSymbolSubscribers(streamState, symbol, interval, bar)
+    }
   }
 
   private emitMarketPollingError(
@@ -938,31 +1061,11 @@ export class MarketStreamManager {
       return match ? [match] : []
     }
 
-    if (payload.clientSubscriptionId) {
-      const matches: MarketSubscriptionRecord[] = []
-      socketMap.forEach((record) => {
-        if (record.clientSubscriptionId === payload.clientSubscriptionId) matches.push(record)
-      })
-      return matches
-    }
-
-    const symbol = payload.symbol ? normalizeSymbol(payload.symbol) : undefined
-    const provider = payload.provider ? resolveProviderId(payload.provider) : undefined
-
-    const matches: MarketSubscriptionRecord[] = []
-    socketMap.forEach((record) => {
-      if (provider && record.provider !== provider) return
-      if (
-        payload.listing &&
-        (!record.listing || !areListingIdentitiesEqual(payload.listing, record.listing))
-      ) {
-        return
-      }
-      if (symbol && record.symbol !== symbol) return
-      matches.push(record)
-    })
-
-    return matches
+    return [...socketMap.values()].filter(
+      (record) =>
+        !payload.clientSubscriptionId ||
+        record.clientSubscriptionId === payload.clientSubscriptionId
+    )
   }
 
   private removeRecord(record: MarketSubscriptionRecord) {
@@ -1017,7 +1120,7 @@ export class MarketStreamManager {
 
 export const marketStreamManager = new MarketStreamManager()
 
-function resolveProviderId(provider?: AnyMarketProviderId): AnyMarketProviderId {
+function resolveProviderId(provider?: string): string {
   const providerId = typeof provider === 'string' ? provider.trim() : ''
   if (providerId && getMarketProviderConfig(providerId)) return providerId
   throw new Error('market provider is required')
@@ -1109,18 +1212,49 @@ function buildFinnhubStreamKey(config: {
 }
 
 function buildPollingStreamKey(config: {
-  provider: PollingMarketProviderId
+  provider: string
   workspaceId?: string
+  userId?: string
   auth?: MarketProviderAuth
   providerParams?: MarketProviderParams
+  normalizationMode?: NormalizationMode
+  workspaceCredentialId?: string
 }): string {
   const base = [
     config.provider,
     config.workspaceId ?? '',
+    config.userId ?? '',
     stableStringifyJsonValue(config.auth ?? null),
     stableStringifyJsonValue(config.providerParams ?? null),
+    config.normalizationMode ?? '',
+    config.workspaceCredentialId ?? '',
   ].join('|')
   return createHash('sha256').update(base).digest('hex')
+}
+
+function toNonEmptyString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+async function canUseOAuthMarketConnection(record: MarketSubscriptionRecord) {
+  const ownerUserId = record.oauthConnection?.credentialOwnerUserId ?? record.socket.userId
+  if (!record.workspaceId || !ownerUserId) return false
+  if (!record.oauthConnection) {
+    const access = await checkWorkspaceAccess(record.workspaceId, ownerUserId)
+    return access.exists && access.hasAccess
+  }
+  if (!record.socket.userId) return false
+  const resolved = await resolveOAuthCredentialAccountForUser({
+    credentialId: record.oauthConnection.credentialId,
+    userId: record.socket.userId,
+    workspaceId: record.workspaceId,
+  })
+  return Boolean(
+    resolved &&
+      resolved.accountId === record.oauthConnection.accountId &&
+      resolved.credentialOwnerUserId === ownerUserId &&
+      resolved.providerId === getMarketProviderDefinition(record.provider)?.oauth?.provider
+  )
 }
 
 function buildPollingBarCacheKey(symbol: string, interval: string): string {
@@ -1155,17 +1289,6 @@ function createSubscriptionId({
   return [streamKey, channel, symbol, interval, clientSubscriptionId?.trim() || randomUUID()].join(
     ':'
   )
-}
-
-function resolvePollingIntervalMs(
-  provider: PollingMarketProviderId,
-  providerParams?: MarketProviderParams
-): number {
-  const configured = Number(providerParams?.pollingIntervalMs ?? providerParams?.pollIntervalMs)
-  const providerDefault =
-    getMarketProviderPollingIntervalMs(provider) ?? DEFAULT_POLLING_INTERVAL_MS
-  const requested = Number.isFinite(configured) && configured > 0 ? configured : providerDefault
-  return Math.max(MIN_POLLING_INTERVAL_MS, requested)
 }
 
 function updateSnapshotFromTrade(

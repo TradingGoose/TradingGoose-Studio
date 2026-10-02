@@ -5,6 +5,7 @@ const mockExecuteProviderRequest = vi.fn()
 
 vi.mock('@/providers/market', () => ({
   executeProviderRequest: (...args: unknown[]) => mockExecuteProviderRequest(...args),
+  getProvider: () => undefined,
 }))
 
 describe('buildMarketQuoteSnapshot', () => {

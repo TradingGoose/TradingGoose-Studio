@@ -34,6 +34,7 @@ import {
   type DataChartCopy,
   formatDataChartIndicatorPlotFallback,
 } from '@/widgets/widgets/data_chart/copy'
+import type { BarMs } from '@/widgets/widgets/data_chart/series-data'
 import type {
   DataChartDataContext,
   IndicatorDocumentRuntimeSource,
@@ -222,10 +223,21 @@ type ProcessedRange = {
   endMs: number
 }
 
+type ProcessedState = ProcessedRange & { sourceBars: Map<number, string> }
+
+const getSourceBarSignature = (bar: BarMs) =>
+  [bar.closeTime, bar.open, bar.high, bar.low, bar.close, bar.volume, bar.turnover].join(':')
+
+const isTimeInRange = (time: number, range?: ProcessedRange) =>
+  range !== undefined &&
+  time >= Math.floor(range.startMs / 1000) &&
+  time <= Math.floor(range.endMs / 1000)
+
 const resolveMissingChunk = (
   bars: DataChartDataContext['barsMsRef']['current'],
   range: ProcessedRange | undefined,
-  maxBars: number
+  maxBars: number,
+  correctedStartMs?: number
 ) => {
   if (bars.length === 0) return null
   if (!range) {
@@ -236,12 +248,17 @@ const resolveMissingChunk = (
 
   const firstOpenTime = bars[0]?.openTime
   const lastOpenTime = bars[bars.length - 1]?.openTime
-  if (
-    typeof firstOpenTime !== 'number' ||
-    typeof lastOpenTime !== 'number' ||
-    (range.startMs <= firstOpenTime && range.endMs >= lastOpenTime)
-  ) {
+  if (typeof firstOpenTime !== 'number' || typeof lastOpenTime !== 'number') {
     return null
+  }
+  const latestStartIndex = Math.max(0, bars.length - maxBars)
+  const correctedIndex =
+    correctedStartMs === undefined ? -1 : bars.findIndex((bar) => bar.openTime >= correctedStartMs)
+  if (correctedIndex >= latestStartIndex) {
+    return bars.slice(latestStartIndex)
+  }
+  if (range.startMs <= firstOpenTime && range.endMs >= lastOpenTime) {
+    return bars.slice(-maxBars)
   }
 
   const leftBoundaryIndex = bars.findIndex((bar) => bar.openTime >= range.startMs)
@@ -272,7 +289,8 @@ const resolveFillMergeKey = (entry: NormalizedPineOutput['fills'][number], index
 
 const mergeSeriesPoints = (
   existing: NormalizedPineOutput['series'][number]['points'],
-  incoming: NormalizedPineOutput['series'][number]['points']
+  incoming: NormalizedPineOutput['series'][number]['points'],
+  replacedRange?: ProcessedRange
 ) => {
   const byTime = new Map<number, NormalizedPineOutput['series'][number]['points'][number]>()
   existing.forEach((point) => {
@@ -280,21 +298,9 @@ const mergeSeriesPoints = (
   })
   incoming.forEach((point) => {
     const previous = byTime.get(point.time)
-    if (previous && point.value === null && previous.value !== null) return
-    byTime.set(point.time, point)
-  })
-  return Array.from(byTime.values()).sort((a, b) => a.time - b.time)
-}
-
-const mergeFillPoints = (
-  existing: NormalizedPineOutput['fills'][number]['points'],
-  incoming: NormalizedPineOutput['fills'][number]['points']
-) => {
-  const byTime = new Map<number, NormalizedPineOutput['fills'][number]['points'][number]>()
-  existing.forEach((point) => {
-    byTime.set(point.time, point)
-  })
-  incoming.forEach((point) => {
+    const sourceTime = point.originTime ?? point.time
+    if (previous && replacedRange && !isTimeInRange(sourceTime, replacedRange)) return
+    if (previous && !replacedRange && point.value === null && previous.value !== null) return
     byTime.set(point.time, point)
   })
   return Array.from(byTime.values()).sort((a, b) => a.time - b.time)
@@ -302,7 +308,8 @@ const mergeFillPoints = (
 
 const mergeSeriesEntries = (
   existing: NormalizedPineOutput['series'],
-  incoming: NormalizedPineOutput['series']
+  incoming: NormalizedPineOutput['series'],
+  replacedRange?: ProcessedRange
 ): NormalizedPineOutput['series'] => {
   const existingByKey = new Map<string, NormalizedPineOutput['series'][number]>()
   existing.forEach((entry, index) => {
@@ -313,25 +320,39 @@ const mergeSeriesEntries = (
     if (!previous) return entry
     return {
       ...entry,
-      points: mergeSeriesPoints(previous.points, entry.points),
+      points: mergeSeriesPoints(previous.points, entry.points, replacedRange),
     }
   })
 }
 
-const mergeFillEntries = (
-  existing: NormalizedPineOutput['fills'],
-  incoming: NormalizedPineOutput['fills']
+const alignFillEntries = (
+  fills: NormalizedPineOutput['fills'],
+  series: NormalizedPineOutput['series'],
+  markers: NormalizedPineOutput['markers']
 ): NormalizedPineOutput['fills'] => {
-  const existingByKey = new Map<string, NormalizedPineOutput['fills'][number]>()
-  existing.forEach((entry, index) => {
-    existingByKey.set(resolveFillMergeKey(entry, index), entry)
+  const pointsByTitle = new Map(series.map((entry) => [entry.plot.title, entry.points]))
+  markers.forEach((marker) => {
+    if (!marker.plotTitle || marker.price === undefined) return
+    const points = pointsByTitle.get(marker.plotTitle) ?? []
+    if (points.length === 0) pointsByTitle.set(marker.plotTitle, points)
+    points.push({ time: marker.time, originTime: marker.originTime, value: marker.price })
   })
-  return incoming.map((entry, index) => {
-    const previous = existingByKey.get(resolveFillMergeKey(entry, index))
-    if (!previous) return entry
+  return fills.map((fill) => {
+    const upperPoints = pointsByTitle.get(fill.upperPlotTitle ?? '') ?? []
+    const lowerPoints = pointsByTitle.get(fill.lowerPlotTitle ?? '') ?? []
+    const lowerByTime = new Map(
+      lowerPoints.flatMap((point) =>
+        point.value === null ? [] : ([[point.time, point.value]] as const)
+      )
+    )
     return {
-      ...entry,
-      points: mergeFillPoints(previous.points, entry.points),
+      ...fill,
+      points: upperPoints.flatMap((point) => {
+        const lower = lowerByTime.get(point.time)
+        return point.value === null || lower === undefined
+          ? []
+          : [{ time: point.time, upper: point.value, lower }]
+      }),
     }
   })
 }
@@ -339,22 +360,23 @@ const mergeFillEntries = (
 const mergeMarkers = (
   existing: NormalizedPineOutput['markers'],
   incoming: NormalizedPineOutput['markers'],
-  replacedRange?: ProcessedRange
+  replacedRange?: ProcessedRange,
+  executedRange?: ProcessedRange
 ): NormalizedPineOutput['markers'] => {
+  const isReplaced = (marker: NormalizedPineOutput['markers'][number]) =>
+    (isTimeInRange(marker.originTime, replacedRange) ||
+      isTimeInRange(marker.time, replacedRange)) &&
+    isTimeInRange(marker.originTime, executedRange) &&
+    isTimeInRange(marker.time, executedRange)
   const existingMarkers =
-    replacedRange && Number.isFinite(replacedRange.startMs) && Number.isFinite(replacedRange.endMs)
-      ? (() => {
-          const startSec = Math.floor(replacedRange.startMs / 1000)
-          const endSec = Math.floor(replacedRange.endMs / 1000)
-          return existing.filter((marker) => marker.time < startSec || marker.time > endSec)
-        })()
-      : existing
+    replacedRange !== undefined ? existing.filter((marker) => !isReplaced(marker)) : existing
 
   const byKey = new Map<string, NormalizedPineOutput['markers'][number]>()
   const toKey = (marker: NormalizedPineOutput['markers'][number]) =>
     [
       marker.time,
       marker.source ?? '',
+      marker.plotTitle ?? '',
       marker.position,
       marker.shape,
       marker.text ?? '',
@@ -366,6 +388,12 @@ const mergeMarkers = (
     byKey.set(toKey(marker), marker)
   })
   incoming.forEach((marker) => {
+    if (
+      replacedRange &&
+      !isTimeInRange(marker.originTime, replacedRange) &&
+      !isTimeInRange(marker.time, replacedRange)
+    )
+      return
     byKey.set(toKey(marker), marker)
   })
 
@@ -375,13 +403,24 @@ const mergeMarkers = (
 const mergeIndicatorOutput = (
   existing: NormalizedPineOutput,
   incoming: NormalizedPineOutput,
-  replacedRange?: ProcessedRange
-): NormalizedPineOutput => ({
-  ...incoming,
-  series: mergeSeriesEntries(existing.series, incoming.series),
-  fills: mergeFillEntries(existing.fills, incoming.fills),
-  markers: mergeMarkers(existing.markers, incoming.markers, replacedRange),
-})
+  replacedRange?: ProcessedRange,
+  replacedMarkerRange?: ProcessedRange,
+  executedRange?: ProcessedRange
+): NormalizedPineOutput => {
+  const series = mergeSeriesEntries(existing.series, incoming.series, replacedRange)
+  const markers = mergeMarkers(
+    existing.markers,
+    incoming.markers,
+    replacedMarkerRange,
+    executedRange
+  )
+  return {
+    ...incoming,
+    series,
+    fills: alignFillEntries(incoming.fills, series, markers),
+    markers,
+  }
+}
 
 const buildInputsHash = (inputs: Record<string, unknown>) => {
   const sortedKeys = Object.keys(inputs).sort()
@@ -733,7 +772,7 @@ export const useIndicatorSync = ({
     new Map<string, Map<string, FillPrimitiveAttachment>>()
   )
   const accumulatedOutputRef = useRef(new Map<string, NormalizedPineOutput>())
-  const processedRangeRef = useRef(new Map<string, ProcessedRange>())
+  const processedRangeRef = useRef(new Map<string, ProcessedState>())
   const accumulationBaseRef = useRef(new Map<string, string>())
   const indicatorIdsRef = useRef<Set<string>>(new Set())
   const indicatorSignatureRef = useRef(new Map<string, string>())
@@ -840,7 +879,21 @@ export const useIndicatorSync = ({
     accumulatedOutputRef.current.clear()
     processedRangeRef.current.clear()
     accumulationBaseRef.current.clear()
-  }, [executionContextKey])
+    const chart = chartRef.current
+    if (!chart) return
+    indicatorSeriesMapRef.current.forEach((seriesMap) => {
+      seriesMap.forEach((series) => {
+        if (isSeriesOnChart(chart, series)) series.setData([])
+      })
+    })
+    seriesMarkersMapRef.current.forEach((plugin, series) => {
+      if (isSeriesOnChart(chart, series)) plugin.setMarkers([])
+    })
+    indicatorFillPrimitiveMapRef.current.forEach((fillMap) => {
+      fillMap.forEach(({ series, primitive }) => safeDetachPrimitive(series, primitive))
+    })
+    indicatorFillPrimitiveMapRef.current.clear()
+  }, [chartRef, executionContextKey, dataContext, dataContext.seriesVersion])
 
   useEffect(() => {
     const chart = chartRef.current
@@ -945,11 +998,18 @@ export const useIndicatorSync = ({
         { bars: typeof executionBars; inputs: ExecutionInput[] }
       >()
       const executedRangeById = new Map<string, ProcessedRange>()
+      const executedBarsById = new Map<string, BarMs[]>()
       indicatorInputs.forEach((entry) => {
+        const processedState = processedRangeRef.current.get(entry.id)
+        const correctedStartMs = executionBars.slice(-MAX_EXECUTION_CHUNK_BARS).find((bar) => {
+          const previous = processedState?.sourceBars.get(bar.openTime)
+          return previous !== undefined && previous !== getSourceBarSignature(bar)
+        })?.openTime
         const chunk = resolveMissingChunk(
           executionBars,
-          processedRangeRef.current.get(entry.id),
-          MAX_EXECUTION_CHUNK_BARS
+          processedState,
+          MAX_EXECUTION_CHUNK_BARS,
+          correctedStartMs
         )
         if (!chunk || chunk.length === 0) return
         const startMs = chunk[0]!.openTime
@@ -965,6 +1025,7 @@ export const useIndicatorSync = ({
           })
         }
         executedRangeById.set(entry.id, { startMs, endMs })
+        executedBarsById.set(entry.id, chunk)
       })
 
       const resultById = new Map<string, ExecuteResult>()
@@ -1031,12 +1092,13 @@ export const useIndicatorSync = ({
         if (!range) return
         const previous = processedRangeRef.current.get(indicatorId)
         if (!previous) {
-          processedRangeRef.current.set(indicatorId, range)
+          processedRangeRef.current.set(indicatorId, { ...range, sourceBars: new Map() })
           return
         }
         processedRangeRef.current.set(indicatorId, {
           startMs: Math.min(previous.startMs, range.startMs),
           endMs: Math.max(previous.endMs, range.endMs),
+          sourceBars: previous.sourceBars,
         })
       }
 
@@ -1053,11 +1115,40 @@ export const useIndicatorSync = ({
         }
         const existingOutput = accumulatedOutputRef.current.get(indicatorId)
         const executedRange = executedRangeById.get(indicatorId)
+        const executedBars = executedBarsById.get(indicatorId)
+        const previousRange = processedRangeRef.current.get(indicatorId)
+        const processedBars = previousRange?.sourceBars
+        const correctedStartMs = executedBars?.reduce<number | undefined>((earliest, bar) => {
+          const previousBar = processedBars?.get(bar.openTime)
+          if (!previousBar || previousBar === getSourceBarSignature(bar)) return earliest
+          return earliest === undefined ? bar.openTime : Math.min(earliest, bar.openTime)
+        }, undefined)
+        const expandsLeft =
+          executedRange && previousRange && executedRange.startMs < previousRange.startMs
+        const replacedRange =
+          executedRange &&
+          previousRange &&
+          (correctedStartMs !== undefined ||
+            (!expandsLeft && executedRange.endMs >= previousRange.endMs))
+            ? {
+                startMs: correctedStartMs ?? Math.max(executedRange.startMs, previousRange.endMs),
+                endMs: executedRange.endMs,
+              }
+            : undefined
+        const replacedMarkerRange = expandsLeft ? executedRange : replacedRange
         const nextOutput = existingOutput
-          ? mergeIndicatorOutput(existingOutput, result.output, executedRange)
+          ? mergeIndicatorOutput(
+              existingOutput,
+              result.output,
+              replacedRange,
+              replacedMarkerRange,
+              executedRange
+            )
           : result.output
         accumulatedOutputRef.current.set(indicatorId, nextOutput)
         extendProcessedRange(indicatorId, executedRange)
+        const sourceBars = processedRangeRef.current.get(indicatorId)?.sourceBars
+        executedBars?.forEach((bar) => sourceBars?.set(bar.openTime, getSourceBarSignature(bar)))
       })
 
       const markerEntries: Array<{
@@ -1447,6 +1538,7 @@ export const useIndicatorSync = ({
     mainSeriesRef,
     dataContext,
     dataContext.dataVersion,
+    dataContext.seriesVersion,
     dataContext.intervalMs,
     workspaceId,
     indicatorIds,

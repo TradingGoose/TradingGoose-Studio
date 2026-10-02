@@ -3,6 +3,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { planMarketSeriesRequest } from '@/providers/market/series-planner'
 
 const { fetchMock, mockResolveListingContext, mockResolveProviderSymbol } = vi.hoisted(() => ({
   fetchMock: vi.fn(),
@@ -46,6 +47,7 @@ describe('fetchFinnhubSeries', () => {
 
   afterEach(() => {
     process.env.FINNHUB_API_KEY = originalFinnhubApiKey
+    vi.restoreAllMocks()
     vi.unstubAllGlobals()
   })
 
@@ -72,7 +74,13 @@ describe('fetchFinnhubSeries', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('uses explicit request auth for provider calls', async () => {
+  it.each([
+    ['absolute', 0, '2026-01-01T00:00:00.000Z', '2026-01-02T00:00:00.000Z'],
+    ['range', 1, '2026-01-01T00:00:00.000Z', '2026-01-02T00:00:00.000Z'],
+    ['retention', 730, '2025-01-02T00:00:00.000Z', '2026-01-02T00:00:00.000Z'],
+    ['session', 1, '2025-12-31T14:30:00.000Z', '2025-12-31T21:00:00.000Z'],
+  ] as const)('uses explicit auth and planned %s bounds', async (mode, days, start, end) => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-01-02T00:00:00.000Z'))
     fetchMock.mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -95,7 +103,7 @@ describe('fetchFinnhubSeries', () => {
 
     const { fetchFinnhubSeries } = await import('./series')
 
-    await fetchFinnhubSeries({
+    const { request } = planMarketSeriesRequest('finnhub', {
       kind: 'series',
       listing: {
         listing_id: 'AAPL',
@@ -106,10 +114,19 @@ describe('fetchFinnhubSeries', () => {
       auth: {
         apiKey: 'request-key',
       },
-      interval: '1d',
-      start: '2026-01-01T00:00:00.000Z',
-      end: '2026-01-02T00:00:00.000Z',
+      interval: '1m',
+      windows: [
+        days
+          ? { mode: 'range', range: { value: days, unit: 'day' } }
+          : { mode: 'absolute', start, end },
+      ],
     })
+    if (mode === 'session') Object.assign(request, { start, end })
+    await fetchFinnhubSeries(request)
+
+    const { searchParams } = new URL(fetchMock.mock.calls[0][0])
+    expect(searchParams.get('from')).toBe(String(Date.parse(start) / 1000))
+    expect(searchParams.get('to')).toBe(String(Date.parse(end) / 1000))
 
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining('symbol=AAPL'),

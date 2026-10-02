@@ -5,6 +5,7 @@ import {
   alpacaTradingProviderConfig,
   buildAlpacaOrderDetailSiteUrl,
 } from '@/providers/trading/alpaca/config'
+import { robinhoodTradingProviderConfig } from '@/providers/trading/robinhood/config'
 import { tradierTradingProviderConfig } from '@/providers/trading/tradier/config'
 import type {
   TradingAuthType,
@@ -99,6 +100,7 @@ export interface TradingProviderConfig {
 
 export interface TradingProviderAdapter {
   buildOrderRequest?: (params: TradingOrderInput) => TradingRequestConfig
+  submitOrder?: (params: TradingOrderInput) => Promise<unknown>
   orderDetailRequest?: (
     historyRecord: TradingOrderHistoryRecord,
     params: TradingOrderDetailInput
@@ -163,6 +165,19 @@ export const TRADING_PROVIDER_DEFINITIONS: Record<string, TradingProviderDefinit
       timeInForce: 'day',
     },
     config: tradierTradingProviderConfig,
+  },
+  robinhood: {
+    id: 'robinhood',
+    name: 'Robinhood',
+    description: 'Trade stocks and ETFs in a Robinhood Agentic account.',
+    authType: 'oauth',
+    oauth: {
+      provider: 'robinhood',
+      services: [{ serviceId: 'robinhood', environment: 'live' }],
+      scopes: getCanonicalScopesForProvider('robinhood'),
+    },
+    defaults: { orderSizingMode: 'quantity', orderType: 'market', timeInForce: 'day' },
+    config: robinhoodTradingProviderConfig,
   },
 }
 

@@ -94,7 +94,7 @@ const trailPercentCondition = orderTypeCapability('trailPercent')
 export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
   type: 'trading_action',
   name: 'Trading Action',
-  description: 'Place buy/sell orders via Alpaca or Tradier.',
+  description: 'Place buy/sell orders through a connected trading provider.',
   authMode: AuthMode.OAuth,
   longDescription:
     'Unified trading action block that submits orders from a selected broker account.',
