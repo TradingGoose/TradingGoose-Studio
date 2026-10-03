@@ -3,6 +3,7 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, ChevronUp, Eye, Loader2, X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { CopyButton } from '@/components/ui/copy-button'
@@ -301,6 +302,12 @@ export function LogDetails({
                     <Eye className='h-4 w-4' />
                   </Button>
                 </div>
+              )}
+
+              {log.executionData?.errorMessage && (
+                <Alert variant='destructive'>
+                  <AlertDescription>{log.executionData.errorMessage}</AlertDescription>
+                </Alert>
               )}
 
               {/* Trace Spans (if available and this is a workflow execution log) */}

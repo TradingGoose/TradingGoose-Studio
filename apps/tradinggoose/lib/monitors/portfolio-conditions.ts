@@ -69,6 +69,15 @@ const isGroup = (node: PortfolioConditionNode): node is PortfolioConditionGroup 
 const toFiniteNumber = (value: unknown): number | null =>
   typeof value === 'number' && Number.isFinite(value) ? value : null
 
+const sumPositionValues = (
+  positions: PortfolioConditionSnapshot['positions'],
+  key: 'marketValue' | 'unrealizedPnl'
+) =>
+  positions.reduce<number | null>((total, position) => {
+    const value = toFiniteNumber(position[key])
+    return total === null || value === null ? null : total + value
+  }, 0)
+
 const toTargetNumber = (value: unknown): number | null => {
   if (typeof value === 'number' && Number.isFinite(value)) return value
   if (typeof value === 'string' && value.trim()) {
@@ -128,9 +137,9 @@ const getMetricValue = (
     case 'positions.count':
       return portfolio.positions.length
     case 'positions.totalMarketValue':
-      return portfolio.positions.reduce((sum, position) => sum + (position.marketValue ?? 0), 0)
+      return sumPositionValues(portfolio.positions, 'marketValue')
     case 'positions.totalUnrealizedPnl':
-      return portfolio.positions.reduce((sum, position) => sum + (position.unrealizedPnl ?? 0), 0)
+      return sumPositionValues(portfolio.positions, 'unrealizedPnl')
     case 'position.quantity':
       return toFiniteNumber(findPosition(portfolio, rule.listing)?.quantity)
     case 'position.marketValue':

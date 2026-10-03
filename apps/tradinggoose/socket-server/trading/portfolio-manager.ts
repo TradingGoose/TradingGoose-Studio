@@ -584,6 +584,7 @@ export class TradingPortfolioStreamManager {
         environment: context.environment,
         accessToken: context.accessToken,
         accountId: portfolioIdentity.accountId,
+        portfolioIdentity,
       })
       return {
         provider: streamState.providerId,
@@ -675,7 +676,10 @@ export class TradingPortfolioStreamManager {
     const portfolioIdentity = streamState.portfolioIdentity
     if (!portfolioIdentity) throw new Error('portfolioIdentity is required')
 
-    const accounts = await this.getAccounts(streamState, forceRefresh)
+    const cached = forceRefresh
+      ? this.accountsCache.get(buildAccountsCacheKey(streamState))?.data
+      : undefined
+    const accounts = cached ?? (await this.getAccounts(streamState, false))
     const account = accounts.find((candidate) =>
       arePortfolioIdentitiesEqual(candidate, portfolioIdentity)
     )

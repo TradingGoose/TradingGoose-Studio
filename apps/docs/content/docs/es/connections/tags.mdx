@@ -1,0 +1,50 @@
+---
+title: Etiquetas
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+Las etiquetas de conexión referencian valores de bloques anteriores. Conecta el origen a la ruta del flujo y escribe un único `<` en un campo compatible para abrir el menú de referencias. Selecciona una salida para insertar la etiqueta completa. Escribir el cierre `>` cierra la referencia incompleta; no escribas `<>` para abrir el menú.
+
+## Sintaxis
+
+```text
+<blockName.path.to.data>
+```
+
+Usa el nombre real del bloque mostrado en el menú o su ID. Los nombres se normalizan para las referencias; elegir una opción del menú evita tener que adivinar la escritura.
+
+- `<agent.content>`: texto de un agente llamado Agent.
+- `<api.data.users[0].name>`: un campo del cuerpo de respuesta de API.
+- `<function.result.total>`: un campo del valor devuelto por Function.
+
+## Referencias del sistema
+
+| Referencia | Significado |
+|---|---|
+| `<start.input>` | Entrada del disparador seleccionado en ejecución, si existe ese campo |
+| `<start.fieldName>` | Un campo expuesto por el disparador seleccionado |
+| `<variable.myVar>` | Valor actual de una variable del flujo |
+| `<loop.currentItem>` | Elemento ForEach actual dentro del bucle |
+| `<loop.index>` | Índice de iteración del bucle, empezando en cero |
+| `<loop.items>` | Colección ForEach completa |
+| `<parallel.currentItem>` | Elemento actual de la colección en una instancia paralela |
+| `<parallel.index>` | Índice de instancia paralela, empezando en cero |
+| `<parallel.items>` | Colección paralela completa |
+
+Los prefijos del sistema son `start`, `variable`, `loop` y `parallel`. Nombres como `api`, `chat` y `manual` no son alias universales de disparador: deben identificar un bloque real. El disparador Manual no tiene campos de entrada.
+
+Cuando termina un bucle For o For Each, o un contenedor Parallel, selecciona su salida `results` en el menú de referencias. Usa el ID real del contenedor: por ejemplo, `<loop-id.results>` o `<parallel-id.results>`, sustituyendo `loop-id` o `parallel-id` por ese ID. Los prefijos reservados `loop` y `parallel` hacen referencia al contexto de la iteración actual, no a un contenedor finalizado. Las salidas finales de While y Do While no incluyen `results`. Dentro del procesamiento de colecciones usa `currentItem`, no `item`.
+
+## Ejemplos
+
+```text
+Processing item <loop.index>: <loop.currentItem.name>
+User message: <start.input>
+```
+
+Las etiquetas se resuelven al ejecutarse. Admiten propiedades anidadas e índices de arrays. La aritmética corresponde a Function o a una expresión de condición; los campos de texto normales no evalúan JavaScript por contener una etiqueta.
+
+<Callout>
+  Consulta [Estructura de datos](/connections/data-structure) y la salida real antes de elegir una ruta. Los cuerpos API están bajo `data`; los valores devueltos por Function están bajo `result`.
+</Callout>

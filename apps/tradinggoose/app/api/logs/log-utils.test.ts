@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { matchesWorkflowLogFilters, parseListingFilters, serializeWorkflowLog } from './log-utils'
+import {
+  deriveWorkflowLogOutcome,
+  matchesWorkflowLogFilters,
+  parseListingFilters,
+  serializeWorkflowLog,
+} from './log-utils'
 
 const buildRow = (overrides: Record<string, unknown> = {}) =>
   ({
@@ -35,6 +40,13 @@ describe('serializeWorkflowLog executionData', () => {
       buildRow({
         executionData: {
           environment: { userId: 'user-1' },
+          checkpoint: {
+            revision: 3,
+            encryptedSnapshot: 'private-encrypted-checkpoint',
+            pausePoints: [{ id: 'private-point' }],
+            activeJobId: null,
+          },
+          pause: { url: '/review/execution-1', revision: 3 },
           tokenBreakdown: { total: 100 },
           models: { model: { total: 1 } },
           traceSpans: [
@@ -49,6 +61,8 @@ describe('serializeWorkflowLog executionData', () => {
             },
           ],
           finalOutput: 'stored-output',
+          errorMessage: 'Workflow cancelled',
+          blockExecutions: [{ errorMessage: 'legacy error' }],
         },
       }),
       'full'
@@ -63,9 +77,13 @@ describe('serializeWorkflowLog executionData', () => {
         }),
       ],
       finalOutput: 'stored-output',
-      enhanced: true,
+      errorMessage: 'Workflow cancelled',
     })
     expect(executionData).not.toHaveProperty('environment')
+    expect(executionData).not.toHaveProperty('blockExecutions')
+    expect(executionData).not.toHaveProperty('checkpoint')
+    expect(executionData).not.toHaveProperty('pause')
+    expect(JSON.stringify(log)).not.toContain('private-encrypted-checkpoint')
     expect(executionData).not.toHaveProperty('tokenBreakdown')
     expect(executionData).not.toHaveProperty('models')
     expect(executionData).not.toHaveProperty('totalDuration')
@@ -133,7 +151,7 @@ describe('serializeWorkflowLog executionData', () => {
     ).toEqual(expect.objectContaining({ executionData: undefined }))
   })
 
-  it('derives error outcome from nested trace span children', () => {
+  it('keeps a recovered workflow successful despite errors in its real trace', () => {
     const log = serializeWorkflowLog(
       buildRow({
         executionData: {
@@ -164,8 +182,20 @@ describe('serializeWorkflowLog executionData', () => {
       'full'
     )
 
-    expect(log.outcome).toBe('error')
+    expect(log.outcome).toBe('success')
+    expect(log.executionData?.traceSpans?.[0].children?.[0].status).toBe('error')
   })
+
+  it.each([[], [{ status: 'success' }], [{ status: 'error' }]])(
+    'keeps terminal failures authoritative over trace statuses %j',
+    (...traceSpans) => {
+      const row = buildRow({ level: 'error', executionData: { traceSpans } })
+      expect(deriveWorkflowLogOutcome(row)).toBe('error')
+      expect(deriveWorkflowLogOutcome({ ...row, endedAt: null })).toBe('running')
+      expect(deriveWorkflowLogOutcome({ ...row, level: 'info' })).toBe('success')
+      expect(deriveWorkflowLogOutcome({ ...row, level: 'info', endedAt: null })).toBe('running')
+    }
+  )
 })
 
 describe('parseListingFilters', () => {

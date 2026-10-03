@@ -17,7 +17,6 @@
     "router",
     "variables",
     "wait",
-    "webhook_request",
     "workflow",
     "workflow_input"
   ]

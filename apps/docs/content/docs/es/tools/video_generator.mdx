@@ -1,0 +1,964 @@
+---
+title: Generador de vídeo
+description: Genera vídeos a partir de texto con IA
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="video_generator"
+  color="#888888"
+/>
+
+## Configuración
+
+### Runway Gen-4
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Generador de vídeo"
+    type="video_generator"
+    color="#888888"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Proveedor",
+            "required": true,
+            "defaultValue": "runway",
+            "options": [
+                {
+                    "id": "runway",
+                    "label": "Runway Gen-4"
+                },
+                {
+                    "id": "veo",
+                    "label": "Google Veo 3"
+                },
+                {
+                    "id": "luma",
+                    "label": "Luma Dream Machine"
+                },
+                {
+                    "id": "minimax",
+                    "label": "MiniMax Hailuo"
+                },
+                {
+                    "id": "falai",
+                    "label": "Fal.ai (Multi-Model)"
+                }
+            ]
+        },
+        {
+            "id": "prompt",
+            "type": "long-input",
+            "title": "Prompt",
+            "placeholder": "Describe el vídeo que quieres generar...",
+            "required": true
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "Duración (segundos)",
+            "defaultValue": "5",
+            "options": [
+                {
+                    "id": "5",
+                    "label": "5"
+                },
+                {
+                    "id": "8",
+                    "label": "8"
+                },
+                {
+                    "id": "10",
+                    "label": "10"
+                }
+            ],
+            "description": "Se muestra cuando el modelo es uno de 'kling-2.5-turbo-pro', 'kling-2.1-pro', 'minimax-hailuo-2.3-pro', 'minimax-hailuo-2.3-standard'."
+        },
+        {
+            "id": "aspectRatio",
+            "type": "dropdown",
+            "title": "Relación de aspecto",
+            "defaultValue": "16:9",
+            "options": [
+                {
+                    "id": "16:9",
+                    "label": "16:9"
+                },
+                {
+                    "id": "9:16",
+                    "label": "9:16"
+                }
+            ],
+            "description": "Se muestra cuando el modelo es uno de 'kling-2.5-turbo-pro', 'kling-2.1-pro', 'minimax-hailuo-2.3-pro', 'minimax-hailuo-2.3-standard'."
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Introduce la clave API del proveedor",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "Duración (segundos)",
+            "required": false,
+            "defaultValue": "5",
+            "options": [
+                {
+                    "id": "5",
+                    "label": "5"
+                },
+                {
+                    "id": "10",
+                    "label": "10"
+                }
+            ]
+        },
+        {
+            "id": "aspectRatio",
+            "type": "dropdown",
+            "title": "Relación de aspecto",
+            "required": false,
+            "defaultValue": "16:9",
+            "options": [
+                {
+                    "id": "16:9",
+                    "label": "16:9"
+                },
+                {
+                    "id": "9:16",
+                    "label": "9:16"
+                },
+                {
+                    "id": "1:1",
+                    "label": "1:1"
+                }
+            ]
+        },
+        {
+            "id": "visualReference",
+            "type": "file-upload",
+            "title": "Imagen de referencia",
+            "placeholder": "Sube una imagen de referencia",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Runway Gen-4 (<code>video_runway</code>)</div>
+
+Genera vídeos con Runway Gen-4 con consistencia del mundo y referencias visuales
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | Sí | Proveedor de vídeo \(runway\) |
+| `apiKey` | string | Sí | Clave de API de Runway |
+| `model` | string | No | Modelo de Runway: gen-4 \(predeterminado, mayor calidad\) o gen-4-turbo \(más rápido\) |
+| `prompt` | string | Sí | Prompt de texto que describe el vídeo que se va a generar |
+| `duration` | number | No | Duración del vídeo en segundos \(5 o 10, predeterminado: 5\) |
+| `aspectRatio` | string | No | Relación de aspecto: 16:9 \(horizontal\), 9:16 \(vertical\) o 1:1 \(cuadrado\) |
+| `resolution` | string | No | Resolución de vídeo \(salida 720p\). Nota: Gen-4 Turbo genera nativamente a 720p |
+| `visualReference` | json | Sí | Imagen de referencia OBLIGATORIA para Gen-4 \(objeto UserFile\). Gen-4 solo admite de imagen a vídeo, no generación solo con texto |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `videoUrl` | string | URL del vídeo generado |
+| `videoFile` | json | Objeto de archivo de vídeo con metadatos |
+| `duration` | number | Duración del vídeo en segundos |
+| `width` | number | Ancho del vídeo en píxeles |
+| `height` | number | Alto del vídeo en píxeles |
+| `provider` | string | Proveedor usado \(runway\) |
+| `model` | string | Modelo usado |
+| `jobId` | string | ID de trabajo de Runway |
+
+</div>
+
+---
+
+### Google Veo 3
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Generador de vídeo"
+    type="video_generator"
+    color="#888888"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Proveedor",
+            "required": true,
+            "defaultValue": "veo",
+            "options": [
+                {
+                    "id": "runway",
+                    "label": "Runway Gen-4"
+                },
+                {
+                    "id": "veo",
+                    "label": "Google Veo 3"
+                },
+                {
+                    "id": "luma",
+                    "label": "Luma Dream Machine"
+                },
+                {
+                    "id": "minimax",
+                    "label": "MiniMax Hailuo"
+                },
+                {
+                    "id": "falai",
+                    "label": "Fal.ai (varios modelos)"
+                }
+            ]
+        },
+        {
+            "id": "prompt",
+            "type": "long-input",
+            "title": "Prompt",
+            "placeholder": "Describe el vídeo que quieres generar...",
+            "required": true
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "Duración (segundos)",
+            "defaultValue": "5",
+            "options": [
+                {
+                    "id": "5",
+                    "label": "5"
+                },
+                {
+                    "id": "8",
+                    "label": "8"
+                },
+                {
+                    "id": "10",
+                    "label": "10"
+                }
+            ],
+            "description": "Se muestra cuando el modelo es uno de 'kling-2.5-turbo-pro', 'kling-2.1-pro', 'minimax-hailuo-2.3-pro', 'minimax-hailuo-2.3-standard'."
+        },
+        {
+            "id": "aspectRatio",
+            "type": "dropdown",
+            "title": "Relación de aspecto",
+            "defaultValue": "16:9",
+            "options": [
+                {
+                    "id": "16:9",
+                    "label": "16:9"
+                },
+                {
+                    "id": "9:16",
+                    "label": "9:16"
+                }
+            ],
+            "description": "Se muestra cuando el modelo es uno de 'kling-2.5-turbo-pro', 'kling-2.1-pro', 'minimax-hailuo-2.3-pro', 'minimax-hailuo-2.3-standard'."
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce la clave de API del proveedor",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Modelo",
+            "required": false,
+            "defaultValue": "veo-3",
+            "options": [
+                {
+                    "id": "veo-3",
+                    "label": "Veo 3"
+                },
+                {
+                    "id": "veo-3-fast",
+                    "label": "Veo 3 Fast"
+                },
+                {
+                    "id": "veo-3.1",
+                    "label": "Veo 3.1"
+                }
+            ]
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "Duración (segundos)",
+            "required": false,
+            "defaultValue": "8",
+            "options": [
+                {
+                    "id": "4",
+                    "label": "4"
+                },
+                {
+                    "id": "6",
+                    "label": "6"
+                },
+                {
+                    "id": "8",
+                    "label": "8"
+                }
+            ]
+        },
+        {
+            "id": "aspectRatio",
+            "type": "dropdown",
+            "title": "Relación de aspecto",
+            "required": false,
+            "defaultValue": "16:9",
+            "options": [
+                {
+                    "id": "16:9",
+                    "label": "16:9"
+                },
+                {
+                    "id": "9:16",
+                    "label": "9:16"
+                }
+            ]
+        },
+        {
+            "id": "resolution",
+            "type": "dropdown",
+            "title": "Resolución",
+            "required": false,
+            "defaultValue": "1080p",
+            "options": [
+                {
+                    "id": "720p",
+                    "label": "720p"
+                },
+                {
+                    "id": "1080p",
+                    "label": "1080p"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Google Veo 3 (<code>video_veo</code>)</div>
+
+Genera vídeos con Google Veo 3/3.1 y generación nativa de audio
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | Sí | Proveedor de vídeo \(veo\) |
+| `apiKey` | string | Sí | Clave de API de Google Gemini |
+| `model` | string | No | Modelo Veo: veo-3 \(predeterminado, máxima calidad\), veo-3-fast \(más rápido\) o veo-3.1 \(más reciente\) |
+| `prompt` | string | Sí | Prompt de texto que describe el vídeo a generar |
+| `duration` | number | No | Duración del vídeo en segundos \(4, 6 u 8, predeterminado: 8\) |
+| `aspectRatio` | string | No | Relación de aspecto: 16:9 \(horizontal\) o 9:16 \(vertical\) |
+| `resolution` | string | No | Resolución de vídeo: 720p o 1080p \(predeterminado: 1080p\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `videoUrl` | string | URL del vídeo generado |
+| `videoFile` | json | Objeto de archivo de vídeo con metadatos |
+| `duration` | number | Duración del vídeo en segundos |
+| `width` | number | Ancho del vídeo en píxeles |
+| `height` | number | Alto del vídeo en píxeles |
+| `provider` | string | Proveedor utilizado \(veo\) |
+| `model` | string | Modelo utilizado |
+| `jobId` | string | ID de trabajo de Veo |
+
+</div>
+
+---
+
+### Luma Dream Machine
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Generador de vídeo"
+    type="video_generator"
+    color="#888888"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Proveedor",
+            "required": true,
+            "defaultValue": "luma",
+            "options": [
+                {
+                    "id": "runway",
+                    "label": "Runway Gen-4"
+                },
+                {
+                    "id": "veo",
+                    "label": "Google Veo 3"
+                },
+                {
+                    "id": "luma",
+                    "label": "Luma Dream Machine"
+                },
+                {
+                    "id": "minimax",
+                    "label": "MiniMax Hailuo"
+                },
+                {
+                    "id": "falai",
+                    "label": "Fal.ai (multimodelo)"
+                }
+            ]
+        },
+        {
+            "id": "prompt",
+            "type": "long-input",
+            "title": "Prompt",
+            "placeholder": "Describe el vídeo que quieres generar...",
+            "required": true
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "Duración (segundos)",
+            "defaultValue": "5",
+            "options": [
+                {
+                    "id": "5",
+                    "label": "5"
+                },
+                {
+                    "id": "8",
+                    "label": "8"
+                },
+                {
+                    "id": "10",
+                    "label": "10"
+                }
+            ],
+            "description": "Se muestra cuando el modelo es uno de 'kling-2.5-turbo-pro', 'kling-2.1-pro', 'minimax-hailuo-2.3-pro', 'minimax-hailuo-2.3-standard'."
+        },
+        {
+            "id": "aspectRatio",
+            "type": "dropdown",
+            "title": "Relación de aspecto",
+            "defaultValue": "16:9",
+            "options": [
+                {
+                    "id": "16:9",
+                    "label": "16:9"
+                },
+                {
+                    "id": "9:16",
+                    "label": "9:16"
+                }
+            ],
+            "description": "Se muestra cuando el modelo es uno de 'kling-2.5-turbo-pro', 'kling-2.1-pro', 'minimax-hailuo-2.3-pro', 'minimax-hailuo-2.3-standard'."
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce la clave de API del proveedor",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Modelo",
+            "required": false,
+            "defaultValue": "ray-2",
+            "options": [
+                {
+                    "id": "ray-2",
+                    "label": "Ray 2"
+                }
+            ]
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "Duración (segundos)",
+            "required": false,
+            "defaultValue": "5",
+            "options": [
+                {
+                    "id": "5",
+                    "label": "5"
+                },
+                {
+                    "id": "9",
+                    "label": "9"
+                }
+            ]
+        },
+        {
+            "id": "aspectRatio",
+            "type": "dropdown",
+            "title": "Relación de aspecto",
+            "required": false,
+            "defaultValue": "16:9",
+            "options": [
+                {
+                    "id": "16:9",
+                    "label": "16:9"
+                },
+                {
+                    "id": "9:16",
+                    "label": "9:16"
+                },
+                {
+                    "id": "1:1",
+                    "label": "1:1"
+                }
+            ]
+        },
+        {
+            "id": "resolution",
+            "type": "dropdown",
+            "title": "Resolución",
+            "required": false,
+            "defaultValue": "1080p",
+            "options": [
+                {
+                    "id": "540p",
+                    "label": "540p"
+                },
+                {
+                    "id": "720p",
+                    "label": "720p"
+                },
+                {
+                    "id": "1080p",
+                    "label": "1080p"
+                }
+            ]
+        },
+        {
+            "id": "cameraControl",
+            "type": "long-input",
+            "title": "Controles de cámara",
+            "placeholder": "JSON: [{ \"key\": \"pan_right\" }, { \"key\": \"zoom_in\" }]",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Luma Dream Machine (<code>video_luma</code>)</div>
+
+Generar videos con Luma Dream Machine y controles de cámara avanzados
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | Sí | Proveedor de video \(luma\) |
+| `apiKey` | string | Sí | Clave de API de Luma AI |
+| `model` | string | No | Modelo de Luma: ray-2 \(predeterminado\) |
+| `prompt` | string | Sí | Prompt de texto que describe el video a generar |
+| `duration` | number | No | Duración del video en segundos \(5 o 9, predeterminado: 5\) |
+| `aspectRatio` | string | No | Relación de aspecto: 16:9 \(horizontal\), 9:16 \(vertical\) o 1:1 \(cuadrado\) |
+| `resolution` | string | No | Resolución de video: 540p, 720p o 1080p \(predeterminado: 1080p\) |
+| `cameraControl` | json | No | Controles de cámara como array de objetos de concepto. Formato: \[\{ "key": "concept_name" \}\]. Claves válidas: truck_left, truck_right, pan_left, pan_right, tilt_up, tilt_down, zoom_in, zoom_out, push_in, pull_out, orbit_left, orbit_right, crane_up, crane_down, static, handheld y más de 20 opciones predefinidas |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `videoUrl` | string | URL del video generado |
+| `videoFile` | json | Objeto de archivo de video con metadatos |
+| `duration` | number | Duración del video en segundos |
+| `width` | number | Ancho del video en píxeles |
+| `height` | number | Alto del video en píxeles |
+| `provider` | string | Proveedor usado \(luma\) |
+| `model` | string | Modelo usado |
+| `jobId` | string | ID de trabajo de Luma |
+
+</div>
+
+---
+
+### MiniMax Hailuo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Generador de vídeo"
+    type="video_generator"
+    color="#888888"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Proveedor",
+            "required": true,
+            "defaultValue": "minimax",
+            "options": [
+                {
+                    "id": "runway",
+                    "label": "Runway Gen-4"
+                },
+                {
+                    "id": "veo",
+                    "label": "Google Veo 3"
+                },
+                {
+                    "id": "luma",
+                    "label": "Luma Dream Machine"
+                },
+                {
+                    "id": "minimax",
+                    "label": "MiniMax Hailuo"
+                },
+                {
+                    "id": "falai",
+                    "label": "Fal.ai (multimodelo)"
+                }
+            ]
+        },
+        {
+            "id": "prompt",
+            "type": "long-input",
+            "title": "Prompt",
+            "placeholder": "Describe el vídeo que quieres generar...",
+            "required": true
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "Duración (segundos)",
+            "defaultValue": "5",
+            "options": [
+                {
+                    "id": "5",
+                    "label": "5"
+                },
+                {
+                    "id": "8",
+                    "label": "8"
+                },
+                {
+                    "id": "10",
+                    "label": "10"
+                }
+            ],
+            "description": "Se muestra cuando el modelo es uno de 'kling-2.5-turbo-pro', 'kling-2.1-pro', 'minimax-hailuo-2.3-pro', 'minimax-hailuo-2.3-standard'."
+        },
+        {
+            "id": "aspectRatio",
+            "type": "dropdown",
+            "title": "Relación de aspecto",
+            "defaultValue": "16:9",
+            "options": [
+                {
+                    "id": "16:9",
+                    "label": "16:9"
+                },
+                {
+                    "id": "9:16",
+                    "label": "9:16"
+                }
+            ],
+            "description": "Se muestra cuando el modelo es uno de 'kling-2.5-turbo-pro', 'kling-2.1-pro', 'minimax-hailuo-2.3-pro', 'minimax-hailuo-2.3-standard'."
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce la clave de API del proveedor",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Modelo",
+            "required": false,
+            "defaultValue": "hailuo-02",
+            "options": [
+                {
+                    "id": "hailuo-02",
+                    "label": "Hailuo 2.3"
+                }
+            ]
+        },
+        {
+            "id": "endpoint",
+            "type": "dropdown",
+            "title": "Endpoint de calidad",
+            "required": false,
+            "defaultValue": "standard",
+            "options": [
+                {
+                    "id": "pro",
+                    "label": "Pro"
+                },
+                {
+                    "id": "standard",
+                    "label": "Estándar"
+                }
+            ]
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "Duración (segundos)",
+            "required": false,
+            "defaultValue": "6",
+            "options": [
+                {
+                    "id": "6",
+                    "label": "6"
+                },
+                {
+                    "id": "10",
+                    "label": "10"
+                }
+            ]
+        },
+        {
+            "id": "promptOptimizer",
+            "type": "switch",
+            "title": "Optimizador de prompts"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">MiniMax Hailuo (<code>video_minimax</code>)</div>
+
+Genera vídeos con MiniMax Hailuo a través de la API de MiniMax Platform, con realismo avanzado y optimización de prompts
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | Sí | Proveedor de vídeo \(minimax\) |
+| `apiKey` | string | Sí | Clave API de MiniMax de platform.minimax.io |
+| `model` | string | No | Modelo MiniMax: hailuo-02 \(predeterminado\) |
+| `prompt` | string | Sí | Prompt de texto que describe el vídeo a generar |
+| `duration` | number | No | Duración del vídeo en segundos \(6 o 10, predeterminado: 6\) |
+| `promptOptimizer` | boolean | No | Activar la optimización de prompts para mejores resultados \(predeterminado: true\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `videoUrl` | string | URL del vídeo generado |
+| `videoFile` | json | Objeto de archivo de vídeo con metadatos |
+| `duration` | number | Duración del vídeo en segundos |
+| `width` | number | Ancho del vídeo en píxeles |
+| `height` | number | Alto del vídeo en píxeles |
+| `provider` | string | Proveedor usado \(minimax\) |
+| `model` | string | Modelo usado |
+| `jobId` | string | ID de trabajo de MiniMax |
+
+</div>
+
+---
+
+### Fal.ai (varios modelos)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Generador de vídeo"
+    type="video_generator"
+    color="#888888"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Proveedor",
+            "required": true,
+            "defaultValue": "falai",
+            "options": [
+                {
+                    "id": "runway",
+                    "label": "Runway Gen-4"
+                },
+                {
+                    "id": "veo",
+                    "label": "Google Veo 3"
+                },
+                {
+                    "id": "luma",
+                    "label": "Luma Dream Machine"
+                },
+                {
+                    "id": "minimax",
+                    "label": "MiniMax Hailuo"
+                },
+                {
+                    "id": "falai",
+                    "label": "Fal.ai (varios modelos)"
+                }
+            ]
+        },
+        {
+            "id": "prompt",
+            "type": "long-input",
+            "title": "Prompt",
+            "placeholder": "Describe el vídeo que quieres generar...",
+            "required": true
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "Duración (segundos)",
+            "defaultValue": "5",
+            "options": [
+                {
+                    "id": "5",
+                    "label": "5"
+                },
+                {
+                    "id": "8",
+                    "label": "8"
+                },
+                {
+                    "id": "10",
+                    "label": "10"
+                }
+            ],
+            "description": "Se muestra cuando el modelo es uno de 'kling-2.5-turbo-pro', 'kling-2.1-pro', 'minimax-hailuo-2.3-pro', 'minimax-hailuo-2.3-standard'."
+        },
+        {
+            "id": "aspectRatio",
+            "type": "dropdown",
+            "title": "Relación de aspecto",
+            "defaultValue": "16:9",
+            "options": [
+                {
+                    "id": "16:9",
+                    "label": "16:9"
+                },
+                {
+                    "id": "9:16",
+                    "label": "9:16"
+                }
+            ],
+            "description": "Se muestra cuando el modelo es uno de 'kling-2.5-turbo-pro', 'kling-2.1-pro', 'minimax-hailuo-2.3-pro', 'minimax-hailuo-2.3-standard'."
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Introduce la clave API del proveedor",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Modelo",
+            "required": true,
+            "defaultValue": "veo-3.1",
+            "options": [
+                {
+                    "id": "veo-3.1",
+                    "label": "Google Veo 3.1"
+                },
+                {
+                    "id": "sora-2",
+                    "label": "OpenAI Sora 2"
+                },
+                {
+                    "id": "kling-2.5-turbo-pro",
+                    "label": "Kling 2.5 Turbo Pro"
+                },
+                {
+                    "id": "kling-2.1-pro",
+                    "label": "Kling 2.1 Pro"
+                },
+                {
+                    "id": "minimax-hailuo-2.3-pro",
+                    "label": "MiniMax Hailuo 2.3 Pro"
+                },
+                {
+                    "id": "minimax-hailuo-2.3-standard",
+                    "label": "MiniMax Hailuo 2.3 Standard"
+                },
+                {
+                    "id": "wan-2.1",
+                    "label": "WAN 2.1"
+                },
+                {
+                    "id": "ltxv-0.9.8",
+                    "label": "LTXV 0.9.8"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Fal.ai (multimodelo) (<code>video_falai</code>)</div>
+
+Generar vídeos con la plataforma Fal.ai, con acceso a varios modelos, incluidos Veo 3.1, Sora 2, Kling 2.5, MiniMax Hailuo y más
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | Sí | Proveedor de vídeo \(falai\) |
+| `apiKey` | string | Sí | Clave API de Fal.ai |
+| `model` | string | Sí | Modelo de Fal.ai: veo-3.1 \(Google Veo 3.1\), sora-2 \(OpenAI Sora 2\), kling-2.5-turbo-pro \(Kling 2.5 Turbo Pro\), kling-2.1-pro \(Kling 2.1 Master\), minimax-hailuo-2.3-pro \(MiniMax Hailuo Pro\), minimax-hailuo-2.3-standard \(MiniMax Hailuo Standard\), wan-2.1 \(WAN T2V\), ltxv-0.9.8 \(LTXV 13B\) |
+| `prompt` | string | Sí | Prompt de texto que describe el vídeo a generar |
+| `duration` | number | No | Duración del vídeo en segundos \(varía según el modelo\) |
+| `aspectRatio` | string | No | Relación de aspecto \(varía según el modelo\): 16:9, 9:16, 1:1 |
+| `resolution` | string | No | Resolución de vídeo \(varía según el modelo\): 540p, 720p, 1080p |
+| `promptOptimizer` | boolean | No | Activar la optimización de prompts para modelos MiniMax \(predeterminado: true\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `videoUrl` | string | URL del vídeo generado |
+| `videoFile` | json | Objeto de archivo de vídeo con metadatos |
+| `duration` | number | Duración del vídeo en segundos |
+| `width` | number | Ancho del vídeo en píxeles |
+| `height` | number | Alto del vídeo en píxeles |
+| `provider` | string | Proveedor usado \(falai\) |
+| `model` | string | Modelo usado |
+| `jobId` | string | ID del trabajo |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Genera videos de alta calidad a partir de prompts de texto con los principales proveedores de IA. Admite varios modelos, relaciones de aspecto, resoluciones y funciones específicas del proveedor, como consistencia del mundo, controles de cámara y generación de audio.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `video_generator`

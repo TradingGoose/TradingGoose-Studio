@@ -10,7 +10,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
   type="microsoft_teams"
-  color=""
+  color="#5059C9"
 />
 
 <Cards>
@@ -28,7 +28,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
   <BlockConfigPreview
     name="Microsoft Teams"
     type="microsoft_teams"
-    color=""
+    color="#5059C9"
     hideHeader
     subBlocks={[
         {
@@ -36,25 +36,25 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "read_chat",
             "options": [
                 {
-                    "label": "Read Chat Messages",
-                    "id": "read_chat"
+                    "id": "read_chat",
+                    "label": "Read Chat Messages"
                 },
                 {
-                    "label": "Write Chat Message",
-                    "id": "write_chat"
+                    "id": "write_chat",
+                    "label": "Write Chat Message"
                 },
                 {
-                    "label": "Read Channel Messages",
-                    "id": "read_channel"
+                    "id": "read_channel",
+                    "label": "Read Channel Messages"
                 },
                 {
-                    "label": "Write Channel Message",
-                    "id": "write_channel"
+                    "id": "write_channel",
+                    "label": "Write Channel Message"
                 }
-            ],
-            "defaultValue": "read_chat"
+            ]
         },
         {
             "id": "credential",
@@ -107,6 +107,7 @@ Read content from a Microsoft Teams chat
 | `attachmentCount` | number | Total number of attachments found |
 | `attachmentTypes` | array | Types of attachments found |
 | `content` | string | Formatted content of chat messages |
+| `attachments` | file[] | Uploaded attachments for convenience \(flattened\) |
 
 </div>
 
@@ -120,7 +121,7 @@ Read content from a Microsoft Teams chat
   <BlockConfigPreview
     name="Microsoft Teams"
     type="microsoft_teams"
-    color=""
+    color="#5059C9"
     hideHeader
     subBlocks={[
         {
@@ -128,25 +129,25 @@ Read content from a Microsoft Teams chat
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "write_chat",
             "options": [
                 {
-                    "label": "Read Chat Messages",
-                    "id": "read_chat"
+                    "id": "read_chat",
+                    "label": "Read Chat Messages"
                 },
                 {
-                    "label": "Write Chat Message",
-                    "id": "write_chat"
+                    "id": "write_chat",
+                    "label": "Write Chat Message"
                 },
                 {
-                    "label": "Read Channel Messages",
-                    "id": "read_channel"
+                    "id": "read_channel",
+                    "label": "Read Channel Messages"
                 },
                 {
-                    "label": "Write Channel Message",
-                    "id": "write_channel"
+                    "id": "write_channel",
+                    "label": "Write Channel Message"
                 }
-            ],
-            "defaultValue": "write_chat"
+            ]
         },
         {
             "id": "credential",
@@ -185,14 +186,16 @@ Read content from a Microsoft Teams chat
             "type": "file-upload",
             "title": "Attachments",
             "layout": "full",
-            "placeholder": "Upload files to attach"
+            "placeholder": "Upload files to attach",
+            "required": false
         },
         {
             "id": "files",
             "type": "short-input",
             "title": "File Attachments",
             "layout": "full",
-            "placeholder": "Reference files from previous blocks"
+            "placeholder": "Reference files from previous blocks",
+            "required": false
         }
     ]}
   />
@@ -220,6 +223,7 @@ Write or update content in a Microsoft Teams chat
 | `chatId` | string | ID of the chat where message was sent |
 | `createdTime` | string | Timestamp when message was created |
 | `url` | string | Web URL to the message |
+| `updatedContent` | boolean | Whether content was successfully updated |
 
 </div>
 
@@ -233,7 +237,7 @@ Write or update content in a Microsoft Teams chat
   <BlockConfigPreview
     name="Microsoft Teams"
     type="microsoft_teams"
-    color=""
+    color="#5059C9"
     hideHeader
     subBlocks={[
         {
@@ -241,25 +245,25 @@ Write or update content in a Microsoft Teams chat
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "read_channel",
             "options": [
                 {
-                    "label": "Read Chat Messages",
-                    "id": "read_chat"
+                    "id": "read_chat",
+                    "label": "Read Chat Messages"
                 },
                 {
-                    "label": "Write Chat Message",
-                    "id": "write_chat"
+                    "id": "write_chat",
+                    "label": "Write Chat Message"
                 },
                 {
-                    "label": "Read Channel Messages",
-                    "id": "read_channel"
+                    "id": "read_channel",
+                    "label": "Read Channel Messages"
                 },
                 {
-                    "label": "Write Channel Message",
-                    "id": "write_channel"
+                    "id": "write_channel",
+                    "label": "Write Channel Message"
                 }
-            ],
-            "defaultValue": "read_channel"
+            ]
         },
         {
             "id": "credential",
@@ -329,6 +333,7 @@ Read content from a Microsoft Teams channel
 | `attachmentCount` | number | Total number of attachments found |
 | `attachmentTypes` | array | Types of attachments found |
 | `content` | string | Formatted content of channel messages |
+| `attachments` | file[] | Uploaded attachments for convenience \(flattened\) |
 
 </div>
 
@@ -342,7 +347,7 @@ Read content from a Microsoft Teams channel
   <BlockConfigPreview
     name="Microsoft Teams"
     type="microsoft_teams"
-    color=""
+    color="#5059C9"
     hideHeader
     subBlocks={[
         {
@@ -350,25 +355,25 @@ Read content from a Microsoft Teams channel
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "write_channel",
             "options": [
                 {
-                    "label": "Read Chat Messages",
-                    "id": "read_chat"
+                    "id": "read_chat",
+                    "label": "Read Chat Messages"
                 },
                 {
-                    "label": "Write Chat Message",
-                    "id": "write_chat"
+                    "id": "write_chat",
+                    "label": "Write Chat Message"
                 },
                 {
-                    "label": "Read Channel Messages",
-                    "id": "read_channel"
+                    "id": "read_channel",
+                    "label": "Read Channel Messages"
                 },
                 {
-                    "label": "Write Channel Message",
-                    "id": "write_channel"
+                    "id": "write_channel",
+                    "label": "Write Channel Message"
                 }
-            ],
-            "defaultValue": "write_channel"
+            ]
         },
         {
             "id": "credential",
@@ -422,14 +427,16 @@ Read content from a Microsoft Teams channel
             "type": "file-upload",
             "title": "Attachments",
             "layout": "full",
-            "placeholder": "Upload files to attach"
+            "placeholder": "Upload files to attach",
+            "required": false
         },
         {
             "id": "files",
             "type": "short-input",
             "title": "File Attachments",
             "layout": "full",
-            "placeholder": "Reference files from previous blocks"
+            "placeholder": "Reference files from previous blocks",
+            "required": false
         }
     ]}
   />
@@ -459,6 +466,7 @@ Write or send a message to a Microsoft Teams channel
 | `channelId` | string | ID of the channel where message was sent |
 | `createdTime` | string | Timestamp when message was created |
 | `url` | string | Web URL to the message |
+| `updatedContent` | boolean | Whether content was successfully updated |
 
 </div>
 

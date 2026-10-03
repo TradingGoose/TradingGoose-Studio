@@ -2,6 +2,7 @@
   "title": "Widgets",
   "pages": [
     "index",
+    "dashboard-layouts",
     "editor-workflow",
     "list-workflow",
     "workflow-chat",
@@ -11,9 +12,13 @@
     "list-indicator",
     "data-chart",
     "watchlist",
+    "heatmap",
+    "portfolio-snapshot",
+    "quick-order",
     "editor-skill",
     "list-skill",
     "editor-mcp",
+    "list-mcp",
     "editor-custom-tool",
     "list-custom-tool"
   ]

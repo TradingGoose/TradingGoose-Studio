@@ -15,10 +15,10 @@ import { Callout } from 'fumadocs-ui/components/callout'
 | `plotarrow(series, title?, options?)` | Plot arrow markers |
 | `plotbar(open, high, low, close, title?, options?)` | Plot OHLC bars |
 | `plotcandle(open, high, low, close, title?, options?)` | Plot candlesticks |
-| `hline(price, title?, options?)` | Draw a horizontal line at a fixed price level |
+| `hline(price, title?, color?, linestyle?, linewidth?, editable?, display?)` | Draw a horizontal line at a fixed price level |
 | `fill(plot1, plot2, color?)` | Fill the area between two plots |
-| `bgcolor(color, offset?, options?)` | Set background color for bars |
-| `barcolor(color, offset?, options?)` | Set bar color |
+| `bgcolor(color, offset?, options?)` | Not rendered in Studio; produces an unsupported-style warning |
+| `barcolor(color, offset?, options?)` | Not rendered in Studio; use a plot's `color` option instead |
 
 ## Plot Styles
 
@@ -39,6 +39,8 @@ Use `plot.style_*` constants to control how data is rendered:
 | `plot.style_cross` | Cross markers |
 
 ### Line Styles (for `plot` and `hline`)
+
+PineTS accepts these constants, but Studio currently does not preserve `linestyle` when rendering plots. Dashed and dotted styles render as solid lines.
 
 | Style | Description |
 |-------|-------------|
@@ -155,11 +157,7 @@ if (ta.crossunder(fast, slow)) {
 
 ### Background and Bar Colors
 
-```javascript
-// Highlight bars based on condition
-bgcolor(ta.crossover(fast, slow) ? '#00FF0020' : na);
-barcolor(close > open ? '#26A69A' : '#EF5350');
-```
+Studio does not render `bgcolor()` or `barcolor()` output; these calls produce unsupported-style warnings. To visualize a condition, set the `color` option on a supported `plot()` or `plotshape()` instead.
 
 <Callout type="info">
   Colors can be specified as hex strings (e.g., `'#FF0000'`) or using the `color` namespace (e.g., `color.red`). Append two hex digits for alpha transparency (e.g., `'#FF000080'` for 50% opacity).

@@ -29,37 +29,37 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "cursor_launch_agent",
             "options": [
                 {
-                    "label": "Launch Agent",
-                    "id": "cursor_launch_agent"
+                    "id": "cursor_launch_agent",
+                    "label": "Launch Agent"
                 },
                 {
-                    "label": "Add Follow-up",
-                    "id": "cursor_add_followup"
+                    "id": "cursor_add_followup",
+                    "label": "Add Follow-up"
                 },
                 {
-                    "label": "Get Agent Status",
-                    "id": "cursor_get_agent"
+                    "id": "cursor_get_agent",
+                    "label": "Get Agent Status"
                 },
                 {
-                    "label": "Get Conversation",
-                    "id": "cursor_get_conversation"
+                    "id": "cursor_get_conversation",
+                    "label": "Get Conversation"
                 },
                 {
-                    "label": "List Agents",
-                    "id": "cursor_list_agents"
+                    "id": "cursor_list_agents",
+                    "label": "List Agents"
                 },
                 {
-                    "label": "Stop Agent",
-                    "id": "cursor_stop_agent"
+                    "id": "cursor_stop_agent",
+                    "label": "Stop Agent"
                 },
                 {
-                    "label": "Delete Agent",
-                    "id": "cursor_delete_agent"
+                    "id": "cursor_delete_agent",
+                    "label": "Delete Agent"
                 }
-            ],
-            "defaultValue": "cursor_launch_agent"
+            ]
         },
         {
             "id": "apiKey",
@@ -145,7 +145,7 @@ Start a new cloud agent to work on a GitHub repository with the given instructio
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Success message with agent details |
-| `id` | string | Agent ID |
+| `metadata` | object | Launch result metadata |
 
 </div>
 
@@ -166,37 +166,37 @@ Start a new cloud agent to work on a GitHub repository with the given instructio
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "cursor_add_followup",
             "options": [
                 {
-                    "label": "Launch Agent",
-                    "id": "cursor_launch_agent"
+                    "id": "cursor_launch_agent",
+                    "label": "Launch Agent"
                 },
                 {
-                    "label": "Add Follow-up",
-                    "id": "cursor_add_followup"
+                    "id": "cursor_add_followup",
+                    "label": "Add Follow-up"
                 },
                 {
-                    "label": "Get Agent Status",
-                    "id": "cursor_get_agent"
+                    "id": "cursor_get_agent",
+                    "label": "Get Agent Status"
                 },
                 {
-                    "label": "Get Conversation",
-                    "id": "cursor_get_conversation"
+                    "id": "cursor_get_conversation",
+                    "label": "Get Conversation"
                 },
                 {
-                    "label": "List Agents",
-                    "id": "cursor_list_agents"
+                    "id": "cursor_list_agents",
+                    "label": "List Agents"
                 },
                 {
-                    "label": "Stop Agent",
-                    "id": "cursor_stop_agent"
+                    "id": "cursor_stop_agent",
+                    "label": "Stop Agent"
                 },
                 {
-                    "label": "Delete Agent",
-                    "id": "cursor_delete_agent"
+                    "id": "cursor_delete_agent",
+                    "label": "Delete Agent"
                 }
-            ],
-            "defaultValue": "cursor_add_followup"
+            ]
         },
         {
             "id": "apiKey",
@@ -243,6 +243,7 @@ Add a follow-up instruction to an existing cloud agent.
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Success message |
+| `metadata` | object | Result metadata |
 
 </div>
 
@@ -263,37 +264,37 @@ Add a follow-up instruction to an existing cloud agent.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "cursor_get_agent",
             "options": [
                 {
-                    "label": "Launch Agent",
-                    "id": "cursor_launch_agent"
+                    "id": "cursor_launch_agent",
+                    "label": "Launch Agent"
                 },
                 {
-                    "label": "Add Follow-up",
-                    "id": "cursor_add_followup"
+                    "id": "cursor_add_followup",
+                    "label": "Add Follow-up"
                 },
                 {
-                    "label": "Get Agent Status",
-                    "id": "cursor_get_agent"
+                    "id": "cursor_get_agent",
+                    "label": "Get Agent Status"
                 },
                 {
-                    "label": "Get Conversation",
-                    "id": "cursor_get_conversation"
+                    "id": "cursor_get_conversation",
+                    "label": "Get Conversation"
                 },
                 {
-                    "label": "List Agents",
-                    "id": "cursor_list_agents"
+                    "id": "cursor_list_agents",
+                    "label": "List Agents"
                 },
                 {
-                    "label": "Stop Agent",
-                    "id": "cursor_stop_agent"
+                    "id": "cursor_stop_agent",
+                    "label": "Stop Agent"
                 },
                 {
-                    "label": "Delete Agent",
-                    "id": "cursor_delete_agent"
+                    "id": "cursor_delete_agent",
+                    "label": "Delete Agent"
                 }
-            ],
-            "defaultValue": "cursor_get_agent"
+            ]
         },
         {
             "id": "apiKey",
@@ -331,12 +332,7 @@ Retrieve the current status and results of a cloud agent.
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Human-readable agent details |
-| `id` | string | Agent ID |
-| `name` | string | Agent name |
-| `status` | string | Agent status |
-| `source` | object | Source repository info |
-| `target` | object | Target branch info |
-| `summary` | string | Agent summary |
+| `metadata` | object | Agent metadata |
 
 </div>
 
@@ -357,37 +353,37 @@ Retrieve the current status and results of a cloud agent.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "cursor_get_conversation",
             "options": [
                 {
-                    "label": "Launch Agent",
-                    "id": "cursor_launch_agent"
+                    "id": "cursor_launch_agent",
+                    "label": "Launch Agent"
                 },
                 {
-                    "label": "Add Follow-up",
-                    "id": "cursor_add_followup"
+                    "id": "cursor_add_followup",
+                    "label": "Add Follow-up"
                 },
                 {
-                    "label": "Get Agent Status",
-                    "id": "cursor_get_agent"
+                    "id": "cursor_get_agent",
+                    "label": "Get Agent Status"
                 },
                 {
-                    "label": "Get Conversation",
-                    "id": "cursor_get_conversation"
+                    "id": "cursor_get_conversation",
+                    "label": "Get Conversation"
                 },
                 {
-                    "label": "List Agents",
-                    "id": "cursor_list_agents"
+                    "id": "cursor_list_agents",
+                    "label": "List Agents"
                 },
                 {
-                    "label": "Stop Agent",
-                    "id": "cursor_stop_agent"
+                    "id": "cursor_stop_agent",
+                    "label": "Stop Agent"
                 },
                 {
-                    "label": "Delete Agent",
-                    "id": "cursor_delete_agent"
+                    "id": "cursor_delete_agent",
+                    "label": "Delete Agent"
                 }
-            ],
-            "defaultValue": "cursor_get_conversation"
+            ]
         },
         {
             "id": "apiKey",
@@ -425,7 +421,7 @@ Retrieve the conversation history of a cloud agent, including all user prompts a
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Human-readable conversation history |
-| `id` | string | Agent ID |
+| `metadata` | object | Conversation metadata |
 
 </div>
 
@@ -446,37 +442,37 @@ Retrieve the conversation history of a cloud agent, including all user prompts a
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "cursor_list_agents",
             "options": [
                 {
-                    "label": "Launch Agent",
-                    "id": "cursor_launch_agent"
+                    "id": "cursor_launch_agent",
+                    "label": "Launch Agent"
                 },
                 {
-                    "label": "Add Follow-up",
-                    "id": "cursor_add_followup"
+                    "id": "cursor_add_followup",
+                    "label": "Add Follow-up"
                 },
                 {
-                    "label": "Get Agent Status",
-                    "id": "cursor_get_agent"
+                    "id": "cursor_get_agent",
+                    "label": "Get Agent Status"
                 },
                 {
-                    "label": "Get Conversation",
-                    "id": "cursor_get_conversation"
+                    "id": "cursor_get_conversation",
+                    "label": "Get Conversation"
                 },
                 {
-                    "label": "List Agents",
-                    "id": "cursor_list_agents"
+                    "id": "cursor_list_agents",
+                    "label": "List Agents"
                 },
                 {
-                    "label": "Stop Agent",
-                    "id": "cursor_stop_agent"
+                    "id": "cursor_stop_agent",
+                    "label": "Stop Agent"
                 },
                 {
-                    "label": "Delete Agent",
-                    "id": "cursor_delete_agent"
+                    "id": "cursor_delete_agent",
+                    "label": "Delete Agent"
                 }
-            ],
-            "defaultValue": "cursor_list_agents"
+            ]
         },
         {
             "id": "apiKey",
@@ -520,7 +516,7 @@ List all cloud agents for the authenticated user with optional pagination.
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Human-readable list of agents |
-| `agents` | array | Array of agent objects |
+| `metadata` | object | Agent list metadata |
 
 </div>
 
@@ -541,37 +537,37 @@ List all cloud agents for the authenticated user with optional pagination.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "cursor_stop_agent",
             "options": [
                 {
-                    "label": "Launch Agent",
-                    "id": "cursor_launch_agent"
+                    "id": "cursor_launch_agent",
+                    "label": "Launch Agent"
                 },
                 {
-                    "label": "Add Follow-up",
-                    "id": "cursor_add_followup"
+                    "id": "cursor_add_followup",
+                    "label": "Add Follow-up"
                 },
                 {
-                    "label": "Get Agent Status",
-                    "id": "cursor_get_agent"
+                    "id": "cursor_get_agent",
+                    "label": "Get Agent Status"
                 },
                 {
-                    "label": "Get Conversation",
-                    "id": "cursor_get_conversation"
+                    "id": "cursor_get_conversation",
+                    "label": "Get Conversation"
                 },
                 {
-                    "label": "List Agents",
-                    "id": "cursor_list_agents"
+                    "id": "cursor_list_agents",
+                    "label": "List Agents"
                 },
                 {
-                    "label": "Stop Agent",
-                    "id": "cursor_stop_agent"
+                    "id": "cursor_stop_agent",
+                    "label": "Stop Agent"
                 },
                 {
-                    "label": "Delete Agent",
-                    "id": "cursor_delete_agent"
+                    "id": "cursor_delete_agent",
+                    "label": "Delete Agent"
                 }
-            ],
-            "defaultValue": "cursor_stop_agent"
+            ]
         },
         {
             "id": "apiKey",
@@ -609,6 +605,7 @@ Stop a running cloud agent. This pauses the agent without deleting it.
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Success message |
+| `metadata` | object | Result metadata |
 
 </div>
 
@@ -629,37 +626,37 @@ Stop a running cloud agent. This pauses the agent without deleting it.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "cursor_delete_agent",
             "options": [
                 {
-                    "label": "Launch Agent",
-                    "id": "cursor_launch_agent"
+                    "id": "cursor_launch_agent",
+                    "label": "Launch Agent"
                 },
                 {
-                    "label": "Add Follow-up",
-                    "id": "cursor_add_followup"
+                    "id": "cursor_add_followup",
+                    "label": "Add Follow-up"
                 },
                 {
-                    "label": "Get Agent Status",
-                    "id": "cursor_get_agent"
+                    "id": "cursor_get_agent",
+                    "label": "Get Agent Status"
                 },
                 {
-                    "label": "Get Conversation",
-                    "id": "cursor_get_conversation"
+                    "id": "cursor_get_conversation",
+                    "label": "Get Conversation"
                 },
                 {
-                    "label": "List Agents",
-                    "id": "cursor_list_agents"
+                    "id": "cursor_list_agents",
+                    "label": "List Agents"
                 },
                 {
-                    "label": "Stop Agent",
-                    "id": "cursor_stop_agent"
+                    "id": "cursor_stop_agent",
+                    "label": "Stop Agent"
                 },
                 {
-                    "label": "Delete Agent",
-                    "id": "cursor_delete_agent"
+                    "id": "cursor_delete_agent",
+                    "label": "Delete Agent"
                 }
-            ],
-            "defaultValue": "cursor_delete_agent"
+            ]
         },
         {
             "id": "apiKey",
@@ -697,6 +694,7 @@ Permanently delete a cloud agent. This action cannot be undone.
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Success message |
+| `metadata` | object | Result metadata |
 
 </div>
 

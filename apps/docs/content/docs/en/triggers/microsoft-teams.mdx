@@ -1,6 +1,6 @@
 ---
 title: Microsoft Teams Trigger
-description: Trigger workflow from new messages in Microsoft Teams chats via Microsoft Graph subscriptions
+description: Trigger workflow from Microsoft Teams channel messages via outgoing webhooks
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
@@ -11,14 +11,14 @@ import { Callout } from 'fumadocs-ui/components/callout'
 import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
-  type="microsoft-teams"
+  type="microsoftteams"
   color=""
 />
 
-Trigger workflow from new messages in Microsoft Teams chats via Microsoft Graph subscriptions
+Trigger workflow from Microsoft Teams channel messages via outgoing webhooks
 
 <Callout type="info">
-  This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
+  This is a **webhook-based** trigger. Configure the external service to send events to the workflow webhook URL.
 </Callout>
 
 <Cards>
@@ -30,84 +30,13 @@ Trigger workflow from new messages in Microsoft Teams chats via Microsoft Graph 
 
 ## Events
 
-### Microsoft Teams Chat
-
-Trigger workflow from new messages in Microsoft Teams chats via Microsoft Graph subscriptions
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="Microsoft Teams Chat"
-    type="microsoftteams_chat_subscription"
-    hideHeader
-    subBlocks={[
-        {
-            "id": "triggerCredentials",
-            "type": "oauth-input",
-            "title": "Credentials",
-            "description": "This trigger requires microsoft teams credentials to access your account.",
-            "required": true
-        },
-        {
-            "id": "chatId",
-            "type": "short-input",
-            "title": "Chat ID",
-            "placeholder": "Enter chat ID",
-            "description": "The ID of the Teams chat to monitor",
-            "required": true
-        },
-        {
-            "id": "includeAttachments",
-            "type": "switch",
-            "title": "Include Attachments",
-            "description": "Fetch hosted contents and upload to storage"
-        }
-    ]}
-  />
-</ShowcaseCard>
-
-#### Output Schema
-
-<SchemaTree
-  title="Event Payload"
-  fields={[
-      {
-          "name": "message_id",
-          "type": "string",
-          "description": "Message ID"
-      },
-      {
-          "name": "chat_id",
-          "type": "string",
-          "description": "Chat ID"
-      },
-      {
-          "name": "from_name",
-          "type": "string",
-          "description": "Sender display name"
-      },
-      {
-          "name": "text",
-          "type": "string",
-          "description": "Message body (HTML or text)"
-      },
-      {
-          "name": "created_at",
-          "type": "string",
-          "description": "Message timestamp"
-      },
-      {
-          "name": "attachments",
-          "type": "file[]",
-          "description": "Uploaded attachments as files"
-      }
-  ]}
-/>
-
----
-
 ### Microsoft Teams Channel
 
 Trigger workflow from Microsoft Teams channel messages via outgoing webhooks
+
+#### Setup Instructions
+
+<div class="mb-3"><strong>1.</strong> Open Microsoft Teams and go to the team where you want to add the webhook.</div><div class="mb-3"><strong>2.</strong> Click the three dots (•••) next to the team name and select "Manage team".</div><div class="mb-3"><strong>3.</strong> Go to the "Apps" tab and click "Create an outgoing webhook".</div><div class="mb-3"><strong>4.</strong> Provide a name, description, and optionally a profile picture.</div><div class="mb-3"><strong>5.</strong> Set the callback URL to your TradingGoose webhook URL above.</div><div class="mb-3"><strong>6.</strong> Copy the HMAC security token and paste it into the "HMAC Secret" field.</div><div class="mb-3"><strong>7.</strong> Click "Create" to finish setup.</div>
 
 <ShowcaseCard>
   <BlockConfigPreview
@@ -116,29 +45,13 @@ Trigger workflow from Microsoft Teams channel messages via outgoing webhooks
     hideHeader
     subBlocks={[
         {
-            "id": "selectedTriggerId",
-            "type": "dropdown",
-            "title": "Trigger Type",
-            "required": true,
-            "options": [
-                {
-                    "label": "Microsoft Teams Channel",
-                    "id": "microsoftteams_webhook"
-                },
-                {
-                    "label": "Microsoft Teams Chat",
-                    "id": "microsoftteams_chat_subscription"
-                }
-            ]
-        },
-        {
             "id": "hmacSecret",
             "type": "short-input",
             "title": "HMAC Secret",
             "placeholder": "Enter HMAC secret from Teams",
             "description": "The security token provided by Teams when creating an outgoing webhook. Used to verify request authenticity.",
-            "required": true,
-            "password": true
+            "password": true,
+            "required": true
         }
     ]}
   />
@@ -152,7 +65,6 @@ Trigger workflow from Microsoft Teams channel messages via outgoing webhooks
       {
           "name": "from",
           "type": "object",
-          "description": "from",
           "children": [
               {
                   "name": "id",
@@ -174,12 +86,10 @@ Trigger workflow from Microsoft Teams channel messages via outgoing webhooks
       {
           "name": "message",
           "type": "object",
-          "description": "message",
           "children": [
               {
                   "name": "raw",
                   "type": "object",
-                  "description": "raw",
                   "children": [
                       {
                           "name": "attachments",
@@ -189,12 +99,10 @@ Trigger workflow from Microsoft Teams channel messages via outgoing webhooks
                       {
                           "name": "channelData",
                           "type": "object",
-                          "description": "channelData",
                           "children": [
                               {
                                   "name": "team",
                                   "type": "object",
-                                  "description": "team",
                                   "children": [
                                       {
                                           "name": "id",
@@ -206,7 +114,6 @@ Trigger workflow from Microsoft Teams channel messages via outgoing webhooks
                               {
                                   "name": "tenant",
                                   "type": "object",
-                                  "description": "tenant",
                                   "children": [
                                       {
                                           "name": "id",
@@ -218,7 +125,6 @@ Trigger workflow from Microsoft Teams channel messages via outgoing webhooks
                               {
                                   "name": "channel",
                                   "type": "object",
-                                  "description": "channel",
                                   "children": [
                                       {
                                           "name": "id",
@@ -242,7 +148,6 @@ Trigger workflow from Microsoft Teams channel messages via outgoing webhooks
                       {
                           "name": "conversation",
                           "type": "object",
-                          "description": "conversation",
                           "children": [
                               {
                                   "name": "id",
@@ -308,7 +213,6 @@ Trigger workflow from Microsoft Teams channel messages via outgoing webhooks
       {
           "name": "conversation",
           "type": "object",
-          "description": "conversation",
           "children": [
               {
                   "name": "id",
@@ -347,4 +251,84 @@ Trigger workflow from Microsoft Teams channel messages via outgoing webhooks
 
 ---
 
+### Microsoft Teams Chat
 
+Trigger workflow from new messages in Microsoft Teams chats via Microsoft Graph subscriptions
+
+#### Setup Instructions
+
+<div class="mb-3"><strong>1.</strong> Connect your Microsoft Teams account and grant the required permissions.</div><div class="mb-3"><strong>2.</strong> Enter the Chat ID of the Teams chat you want to monitor.</div><div class="mb-3"><strong>3.</strong> We will create a Microsoft Graph change notification subscription that delivers chat message events to your TradingGoose webhook URL.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Microsoft Teams Chat"
+    type="microsoftteams_chat_subscription"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credentials",
+            "description": "This trigger requires microsoft teams credentials to access your account.",
+            "provider": "microsoft-teams",
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "Chat ID",
+            "placeholder": "Enter chat ID",
+            "description": "The ID of the Teams chat to monitor",
+            "required": true
+        },
+        {
+            "id": "includeAttachments",
+            "type": "switch",
+            "title": "Include Attachments",
+            "description": "Fetch hosted contents and upload to storage",
+            "required": false,
+            "defaultValue": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "message_id",
+          "type": "string",
+          "description": "Message ID"
+      },
+      {
+          "name": "chat_id",
+          "type": "string",
+          "description": "Chat ID"
+      },
+      {
+          "name": "from_name",
+          "type": "string",
+          "description": "Sender display name"
+      },
+      {
+          "name": "text",
+          "type": "string",
+          "description": "Message body (HTML or text)"
+      },
+      {
+          "name": "created_at",
+          "type": "string",
+          "description": "Message timestamp"
+      },
+      {
+          "name": "attachments",
+          "type": "file[]",
+          "description": "Uploaded attachments as files"
+      }
+  ]}
+/>
+
+---

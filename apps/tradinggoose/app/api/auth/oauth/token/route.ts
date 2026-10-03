@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { authorizeCredentialUse, credentialAuthStatus } from '@/lib/auth/credential-access'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getOAuthTokenAccount, refreshTokenIfNeeded } from '@/lib/oauth/tokens'
+import { getOAuthTokenAccount, refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 import { getTrelloApiKey } from '@/lib/trello/auth'
 import { generateRequestId } from '@/lib/utils'
 
@@ -59,7 +59,15 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      const { accessToken } = await refreshTokenIfNeeded(requestId, tokenAccount, tokenAccountId)
+      const accessToken = await refreshAccessTokenIfNeeded(
+        tokenAccountId,
+        authz.credentialOwnerUserId,
+        requestId,
+        tokenAccount.providerId
+      )
+      if (!accessToken) {
+        throw new Error('Failed to refresh token')
+      }
       const apiKey = tokenAccount.providerId === 'trello' ? await getTrelloApiKey() : undefined
       return NextResponse.json(
         {

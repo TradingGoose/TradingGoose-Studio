@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { v4 as uuidv4 } from 'uuid'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import {
   getListingIdentityKey,
@@ -70,7 +71,6 @@ export const useMarketQuoteSnapshots = ({
   const [error, setError] = useState<Error | null>(null)
   const [pendingIdentityCount, setPendingIdentityCount] = useState(0)
   const [refetchNonce, setRefetchNonce] = useState(0)
-  const runIdRef = useRef(0)
 
   const normalizedItems = useMemo(() => {
     const seenKeys = new Set<string>()
@@ -131,14 +131,12 @@ export const useMarketQuoteSnapshots = ({
     }
 
     let disposed = false
-    runIdRef.current += 1
-    const runId = runIdRef.current
     const receivedIdentities = new Set<string>()
     const subscriptionIds = new Set<string>()
     const acknowledgedClientSubscriptionIds = new Set<string>()
     const identityByClientSubscriptionId = new Map<string, string>()
-    const clientSubscriptionIds = normalizedItems.subscriptions.map((item, index) => {
-      const clientSubscriptionId = `market-quote:${runId}:${index}:${item.identityKey}`
+    const clientSubscriptionIds = normalizedItems.subscriptions.map((item) => {
+      const clientSubscriptionId = `market-quote:${uuidv4()}`
       identityByClientSubscriptionId.set(clientSubscriptionId, item.identityKey)
       return {
         ...item,
@@ -256,7 +254,6 @@ export const useMarketQuoteSnapshots = ({
       for (const item of clientSubscriptionIds) {
         if (acknowledgedClientSubscriptionIds.has(item.clientSubscriptionId)) continue
         socket.emit('market-unsubscribe', {
-          provider,
           clientSubscriptionId: item.clientSubscriptionId,
         })
       }

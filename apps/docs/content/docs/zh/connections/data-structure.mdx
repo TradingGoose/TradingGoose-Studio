@@ -1,0 +1,50 @@
+---
+title: 数据结构
+---
+
+每种区块都有特定的输出结构。请使用实际来源区块名称和准确的字段路径；连接区块不会展平其输出包装层。
+
+## 标准输出
+
+| 区块 | 输出引用 |
+|---|---|
+| Agent | `<agent.content>`、`<agent.model>`、`<agent.tokens>`、`<agent.toolCalls>`、`<agent.toolResults>` |
+| API | `<api.data>`、`<api.status>`、`<api.headers>` |
+| Function | `<function.result>`、`<function.stdout>` |
+| Evaluator | `<evaluator.content>`、`<evaluator.model>`、`<evaluator.tokens>`、`<evaluator.cost>`，以及小写指标名称 |
+| Condition | `<condition.conditionResult>`、`<condition.selectedPath>`、`<condition.selectedOption>` |
+| Router | `<router.prompt>`、`<router.selectedPath>`、`<router.model>`、`<router.tokens>`、`<router.cost>` |
+
+Token 用量通常包含 `prompt`、`completion` 和 `total`。费用元数据（若提供）是包含 `input`、`output` 和 `total` 的对象，不是各次工具调用费用的数组。
+
+## 路由输出
+
+Condition 保留可用的上游输出字段，并添加路由字段。`conditionResult` 表示选择了已连接的路径，包括 Else 路径，并非第一个表达式的原始布尔结果。`selectedOption` 是所选条件 ID。未选择已连接路径时，路由字段为 false/null。
+
+Router 返回原始 `prompt` 和 `selectedPath`，不会暴露 `selected_path` 字段或生成的 `content`。
+
+所选路径的结构如下：
+
+```json
+{
+  "blockId": "destination-block-id",
+  "blockType": "agent",
+  "blockTitle": "Follow-up Agent"
+}
+```
+
+## 结构化值与嵌套值
+
+Agent 使用有效的 Response Format 时，模式字段直接位于输出根层，例如 `<agent.sentiment>`，并与执行元数据并列。没有此配置时，不要假设 Agent 输出中存在任意自定义字段。
+
+Evaluator 指标使用小写名称直接出现在输出根层。其 `content` 包含模型的评估响应，不应依赖其生成自然语言说明。
+
+API 响应正文保留在 `data` 下，Function 返回值保留在 `result` 下：
+
+```text
+<api.data.results[0].id>
+<function.result.calculations.total>
+<agent.tokens.total>
+```
+
+连接自定义嵌套字段前，请检查实际运行结果。对于支持错误路径的块，应将恢复逻辑连接到错误输出；失败输出与成功输出契约不同。[Condition 块](/blocks/condition)不支持这种恢复路径。

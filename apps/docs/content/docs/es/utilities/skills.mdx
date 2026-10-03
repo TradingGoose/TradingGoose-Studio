@@ -1,0 +1,88 @@
+---
+title: Habilidades
+description: Conjuntos de instrucciones reutilizables con alcance de workspace
+  que los blocks Agent cargan en tiempo de ejecución
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Cards, Card } from 'fumadocs-ui/components/card'
+
+Las habilidades son conjuntos de instrucciones reutilizables que definen comportamientos especializados para los blocks Agent. Crea una habilidad una vez y asóciala a cualquier agente en cualquier workflow del mismo workspace. Las habilidades usan el formato JSON de exportación compartido de TradingGoose, así que puedes exportarlas desde el Editor de habilidades e importarlas con el widget Lista de habilidades.
+
+## Definición de habilidad
+
+Cada habilidad se almacena como un `SkillDefinition` con cuatro campos visibles para el usuario:
+
+| Campo | Reglas | Propósito |
+|---|---|---|
+| **name** | 1-64 caracteres, recortado al guardar | Nombre para mostrar, único en el workspace, visible para personas y agentes |
+| **description** | 1-1024 caracteres | Indica a agentes y compañeros qué hace la habilidad |
+| **content** | 1-50 000 caracteres | El prompt completo: instrucciones, contexto, reglas y ejemplos |
+| **id** | Generado automáticamente | Referencia inmutable usada por workflows, APIs y el cargador en tiempo de ejecución |
+
+Cada habilidad también incluye `workspaceId`, `userId`, `createdAt` y un timestamp `updatedAt` opcional.
+
+## Crear y editar habilidades
+
+<Steps>
+  <Step>
+    Abre el widget [Lista de habilidades](/widgets/list-skill) y elige **Nueva habilidad**.
+  </Step>
+  <Step>
+    Selecciona la nueva habilidad y ábrela en un [Editor de habilidades](/widgets/editor-skill) emparejado.
+  </Step>
+  <Step>
+    Introduce un **nombre** de hasta 64 caracteres, una **descripción** breve y el **contenido** completo, y luego elige **Guardar**. La validación rechaza campos vacíos y nombres duplicados dentro del workspace.
+  </Step>
+</Steps>
+
+Para actualizar una habilidad existente, selecciónala en el Editor de habilidades, cambia cualquier campo y guarda. Todos los workflows que hacen referencia a esa habilidad usarán el contenido nuevo en su siguiente ejecución.
+
+Para eliminar una habilidad, usa su acción de eliminar en la Lista de habilidades. La eliminación requiere el permiso `admin` o `write`. La lista desactiva esta acción cuando solo queda una habilidad.
+
+## Importar y exportar
+
+Las habilidades usan el formato JSON de exportación compartido de TradingGoose. Exporta una habilidad desde el Editor de habilidades e impórtala desde el widget [Lista de habilidades](/widgets/list-skill). Las habilidades importadas se normalizan automáticamente y los nombres duplicados se renombran para que puedas moverlas entre espacios de trabajo sin limpieza manual.
+
+## Uso de habilidades en bloques Agent
+
+El bloque Agent expone una entrada **Habilidades** (tipo `skill-input`). Durante la configuración, selecciona una o más habilidades del espacio de trabajo. En tiempo de ejecución, el agente recibe primero el nombre, la descripción y el ID inmutable de cada habilidad disponible. Luego puede cargar las instrucciones completas de una habilidad relevante bajo demanda.
+
+<Callout type="info">
+  Las habilidades tienen ámbito de espacio de trabajo. Cualquier miembro del equipo con acceso al espacio de trabajo puede consultar, usar y (con permiso de escritura) editar o eliminar habilidades.
+</Callout>
+
+## Cómo funcionan las habilidades en tiempo de ejecución
+
+1. El ejecutor del flujo de trabajo lee las referencias de habilidades seleccionadas del bloque Agent.
+2. TradingGoose resuelve las habilidades seleccionadas en el espacio de trabajo de la ejecución y añade sus nombres, descripciones e ID al contexto del agente.
+3. Cuando una habilidad es relevante, el agente llama a su cargador interno de habilidades con el ID inmutable exacto.
+4. El cargador recupera el contenido actual de esa habilidad y lo devuelve como instrucciones especializadas para la ejecución.
+
+Las referencias de habilidades no disponibles se omiten. El nombre para mostrar ayuda al agente a elegir una habilidad, pero el ID inmutable es la clave de búsqueda en tiempo de ejecución.
+
+## Permisos
+
+| Acción | Permiso requerido |
+|---|---|
+| Listar / leer habilidades | Cualquier acceso al espacio de trabajo |
+| Crear / actualizar / eliminar | `admin` o `write` |
+
+## Prácticas recomendadas
+
+- **Una habilidad por rol** -- mantén cada habilidad centrada en una sola persona o tipo de tarea.
+- **Incluye ejemplos** en el contenido para anclar el comportamiento del agente.
+- **Itera en el mismo lugar** -- editar una habilidad actualiza todos los flujos de trabajo que la referencian; no hace falta volver a conectarla.
+- **Usa nombres descriptivos** -- mantenlos cortos, recortados y únicos dentro del espacio de trabajo.
+
+## Relacionado
+
+<Cards>
+  <Card title="Editor de habilidades" href="/widgets/editor-skill">
+    Edita y exporta una habilidad seleccionada.
+  </Card>
+  <Card title="Lista de habilidades" href="/widgets/list-skill">
+    Explora, crea, importa, cambia el nombre y elimina habilidades en el espacio de trabajo.
+  </Card>
+</Cards>

@@ -1,0 +1,279 @@
+---
+title: Reddit
+description: Accede a datos y contenido de Reddit
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="reddit"
+  color="#FF5700"
+/>
+
+## Configuración
+
+### Obtener publicaciones
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Reddit"
+    type="reddit"
+    color="#FF5700"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "get_posts",
+            "options": [
+                {
+                    "id": "get_posts",
+                    "label": "Obtener publicaciones"
+                },
+                {
+                    "id": "get_comments",
+                    "label": "Obtener comentarios"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Reddit",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Reddit",
+            "provider": "reddit",
+            "required": true
+        },
+        {
+            "id": "subreddit",
+            "type": "short-input",
+            "title": "Subreddit",
+            "layout": "full",
+            "placeholder": "Introducir nombre del subreddit (sin r/)",
+            "required": true
+        },
+        {
+            "id": "sort",
+            "type": "dropdown",
+            "title": "Ordenar por",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "hot",
+                    "label": "Destacados"
+                },
+                {
+                    "id": "new",
+                    "label": "Nuevos"
+                },
+                {
+                    "id": "top",
+                    "label": "Top"
+                },
+                {
+                    "id": "rising",
+                    "label": "En alza"
+                }
+            ]
+        },
+        {
+            "id": "time",
+            "type": "dropdown",
+            "title": "Filtro de tiempo (para orden Top)",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "day",
+                    "label": "Día"
+                },
+                {
+                    "id": "week",
+                    "label": "Semana"
+                },
+                {
+                    "id": "month",
+                    "label": "Mes"
+                },
+                {
+                    "id": "year",
+                    "label": "Año"
+                },
+                {
+                    "id": "all",
+                    "label": "Todo el tiempo"
+                }
+            ],
+            "description": "Se muestra cuando el orden es 'top'."
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Máx. publicaciones",
+            "layout": "full",
+            "placeholder": "10"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener publicaciones (<code>reddit_get_posts</code>)</div>
+
+Obtiene publicaciones de un subreddit con distintas opciones de ordenación
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `subreddit` | string | Sí | Nombre del subreddit del que obtener las publicaciones \(sin el prefijo r/\) |
+| `sort` | string | No | Método de ordenación de las publicaciones: "hot", "new", "top" o "rising" \(valor predeterminado: "hot"\) |
+| `limit` | number | No | Número máximo de publicaciones que devolver \(valor predeterminado: 10, máx.: 100\) |
+| `time` | string | No | Filtro de tiempo para publicaciones ordenadas por "top": "day", "week", "month", "year" o "all" \(valor predeterminado: "day"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `subreddit` | string | Nombre del subreddit del que se obtuvieron las publicaciones |
+| `posts` | array | Array de publicaciones con título, autor, URL, puntuación, número de comentarios y metadatos |
+
+</div>
+
+---
+
+### Obtener comentarios
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Reddit"
+    type="reddit"
+    color="#FF5700"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "get_comments",
+            "options": [
+                {
+                    "id": "get_posts",
+                    "label": "Obtener publicaciones"
+                },
+                {
+                    "id": "get_comments",
+                    "label": "Obtener comentarios"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Reddit",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Reddit",
+            "provider": "reddit",
+            "required": true
+        },
+        {
+            "id": "subreddit",
+            "type": "short-input",
+            "title": "Subreddit",
+            "layout": "full",
+            "placeholder": "Introduce el nombre del subreddit (sin r/)",
+            "required": true
+        },
+        {
+            "id": "postId",
+            "type": "short-input",
+            "title": "ID de la publicación",
+            "layout": "full",
+            "placeholder": "Introduce el ID de la publicación",
+            "required": true
+        },
+        {
+            "id": "commentSort",
+            "type": "dropdown",
+            "title": "Ordenar comentarios por",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "confidence",
+                    "label": "Confianza"
+                },
+                {
+                    "id": "top",
+                    "label": "Destacados"
+                },
+                {
+                    "id": "new",
+                    "label": "Nuevos"
+                },
+                {
+                    "id": "controversial",
+                    "label": "Controvertidos"
+                },
+                {
+                    "id": "old",
+                    "label": "Antiguos"
+                },
+                {
+                    "id": "random",
+                    "label": "Aleatorio"
+                },
+                {
+                    "id": "qa",
+                    "label": "Preguntas y respuestas"
+                }
+            ]
+        },
+        {
+            "id": "commentLimit",
+            "type": "short-input",
+            "title": "Número de comentarios",
+            "layout": "full",
+            "placeholder": "50"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener comentarios (<code>reddit_get_comments</code>)</div>
+
+Obtiene comentarios de una publicación específica de Reddit
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `postId` | string | Sí | El ID de la publicación de Reddit de la que se obtienen los comentarios |
+| `subreddit` | string | Sí | El subreddit donde está la publicación \(sin el prefijo r/\) |
+| `sort` | string | No | Método de ordenación de comentarios: "confidence", "top", "new", "controversial", "old", "random", "qa" \(predeterminado: "confidence"\) |
+| `limit` | number | No | Número máximo de comentarios que se devolverán \(predeterminado: 50, máx.: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `post` | object | Información de la publicación, incluido ID, título, autor, contenido y metadatos |
+| `comments` | array | Comentarios anidados con autor, cuerpo, puntuación, marcas de tiempo y respuestas |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Reddit en el workflow. Puede obtener publicaciones y comentarios de un subreddit.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `reddit`

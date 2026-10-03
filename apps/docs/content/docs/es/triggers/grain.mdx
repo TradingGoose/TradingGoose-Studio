@@ -1,0 +1,597 @@
+---
+title: Trigger Grain
+description: Trigger webhook genérico para todos los eventos de Grain
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="grain"
+  color=""
+/>
+
+Trigger webhook genérico para todos los eventos de Grain
+
+<Callout type="info">
+  Este es un trigger basado en **webhook**. Configura el servicio externo para enviar eventos a la URL del webhook del workflow.
+</Callout>
+
+<Cards>
+  <Card title="Usar como Tool" href="/tools/grain">
+    Consulta las acciones, operaciones y entradas de tool del workflow para Grain.
+  </Card>
+</Cards>
+
+## Eventos
+
+### Grain Webhook
+
+Trigger webhook genérico para todos los eventos de Grain
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>1.</strong> Introduce tu API Key de Grain (Personal Access Token) arriba.</div><div class="mb-3"><strong>2.</strong> Puedes encontrar o crear tu API key en Grain en <strong>Settings > Integrations > API</strong>.</div><div class="mb-3"><strong>3.</strong> Haz clic en <strong>"Guardar configuración"</strong> para crear automáticamente el webhook en Grain para los eventos <strong>All events</strong>.</div><div class="mb-3"><strong>4.</strong> El webhook se eliminará automáticamente cuando quites este trigger.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain Webhook"
+    type="grain_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Introduce tu API key de Grain (Personal Access Token)",
+            "description": "Necesaria para crear el webhook en Grain.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "type",
+          "type": "string",
+          "description": "Tipo de evento (p. ej., recording_added)"
+      },
+      {
+          "name": "user_id",
+          "type": "string",
+          "description": "UUID del usuario que activó el evento"
+      },
+      {
+          "name": "data",
+          "type": "object",
+          "description": "Objeto de datos del evento (recording, highlight, etc.)"
+      }
+  ]}
+/>
+
+---
+
+### Grabación de Grain creada
+
+Activa el flujo de trabajo cuando se añade una grabación nueva en Grain
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>1.</strong> Introduce tu clave de API de Grain (token de acceso personal) arriba.</div><div class="mb-3"><strong>2.</strong> Puedes encontrar o crear tu clave de API en Grain en <strong>Settings > Integrations > API</strong>.</div><div class="mb-3"><strong>3.</strong> Haz clic en <strong>"Guardar configuración"</strong> para crear automáticamente el webhook en Grain para eventos <strong>Recording (new)</strong>.</div><div class="mb-3"><strong>4.</strong> El webhook se eliminará automáticamente cuando quites este activador.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grabación de Grain creada"
+    type="grain_recording_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API de Grain (token de acceso personal)",
+            "description": "Necesaria para crear el webhook en Grain.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "type",
+          "type": "string",
+          "description": "Tipo de evento"
+      },
+      {
+          "name": "user_id",
+          "type": "string",
+          "description": "UUID del usuario que activó el evento"
+      },
+      {
+          "name": "data",
+          "type": "object",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "UUID de la grabación"
+              },
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "Título de la grabación"
+              },
+              {
+                  "name": "start_datetime",
+                  "type": "string",
+                  "description": "Marca de tiempo de inicio ISO8601"
+              },
+              {
+                  "name": "end_datetime",
+                  "type": "string",
+                  "description": "Marca de tiempo de fin ISO8601"
+              },
+              {
+                  "name": "duration_ms",
+                  "type": "number",
+                  "description": "Duración en milisegundos"
+              },
+              {
+                  "name": "media_type",
+                  "type": "string",
+                  "description": "audio, transcript o video"
+              },
+              {
+                  "name": "source",
+                  "type": "string",
+                  "description": "Origen de la grabación (zoom, meet, local_capture, etc.)"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "URL para ver en Grain"
+              },
+              {
+                  "name": "thumbnail_url",
+                  "type": "string",
+                  "description": "URL de la miniatura (nullable)"
+              },
+              {
+                  "name": "tags",
+                  "type": "array",
+                  "description": "Array de cadenas de etiquetas"
+              },
+              {
+                  "name": "teams",
+                  "type": "array",
+                  "description": "Array de objetos de equipo"
+              },
+              {
+                  "name": "meeting_type",
+                  "type": "object",
+                  "description": "Información del tipo de reunión con id, name, scope (nullable)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Grabación de Grain actualizada
+
+Activa un flujo de trabajo cuando se actualiza una grabación en Grain
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>1.</strong> Introduce tu clave API de Grain (token de acceso personal) arriba.</div><div class="mb-3"><strong>2.</strong> Puedes encontrar o crear tu clave API en Grain en <strong>Settings > Integrations > API</strong>.</div><div class="mb-3"><strong>3.</strong> Haz clic en <strong>"Guardar configuración"</strong> para crear automáticamente el webhook en Grain para los eventos de <strong>Grabación (actualizada)</strong>.</div><div class="mb-3"><strong>4.</strong> El webhook se eliminará automáticamente cuando quites este activador.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grabación de Grain actualizada"
+    type="grain_recording_updated"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Introduce tu clave API de Grain (token de acceso personal)",
+            "description": "Necesaria para crear el webhook en Grain.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "type",
+          "type": "string",
+          "description": "Tipo de evento"
+      },
+      {
+          "name": "user_id",
+          "type": "string",
+          "description": "UUID del usuario que activó el evento"
+      },
+      {
+          "name": "data",
+          "type": "object",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "UUID de la grabación"
+              },
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "Título de la grabación"
+              },
+              {
+                  "name": "start_datetime",
+                  "type": "string",
+                  "description": "Marca de tiempo de inicio ISO8601"
+              },
+              {
+                  "name": "end_datetime",
+                  "type": "string",
+                  "description": "Marca de tiempo de fin ISO8601"
+              },
+              {
+                  "name": "duration_ms",
+                  "type": "number",
+                  "description": "Duración en milisegundos"
+              },
+              {
+                  "name": "media_type",
+                  "type": "string",
+                  "description": "audio, transcript o video"
+              },
+              {
+                  "name": "source",
+                  "type": "string",
+                  "description": "Origen de la grabación (zoom, meet, local_capture, etc.)"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "URL para verla en Grain"
+              },
+              {
+                  "name": "thumbnail_url",
+                  "type": "string",
+                  "description": "URL de la miniatura (nullable)"
+              },
+              {
+                  "name": "tags",
+                  "type": "array",
+                  "description": "Array de cadenas de etiquetas"
+              },
+              {
+                  "name": "teams",
+                  "type": "array",
+                  "description": "Array de objetos de equipo"
+              },
+              {
+                  "name": "meeting_type",
+                  "type": "object",
+                  "description": "Información del tipo de reunión con id, name, scope (nullable)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Highlight creado en Grain
+
+Activa el flujo de trabajo cuando se crea un nuevo highlight/clip en Grain
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>1.</strong> Introduce tu clave de API de Grain (Personal Access Token) arriba.</div><div class="mb-3"><strong>2.</strong> Puedes encontrar o crear tu clave de API en Grain en <strong>Settings > Integrations > API</strong>.</div><div class="mb-3"><strong>3.</strong> Haz clic en <strong>"Guardar configuración"</strong> para crear automáticamente el webhook en Grain para eventos de <strong>Highlight (new)</strong>.</div><div class="mb-3"><strong>4.</strong> El webhook se eliminará automáticamente cuando elimines este activador.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Highlight creado en Grain"
+    type="grain_highlight_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API de Grain (Personal Access Token)",
+            "description": "Necesaria para crear el webhook en Grain.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "type",
+          "type": "string",
+          "description": "Tipo de evento"
+      },
+      {
+          "name": "user_id",
+          "type": "string",
+          "description": "UUID del usuario que activó el evento"
+      },
+      {
+          "name": "data",
+          "type": "object",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "UUID del highlight"
+              },
+              {
+                  "name": "recording_id",
+                  "type": "string",
+                  "description": "UUID de la grabación principal"
+              },
+              {
+                  "name": "text",
+                  "type": "string",
+                  "description": "Título/descripción del highlight"
+              },
+              {
+                  "name": "transcript",
+                  "type": "string",
+                  "description": "Texto de transcripción del clip"
+              },
+              {
+                  "name": "speakers",
+                  "type": "array",
+                  "description": "Array de nombres de hablantes"
+              },
+              {
+                  "name": "timestamp",
+                  "type": "number",
+                  "description": "Marca de tiempo de inicio en ms"
+              },
+              {
+                  "name": "duration",
+                  "type": "number",
+                  "description": "Duración en ms"
+              },
+              {
+                  "name": "tags",
+                  "type": "array",
+                  "description": "Array de cadenas de etiquetas"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "URL para ver en Grain"
+              },
+              {
+                  "name": "thumbnail_url",
+                  "type": "string",
+                  "description": "URL de la miniatura"
+              },
+              {
+                  "name": "created_datetime",
+                  "type": "string",
+                  "description": "Marca de tiempo de creación ISO8601"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Highlight actualizado de Grain
+
+Activa el workflow cuando se actualiza un highlight/clip en Grain
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>1.</strong> Introduce tu API Key de Grain (Personal Access Token) arriba.</div><div class="mb-3"><strong>2.</strong> Puedes encontrar o crear tu API key en Grain en <strong>Settings > Integrations > API</strong>.</div><div class="mb-3"><strong>3.</strong> Haz clic en <strong>"Guardar configuración"</strong> para crear automáticamente el webhook en Grain para los eventos <strong>Highlight (updated)</strong>.</div><div class="mb-3"><strong>4.</strong> El webhook se eliminará automáticamente cuando quites este trigger.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Highlight actualizado de Grain"
+    type="grain_highlight_updated"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Introduce tu API key de Grain (Personal Access Token)",
+            "description": "Se requiere para crear el webhook en Grain.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "type",
+          "type": "string",
+          "description": "Tipo de evento"
+      },
+      {
+          "name": "user_id",
+          "type": "string",
+          "description": "UUID del usuario que activó el evento"
+      },
+      {
+          "name": "data",
+          "type": "object",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "UUID del highlight"
+              },
+              {
+                  "name": "recording_id",
+                  "type": "string",
+                  "description": "UUID de la grabación principal"
+              },
+              {
+                  "name": "text",
+                  "type": "string",
+                  "description": "Título/descripción del highlight"
+              },
+              {
+                  "name": "transcript",
+                  "type": "string",
+                  "description": "Texto de transcripción del clip"
+              },
+              {
+                  "name": "speakers",
+                  "type": "array",
+                  "description": "Array de nombres de oradores"
+              },
+              {
+                  "name": "timestamp",
+                  "type": "number",
+                  "description": "Marca de tiempo de inicio en ms"
+              },
+              {
+                  "name": "duration",
+                  "type": "number",
+                  "description": "Duración en ms"
+              },
+              {
+                  "name": "tags",
+                  "type": "array",
+                  "description": "Array de cadenas de etiquetas"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "URL para ver en Grain"
+              },
+              {
+                  "name": "thumbnail_url",
+                  "type": "string",
+                  "description": "URL de la miniatura"
+              },
+              {
+                  "name": "created_datetime",
+                  "type": "string",
+                  "description": "Marca de tiempo de creación ISO8601"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Historia de Grain creada
+
+Activa un flujo de trabajo cuando se crea una historia nueva en Grain
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>1.</strong> Introduce tu clave de API de Grain (token de acceso personal) arriba.</div><div class="mb-3"><strong>2.</strong> Puedes encontrar o crear tu clave de API en Grain en <strong>Configuración > Integraciones > API</strong>.</div><div class="mb-3"><strong>3.</strong> Haz clic en <strong>"Guardar configuración"</strong> para crear automáticamente el webhook en Grain para eventos de <strong>Historia (nueva)</strong>.</div><div class="mb-3"><strong>4.</strong> El webhook se eliminará automáticamente cuando elimines este activador.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Historia de Grain creada"
+    type="grain_story_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API de Grain (token de acceso personal)",
+            "description": "Obligatoria para crear el webhook en Grain.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "type",
+          "type": "string",
+          "description": "Tipo de evento"
+      },
+      {
+          "name": "user_id",
+          "type": "string",
+          "description": "UUID del usuario que activó el evento"
+      },
+      {
+          "name": "data",
+          "type": "object",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "UUID de la historia"
+              },
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "Título de la historia"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "URL para ver en Grain"
+              },
+              {
+                  "name": "created_datetime",
+                  "type": "string",
+                  "description": "Marca de tiempo de creación en ISO8601"
+              }
+          ]
+      }
+  ]}
+/>
+
+---

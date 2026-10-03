@@ -155,6 +155,20 @@ export function createChatOutputEventReader(selectedOutputs: string[]) {
         ]
       }
 
+      if (event.type === 'execution:paused') {
+        const result = event.data.result
+        return isExecutionResult(result)
+          ? [
+              ...contentEvents(
+                'workflow',
+                `Workflow is paused for review: ${result.output.url ?? ''}`,
+                true
+              ),
+              { type: 'final', success: true, result },
+            ]
+          : []
+      }
+
       if (event.type === 'execution:completed') {
         const result = event.data.result
         if (!isExecutionResult(result)) {

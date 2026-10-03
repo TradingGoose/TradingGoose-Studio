@@ -19,7 +19,7 @@ Build workflows visually on a canvas by connecting blocks — AI agents, trading
 ## What You Can Build
 
 **Trading Automation**
-Connect to brokers (Alpaca, Tradier, Robinhood), execute orders, monitor holdings, and automate trading strategies driven by AI analysis and technical indicators.
+Connect to brokers (Alpaca and Tradier), execute orders, monitor holdings, and automate trading strategies driven by AI analysis and technical indicators.
 
 **Technical Analysis & Charting**
 Write custom indicators in PineTS, visualize OHLCV data with interactive candlestick charts, manage watchlists with live market data, and trigger workflows when indicator conditions are met.
@@ -28,7 +28,7 @@ Write custom indicators in PineTS, visualize OHLCV data with interactive candles
 Build research agents that analyze market data, scan news, process financial documents, and generate reports using models from OpenAI, Anthropic, Google, and more.
 
 **Data Processing & Integration**
-Connect to 120+ services — databases, communication tools, CRMs, and APIs. Orchestrate complex data pipelines with conditions, loops, parallel execution, and error handling.
+Connect databases, communication tools, CRMs, and APIs. Orchestrate complex data pipelines with conditions, loops, parallel execution, and error handling.
 
 ## Platform Overview
 
@@ -41,7 +41,7 @@ Connect to 120+ services — databases, communication tools, CRMs, and APIs. Orc
 Drag and drop blocks to build workflows. Connect AI models, trading services, databases, and APIs with point-and-click connections.
 
 **Trading Infrastructure**
-Built-in broker integrations (Alpaca, Tradier, Robinhood) and market data providers (Alpha Vantage, Finnhub, Yahoo Finance) for live and paper trading.
+Use Alpaca or Tradier for configured trading actions, and fetch market data from Alpaca, Alpha Vantage, Finnhub, or Yahoo Finance.
 
 **PineTS Scripting**
 Write custom indicators in PineTS — a JavaScript/TypeScript runtime compatible with Pine Script. Connect indicator signals to workflow automation via the `trigger()` API.
@@ -54,10 +54,10 @@ Start workflows via chat interface, REST API, webhooks, scheduled jobs, indicato
 
 ## Built-in Integrations
 
-TradingGoose connects to 120+ services:
+TradingGoose includes a broad catalog of integrations:
 
-- **Trading**: Alpaca, Tradier, Robinhood, Kalshi, Polymarket
-- **Market Data**: Alpha Vantage, Finnhub, Yahoo Finance
+- **Trading & Markets**: Alpaca, Tradier, Kalshi, Polymarket
+- **Market Data**: Alpaca, Alpha Vantage, Finnhub, Yahoo Finance
 - **AI Models**: OpenAI, Anthropic, Google, Groq, Cerebras, DeepSeek, Ollama (local)
 - **Communication**: Gmail, Slack, Teams, Telegram, WhatsApp, Discord
 - **Productivity**: Notion, Google Sheets, Airtable, Jira, Linear
@@ -69,9 +69,9 @@ Need something custom? Use [MCP integration](/utilities/mcp) to connect any exte
 
 ## Deployment Options
 
-**Cloud-hosted**: Coming soon — managed infrastructure with automatic scaling and built-in monitoring.
+**Cloud-hosted**: Use the managed TradingGoose service when hosted registration is available.
 
-**Self-hosted**: Deploy on your own infrastructure using Docker, with support for local AI models via Ollama for complete data privacy.
+**Self-hosted**: Run the repository locally or deploy it on your own infrastructure. You can connect local AI models through Ollama.
 
 ## Next Steps
 
@@ -83,7 +83,7 @@ Need something custom? Use [MCP integration](/utilities/mcp) to connect any exte
     Explore all available workflow blocks
   </Card>
   <Card title="Tools & Integrations" href="/tools">
-    Browse 120+ built-in integrations
+    Browse built-in integrations
   </Card>
   <Card title="Utilities" href="/utilities">
     MCP, Skills, Custom Tools, and Copilot

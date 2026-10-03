@@ -28,20 +28,24 @@ function resolveHighestPermission(
   ).permissionType
 }
 
-async function selectWorkspaceById(workspaceId: string): Promise<WorkspaceRecord | null> {
-  const [row] = await db.select().from(workspace).where(eq(workspace.id, workspaceId)).limit(1)
+export async function getWorkspaceById(
+  workspaceId: string,
+  connection: Pick<typeof db, 'select'> = db
+): Promise<WorkspaceRecord | null> {
+  const [row] = await connection
+    .select()
+    .from(workspace)
+    .where(eq(workspace.id, workspaceId))
+    .limit(1)
   return row ?? null
-}
-
-export async function getWorkspaceById(workspaceId: string): Promise<WorkspaceRecord | null> {
-  return await selectWorkspaceById(workspaceId)
 }
 
 export async function checkWorkspaceAccess(
   workspaceId: string,
-  userId: string
+  userId: string,
+  connection: Pick<typeof db, 'select'> = db
 ): Promise<WorkspaceAccess> {
-  const ws = await selectWorkspaceById(workspaceId)
+  const ws = await getWorkspaceById(workspaceId, connection)
 
   if (!ws) {
     return { exists: false, hasAccess: false, canWrite: false, workspace: null }
@@ -51,7 +55,7 @@ export async function checkWorkspaceAccess(
     return { exists: true, hasAccess: true, canWrite: true, workspace: ws }
   }
 
-  const permissionRows = await db
+  const permissionRows = await connection
     .select({ permissionType: permissions.permissionType })
     .from(permissions)
     .where(
@@ -115,7 +119,7 @@ export async function getUserEntityPermissions(
   entityId: string
 ): Promise<PermissionType | null> {
   if (entityType === 'workspace') {
-    const activeWorkspace = await selectWorkspaceById(entityId)
+    const activeWorkspace = await getWorkspaceById(entityId)
     if (!activeWorkspace) {
       return null
     }
@@ -135,10 +139,6 @@ export async function getUserEntityPermissions(
         eq(permissions.entityId, entityId)
       )
     )
-
-  if (result.length === 0) {
-    return null
-  }
 
   return resolveHighestPermission(result)
 }

@@ -1,0 +1,131 @@
+---
+title: MCP (Model Context Protocol)
+description: Conecta bloques Agent de Studio a herramientas y servicios externos
+  con el Model Context Protocol.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Steps, Step } from 'fumadocs-ui/components/steps'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+El [Model Context Protocol](https://modelcontextprotocol.com/) (MCP) es un estándar abierto que permite a los agentes de IA conectarse a herramientas y fuentes de datos. TradingGoose admite MCP en ambas direcciones:
+
+- **[Copilot MCP](/copilot/copilot-mcp)** -- Usa las herramientas Copilot del lado del servidor de TradingGoose desde un agente de programación de confianza.
+- **Cliente MCP** -- Conecta bloques Agent en Studio a herramientas expuestas por un servidor MCP externo.
+
+## Usar TradingGoose desde un agente de programación
+
+Consulta [Copilot MCP](/copilot/copilot-mcp) para ver las capacidades admitidas y [instalación](/copilot/copilot-mcp#installation) para Claude Code, Cursor, OpenCode, Codex, Antigravity y Gemini CLI. Esa guía también cubre la aprobación en el navegador, la configuración manual del cliente, los permisos y la revocación de claves.
+
+## Conectar Studio a un servidor MCP
+
+El cliente MCP de TradingGoose utiliza JSON-RPC 2.0 y admite la negociación de versión de protocolo en varias revisiones de la especificación (`2025-06-18`, `2025-03-26`, `2024-11-05`).
+
+## Transportes admitidos
+
+Cada servidor MCP que registres usa uno de tres modos de transporte basados en HTTP:
+
+| Transporte | Descripción |
+|-----------|-------------|
+| **HTTP** | HTTP POST estándar con respuestas JSON. Adecuado para herramientas simples de solicitud/respuesta. |
+| **SSE** | Server-Sent Events. El servidor puede responder con `text/event-stream` para resultados en streaming. |
+| **Streamable HTTP** | Transporte introducido en la especificación 2025-03-26 y admitido en 2025-06-18. Admite gestión de sesiones mediante encabezados `Mcp-Session-Id` y negociación de content-type entre JSON y SSE. |
+
+Los tres transportes los gestiona el mismo cliente subyacente -- el campo transport controla cómo se etiqueta la conexión, pero el cliente negociará el formato de respuesta automáticamente según el encabezado `Content-Type` del servidor.
+
+## Añadir un servidor MCP
+
+<Steps>
+<Step>
+### Abrir el widget MCP Editor
+
+Añade los widgets de lista **MCP Servers** y **MCP Editor** a tu panel. Crea un servidor desde la lista y selecciónalo en el editor. Consulta la [documentación del widget MCP Editor](/widgets/editor-mcp) para más detalles sobre la interfaz del editor.
+</Step>
+<Step>
+### Indicar la configuración del servidor
+
+Cada servidor requiere:
+
+- **Nombre** -- Una etiqueta legible.
+- **Transporte** -- Uno de `http`, `sse` o `streamable-http`.
+- **URL** -- El endpoint del servidor (p. ej. `https://mcp.example.com/v1`).
+- **Encabezados** (opcional) -- Encabezados personalizados, como `Authorization`. Admite interpolación de variables de entorno (consulta más abajo).
+- **Tiempo de espera** (opcional) -- Tiempo de espera de la solicitud en milisegundos. El valor predeterminado es 30 000 ms.
+- **Reintentos** (opcional) -- Se guarda con el servidor. El runtime de transporte URL actual no aplica este ajuste.
+</Step>
+<Step>
+### Guardar y probar
+
+Haz clic en **Guardar** y, a continuación, usa el botón **Probar conexión** de la barra de herramientas del MCP Editor. El cliente ejecutará el handshake de inicialización completo -- negociación de versión, intercambio de capacidades y una notificación `initialized` -- para confirmar que el servidor es accesible.
+</Step>
+</Steps>
+
+## Autenticación y variables de entorno
+
+Puedes hacer referencia a variables de entorno del espacio de trabajo o personales en la URL y los encabezados del servidor con la sintaxis de doble llave:
+
+```
+Authorization: Bearer {{MY_API_KEY}}
+```
+
+En tiempo de ejecución, el servicio intenta resolver estos marcadores de posición con tu entorno descifrado efectivo. Si falta una variable referenciada, Studio registra el error de resolución y deja el marcador de posición sin resolver en la URL o el encabezado. El servidor de destino puede rechazar entonces la solicitud o recibir el marcador de posición literal.
+
+<Callout type="warn">
+Nunca incrustes secretos directamente en las configuraciones del servidor. Almacena siempre los valores sensibles como variables de entorno y haz referencia a ellos con la sintaxis `{{VAR_NAME}}`.
+</Callout>
+
+## Descubrimiento de herramientas
+
+Cuando te conectas a un servidor, el cliente envía una solicitud `tools/list` JSON-RPC. La respuesta se convierte en una lista de herramientas, cada una con:
+
+- **name** -- Identificador único de la herramienta en ese servidor.
+- **description** -- Qué hace la herramienta.
+- **inputSchema** -- Un JSON Schema que describe los argumentos esperados.
+
+La interfaz de Studio almacena en caché las herramientas descubiertas durante cinco minutos usando los registros del espacio de trabajo y del servidor actual como clave de caché. Recarga las herramientas tras cambios del servidor y en la actualización periódica, o puedes forzar una actualización desde la barra de herramientas del MCP Editor.
+
+## Uso de herramientas MCP en bloques Agent
+
+Cuando un servidor está registrado y habilitado, sus herramientas aparecen junto a las herramientas integradas en el selector de herramientas de cualquier bloque **Agent**.
+
+<Steps>
+<Step>
+### Seleccionar herramientas MCP
+
+Abre un bloque Agent y expande la sección **Herramientas**. Las herramientas MCP aparecen bajo el nombre de su servidor. Selecciona las que necesites.
+</Step>
+<Step>
+### Ejecutar el agente
+
+Durante la ejecución, el agente llama a `tools/call` en el servidor MCP correspondiente y pasa el nombre de la herramienta y los argumentos. El resultado se devuelve como contenido estructurado (texto, imagen o recurso) y se incorpora al contexto del agente.
+</Step>
+</Steps>
+
+Cada llamada a una herramienta usa el acceso al espacio de trabajo del usuario autenticado y recibe un identificador de auditoría en los registros del servidor antes del envío.
+
+## Seguridad
+
+El cliente MCP aplica estas protecciones:
+
+- **Autorización del espacio de trabajo** -- La administración del servidor y las operaciones de herramientas requieren acceso al espacio de trabajo de destino.
+- **Validación de URL durante las pruebas de conexión** -- Studio acepta HTTP o HTTPS y rechaza destinos locales/privados conocidos y puertos de servicio bloqueados.
+- **Interpolación de secretos** -- Las credenciales pueden permanecer en variables de entorno personales o del espacio de trabajo en lugar de la definición guardada del servidor.
+- **Límites de solicitud** -- Las solicitudes al servidor usan el tiempo de espera configurado, y Studio aplica un tiempo de espera global a la ejecución de herramientas.
+- **Correlación de auditoría** -- Las llamadas a herramientas reciben un identificador de auditoría en los registros del servidor.
+
+## Solución de problemas
+
+<Cards>
+<Card title="El servidor no se conecta">
+Compruebe que la URL es correcta y que el servidor está en ejecución. El cliente prueba con y sin barra final, por lo que los problemas de ruta se resuelven automáticamente. Consulte la consola del navegador para ver los errores de conexión detallados.
+</Card>
+<Card title="Las herramientas no aparecen">
+Confirme que el servidor está **habilitado** y que no se ha eliminado de forma lógica. Use el botón **Actualizar herramientas** en el MCP Editor para forzar el vaciado de la caché y un nuevo descubrimiento.
+</Card>
+<Card title="Variables de entorno no resueltas">
+Studio deja sin cambios el marcador de posición `{{VAR_NAME}}` que falta, en lugar de rechazar la configuración. Añada la variable en la configuración de entorno del espacio de trabajo o personal y vuelva a intentar la conexión o la llamada a la herramienta.
+</Card>
+<Card title="Errores de tiempo de espera">
+Aumente el valor de tiempo de espera del servidor en el MCP Editor. El valor predeterminado es 30 segundos. Los servidores lentos o las respuestas de herramientas de gran tamaño pueden necesitar más tiempo.
+</Card>
+</Cards>

@@ -1,0 +1,465 @@
+---
+title: Google Drive
+description: 创建、上传和列出文件
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="google_drive"
+  color=""
+/>
+
+## 配置
+
+### 创建文件夹
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Drive"
+    type="google_drive"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "create_folder",
+            "options": [
+                {
+                    "id": "create_folder",
+                    "label": "创建文件夹"
+                },
+                {
+                    "id": "create_file",
+                    "label": "创建文件"
+                },
+                {
+                    "id": "upload",
+                    "label": "上传文件"
+                },
+                {
+                    "id": "list",
+                    "label": "列出文件"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Drive 账户",
+            "layout": "full",
+            "placeholder": "选择 Google Drive 账户",
+            "provider": "google-drive",
+            "required": true
+        },
+        {
+            "id": "fileName",
+            "type": "short-input",
+            "title": "文件夹名称",
+            "layout": "full",
+            "placeholder": "新文件夹的名称",
+            "required": true
+        },
+        {
+            "id": "folderSelector",
+            "type": "file-selector",
+            "title": "选择父文件夹",
+            "layout": "full",
+            "placeholder": "选择父文件夹",
+            "provider": "google-drive"
+        },
+        {
+            "id": "manualFolderId",
+            "type": "short-input",
+            "title": "父文件夹 ID",
+            "layout": "full",
+            "placeholder": "输入父文件夹 ID（留空则使用根文件夹）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建文件夹（<code>google_drive_create_folder</code>）</div>
+
+在 Google Drive 中创建新文件夹
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `fileName` | string | 是 | 要创建的文件夹名称 |
+| `folderId` | string | 否 | 父文件夹 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `file` | json | 创建的文件夹元数据，包括 ID、名称和父级信息 |
+
+</div>
+
+---
+
+### 创建文件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Drive"
+    type="google_drive"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "create_file",
+            "options": [
+                {
+                    "id": "create_folder",
+                    "label": "创建文件夹"
+                },
+                {
+                    "id": "create_file",
+                    "label": "创建文件"
+                },
+                {
+                    "id": "upload",
+                    "label": "上传文件"
+                },
+                {
+                    "id": "list",
+                    "label": "列出文件"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Drive 账号",
+            "layout": "full",
+            "placeholder": "选择 Google Drive 账号",
+            "provider": "google-drive",
+            "required": true
+        },
+        {
+            "id": "fileName",
+            "type": "short-input",
+            "title": "文件名",
+            "layout": "full",
+            "placeholder": "文件名（例如 document.txt）",
+            "required": true
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "文本内容",
+            "layout": "full",
+            "placeholder": "文件的文本内容",
+            "required": true
+        },
+        {
+            "id": "mimeType",
+            "type": "dropdown",
+            "title": "MIME 类型",
+            "layout": "full",
+            "placeholder": "选择文件类型",
+            "required": false,
+            "options": [
+                {
+                    "id": "text/plain",
+                    "label": "纯文本（text/plain）"
+                },
+                {
+                    "id": "application/vnd.google-apps.document",
+                    "label": "Google 文档"
+                },
+                {
+                    "id": "application/vnd.google-apps.spreadsheet",
+                    "label": "Google 表格"
+                },
+                {
+                    "id": "application/vnd.google-apps.presentation",
+                    "label": "Google 幻灯片"
+                },
+                {
+                    "id": "text/html",
+                    "label": "HTML（text/html）"
+                },
+                {
+                    "id": "text/csv",
+                    "label": "CSV（text/csv）"
+                },
+                {
+                    "id": "application/pdf",
+                    "label": "PDF（application/pdf）"
+                }
+            ]
+        },
+        {
+            "id": "folderSelector",
+            "type": "file-selector",
+            "title": "选择父文件夹",
+            "layout": "full",
+            "placeholder": "选择父文件夹",
+            "provider": "google-drive"
+        },
+        {
+            "id": "manualFolderId",
+            "type": "short-input",
+            "title": "父文件夹 ID",
+            "layout": "full",
+            "placeholder": "输入父文件夹 ID（根文件夹请留空）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建文件（<code>google_drive_upload</code>）</div>
+
+上传文件到 Google Drive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `fileName` | string | 是 | 要上传的文件名称 |
+| `file` | file | 否 | 要上传的二进制文件\(UserFile 对象\) |
+| `content` | string | 否 | 要上传的文本内容\(使用此项或 file，两者不可同时使用\) |
+| `folderId` | string | 否 | 要上传文件到的文件夹 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `file` | json | 已上传文件的元数据，包括 ID、名称和链接 |
+
+</div>
+
+---
+
+### 上传文件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Drive"
+    type="google_drive"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "upload",
+            "options": [
+                {
+                    "id": "create_folder",
+                    "label": "创建文件夹"
+                },
+                {
+                    "id": "create_file",
+                    "label": "创建文件"
+                },
+                {
+                    "id": "upload",
+                    "label": "上传文件"
+                },
+                {
+                    "id": "list",
+                    "label": "列出文件"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Drive 账户",
+            "layout": "full",
+            "placeholder": "选择 Google Drive 账户",
+            "provider": "google-drive",
+            "required": true
+        },
+        {
+            "id": "fileName",
+            "type": "short-input",
+            "title": "文件名",
+            "layout": "full",
+            "placeholder": "文件名称（例如 document.txt）",
+            "required": true
+        },
+        {
+            "id": "fileUpload",
+            "type": "file-upload",
+            "title": "上传文件",
+            "layout": "full",
+            "placeholder": "将文件上传到 Google Drive",
+            "required": false
+        },
+        {
+            "id": "file",
+            "type": "short-input",
+            "title": "文件引用",
+            "layout": "full",
+            "placeholder": "引用上一区块的文件（例如 {{block_name.file}}）",
+            "required": false
+        },
+        {
+            "id": "folderSelector",
+            "type": "file-selector",
+            "title": "选择父文件夹",
+            "layout": "full",
+            "placeholder": "选择父文件夹",
+            "provider": "google-drive"
+        },
+        {
+            "id": "manualFolderId",
+            "type": "short-input",
+            "title": "父文件夹 ID",
+            "layout": "full",
+            "placeholder": "输入父文件夹 ID（根文件夹留空）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">上传文件（<code>google_drive_upload</code>）</div>
+
+将文件上传到 Google Drive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `fileName` | string | 是 | 要上传的文件名称 |
+| `file` | file | 否 | 要上传的二进制文件 \(UserFile 对象\) |
+| `content` | string | 否 | 要上传的文本内容 \(使用此项或文件，不可同时提供\) |
+| `folderId` | string | 否 | 要上传到的目标文件夹 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `file` | json | 已上传文件的元数据，包含 ID、名称和链接 |
+
+</div>
+
+---
+
+### 列出文件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Drive"
+    type="google_drive"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "list",
+            "options": [
+                {
+                    "id": "create_folder",
+                    "label": "创建文件夹"
+                },
+                {
+                    "id": "create_file",
+                    "label": "创建文件"
+                },
+                {
+                    "id": "upload",
+                    "label": "上传文件"
+                },
+                {
+                    "id": "list",
+                    "label": "列出文件"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Drive 账户",
+            "layout": "full",
+            "placeholder": "选择 Google Drive 账户",
+            "provider": "google-drive",
+            "required": true
+        },
+        {
+            "id": "folderSelector",
+            "type": "file-selector",
+            "title": "选择文件夹",
+            "layout": "full",
+            "placeholder": "选择要列出文件的文件夹",
+            "provider": "google-drive"
+        },
+        {
+            "id": "manualFolderId",
+            "type": "short-input",
+            "title": "文件夹 ID",
+            "layout": "full",
+            "placeholder": "输入文件夹 ID（根文件夹留空）"
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "搜索查询",
+            "layout": "full",
+            "placeholder": "搜索特定文件（例如，名称包含 \"报告\"）"
+        },
+        {
+            "id": "pageSize",
+            "type": "short-input",
+            "title": "每页结果数",
+            "layout": "full",
+            "placeholder": "结果数量（默认：100，最大：1000）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出文件（<code>google_drive_list</code>）</div>
+
+列出 Google Drive 中的文件和文件夹
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 是否必需 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `folderId` | string | 否 | 要列出文件的文件夹 ID |
+| `query` | string | 否 | 用于筛选文件的查询 |
+| `pageSize` | number | 否 | 要返回的文件数量 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `files` | json | 来自指定文件夹的文件元数据对象数组 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Google Drive 集成到工作流中。可以创建、上传和列出文件。
+
+## 注意事项
+
+- 类别：`tools`
+- 类型：`google_drive`

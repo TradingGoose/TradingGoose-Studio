@@ -1,0 +1,50 @@
+---
+title: Estructura de datos
+---
+
+Cada bloque devuelve una estructura específica. Usa el nombre real del bloque de origen y la ruta exacta; conectar bloques no aplana sus contenedores de salida.
+
+## Salidas estándar
+
+| Bloque | Referencias de salida |
+|---|---|
+| Agent | `<agent.content>`, `<agent.model>`, `<agent.tokens>`, `<agent.toolCalls>`, `<agent.toolResults>` |
+| API | `<api.data>`, `<api.status>`, `<api.headers>` |
+| Function | `<function.result>`, `<function.stdout>` |
+| Evaluator | `<evaluator.content>`, `<evaluator.model>`, `<evaluator.tokens>`, `<evaluator.cost>` y nombres de métricas en minúsculas |
+| Condition | `<condition.conditionResult>`, `<condition.selectedPath>`, `<condition.selectedOption>` |
+| Router | `<router.prompt>`, `<router.selectedPath>`, `<router.model>`, `<router.tokens>`, `<router.cost>` |
+
+El uso de tokens suele contener `prompt`, `completion` y `total`. Los metadatos de coste, cuando se proporcionan, son un objeto con `input`, `output` y `total`, no un array de costes por llamada a herramienta.
+
+## Salidas de enrutamiento
+
+Condition conserva los campos disponibles de la salida anterior y añade sus campos de enrutamiento. `conditionResult` indica que se seleccionó una ruta conectada, incluida una ruta Else; no es el resultado bruto de la primera expresión. `selectedOption` es el ID de la condición seleccionada. Si no se selecciona una ruta conectada, los campos de enrutamiento son false/null.
+
+Router devuelve su `prompt` original y un `selectedPath`; no expone `selected_path` ni `content` generado.
+
+La ruta seleccionada tiene esta estructura:
+
+```json
+{
+  "blockId": "destination-block-id",
+  "blockType": "agent",
+  "blockTitle": "Follow-up Agent"
+}
+```
+
+## Valores estructurados y anidados
+
+Con un Response Format válido en Agent, los campos del esquema se exponen en la raíz, como `<agent.sentiment>`, junto con los metadatos de ejecución. Sin esa configuración, no supongas que existen campos arbitrarios en la salida.
+
+Las métricas de Evaluator se exponen como nombres en minúsculas en la raíz. Su `content` contiene la respuesta de evaluación del modelo; no dependas de que se genere una explicación en prosa.
+
+Los cuerpos API permanecen bajo `data` y los valores devueltos por Function bajo `result`:
+
+```text
+<api.data.results[0].id>
+<function.result.calculations.total>
+<agent.tokens.total>
+```
+
+Inspecciona una ejecución real antes de conectar campos anidados personalizados. Para los bloques que admiten rutas de error, conecta la recuperación a la salida de error; esta salida difiere del contrato de una ejecución correcta. Los [bloques Condition](/blocks/condition) no admiten esta ruta de recuperación.

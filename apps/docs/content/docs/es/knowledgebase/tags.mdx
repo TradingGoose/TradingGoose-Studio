@@ -1,0 +1,98 @@
+---
+title: Etiquetas y filtrado
+---
+
+Las etiquetas ofrecen una forma potente de organizar tus documentos y crear filtros precisos para tus búsquedas vectoriales. Al combinar el filtrado por etiquetas con la búsqueda semántica, puedes recuperar exactamente el contenido que necesitas de tu base de conocimiento.
+
+## Añadir etiquetas a los documentos
+
+Puedes añadir etiquetas personalizadas a cualquier documento de tu base de conocimiento para organizar y clasificar tu contenido y facilitar su recuperación. Abre un documento en tu base de conocimiento y usa los campos de etiquetas para asignar valores.
+
+### Gestión de etiquetas
+- **Etiquetas personalizadas**: Crea tu propio sistema de etiquetas que se adapte a tu flujo de trabajo
+- **Varias etiquetas por documento**: Aplica tantas etiquetas como necesites a cada documento; hay 7 espacios de etiquetas disponibles por base de conocimiento y los comparten todos los documentos de esa base de conocimiento
+- **Organización de etiquetas**: Agrupa documentos relacionados con un etiquetado coherente
+
+### Buenas prácticas para las etiquetas
+- **Nomenclatura coherente**: Usa nombres de etiquetas estandarizados en todos tus documentos
+- **Etiquetas descriptivas**: Usa nombres de etiquetas claros y significativos
+- **Limpieza periódica**: Elimina periódicamente las etiquetas que no uses o que estén obsoletas
+
+## API de búsqueda y bloques Knowledge
+
+La API de búsqueda acepta filtros de etiquetas de documentos mediante `filters`, un registro de nombres y valores de etiquetas. Admite búsquedas solo por etiquetas, solo vectoriales y combinadas.
+
+En el modo avanzado, Knowledge acepta filas `tagFilters` con `tagName` y `tagValue` y las convierte al mapa `filters` de la API. El bloque solo admite igualdad de texto; se rechazan las etiquetas desconocidas, los filtros mal formados y los operadores no compatibles. Las búsquedas solo con consulta, solo con etiquetas y combinadas utilizan los modos siguientes.
+
+## Modos de búsqueda
+
+La API de búsqueda selecciona el modo según la consulta y los filtros proporcionados. Todos los modos devuelven fragmentos, no documentos completos. `topK` tiene un valor predeterminado de 10 y acepta 1-100; varios fragmentos pueden pertenecer al mismo documento. La búsqueda no enumera todos los documentos.
+
+### 1. Búsqueda solo por etiquetas
+Cuando **solo proporcionas etiquetas** (sin consulta de búsqueda):
+- **Recuperación limitada**: Obtiene hasta `topK` fragmentos de documentos con las etiquetas especificadas
+- **Sin búsqueda vectorial**: Los resultados se basan únicamente en la coincidencia de etiquetas
+- **Rendimiento rápido**: Recuperación rápida sin procesamiento semántico
+- **Coincidencia exacta**: Los fragmentos devueltos pertenecen a documentos que cumplen todos los filtros de etiquetas especificados
+
+**Caso de uso**: Cuando necesitas un conjunto limitado de fragmentos de una categoría o proyecto específico
+
+### 2. Solo búsqueda vectorial
+Cuando **solo proporcionas una consulta de búsqueda** (sin etiquetas):
+- **Búsqueda semántica**: Encuentra contenido basado en significado y contexto
+- **Base de conocimiento completa**: Busca en todos los documentos
+- **Clasificación por relevancia**: Resultados ordenados por similitud semántica
+- **Lenguaje natural**: Usa preguntas o frases para encontrar contenido relevante
+
+**Caso de uso**: Cuando necesitas el contenido más relevante independientemente de la organización
+
+### 3. Filtrado combinado por etiquetas + búsqueda vectorial
+Cuando **proporcionas tanto etiquetas como una consulta de búsqueda**:
+1. **Primero**: Filtra documentos para incluir solo aquellos con las etiquetas especificadas
+2. **Luego**: Realiza una búsqueda vectorial dentro de ese subconjunto filtrado
+3. **Resultado**: Contenido semánticamente relevante solo de tus documentos etiquetados
+
+**Caso de uso**: Cuando necesitas contenido relevante de una categoría o proyecto específico
+
+### Configuración de búsqueda
+
+#### Filtrado por etiquetas
+- **Múltiples ranuras de etiquetas**: Al filtrar por múltiples ranuras de etiquetas, se aplica lógica AND (todos los filtros de etiquetas especificados deben coincidir)
+- **OR dentro de una etiqueta**: Una sola ranura de etiqueta admite lógica OR, coincidiendo con cualquiera de los múltiples valores especificados
+- **Sensibilidad a mayúsculas y minúsculas**: La coincidencia de etiquetas no distingue entre mayúsculas y minúsculas
+- **Coincidencia exacta**: Los valores de las etiquetas deben coincidir exactamente (sin coincidencia parcial o de subcadena)
+
+#### Parámetros de búsqueda vectorial
+- **Complejidad de la consulta**: Las preguntas en lenguaje natural funcionan mejor
+- **Límites de resultados**: Configura cuántos fragmentos recuperar
+- **Umbral de relevancia**: Se selecciona internamente; no hay un umbral de similitud configurable por el usuario
+- **Tamaño del fragmento**: Se configura durante el procesamiento de documentos, no como parámetro de búsqueda
+
+## Integración con flujos de trabajo
+
+### Configuración del bloque de conocimiento
+1. **Seleccionar base de conocimiento**: Elige qué base de conocimiento buscar
+2. **Elegir entradas de búsqueda**: Proporciona una consulta, filtros de igualdad de texto en el modo avanzado o ambos
+3. **Configurar resultados**: Establece el número de fragmentos que recuperar (1-100, predeterminado: 10)
+4. **Mapear resultados**: Referencia explícitamente los fragmentos devueltos en las entradas o prompts posteriores
+5. **Probar búsqueda**: Inspecciona los resultados antes de depender de ellos
+
+### Uso dinámico de etiquetas
+- **Etiquetas variables**: Usa referencias del flujo en los valores de etiquetas del bloque; los clientes directos de la API envían los valores resueltos mediante `filters`
+- **Filtrado condicional**: Aplica distintas etiquetas según la lógica del flujo de trabajo
+- **Búsqueda según el contexto**: Ajusta las etiquetas según el contexto de la conversación
+- **Filtrado en varios pasos**: Refina las búsquedas a través de los pasos del flujo de trabajo
+
+### Optimización del rendimiento
+- **Filtrado eficiente**: El filtrado por etiquetas se realiza antes de la búsqueda vectorial para mejorar el rendimiento
+- **Límites de resultados**: Solicita solo los fragmentos necesarios para mantener manejable el contexto posterior
+
+## Primeros pasos con las etiquetas
+
+1. **Planifica la estructura de tus etiquetas**: Define convenciones de nombres coherentes
+2. **Empieza a etiquetar**: Agrega etiquetas relevantes a tus documentos existentes
+3. **Prueba combinaciones**: Experimenta con combinaciones de etiquetas y consultas de búsqueda
+4. **Integra en tus flujos de trabajo**: Configura los filtros de etiquetas del bloque Knowledge y revisa los fragmentos devueltos; los clientes directos de la API usan `filters`
+5. **Refina con el tiempo**: Ajusta tu enfoque de etiquetado según los resultados de búsqueda
+
+Las etiquetas transforman tu base de conocimiento de un simple almacén de documentos en un sistema de inteligencia organizado con precisión y totalmente consultable, que tus flujos de trabajo de IA pueden recorrer con precisión quirúrgica.

@@ -1,0 +1,50 @@
+---
+title: 标签
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+连接标签用于引用上游区块的值。将来源连接到工作流路径后，在支持的输入字段中键入单个 `<`，即可打开引用下拉菜单。选择输出以插入完整标签。输入结束符 `>` 会结束未完成的引用；不要输入 `<>` 来打开下拉菜单。
+
+## 语法
+
+```text
+<blockName.path.to.data>
+```
+
+使用下拉菜单显示的实际区块名称或区块 ID。引用中的名称会经过规范化，从下拉菜单选择可避免猜测拼写。
+
+- `<agent.content>`：名为 Agent 的智能体输出的文本。
+- `<api.data.users[0].name>`：API 响应正文中的字段。
+- `<function.result.total>`：Function 返回值中的字段。
+
+## 系统引用
+
+| 引用 | 含义 |
+|---|---|
+| `<start.input>` | 本次运行所选触发器的输入，前提是该字段存在 |
+| `<start.fieldName>` | 所选触发器暴露的字段 |
+| `<variable.myVar>` | 当前工作流变量值 |
+| `<loop.currentItem>` | 循环内部当前的 ForEach 项目 |
+| `<loop.index>` | 从零开始的循环迭代索引 |
+| `<loop.items>` | 完整 ForEach 集合 |
+| `<parallel.currentItem>` | 并行实例当前的集合项目 |
+| `<parallel.index>` | 从零开始的并行实例索引 |
+| `<parallel.items>` | 完整并行集合 |
+
+系统前缀只有 `start`、`variable`、`loop` 和 `parallel`。`api`、`chat` 和 `manual` 等名称不是通用触发器别名，必须指向实际区块。Manual 触发器没有输入字段。
+
+For 或 For Each 循环或 Parallel 容器完成后，在引用下拉菜单中选择该容器的 `results` 输出。使用容器的实际 ID：例如 `<loop-id.results>` 或 `<parallel-id.results>`，将 `loop-id` 或 `parallel-id` 替换为该容器的 ID。保留前缀 `loop` 和 `parallel` 指向当前迭代上下文，而不是已完成的容器。While 和 Do While 的完成输出不包含 `results`。处理集合时使用 `currentItem`，不要使用 `item`。
+
+## 示例
+
+```text
+Processing item <loop.index>: <loop.currentItem.name>
+User message: <start.input>
+```
+
+标签在执行时解析，支持嵌套属性和数组索引。算术运算应放在 Function 或条件表达式中；普通文本字段不会因为包含标签而执行 JavaScript。
+
+<Callout>
+  选择路径前，请查看[数据结构](/connections/data-structure)和实际区块输出。API 正文位于 `data` 下，Function 返回值位于 `result` 下。
+</Callout>

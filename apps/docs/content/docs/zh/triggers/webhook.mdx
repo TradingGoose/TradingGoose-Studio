@@ -1,0 +1,72 @@
+---
+title: Webhook
+description: 通过外部 HTTP Webhook 请求触发工作流
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="generic_webhook"
+  color=""
+  icon={true}
+/>
+
+Webhook 允许外部服务通过发送 HTTP 请求来触发工作流执行。TradingGoose 支持两种基于 Webhook 的触发方式。
+
+<Callout type="info">
+  这是**基于 Webhook** 的触发器。请在外部服务中配置 Webhook URL，以便向 TradingGoose 发送事件。
+</Callout>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="通用 Webhook"
+    type="generic_webhook"
+    hideHeader
+    subBlocks={[
+      { "id": "webhookUrlDisplay", "title": "Webhook URL", "type": "short-input", "description": "Copy the generated endpoint into the external service" },
+      { "id": "requireAuth", "title": "Require Authentication", "type": "switch", "defaultValue": false },
+      { "id": "token", "title": "Authentication Token", "type": "short-input", "password": true },
+      { "id": "secretHeaderName", "title": "Secret Header Name (Optional)", "type": "short-input", "placeholder": "X-Secret-Key" },
+      { "id": "inputFormat", "title": "Input Format", "type": "input-format", "description": "Optional expected JSON schema" }
+    ]}
+  />
+</ShowcaseCard>
+
+启用 **Require Authentication** 并设置 **Authentication Token** 以要求令牌。未设置 Secret Header Name 时发送 `Authorization: Bearer TOKEN`，否则在配置的自定义请求头中发送令牌。发送外部请求前请保存触发器并部署工作流。Webhook 响应确认请求已入队，不表示工作流已完成。
+
+### 工作原理
+
+1. **添加通用 Webhook 模块** — 将通用 Webhook 模块拖入以开始工作流
+2. **获取 Webhook URL** — 复制自动生成的唯一端点
+3. **外部集成** — 将外部服务配置为向此 URL 发送 POST 请求
+4. **工作流执行** — 接受的请求会将已部署工作流的执行加入队列。
+
+### 功能
+
+- **灵活载荷** — 接受任意 JSON 载荷结构
+- **自动解析** — Webhook 数据会自动解析，并可供后续模块使用
+- **身份验证** — 可选 Bearer Token 或自定义请求头验证
+- **速率限制** — 内置防滥用保护
+
+## 服务模块的触发模式
+
+也可以使用特定服务模块（如 Slack、GitHub 等）的「触发模式」，创建更专用的 Webhook 端点。
+
+**在以下情况使用通用 Webhook：**
+- 与自定义应用或服务集成
+- 需要载荷结构具备最大灵活性
+- 对接没有专用模块的服务
+
+**在以下情况使用触发模式：**
+- 使用受支持的服务（Slack、GitHub 等）
+- 需要按服务筛选事件
+- 需要自动注册 Webhook
+
+<Callout>
+只有有效且被接受的请求才会触发执行。身份验证、部署状态及平台限制可能在入队前拒绝请求。
+</Callout>

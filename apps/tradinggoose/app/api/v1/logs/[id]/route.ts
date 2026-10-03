@@ -4,6 +4,7 @@ import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
+import { buildPublicWorkflowLogExecutionData } from '@/app/api/logs/log-utils'
 import { createApiResponse, getUserLimits } from '@/app/api/v1/logs/meta'
 import { checkRateLimit, createRateLimitResponse } from '@/app/api/v1/middleware'
 
@@ -106,7 +107,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       totalDurationMs: log.totalDurationMs,
       files: log.files || undefined,
       workflow: workflowSummary,
-      executionData: log.executionData as any,
+      executionData: buildPublicWorkflowLogExecutionData(log),
       cost: log.cost as any,
       createdAt: log.createdAt.toISOString(),
     }

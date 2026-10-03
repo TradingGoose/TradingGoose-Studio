@@ -18,7 +18,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 Trigger workflow from Google Form submissions (via Apps Script forwarder)
 
 <Callout type="info">
-  This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
+  This is a **webhook-based** trigger. Configure the external service to send events to the workflow webhook URL.
 </Callout>
 
 <Cards>
@@ -27,6 +27,10 @@ Trigger workflow from Google Form submissions (via Apps Script forwarder)
   </Card>
 </Cards>
 
+
+## Setup Instructions
+
+<div class="mb-3"><strong>1.</strong> Open your Google Form → More (⋮) → Script editor.</div><div class="mb-3"><strong>2.</strong> Paste the Apps Script snippet from below into <code>Code.gs</code> → Save.</div><div class="mb-3"><strong>3.</strong> Triggers (clock icon) → Add Trigger → Function: <code>onFormSubmit</code> → Event source: <code>From form</code> → Event type: <code>On form submit</code> → Save.</div><div class="mb-3"><strong>4.</strong> Authorize when prompted. Submit a test response and verify the run in TradingGoose → Logs.</div>
 
 ## Configuration
 
@@ -41,41 +45,45 @@ Trigger workflow from Google Form submissions (via Apps Script forwarder)
             "type": "short-input",
             "title": "Shared Secret",
             "placeholder": "Enter a secret used by your Apps Script forwarder",
-            "description": "We validate requests using this secret. Send it as Authorization: Bearer &lt;token&gt; or a custom header.",
-            "required": true,
-            "password": true
+            "description": "We validate requests using this secret. Send it as Authorization: Bearer <token> or a custom header.",
+            "password": true,
+            "required": true
         },
         {
             "id": "secretHeaderName",
             "type": "short-input",
             "title": "Custom Secret Header",
             "placeholder": "X-GForms-Secret",
-            "description": "If set, the webhook will validate this header equals your Shared Secret instead of Authorization."
+            "description": "If set, the webhook will validate this header equals your Shared Secret instead of Authorization.",
+            "required": false
         },
         {
             "id": "formId",
             "type": "short-input",
             "title": "Form ID",
             "placeholder": "1FAIpQLSd... (Google Form ID)",
-            "description": "Optional, for clarity and matching in workflows. Not required for webhook to work."
+            "description": "Optional, for clarity and matching in workflows. Not required for webhook to work.",
+            "required": false
         },
         {
             "id": "includeRawPayload",
             "type": "switch",
             "title": "Include Raw Payload",
-            "description": "Include the original payload from Apps Script in the workflow input."
+            "description": "Include the original payload from Apps Script in the workflow input.",
+            "defaultValue": true
         },
         {
             "id": "setupScript",
             "type": "code",
             "title": "Apps Script Code",
-            "description": "Copy this code and paste it into your Google Forms Apps Script editor"
+            "description": "Copy this code and paste it into your Google Forms Apps Script editor",
+            "language": "javascript"
         }
     ]}
   />
 </ShowcaseCard>
 
-#### Output Schema
+## Output Schema
 
 <SchemaTree
   title="Event Payload"
@@ -103,7 +111,7 @@ Trigger workflow from Google Form submissions (via Apps Script forwarder)
       {
           "name": "answers",
           "type": "object",
-          "description": "Normalized map of question -&gt; answer"
+          "description": "Normalized map of question -> answer"
       },
       {
           "name": "raw",
@@ -112,5 +120,3 @@ Trigger workflow from Google Form submissions (via Apps Script forwarder)
       }
   ]}
 />
-
-

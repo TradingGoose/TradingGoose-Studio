@@ -33,5 +33,7 @@ export type DataChartDataContext = {
   openTimeMsByIndexRef: MutableRefObject<number[]>
   marketSessionsRef: MutableRefObject<MarketSessionWindow[]>
   intervalMs: number | null
+  // Advances only when a full history response replaces the current bars.
+  seriesVersion: number
   dataVersion: number
 }

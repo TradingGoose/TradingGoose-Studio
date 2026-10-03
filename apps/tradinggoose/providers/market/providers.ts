@@ -11,13 +11,17 @@ import {
   AlpacaIcon,
   AlphaVantageIcon,
   FinnhubIcon,
+  RobinHoodIcon,
   YahooIcon,
 } from '@/components/icons/provider-icons'
 import type { ListingIdentity } from '@/lib/listing/identity'
+import type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
+import type { OAuthService } from '@/lib/oauth/oauth'
 import type { WorkflowProviderParamType } from '@/lib/workflows/value-types'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import { alphaVantageProviderConfig } from '@/providers/market/alpha-vantage/config'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
+import { robinhoodProviderConfig } from '@/providers/market/robinhood/config'
 import type {
   AssetClass,
   MarketDataAvailability,
@@ -25,6 +29,7 @@ import type {
   MarketInterval,
   MarketLiveRequest,
   MarketLiveSnapshot,
+  MarketQuoteRequest,
   MarketSeries,
   MarketSeriesRequest,
   MarketSeriesWindowMode,
@@ -35,7 +40,7 @@ import { YahooFinanceProviderConfig } from '@/providers/market/yahoo-finance/con
 
 export type { MarketProviderRequest } from '@/providers/market/types'
 
-export type MarketProviderResponse = MarketSeries | MarketLiveSnapshot
+export type MarketProviderResponse = MarketSeries | MarketLiveSnapshot | MarketQuoteSnapshot
 
 export interface MarketSeriesInputCapabilities {
   supportsInterval?: boolean
@@ -156,6 +161,7 @@ export interface MarketProvider {
   config: MarketProviderConfig
   fetchMarketSeries?: (request: MarketSeriesRequest) => Promise<MarketSeries>
   fetchMarketLive?: (request: MarketLiveRequest) => Promise<MarketLiveSnapshot>
+  fetchMarketQuote?: (request: MarketQuoteRequest) => Promise<MarketQuoteSnapshot>
 }
 
 export interface ListingContext {
@@ -177,6 +183,7 @@ export interface MarketProviderDefinition {
   description: string
   config: MarketProviderConfig
   icon?: React.ComponentType<{ className?: string }>
+  oauth?: { provider: OAuthService }
 }
 
 export type MarketProviderOption = {
@@ -213,6 +220,14 @@ export const MARKET_PROVIDER_DEFINITIONS: Record<string, MarketProviderDefinitio
     description: 'Finnhub market data (candles).',
     config: finnhubProviderConfig,
     icon: FinnhubIcon,
+  },
+  robinhood: {
+    id: 'robinhood',
+    name: 'Robinhood',
+    description: 'Robinhood stock and ETF market data.',
+    config: robinhoodProviderConfig,
+    icon: RobinHoodIcon,
+    oauth: { provider: 'robinhood' },
   },
 }
 

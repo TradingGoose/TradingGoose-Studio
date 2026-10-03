@@ -1,0 +1,56 @@
+---
+title: 热力图
+description: 在彩色编码的热力图中比较市场或投资组合标的。
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## 概述
+
+| 属性 | 值 |
+|----------|-------|
+| **键** | `heatmap` |
+| **分类** | 交易 |
+
+热力图组件是只读视图，根据当前市场或投资组合数据对标的进行尺寸缩放和着色。
+
+## 功能
+
+- **两种数据源** -- `sourceMode` 选择 `watchlist` 或 `portfolio` 数据，默认使用 `watchlist`。
+- **工作区自选列表** -- 自选列表模式会自动合并当前工作区中每个自选列表的标的，并对多个自选列表共有的标的去重。
+- **自选列表尺寸** -- `watchlistSizeMetric` 默认使用 `volumeUsd` 表示美元成交额；选择 `volume` 表示成交量。
+- **投资组合上下文** -- 投资组合模式通过 `tradingProvider`、`serviceId` 和 `portfolioIdentity` 读取所选经纪账户。
+- **联动选择** -- 选中图块会更新相同配对颜色的组件上已联动的 `listing`。
+- **刷新** -- 更新 `runtime.refreshAt` 会请求最新数据，且不更改已保存的设置。
+
+## 用法
+
+选择行情提供方及其参数或凭据。默认情况下，自选列表模式使用工作区所有自选列表去重后的标的，并按 `volumeUsd` 确定尺寸；可在 [自选列表组件](/widgets/watchlist) 中管理这些标的，或将尺寸切换为 `volume`。热力图最多渲染 200 个标的，超出部分会被省略并提示。
+
+在投资组合模式下，选择经纪商和经纪账户，以便 `portfolioIdentity` 识别持仓。点击图块可将该标的发布到已联动的组件。热力图不会下单或修改订单。
+
+<Callout type="info">投资组合模式需要已配置的经纪账户；行情补全仍可能取决于所选行情提供方。</Callout>
+
+## 配置
+
+| 参数 | 说明 |
+|-----------|-------------|
+| `listing` | 当前与关联小组件共享的标的。 |
+| `sourceMode` | `watchlist`（默认）或 `portfolio`。 |
+| `watchlistSizeMetric` | `volumeUsd`（默认）或自选列表模式下的 `volume`。 |
+| `marketProvider` | 用于标的列表和行情数据的提供商。 |
+| `marketProviderParams` | 提供商专用的市场参数。 |
+| `marketAuth` | 可选的市场提供商凭证。 |
+| `tradingProvider` | 投资组合模式使用的券商提供商。 |
+| `serviceId` | 券商服务标识符。 |
+| `portfolioIdentity` | 当前所选券商账户的规范标识。 |
+| `runtime.refreshAt` | 用于请求刷新的时间戳。 |
+
+## 相关
+
+<Cards>
+  <Card title="自选列表" href="/widgets/watchlist">管理自选列表模式汇总的标的。</Card>
+  <Card title="数据图表" href="/widgets/data-chart">查看从热力图中选中的标的。</Card>
+  <Card title="投资组合快照" href="/widgets/portfolio-snapshot">以摘要形式查看同一券商账户。</Card>
+</Cards>

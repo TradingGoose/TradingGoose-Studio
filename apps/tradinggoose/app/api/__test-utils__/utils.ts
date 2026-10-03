@@ -218,7 +218,7 @@ export function createMockRequest(
 }
 
 export function mockExecutionDependencies() {
-  vi.mock('@/lib/utils-server', async () => {
+  vi.doMock('@/lib/utils-server', async () => {
     const actual = await vi.importActual('@/lib/utils-server')
     return {
       ...(actual as any),
@@ -237,18 +237,18 @@ export function mockExecutionDependencies() {
     }
   })
 
-  vi.mock('@/lib/logs/execution/trace-spans/trace-spans', () => ({
+  vi.doMock('@/lib/logs/execution/trace-spans/trace-spans', () => ({
     buildTraceSpans: vi.fn().mockReturnValue({
       traceSpans: [],
       totalDuration: 100,
     }),
   }))
 
-  vi.mock('@/lib/workflows/utils', () => ({
+  vi.doMock('@/lib/workflows/utils', () => ({
     updateWorkflowRunCounts: vi.fn().mockResolvedValue(undefined),
   }))
 
-  vi.mock('@/serializer', () => ({
+  vi.doMock('@/serializer', () => ({
     Serializer: vi.fn().mockImplementation(() => ({
       serializeWorkflow: vi.fn().mockReturnValue({
         version: '1.0',
@@ -283,7 +283,7 @@ export function mockExecutionDependencies() {
     })),
   }))
 
-  vi.mock('@/executor', () => ({
+  vi.doMock('@/executor', () => ({
     Executor: vi.fn().mockImplementation(() => ({
       execute: vi.fn().mockResolvedValue({
         success: true,
@@ -303,7 +303,7 @@ export function mockExecutionDependencies() {
     })),
   }))
 
-  vi.mock('@tradinggoose/db', () => ({
+  vi.doMock('@tradinggoose/db', () => ({
     db: mockDb,
     // Add common schema exports that tests might need
     webhook: {
@@ -1130,39 +1130,6 @@ export function mockWorkflowUtils() {
       })
     }),
   }))
-}
-
-/**
- * Setup grouped mocks for knowledge base operations
- */
-export function setupKnowledgeMocks(
-  options: {
-    withDocumentProcessing?: boolean
-    withEmbedding?: boolean
-    accessCheckResult?: boolean
-  } = {}
-) {
-  const {
-    withDocumentProcessing = false,
-    withEmbedding = false,
-    accessCheckResult = true,
-  } = options
-
-  const mocks: any = {
-    checkKnowledgeBaseAccess: vi.fn().mockResolvedValue(accessCheckResult),
-  }
-
-  if (withDocumentProcessing) {
-    mocks.processDocumentAsync = vi.fn().mockResolvedValue(undefined)
-  }
-
-  if (withEmbedding) {
-    mocks.generateEmbedding = vi.fn().mockResolvedValue([0.1, 0.2, 0.3])
-  }
-
-  vi.doMock('@/app/api/knowledge/utils', () => mocks)
-
-  return mocks
 }
 
 /**

@@ -1,0 +1,62 @@
+---
+title: Editor de habilidades
+description: Edita las habilidades del espacio de trabajo.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Descripción general
+
+| Propiedad | Valor |
+|----------|-------|
+| **Clave** | `editor_skill` |
+| **Categoría** | Editor |
+
+El Editor de habilidades te permite modificar el nombre, la descripción y el contenido de las instrucciones de una habilidad del espacio de trabajo. Las habilidades son conjuntos de instrucciones reutilizables que el agente puede cargar en tiempo de ejecución para obtener un comportamiento especializado. Usa el widget [Lista de habilidades](/widgets/list-skill) para explorar, crear e importar habilidades; el editor es donde redactas su contenido.
+
+## Características
+
+- **Campo Nombre** acepta un nombre para mostrar recortado, único en el espacio de trabajo y de hasta 64 caracteres. El agente usa el ID inmutable de la habilidad, no este nombre, al cargar sus instrucciones.
+- **Campo Descripción** ofrece un resumen breve de en qué ayuda la habilidad al agente.
+- **Área de texto Instrucciones** es un área de texto de formato libre (hasta 50,000 caracteres) donde escribes las instrucciones completas de la habilidad en texto plano o markdown. El área de texto usa una fuente monoespaciada para editar con comodidad.
+- **Botón Exportar** en la barra de encabezado descarga el nombre, la descripción y las instrucciones actuales del editor como JSON de exportación de TradingGoose.
+- **Botón Guardar** en la barra de encabezado guarda todos los cambios. La validación se ejecuta al guardar: el nombre no debe estar vacío y debe tener como máximo 64 caracteres, la descripción y el contenido no deben estar vacíos, y el nombre debe ser único en el espacio de trabajo.
+- **Selector de habilidades** en la barra de encabezado cambia entre habilidades. Si está emparejado mediante un enlace de color, el selector se sincroniza con el widget Lista de habilidades.
+
+## Uso
+
+1. Añade el widget a un espacio de trabajo desde el selector de widgets.
+2. Selecciona una habilidad en el menú desplegable del encabezado, o crea o importa una desde el widget [Lista de habilidades](/widgets/list-skill).
+3. Edita los campos **Nombre**, **Descripción** e **Instrucciones**.
+4. Haz clic en el botón **Guardar** para guardar los cambios.
+
+### Reglas de validación
+
+- **Nombre** debe tener entre 1 y 64 caracteres después de recortar. El editor acepta nombres normales de espacio de trabajo sin reglas de formato adicionales.
+- **Nombre** debe ser único: no puede haber dos habilidades con el mismo nombre en un espacio de trabajo.
+- **Descripción** e **Instrucciones** son obligatorias y no pueden estar vacías.
+
+Las habilidades importadas se normalizan automáticamente y los nombres duplicados se renombran al importarlas mediante el widget Lista de habilidades.
+
+<Callout>
+Este widget admite el mecanismo **pairColor**. Asigne el mismo color a un widget Editor de habilidades y a un widget [Lista de habilidades](/widgets/list-skill) para que, al seleccionar una habilidad en la lista, se abra automáticamente en el editor.
+</Callout>
+
+## Configuración
+
+La habilidad seleccionada se almacena en los parámetros del widget como `skillId` y se comparte con una Lista de habilidades vinculada cuando ambos widgets usan el mismo color de par.
+
+## Relacionado
+
+<Cards>
+  <Card title="Guía de habilidades" href="/utilities/skills">
+    Conozca qué son las habilidades, cómo las carga el agente y las prácticas recomendadas.
+  </Card>
+  <Card title="Lista de habilidades" href="/widgets/list-skill">
+    Explore, cree, importe, cambie el nombre y elimine habilidades del espacio de trabajo.
+  </Card>
+  <Card title="Editor de flujos de trabajo" href="/widgets/editor-workflow">
+    Interfaz de lienzo para crear y editar flujos de trabajo.
+  </Card>
+</Cards>

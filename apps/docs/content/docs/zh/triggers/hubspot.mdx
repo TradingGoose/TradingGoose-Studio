@@ -1,0 +1,2284 @@
+---
+title: HubSpot 触发器
+description: 在 HubSpot 中创建新联系人时触发工作流
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="hubspot"
+  color=""
+/>
+
+在 HubSpot 中创建新联系人时触发工作流
+
+<Callout type="info">
+  这是 **基于 webhook** 的触发器。请将外部服务配置为向工作流 webhook URL 发送事件。
+</Callout>
+
+<Cards>
+  <Card title="用作工具" href="/tools/hubspot">
+    查看 HubSpot 的工作流动作、操作和工具输入。
+  </Card>
+</Cards>
+
+## 事件
+
+### HubSpot 联系人已创建
+
+在 HubSpot 中创建新联系人时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>步骤 1：创建 HubSpot 开发者账户</strong><br />如果还没有账户，请前往 <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> 免费注册开发者账户。</div><div class="mb-3"><strong>步骤 2：通过 CLI 创建公共应用</strong><br /><strong>注意：</strong>HubSpot 已弃用用于创建应用的 Web 界面。必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，然后运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot 文档</a>。</div><div class="mb-3"><strong>步骤 3：保存 OAuth 应用凭证</strong><br />将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到 HubSpot OAuth 重定向 URL。从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并填入上方字段。</div><div class="mb-3"><strong>步骤 4：获取 App ID 和开发者 API 密钥</strong><br />在 HubSpot 开发者账户中，找到 <strong>App ID</strong>（显示在应用名称下方）和 <strong>Developer API Key</strong>（位于应用设置中）。后续步骤需要这两项。</div><div class="mb-3"><strong>步骤 5：设置所需权限范围</strong><br />在应用中配置所需的 OAuth 权限范围：<code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>步骤 6：在 TradingGoose 中保存配置</strong><br />点击上方的<strong>“保存配置”</strong>按钮。系统将生成你的唯一 webhook URL。</div><div class="mb-3"><strong>步骤 7：通过 API 在 HubSpot 中配置 Webhook</strong><br />保存后，复制 <strong>Webhook URL</strong>，然后运行下方两条 curl 命令（将 <code>&#123;YOUR_APP_ID&#125;</code>、<code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> 和 <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> 替换为实际值）。</div><div class="mb-3"><strong>步骤 8：测试 Webhook</strong><br />在 HubSpot 中创建或修改联系人，以触发 webhook。在 TradingGoose 中查看工作流执行日志，确认其正常工作。</div><div class="mb-3"><strong>补充信息：</strong>无论来源如何（手动录入、表单提交、API、导入等），只要在 HubSpot 账户中创建新联系人，webhook 就会触发。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 联系人已创建"
+    type="hubspot_contact_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入你的 HubSpot 应用客户端 ID",
+            "description": "可在你的 HubSpot 应用设置的授权选项卡中找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入你的 HubSpot 应用客户端密钥",
+            "description": "可在你的 HubSpot 应用设置的授权选项卡中找到",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入你的 HubSpot 应用 ID",
+            "description": "可在你的 HubSpot 应用设置中找到。用于标识你的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入你的 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用。可在你的 HubSpot 应用设置中找到。",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "来自 HubSpot 的完整 webhook 载荷数组，包含事件详情"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称（hubspot）"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot 应用 ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "触发器 ID（例如 hubspot_company_created）"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 密钥"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "用于设置 webhook URL 的 curl 命令"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "用于创建订阅的 curl 命令"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选的属性名称筛选器（用于属性变更触发器）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 联系人已删除
+
+当 HubSpot 中的联系人被删除时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>步骤 1：创建 HubSpot 开发者账号</strong><br />如果还没有免费开发者账号，请前往 <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> 注册。</div><div class="mb-3"><strong>步骤 2：通过 CLI 创建公共应用</strong><br /><strong>注意：</strong>HubSpot 已弃用用于创建应用的网页界面。必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，然后运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot 文档</a>。</div><div class="mb-3"><strong>步骤 3：保存 OAuth 应用凭据</strong><br />将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到 HubSpot 的 OAuth 重定向 URL。从 HubSpot 应用配置中获取 <strong>客户端 ID</strong> 和 <strong>客户端密钥</strong>，并填入上方字段。</div><div class="mb-3"><strong>步骤 4：获取应用 ID 和开发者 API 密钥</strong><br />在 HubSpot 开发者账号中，找到 <strong>应用 ID</strong>（显示在应用名称下方）和 <strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要用到这两项。</div><div class="mb-3"><strong>步骤 5：设置所需范围</strong><br />为应用配置所需的 OAuth 范围：<code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>步骤 6：在 TradingGoose 中保存配置</strong><br />点击上方的 <strong>「保存配置」</strong> 按钮。系统将生成你的唯一 Webhook URL。</div><div class="mb-3"><strong>步骤 7：通过 API 在 HubSpot 中配置 Webhook</strong><br />保存后，复制 <strong>Webhook URL</strong>，然后运行下方两条 curl 命令（将 <code>&#123;YOUR_APP_ID&#125;</code>、<code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> 和 <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> 替换为实际值）。</div><div class="mb-3"><strong>步骤 8：测试 Webhook</strong><br />在 HubSpot 中创建或修改联系人，以触发 Webhook。在 TradingGoose 中查看工作流执行日志，确认其正常工作。</div><div class="mb-3"><strong>补充说明：</strong>每当 HubSpot 账号中有联系人被删除时，Webhook 就会触发。注意：不包括隐私删除（GDPR 合规），该类删除有单独的触发器。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 联系人已删除"
+    type="hubspot_contact_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入 HubSpot 应用的客户端 ID",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入 HubSpot 应用的客户端密钥",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入 HubSpot 应用 ID",
+            "description": "可在 HubSpot 应用设置中找到。用于标识你的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用。可在 HubSpot 应用设置中找到。",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "来自 HubSpot 的完整 webhook 载荷数组，包含事件详情"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称（hubspot）"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot 应用 ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "触发器 ID（例如 hubspot_company_created）"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 密钥"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "用于设置 webhook URL 的 curl 命令"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "用于创建订阅的 curl 命令"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "webhook URL 的显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选的属性名称过滤器（用于属性变更触发器）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 联系人隐私删除
+
+当 HubSpot 中的联系人因隐私合规（GDPR、CCPA 等）被删除时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>第 1 步：创建 HubSpot 开发者账号</strong><br />如果还没有账号，请前往 <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> 免费注册开发者账号。</div><div class="mb-3"><strong>第 2 步：通过 CLI 创建公共应用</strong><br /><strong>注意：</strong>HubSpot 已弃用用于创建应用的网页界面。必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，然后运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot 文档</a>。</div><div class="mb-3"><strong>第 3 步：保存 OAuth 应用凭证</strong><br />将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到 HubSpot 的 OAuth 重定向 URL。从 HubSpot 应用配置中获取<strong>客户端 ID</strong>和<strong>客户端密钥</strong>，并填入上方字段。</div><div class="mb-3"><strong>第 4 步：获取 App ID 和开发者 API 密钥</strong><br />在 HubSpot 开发者账号中，找到<strong>App ID</strong>（显示在应用名称下方）和<strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要这两项。</div><div class="mb-3"><strong>第 5 步：设置所需范围</strong><br />配置应用以包含所需的 OAuth 范围：<code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>第 6 步：在 TradingGoose 中保存配置</strong><br />点击上方的<strong>“保存配置”</strong>按钮。系统将生成你的专属 webhook URL。</div><div class="mb-3"><strong>第 7 步：通过 API 在 HubSpot 中配置 Webhook</strong><br />完成上方保存后，复制<strong>Webhook URL</strong>，然后运行下方两条 curl 命令（将 <code>&#123;YOUR_APP_ID&#125;</code>、<code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> 和 <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> 替换为实际值）。</div><div class="mb-3"><strong>第 8 步：测试 Webhook</strong><br />在 HubSpot 中创建或修改联系人，以触发 webhook。在 TradingGoose 中查看工作流执行日志，确认其正常工作。</div><div class="mb-3"><strong>补充信息：</strong>当联系人专门因隐私合规原因被删除时（例如 GDPR“被遗忘权”请求），才会触发该 webhook。这与普通联系人删除不同，用于跟踪数据隐私合规操作。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 联系人隐私已删除"
+    type="hubspot_contact_privacy_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入 HubSpot 应用的客户端 ID",
+            "description": "在 HubSpot 应用设置的「授权」选项卡下可找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入 HubSpot 应用的客户端密钥",
+            "description": "在 HubSpot 应用设置的「授权」选项卡下可找到",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入 HubSpot 应用 ID",
+            "description": "在 HubSpot 应用设置中可找到。用于标识你的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用。在 HubSpot 应用设置中可找到。",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件负载"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "来自 HubSpot 的完整 webhook 负载数组，包含事件详情"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称（hubspot）"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot 应用 ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "触发器 ID（例如 hubspot_company_created）"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 密钥"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "用于设置 webhook URL 的 curl 命令"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "用于创建订阅的 curl 命令"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选的属性名称筛选（用于属性变更触发器）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 联系人属性变更
+
+当 HubSpot 中联系人的任意属性更新时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>步骤 1：创建 HubSpot 开发者账号</strong><br />如果还没有账号，请前往 <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> 免费注册开发者账号。</div><div class="mb-3"><strong>步骤 2：通过 CLI 创建公共应用</strong><br /><strong>注意：</strong>HubSpot 已弃用通过网页界面创建应用。必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，然后运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot 文档</a>。</div><div class="mb-3"><strong>步骤 3：保存 OAuth 应用凭据</strong><br />将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到 HubSpot 的 OAuth 重定向 URL。从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并填入上方字段。</div><div class="mb-3"><strong>步骤 4：获取 App ID 和 Developer API Key</strong><br />在 HubSpot 开发者账号中，找到 <strong>App ID</strong>（显示在应用名称下方）和 <strong>Developer API Key</strong>（位于应用设置中）。后续步骤需要用到这两项。</div><div class="mb-3"><strong>步骤 5：设置所需 Scope</strong><br />配置应用，使其包含所需的 OAuth scope：<code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>步骤 6：在 TradingGoose 中保存配置</strong><br />点击上方的 <strong>“保存配置”</strong> 按钮。系统将生成你的唯一 Webhook URL。</div><div class="mb-3"><strong>步骤 7：通过 API 在 HubSpot 中配置 Webhook</strong><br />保存上述配置后，复制 <strong>Webhook URL</strong>，然后运行下方两条 curl 命令（将 <code>&#123;YOUR_APP_ID&#125;</code>、<code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> 和 <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> 替换为实际值）。</div><div class="mb-3"><strong>步骤 8：测试 Webhook</strong><br />在 HubSpot 中创建或修改联系人即可触发 Webhook。在 TradingGoose 中查看工作流执行日志，确认其正常工作。</div><div class="mb-3"><strong>补充信息：</strong>每当联系人的任意属性更新时，Webhook 都会触发。你也可以按特定属性名称过滤，仅接收该属性的事件。Webhook 会在载荷中同时提供属性名称和新值。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 联系人属性变更"
+    type="hubspot_contact_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入你的 HubSpot 应用客户端 ID",
+            "description": "在 HubSpot 应用设置的 Auth 选项卡中可找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入你的 HubSpot 应用客户端密钥",
+            "description": "在 HubSpot 应用设置的 Auth 选项卡中可找到",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入你的 HubSpot 应用 ID",
+            "description": "在 HubSpot 应用设置中可找到。用于标识你的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入你的 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用。在 HubSpot 应用设置中可找到。",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "属性名称（可选）",
+            "placeholder": "例如：email、firstname、lifecyclestage",
+            "description": "可选：仅在特定属性变更时触发。留空则在任意属性变更时触发。",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件负载"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "来自 HubSpot 的完整 webhook 负载数组，包含事件详情"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称（hubspot）"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot 应用 ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "触发器 ID（例如 hubspot_company_created）"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 密钥"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "用于设置 webhook URL 的 curl 命令"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "用于创建订阅的 curl 命令"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选的属性名称筛选（用于属性变更触发器）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 公司已创建
+
+在 HubSpot 中创建新公司时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>步骤 1：创建 HubSpot 开发者账号</strong><br />如果还没有账号，请前往 <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> 免费注册开发者账号。</div><div class="mb-3"><strong>步骤 2：通过 CLI 创建公共应用</strong><br /><strong>注意：</strong>HubSpot 已弃用通过网页界面创建应用。必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，然后运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot 文档</a>。</div><div class="mb-3"><strong>步骤 3：保存 OAuth 应用凭证</strong><br />将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到 HubSpot 的 OAuth 重定向 URL。从 HubSpot 应用配置中获取 <strong>客户端 ID</strong> 和 <strong>客户端密钥</strong>，并填入上方字段。</div><div class="mb-3"><strong>步骤 4：获取 App ID 和开发者 API 密钥</strong><br />在 HubSpot 开发者账号中，找到 <strong>App ID</strong>（显示在应用名称下方）和 <strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要用到这两项。</div><div class="mb-3"><strong>步骤 5：设置所需权限范围</strong><br />将应用配置为包含所需的 OAuth 权限范围：<code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>步骤 6：在 TradingGoose 中保存配置</strong><br />点击上方的 <strong>“保存配置”</strong> 按钮。系统将生成你的专属 Webhook URL。</div><div class="mb-3"><strong>步骤 7：通过 API 在 HubSpot 中配置 Webhook</strong><br />保存后，复制 <strong>Webhook URL</strong>，然后运行下方两条 curl 命令（将 <code>&#123;YOUR_APP_ID&#125;</code>、<code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> 和 <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> 替换为实际值）。</div><div class="mb-3"><strong>步骤 8：测试 Webhook</strong><br />在 HubSpot 中创建或修改联系人，以触发 Webhook。在 TradingGoose 中查看工作流执行日志，确认其是否正常工作。</div><div class="mb-3"><strong>补充说明：</strong>只要在你的 HubSpot 账号中创建了新公司，无论来源如何（手动录入、表单提交、API、导入等），都会触发该 Webhook。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 公司已创建"
+    type="hubspot_company_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入 HubSpot 应用的客户端 ID",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入 HubSpot 应用的客户端密钥",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入 HubSpot 应用 ID",
+            "description": "可在 HubSpot 应用设置中找到。用于标识你的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用。可在 HubSpot 应用设置中找到。",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件负载"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "来自 HubSpot 的完整 webhook 负载数组，包含事件详情"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称（hubspot）"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot 应用 ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "触发器 ID（例如 hubspot_company_created）"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 密钥"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "用于设置 webhook URL 的 curl 命令"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "用于创建订阅的 curl 命令"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选的属性名称筛选（用于属性变更触发器）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 公司已删除
+
+当 HubSpot 中的公司被删除时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>步骤 1：创建 HubSpot 开发者账户</strong><br />如果还没有账户，请前往 <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> 免费注册开发者账户。</div><div class="mb-3"><strong>步骤 2：通过 CLI 创建公共应用</strong><br /><strong>注意：</strong>HubSpot 已弃用用于创建应用的 Web 界面。必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，然后运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot 文档</a>。</div><div class="mb-3"><strong>步骤 3：保存 OAuth 应用凭证</strong><br />将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到 HubSpot OAuth 重定向 URL。从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并填入上方字段。</div><div class="mb-3"><strong>步骤 4：获取 App ID 和 Developer API Key</strong><br />在 HubSpot 开发者账户中，找到 <strong>App ID</strong>（显示在应用名称下方）和 <strong>Developer API Key</strong>（位于应用设置中）。后续步骤需要这两项。</div><div class="mb-3"><strong>步骤 5：设置所需权限范围</strong><br />为应用配置所需的 OAuth 权限范围：<code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>步骤 6：在 TradingGoose 中保存配置</strong><br />点击上方的<strong>“保存配置”</strong>按钮。这将生成你的专属 Webhook URL。</div><div class="mb-3"><strong>步骤 7：通过 API 在 HubSpot 中配置 Webhook</strong><br />保存后，复制 <strong>Webhook URL</strong>，并运行下方两条 curl 命令（将 <code>&#123;YOUR_APP_ID&#125;</code>、<code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> 和 <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> 替换为实际值）。</div><div class="mb-3"><strong>步骤 8：测试 Webhook</strong><br />在 HubSpot 中创建或修改联系人，以触发该 Webhook。在 TradingGoose 中查看工作流执行日志，确认其正常工作。</div><div class="mb-3"><strong>附加信息：</strong>每当 HubSpot 账户中有公司被删除时，该 Webhook 就会触发。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 公司已删除"
+    type="hubspot_company_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入 HubSpot 应用的客户端 ID",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入 HubSpot 应用的客户端密钥",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入 HubSpot 应用 ID",
+            "description": "可在 HubSpot 应用设置中找到。用于标识你的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用。可在 HubSpot 应用设置中找到。",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "来自 HubSpot 的完整 webhook 载荷数组，包含事件详情"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称（hubspot）"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot 应用 ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "触发器 ID（例如 hubspot_company_created）"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 密钥"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "用于设置 webhook URL 的 curl 命令"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "用于创建订阅的 curl 命令"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选的属性名称筛选（用于属性变更触发器）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 公司属性变更
+
+当 HubSpot 中公司的任意属性更新时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>步骤 1：创建 HubSpot 开发者账号</strong><br />如果还没有账号，请前往 <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> 免费注册开发者账号。</div><div class="mb-3"><strong>步骤 2：通过 CLI 创建公共应用</strong><br /><strong>注意：</strong>HubSpot 已弃用用于创建应用的网页界面。必须使用 HubSpot CLI 来创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，然后运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot 文档</a>。</div><div class="mb-3"><strong>步骤 3：保存 OAuth 应用凭证</strong><br />将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到 HubSpot 的 OAuth 重定向 URL。从 HubSpot 应用配置中获取<strong>客户端 ID</strong>和<strong>客户端密钥</strong>，并填入上方字段。</div><div class="mb-3"><strong>步骤 4：获取应用 ID 和开发者 API 密钥</strong><br />在 HubSpot 开发者账号中，找到<strong>应用 ID</strong>（显示在应用名称下方）和<strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要用到这两项。</div><div class="mb-3"><strong>步骤 5：设置所需权限范围</strong><br />将应用配置为包含所需的 OAuth 权限范围：<code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>步骤 6：在 TradingGoose 中保存配置</strong><br />点击上方的<strong>“保存配置”</strong>按钮。这将生成你的专属 Webhook URL。</div><div class="mb-3"><strong>步骤 7：通过 API 在 HubSpot 中配置 Webhook</strong><br />完成上方保存后，复制<strong>Webhook URL</strong>，然后运行下方两条 curl 命令（将 <code>&#123;YOUR_APP_ID&#125;</code>、<code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> 和 <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> 替换为实际值）。</div><div class="mb-3"><strong>步骤 8：测试 Webhook</strong><br />在 HubSpot 中创建或修改联系人即可触发 Webhook。在 TradingGoose 中查看工作流执行日志，确认其是否正常工作。</div><div class="mb-3"><strong>其他信息：</strong>每当公司的任意属性更新时，Webhook 都会触发。你可以选择按特定属性名称筛选，仅接收该属性的事件。Webhook 会在载荷中同时提供属性名称和新值。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 公司属性变更"
+    type="hubspot_company_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入你的 HubSpot 应用客户端 ID",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入你的 HubSpot 应用客户端密钥",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入你的 HubSpot 应用 ID",
+            "description": "可在 HubSpot 应用设置中找到。用于标识你的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入你的 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用。可在 HubSpot 应用设置中找到。",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "属性名称（可选）",
+            "placeholder": "例如 name、domain、industry",
+            "description": "可选：仅在特定属性变更时触发。留空则在任意属性变更时触发。",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "来自 HubSpot 的完整 webhook 载荷数组，包含事件详情"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称（hubspot）"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot 应用 ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "触发器 ID（例如 hubspot_company_created）"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 密钥"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "用于设置 webhook URL 的 curl 命令"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "用于创建订阅的 curl 命令"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选的属性名称筛选（用于属性变更触发器）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 对话创建
+
+在 HubSpot 中创建新对话时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>步骤 1：创建 HubSpot 开发者账号</strong><br />如果还没有账号，请前往 <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> 免费注册开发者账号。</div><div class="mb-3"><strong>步骤 2：通过 CLI 创建公共应用</strong><br /><strong>注意：</strong>HubSpot 已弃用用于创建应用的网页界面。必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，然后运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot 文档</a>。</div><div class="mb-3"><strong>步骤 3：保存 OAuth 应用凭证</strong><br />将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到 HubSpot 的 OAuth 重定向 URL。从 HubSpot 应用配置中获取 <strong>客户端 ID</strong> 和 <strong>客户端密钥</strong>，并填入上方字段。</div><div class="mb-3"><strong>步骤 4：获取应用 ID 和开发者 API 密钥</strong><br />在 HubSpot 开发者账号中，找到 <strong>应用 ID</strong>（显示在应用名称下方）和 <strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要同时使用这两项。</div><div class="mb-3"><strong>步骤 5：设置所需权限范围</strong><br />在应用中配置所需的 OAuth 权限范围：<code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>步骤 6：在 TradingGoose 中保存配置</strong><br />点击上方的<strong>「保存配置」</strong>按钮。这将生成你的唯一 webhook URL。</div><div class="mb-3"><strong>步骤 7：通过 API 在 HubSpot 中配置 Webhook</strong><br />保存后，复制 <strong>Webhook URL</strong>，然后运行下方两条 curl 命令（将 <code>&#123;YOUR_APP_ID&#125;</code>、<code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> 和 <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> 替换为实际值）。</div><div class="mb-3"><strong>步骤 8：测试 Webhook</strong><br />在 HubSpot 中创建或修改联系人即可触发 webhook。请在 TradingGoose 中查看工作流执行日志，确认是否正常工作。</div><div class="mb-3"><strong>补充信息：</strong>每当 HubSpot 账号中创建新对话时，webhook 就会触发，例如新的邮件会话开始或聊天对话开始时。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 对话创建"
+    type="hubspot_conversation_creation"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入 HubSpot 应用的客户端 ID",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入 HubSpot 应用的客户端密钥",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入 HubSpot 应用 ID",
+            "description": "可在 HubSpot 应用设置中找到，用于标识你的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入 HubSpot 开发者 API 密钥",
+            "description": "用于调用 HubSpot API。可在 HubSpot 应用设置中找到。",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件负载"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "来自 HubSpot 的完整 webhook 负载数组，包含事件详情"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称（hubspot）"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot 应用 ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "触发器 ID（例如 hubspot_company_created）"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 密钥"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "用于设置 webhook URL 的 curl 命令"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "用于创建订阅的 curl 命令"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选的属性名称筛选（用于属性变更触发器）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 对话删除
+
+当 HubSpot 中的对话被删除时触发工作流。
+
+#### 设置说明
+
+<div class="mb-3"><strong>第 1 步：创建 HubSpot 开发者账户</strong><br />如果您还没有，请在 <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> 注册一个免费的开发者账户。</div><div class="mb-3"><strong>第 2 步：通过 CLI 创建公共应用</strong><br /><strong>注意：</strong>HubSpot 已弃用用于创建应用的 Web 界面。您必须使用 HubSpot CLI 来创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，然后运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot 文档</a>。</div><div class="mb-3"><strong>第 3 步：保存 OAuth 应用凭据</strong><br />将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL 中。从您的 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填写在上方字段中。</div><div class="mb-3"><strong>第 4 步：获取 App ID 和 Developer API Key</strong><br />在您的 HubSpot 开发者账户中，找到您的 <strong>App ID</strong>（显示在应用名称下方）和 <strong>Developer API Key</strong>（位于应用设置中）。后续步骤需要用到这两项。</div><div class="mb-3"><strong>第 5 步：设置所需权限范围</strong><br />配置您的应用以包含所需的 OAuth 权限范围：<code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>第 6 步：在 TradingGoose 中保存配置</strong><br />点击上方的 <strong>“保存配置”</strong> 按钮。这将生成您唯一的 webhook URL。</div><div class="mb-3"><strong>第 7 步：通过 API 在 HubSpot 中配置 Webhook</strong><br />保存上方配置后，复制 <strong>Webhook URL</strong> 并运行下方的两条 curl 命令（将 <code>&#123;YOUR_APP_ID&#125;</code>、<code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> 和 <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> 替换为您的实际值）。</div><div class="mb-3"><strong>第 8 步：测试 Webhook</strong><br />在 HubSpot 中创建或修改一个联系人以触发 webhook。在 TradingGoose 中检查您的工作流执行日志，以验证其是否正常工作。</div><div class="mb-3"><strong>其他信息：</strong>每当从您的 HubSpot 账户中删除对话时，webhook 将被触发。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 会话删除"
+    type="hubspot_conversation_deletion"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入 HubSpot 应用的客户端 ID",
+            "description": "位于 HubSpot 应用设置的授权选项卡",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入 HubSpot 应用的客户端密钥",
+            "description": "位于 HubSpot 应用设置的授权选项卡",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入 HubSpot 应用 ID",
+            "description": "位于 HubSpot 应用设置。用于标识你的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用。位于 HubSpot 应用设置。",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "来自 HubSpot 的完整 webhook 载荷数组，包含事件详情"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供方名称（hubspot）"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot 应用 ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "触发器 ID（例如 hubspot_company_created）"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 密钥"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "用于设置 webhook URL 的 curl 命令"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "用于创建订阅的 curl 命令"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选的属性名称筛选（用于属性变更触发器）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 对话新消息
+
+当 HubSpot 对话中新增消息时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>步骤 1：创建 HubSpot 开发者账号</strong><br />如果还没有账号，请前往 <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> 免费注册开发者账号。</div><div class="mb-3"><strong>步骤 2：通过 CLI 创建公共应用</strong><br /><strong>注意：</strong>HubSpot 已弃用用于创建应用的 Web 界面。你必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，然后运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot 文档</a>。</div><div class="mb-3"><strong>步骤 3：保存 OAuth 应用凭证</strong><br />将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到 HubSpot 的 OAuth 重定向 URL。从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并填入上方字段。</div><div class="mb-3"><strong>步骤 4：获取 App ID 和 Developer API Key</strong><br />在 HubSpot 开发者账号中，找到 <strong>App ID</strong>（显示在应用名称下方）和 <strong>Developer API Key</strong>（位于应用设置中）。后续步骤需要这两项。</div><div class="mb-3"><strong>步骤 5：设置所需权限范围</strong><br />在应用中配置所需的 OAuth 权限范围：<code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>步骤 6：在 TradingGoose 中保存配置</strong><br />点击上方的<strong>“保存配置”</strong>按钮。系统将生成你的专属 Webhook URL。</div><div class="mb-3"><strong>步骤 7：通过 API 在 HubSpot 中配置 Webhook</strong><br />保存后，复制 <strong>Webhook URL</strong>，然后运行下方两条 curl 命令（将 <code>&#123;YOUR_APP_ID&#125;</code>、<code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> 和 <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> 替换为实际值）。</div><div class="mb-3"><strong>步骤 8：测试 Webhook</strong><br />在 HubSpot 中创建或修改联系人，以触发 Webhook。在 TradingGoose 中查看工作流执行日志，确认其正常工作。</div><div class="mb-3"><strong>其他信息：</strong>每当 HubSpot 账号中的任意对话新增消息时，都会触发该 Webhook。包括邮件、聊天消息及其他对话类型。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 对话新消息"
+    type="hubspot_conversation_new_message"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入 HubSpot 应用的客户端 ID",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入 HubSpot 应用的客户端密钥",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入 HubSpot 应用 ID",
+            "description": "可在 HubSpot 应用设置中找到。用于标识你的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用。可在 HubSpot 应用设置中找到。",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件负载"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "来自 HubSpot 的完整 webhook 负载数组，包含事件详情"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称 (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot 应用 ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "触发器 ID（例如 hubspot_company_created）"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 密钥"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "用于设置 webhook URL 的 curl 命令"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "用于创建订阅的 curl 命令"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选属性名称过滤器（用于属性变更触发器）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 对话隐私删除
+
+在 HubSpot 中因隐私合规（GDPR、CCPA 等）删除对话时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>步骤 1：创建 HubSpot 开发者账号</strong><br />如果还没有账号，请前往 <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> 注册免费开发者账号。</div><div class="mb-3"><strong>步骤 2：通过 CLI 创建公共应用</strong><br /><strong>注意：</strong>HubSpot 已弃用用于创建应用的 Web 界面。必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，然后运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot 文档</a>。</div><div class="mb-3"><strong>步骤 3：保存 OAuth 应用凭据</strong><br />将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到 HubSpot 的 OAuth 重定向 URL。从 HubSpot 应用配置中获取 <strong>客户端 ID</strong> 和 <strong>客户端密钥</strong>，并填入上方字段。</div><div class="mb-3"><strong>步骤 4：获取应用 ID 和开发者 API 密钥</strong><br />在 HubSpot 开发者账号中，找到你的 <strong>应用 ID</strong>（显示在应用名称下方）和 <strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要这两项。</div><div class="mb-3"><strong>步骤 5：设置所需权限范围</strong><br />为应用配置所需的 OAuth 权限范围：<code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>步骤 6：在 TradingGoose 中保存配置</strong><br />点击上方的<strong>“保存配置”</strong>按钮。系统将生成你的专属 webhook URL。</div><div class="mb-3"><strong>步骤 7：通过 API 在 HubSpot 中配置 Webhook</strong><br />保存上述配置后，复制 <strong>Webhook URL</strong>，然后运行下方两条 curl 命令（将 <code>&#123;YOUR_APP_ID&#125;</code>、<code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> 和 <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> 替换为实际值）。</div><div class="mb-3"><strong>步骤 8：测试 Webhook</strong><br />在 HubSpot 中创建或修改联系人即可触发 webhook。在 TradingGoose 中查看工作流执行日志，确认其正常工作。</div><div class="mb-3"><strong>补充说明：</strong>仅当对话因隐私合规原因被删除时（例如 GDPR“被遗忘权”请求），才会触发该 webhook。这与普通对话删除不同。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 对话隐私删除"
+    type="hubspot_conversation_privacy_deletion"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入 HubSpot 应用的客户端 ID",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入 HubSpot 应用的客户端密钥",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入 HubSpot 应用 ID",
+            "description": "可在 HubSpot 应用设置中找到。用于标识你的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入 HubSpot 开发者 API 密钥",
+            "description": "用于调用 HubSpot API。可在 HubSpot 应用设置中找到。",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "来自 HubSpot 的完整 webhook 载荷数组，包含事件详情"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称（hubspot）"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot 应用 ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "触发器 ID（例如 hubspot_company_created）"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 密钥"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "用于设置 webhook URL 的 curl 命令"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "用于创建订阅的 curl 命令"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选的属性名称筛选（用于属性变更触发器）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 对话属性已更改
+
+当 HubSpot 中对话的任意属性更新时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>第 1 步：创建 HubSpot 开发者账号</strong><br />若还没有账号，请前往 <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> 免费注册开发者账号。</div><div class="mb-3"><strong>第 2 步：通过 CLI 创建公共应用</strong><br /><strong>注意：</strong>HubSpot 已弃用用于创建应用的网页界面。你必须使用 HubSpot CLI 来创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，然后运行 <code>hs project create</code> 以创建新应用。详情请参阅 <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot 文档</a>。</div><div class="mb-3"><strong>第 3 步：保存 OAuth 应用凭据</strong><br />将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到 HubSpot 的 OAuth 重定向 URL。从 HubSpot 应用配置中获取 <strong>客户端 ID</strong> 和 <strong>客户端密钥</strong>，并填入上方字段。</div><div class="mb-3"><strong>第 4 步：获取 App ID 和开发者 API 密钥</strong><br />在 HubSpot 开发者账号中，找到你的 <strong>App ID</strong>（显示在应用名称下方）和 <strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要用到这两项。</div><div class="mb-3"><strong>第 5 步：设置所需范围</strong><br />配置应用以包含所需的 OAuth 范围：<code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>第 6 步：在 TradingGoose 中保存配置</strong><br />点击上方的 <strong>「保存配置」</strong> 按钮。这将生成你的专属 Webhook URL。</div><div class="mb-3"><strong>第 7 步：通过 API 在 HubSpot 中配置 Webhook</strong><br />在上方保存后，复制 <strong>Webhook URL</strong>，然后运行下方两条 curl 命令（将 <code>&#123;YOUR_APP_ID&#125;</code>、<code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> 和 <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> 替换为实际值）。</div><div class="mb-3"><strong>第 8 步：测试 Webhook</strong><br />在 HubSpot 中创建或修改联系人，以触发 Webhook。在 TradingGoose 中查看工作流执行日志，确认其正常工作。</div><div class="mb-3"><strong>补充信息：</strong>每当对话的任意属性更新时，Webhook 都会触发。你也可以按特定属性名称过滤，仅接收该属性的事件。Webhook 会在载荷中同时提供属性名称和新值。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 对话属性变更"
+    type="hubspot_conversation_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入 HubSpot 应用的客户端 ID",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入 HubSpot 应用的客户端密钥",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入 HubSpot 应用 ID",
+            "description": "可在 HubSpot 应用设置中找到。用于标识你的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用。可在 HubSpot 应用设置中找到。",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "属性名称（可选）",
+            "placeholder": "例如 status、assignedTo",
+            "description": "可选：仅在特定属性变更时触发。留空则在任意属性变更时触发。",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "来自 HubSpot 的完整 webhook 载荷数组，包含事件详情"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供方名称 (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot 应用 ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "触发器 ID（例如 hubspot_company_created）"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 密钥"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "用于设置 webhook URL 的 curl 命令"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "用于创建订阅的 curl 命令"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选的属性名称筛选（用于属性变更触发器）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 交易已创建
+
+当 HubSpot 中创建新交易时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>步骤 1：创建 HubSpot 开发者账号</strong><br />如果还没有，请前往 <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> 免费注册开发者账号。</div><div class="mb-3"><strong>步骤 2：通过 CLI 创建公共应用</strong><br /><strong>注意：</strong>HubSpot 已弃用用于创建应用的网页界面。必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，然后运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot 文档</a>。</div><div class="mb-3"><strong>步骤 3：保存 OAuth 应用凭证</strong><br />将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到 HubSpot 的 OAuth 重定向 URL。从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并填入上方字段。</div><div class="mb-3"><strong>步骤 4：获取 App ID 和 Developer API Key</strong><br />在 HubSpot 开发者账号中，找到 <strong>App ID</strong>（显示在应用名称下方）和 <strong>Developer API Key</strong>（位于应用设置中）。后续步骤需要用到这两项。</div><div class="mb-3"><strong>步骤 5：设置所需范围</strong><br />配置应用以包含所需的 OAuth 范围：<code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>步骤 6：在 TradingGoose 中保存配置</strong><br />点击上方的<strong>“保存配置”</strong>按钮。系统将生成你的专属 Webhook URL。</div><div class="mb-3"><strong>步骤 7：通过 API 在 HubSpot 中配置 Webhook</strong><br />保存后，复制 <strong>Webhook URL</strong>，然后运行下方两条 curl 命令（将 <code>&#123;YOUR_APP_ID&#125;</code>、<code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> 和 <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> 替换为实际值）。</div><div class="mb-3"><strong>步骤 8：测试 Webhook</strong><br />在 HubSpot 中创建或修改联系人，以触发 Webhook。在 TradingGoose 中查看工作流执行日志，确认其正常工作。</div><div class="mb-3"><strong>补充说明：</strong>无论来源如何（手动录入、API、导入等），只要在 HubSpot 账号中创建新交易，就会触发该 Webhook。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 交易已创建"
+    type="hubspot_deal_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入你的 HubSpot 应用客户端 ID",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入你的 HubSpot 应用客户端密钥",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入你的 HubSpot 应用 ID",
+            "description": "可在 HubSpot 应用设置中找到。用于标识你的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入你的 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用。可在 HubSpot 应用设置中找到。",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "来自 HubSpot 的完整 webhook 载荷数组，包含事件详情"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称 (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot 应用 ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "触发器 ID（例如 hubspot_company_created）"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 密钥"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "用于设置 webhook URL 的 curl 命令"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "用于创建订阅的 curl 命令"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选的属性名称筛选（用于属性变更触发器）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 交易已删除
+
+当 HubSpot 中的交易被删除时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>步骤 1：创建 HubSpot 开发者账号</strong><br />如果还没有账号，请前往 <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> 免费注册开发者账号。</div><div class="mb-3"><strong>步骤 2：通过 CLI 创建公共应用</strong><br /><strong>注意：</strong>HubSpot 已弃用用于创建应用的网页界面。必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，然后运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot 文档</a>。</div><div class="mb-3"><strong>步骤 3：保存 OAuth 应用凭证</strong><br />将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到 HubSpot 的 OAuth 重定向 URL。从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并填入上方字段。</div><div class="mb-3"><strong>步骤 4：获取 App ID 和开发者 API 密钥</strong><br />在 HubSpot 开发者账号中，找到 <strong>App ID</strong>（显示在应用名称下方）和 <strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要这两项。</div><div class="mb-3"><strong>步骤 5：设置所需范围</strong><br />配置应用，使其包含所需的 OAuth 范围：<code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>步骤 6：在 TradingGoose 中保存配置</strong><br />点击上方的 <strong>“保存配置”</strong> 按钮。系统将生成你的唯一 webhook URL。</div><div class="mb-3"><strong>步骤 7：通过 API 在 HubSpot 中配置 Webhook</strong><br />完成上方保存后，复制 <strong>Webhook URL</strong>，然后运行下方两条 curl 命令（将 <code>&#123;YOUR_APP_ID&#125;</code>、<code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> 和 <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> 替换为实际值）。</div><div class="mb-3"><strong>步骤 8：测试 Webhook</strong><br />在 HubSpot 中创建或修改联系人，以触发 webhook。在 TradingGoose 中查看工作流执行日志，确认其正常工作。</div><div class="mb-3"><strong>补充信息：</strong>每当 HubSpot 账号中的交易被删除时，webhook 就会触发。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 交易已删除"
+    type="hubspot_deal_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入 HubSpot 应用的客户端 ID",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入 HubSpot 应用的客户端密钥",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入 HubSpot 应用 ID",
+            "description": "可在 HubSpot 应用设置中找到。用于标识你的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用。可在 HubSpot 应用设置中找到。",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "来自 HubSpot 的完整 webhook 载荷数组，包含事件详情"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称（hubspot）"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot 应用 ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "触发器 ID（例如 hubspot_company_created）"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 密钥"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "用于设置 webhook URL 的 curl 命令"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "用于创建订阅的 curl 命令"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选的属性名称筛选（用于属性变更触发器）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 交易属性变更
+
+当 HubSpot 中交易的任意属性更新时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>步骤 1：创建 HubSpot 开发者账号</strong><br />如果还没有账号，请到 <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> 免费注册开发者账号。</div><div class="mb-3"><strong>步骤 2：通过 CLI 创建公共应用</strong><br /><strong>注意：</strong>HubSpot 已弃用通过网页界面创建应用。必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，然后运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot 文档</a>。</div><div class="mb-3"><strong>步骤 3：保存 OAuth 应用凭证</strong><br />将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到 HubSpot OAuth 重定向 URL。从 HubSpot 应用配置中获取 <strong>客户端 ID</strong> 和 <strong>客户端密钥</strong>，并填入上方字段。</div><div class="mb-3"><strong>步骤 4：获取 App ID 和 Developer API Key</strong><br />在 HubSpot 开发者账号中，找到 <strong>App ID</strong>（显示在应用名称下方）和 <strong>Developer API Key</strong>（位于应用设置中）。后续步骤需要用到这两项。</div><div class="mb-3"><strong>步骤 5：设置所需范围</strong><br />将应用配置为包含所需 OAuth 范围：<code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>步骤 6：在 TradingGoose 中保存配置</strong><br />点击上方的 <strong>“保存配置”</strong> 按钮。系统将生成你的唯一 webhook URL。</div><div class="mb-3"><strong>步骤 7：通过 API 在 HubSpot 中配置 Webhook</strong><br />保存后，复制 <strong>Webhook URL</strong>，然后运行下方两条 curl 命令（将 <code>&#123;YOUR_APP_ID&#125;</code>、<code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> 和 <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> 替换为实际值）。</div><div class="mb-3"><strong>步骤 8：测试 Webhook</strong><br />在 HubSpot 中创建或修改联系人，以触发 webhook。在 TradingGoose 中查看工作流执行日志，确认其正常工作。</div><div class="mb-3"><strong>补充说明：</strong>每当交易的任意属性更新时，webhook 都会触发。你可以选择按特定属性名称过滤，仅接收该属性的事件。webhook 会在载荷中同时提供属性名称和新值。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 交易属性变更"
+    type="hubspot_deal_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入你的 HubSpot 应用客户端 ID",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入你的 HubSpot 应用客户端密钥",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入你的 HubSpot 应用 ID",
+            "description": "可在 HubSpot 应用设置中找到。用于标识你的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入你的 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用。可在 HubSpot 应用设置中找到。",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "属性名称（可选）",
+            "placeholder": "例如：dealstage、amount、closedate",
+            "description": "可选：仅在特定属性变更时触发。留空则在任意属性变更时触发。",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "来自 HubSpot 的完整 webhook 载荷数组，包含事件详情"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供方名称（hubspot）"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot 应用 ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "触发器 ID（例如 hubspot_company_created）"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 密钥"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "用于设置 webhook URL 的 curl 命令"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "用于创建订阅的 curl 命令"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选的属性名称过滤器（用于属性变更触发器）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 工单已创建
+
+在 HubSpot 中创建新工单时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>步骤 1：创建 HubSpot 开发者账号</strong><br />如果还没有账号，请前往 <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> 免费注册开发者账号。</div><div class="mb-3"><strong>步骤 2：通过 CLI 创建公共应用</strong><br /><strong>注意：</strong>HubSpot 已弃用用于创建应用的网页界面。你必须使用 HubSpot CLI 来创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，然后运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot 文档</a>。</div><div class="mb-3"><strong>步骤 3：保存 OAuth 应用凭证</strong><br />将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到 HubSpot 的 OAuth 重定向 URL。从 HubSpot 应用配置中获取 <strong>客户端 ID</strong> 和 <strong>客户端密钥</strong>，并填入上方字段。</div><div class="mb-3"><strong>步骤 4：获取 App ID 和开发者 API 密钥</strong><br />在 HubSpot 开发者账号中，找到你的 <strong>App ID</strong>（显示在应用名称下方）和 <strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要这两项。</div><div class="mb-3"><strong>步骤 5：设置所需权限范围</strong><br />在应用中配置所需的 OAuth 权限范围：<code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>步骤 6：在 TradingGoose 中保存配置</strong><br />点击上方的 <strong>“保存配置”</strong> 按钮。这将生成你的专属 Webhook URL。</div><div class="mb-3"><strong>步骤 7：通过 API 在 HubSpot 中配置 Webhook</strong><br />在上方保存后，复制 <strong>Webhook URL</strong>，然后运行下方两条 curl 命令（将 <code>&#123;YOUR_APP_ID&#125;</code>、<code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> 和 <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> 替换为实际值）。</div><div class="mb-3"><strong>步骤 8：测试 Webhook</strong><br />在 HubSpot 中创建或修改联系人，以触发 Webhook。在 TradingGoose 中查看工作流执行日志，确认其正常工作。</div><div class="mb-3"><strong>补充说明：</strong>无论来源如何（手动录入、表单提交、API、导入等），只要在 HubSpot 账号中创建了新工单，Webhook 就会触发。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 工单已创建"
+    type="hubspot_ticket_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入 HubSpot 应用的客户端 ID",
+            "description": "位于 HubSpot 应用设置的 Auth 选项卡",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入 HubSpot 应用的客户端密钥",
+            "description": "位于 HubSpot 应用设置的 Auth 选项卡",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入 HubSpot 应用 ID",
+            "description": "位于 HubSpot 应用设置中。用于识别你的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用。位于 HubSpot 应用设置中。",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "来自 HubSpot 的完整 webhook 载荷数组，包含事件详情"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称 (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot 应用 ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "触发器 ID（例如 hubspot_company_created）"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 密钥"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "设置 webhook URL 的 curl 命令"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "创建订阅的 curl 命令"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选的属性名称筛选器（用于属性变更触发器）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 工单已删除
+
+当 HubSpot 中的工单被删除时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>步骤 1：创建 HubSpot 开发者账号</strong><br />如果还没有账号，请前往 <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> 注册免费开发者账号。</div><div class="mb-3"><strong>步骤 2：通过 CLI 创建公共应用</strong><br /><strong>注意：</strong>HubSpot 已弃用用于创建应用的网页界面。你必须使用 HubSpot CLI 来创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，然后运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot 文档</a>。</div><div class="mb-3"><strong>步骤 3：保存 OAuth 应用凭证</strong><br />将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到 HubSpot 的 OAuth 重定向 URL。从 HubSpot 应用配置中获取 <strong>客户端 ID</strong> 和 <strong>客户端密钥</strong>，并填入上方字段。</div><div class="mb-3"><strong>步骤 4：获取应用 ID 和开发者 API 密钥</strong><br />在 HubSpot 开发者账号中，找到你的 <strong>应用 ID</strong>（显示在应用名称下方）和 <strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要用到这两项。</div><div class="mb-3"><strong>步骤 5：设置所需权限范围</strong><br />在应用中配置所需的 OAuth 权限范围：<code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>步骤 6：在 TradingGoose 中保存配置</strong><br />点击上方的 <strong>“保存配置”</strong> 按钮。系统将生成你的唯一 webhook URL。</div><div class="mb-3"><strong>步骤 7：通过 API 在 HubSpot 中配置 Webhook</strong><br />保存后，复制 <strong>Webhook URL</strong>，然后运行下方两条 curl 命令（将 <code>&#123;YOUR_APP_ID&#125;</code>、<code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> 和 <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> 替换为实际值）。</div><div class="mb-3"><strong>步骤 8：测试 Webhook</strong><br />在 HubSpot 中创建或修改联系人，以触发 webhook。然后在 TradingGoose 中查看工作流执行日志，确认是否正常工作。</div><div class="mb-3"><strong>附加信息：</strong>每当 HubSpot 账号中有工单被删除时，就会触发该 webhook。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 工单已删除"
+    type="hubspot_ticket_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入 HubSpot 应用的客户端 ID",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡下找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入 HubSpot 应用的客户端密钥",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡下找到",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入 HubSpot 应用 ID",
+            "description": "可在 HubSpot 应用设置中找到。用于标识你的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用。可在 HubSpot 应用设置中找到。",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "来自 HubSpot 的完整 webhook 载荷数组，包含事件详情"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供方名称（hubspot）"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot 应用 ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "触发器 ID（例如 hubspot_company_created）"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 密钥"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "用于设置 webhook URL 的 curl 命令"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "用于创建订阅的 curl 命令"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选的属性名称筛选（用于属性变更触发器）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 工单属性已更改
+
+当 HubSpot 中工单的任意属性更新时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>步骤 1：创建 HubSpot 开发者账号</strong><br />如果还没有账号，请前往 <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> 免费注册开发者账号。</div><div class="mb-3"><strong>步骤 2：通过 CLI 创建公共应用</strong><br /><strong>注意：</strong>HubSpot 已弃用通过网页界面创建应用。必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，然后运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">HubSpot 文档</a>。</div><div class="mb-3"><strong>步骤 3：保存 OAuth 应用凭证</strong><br />将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到 HubSpot 的 OAuth 重定向 URL。从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并填入上方字段。</div><div class="mb-3"><strong>步骤 4：获取 App ID 和 Developer API Key</strong><br />在 HubSpot 开发者账号中，找到 <strong>App ID</strong>（显示在应用名称下方）和 <strong>Developer API Key</strong>（位于应用设置中）。后续步骤需要用到这两项。</div><div class="mb-3"><strong>步骤 5：设置所需权限范围</strong><br />将应用配置为包含所需的 OAuth 权限范围：<code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>步骤 6：在 TradingGoose 中保存配置</strong><br />点击上方的<strong>「保存配置」</strong>按钮。这将生成你的唯一 webhook URL。</div><div class="mb-3"><strong>步骤 7：通过 API 在 HubSpot 中配置 Webhook</strong><br />在上方保存后，复制 <strong>Webhook URL</strong>，并运行下方两条 curl 命令（将 <code>&#123;YOUR_APP_ID&#125;</code>、<code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> 和 <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> 替换为实际值）。</div><div class="mb-3"><strong>步骤 8：测试 Webhook</strong><br />在 HubSpot 中创建或修改联系人，以触发 webhook。在 TradingGoose 中查看工作流执行日志，确认其正常工作。</div><div class="mb-3"><strong>补充信息：</strong>每当工单的任意属性更新时，webhook 都会触发。可选择按特定属性名称过滤，仅接收该属性的事件。webhook 会在载荷中同时提供属性名称和新值。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 工单属性变更"
+    type="hubspot_ticket_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "输入 HubSpot 应用的客户端 ID",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "输入 HubSpot 应用的客户端密钥",
+            "description": "可在 HubSpot 应用设置的 Auth 选项卡中找到",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "应用 ID",
+            "placeholder": "输入 HubSpot 应用 ID",
+            "description": "可在 HubSpot 应用设置中找到。用于标识你的应用。",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 密钥",
+            "placeholder": "输入 HubSpot 开发者 API 密钥",
+            "description": "用于向 HubSpot 发起 API 调用。可在 HubSpot 应用设置中找到。",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "属性名称（可选）",
+            "placeholder": "例如：hs_pipeline_stage、hs_ticket_priority",
+            "description": "可选：仅在特定属性变更时触发。留空则在任意属性变更时触发。",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "来自 HubSpot 的完整 webhook 载荷数组，包含事件详情"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称（hubspot）"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot 应用 ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "触发器 ID（例如：hubspot_company_created）"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 密钥"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "用于设置 webhook URL 的 curl 命令"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "用于创建订阅的 curl 命令"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选的属性名称过滤器（用于属性变更触发器）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---

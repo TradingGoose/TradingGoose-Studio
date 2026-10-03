@@ -1,0 +1,498 @@
+---
+title: Gmail
+description: Envía correos de Gmail o activa flujos de trabajo desde eventos de Gmail
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="gmail"
+  color=""
+/>
+
+<Cards>
+  <Card title="Usar como disparador" href="/triggers/gmail">
+    Consulta los eventos del disparador, la configuración y las cargas útiles de eventos de Gmail.
+  </Card>
+</Cards>
+
+## Configuración
+
+### Enviar correo electrónico
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Gmail"
+    type="gmail"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "send_gmail",
+            "options": [
+                {
+                    "id": "send_gmail",
+                    "label": "Enviar correo"
+                },
+                {
+                    "id": "read_gmail",
+                    "label": "Leer correo"
+                },
+                {
+                    "id": "draft_gmail",
+                    "label": "Redactar correo"
+                },
+                {
+                    "id": "search_gmail",
+                    "label": "Buscar correo"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Gmail",
+            "layout": "full",
+            "placeholder": "Selecciona una cuenta de Gmail",
+            "provider": "google-email",
+            "required": true
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "Para",
+            "layout": "full",
+            "placeholder": "Dirección de correo del destinatario",
+            "required": true
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "Asunto",
+            "layout": "full",
+            "placeholder": "Asunto del correo",
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "Cuerpo",
+            "layout": "full",
+            "placeholder": "Contenido del correo",
+            "required": true
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "Archivos adjuntos",
+            "layout": "full",
+            "placeholder": "Sube los archivos que deseas adjuntar",
+            "required": false
+        },
+        {
+            "id": "attachments",
+            "type": "short-input",
+            "title": "Archivos adjuntos",
+            "layout": "full",
+            "placeholder": "Referencia archivos de bloques anteriores",
+            "required": false
+        },
+        {
+            "id": "cc",
+            "type": "short-input",
+            "title": "CC",
+            "layout": "full",
+            "placeholder": "Destinatarios en CC (separados por comas)",
+            "required": false
+        },
+        {
+            "id": "bcc",
+            "type": "short-input",
+            "title": "CCO",
+            "layout": "full",
+            "placeholder": "Destinatarios en CCO (separados por comas)",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Enviar correo electrónico (<code>gmail_send</code>)</div>
+
+Enviar correos con Gmail
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `to` | string | Sí | Dirección de correo del destinatario |
+| `subject` | string | No | Asunto del correo |
+| `body` | string | Sí | Contenido del cuerpo del correo |
+| `contentType` | string | No | Tipo de contenido del cuerpo del correo \(text o html\) |
+| `threadId` | string | No | ID del hilo al que responder \(para encadenar hilos\) |
+| `replyToMessageId` | string | No | ID del mensaje de Gmail al que responder: usa el campo "id" de los resultados de Gmail Read \(no el "messageId" de RFC\) |
+| `cc` | string | No | Destinatarios en CC \(separados por comas\) |
+| `bcc` | string | No | Destinatarios en CCO \(separados por comas\) |
+| `attachments` | file[] | No | Archivos para adjuntar al correo |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Mensaje de éxito |
+| `metadata` | object | Metadatos del correo |
+
+</div>
+
+---
+
+### Leer correo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Gmail"
+    type="gmail"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "read_gmail",
+            "options": [
+                {
+                    "id": "send_gmail",
+                    "label": "Enviar correo"
+                },
+                {
+                    "id": "read_gmail",
+                    "label": "Leer correo"
+                },
+                {
+                    "id": "draft_gmail",
+                    "label": "Redactar correo"
+                },
+                {
+                    "id": "search_gmail",
+                    "label": "Buscar correo"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Gmail",
+            "layout": "full",
+            "placeholder": "Selecciona una cuenta de Gmail",
+            "provider": "google-email",
+            "required": true
+        },
+        {
+            "id": "folder",
+            "type": "folder-selector",
+            "title": "Etiqueta",
+            "layout": "full",
+            "placeholder": "Selecciona una etiqueta/carpeta de Gmail",
+            "provider": "google-email"
+        },
+        {
+            "id": "manualFolder",
+            "type": "short-input",
+            "title": "Etiqueta/Carpeta",
+            "layout": "full",
+            "placeholder": "Introduce el nombre de la etiqueta de Gmail (p. ej., INBOX, SENT o una etiqueta personalizada)"
+        },
+        {
+            "id": "unreadOnly",
+            "type": "switch",
+            "title": "Solo no leídos",
+            "layout": "full"
+        },
+        {
+            "id": "includeAttachments",
+            "type": "switch",
+            "title": "Incluir archivos adjuntos",
+            "layout": "full"
+        },
+        {
+            "id": "messageId",
+            "type": "short-input",
+            "title": "ID del mensaje",
+            "layout": "full",
+            "placeholder": "Introduce el ID del mensaje que quieres leer (opcional)",
+            "description": "Se muestra cuando la carpeta es ''."
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Máximo de resultados",
+            "layout": "full",
+            "placeholder": "Número máximo de resultados (predeterminado: 10)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Leer correo (<code>gmail_read</code>)</div>
+
+Leer correos de Gmail
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `messageId` | string | No | ID del mensaje que se va a leer |
+| `folder` | string | No | Carpeta/etiqueta desde la que se leen los correos |
+| `unreadOnly` | boolean | No | Recuperar solo los mensajes no leídos |
+| `maxResults` | number | No | Número máximo de mensajes a recuperar \(predeterminado: 1, máximo: 10\) |
+| `includeAttachments` | boolean | No | Descargar e incluir los archivos adjuntos del correo |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Contenido de texto del correo |
+| `metadata` | json | Metadatos del correo |
+| `attachments` | file[] | Archivos adjuntos del correo |
+
+</div>
+
+---
+
+### Redactar correo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Gmail"
+    type="gmail"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "draft_gmail",
+            "options": [
+                {
+                    "id": "send_gmail",
+                    "label": "Enviar correo"
+                },
+                {
+                    "id": "read_gmail",
+                    "label": "Leer correo"
+                },
+                {
+                    "id": "draft_gmail",
+                    "label": "Redactar correo"
+                },
+                {
+                    "id": "search_gmail",
+                    "label": "Buscar correo"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Gmail",
+            "layout": "full",
+            "placeholder": "Selecciona una cuenta de Gmail",
+            "provider": "google-email",
+            "required": true
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "Para",
+            "layout": "full",
+            "placeholder": "Dirección de correo del destinatario",
+            "required": true
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "Asunto",
+            "layout": "full",
+            "placeholder": "Asunto del correo",
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "Cuerpo",
+            "layout": "full",
+            "placeholder": "Contenido del correo",
+            "required": true
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "Archivos adjuntos",
+            "layout": "full",
+            "placeholder": "Sube archivos para adjuntar",
+            "required": false
+        },
+        {
+            "id": "attachments",
+            "type": "short-input",
+            "title": "Archivos adjuntos",
+            "layout": "full",
+            "placeholder": "Referencia archivos de bloques anteriores",
+            "required": false
+        },
+        {
+            "id": "cc",
+            "type": "short-input",
+            "title": "CC",
+            "layout": "full",
+            "placeholder": "Destinatarios en CC (separados por comas)",
+            "required": false
+        },
+        {
+            "id": "bcc",
+            "type": "short-input",
+            "title": "CCO",
+            "layout": "full",
+            "placeholder": "Destinatarios en CCO (separados por comas)",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Redactar correo (<code>gmail_draft</code>)</div>
+
+Redacta correos con Gmail
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `to` | string | Sí | Dirección de correo del destinatario |
+| `subject` | string | No | Asunto del correo |
+| `body` | string | Sí | Contenido del cuerpo del correo |
+| `contentType` | string | No | Tipo de contenido del cuerpo del correo \(text o html\) |
+| `threadId` | string | No | ID del hilo al que responder \(para mantener el hilo\) |
+| `replyToMessageId` | string | No | ID del mensaje de Gmail al que responder: usa el campo "id" de los resultados de Gmail Read \(no el "messageId" de RFC\) |
+| `cc` | string | No | Destinatarios en CC \(separados por comas\) |
+| `bcc` | string | No | Destinatarios en CCO \(separados por comas\) |
+| `attachments` | file[] | No | Archivos para adjuntar al borrador del correo |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Mensaje de éxito |
+| `metadata` | object | Metadatos del borrador |
+
+</div>
+
+---
+
+### Buscar correo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Gmail"
+    type="gmail"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "search_gmail",
+            "options": [
+                {
+                    "id": "send_gmail",
+                    "label": "Enviar correo"
+                },
+                {
+                    "id": "read_gmail",
+                    "label": "Leer correo"
+                },
+                {
+                    "id": "draft_gmail",
+                    "label": "Redactar correo"
+                },
+                {
+                    "id": "search_gmail",
+                    "label": "Buscar correo"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Gmail",
+            "layout": "full",
+            "placeholder": "Selecciona una cuenta de Gmail",
+            "provider": "google-email",
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "Consulta de búsqueda",
+            "layout": "full",
+            "placeholder": "Introduce los términos de búsqueda",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Máximo de resultados",
+            "layout": "full",
+            "placeholder": "Número máximo de resultados (predeterminado: 10)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar correos (<code>gmail_search</code>)</div>
+
+Buscar correos en Gmail
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | Sí | Consulta de búsqueda de correos |
+| `maxResults` | number | No | Número máximo de resultados a devolver |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Resumen de los resultados de búsqueda |
+| `metadata` | object | Metadatos de búsqueda |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Gmail en el flujo de trabajo. Puede enviar, leer y buscar correos. Se puede usar en modo de disparador para activar un flujo de trabajo cuando se recibe un correo nuevo.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `gmail`

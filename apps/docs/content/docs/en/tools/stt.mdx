@@ -30,29 +30,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Provider",
             "required": true,
+            "defaultValue": "whisper",
             "options": [
                 {
-                    "label": "OpenAI Whisper",
-                    "id": "whisper"
+                    "id": "whisper",
+                    "label": "OpenAI Whisper"
                 },
                 {
-                    "label": "Deepgram",
-                    "id": "deepgram"
+                    "id": "deepgram",
+                    "label": "Deepgram"
                 },
                 {
-                    "label": "ElevenLabs",
-                    "id": "elevenlabs"
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
                 },
                 {
-                    "label": "AssemblyAI",
-                    "id": "assemblyai"
+                    "id": "assemblyai",
+                    "label": "AssemblyAI"
                 },
                 {
-                    "label": "Google Gemini",
-                    "id": "gemini"
+                    "id": "gemini",
+                    "label": "Google Gemini"
                 }
-            ],
-            "defaultValue": "whisper"
+            ]
         },
         {
             "id": "audioFile",
@@ -72,93 +72,95 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "audioUrl",
             "type": "short-input",
             "title": "Audio/Video URL",
-            "placeholder": "Or enter publicly accessible audio/video URL"
+            "placeholder": "Or enter publicly accessible audio/video URL",
+            "required": false
         },
         {
             "id": "language",
             "type": "dropdown",
             "title": "Language",
             "required": true,
+            "defaultValue": "auto",
             "options": [
                 {
-                    "label": "Auto-detect",
-                    "id": "auto"
+                    "id": "auto",
+                    "label": "Auto-detect"
                 },
                 {
-                    "label": "English",
-                    "id": "en"
+                    "id": "en",
+                    "label": "English"
                 },
                 {
-                    "label": "Spanish",
-                    "id": "es"
+                    "id": "es",
+                    "label": "Spanish"
                 },
                 {
-                    "label": "French",
-                    "id": "fr"
+                    "id": "fr",
+                    "label": "French"
                 },
                 {
-                    "label": "German",
-                    "id": "de"
+                    "id": "de",
+                    "label": "German"
                 },
                 {
-                    "label": "Italian",
-                    "id": "it"
+                    "id": "it",
+                    "label": "Italian"
                 },
                 {
-                    "label": "Portuguese",
-                    "id": "pt"
+                    "id": "pt",
+                    "label": "Portuguese"
                 },
                 {
-                    "label": "Dutch",
-                    "id": "nl"
+                    "id": "nl",
+                    "label": "Dutch"
                 },
                 {
-                    "label": "Russian",
-                    "id": "ru"
+                    "id": "ru",
+                    "label": "Russian"
                 },
                 {
-                    "label": "Chinese",
-                    "id": "zh"
+                    "id": "zh",
+                    "label": "Chinese"
                 },
                 {
-                    "label": "Japanese",
-                    "id": "ja"
+                    "id": "ja",
+                    "label": "Japanese"
                 },
                 {
-                    "label": "Korean",
-                    "id": "ko"
+                    "id": "ko",
+                    "label": "Korean"
                 },
                 {
-                    "label": "Arabic",
-                    "id": "ar"
+                    "id": "ar",
+                    "label": "Arabic"
                 },
                 {
-                    "label": "Hindi",
-                    "id": "hi"
+                    "id": "hi",
+                    "label": "Hindi"
                 },
                 {
-                    "label": "Polish",
-                    "id": "pl"
+                    "id": "pl",
+                    "label": "Polish"
                 },
                 {
-                    "label": "Turkish",
-                    "id": "tr"
+                    "id": "tr",
+                    "label": "Turkish"
                 },
                 {
-                    "label": "Swedish",
-                    "id": "sv"
+                    "id": "sv",
+                    "label": "Swedish"
                 },
                 {
-                    "label": "Danish",
-                    "id": "da"
+                    "id": "da",
+                    "label": "Danish"
                 },
                 {
-                    "label": "Norwegian",
-                    "id": "no"
+                    "id": "no",
+                    "label": "Norwegian"
                 },
                 {
-                    "label": "Finnish",
-                    "id": "fi"
+                    "id": "fi",
+                    "label": "Finnish"
                 }
             ]
         },
@@ -167,18 +169,19 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Timestamps",
             "required": true,
+            "defaultValue": "none",
             "options": [
                 {
-                    "label": "None",
-                    "id": "none"
+                    "id": "none",
+                    "label": "None"
                 },
                 {
-                    "label": "Sentence-level",
-                    "id": "sentence"
+                    "id": "sentence",
+                    "label": "Sentence-level"
                 },
                 {
-                    "label": "Word-level",
-                    "id": "word"
+                    "id": "word",
+                    "label": "Word-level"
                 }
             ]
         },
@@ -195,10 +198,11 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Model",
             "required": true,
+            "defaultValue": "whisper-1",
             "options": [
                 {
-                    "label": "Whisper-1",
-                    "id": "whisper-1"
+                    "id": "whisper-1",
+                    "label": "Whisper-1"
                 }
             ]
         },
@@ -212,18 +216,34 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">OpenAI Whisper (<code>stt_whisper</code>)</div>
+
+Transcribe audio to text using OpenAI Whisper
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | Yes | STT provider \(whisper\) |
+| `apiKey` | string | Yes | OpenAI API key |
+| `model` | string | No | Whisper model to use \(default: whisper-1\) |
+| `audioFile` | file | No | Audio or video file to transcribe |
+| `audioFileReference` | file | No | Reference to audio/video file from previous blocks |
+| `audioUrl` | string | No | URL to audio or video file |
+| `language` | string | No | Language code \(e.g., "en", "es", "fr"\) or "auto" for auto-detection |
+| `timestamps` | string | No | Timestamp granularity: none, sentence, or word |
+| `translateToEnglish` | boolean | No | Translate audio to English |
+| `prompt` | string | No | Optional text to guide the model's style or continue a previous audio segment. Helps with proper nouns and context. |
+| `temperature` | number | No | Sampling temperature between 0 and 1. Higher values make output more random, lower values more focused and deterministic. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `transcript` | string | Full transcribed text |
-| `segments` | array | Timestamped segments with speaker labels |
+| `segments` | array | Timestamped segments |
 | `language` | string | Detected or specified language |
 | `duration` | number | Audio duration in seconds |
-| `confidence` | number | Overall confidence score |
-| `sentiment` | array | Sentiment analysis results |
-| `entities` | array | Detected entities |
-| `summary` | string | Auto-generated summary |
 
 </div>
 
@@ -245,29 +265,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Provider",
             "required": true,
+            "defaultValue": "deepgram",
             "options": [
                 {
-                    "label": "OpenAI Whisper",
-                    "id": "whisper"
+                    "id": "whisper",
+                    "label": "OpenAI Whisper"
                 },
                 {
-                    "label": "Deepgram",
-                    "id": "deepgram"
+                    "id": "deepgram",
+                    "label": "Deepgram"
                 },
                 {
-                    "label": "ElevenLabs",
-                    "id": "elevenlabs"
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
                 },
                 {
-                    "label": "AssemblyAI",
-                    "id": "assemblyai"
+                    "id": "assemblyai",
+                    "label": "AssemblyAI"
                 },
                 {
-                    "label": "Google Gemini",
-                    "id": "gemini"
+                    "id": "gemini",
+                    "label": "Google Gemini"
                 }
-            ],
-            "defaultValue": "deepgram"
+            ]
         },
         {
             "id": "audioFile",
@@ -287,93 +307,95 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "audioUrl",
             "type": "short-input",
             "title": "Audio/Video URL",
-            "placeholder": "Or enter publicly accessible audio/video URL"
+            "placeholder": "Or enter publicly accessible audio/video URL",
+            "required": false
         },
         {
             "id": "language",
             "type": "dropdown",
             "title": "Language",
             "required": true,
+            "defaultValue": "auto",
             "options": [
                 {
-                    "label": "Auto-detect",
-                    "id": "auto"
+                    "id": "auto",
+                    "label": "Auto-detect"
                 },
                 {
-                    "label": "English",
-                    "id": "en"
+                    "id": "en",
+                    "label": "English"
                 },
                 {
-                    "label": "Spanish",
-                    "id": "es"
+                    "id": "es",
+                    "label": "Spanish"
                 },
                 {
-                    "label": "French",
-                    "id": "fr"
+                    "id": "fr",
+                    "label": "French"
                 },
                 {
-                    "label": "German",
-                    "id": "de"
+                    "id": "de",
+                    "label": "German"
                 },
                 {
-                    "label": "Italian",
-                    "id": "it"
+                    "id": "it",
+                    "label": "Italian"
                 },
                 {
-                    "label": "Portuguese",
-                    "id": "pt"
+                    "id": "pt",
+                    "label": "Portuguese"
                 },
                 {
-                    "label": "Dutch",
-                    "id": "nl"
+                    "id": "nl",
+                    "label": "Dutch"
                 },
                 {
-                    "label": "Russian",
-                    "id": "ru"
+                    "id": "ru",
+                    "label": "Russian"
                 },
                 {
-                    "label": "Chinese",
-                    "id": "zh"
+                    "id": "zh",
+                    "label": "Chinese"
                 },
                 {
-                    "label": "Japanese",
-                    "id": "ja"
+                    "id": "ja",
+                    "label": "Japanese"
                 },
                 {
-                    "label": "Korean",
-                    "id": "ko"
+                    "id": "ko",
+                    "label": "Korean"
                 },
                 {
-                    "label": "Arabic",
-                    "id": "ar"
+                    "id": "ar",
+                    "label": "Arabic"
                 },
                 {
-                    "label": "Hindi",
-                    "id": "hi"
+                    "id": "hi",
+                    "label": "Hindi"
                 },
                 {
-                    "label": "Polish",
-                    "id": "pl"
+                    "id": "pl",
+                    "label": "Polish"
                 },
                 {
-                    "label": "Turkish",
-                    "id": "tr"
+                    "id": "tr",
+                    "label": "Turkish"
                 },
                 {
-                    "label": "Swedish",
-                    "id": "sv"
+                    "id": "sv",
+                    "label": "Swedish"
                 },
                 {
-                    "label": "Danish",
-                    "id": "da"
+                    "id": "da",
+                    "label": "Danish"
                 },
                 {
-                    "label": "Norwegian",
-                    "id": "no"
+                    "id": "no",
+                    "label": "Norwegian"
                 },
                 {
-                    "label": "Finnish",
-                    "id": "fi"
+                    "id": "fi",
+                    "label": "Finnish"
                 }
             ]
         },
@@ -382,18 +404,19 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Timestamps",
             "required": true,
+            "defaultValue": "none",
             "options": [
                 {
-                    "label": "None",
-                    "id": "none"
+                    "id": "none",
+                    "label": "None"
                 },
                 {
-                    "label": "Sentence-level",
-                    "id": "sentence"
+                    "id": "sentence",
+                    "label": "Sentence-level"
                 },
                 {
-                    "label": "Word-level",
-                    "id": "word"
+                    "id": "word",
+                    "label": "Word-level"
                 }
             ]
         },
@@ -410,30 +433,31 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Model",
             "required": true,
+            "defaultValue": "nova-3",
             "options": [
                 {
-                    "label": "Nova 3",
-                    "id": "nova-3"
+                    "id": "nova-3",
+                    "label": "Nova 3"
                 },
                 {
-                    "label": "Nova 2",
-                    "id": "nova-2"
+                    "id": "nova-2",
+                    "label": "Nova 2"
                 },
                 {
-                    "label": "Nova",
-                    "id": "nova"
+                    "id": "nova",
+                    "label": "Nova"
                 },
                 {
-                    "label": "Whisper Large",
-                    "id": "whisper-large"
+                    "id": "whisper-large",
+                    "label": "Whisper Large"
                 },
                 {
-                    "label": "Enhanced",
-                    "id": "enhanced"
+                    "id": "enhanced",
+                    "label": "Enhanced"
                 },
                 {
-                    "label": "Base",
-                    "id": "base"
+                    "id": "base",
+                    "label": "Base"
                 }
             ]
         },
@@ -447,7 +471,25 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Deepgram (<code>stt_deepgram</code>)</div>
+
+Transcribe audio to text using Deepgram
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | Yes | STT provider \(deepgram\) |
+| `apiKey` | string | Yes | Deepgram API key |
+| `model` | string | No | Deepgram model to use \(nova-3, nova-2, whisper-large, etc.\) |
+| `audioFile` | file | No | Audio or video file to transcribe |
+| `audioFileReference` | file | No | Reference to audio/video file from previous blocks |
+| `audioUrl` | string | No | URL to audio or video file |
+| `language` | string | No | Language code \(e.g., "en", "es", "fr"\) or "auto" for auto-detection |
+| `timestamps` | string | No | Timestamp granularity: none, sentence, or word |
+| `diarization` | boolean | No | Enable speaker diarization |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
@@ -456,9 +498,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 | `language` | string | Detected or specified language |
 | `duration` | number | Audio duration in seconds |
 | `confidence` | number | Overall confidence score |
-| `sentiment` | array | Sentiment analysis results |
-| `entities` | array | Detected entities |
-| `summary` | string | Auto-generated summary |
 
 </div>
 
@@ -480,29 +519,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Provider",
             "required": true,
+            "defaultValue": "elevenlabs",
             "options": [
                 {
-                    "label": "OpenAI Whisper",
-                    "id": "whisper"
+                    "id": "whisper",
+                    "label": "OpenAI Whisper"
                 },
                 {
-                    "label": "Deepgram",
-                    "id": "deepgram"
+                    "id": "deepgram",
+                    "label": "Deepgram"
                 },
                 {
-                    "label": "ElevenLabs",
-                    "id": "elevenlabs"
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
                 },
                 {
-                    "label": "AssemblyAI",
-                    "id": "assemblyai"
+                    "id": "assemblyai",
+                    "label": "AssemblyAI"
                 },
                 {
-                    "label": "Google Gemini",
-                    "id": "gemini"
+                    "id": "gemini",
+                    "label": "Google Gemini"
                 }
-            ],
-            "defaultValue": "elevenlabs"
+            ]
         },
         {
             "id": "audioFile",
@@ -522,93 +561,95 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "audioUrl",
             "type": "short-input",
             "title": "Audio/Video URL",
-            "placeholder": "Or enter publicly accessible audio/video URL"
+            "placeholder": "Or enter publicly accessible audio/video URL",
+            "required": false
         },
         {
             "id": "language",
             "type": "dropdown",
             "title": "Language",
             "required": true,
+            "defaultValue": "auto",
             "options": [
                 {
-                    "label": "Auto-detect",
-                    "id": "auto"
+                    "id": "auto",
+                    "label": "Auto-detect"
                 },
                 {
-                    "label": "English",
-                    "id": "en"
+                    "id": "en",
+                    "label": "English"
                 },
                 {
-                    "label": "Spanish",
-                    "id": "es"
+                    "id": "es",
+                    "label": "Spanish"
                 },
                 {
-                    "label": "French",
-                    "id": "fr"
+                    "id": "fr",
+                    "label": "French"
                 },
                 {
-                    "label": "German",
-                    "id": "de"
+                    "id": "de",
+                    "label": "German"
                 },
                 {
-                    "label": "Italian",
-                    "id": "it"
+                    "id": "it",
+                    "label": "Italian"
                 },
                 {
-                    "label": "Portuguese",
-                    "id": "pt"
+                    "id": "pt",
+                    "label": "Portuguese"
                 },
                 {
-                    "label": "Dutch",
-                    "id": "nl"
+                    "id": "nl",
+                    "label": "Dutch"
                 },
                 {
-                    "label": "Russian",
-                    "id": "ru"
+                    "id": "ru",
+                    "label": "Russian"
                 },
                 {
-                    "label": "Chinese",
-                    "id": "zh"
+                    "id": "zh",
+                    "label": "Chinese"
                 },
                 {
-                    "label": "Japanese",
-                    "id": "ja"
+                    "id": "ja",
+                    "label": "Japanese"
                 },
                 {
-                    "label": "Korean",
-                    "id": "ko"
+                    "id": "ko",
+                    "label": "Korean"
                 },
                 {
-                    "label": "Arabic",
-                    "id": "ar"
+                    "id": "ar",
+                    "label": "Arabic"
                 },
                 {
-                    "label": "Hindi",
-                    "id": "hi"
+                    "id": "hi",
+                    "label": "Hindi"
                 },
                 {
-                    "label": "Polish",
-                    "id": "pl"
+                    "id": "pl",
+                    "label": "Polish"
                 },
                 {
-                    "label": "Turkish",
-                    "id": "tr"
+                    "id": "tr",
+                    "label": "Turkish"
                 },
                 {
-                    "label": "Swedish",
-                    "id": "sv"
+                    "id": "sv",
+                    "label": "Swedish"
                 },
                 {
-                    "label": "Danish",
-                    "id": "da"
+                    "id": "da",
+                    "label": "Danish"
                 },
                 {
-                    "label": "Norwegian",
-                    "id": "no"
+                    "id": "no",
+                    "label": "Norwegian"
                 },
                 {
-                    "label": "Finnish",
-                    "id": "fi"
+                    "id": "fi",
+                    "label": "Finnish"
                 }
             ]
         },
@@ -617,18 +658,19 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Timestamps",
             "required": true,
+            "defaultValue": "none",
             "options": [
                 {
-                    "label": "None",
-                    "id": "none"
+                    "id": "none",
+                    "label": "None"
                 },
                 {
-                    "label": "Sentence-level",
-                    "id": "sentence"
+                    "id": "sentence",
+                    "label": "Sentence-level"
                 },
                 {
-                    "label": "Word-level",
-                    "id": "word"
+                    "id": "word",
+                    "label": "Word-level"
                 }
             ]
         },
@@ -645,14 +687,15 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Model",
             "required": true,
+            "defaultValue": "scribe_v1",
             "options": [
                 {
-                    "label": "Scribe v1",
-                    "id": "scribe_v1"
+                    "id": "scribe_v1",
+                    "label": "Scribe v1"
                 },
                 {
-                    "label": "Scribe v1 Experimental",
-                    "id": "scribe_v1_experimental"
+                    "id": "scribe_v1_experimental",
+                    "label": "Scribe v1 Experimental"
                 }
             ]
         }
@@ -661,18 +704,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">ElevenLabs (<code>stt_elevenlabs</code>)</div>
+
+Transcribe audio to text using ElevenLabs
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | Yes | STT provider \(elevenlabs\) |
+| `apiKey` | string | Yes | ElevenLabs API key |
+| `model` | string | No | ElevenLabs model to use \(scribe_v1, scribe_v1_experimental\) |
+| `audioFile` | file | No | Audio or video file to transcribe |
+| `audioFileReference` | file | No | Reference to audio/video file from previous blocks |
+| `audioUrl` | string | No | URL to audio or video file |
+| `language` | string | No | Language code \(e.g., "en", "es", "fr"\) or "auto" for auto-detection |
+| `timestamps` | string | No | Timestamp granularity: none, sentence, or word |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `transcript` | string | Full transcribed text |
-| `segments` | array | Timestamped segments with speaker labels |
+| `segments` | array | Timestamped segments |
 | `language` | string | Detected or specified language |
 | `duration` | number | Audio duration in seconds |
 | `confidence` | number | Overall confidence score |
-| `sentiment` | array | Sentiment analysis results |
-| `entities` | array | Detected entities |
-| `summary` | string | Auto-generated summary |
 
 </div>
 
@@ -694,29 +751,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Provider",
             "required": true,
+            "defaultValue": "assemblyai",
             "options": [
                 {
-                    "label": "OpenAI Whisper",
-                    "id": "whisper"
+                    "id": "whisper",
+                    "label": "OpenAI Whisper"
                 },
                 {
-                    "label": "Deepgram",
-                    "id": "deepgram"
+                    "id": "deepgram",
+                    "label": "Deepgram"
                 },
                 {
-                    "label": "ElevenLabs",
-                    "id": "elevenlabs"
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
                 },
                 {
-                    "label": "AssemblyAI",
-                    "id": "assemblyai"
+                    "id": "assemblyai",
+                    "label": "AssemblyAI"
                 },
                 {
-                    "label": "Google Gemini",
-                    "id": "gemini"
+                    "id": "gemini",
+                    "label": "Google Gemini"
                 }
-            ],
-            "defaultValue": "assemblyai"
+            ]
         },
         {
             "id": "audioFile",
@@ -736,93 +793,95 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "audioUrl",
             "type": "short-input",
             "title": "Audio/Video URL",
-            "placeholder": "Or enter publicly accessible audio/video URL"
+            "placeholder": "Or enter publicly accessible audio/video URL",
+            "required": false
         },
         {
             "id": "language",
             "type": "dropdown",
             "title": "Language",
             "required": true,
+            "defaultValue": "auto",
             "options": [
                 {
-                    "label": "Auto-detect",
-                    "id": "auto"
+                    "id": "auto",
+                    "label": "Auto-detect"
                 },
                 {
-                    "label": "English",
-                    "id": "en"
+                    "id": "en",
+                    "label": "English"
                 },
                 {
-                    "label": "Spanish",
-                    "id": "es"
+                    "id": "es",
+                    "label": "Spanish"
                 },
                 {
-                    "label": "French",
-                    "id": "fr"
+                    "id": "fr",
+                    "label": "French"
                 },
                 {
-                    "label": "German",
-                    "id": "de"
+                    "id": "de",
+                    "label": "German"
                 },
                 {
-                    "label": "Italian",
-                    "id": "it"
+                    "id": "it",
+                    "label": "Italian"
                 },
                 {
-                    "label": "Portuguese",
-                    "id": "pt"
+                    "id": "pt",
+                    "label": "Portuguese"
                 },
                 {
-                    "label": "Dutch",
-                    "id": "nl"
+                    "id": "nl",
+                    "label": "Dutch"
                 },
                 {
-                    "label": "Russian",
-                    "id": "ru"
+                    "id": "ru",
+                    "label": "Russian"
                 },
                 {
-                    "label": "Chinese",
-                    "id": "zh"
+                    "id": "zh",
+                    "label": "Chinese"
                 },
                 {
-                    "label": "Japanese",
-                    "id": "ja"
+                    "id": "ja",
+                    "label": "Japanese"
                 },
                 {
-                    "label": "Korean",
-                    "id": "ko"
+                    "id": "ko",
+                    "label": "Korean"
                 },
                 {
-                    "label": "Arabic",
-                    "id": "ar"
+                    "id": "ar",
+                    "label": "Arabic"
                 },
                 {
-                    "label": "Hindi",
-                    "id": "hi"
+                    "id": "hi",
+                    "label": "Hindi"
                 },
                 {
-                    "label": "Polish",
-                    "id": "pl"
+                    "id": "pl",
+                    "label": "Polish"
                 },
                 {
-                    "label": "Turkish",
-                    "id": "tr"
+                    "id": "tr",
+                    "label": "Turkish"
                 },
                 {
-                    "label": "Swedish",
-                    "id": "sv"
+                    "id": "sv",
+                    "label": "Swedish"
                 },
                 {
-                    "label": "Danish",
-                    "id": "da"
+                    "id": "da",
+                    "label": "Danish"
                 },
                 {
-                    "label": "Norwegian",
-                    "id": "no"
+                    "id": "no",
+                    "label": "Norwegian"
                 },
                 {
-                    "label": "Finnish",
-                    "id": "fi"
+                    "id": "fi",
+                    "label": "Finnish"
                 }
             ]
         },
@@ -831,18 +890,19 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Timestamps",
             "required": true,
+            "defaultValue": "none",
             "options": [
                 {
-                    "label": "None",
-                    "id": "none"
+                    "id": "none",
+                    "label": "None"
                 },
                 {
-                    "label": "Sentence-level",
-                    "id": "sentence"
+                    "id": "sentence",
+                    "label": "Sentence-level"
                 },
                 {
-                    "label": "Word-level",
-                    "id": "word"
+                    "id": "word",
+                    "label": "Word-level"
                 }
             ]
         },
@@ -859,14 +919,15 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Model",
             "required": true,
+            "defaultValue": "best",
             "options": [
                 {
-                    "label": "Best",
-                    "id": "best"
+                    "id": "best",
+                    "label": "Best"
                 },
                 {
-                    "label": "Nano",
-                    "id": "nano"
+                    "id": "nano",
+                    "label": "Nano"
                 }
             ]
         },
@@ -900,7 +961,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">AssemblyAI (<code>stt_assemblyai</code>)</div>
+
+Transcribe audio to text using AssemblyAI with advanced NLP features
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | Yes | STT provider \(assemblyai\) |
+| `apiKey` | string | Yes | AssemblyAI API key |
+| `model` | string | No | AssemblyAI model to use \(default: best\) |
+| `audioFile` | file | No | Audio or video file to transcribe |
+| `audioFileReference` | file | No | Reference to audio/video file from previous blocks |
+| `audioUrl` | string | No | URL to audio or video file |
+| `language` | string | No | Language code \(e.g., "en", "es", "fr"\) or "auto" for auto-detection |
+| `timestamps` | string | No | Timestamp granularity: none, sentence, or word |
+| `diarization` | boolean | No | Enable speaker diarization |
+| `sentiment` | boolean | No | Enable sentiment analysis |
+| `entityDetection` | boolean | No | Enable entity detection |
+| `piiRedaction` | boolean | No | Enable PII redaction |
+| `summarization` | boolean | No | Enable automatic summarization |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
@@ -933,29 +1016,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Provider",
             "required": true,
+            "defaultValue": "gemini",
             "options": [
                 {
-                    "label": "OpenAI Whisper",
-                    "id": "whisper"
+                    "id": "whisper",
+                    "label": "OpenAI Whisper"
                 },
                 {
-                    "label": "Deepgram",
-                    "id": "deepgram"
+                    "id": "deepgram",
+                    "label": "Deepgram"
                 },
                 {
-                    "label": "ElevenLabs",
-                    "id": "elevenlabs"
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
                 },
                 {
-                    "label": "AssemblyAI",
-                    "id": "assemblyai"
+                    "id": "assemblyai",
+                    "label": "AssemblyAI"
                 },
                 {
-                    "label": "Google Gemini",
-                    "id": "gemini"
+                    "id": "gemini",
+                    "label": "Google Gemini"
                 }
-            ],
-            "defaultValue": "gemini"
+            ]
         },
         {
             "id": "audioFile",
@@ -975,93 +1058,95 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "audioUrl",
             "type": "short-input",
             "title": "Audio/Video URL",
-            "placeholder": "Or enter publicly accessible audio/video URL"
+            "placeholder": "Or enter publicly accessible audio/video URL",
+            "required": false
         },
         {
             "id": "language",
             "type": "dropdown",
             "title": "Language",
             "required": true,
+            "defaultValue": "auto",
             "options": [
                 {
-                    "label": "Auto-detect",
-                    "id": "auto"
+                    "id": "auto",
+                    "label": "Auto-detect"
                 },
                 {
-                    "label": "English",
-                    "id": "en"
+                    "id": "en",
+                    "label": "English"
                 },
                 {
-                    "label": "Spanish",
-                    "id": "es"
+                    "id": "es",
+                    "label": "Spanish"
                 },
                 {
-                    "label": "French",
-                    "id": "fr"
+                    "id": "fr",
+                    "label": "French"
                 },
                 {
-                    "label": "German",
-                    "id": "de"
+                    "id": "de",
+                    "label": "German"
                 },
                 {
-                    "label": "Italian",
-                    "id": "it"
+                    "id": "it",
+                    "label": "Italian"
                 },
                 {
-                    "label": "Portuguese",
-                    "id": "pt"
+                    "id": "pt",
+                    "label": "Portuguese"
                 },
                 {
-                    "label": "Dutch",
-                    "id": "nl"
+                    "id": "nl",
+                    "label": "Dutch"
                 },
                 {
-                    "label": "Russian",
-                    "id": "ru"
+                    "id": "ru",
+                    "label": "Russian"
                 },
                 {
-                    "label": "Chinese",
-                    "id": "zh"
+                    "id": "zh",
+                    "label": "Chinese"
                 },
                 {
-                    "label": "Japanese",
-                    "id": "ja"
+                    "id": "ja",
+                    "label": "Japanese"
                 },
                 {
-                    "label": "Korean",
-                    "id": "ko"
+                    "id": "ko",
+                    "label": "Korean"
                 },
                 {
-                    "label": "Arabic",
-                    "id": "ar"
+                    "id": "ar",
+                    "label": "Arabic"
                 },
                 {
-                    "label": "Hindi",
-                    "id": "hi"
+                    "id": "hi",
+                    "label": "Hindi"
                 },
                 {
-                    "label": "Polish",
-                    "id": "pl"
+                    "id": "pl",
+                    "label": "Polish"
                 },
                 {
-                    "label": "Turkish",
-                    "id": "tr"
+                    "id": "tr",
+                    "label": "Turkish"
                 },
                 {
-                    "label": "Swedish",
-                    "id": "sv"
+                    "id": "sv",
+                    "label": "Swedish"
                 },
                 {
-                    "label": "Danish",
-                    "id": "da"
+                    "id": "da",
+                    "label": "Danish"
                 },
                 {
-                    "label": "Norwegian",
-                    "id": "no"
+                    "id": "no",
+                    "label": "Norwegian"
                 },
                 {
-                    "label": "Finnish",
-                    "id": "fi"
+                    "id": "fi",
+                    "label": "Finnish"
                 }
             ]
         },
@@ -1070,18 +1155,19 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Timestamps",
             "required": true,
+            "defaultValue": "none",
             "options": [
                 {
-                    "label": "None",
-                    "id": "none"
+                    "id": "none",
+                    "label": "None"
                 },
                 {
-                    "label": "Sentence-level",
-                    "id": "sentence"
+                    "id": "sentence",
+                    "label": "Sentence-level"
                 },
                 {
-                    "label": "Word-level",
-                    "id": "word"
+                    "id": "word",
+                    "label": "Word-level"
                 }
             ]
         },
@@ -1098,26 +1184,27 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Model",
             "required": true,
+            "defaultValue": "gemini-2.5-flash",
             "options": [
                 {
-                    "label": "Gemini 3 Pro",
-                    "id": "gemini-3-pro-preview"
+                    "id": "gemini-3.1-pro-preview",
+                    "label": "Gemini 3.1 Pro"
                 },
                 {
-                    "label": "Gemini 2.5 Pro",
-                    "id": "gemini-2.5-pro"
+                    "id": "gemini-2.5-pro",
+                    "label": "Gemini 2.5 Pro"
                 },
                 {
-                    "label": "Gemini 2.5 Flash",
-                    "id": "gemini-2.5-flash"
+                    "id": "gemini-2.5-flash",
+                    "label": "Gemini 2.5 Flash"
                 },
                 {
-                    "label": "Gemini 2.5 Flash Lite",
-                    "id": "gemini-2.5-flash-lite"
+                    "id": "gemini-2.5-flash-lite",
+                    "label": "Gemini 2.5 Flash Lite"
                 },
                 {
-                    "label": "Gemini 2.0 Flash",
-                    "id": "gemini-2.0-flash-exp"
+                    "id": "gemini-2.0-flash-exp",
+                    "label": "Gemini 2.0 Flash"
                 }
             ]
         }
@@ -1126,18 +1213,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Google Gemini (<code>stt_gemini</code>)</div>
+
+Transcribe audio to text using Google Gemini with multimodal capabilities
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | Yes | STT provider \(gemini\) |
+| `apiKey` | string | Yes | Google API key |
+| `model` | string | No | Gemini model to use \(default: gemini-2.5-flash\) |
+| `audioFile` | file | No | Audio or video file to transcribe |
+| `audioFileReference` | file | No | Reference to audio/video file from previous blocks |
+| `audioUrl` | string | No | URL to audio or video file |
+| `language` | string | No | Language code \(e.g., "en", "es", "fr"\) or "auto" for auto-detection |
+| `timestamps` | string | No | Timestamp granularity: none, sentence, or word |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `transcript` | string | Full transcribed text |
-| `segments` | array | Timestamped segments with speaker labels |
+| `segments` | array | Timestamped segments |
 | `language` | string | Detected or specified language |
 | `duration` | number | Audio duration in seconds |
 | `confidence` | number | Overall confidence score |
-| `sentiment` | array | Sentiment analysis results |
-| `entities` | array | Detected entities |
-| `summary` | string | Auto-generated summary |
 
 </div>
 

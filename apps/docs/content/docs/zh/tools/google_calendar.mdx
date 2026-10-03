@@ -1,0 +1,656 @@
+---
+title: Google Calendar
+description: 管理 Google Calendar 活动
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="google_calendar"
+  color=""
+/>
+
+## 配置
+
+### 创建活动
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Calendar"
+    type="google_calendar"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "create",
+            "options": [
+                {
+                    "id": "create",
+                    "label": "创建活动"
+                },
+                {
+                    "id": "list",
+                    "label": "列出活动"
+                },
+                {
+                    "id": "get",
+                    "label": "获取活动"
+                },
+                {
+                    "id": "quick_add",
+                    "label": "快速添加（自然语言）"
+                },
+                {
+                    "id": "invite",
+                    "label": "邀请与会者"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Calendar 账户",
+            "layout": "full",
+            "placeholder": "选择 Google Calendar 账户",
+            "provider": "google-calendar",
+            "required": true
+        },
+        {
+            "id": "calendarId",
+            "type": "file-selector",
+            "title": "日历",
+            "layout": "full",
+            "placeholder": "选择日历",
+            "provider": "google-calendar"
+        },
+        {
+            "id": "manualCalendarId",
+            "type": "short-input",
+            "title": "日历 ID",
+            "layout": "full",
+            "placeholder": "输入日历 ID（例如：primary 或 calendar@gmail.com）"
+        },
+        {
+            "id": "summary",
+            "type": "short-input",
+            "title": "活动标题",
+            "layout": "full",
+            "placeholder": "与团队会议",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "描述",
+            "layout": "full",
+            "placeholder": "活动描述"
+        },
+        {
+            "id": "location",
+            "type": "short-input",
+            "title": "地点",
+            "layout": "full",
+            "placeholder": "会议室 A"
+        },
+        {
+            "id": "startDateTime",
+            "type": "datetime-input",
+            "title": "开始日期和时间",
+            "layout": "half",
+            "placeholder": "2025-06-03T10:00:00Z",
+            "required": true
+        },
+        {
+            "id": "endDateTime",
+            "type": "datetime-input",
+            "title": "结束日期和时间",
+            "layout": "half",
+            "placeholder": "2025-06-03T11:00:00Z",
+            "required": true
+        },
+        {
+            "id": "attendees",
+            "type": "short-input",
+            "title": "与会者（逗号分隔的电子邮件）",
+            "layout": "full",
+            "placeholder": "john@example.com, jane@example.com"
+        },
+        {
+            "id": "sendUpdates",
+            "type": "dropdown",
+            "title": "发送电子邮件通知",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "all",
+                    "label": "所有与会者（推荐）"
+                },
+                {
+                    "id": "externalOnly",
+                    "label": "仅外部与会者"
+                },
+                {
+                    "id": "none",
+                    "label": "无（不发送电子邮件）"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建活动 (<code>google_calendar_create</code>)</div>
+
+在 Google Calendar 中创建新活动
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `calendarId` | string | 否 | 日历 ID \(默认使用 primary\) |
+| `summary` | string | 是 | 活动标题/摘要 |
+| `description` | string | 否 | 活动描述 |
+| `location` | string | 否 | 活动地点 |
+| `startDateTime` | string | 是 | 开始日期和时间 \(RFC3339 格式，例如 2025-06-03T10:00:00-08:00\) |
+| `endDateTime` | string | 是 | 结束日期和时间 \(RFC3339 格式，例如 2025-06-03T11:00:00-08:00\) |
+| `timeZone` | string | 否 | 时区 \(例如 America/Los_Angeles\) |
+| `attendees` | array | 否 | 参会者电子邮件地址数组 |
+| `sendUpdates` | string | 否 | 如何向参会者发送更新：all、externalOnly 或 none |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | string | 活动创建确认消息 |
+| `metadata` | json | 已创建活动的元数据，包括 ID、状态和详细信息 |
+
+</div>
+
+---
+
+### 列出活动
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Calendar"
+    type="google_calendar"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "list",
+            "options": [
+                {
+                    "id": "create",
+                    "label": "创建活动"
+                },
+                {
+                    "id": "list",
+                    "label": "列出活动"
+                },
+                {
+                    "id": "get",
+                    "label": "获取活动"
+                },
+                {
+                    "id": "quick_add",
+                    "label": "快速添加（自然语言）"
+                },
+                {
+                    "id": "invite",
+                    "label": "邀请参会者"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Calendar 账号",
+            "layout": "full",
+            "placeholder": "选择 Google Calendar 账号",
+            "provider": "google-calendar",
+            "required": true
+        },
+        {
+            "id": "calendarId",
+            "type": "file-selector",
+            "title": "日历",
+            "layout": "full",
+            "placeholder": "选择日历",
+            "provider": "google-calendar"
+        },
+        {
+            "id": "manualCalendarId",
+            "type": "short-input",
+            "title": "日历 ID",
+            "layout": "full",
+            "placeholder": "输入日历 ID（例如 primary 或 calendar@gmail.com）"
+        },
+        {
+            "id": "timeMin",
+            "type": "datetime-input",
+            "title": "开始时间筛选",
+            "layout": "half",
+            "placeholder": "2025-06-03T00:00:00Z"
+        },
+        {
+            "id": "timeMax",
+            "type": "datetime-input",
+            "title": "结束时间筛选",
+            "layout": "half",
+            "placeholder": "2025-06-04T00:00:00Z"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出事件 (<code>google_calendar_list</code>)</div>
+
+列出 Google Calendar 中的事件
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必需 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `calendarId` | string | 否 | 日历 ID \(默认为主日历\) |
+| `timeMin` | string | 否 | 事件的下界 \(RFC3339 时间戳，例如 2025-06-03T00:00:00Z\) |
+| `timeMax` | string | 否 | 事件的上界 \(RFC3339 时间戳，例如 2025-06-04T00:00:00Z\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `content` | string | 找到的事件数量摘要 |
+| `metadata` | json | 包含分页令牌和事件详情的事件列表 |
+
+</div>
+
+---
+
+### 获取事件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Calendar"
+    type="google_calendar"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "get",
+            "options": [
+                {
+                    "id": "create",
+                    "label": "创建事件"
+                },
+                {
+                    "id": "list",
+                    "label": "列出事件"
+                },
+                {
+                    "id": "get",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "quick_add",
+                    "label": "快速添加（自然语言）"
+                },
+                {
+                    "id": "invite",
+                    "label": "邀请参会者"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Calendar 账户",
+            "layout": "full",
+            "placeholder": "选择 Google Calendar 账户",
+            "provider": "google-calendar",
+            "required": true
+        },
+        {
+            "id": "calendarId",
+            "type": "file-selector",
+            "title": "日历",
+            "layout": "full",
+            "placeholder": "选择日历",
+            "provider": "google-calendar"
+        },
+        {
+            "id": "manualCalendarId",
+            "type": "short-input",
+            "title": "日历 ID",
+            "layout": "full",
+            "placeholder": "输入日历 ID（例如 primary 或 calendar@gmail.com）"
+        },
+        {
+            "id": "eventId",
+            "type": "short-input",
+            "title": "事件 ID",
+            "layout": "full",
+            "placeholder": "事件 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取事件 (<code>google_calendar_get</code>)</div>
+
+从 Google Calendar 获取特定事件
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `calendarId` | string | 否 | 日历 ID \(默认为主日历\) |
+| `eventId` | string | 是 | 要检索的事件 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `content` | string | 获取事件确认消息 |
+| `metadata` | json | 事件详情，包括 ID、状态、时间和参与者 |
+
+</div>
+
+---
+
+### 快速添加（自然语言）
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Calendar"
+    type="google_calendar"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "quick_add",
+            "options": [
+                {
+                    "id": "create",
+                    "label": "创建事件"
+                },
+                {
+                    "id": "list",
+                    "label": "列出事件"
+                },
+                {
+                    "id": "get",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "quick_add",
+                    "label": "快速添加（自然语言）"
+                },
+                {
+                    "id": "invite",
+                    "label": "邀请参与者"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Calendar 账户",
+            "layout": "full",
+            "placeholder": "选择 Google Calendar 账户",
+            "provider": "google-calendar",
+            "required": true
+        },
+        {
+            "id": "calendarId",
+            "type": "file-selector",
+            "title": "日历",
+            "layout": "full",
+            "placeholder": "选择日历",
+            "provider": "google-calendar"
+        },
+        {
+            "id": "manualCalendarId",
+            "type": "short-input",
+            "title": "日历 ID",
+            "layout": "full",
+            "placeholder": "输入日历 ID（例如 primary 或 calendar@gmail.com）"
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "自然语言事件",
+            "layout": "full",
+            "placeholder": "明天下午3点与John开会1小时",
+            "required": true
+        },
+        {
+            "id": "attendees",
+            "type": "short-input",
+            "title": "参与者（逗号分隔的电子邮件）",
+            "layout": "full",
+            "placeholder": "john@example.com, jane@example.com",
+            "required": true
+        },
+        {
+            "id": "sendUpdates",
+            "type": "dropdown",
+            "title": "发送电子邮件通知",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "all",
+                    "label": "所有参与者（推荐）"
+                },
+                {
+                    "id": "externalOnly",
+                    "label": "仅外部参与者"
+                },
+                {
+                    "id": "none",
+                    "label": "无（不发送电子邮件）"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">快速添加（自然语言） (<code>google_calendar_quick_add</code>)</div>
+
+通过自然语言文本创建日程
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `calendarId` | string | 否 | 日历 ID（默认为 primary） |
+| `text` | string | 是 | 描述日程的自然语言文本（例如："明天下午 3 点与 John 开会"） |
+| `attendees` | array | 否 | 参会者邮箱地址数组（也接受逗号分隔的字符串） |
+| `sendUpdates` | string | 否 | 如何向参会者发送更新：all、externalOnly 或 none |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | string | 来自自然语言的事件创建确认消息 |
+| `metadata` | json | 已创建事件的元数据，包含解析后的详情 |
+
+</div>
+
+---
+
+### 邀请参会者
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Calendar"
+    type="google_calendar"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "invite",
+            "options": [
+                {
+                    "id": "create",
+                    "label": "创建事件"
+                },
+                {
+                    "id": "list",
+                    "label": "列出事件"
+                },
+                {
+                    "id": "get",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "quick_add",
+                    "label": "快速添加（自然语言）"
+                },
+                {
+                    "id": "invite",
+                    "label": "邀请参会者"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Calendar 账户",
+            "layout": "full",
+            "placeholder": "选择 Google Calendar 账户",
+            "provider": "google-calendar",
+            "required": true
+        },
+        {
+            "id": "calendarId",
+            "type": "file-selector",
+            "title": "日历",
+            "layout": "full",
+            "placeholder": "选择日历",
+            "provider": "google-calendar"
+        },
+        {
+            "id": "manualCalendarId",
+            "type": "short-input",
+            "title": "日历 ID",
+            "layout": "full",
+            "placeholder": "输入日历 ID（例如 primary 或 calendar@gmail.com）"
+        },
+        {
+            "id": "eventId",
+            "type": "short-input",
+            "title": "事件 ID",
+            "layout": "full",
+            "placeholder": "事件 ID",
+            "required": true
+        },
+        {
+            "id": "attendees",
+            "type": "short-input",
+            "title": "参会者（逗号分隔的邮箱）",
+            "layout": "full",
+            "placeholder": "john@example.com, jane@example.com"
+        },
+        {
+            "id": "replaceExisting",
+            "type": "dropdown",
+            "title": "替换现有参会者",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "false",
+                    "label": "添加到现有参会者"
+                },
+                {
+                    "id": "true",
+                    "label": "替换所有参会者"
+                }
+            ]
+        },
+        {
+            "id": "sendUpdates",
+            "type": "dropdown",
+            "title": "发送邮件通知",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "all",
+                    "label": "所有参会者（推荐）"
+                },
+                {
+                    "id": "externalOnly",
+                    "label": "仅外部参会者"
+                },
+                {
+                    "id": "none",
+                    "label": "无（不发送邮件）"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">邀请参会者 (<code>google_calendar_invite</code>)</div>
+
+邀请参会者加入现有的 Google Calendar 活动
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `calendarId` | string | 否 | 日历 ID \(默认为主日历\) |
+| `eventId` | string | 是 | 要邀请参会者的事件 ID |
+| `attendees` | array | 是 | 要邀请的参会者电子邮件地址数组 |
+| `sendUpdates` | string | 否 | 如何向参会者发送更新：all、externalOnly 或 none |
+| `replaceExisting` | boolean | 否 | 是替换现有参会者还是添加参会者 \(默认为 false\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `content` | string | 参会者邀请确认消息，包含电子邮件发送状态 |
+| `metadata` | json | 更新后的事件元数据，包括参会者列表和详细信息 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Google Calendar 集成到工作流中。可以创建、读取、更新和列出日历活动。
+
+## 说明
+
+- 类别：`tools`
+- 类型：`google_calendar`

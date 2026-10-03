@@ -1,0 +1,74 @@
+---
+title: 交易订单历史
+description: 按日期范围获取已记录的交易订单提交。
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="trading_order_history"
+  color="#0f766e"
+/>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="交易订单历史"
+    type="trading_order_history"
+    color="#0f766e"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "startDate",
+            "type": "datetime-input",
+            "title": "开始日期",
+            "layout": "full",
+            "placeholder": "YYYY-MM-DDTHH:mm:ssZ",
+            "required": true
+        },
+        {
+            "id": "endDate",
+            "type": "datetime-input",
+            "title": "结束日期",
+            "layout": "full",
+            "placeholder": "YYYY-MM-DDTHH:mm:ssZ",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+### `trading_order_history`
+
+获取在日期时间范围内记录的工作区订单提交。
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `startDate` | string | 是 | 开始日期时间 \(ISO 8601\)。 |
+| `endDate` | string | 是 | 结束日期时间 \(ISO 8601\)。 |
+
+#### 输出
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `history` | array | 已记录订单提交的有序列表。 |
+| `count` | number | 返回的记录数。 |
+| `workspaceId` | string | 用于筛选的工作区 ID。 |
+| `startDate` | string | 用于筛选的开始日期时间。 |
+| `endDate` | string | 用于筛选的结束日期时间。 |
+
+## 使用说明
+
+获取 Trading Action 工具在所选日期范围内记录的订单提交历史。
+
+## 备注
+
+- 分类：`tools`
+- 类型：`trading_order_history`

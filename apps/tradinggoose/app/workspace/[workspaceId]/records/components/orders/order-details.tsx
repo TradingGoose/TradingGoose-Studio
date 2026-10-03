@@ -362,7 +362,8 @@ export function OrderDetails({
 }: OrderDetailsProps) {
   const t = useTranslations('workspace.records.orders')
   const canCheckProvider =
-    getTradingProviderOAuthServiceIds(order.provider as TradingProviderId).length > 0
+    getTradingProviderOAuthServiceIds(order.provider as TradingProviderId).length > 0 &&
+    hasValue(order.providerOrderId)
   const providerDetailQuery = useProviderOrderDetail({
     workspaceId,
     orderId: order.id,

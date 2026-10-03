@@ -22,62 +22,7 @@ export interface HallucinationValidationInput {
   apiKey?: string
   workflowId?: string
   requestId: string
-}
-
-/**
- * Query knowledge base to get relevant context chunks using the search API
- */
-async function queryKnowledgeBase(
-  knowledgeBaseId: string,
-  query: string,
-  topK: number,
-  requestId: string,
-  workflowId?: string
-): Promise<string[]> {
-  try {
-    logger.info(`[${requestId}] Querying knowledge base`, {
-      knowledgeBaseId,
-      query: query.substring(0, 100),
-      topK,
-    })
-
-    // Call the knowledge base search API directly
-    const searchUrl = `${getBaseUrl()}/api/knowledge/search`
-
-    const response = await fetch(searchUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        knowledgeBaseIds: [knowledgeBaseId],
-        query,
-        topK,
-        workflowId,
-      }),
-    })
-
-    if (!response.ok) {
-      logger.error(`[${requestId}] Knowledge base query failed`, {
-        status: response.status,
-      })
-      return []
-    }
-
-    const result = await response.json()
-    const results = result.data?.results || []
-
-    const chunks = results.map((r: any) => r.content || '').filter((c: string) => c.length > 0)
-
-    logger.info(`[${requestId}] Retrieved ${chunks.length} chunks from knowledge base`)
-
-    return chunks
-  } catch (error: any) {
-    logger.error(`[${requestId}] Error querying knowledge base`, {
-      error: error.message,
-    })
-    return []
-  }
+  authHeaders: Headers
 }
 
 /**
@@ -185,21 +130,23 @@ Evaluate the consistency and provide your score and reasoning in JSON format.`
 export async function validateHallucination(
   input: HallucinationValidationInput
 ): Promise<HallucinationValidationResult> {
-  const { userInput, knowledgeBaseId, threshold, topK, model, apiKey, workflowId, requestId } =
-    input
+  const {
+    userInput,
+    knowledgeBaseId,
+    threshold,
+    topK,
+    model,
+    apiKey,
+    workflowId,
+    requestId,
+    authHeaders,
+  } = input
 
   try {
     if (!userInput || userInput.trim().length === 0) {
       return {
         passed: false,
         error: 'User input is required',
-      }
-    }
-
-    if (!knowledgeBaseId) {
-      return {
-        passed: false,
-        error: 'Knowledge base ID is required',
       }
     }
 
@@ -214,14 +161,29 @@ export async function validateHallucination(
       }
     }
 
-    // Step 1: Query knowledge base with RAG
-    const ragContext = await queryKnowledgeBase(
-      knowledgeBaseId,
-      userInput,
-      topK,
-      requestId,
-      workflowId
-    )
+    const headers = new Headers({ 'Content-Type': 'application/json' })
+    for (const name of ['authorization', 'cookie', 'x-api-key']) {
+      const value = authHeaders.get(name)
+      if (value) headers.set(name, value)
+    }
+    const response = await fetch(`${getBaseUrl()}/api/knowledge/search`, {
+      method: 'POST',
+      headers,
+      redirect: 'error',
+      body: JSON.stringify({
+        knowledgeBaseIds: [knowledgeBaseId],
+        query: userInput,
+        topK,
+        workflowId,
+      }),
+    })
+    if (!response.ok) {
+      throw new Error(`Knowledge base query failed (${response.status})`)
+    }
+    const { data } = await response.json()
+    const ragContext = data.results
+      .map((result: { content: string }) => result.content)
+      .filter(Boolean)
 
     if (ragContext.length === 0) {
       return {

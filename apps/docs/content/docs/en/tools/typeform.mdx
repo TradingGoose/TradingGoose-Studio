@@ -30,21 +30,21 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "typeform_responses",
             "options": [
                 {
-                    "label": "Retrieve Responses",
-                    "id": "typeform_responses"
+                    "id": "typeform_responses",
+                    "label": "Retrieve Responses"
                 },
                 {
-                    "label": "Download File",
-                    "id": "typeform_files"
+                    "id": "typeform_files",
+                    "label": "Download File"
                 },
                 {
-                    "label": "Form Insights",
-                    "id": "typeform_insights"
+                    "id": "typeform_insights",
+                    "label": "Form Insights"
                 }
-            ],
-            "defaultValue": "typeform_responses"
+            ]
         },
         {
             "id": "formId",
@@ -91,16 +91,16 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "layout": "half",
             "options": [
                 {
-                    "label": "All Responses",
-                    "id": "all"
+                    "id": "all",
+                    "label": "All Responses"
                 },
                 {
-                    "label": "Only Completed",
-                    "id": "true"
+                    "id": "true",
+                    "label": "Only Completed"
                 },
                 {
-                    "label": "Only Incomplete",
-                    "id": "false"
+                    "id": "false",
+                    "label": "Only Incomplete"
                 }
             ]
         }
@@ -124,9 +124,13 @@ Retrieve form responses from Typeform
 | `until` | string | No | Retrieve responses submitted before this date \(ISO 8601 format\) |
 | `completed` | string | No | Filter by completion status \(true/false\) |
 
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output (block-level contract)</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `total_items` | number | Total response count |
+| `page_count` | number | Total page count |
+| `items` | json | Response items |
 
 </div>
 
@@ -148,21 +152,21 @@ Refer to the block outputs for this operation.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "typeform_files",
             "options": [
                 {
-                    "label": "Retrieve Responses",
-                    "id": "typeform_responses"
+                    "id": "typeform_responses",
+                    "label": "Retrieve Responses"
                 },
                 {
-                    "label": "Download File",
-                    "id": "typeform_files"
+                    "id": "typeform_files",
+                    "label": "Download File"
                 },
                 {
-                    "label": "Form Insights",
-                    "id": "typeform_insights"
+                    "id": "typeform_insights",
+                    "label": "Form Insights"
                 }
-            ],
-            "defaultValue": "typeform_files"
+            ]
         },
         {
             "id": "formId",
@@ -234,6 +238,7 @@ Download files uploaded in Typeform responses
 | --------- | ---- | ----------- |
 | `fileUrl` | string | Direct download URL for the uploaded file |
 | `contentType` | string | MIME type of the uploaded file |
+| `filename` | string | Original filename of the uploaded file |
 
 </div>
 
@@ -255,21 +260,21 @@ Download files uploaded in Typeform responses
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "typeform_insights",
             "options": [
                 {
-                    "label": "Retrieve Responses",
-                    "id": "typeform_responses"
+                    "id": "typeform_responses",
+                    "label": "Retrieve Responses"
                 },
                 {
-                    "label": "Download File",
-                    "id": "typeform_files"
+                    "id": "typeform_files",
+                    "label": "Download File"
                 },
                 {
-                    "label": "Form Insights",
-                    "id": "typeform_insights"
+                    "id": "typeform_insights",
+                    "label": "Form Insights"
                 }
-            ],
-            "defaultValue": "typeform_insights"
+            ]
         },
         {
             "id": "formId",
@@ -308,12 +313,8 @@ Retrieve insights and analytics for Typeform forms
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `dropoffs` | number | Number of users who dropped off at this field |
-| `id` | string | Unique field ID |
-| `label` | string | Field label |
-| `ref` | string | Field reference name |
-| `title` | string | Field title/question |
-| `type` | string | Field type \(e.g., short_text, multiple_choice\) |
+| `fields` | array | Analytics data for individual form fields |
+| `form` | object | Form-level analytics and performance data |
 
 </div>
 

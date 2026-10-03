@@ -1,0 +1,192 @@
+---
+title: Tavily
+description: Buscar y extraer información
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="tavily"
+  color=""
+/>
+
+## Configuración
+
+### Búsqueda
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Tavily"
+    type="tavily"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "tavily_search",
+            "options": [
+                {
+                    "id": "tavily_search",
+                    "label": "Búsqueda"
+                },
+                {
+                    "id": "tavily_extract",
+                    "label": "Extraer contenido"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave API de Tavily",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Consulta de búsqueda",
+            "layout": "full",
+            "placeholder": "Introduce tu consulta de búsqueda...",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Máx. resultados",
+            "layout": "full",
+            "placeholder": "5"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Búsqueda (<code>tavily_search</code>)</div>
+
+Realiza búsquedas web con IA mediante la API de búsqueda de Tavily. Devuelve resultados estructurados con títulos, URL, fragmentos y contenido sin procesar opcional, optimizados para relevancia y precisión.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | Sí | La consulta de búsqueda que se va a ejecutar |
+| `max_results` | number | No | Número máximo de resultados \(1-20\) |
+| `apiKey` | string | Sí | Clave API de Tavily |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `query` | string | La consulta de búsqueda que se ejecutó |
+| `results` | array | Resultados de búsqueda con títulos, URL y fragmentos de contenido |
+| `response_time` | number | Tiempo empleado en la solicitud de búsqueda, en segundos |
+
+</div>
+
+---
+
+### Extraer contenido
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Tavily"
+    type="tavily"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "tavily_extract",
+            "options": [
+                {
+                    "id": "tavily_search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "tavily_extract",
+                    "label": "Extraer contenido"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave API de Tavily",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "urls",
+            "type": "long-input",
+            "title": "URL",
+            "layout": "full",
+            "placeholder": "Introduce la URL de la que extraer contenido...",
+            "required": true
+        },
+        {
+            "id": "extract_depth",
+            "type": "dropdown",
+            "title": "Profundidad de extracción",
+            "layout": "full",
+            "defaultValue": "basic",
+            "options": [
+                {
+                    "id": "basic",
+                    "label": "básico"
+                },
+                {
+                    "id": "advanced",
+                    "label": "avanzado"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Extraer contenido (<code>tavily_extract</code>)</div>
+
+Extrae contenido sin procesar de varias páginas web simultáneamente mediante la API de extracción de Tavily. Admite profundidades de extracción básica y avanzada, con informes de error detallados para las URL que fallen.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `urls` | string | Sí | URL o array de URL de las que extraer contenido |
+| `extract_depth` | string | No | La profundidad de extracción \(basic=1 crédito/5 URL, advanced=2 créditos/5 URL\) |
+| `apiKey` | string | Sí | Clave API de Tavily |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `results` | array | Contenido extraído correctamente de las URL |
+| `failed_results` | array | URL de las que no se pudo extraer contenido |
+| `response_time` | number | Tiempo empleado en la solicitud de extracción, en segundos |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Tavily en el flujo de trabajo. Puede buscar en la web y extraer contenido de URL específicas. Requiere una clave de API.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `tavily`

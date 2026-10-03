@@ -1,21 +1,20 @@
 ---
 title: Evaluator
-description: Score and assess content quality with AI
+description: Evaluate content
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
-import { Callout } from 'fumadocs-ui/components/callout'
-import { Step, Steps } from 'fumadocs-ui/components/steps'
-import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
-import { BlockConfigPreview } from '@/components/ui/block-config-preview'
-import { ShowcaseCard } from '@/components/ui/showcase-card'
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
 
 <BlockInfoCard
-  type="number"
+  type="evaluator"
   color="#4D5FFF"
 />
 
-The Evaluator block uses AI to score and assess content quality using customizable evaluation metrics that you define. Perfect for quality control, A/B testing, and ensuring your AI outputs meet specific standards.
+
+## Configuration
 
 <ShowcaseCard>
   <BlockConfigPreview
@@ -24,186 +23,88 @@ The Evaluator block uses AI to score and assess content quality using customizab
     color="#4D5FFF"
     hideHeader
     subBlocks={[
-      { "id": "metrics", "title": "Evaluation Metrics", "type": "eval-input", "layout": "full", "required": true },
-      { "id": "content", "title": "Content", "type": "short-input", "layout": "full", "placeholder": "Enter the content to evaluate", "required": true },
-      { "id": "model", "title": "Model", "type": "combobox", "layout": "half", "placeholder": "Type or select a model...", "required": true },
-      { "id": "apiKey", "title": "API Key", "type": "short-input", "layout": "full", "placeholder": "Enter your API key", "password": true, "required": true },
-      { "id": "azureEndpoint", "title": "Azure OpenAI Endpoint", "type": "short-input", "layout": "full", "password": true, "placeholder": "https://your-resource.openai.azure.com" },
-      { "id": "azureApiVersion", "title": "Azure API Version", "type": "short-input", "layout": "full", "placeholder": "2024-07-01-preview" }
+        {
+            "id": "metrics",
+            "type": "eval-input",
+            "title": "Evaluation Metrics",
+            "layout": "full",
+            "required": true
+        },
+        {
+            "id": "content",
+            "type": "short-input",
+            "title": "Content",
+            "layout": "full",
+            "placeholder": "Enter the content to evaluate",
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "combobox",
+            "title": "Model",
+            "layout": "half",
+            "placeholder": "Type or select a model...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "layout": "full",
+            "placeholder": "Enter your API key",
+            "password": true,
+            "description": "Shown when applicable to the selected model at runtime."
+        },
+        {
+            "id": "azureEndpoint",
+            "type": "short-input",
+            "title": "Azure OpenAI Endpoint",
+            "layout": "full",
+            "placeholder": "https://your-resource.openai.azure.com",
+            "password": true,
+            "description": "Shown when model is one of 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano', 'azure/model-router'."
+        },
+        {
+            "id": "azureApiVersion",
+            "type": "short-input",
+            "title": "Azure API Version",
+            "layout": "full",
+            "placeholder": "2024-07-01-preview",
+            "description": "Shown when model is one of 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano', 'azure/model-router'."
+        }
     ]}
   />
 </ShowcaseCard>
 
-## Overview
+## Input
 
-The Evaluator block enables you to:
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `metrics` | json | Yes | Evaluation metrics configuration |
+| `model` | string | Yes | AI model to use |
+| `apiKey` | string | No | Provider API key. Shown when applicable to the selected model at runtime. |
+| `azureEndpoint` | string | No | Azure OpenAI endpoint URL. Shown when model is one of 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano', 'azure/model-router'. |
+| `azureApiVersion` | string | No | Azure API version. Shown when model is one of 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano', 'azure/model-router'. |
+| `temperature` | number | No | Response randomness level \(low for consistent evaluation\) |
+| `content` | string | Yes | Content to evaluate |
 
-<Steps>
-  <Step>
-    <strong>Score Content Quality</strong>: Use AI to evaluate content against custom metrics with numeric scores
-  </Step>
-  <Step>
-    <strong>Define Custom Metrics</strong>: Create specific evaluation criteria tailored to your use case  
-  </Step>
-  <Step>
-    <strong>Automate Quality Control</strong>: Build workflows that automatically assess and filter content
-  </Step>
-  <Step>
-    <strong>Track Performance</strong>: Monitor improvements and consistency over time with objective scoring
-  </Step>
-</Steps>
+## Output
 
-## How It Works
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `content` | string | Evaluation results |
+| `model` | string | Model used |
+| `tokens` | json | Token usage |
+| `cost` | json | Cost information |
 
-The Evaluator block processes content through AI-powered assessment:
 
-1. **Receive Content** - Takes input content from previous blocks in your workflow
-2. **Apply Metrics** - Evaluates content against your defined custom metrics  
-3. **Generate Scores** - AI model assigns numeric scores for each metric
-4. **Provide Summary** - Returns detailed evaluation with scores and explanations
+## Usage Instructions
 
-## Configuration Options
+This is a core workflow block. Assess content quality using customizable evaluation metrics and scoring criteria. Create objective evaluation frameworks with numeric scoring to measure performance across multiple dimensions.
 
-### Evaluation Metrics
 
-Define custom metrics to evaluate content against. Each metric includes:
 
-- **Name**: A short identifier for the metric
-- **Description**: A detailed explanation of what the metric measures
-- **Range**: The numeric range for scoring (e.g., 1-5, 0-10)
+## Notes
 
-Example metrics:
-
-```
-Accuracy (1-5): How factually accurate is the content?
-Clarity (1-5): How clear and understandable is the content?
-Relevance (1-5): How relevant is the content to the original query?
-```
-
-### Content
-
-The content to be evaluated. This can be:
-
-- Directly provided in the block configuration
-- Connected from another block's output (typically an Agent block)
-- Dynamically generated during workflow execution
-
-### Model Selection
-
-Choose an AI model to perform the evaluation:
-
-**OpenAI**: GPT-4o, o1, o3, o4-mini, gpt-4.1
-**Anthropic**: Claude 3.7 Sonnet
-**Google**: Gemini 2.5 Pro, Gemini 2.0 Flash
-**Other Providers**: Groq, Cerebras, xAI, DeepSeek
-**Local Models**: Any model running on Ollama
-
-**Recommendation**: Use models with strong reasoning capabilities like GPT-4o or Claude 3.7 Sonnet for more accurate evaluations.
-
-### API Key
-
-Your API key for the selected LLM provider. This is securely stored and used for authentication.
-
-## How It Works
-
-1. The Evaluator block takes the provided content and your custom metrics
-2. It generates a specialized prompt that instructs the LLM to evaluate the content
-3. The prompt includes clear guidelines on how to score each metric
-4. The LLM evaluates the content and returns numeric scores for each metric
-5. The Evaluator block formats these scores as structured output for use in your workflow
-
-## Example Use Cases
-
-### Content Quality Assessment
-
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Scenario: Evaluate blog post quality before publication</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>Agent block generates blog post content</li>
-    <li>Evaluator assesses accuracy, readability, and engagement</li>
-    <li>Condition block checks if scores meet minimum thresholds</li>
-    <li>High scores → Publish, Low scores → Revise and retry</li>
-  </ol>
-</div>
-
-### A/B Testing Content
-
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Scenario: Compare multiple AI-generated responses</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>Parallel block generates multiple response variations</li>
-    <li>Evaluator scores each variation on clarity and relevance</li>
-    <li>Function block selects highest-scoring response</li>
-    <li>Response block returns the best result</li>
-  </ol>
-</div>
-
-### Customer Support Quality Control
-
-<div className="mb-4 rounded-md border p-4">
-  <h4 className="font-medium">Scenario: Ensure support responses meet quality standards</h4>
-  <ol className="list-decimal pl-5 text-sm">
-    <li>Support agent generates response to customer inquiry</li>
-    <li>Evaluator scores helpfulness, empathy, and accuracy</li>
-    <li>Scores logged for training and performance monitoring</li>
-    <li>Low scores trigger human review process</li>
-  </ol>
-</div>
-
-## Inputs and Outputs
-
-<Tabs items={['Configuration', 'Variables', 'Results']}>
-  <Tab>
-    <ul className="list-disc space-y-2 pl-6">
-      <li>
-        <strong>Content</strong>: The text or structured data to evaluate
-      </li>
-      <li>
-        <strong>Evaluation Metrics</strong>: Custom criteria with scoring ranges
-      </li>
-      <li>
-        <strong>Model</strong>: AI model for evaluation analysis
-      </li>
-      <li>
-        <strong>API Key</strong>: Authentication for selected LLM provider
-      </li>
-    </ul>
-  </Tab>
-  <Tab>
-    <ul className="list-disc space-y-2 pl-6">
-      <li>
-        <strong>evaluator.content</strong>: Summary of the evaluation
-      </li>
-      <li>
-        <strong>evaluator.model</strong>: Model used for evaluation
-      </li>
-      <li>
-        <strong>evaluator.tokens</strong>: Token usage statistics
-      </li>
-      <li>
-        <strong>evaluator.cost</strong>: Cost summary for the evaluation call
-      </li>
-    </ul>
-  </Tab>
-  <Tab>
-    <ul className="list-disc space-y-2 pl-6">
-      <li>
-        <strong>Metric Scores</strong>: Numeric scores for each defined metric
-      </li>
-      <li>
-        <strong>Evaluation Summary</strong>: Detailed assessment with explanations
-      </li>
-      <li>
-        <strong>Access</strong>: Available in blocks after the evaluator
-      </li>
-    </ul>
-  </Tab>
-</Tabs>
-
-## Best Practices
-
-- **Use specific metric descriptions**: Clearly define what each metric measures to get more accurate evaluations
-- **Choose appropriate ranges**: Select scoring ranges that provide enough granularity without being overly complex
-- **Connect with Agent blocks**: Use Evaluator blocks to assess Agent block outputs and create feedback loops
-- **Use consistent metrics**: For comparative analysis, maintain consistent metrics across similar evaluations
-- **Combine multiple metrics**: Use several metrics to get a comprehensive evaluation
+- Category: `tools`
+- Type: `evaluator`

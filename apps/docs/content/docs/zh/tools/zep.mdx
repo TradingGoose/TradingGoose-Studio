@@ -1,0 +1,1022 @@
+---
+title: Zep
+description: AI 智能体的长期记忆
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="zep"
+  color=""
+/>
+
+## 配置
+
+### 创建线程
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "half",
+            "placeholder": "选择操作",
+            "defaultValue": "create_thread",
+            "options": [
+                {
+                    "id": "create_thread",
+                    "label": "创建线程"
+                },
+                {
+                    "id": "add_messages",
+                    "label": "添加消息"
+                },
+                {
+                    "id": "get_context",
+                    "label": "获取上下文"
+                },
+                {
+                    "id": "get_messages",
+                    "label": "获取消息"
+                },
+                {
+                    "id": "get_threads",
+                    "label": "获取线程"
+                },
+                {
+                    "id": "delete_thread",
+                    "label": "删除线程"
+                },
+                {
+                    "id": "add_user",
+                    "label": "添加用户"
+                },
+                {
+                    "id": "get_user",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "get_user_threads",
+                    "label": "获取用户线程"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Zep API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "threadId",
+            "type": "short-input",
+            "title": "线程 ID",
+            "layout": "full",
+            "placeholder": "输入唯一线程标识符",
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "用户 ID",
+            "layout": "full",
+            "placeholder": "输入用户标识符",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建线程 (<code>zep_create_thread</code>)</div>
+
+在 Zep 中开始新的会话线程
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `threadId` | string | 是 | 线程的唯一标识符 |
+| `userId` | string | 是 | 与该线程关联的用户 ID |
+| `apiKey` | string | 是 | 你的 Zep API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `threadId` | string | 线程 ID |
+| `userId` | string | 用户 ID |
+| `uuid` | string | 内部 UUID |
+| `createdAt` | string | 创建时间戳 |
+| `projectUuid` | string | 项目 UUID |
+
+</div>
+
+---
+
+### 添加消息
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "half",
+            "placeholder": "选择操作",
+            "defaultValue": "add_messages",
+            "options": [
+                {
+                    "id": "create_thread",
+                    "label": "创建线程"
+                },
+                {
+                    "id": "add_messages",
+                    "label": "添加消息"
+                },
+                {
+                    "id": "get_context",
+                    "label": "获取上下文"
+                },
+                {
+                    "id": "get_messages",
+                    "label": "获取消息"
+                },
+                {
+                    "id": "get_threads",
+                    "label": "获取线程"
+                },
+                {
+                    "id": "delete_thread",
+                    "label": "删除线程"
+                },
+                {
+                    "id": "add_user",
+                    "label": "添加用户"
+                },
+                {
+                    "id": "get_user",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "get_user_threads",
+                    "label": "获取用户线程"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Zep API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "threadId",
+            "type": "short-input",
+            "title": "线程 ID",
+            "layout": "full",
+            "placeholder": "输入唯一线程标识符",
+            "required": true
+        },
+        {
+            "id": "messages",
+            "type": "code",
+            "title": "消息",
+            "layout": "full",
+            "placeholder": "[{\"role\": \"user\", \"content\": \"Hello!\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">添加消息 (<code>zep_add_messages</code>)</div>
+
+向现有线程添加消息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `threadId` | string | 是 | 要添加消息的线程 ID |
+| `messages` | json | 是 | 包含 role 和 content 的消息对象数组 |
+| `apiKey` | string | 是 | 你的 Zep API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `context` | string | 添加消息后的更新上下文 |
+| `messageIds` | array | 已添加消息的 UUID 数组 |
+| `threadId` | string | 线程 ID |
+
+</div>
+
+---
+
+### 获取上下文
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "half",
+            "placeholder": "选择操作",
+            "defaultValue": "get_context",
+            "options": [
+                {
+                    "id": "create_thread",
+                    "label": "创建线程"
+                },
+                {
+                    "id": "add_messages",
+                    "label": "添加消息"
+                },
+                {
+                    "id": "get_context",
+                    "label": "获取上下文"
+                },
+                {
+                    "id": "get_messages",
+                    "label": "获取消息"
+                },
+                {
+                    "id": "get_threads",
+                    "label": "获取线程"
+                },
+                {
+                    "id": "delete_thread",
+                    "label": "删除线程"
+                },
+                {
+                    "id": "add_user",
+                    "label": "添加用户"
+                },
+                {
+                    "id": "get_user",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "get_user_threads",
+                    "label": "获取用户线程"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Zep API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "threadId",
+            "type": "short-input",
+            "title": "线程 ID",
+            "layout": "full",
+            "placeholder": "输入唯一线程标识符",
+            "required": true
+        },
+        {
+            "id": "mode",
+            "type": "dropdown",
+            "title": "上下文模式",
+            "layout": "half",
+            "placeholder": "选择上下文模式",
+            "defaultValue": "summary",
+            "options": [
+                {
+                    "id": "summary",
+                    "label": "摘要（自然语言）"
+                },
+                {
+                    "id": "basic",
+                    "label": "基础（原始事实）"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取上下文 (<code>zep_get_context</code>)</div>
+
+以摘要或基础模式从线程检索用户上下文
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `threadId` | string | 是 | 要从中获取上下文的线程 ID |
+| `mode` | string | 否 | 上下文模式："summary" \(自然语言\) 或 "basic" \(原始事实\) |
+| `minRating` | number | 否 | 用于筛选相关事实的最低评分 |
+| `apiKey` | string | 是 | 你的 Zep API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `context` | string | 上下文字符串 \(summary 或 basic\) |
+| `facts` | array | 提取的事实 |
+| `entities` | array | 提取的实体 |
+| `summary` | string | 对话摘要 |
+
+</div>
+
+---
+
+### 获取消息
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "half",
+            "placeholder": "选择操作",
+            "defaultValue": "get_messages",
+            "options": [
+                {
+                    "id": "create_thread",
+                    "label": "创建线程"
+                },
+                {
+                    "id": "add_messages",
+                    "label": "添加消息"
+                },
+                {
+                    "id": "get_context",
+                    "label": "获取上下文"
+                },
+                {
+                    "id": "get_messages",
+                    "label": "获取消息"
+                },
+                {
+                    "id": "get_threads",
+                    "label": "获取线程"
+                },
+                {
+                    "id": "delete_thread",
+                    "label": "删除线程"
+                },
+                {
+                    "id": "add_user",
+                    "label": "添加用户"
+                },
+                {
+                    "id": "get_user",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "get_user_threads",
+                    "label": "获取用户线程"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Zep API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "threadId",
+            "type": "short-input",
+            "title": "线程 ID",
+            "layout": "full",
+            "placeholder": "输入唯一的线程标识符",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "slider",
+            "title": "结果上限",
+            "layout": "full",
+            "min": 1,
+            "max": 100,
+            "step": 1
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取消息（<code>zep_get_messages</code>）</div>
+
+从线程中检索消息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `threadId` | string | 是 | 要从中获取消息的线程 ID |
+| `limit` | number | 否 | 返回的最大消息数 |
+| `cursor` | string | 否 | 分页游标 |
+| `lastn` | number | 否 | 要返回的最近消息数量（覆盖 limit 和 cursor） |
+| `apiKey` | string | 是 | 你的 Zep API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `messages` | array | 消息对象数组 |
+| `rowCount` | number | 本次响应中的消息数量 |
+| `totalCount` | number | 线程中的消息总数 |
+
+</div>
+
+---
+
+### 获取线程
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "half",
+            "placeholder": "选择操作",
+            "defaultValue": "get_threads",
+            "options": [
+                {
+                    "id": "create_thread",
+                    "label": "创建线程"
+                },
+                {
+                    "id": "add_messages",
+                    "label": "添加消息"
+                },
+                {
+                    "id": "get_context",
+                    "label": "获取上下文"
+                },
+                {
+                    "id": "get_messages",
+                    "label": "获取消息"
+                },
+                {
+                    "id": "get_threads",
+                    "label": "获取线程"
+                },
+                {
+                    "id": "delete_thread",
+                    "label": "删除线程"
+                },
+                {
+                    "id": "add_user",
+                    "label": "添加用户"
+                },
+                {
+                    "id": "get_user",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "get_user_threads",
+                    "label": "获取用户线程"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Zep API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "slider",
+            "title": "结果上限",
+            "layout": "full",
+            "min": 1,
+            "max": 100,
+            "step": 1
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取线程（<code>zep_get_threads</code>）</div>
+
+列出所有会话线程
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `pageSize` | number | 否 | 每页获取的线程数量 |
+| `pageNumber` | number | 否 | 分页页码 |
+| `orderBy` | string | 否 | 结果排序字段 \(created_at, updated_at, user_id, thread_id\) |
+| `asc` | boolean | 否 | 排序方向：true 为升序，false 为降序 |
+| `apiKey` | string | 是 | 你的 Zep API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `threads` | array | 线程对象数组 |
+| `responseCount` | number | 本次响应中的线程数量 |
+| `totalCount` | number | 可用线程总数 |
+
+</div>
+
+---
+
+### 删除线程
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "half",
+            "placeholder": "选择操作",
+            "defaultValue": "delete_thread",
+            "options": [
+                {
+                    "id": "create_thread",
+                    "label": "创建线程"
+                },
+                {
+                    "id": "add_messages",
+                    "label": "添加消息"
+                },
+                {
+                    "id": "get_context",
+                    "label": "获取上下文"
+                },
+                {
+                    "id": "get_messages",
+                    "label": "获取消息"
+                },
+                {
+                    "id": "get_threads",
+                    "label": "获取线程"
+                },
+                {
+                    "id": "delete_thread",
+                    "label": "删除线程"
+                },
+                {
+                    "id": "add_user",
+                    "label": "添加用户"
+                },
+                {
+                    "id": "get_user",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "get_user_threads",
+                    "label": "获取用户线程"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Zep API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "threadId",
+            "type": "short-input",
+            "title": "线程 ID",
+            "layout": "full",
+            "placeholder": "输入唯一线程标识符",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除线程（<code>zep_delete_thread</code>）</div>
+
+从 Zep 删除会话线程
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `threadId` | string | 是 | 要删除的线程 ID |
+| `apiKey` | string | 是 | 你的 Zep API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `deleted` | boolean | 线程是否已删除 |
+
+</div>
+
+---
+
+### 添加用户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "half",
+            "placeholder": "选择操作",
+            "defaultValue": "add_user",
+            "options": [
+                {
+                    "id": "create_thread",
+                    "label": "创建线程"
+                },
+                {
+                    "id": "add_messages",
+                    "label": "添加消息"
+                },
+                {
+                    "id": "get_context",
+                    "label": "获取上下文"
+                },
+                {
+                    "id": "get_messages",
+                    "label": "获取消息"
+                },
+                {
+                    "id": "get_threads",
+                    "label": "获取线程"
+                },
+                {
+                    "id": "delete_thread",
+                    "label": "删除线程"
+                },
+                {
+                    "id": "add_user",
+                    "label": "添加用户"
+                },
+                {
+                    "id": "get_user",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "get_user_threads",
+                    "label": "获取用户线程"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Zep API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "用户 ID",
+            "layout": "full",
+            "placeholder": "输入用户标识符",
+            "required": true
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "邮箱",
+            "layout": "half",
+            "placeholder": "user@example.com"
+        },
+        {
+            "id": "firstName",
+            "type": "short-input",
+            "title": "名",
+            "layout": "half",
+            "placeholder": "John"
+        },
+        {
+            "id": "lastName",
+            "type": "short-input",
+            "title": "姓",
+            "layout": "half",
+            "placeholder": "Doe"
+        },
+        {
+            "id": "metadata",
+            "type": "code",
+            "title": "元数据",
+            "layout": "full",
+            "placeholder": "{\"key\": \"value\"}",
+            "language": "json"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">添加用户（<code>zep_add_user</code>）</div>
+
+在 Zep 中创建新用户
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `userId` | string | 是 | 用户的唯一标识符 |
+| `email` | string | 否 | 用户电子邮件地址 |
+| `firstName` | string | 否 | 用户名字 |
+| `lastName` | string | 否 | 用户姓氏 |
+| `metadata` | json | 否 | 附加元数据，JSON 对象 |
+| `apiKey` | string | 是 | 你的 Zep API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `userId` | string | 用户 ID |
+| `email` | string | 用户电子邮件 |
+| `firstName` | string | 用户名字 |
+| `lastName` | string | 用户姓氏 |
+| `uuid` | string | 内部 UUID |
+| `createdAt` | string | 创建时间戳 |
+| `metadata` | object | 用户元数据 |
+
+</div>
+
+---
+
+### 获取用户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "half",
+            "placeholder": "选择操作",
+            "defaultValue": "get_user",
+            "options": [
+                {
+                    "id": "create_thread",
+                    "label": "创建线程"
+                },
+                {
+                    "id": "add_messages",
+                    "label": "添加消息"
+                },
+                {
+                    "id": "get_context",
+                    "label": "获取上下文"
+                },
+                {
+                    "id": "get_messages",
+                    "label": "获取消息"
+                },
+                {
+                    "id": "get_threads",
+                    "label": "获取线程"
+                },
+                {
+                    "id": "delete_thread",
+                    "label": "删除线程"
+                },
+                {
+                    "id": "add_user",
+                    "label": "添加用户"
+                },
+                {
+                    "id": "get_user",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "get_user_threads",
+                    "label": "获取用户线程"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Zep API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "用户 ID",
+            "layout": "full",
+            "placeholder": "输入用户标识符",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取用户（<code>zep_get_user</code>）</div>
+
+从 Zep 获取用户信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `userId` | string | 是 | 要获取的用户 ID |
+| `apiKey` | string | 是 | 你的 Zep API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `userId` | string | 用户 ID |
+| `email` | string | 用户邮箱 |
+| `firstName` | string | 用户名字 |
+| `lastName` | string | 用户姓氏 |
+| `uuid` | string | 内部 UUID |
+| `createdAt` | string | 创建时间戳 |
+| `updatedAt` | string | 上次更新时间戳 |
+| `metadata` | object | 用户元数据 |
+
+</div>
+
+---
+
+### 获取用户会话
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "half",
+            "placeholder": "选择操作",
+            "defaultValue": "get_user_threads",
+            "options": [
+                {
+                    "id": "create_thread",
+                    "label": "创建会话"
+                },
+                {
+                    "id": "add_messages",
+                    "label": "添加消息"
+                },
+                {
+                    "id": "get_context",
+                    "label": "获取上下文"
+                },
+                {
+                    "id": "get_messages",
+                    "label": "获取消息"
+                },
+                {
+                    "id": "get_threads",
+                    "label": "获取会话"
+                },
+                {
+                    "id": "delete_thread",
+                    "label": "删除会话"
+                },
+                {
+                    "id": "add_user",
+                    "label": "添加用户"
+                },
+                {
+                    "id": "get_user",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "get_user_threads",
+                    "label": "获取用户会话"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Zep API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "用户 ID",
+            "layout": "full",
+            "placeholder": "输入用户标识符",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取用户线程 (<code>zep_get_user_threads</code>)</div>
+
+列出指定用户的所有会话线程
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `userId` | string | 是 | 要获取线程的用户 ID |
+| `limit` | number | 否 | 返回的最大线程数 |
+| `apiKey` | string | 是 | 你的 Zep API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `threads` | array | 该用户的线程对象数组 |
+| `userId` | string | 用户 ID |
+
+</div>
+
+---
+
+## 使用说明
+
+集成 Zep 以进行长期记忆管理。创建线程、添加消息，并检索包含 AI 摘要和事实提取的上下文。
+
+## 备注
+
+- 分类：`tools`
+- 类型：`zep`

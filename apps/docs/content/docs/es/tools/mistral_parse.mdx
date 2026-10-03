@@ -1,0 +1,221 @@
+---
+title: Mistral Parser
+description: Extraer texto de documentos PDF
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="mistral_parse"
+  color=""
+/>
+
+## Configuración
+
+### URL del documento PDF
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mistral Parser"
+    type="mistral_parse"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "inputMethod",
+            "type": "dropdown",
+            "title": "Seleccionar método de entrada",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "url",
+                    "label": "URL del documento PDF"
+                },
+                {
+                    "id": "upload",
+                    "label": "Cargar documento PDF"
+                }
+            ],
+            "defaultValue": "url"
+        },
+        {
+            "id": "resultType",
+            "type": "dropdown",
+            "title": "Formato de salida",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "markdown",
+                    "label": "Markdown (formateado)"
+                },
+                {
+                    "id": "text",
+                    "label": "Texto sin formato"
+                },
+                {
+                    "id": "json",
+                    "label": "JSON (en bruto)"
+                }
+            ]
+        },
+        {
+            "id": "pages",
+            "type": "short-input",
+            "title": "Páginas específicas",
+            "layout": "full",
+            "placeholder": "p. ej. 0,1,2 (dejar vacío para todas las páginas)"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduzca su clave de API de Mistral",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "filePath",
+            "type": "short-input",
+            "title": "URL del documento PDF",
+            "layout": "full",
+            "placeholder": "Introduzca la URL completa de un documento PDF (https://example.com/document.pdf)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">URL del documento PDF (<code>mistral_parser</code>)</div>
+
+Analizar documentos PDF con la API OCR de Mistral
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `filePath` | string | Sí | URL de un documento PDF que se procesará |
+| `resultType` | string | No | Tipo de resultado analizado \(markdown, text o json\). El valor predeterminado es markdown. |
+| `pages` | array | No | Páginas específicas que se procesarán \(array de números de página, a partir de 0\) |
+| `apiKey` | string | Sí | Clave de API de Mistral para esta solicitud. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Si el PDF se analizó correctamente |
+| `content` | string | Contenido extraído en el formato solicitado \(markdown, text o JSON\) |
+| `metadata` | object | Metadatos de procesamiento, incluidos jobId, fileType, pageCount e información de uso |
+
+</div>
+
+---
+
+### Cargar documento PDF
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Analizador Mistral"
+    type="mistral_parse"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "inputMethod",
+            "type": "dropdown",
+            "title": "Seleccionar método de entrada",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "url",
+                    "label": "URL del documento PDF"
+                },
+                {
+                    "id": "upload",
+                    "label": "Cargar documento PDF"
+                }
+            ],
+            "defaultValue": "upload"
+        },
+        {
+            "id": "resultType",
+            "type": "dropdown",
+            "title": "Formato de salida",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "markdown",
+                    "label": "Markdown (con formato)"
+                },
+                {
+                    "id": "text",
+                    "label": "Texto sin formato"
+                },
+                {
+                    "id": "json",
+                    "label": "JSON (sin procesar)"
+                }
+            ]
+        },
+        {
+            "id": "pages",
+            "type": "short-input",
+            "title": "Páginas específicas",
+            "layout": "full",
+            "placeholder": "p. ej. 0,1,2 (dejar vacío para todas las páginas)"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Mistral",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "fileUpload",
+            "type": "file-upload",
+            "title": "Cargar PDF",
+            "layout": "full"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Cargar documento PDF (<code>mistral_parser</code>)</div>
+
+Analizar documentos PDF con la API de OCR de Mistral
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `filePath` | string | Sí | URL de un documento PDF que se va a procesar |
+| `resultType` | string | No | Tipo de resultado analizado \(markdown, text o json\). El valor predeterminado es markdown. |
+| `pages` | array | No | Páginas específicas que se van a procesar \(array de números de página, a partir de 0\) |
+| `apiKey` | string | Sí | Clave de API de Mistral para esta solicitud. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Si el PDF se analizó correctamente |
+| `content` | string | Contenido extraído en el formato solicitado \(markdown, text o JSON\) |
+| `metadata` | object | Metadatos de procesamiento, incluidos jobId, fileType, pageCount e información de uso |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integre Mistral Parse en el flujo de trabajo. Puede extraer texto de documentos PDF cargados o de una URL.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `mistral_parse`

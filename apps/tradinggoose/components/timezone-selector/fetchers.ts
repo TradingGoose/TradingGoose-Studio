@@ -1,43 +1,21 @@
 import { MARKET_API_VERSION } from '@/lib/market/client/constants'
-import { formatTimezoneLabel, isUtcOffset, normalizeUtcOffset } from '@/lib/time-format'
+import { formatTimezoneLabel, normalizeUtcOffset } from '@/lib/time-format'
+import type { TimeZoneResponse } from '@/lib/timezone/timezone-resolver'
 import type { BlockOptionLoaderContext } from '@/blocks/types'
 
-export type TimeZoneResponse = {
-  name: string
-  utcOffset: string
-  dstOn: boolean
-  observesDst: boolean
-}
-
-export type TimeZoneOption = {
+export type TimeZoneOption = TimeZoneResponse & {
   id: string
   label: string
   searchLabel?: string
   rightLabel?: string
-  name: string
-  utcOffset: string
-  dstOn: boolean
-  observesDst: boolean
 }
 
 const DEFAULT_TZ_NAME_MAX_LENGTH = 24
 const MARKET_TIMEZONE_TIMEOUT_MS = 15000
 
-const fetchWithTimeout = async (
-  url: string,
-  init: RequestInit,
-  timeoutMs = MARKET_TIMEZONE_TIMEOUT_MS
-) => {
+const fetchWithTimeout = async (url: string, init: RequestInit) => {
   const controller = new AbortController()
-  const signal = init.signal
-  const timeout = setTimeout(() => controller.abort(), timeoutMs)
-  if (signal) {
-    if (signal.aborted) {
-      controller.abort()
-    } else {
-      signal.addEventListener('abort', () => controller.abort(), { once: true })
-    }
-  }
+  const timeout = setTimeout(() => controller.abort(), MARKET_TIMEZONE_TIMEOUT_MS)
   try {
     return await fetch(url, { ...init, signal: controller.signal })
   } catch (error) {
@@ -64,20 +42,14 @@ const formatUtcOffsetLabel = (value: string) => {
   return normalized === '+00:00' ? 'UTC+00:00' : `UTC${normalized}`
 }
 
-const fetchMarketTimeZones = async (
-  params: URLSearchParams,
-  signal?: AbortSignal
-): Promise<TimeZoneResponse | TimeZoneResponse[]> => {
-  if (!params.get('version')) {
-    params.set('version', MARKET_API_VERSION)
-  }
+const fetchMarketTimeZones = async (): Promise<TimeZoneResponse | TimeZoneResponse[]> => {
+  const params = new URLSearchParams({ version: MARKET_API_VERSION })
 
   const response = await fetchWithTimeout(`/api/market/get/timezone?${params.toString()}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
     },
-    signal,
   })
 
   let payload: unknown = null
@@ -117,7 +89,7 @@ export const fetchTimeZoneOptions = async (
   if (cachedTimeZoneOptions) return cachedTimeZoneOptions
   if (!timeZoneOptionsPromise) {
     timeZoneOptionsPromise = (async () => {
-      const data = await fetchMarketTimeZones(new URLSearchParams())
+      const data = await fetchMarketTimeZones()
       const list = Array.isArray(data) ? data : [data]
       const options = list.map((entry) => {
         const offsetLabel = formatUtcOffsetLabel(entry.utcOffset)
@@ -141,32 +113,6 @@ export const fetchTimeZoneOptions = async (
     })
   }
   return timeZoneOptionsPromise
-}
-
-export const fetchTimeZoneByName = async (
-  name: string,
-  signal?: AbortSignal
-): Promise<TimeZoneResponse> => {
-  const params = new URLSearchParams({ timezone_name: name })
-  const data = await fetchMarketTimeZones(params, signal)
-  if (Array.isArray(data)) {
-    const match = data[0]
-    if (!match) {
-      throw new Error('Time zone not found')
-    }
-    return match
-  }
-  return data
-}
-
-export const resolveTimezoneOffset = async (
-  value: string,
-  signal?: AbortSignal
-): Promise<string> => {
-  const trimmed = value.trim()
-  if (isUtcOffset(trimmed)) return normalizeUtcOffset(trimmed)
-  const data = await fetchTimeZoneByName(trimmed, signal)
-  return data.utcOffset
 }
 
 export { formatTimezoneLabel }

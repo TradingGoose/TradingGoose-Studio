@@ -13,14 +13,14 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 | **Key** | `editor_indicator` |
 | **Category** | Editor |
 
-The Indicator Editor is where you write and refine custom PineTS indicators. It provides a full Monaco code editor with TypeScript support, an inline cheat sheet for PineTS globals, and server-side verification so you can validate your script before saving. Use the [Indicator List](/widgets/list-indicator) widget to browse, create, and import indicators; the editor is the primary workspace for writing their logic.
+The Indicator Editor is where you write and refine custom PineTS indicators. It provides a full Monaco code editor with TypeScript support, an inline cheat sheet for PineTS globals, and browser-local verification so you can validate your script before saving. Use the [Indicator List](/widgets/list-indicator) widget to browse, create, and import indicators; the editor is the primary workspace for writing their logic.
 
 ## Features
 
 - **Monaco code editor** with TypeScript syntax highlighting, autocomplete, and the PineTS type definitions loaded automatically.
 - **Cheat sheet toolbar** grouped by category (data, technical-analysis, input, plot, and more). Hover any symbol to see its signature, description, and usage examples.
-- **Verify button** runs the indicator server-side against mock data and reports the number of plots and markers produced, plus any warnings about unsupported styles or plot types.
-- **Export button** in the header bar downloads the current saved indicator as TradingGoose export JSON. Save first if the editor is dirty.
+- **Verify button** runs the indicator in your browser against mock data and reports the number of plots and markers produced, plus any warnings about unsupported styles or plot types.
+- **Export button** in the header bar downloads the current editor draft as TradingGoose export JSON, including unsaved code changes. Saving first is not required.
 - **Save button** persists the PineTS code and automatically infers `inputMeta` from `input.*` calls in the script so the chart can render input controls.
 - **Wand prompt bar** lets you describe indicator logic in plain English and streams generated PineTS code directly into the editor.
 - **Environment variable dropdown** triggers when you type the `{{` pattern, letting you reference workspace secrets inside indicator code.
@@ -31,7 +31,7 @@ The Indicator Editor is where you write and refine custom PineTS indicators. It 
 1. Add the widget to a workspace from the widget picker.
 2. Select an existing indicator from the header dropdown, or create one in the [Indicator List](/widgets/list-indicator) widget first.
 3. Write PineTS code in the editor. Use globals directly -- `close`, `ta.sma`, `input.int`, `plot` -- without a `$` prefix.
-4. Click the **Verify** button (checkmark icon) to run a server-side dry run. Fix any errors or warnings that appear.
+4. Click the **Verify** button (checkmark icon) to run a browser-local dry run. Fix any errors or warnings that appear.
 5. Click the **Save** button to persist the indicator. The chart will pick up the updated code on next render.
 
 ### Keyboard Shortcuts

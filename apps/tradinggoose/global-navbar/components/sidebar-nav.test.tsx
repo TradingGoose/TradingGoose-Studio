@@ -10,7 +10,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { getPublicCopy } from '@/i18n/public-copy'
-import { localizeDocsUrl } from '@/i18n/utils'
+import { locales } from '@/i18n/utils'
 import type { NavSection } from '../types'
 import { SidebarNav } from './sidebar-nav'
 
@@ -78,7 +78,7 @@ describe('SidebarNav', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  it('adds the localized docs link after integrations in the more section', async () => {
+  it.each(locales)('adds the explicit %s docs link after integrations', async (locale) => {
     const navItems: NavSection[] = [
       {
         key: 'usage',
@@ -95,11 +95,11 @@ describe('SidebarNav', () => {
         section: 'more',
       },
     ]
-    const docsLabel = getPublicCopy('es').nav.docs
+    const docsLabel = getPublicCopy(locale).nav.docs
 
     await act(async () => {
       root.render(
-        <NextIntlClientProvider locale='es' messages={getPublicCopy('es')}>
+        <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
           <SidebarProvider>
             <SidebarNav navItems={navItems} />
           </SidebarProvider>
@@ -114,8 +114,7 @@ describe('SidebarNav', () => {
       throw new Error('Expected localized documentation link to render')
     }
 
-    expect(docsLink.getAttribute('href')).toBe(localizeDocsUrl('es'))
-    expect(links.map((link) => link.textContent?.trim())).toContain(docsLabel)
+    expect(docsLink.getAttribute('href')).toBe(`https://docs.tradinggoose.ai/${locale}`)
     expect(links.map((link) => link.textContent?.trim())).toEqual([
       'Usage',
       'Integrations',

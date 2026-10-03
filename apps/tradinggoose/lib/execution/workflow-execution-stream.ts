@@ -92,7 +92,10 @@ function createSeededWorkflowExecutionEventStream(
           sawTerminalEvent ||= isTerminalWorkflowExecutionEvent(entry.event)
         }
 
-        if (!sawTerminalEvent && (state.status === 'completed' || state.status === 'failed')) {
+        if (
+          !sawTerminalEvent &&
+          (state.status === 'completed' || state.status === 'failed' || state.status === 'paused')
+        ) {
           const eventId = lastEventId + 1
           const terminalEntry: WorkflowExecutionEventEntry = {
             eventId,

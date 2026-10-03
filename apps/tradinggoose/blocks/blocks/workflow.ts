@@ -6,6 +6,8 @@ export const WorkflowBlock: BlockConfig = {
   name: 'Workflow',
   description:
     'This is a core workflow block. Execute another workflow as a block in your workflow. Enter the input variable to pass to the child workflow.',
+  longDescription:
+    'This hidden block type is not offered in the block toolbar; use the Workflow block with Input Mapping for new workflows. The selected input value is passed directly as the child workflow input. The parent waits for the child and exposes the child output under result. The execution target follows the parent: deployed parents run deployed children, and live parents run live children. Child failures fail this block, and nested workflow execution is limited to 10 levels.',
   category: 'blocks',
   bgColor: '#705335',
   icon: WorkflowIcon,
@@ -21,7 +23,7 @@ export const WorkflowBlock: BlockConfig = {
       title: 'Input Variable (Optional)',
       type: 'short-input',
       placeholder: 'Select a variable to pass to the child workflow',
-      description: 'This variable will be available as start.input in the child workflow',
+      description: 'Value passed directly as the child workflow input.',
       required: false,
     },
   ],
@@ -42,7 +44,7 @@ export const WorkflowBlock: BlockConfig = {
     success: { type: 'boolean', description: 'Execution success status' },
     childWorkflowName: { type: 'string', description: 'Child workflow name' },
     result: { type: 'json', description: 'Workflow execution result' },
-    error: { type: 'string', description: 'Error message' },
+    childTraceSpans: { type: 'array', description: 'Trace spans from the child execution.' },
   },
   hideFromToolbar: true,
 }

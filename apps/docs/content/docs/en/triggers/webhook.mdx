@@ -28,18 +28,23 @@ Webhooks allow external services to trigger workflow execution by sending HTTP r
     type="generic_webhook"
     hideHeader
     subBlocks={[
-      { "id": "webhookUrl", "title": "Webhook URL", "type": "short-input", "placeholder": "Auto-generated webhook URL", "description": "Copy this URL and configure it in your external service" },
-      { "id": "secret", "title": "Webhook Secret", "type": "short-input", "password": true, "placeholder": "Optional secret for request validation" }
+      { "id": "webhookUrlDisplay", "title": "Webhook URL", "type": "short-input", "description": "Copy the generated endpoint into the external service" },
+      { "id": "requireAuth", "title": "Require Authentication", "type": "switch", "defaultValue": false },
+      { "id": "token", "title": "Authentication Token", "type": "short-input", "password": true },
+      { "id": "secretHeaderName", "title": "Secret Header Name (Optional)", "type": "short-input", "placeholder": "X-Secret-Key" },
+      { "id": "inputFormat", "title": "Input Format", "type": "input-format", "description": "Optional expected JSON schema" }
     ]}
   />
 </ShowcaseCard>
+
+Enable **Require Authentication** and set **Authentication Token** to require a token. With no Secret Header Name, send `Authorization: Bearer TOKEN`; otherwise send the token in the configured custom header. Save the trigger and deploy the workflow before sending external requests. Webhook responses acknowledge queueing, not completion of the workflow.
 
 ### How It Works
 
 1. **Add Generic Webhook Block** — Drag the Generic Webhook block to start your workflow
 2. **Get Webhook URL** — Copy the automatically generated unique endpoint
 3. **External Integration** — Configure your external service to send POST requests to this URL
-4. **Workflow Execution** — Every request to the webhook URL triggers the workflow
+4. **Workflow Execution** — Accepted requests enqueue an execution against the deployed workflow.
 
 ### Features
 
@@ -63,5 +68,5 @@ Alternatively, you can use specific service blocks (like Slack, GitHub, etc.) in
 - You need automatic webhook registration
 
 <Callout>
-The Generic Webhook trigger fires every time the webhook URL receives a request, making it perfect for real-time integrations.
+Only valid, accepted requests trigger execution. Authentication, deployment state, and platform limits can reject a request before it is queued.
 </Callout>

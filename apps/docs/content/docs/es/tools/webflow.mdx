@@ -1,0 +1,499 @@
+---
+title: Webflow
+description: Gestionar colecciones CMS de Webflow
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="webflow"
+  color="#146EF5"
+/>
+
+<Cards>
+  <Card title="Usar como disparador" href="/triggers/webflow">
+    Consulta los eventos de disparador, la configuración y las cargas útiles de eventos de Webflow.
+  </Card>
+</Cards>
+
+## Configuración
+
+### Listar elementos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Webflow"
+    type="webflow"
+    color="#146EF5"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "list",
+            "options": [
+                {
+                    "id": "list",
+                    "label": "Listar elementos"
+                },
+                {
+                    "id": "get",
+                    "label": "Obtener elemento"
+                },
+                {
+                    "id": "create",
+                    "label": "Crear elemento"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar elemento"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar elemento"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Webflow",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Webflow",
+            "provider": "webflow",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "short-input",
+            "title": "ID de colección",
+            "layout": "full",
+            "placeholder": "Introducir ID de colección",
+            "required": true
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "Desplazamiento",
+            "layout": "half",
+            "placeholder": "Desplazamiento de paginación (opcional)"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "layout": "half",
+            "placeholder": "Máximo de elementos a devolver (opcional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar elementos (<code>webflow_list_items</code>)</div>
+
+Listar todos los elementos de una colección CMS de Webflow
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `collectionId` | string | Sí | ID de la colección |
+| `offset` | number | No | Desplazamiento para paginación \(opcional\) |
+| `limit` | number | No | Número máximo de elementos a devolver \(opcional, valor predeterminado: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `items` | json | Array de elementos de la colección |
+| `metadata` | json | Metadatos de la consulta |
+
+</div>
+
+---
+
+### Obtener elemento
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Webflow"
+    type="webflow"
+    color="#146EF5"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "get",
+            "options": [
+                {
+                    "id": "list",
+                    "label": "Listar elementos"
+                },
+                {
+                    "id": "get",
+                    "label": "Obtener elemento"
+                },
+                {
+                    "id": "create",
+                    "label": "Crear elemento"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar elemento"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar elemento"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Webflow",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Webflow",
+            "provider": "webflow",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "short-input",
+            "title": "ID de colección",
+            "layout": "full",
+            "placeholder": "Introducir ID de colección",
+            "required": true
+        },
+        {
+            "id": "itemId",
+            "type": "short-input",
+            "title": "ID de elemento",
+            "layout": "full",
+            "placeholder": "ID del elemento",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener elemento (<code>webflow_get_item</code>)</div>
+
+Obtener un único elemento de una colección CMS de Webflow
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `collectionId` | string | Sí | ID de la colección |
+| `itemId` | string | Sí | ID del elemento que se va a recuperar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `item` | json | El objeto del elemento recuperado |
+| `metadata` | json | Metadatos del elemento recuperado |
+
+</div>
+
+---
+
+### Crear elemento
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Webflow"
+    type="webflow"
+    color="#146EF5"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "create",
+            "options": [
+                {
+                    "id": "list",
+                    "label": "Listar elementos"
+                },
+                {
+                    "id": "get",
+                    "label": "Obtener elemento"
+                },
+                {
+                    "id": "create",
+                    "label": "Crear elemento"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar elemento"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar elemento"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Webflow",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Webflow",
+            "provider": "webflow",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "short-input",
+            "title": "ID de colección",
+            "layout": "full",
+            "placeholder": "Introducir ID de colección",
+            "required": true
+        },
+        {
+            "id": "fieldData",
+            "type": "code",
+            "title": "Datos de campos",
+            "layout": "full",
+            "placeholder": "Datos de campos como JSON: `{ \"name\": \"Item Name\", \"slug\": \"item-slug\" }`",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear elemento (<code>webflow_create_item</code>)</div>
+
+Crea un elemento nuevo en una colección de CMS de Webflow
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `collectionId` | string | Sí | ID de la colección |
+| `fieldData` | json | Sí | Datos de campos del elemento nuevo como objeto JSON. Las claves deben coincidir con los nombres de campo de la colección. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `item` | json | El objeto del elemento creado |
+| `metadata` | json | Metadatos del elemento creado |
+
+</div>
+
+---
+
+### Actualizar elemento
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Webflow"
+    type="webflow"
+    color="#146EF5"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "update",
+            "options": [
+                {
+                    "id": "list",
+                    "label": "Listar elementos"
+                },
+                {
+                    "id": "get",
+                    "label": "Obtener elemento"
+                },
+                {
+                    "id": "create",
+                    "label": "Crear elemento"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar elemento"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar elemento"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Webflow",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Webflow",
+            "provider": "webflow",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "short-input",
+            "title": "ID de colección",
+            "layout": "full",
+            "placeholder": "Introducir ID de colección",
+            "required": true
+        },
+        {
+            "id": "itemId",
+            "type": "short-input",
+            "title": "ID de elemento",
+            "layout": "full",
+            "placeholder": "ID del elemento",
+            "required": true
+        },
+        {
+            "id": "fieldData",
+            "type": "code",
+            "title": "Datos de campos",
+            "layout": "full",
+            "placeholder": "Datos de campos como JSON: `{ \"name\": \"Item Name\", \"slug\": \"item-slug\" }`",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar elemento (<code>webflow_update_item</code>)</div>
+
+Actualizar un elemento existente en una colección de CMS de Webflow
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `collectionId` | string | Sí | ID de la colección |
+| `itemId` | string | Sí | ID del elemento que se va a actualizar |
+| `fieldData` | json | Sí | Datos de campo que se van a actualizar como objeto JSON. Incluya solo los campos que desee cambiar. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `item` | json | El objeto del elemento actualizado |
+| `metadata` | json | Metadatos del elemento actualizado |
+
+</div>
+
+---
+
+### Eliminar elemento
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Webflow"
+    type="webflow"
+    color="#146EF5"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "delete",
+            "options": [
+                {
+                    "id": "list",
+                    "label": "Listar elementos"
+                },
+                {
+                    "id": "get",
+                    "label": "Obtener elemento"
+                },
+                {
+                    "id": "create",
+                    "label": "Crear elemento"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar elemento"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar elemento"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Webflow",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Webflow",
+            "provider": "webflow",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "short-input",
+            "title": "ID de colección",
+            "layout": "full",
+            "placeholder": "Introducir ID de colección",
+            "required": true
+        },
+        {
+            "id": "itemId",
+            "type": "short-input",
+            "title": "ID de elemento",
+            "layout": "full",
+            "placeholder": "ID del elemento",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar elemento (<code>webflow_delete_item</code>)</div>
+
+Eliminar un elemento de una colección de Webflow CMS
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `collectionId` | string | Sí | ID de la colección |
+| `itemId` | string | Sí | ID del elemento que se va a eliminar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Indica si la eliminación se realizó correctamente |
+| `metadata` | json | Metadatos de la eliminación |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Webflow CMS en el flujo de trabajo. Permite crear, obtener, listar, actualizar o eliminar elementos en las colecciones de Webflow CMS. Gestione el contenido de Webflow de forma programática. Se puede usar en modo de activación para activar flujos de trabajo cuando cambian los elementos de una colección o se envían formularios.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `webflow`

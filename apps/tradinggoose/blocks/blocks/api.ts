@@ -7,7 +7,7 @@ export const ApiBlock: BlockConfig<RequestResponse> = {
   name: 'API',
   description: 'Use any API',
   longDescription:
-    'This is a core workflow block. Connect to any external API with support for all standard HTTP methods and customizable request parameters. Configure headers, query parameters, and request bodies. Standard headers (User-Agent, Accept, Cache-Control, etc.) are automatically included.',
+    'Send an HTTP request using the configured method, URL, headers, query parameters, and optional body. Standard request headers are added automatically. Reference upstream outputs and workflow variables using their exact TradingGoose tags. Responses expose data, status, and headers. Non-successful requests fail the block; connect an error path for recovery. The block does not automatically retry failed requests.',
   docsLink: 'https://docs.tradinggoose.ai/blocks/api',
   bestPractices: `
   - Curl the endpoint yourself before filling out the API block to make sure it's working IF you have the necessary authentication headers. Clarify with the user if you need any additional headers.

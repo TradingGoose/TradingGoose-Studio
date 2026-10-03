@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { resolveOAuthConnectionAccountForUser } from '@/lib/credentials/oauth'
 import type { InputMeta, InputMetaMap } from '@/lib/indicators/types'
 import { type ListingIdentity, ListingIdentitySchema } from '@/lib/listing/identity'
 import { INDICATOR_MONITOR_PROVIDER, INDICATOR_MONITOR_TRIGGER_ID } from '@/lib/monitors/sources'
@@ -6,6 +7,7 @@ import { encryptSecret } from '@/lib/utils-server'
 import {
   coerceMarketProviderParamValue,
   getMarketMonitorProviderParamDefinitions,
+  getMarketProviderDefinition,
   getMarketProviderIntervals,
 } from '@/providers/market/providers'
 
@@ -68,6 +70,7 @@ export type IndicatorMonitorProviderConfig = {
   monitor: {
     triggerBlockId: string
     providerId: string
+    connectionOwnerUserId?: string
     interval: string
     listing: ListingIdentity
     indicatorId: string
@@ -187,22 +190,24 @@ const normalizeAuthPublic = (
 
 export const toPublicIndicatorMonitorProviderConfig = (
   config: IndicatorMonitorProviderConfig
-): IndicatorMonitorProviderConfig & {
-  monitor: Omit<IndicatorMonitorProviderConfig['monitor'], 'auth'> & {
+): Omit<IndicatorMonitorProviderConfig, 'monitor'> & {
+  monitor: Omit<IndicatorMonitorProviderConfig['monitor'], 'auth' | 'connectionOwnerUserId'> & {
     auth?: IndicatorMonitorAuthPublic
   }
 } => {
   const { monitor, ...rest } = config
+  const { connectionOwnerUserId: _connectionOwnerUserId, ...publicMonitor } = monitor
   return {
     ...rest,
     monitor: {
-      ...monitor,
+      ...publicMonitor,
       auth: normalizeAuthPublic(monitor.auth),
     },
   }
 }
 
 type NormalizeMonitorConfigInput = {
+  userId: string
   triggerBlockId: string
   providerId: string
   interval: string
@@ -214,7 +219,10 @@ type NormalizeMonitorConfigInput = {
   providerParams?: Record<string, unknown>
   indicatorInputs?: Record<string, unknown>
   indicatorInputMeta?: InputMetaMap
-  previousAuth?: IndicatorMonitorAuthStored
+  previousMonitor?: Pick<
+    IndicatorMonitorProviderConfig['monitor'],
+    'providerId' | 'auth' | 'providerParams' | 'connectionOwnerUserId'
+  >
   requireCompleteAuth?: boolean
 }
 
@@ -231,7 +239,11 @@ export const normalizeIndicatorMonitorConfig = async (
   const incomingSecretValues = input.authInput?.secrets ?? {}
   const encryptedSecrets: Record<string, string> = replacingAuth
     ? {}
-    : { ...(input.previousAuth?.encryptedSecrets ?? {}) }
+    : {
+        ...(input.previousMonitor?.providerId === input.providerId
+          ? input.previousMonitor.auth?.encryptedSecrets
+          : undefined),
+      }
 
   for (const [fieldId, secretValue] of Object.entries(incomingSecretValues)) {
     const trimmed = secretValue?.trim()
@@ -250,6 +262,32 @@ export const normalizeIndicatorMonitorConfig = async (
   }
 
   const providerParams = normalizeProviderParams(input.providerId, input.providerParams)
+  let connectionOwnerUserId: string | undefined
+  const oauth = getMarketProviderDefinition(input.providerId)?.oauth
+  if (oauth) {
+    const credentialId = providerParams?.credentialId
+    const previousCredentialId = input.previousMonitor?.providerParams?.credentialId
+    const accountId = typeof credentialId === 'string' ? credentialId.trim() : ''
+    const connectionChanged =
+      input.previousMonitor?.providerId !== input.providerId ||
+      accountId !== (typeof previousCredentialId === 'string' ? previousCredentialId.trim() : '')
+    connectionOwnerUserId = connectionChanged
+      ? input.userId
+      : input.previousMonitor?.connectionOwnerUserId
+    if (connectionChanged || input.requireCompleteAuth !== false) {
+      if (!connectionOwnerUserId || !accountId) {
+        throw new Error('Missing market provider connection owner or credential')
+      }
+      const connection = await resolveOAuthConnectionAccountForUser({
+        accountId,
+        userId: connectionOwnerUserId,
+      })
+      if (!connection || connection.providerId !== oauth.provider) {
+        throw new Error('Market provider connection not found')
+      }
+      connectionOwnerUserId = connection.credentialOwnerUserId
+    }
+  }
   const indicatorInputs = normalizeIndicatorInputOverrides(
     input.indicatorInputMeta,
     input.indicatorInputs
@@ -268,6 +306,7 @@ export const normalizeIndicatorMonitorConfig = async (
     monitor: {
       triggerBlockId: input.triggerBlockId,
       providerId: input.providerId,
+      ...(connectionOwnerUserId ? { connectionOwnerUserId } : {}),
       interval: input.interval,
       listing: input.listingInput,
       indicatorId: input.indicatorId,

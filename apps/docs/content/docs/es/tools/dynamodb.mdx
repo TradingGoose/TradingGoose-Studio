@@ -1,0 +1,798 @@
+---
+title: Amazon DynamoDB
+description: Conectar con Amazon DynamoDB
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="dynamodb"
+  color="#527FFF"
+/>
+
+## Configuración
+
+### Obtener elemento
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon DynamoDB"
+    type="dynamodb"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get",
+            "options": [
+                {
+                    "id": "get",
+                    "label": "Obtener elemento"
+                },
+                {
+                    "id": "put",
+                    "label": "Insertar elemento"
+                },
+                {
+                    "id": "query",
+                    "label": "Consultar"
+                },
+                {
+                    "id": "scan",
+                    "label": "Escanear"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar elemento"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar elemento"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "Región de AWS",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "ID de clave de acceso de AWS",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "Clave de acceso secreta de AWS",
+            "placeholder": "Tu clave de acceso secreta",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "Nombre de la tabla",
+            "placeholder": "my-table",
+            "required": true
+        },
+        {
+            "id": "key",
+            "type": "code",
+            "title": "Clave (JSON)",
+            "placeholder": "{\n  \"pk\": \"user#123\"\n}",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "consistentRead",
+            "type": "dropdown",
+            "title": "Lectura consistente",
+            "defaultValue": "false",
+            "options": [
+                {
+                    "id": "false",
+                    "label": "Consistencia eventual"
+                },
+                {
+                    "id": "true",
+                    "label": "Consistencia fuerte"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener elemento (<code>dynamodb_get</code>)</div>
+
+Obtiene un elemento de una tabla de DynamoDB mediante la clave principal
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | Sí | Región de AWS \(p. ej., us-east-1\) |
+| `accessKeyId` | string | Sí | ID de clave de acceso de AWS |
+| `secretAccessKey` | string | Sí | Clave de acceso secreta de AWS |
+| `tableName` | string | Sí | Nombre de la tabla de DynamoDB |
+| `key` | object | Sí | Clave principal del elemento que se va a recuperar |
+| `consistentRead` | boolean | No | Usar lectura con consistencia fuerte |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `item` | object | Elemento recuperado |
+
+</div>
+
+---
+
+### Insertar elemento
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon DynamoDB"
+    type="dynamodb"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "put",
+            "options": [
+                {
+                    "id": "get",
+                    "label": "Obtener elemento"
+                },
+                {
+                    "id": "put",
+                    "label": "Insertar elemento"
+                },
+                {
+                    "id": "query",
+                    "label": "Consultar"
+                },
+                {
+                    "id": "scan",
+                    "label": "Escanear"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar elemento"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar elemento"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "Región de AWS",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "ID de clave de acceso de AWS",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "Clave de acceso secreta de AWS",
+            "placeholder": "Tu clave de acceso secreta",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "Nombre de la tabla",
+            "placeholder": "my-table",
+            "required": true
+        },
+        {
+            "id": "item",
+            "type": "code",
+            "title": "Elemento (JSON)",
+            "placeholder": "{\n  \"pk\": \"user#123\",\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\"\n}",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Insertar elemento (<code>dynamodb_put</code>)</div>
+
+Inserta un elemento en una tabla de DynamoDB
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | Sí | Región de AWS \(p. ej., us-east-1\) |
+| `accessKeyId` | string | Sí | ID de clave de acceso de AWS |
+| `secretAccessKey` | string | Sí | Clave de acceso secreta de AWS |
+| `tableName` | string | Sí | Nombre de la tabla de DynamoDB |
+| `item` | object | Sí | Elemento que se insertará en la tabla |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `item` | object | Elemento creado |
+
+</div>
+
+---
+
+### Consulta
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon DynamoDB"
+    type="dynamodb"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "query",
+            "options": [
+                {
+                    "id": "get",
+                    "label": "Obtener elemento"
+                },
+                {
+                    "id": "put",
+                    "label": "Insertar elemento"
+                },
+                {
+                    "id": "query",
+                    "label": "Consulta"
+                },
+                {
+                    "id": "scan",
+                    "label": "Escanear"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar elemento"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar elemento"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "Región de AWS",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "ID de clave de acceso de AWS",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "Clave de acceso secreta de AWS",
+            "placeholder": "Tu clave de acceso secreta",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "Nombre de la tabla",
+            "placeholder": "my-table",
+            "required": true
+        },
+        {
+            "id": "keyConditionExpression",
+            "type": "short-input",
+            "title": "Expresión de condición de clave",
+            "placeholder": "pk = :pk",
+            "required": true
+        },
+        {
+            "id": "filterExpression",
+            "type": "short-input",
+            "title": "Expresión de filtro",
+            "placeholder": "attribute_exists(email)"
+        },
+        {
+            "id": "expressionAttributeNames",
+            "type": "code",
+            "title": "Nombres de atributos de expresión (JSON)",
+            "placeholder": "{\n  \"#name\": \"name\"\n}",
+            "language": "json"
+        },
+        {
+            "id": "expressionAttributeValues",
+            "type": "code",
+            "title": "Valores de atributos de expresión (JSON)",
+            "placeholder": "{\n  \":pk\": \"user#123\",\n  \":name\": \"Jane\"\n}",
+            "language": "json"
+        },
+        {
+            "id": "indexName",
+            "type": "short-input",
+            "title": "Nombre del índice",
+            "placeholder": "GSI1"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "100"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Consulta (<code>dynamodb_query</code>)</div>
+
+Consulta elementos de una tabla de DynamoDB usando condiciones de clave
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | Sí | Región de AWS \(p. ej., us-east-1\) |
+| `accessKeyId` | string | Sí | ID de clave de acceso de AWS |
+| `secretAccessKey` | string | Sí | Clave de acceso secreta de AWS |
+| `tableName` | string | Sí | Nombre de la tabla de DynamoDB |
+| `keyConditionExpression` | string | Sí | Expresión de condición de clave \(p. ej., "pk = :pk"\) |
+| `filterExpression` | string | No | Expresión de filtro para los resultados |
+| `expressionAttributeNames` | object | No | Asignaciones de nombres de atributos para palabras reservadas |
+| `expressionAttributeValues` | object | No | Valores de atributos de expresión |
+| `indexName` | string | No | Nombre del índice secundario que se va a consultar |
+| `limit` | number | No | Número máximo de elementos que se devuelven |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `items` | array | Array de elementos devueltos |
+| `count` | number | Número de elementos devueltos |
+
+</div>
+
+---
+
+### Escaneo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon DynamoDB"
+    type="dynamodb"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "scan",
+            "options": [
+                {
+                    "id": "get",
+                    "label": "Obtener elemento"
+                },
+                {
+                    "id": "put",
+                    "label": "Insertar elemento"
+                },
+                {
+                    "id": "query",
+                    "label": "Consultar"
+                },
+                {
+                    "id": "scan",
+                    "label": "Escanear"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar elemento"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar elemento"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "Región de AWS",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "ID de clave de acceso de AWS",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "Clave de acceso secreta de AWS",
+            "placeholder": "Tu clave de acceso secreta",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "Nombre de la tabla",
+            "placeholder": "my-table",
+            "required": true
+        },
+        {
+            "id": "filterExpression",
+            "type": "short-input",
+            "title": "Expresión de filtro",
+            "placeholder": "attribute_exists(email)"
+        },
+        {
+            "id": "projectionExpression",
+            "type": "short-input",
+            "title": "Expresión de proyección",
+            "placeholder": "pk, #name, email"
+        },
+        {
+            "id": "expressionAttributeNames",
+            "type": "code",
+            "title": "Nombres de atributos de expresión (JSON)",
+            "placeholder": "{\n  \"#name\": \"name\"\n}",
+            "language": "json"
+        },
+        {
+            "id": "expressionAttributeValues",
+            "type": "code",
+            "title": "Valores de atributos de expresión (JSON)",
+            "placeholder": "{\n  \":status\": \"active\"\n}",
+            "language": "json"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "100"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Escanear (<code>dynamodb_scan</code>)</div>
+
+Escanear todos los elementos de una tabla de DynamoDB
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | Sí | Región de AWS \(p. ej., us-east-1\) |
+| `accessKeyId` | string | Sí | ID de clave de acceso de AWS |
+| `secretAccessKey` | string | Sí | Clave de acceso secreta de AWS |
+| `tableName` | string | Sí | Nombre de la tabla de DynamoDB |
+| `filterExpression` | string | No | Expresión de filtro para los resultados |
+| `projectionExpression` | string | No | Atributos que se deben recuperar |
+| `expressionAttributeNames` | object | No | Asignaciones de nombres de atributos para palabras reservadas |
+| `expressionAttributeValues` | object | No | Valores de atributos de expresión |
+| `limit` | number | No | Número máximo de elementos que se deben devolver |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `items` | array | Matriz de elementos devueltos |
+| `count` | number | Número de elementos devueltos |
+
+</div>
+
+---
+
+### Actualizar elemento
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon DynamoDB"
+    type="dynamodb"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "update",
+            "options": [
+                {
+                    "id": "get",
+                    "label": "Obtener elemento"
+                },
+                {
+                    "id": "put",
+                    "label": "Guardar elemento"
+                },
+                {
+                    "id": "query",
+                    "label": "Consultar"
+                },
+                {
+                    "id": "scan",
+                    "label": "Escanear"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar elemento"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar elemento"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "Región de AWS",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "ID de clave de acceso de AWS",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "Clave de acceso secreta de AWS",
+            "placeholder": "Tu clave de acceso secreta",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "Nombre de la tabla",
+            "placeholder": "my-table",
+            "required": true
+        },
+        {
+            "id": "key",
+            "type": "code",
+            "title": "Clave (JSON)",
+            "placeholder": "{\n  \"pk\": \"user#123\"\n}",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "updateExpression",
+            "type": "short-input",
+            "title": "Expresión de actualización",
+            "placeholder": "SET #name = :name",
+            "required": true
+        },
+        {
+            "id": "expressionAttributeNames",
+            "type": "code",
+            "title": "Nombres de atributos de expresión (JSON)",
+            "placeholder": "{\n  \"#name\": \"name\"\n}",
+            "language": "json"
+        },
+        {
+            "id": "expressionAttributeValues",
+            "type": "code",
+            "title": "Valores de atributos de expresión (JSON)",
+            "placeholder": "{\n  \":name\": \"Jane Doe\"\n}",
+            "language": "json"
+        },
+        {
+            "id": "conditionExpression",
+            "type": "short-input",
+            "title": "Expresión de condición",
+            "placeholder": "attribute_exists(pk)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar elemento (<code>dynamodb_update</code>)</div>
+
+Actualizar un elemento en una tabla de DynamoDB
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | Sí | Región de AWS \(por ejemplo, us-east-1\) |
+| `accessKeyId` | string | Sí | ID de clave de acceso de AWS |
+| `secretAccessKey` | string | Sí | Clave de acceso secreta de AWS |
+| `tableName` | string | Sí | Nombre de la tabla de DynamoDB |
+| `key` | object | Sí | Clave principal del elemento que se va a actualizar |
+| `updateExpression` | string | Sí | Expresión de actualización \(por ejemplo, "SET #name = :name"\) |
+| `expressionAttributeNames` | object | No | Asignaciones de nombres de atributos para palabras reservadas |
+| `expressionAttributeValues` | object | No | Valores de atributos de expresión |
+| `conditionExpression` | string | No | Condición que debe cumplirse para que la actualización se realice correctamente |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `item` | object | Elemento actualizado |
+
+</div>
+
+---
+
+### Eliminar elemento
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon DynamoDB"
+    type="dynamodb"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "delete",
+            "options": [
+                {
+                    "id": "get",
+                    "label": "Obtener elemento"
+                },
+                {
+                    "id": "put",
+                    "label": "Poner elemento"
+                },
+                {
+                    "id": "query",
+                    "label": "Consultar"
+                },
+                {
+                    "id": "scan",
+                    "label": "Escanear"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar elemento"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar elemento"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "Región de AWS",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "ID de clave de acceso de AWS",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "Clave de acceso secreta de AWS",
+            "placeholder": "Tu clave de acceso secreta",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "Nombre de la tabla",
+            "placeholder": "my-table",
+            "required": true
+        },
+        {
+            "id": "key",
+            "type": "code",
+            "title": "Clave (JSON)",
+            "placeholder": "{\n  \"pk\": \"user#123\"\n}",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "conditionExpression",
+            "type": "short-input",
+            "title": "Expresión de condición",
+            "placeholder": "attribute_exists(pk)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar elemento (<code>dynamodb_delete</code>)</div>
+
+Eliminar un elemento de una tabla de DynamoDB
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | Sí | Región de AWS \(p. ej., us-east-1\) |
+| `accessKeyId` | string | Sí | ID de clave de acceso de AWS |
+| `secretAccessKey` | string | Sí | Clave de acceso secreta de AWS |
+| `tableName` | string | Sí | Nombre de la tabla de DynamoDB |
+| `key` | object | Sí | Clave principal del elemento que se va a eliminar |
+| `conditionExpression` | string | No | Condición que debe cumplirse para que la eliminación se realice correctamente |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Amazon DynamoDB en los workflows. Admite operaciones Get, Put, Query, Scan, Update y Delete en tablas de DynamoDB.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `dynamodb`

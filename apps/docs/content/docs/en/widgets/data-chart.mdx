@@ -1,6 +1,6 @@
 ---
 title: "Data Chart"
-description: "Visualize OHLCV market data."
+description: "Visualize market price series and technical indicators."
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout'
@@ -11,17 +11,17 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 | Property | Value |
 |----------|-------|
 | **Key** | `data_chart` |
-| **Category** | Data |
+| **Category** | Trading |
 
-The Data Chart widget renders OHLCV candlestick charts with technical indicator overlays, drawing tools, and configurable time intervals. It uses [lightweight-charts](https://tradingview.github.io/lightweight-charts/) under the hood and supports multiple data providers and market session modes.
+The Data Chart widget renders market price series from OHLCV data with technical indicator overlays, drawing tools, and configurable time intervals. It uses [lightweight-charts](https://tradingview.github.io/lightweight-charts/) under the hood and supports multiple data providers and market session modes.
 
 ## Features
 
 - **Six candle styles** -- Solid, Hollow, Up Hollow, Down Hollow, OHLC bar stroke, and Area line.
-- **Time intervals** -- 1m through 12mo, with range presets (1D, 5D, 1W, 1M, 3M, 6M, 1Y, 5Y, ALL) that auto-select a fitting interval.
+- **Time intervals** -- Choose from the provider-supported subset of 1m through 12mo, with range presets (1D, 5D, 1W, 1M, 3M, 6M, 1Y, 5Y, ALL) that select a fitting supported interval.
 - **Technical indicators** -- Add one or more Pine-style indicators from your workspace library or the built-in defaults. Each indicator renders in its own pane (or overlays the price pane) and exposes per-plot legend values on crosshair hover. Indicator inputs are editable through a settings modal. See the [Indicator scripting guide](/indicators) for authoring custom indicators.
-- **Drawing tools** -- A sidebar offers lines (trend line, ray, arrow, extended line, horizontal/vertical/cross lines), notes (callout, text), freehand (brush, highlighter, path), shapes (rectangle, circle, triangle), and analysis tools (parallel channel, Fibonacci retracement, price range, long/short position, market depth). Drawings persist per symbol and can be toggled visible or hidden in bulk.
-- **OHLCV legend** -- Displays open, high, low, close values (or a single value for area mode) at the crosshair position, color-coded green/red by direction.
+- **Drawing tools** -- A sidebar offers lines (trend line, ray, arrow, extended line, horizontal/vertical/cross lines), notes (callout, text), freehand (brush, highlighter, path), shapes (rectangle, circle, triangle), and analysis tools (parallel channel, Fibonacci retracement, price range, and long/short position). Drawing snapshots persist with the widget's view configuration and can be toggled visible or hidden in bulk.
+- **Price legend** -- Displays open, high, low, and close values (or a single value for area mode) at the crosshair position, color-coded green/red by direction.
 - **Timezone and session controls** -- Switch the chart timeline between exchange-local, UTC, or any IANA timezone. Toggle between regular and extended market sessions when the provider supports it.
 - **Price axis modes** -- Normal, percentage, and logarithmic scaling.
 - **Live bar updates** -- When enabled, the chart streams real-time bar data through the socket connection and merges incoming bars into the visible series.
@@ -34,7 +34,7 @@ Add the Data Chart to any workspace panel. The header is split into three contro
 - **Center (listing)** -- Search and select a symbol. When the widget shares a pair color with a [Watchlist](/widgets/watchlist), clicking a symbol in the Watchlist automatically loads it here.
 - **Right (chart)** -- Change the time interval, candle style, and toggle indicators.
 
-The footer contains range preset buttons (1D through ALL) and a timezone selector. Scroll to zoom, drag to pan, and hover to inspect OHLCV values in the legend overlay.
+The footer contains range preset buttons (1D through ALL) and a timezone selector. Scroll to zoom, drag to pan, and hover to inspect price values in the legend overlay.
 
 <Callout type="info">
 Pair the Data Chart with a Watchlist widget using the same pair color so that selecting a symbol in the watchlist automatically updates the chart.

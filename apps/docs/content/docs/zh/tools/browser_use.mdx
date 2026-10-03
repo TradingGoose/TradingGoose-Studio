@@ -1,0 +1,168 @@
+---
+title: Browser Use
+description: 运行浏览器自动化任务
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="browser_use"
+  color=""
+/>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Browser Use"
+    type="browser_use"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "task",
+            "type": "long-input",
+            "title": "任务",
+            "placeholder": "描述浏览器代理应执行的操作……",
+            "required": true
+        },
+        {
+            "id": "variables",
+            "type": "table",
+            "title": "变量（密钥）"
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "模型",
+            "options": [
+                {
+                    "id": "browser-use-llm",
+                    "label": "Browser Use LLM"
+                },
+                {
+                    "id": "gpt-4o",
+                    "label": "GPT-4o"
+                },
+                {
+                    "id": "gpt-4o-mini",
+                    "label": "GPT-4o Mini"
+                },
+                {
+                    "id": "gpt-4.1",
+                    "label": "GPT-4.1"
+                },
+                {
+                    "id": "gpt-4.1-mini",
+                    "label": "GPT-4.1 Mini"
+                },
+                {
+                    "id": "o3",
+                    "label": "O3"
+                },
+                {
+                    "id": "o4-mini",
+                    "label": "O4 Mini"
+                },
+                {
+                    "id": "gemini-2.5-flash",
+                    "label": "Gemini 2.5 Flash"
+                },
+                {
+                    "id": "gemini-2.5-pro",
+                    "label": "Gemini 2.5 Pro"
+                },
+                {
+                    "id": "gemini-3.1-pro-preview",
+                    "label": "Gemini 3.1 Pro Preview"
+                },
+                {
+                    "id": "gemini-flash-latest",
+                    "label": "Gemini Flash Latest"
+                },
+                {
+                    "id": "gemini-flash-lite-latest",
+                    "label": "Gemini Flash Lite Latest"
+                },
+                {
+                    "id": "claude-3-7-sonnet-20250219",
+                    "label": "Claude 3.7 Sonnet"
+                },
+                {
+                    "id": "claude-sonnet-4-20250514",
+                    "label": "Claude Sonnet 4"
+                },
+                {
+                    "id": "claude-sonnet-4-5-20250929",
+                    "label": "Claude Sonnet 4.5"
+                },
+                {
+                    "id": "claude-opus-4-5-20251101",
+                    "label": "Claude Opus 4.5"
+                },
+                {
+                    "id": "llama-4-maverick-17b-128e-instruct",
+                    "label": "Llama 4 Maverick"
+                }
+            ]
+        },
+        {
+            "id": "save_browser_data",
+            "type": "switch",
+            "title": "保存浏览器数据",
+            "placeholder": "保存浏览器数据"
+        },
+        {
+            "id": "profile_id",
+            "type": "short-input",
+            "title": "配置文件 ID",
+            "placeholder": "输入浏览器配置文件 ID（可选）"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 BrowserUse API 密钥",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+### `browser_use_run_task`
+
+使用 BrowserUse 运行浏览器自动化任务
+
+#### 输入
+
+| 参数 | 类型 | 必需 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `task` | string | 是 | 浏览器代理应执行什么操作 |
+| `variables` | json | 否 | 用作密钥的可选变量 \(格式: \{key: value\}\) |
+| `save_browser_data` | boolean | 否 | 是否保存浏览器数据 |
+| `model` | string | 否 | 要使用的 LLM 模型 \(默认: gpt-4o\) |
+| `apiKey` | string | 是 | BrowserUse API 的 API 密钥 |
+| `profile_id` | string | 否 | 用于持久会话的浏览器配置文件 ID \(Cookie、登录状态\) |
+
+#### 输出
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | string | 任务执行标识符 |
+| `success` | boolean | 任务完成状态 |
+| `output` | json | 任务输出数据 |
+| `steps` | json | 执行步骤 |
+
+## 使用说明
+
+将 Browser Use 集成到工作流中。可以像真实用户与浏览器交互一样浏览网页并执行操作。
+
+## 注意事项
+
+- 类别：`tools`
+- 类型：`browser_use`

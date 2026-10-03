@@ -38,17 +38,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Tool",
             "layout": "full",
             "placeholder": "Select a tool",
-            "description": "Available tools from the selected MCP server",
-            "required": true
+            "description": "Available tools from the selected MCP server. Shown when server is not ''."
         },
         {
             "id": "arguments",
             "type": "mcp-dynamic-args",
-            "layout": "full"
+            "title": "",
+            "layout": "full",
+            "description": "Shown when tool is not ''."
         }
     ]}
   />
 </ShowcaseCard>
+
+## Input
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `server` | string | Yes | MCP server ID to execute the tool on |
+| `tool` | string | No | Name of the tool to execute |
+| `arguments` | json | No | Arguments to pass to the tool |
+
+## Output
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `content` | array | Content array from MCP tool response - the standard format for all MCP tools |
 
 
 ## Usage Instructions

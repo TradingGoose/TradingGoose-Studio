@@ -506,6 +506,7 @@ function MarketPreviewContent() {
       openTimeMsByIndexRef: { current: [] },
       marketSessionsRef: { current: [] },
       intervalMs: LIVE_INTERVAL_MS,
+      seriesVersion: 0,
       dataVersion: 0,
     }),
     []

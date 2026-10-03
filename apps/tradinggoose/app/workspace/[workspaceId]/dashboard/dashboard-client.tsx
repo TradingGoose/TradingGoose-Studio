@@ -19,7 +19,7 @@ import {
   ScrollText,
   Search,
 } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import type { ImperativePanelGroupHandle } from 'react-resizable-panels'
 import { Input } from '@/components/ui/input'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
@@ -35,6 +35,7 @@ import { GlobalNavbarHeader } from '@/global-navbar'
 import { GlobalCopilotDashboardContextPublisher } from '@/global-navbar/copilot-context'
 import { useKnowledgeBasesList } from '@/hooks/use-knowledge'
 import { useRouter } from '@/i18n/navigation'
+import { localizeDocsUrl, stripLocaleFromPathname } from '@/i18n/utils'
 import {
   countDashboardTopologyPanels,
   type DashboardLayoutStructureMutation,
@@ -259,6 +260,7 @@ export function DashboardClient({
   initialLayouts,
 }: DashboardClientProps) {
   const router = useRouter()
+  const locale = useLocale()
   const [docs, setDocs] = useState<DropdownItem[]>([])
   const [searchWorkspaces, setSearchWorkspaces] = useState<DropdownItem[]>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -449,7 +451,20 @@ export function DashboardClient({
     filteredKnowledgeBases.length > 0 ||
     filteredPages.length > 0 ||
     filteredDocs.length > 0
-  const showDropdown = isSearchOpen
+
+  const navigateSearchResult = (href: string, newTab = false) => {
+    const url = new URL(href, window.location.origin)
+    if (url.origin === new URL(localizeDocsUrl(locale)).origin) {
+      href = localizeDocsUrl(
+        locale,
+        `${stripLocaleFromPathname(url.pathname).pathname}${url.search}${url.hash}`
+      )
+    }
+    setIsSearchOpen(false)
+    setSearchQuery('')
+    if (newTab) window.open(href, '_blank', 'noopener,noreferrer')
+    else router.push(href)
+  }
 
   const handleSplitPanelVertical = useCallback(
     (panelId: string) => mutateLayoutStructure({ type: 'split', panelId, direction: 'vertical' }),
@@ -506,7 +521,7 @@ export function DashboardClient({
           }}
           className='h-full w-full rounded-md border bg-background pr-3 pl-10 text-sm'
         />
-        {showDropdown && (
+        {isSearchOpen && (
           <div className='absolute top-full left-0 z-50 mt-2 w-full min-w-[220px] rounded-md border border-border bg-background shadow-lg'>
             <div className='max-h-80 overflow-y-auto'>
               <div className='space-y-2 p-2'>
@@ -514,31 +529,19 @@ export function DashboardClient({
                   title={t('sections.workspaces')}
                   icon={Building2}
                   items={filteredWorkspaces}
-                  onSelect={(href) => {
-                    setIsSearchOpen(false)
-                    setSearchQuery('')
-                    router.push(href)
-                  }}
+                  onSelect={navigateSearchResult}
                 />
                 <DropdownSection
                   title={t('sections.knowledgeBases')}
                   icon={LibraryBig}
                   items={filteredKnowledgeBases}
-                  onSelect={(href) => {
-                    setIsSearchOpen(false)
-                    setSearchQuery('')
-                    router.push(href)
-                  }}
+                  onSelect={navigateSearchResult}
                 />
                 <DropdownSection
                   title={t('sections.pages')}
                   icon={ScrollText}
                   items={filteredPages}
-                  onSelect={(href) => {
-                    setIsSearchOpen(false)
-                    setSearchQuery('')
-                    router.push(href)
-                  }}
+                  onSelect={navigateSearchResult}
                 />
                 {filteredDocs.length > 0 && (
                   <section>
@@ -550,11 +553,7 @@ export function DashboardClient({
                         <button
                           key={doc.id}
                           className='flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-foreground text-sm transition hover:bg-card/50'
-                          onClick={() => {
-                            setIsSearchOpen(false)
-                            setSearchQuery('')
-                            window.open(doc.href, '_blank', 'noopener,noreferrer')
-                          }}
+                          onClick={() => navigateSearchResult(doc.href, true)}
                         >
                           {(() => {
                             const DocIcon = doc.icon ?? BookOpen

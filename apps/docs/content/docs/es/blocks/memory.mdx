@@ -1,0 +1,151 @@
+---
+title: Memoria
+description: Conserva los mensajes de conversación entre ejecuciones del flujo de trabajo
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="memory"
+  color="#F64F9E"
+  icon={true}
+/>
+
+El bloque Memoria almacena y recupera mensajes entre ejecuciones del mismo flujo de trabajo y proporciona historial a los bloques Agent. Add Memory añade mensajes al ID indicado. Todas las operaciones requieren acceso al espacio de trabajo del flujo; las escrituras requieren permiso de escritura.
+
+## Descripción general
+
+<Steps>
+  <Step>
+    <strong>Agregar memoria</strong>: Guarda un mensaje bajo un ID de memoria; reutilizar el ID añade mensajes a la misma conversación
+  </Step>
+  <Step>
+    <strong>Obtener memoria</strong>: Recupera una entrada de memoria por su ID
+  </Step>
+  <Step>
+    <strong>Obtener todas las memorias</strong>: Obtiene hasta 50 registros de memoria del flujo actual
+  </Step>
+  <Step>
+    <strong>Eliminar memoria</strong>: Elimina una entrada de memoria por su ID
+  </Step>
+</Steps>
+
+## Cómo funciona
+
+Las entradas de memoria se almacenan como mensajes estilo chat con tres campos obligatorios: un **ID** que delimita el alcance de la memoria, un **Role** (`user`, `assistant` o `system`) y el texto de **Content**. Cuando después recuperes memorias y las pases a la entrada Memories de un bloque Agent, el agente las verá como turnos previos de la conversación -- lo que habilita un diálogo de varios turnos entre ejecuciones distintas.
+
+Guarda los mensajes de usuario y asistente con Add Memory. En ejecuciones posteriores, usa Get Memory con el mismo ID y pasa el arreglo de mensajes devuelto al campo Memories del Agent.
+
+<Callout type="info">
+  Los ID de memoria delimitan el alcance de la conversación. Usa el mismo ID entre ejecuciones para construir un historial de conversación continuo, o usa ID distintos para mantener hilos separados.
+</Callout>
+
+## Operaciones
+
+<Tabs items={['Agregar memoria', 'Obtener memoria', 'Obtener todas las memorias', 'Eliminar memoria']}>
+  <Tab>
+    Añade un mensaje a la conversación indicada. El contexto de ejecución proporciona automáticamente el flujo de trabajo y el tipo de memoria.
+
+    | Campo | Obligatorio | Descripción |
+    |---|---|---|
+    | **ID** | Sí | Identificador de memoria: agrupa los mensajes en una conversación |
+    | **Rol** | Sí | `user`, `assistant` o `system` |
+    | **Contenido** | Sí | Texto del mensaje a almacenar |
+  </Tab>
+  <Tab>
+    Recupera todos los mensajes almacenados bajo un ID de memoria específico.
+
+    | Campo | Obligatorio | Descripción |
+    |---|---|---|
+    | **ID** | Sí | El identificador de memoria que se va a recuperar |
+  </Tab>
+  <Tab>
+    Devuelve hasta 50 registros de memoria del flujo actual. El bloque no ofrece paginación; no es una exportación del historial completo.
+  </Tab>
+  <Tab>
+    Elimina una entrada de memoria por ID.
+
+    | Campo | Obligatorio | Descripción |
+    |---|---|---|
+    | **ID** | Sí | El identificador de memoria que se va a eliminar |
+  </Tab>
+</Tabs>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Memoria"
+    type="memory"
+    color="#F64F9E"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "placeholder": "Seleccionar operación",
+            "options": [
+                { "label": "Agregar memoria", "id": "add" },
+                { "label": "Obtener todas las memorias", "id": "getAll" },
+                { "label": "Obtener memoria", "id": "get" },
+                { "label": "Eliminar memoria", "id": "delete" }
+            ]
+        },
+        {
+            "id": "id",
+            "type": "short-input",
+            "title": "ID",
+            "layout": "full",
+            "placeholder": "Ingresa el identificador de memoria",
+            "required": true,
+            "condition": { "field": "operation", "value": "add" }
+        },
+        {
+            "id": "role",
+            "type": "dropdown",
+            "title": "Rol",
+            "layout": "full",
+            "placeholder": "Seleccionar rol del agente",
+            "required": true,
+            "options": [
+                { "label": "Usuario", "id": "user" },
+                { "label": "Asistente", "id": "assistant" },
+                { "label": "Sistema", "id": "system" }
+            ],
+            "condition": { "field": "operation", "value": "add" }
+        },
+        {
+            "id": "content",
+            "type": "short-input",
+            "title": "Contenido",
+            "layout": "full",
+            "placeholder": "Ingresa el contenido del mensaje",
+            "required": true,
+            "condition": { "field": "operation", "value": "add" }
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Salidas
+
+| Operación | Salida |
+|---|---|
+| Get Memory | `memories`: arreglo de mensajes del ID seleccionado; `message`: texto de estado |
+| Get All Memories | `memories`: hasta 50 registros con forma `{ key, type, data }`; `message`: texto de estado |
+| Delete Memory | `message`: confirmación de eliminación |
+| Add Memory | `memories`: arreglo de mensajes actualizado de la conversación |
+
+Get All Memories no devuelve un único arreglo plano de mensajes. Selecciona `data` del registro deseado antes de usar su conversación como memoria del Agent. No se devuelve un `id` independiente en el nivel superior.
+
+## Buenas prácticas
+
+- **Usa IDs consistentes** -- el ID de memoria es la clave que agrupa los mensajes en una conversación. Usa un identificador estable (como un ID de usuario o un ID de sesión) para que las memorias se acumulen correctamente entre ejecuciones.
+- **Limpia cuando sea necesario** -- usa la operación Delete para borrar conversaciones obsoletas y evitar un crecimiento ilimitado de la memoria.

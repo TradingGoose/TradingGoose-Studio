@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
 Basic usage examples for the TradingGoose Python SDK
+
+Examples that inspect result attributes assume the workflow does not use a custom Response block.
 """
 
 import os
@@ -154,35 +156,8 @@ def batch_execution_example():
     return results
 
 
-def streaming_example():
-    """Example 6: Workflow execution with streaming"""
-    client = TradingGooseClient(api_key=os.getenv("TRADINGGOOSE_API_KEY"))
-
-    try:
-        result = client.execute_workflow(
-            "your-workflow-id",
-            input_data={"message": "Count to five"},
-            stream=True,
-            selected_outputs=["agent1.content"],  # Use blockName.attribute format
-            timeout=60.0
-        )
-
-        if result.success:
-            print("✅ Workflow executed successfully!")
-            print(f"Output: {result.output}")
-            if result.metadata:
-                print(f"Duration: {result.metadata.get('duration')} ms")
-        else:
-            print(f"❌ Workflow failed: {result.error}")
-
-    except TradingGooseError as error:
-        print(f"SDK Error: {error} (Code: {error.code})")
-    except Exception as error:
-        print(f"Unexpected error: {error}")
-
-
 def error_handling_example():
-    """Example 7: Comprehensive error handling"""
+    """Example 6: Comprehensive error handling"""
     client = TradingGooseClient(api_key=os.getenv("TRADINGGOOSE_API_KEY"))
 
     try:
@@ -196,13 +171,13 @@ def error_handling_example():
             print(f"❌ Workflow failed: {result.error}")
             return result
     except TradingGooseError as error:
-        if error.code == "UNAUTHORIZED":
+        if error.status == 401:
             print("❌ Invalid API key")
         elif error.code == "TIMEOUT":
             print("⏱️  Workflow execution timed out")
         elif error.code == "USAGE_LIMIT_EXCEEDED":
             print("💳 Usage limit exceeded")
-        elif error.code == "INVALID_JSON":
+        elif error.code == "INVALID_JSON_IN_REQUEST_BODY":
             print("📝 Invalid JSON in request body")
         elif error.status == 404:
             print("🔍 Workflow not found")
@@ -245,11 +220,7 @@ if __name__ == "__main__":
         batch_execution_example()
         print("\n✅ Batch execution example completed\n")
 
-        print("6️⃣ Streaming Example:")
-        streaming_example()
-        print("\n✅ Streaming example completed\n")
-
-        print("7️⃣ Error Handling Example:")
+        print("6️⃣ Error Handling Example:")
         error_handling_example()
         print("\n✅ Error handling example completed\n")
 

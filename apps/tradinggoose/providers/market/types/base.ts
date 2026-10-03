@@ -56,6 +56,13 @@ export interface MarketProviderParams {
 export type MarketProviderAuth = {
   apiKey?: string
   apiSecret?: string
+  // Resolved on the server from the authenticated user's OAuth connection.
+  accessToken?: string
+}
+
+export interface MarketProviderRequestContext {
+  userId?: string
+  requestId?: string
 }
 
 export interface MarketRequestBase {

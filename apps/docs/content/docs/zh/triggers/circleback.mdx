@@ -1,0 +1,351 @@
+---
+title: Circleback 触发器
+description: 当 Circleback 中的会议处理完成并就绪时触发工作流
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="circleback"
+  color=""
+/>
+
+当 Circleback 中的会议处理完成并就绪时触发工作流
+
+<Callout type="info">
+  这是 **基于 webhook** 的触发器。请将外部服务配置为向工作流 webhook URL 发送事件。
+</Callout>
+
+<Cards>
+  <Card title="用作工具" href="/tools/circleback">
+    查看 Circleback 的工作流操作、运算和工具输入。
+  </Card>
+</Cards>
+
+## 事件
+
+### Circleback 会议已完成
+
+当 Circleback 中的会议处理完成并就绪时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>注意：</strong> 你需要拥有 Circleback 自动化权限才能设置 webhook。</div><div class="mb-3"><strong>1.</strong> 在 Circleback 中，点击侧边栏的 <strong>Automations</strong>。</div><div class="mb-3"><strong>2.</strong> 创建新自动化，或编辑现有自动化。</div><div class="mb-3"><strong>3.</strong> 在自动化中添加 <strong>Send webhook request</strong> 步骤。</div><div class="mb-3"><strong>4.</strong> 将上方的 <strong>Webhook URL</strong> 粘贴到 Endpoint 字段。</div><div class="mb-3"><strong>5.</strong> 可选：从 Circleback 复制 <strong>Signing Secret</strong>，粘贴到上方以验证 webhook 签名。</div><div class="mb-3"><strong>6.</strong> 选择请求中要包含的内容（Meeting notes、Action items、Transcript）。此触发器请选择 <strong>All meeting data</strong>。</div><div class="mb-3"><strong>7.</strong> 点击 <strong>"Done"</strong> 并保存自动化。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Circleback 会议已完成"
+    type="circleback_meeting_completed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "签名密钥",
+            "placeholder": "粘贴来自 Circleback 的签名密钥（可选）",
+            "description": "使用 HMAC-SHA256 验证 webhook 投递来自 Circleback。",
+            "password": true,
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件负载"
+  fields={[
+      {
+          "name": "id",
+          "type": "number",
+          "description": "Circleback 会议 ID"
+      },
+      {
+          "name": "name",
+          "type": "string",
+          "description": "会议标题/名称"
+      },
+      {
+          "name": "url",
+          "type": "string",
+          "description": "线上会议 URL（Zoom、Google Meet、Teams 等）"
+      },
+      {
+          "name": "createdAt",
+          "type": "string",
+          "description": "会议创建时的 ISO8601 时间戳"
+      },
+      {
+          "name": "duration",
+          "type": "number",
+          "description": "会议时长（秒）"
+      },
+      {
+          "name": "recordingUrl",
+          "type": "string",
+          "description": "录制 URL（若已启用，有效期 24 小时）"
+      },
+      {
+          "name": "tags",
+          "type": "array",
+          "description": "标签字符串数组"
+      },
+      {
+          "name": "icalUid",
+          "type": "string",
+          "description": "日历事件标识符"
+      },
+      {
+          "name": "attendees",
+          "type": "array",
+          "description": "包含姓名和邮箱的参会者对象数组"
+      },
+      {
+          "name": "notes",
+          "type": "string",
+          "description": "Markdown 格式的会议纪要"
+      },
+      {
+          "name": "actionItems",
+          "type": "array",
+          "description": "包含 id、title、description、assignee、status 的待办事项对象数组"
+      },
+      {
+          "name": "transcript",
+          "type": "array",
+          "description": "包含发言人、文本和时间戳（秒）的转录片段数组"
+      },
+      {
+          "name": "insights",
+          "type": "object",
+          "description": "用户创建的洞察，以洞察名称为键，每项包含洞察结果数组"
+      },
+      {
+          "name": "meeting",
+          "type": "object",
+          "description": "完整会议负载对象"
+      }
+  ]}
+/>
+
+---
+
+### Circleback 会议纪要已就绪
+
+会议纪要和待办事项就绪时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>注意：</strong>设置 webhook 需要具备 Circleback 自动化权限。</div><div class="mb-3"><strong>1.</strong> 在 Circleback 中，点击侧边栏的 <strong>Automations</strong>。</div><div class="mb-3"><strong>2.</strong> 创建新自动化，或编辑现有自动化。</div><div class="mb-3"><strong>3.</strong> 在自动化中添加 <strong>Send webhook request</strong> 步骤。</div><div class="mb-3"><strong>4.</strong> 将上方的 <strong>Webhook URL</strong> 粘贴到 Endpoint 字段。</div><div class="mb-3"><strong>5.</strong> 可选：从 Circleback 复制 <strong>Signing Secret</strong>，粘贴到上方以验证 webhook 签名。</div><div class="mb-3"><strong>6.</strong> 选择请求中要包含的内容（Meeting notes、Action items、Transcript）。此触发器请选择：<strong>Meeting notes and action items</strong>。</div><div class="mb-3"><strong>7.</strong> 点击 <strong>"Done"</strong> 并保存自动化。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Circleback 会议纪要已就绪"
+    type="circleback_meeting_notes"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "签名密钥",
+            "placeholder": "粘贴来自 Circleback 的签名密钥（可选）",
+            "description": "使用 HMAC-SHA256 验证 Webhook 投递来自 Circleback。",
+            "password": true,
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "id",
+          "type": "number",
+          "description": "Circleback 会议 ID"
+      },
+      {
+          "name": "name",
+          "type": "string",
+          "description": "会议标题/名称"
+      },
+      {
+          "name": "url",
+          "type": "string",
+          "description": "线上会议 URL（Zoom、Google Meet、Teams 等）"
+      },
+      {
+          "name": "createdAt",
+          "type": "string",
+          "description": "会议创建时的 ISO8601 时间戳"
+      },
+      {
+          "name": "duration",
+          "type": "number",
+          "description": "会议时长（秒）"
+      },
+      {
+          "name": "recordingUrl",
+          "type": "string",
+          "description": "录制 URL（若已启用，有效期 24 小时）"
+      },
+      {
+          "name": "tags",
+          "type": "array",
+          "description": "标签字符串数组"
+      },
+      {
+          "name": "icalUid",
+          "type": "string",
+          "description": "日历事件标识符"
+      },
+      {
+          "name": "attendees",
+          "type": "array",
+          "description": "包含 name 和 email 的参会者对象数组"
+      },
+      {
+          "name": "notes",
+          "type": "string",
+          "description": "Markdown 格式的会议纪要"
+      },
+      {
+          "name": "actionItems",
+          "type": "array",
+          "description": "行动项对象数组，包含 id、title、description、assignee、status"
+      },
+      {
+          "name": "transcript",
+          "type": "array",
+          "description": "转录片段数组，包含 speaker、text 和 timestamp（秒）"
+      },
+      {
+          "name": "insights",
+          "type": "object",
+          "description": "用户创建的洞察，以洞察名称为键，每项包含洞察结果数组"
+      },
+      {
+          "name": "meeting",
+          "type": "object",
+          "description": "完整会议载荷对象"
+      }
+  ]}
+/>
+
+---
+
+### Circleback Webhook
+
+适用于所有 Circleback 事件的通用 Webhook 触发器
+
+#### 设置说明
+
+<div class="mb-3"><strong>注意：</strong>你需要具备 Circleback 自动化访问权限才能设置 webhook。</div><div class="mb-3"><strong>1.</strong> 在 Circleback 中，点击侧边栏的<strong>自动化</strong>。</div><div class="mb-3"><strong>2.</strong> 创建新自动化，或编辑现有自动化。</div><div class="mb-3"><strong>3.</strong> 在自动化中添加<strong>发送 webhook 请求</strong>步骤。</div><div class="mb-3"><strong>4.</strong> 将上方的<strong>Webhook URL</strong>粘贴到「端点」字段。</div><div class="mb-3"><strong>5.</strong> 可选：从 Circleback 复制<strong>签名密钥</strong>并粘贴到上方，用于验证 webhook 签名。</div><div class="mb-3"><strong>6.</strong> 选择请求中要包含的内容（会议纪要、待办事项、转录）。此触发器请选择：<strong>所有事件</strong>。</div><div class="mb-3"><strong>7.</strong> 点击<strong>「完成」</strong>并保存自动化。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Circleback Webhook"
+    type="circleback_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "签名密钥",
+            "placeholder": "粘贴来自 Circleback 的签名密钥（可选）",
+            "description": "使用 HMAC-SHA256 验证 webhook 投递来自 Circleback。",
+            "password": true,
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出结构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "id",
+          "type": "number",
+          "description": "Circleback 会议 ID"
+      },
+      {
+          "name": "name",
+          "type": "string",
+          "description": "会议标题/名称"
+      },
+      {
+          "name": "url",
+          "type": "string",
+          "description": "线上会议 URL（Zoom、Google Meet、Teams 等）"
+      },
+      {
+          "name": "createdAt",
+          "type": "string",
+          "description": "会议创建时间的 ISO8601 时间戳"
+      },
+      {
+          "name": "duration",
+          "type": "number",
+          "description": "会议时长（秒）"
+      },
+      {
+          "name": "recordingUrl",
+          "type": "string",
+          "description": "录制 URL（如已启用，有效期 24 小时）"
+      },
+      {
+          "name": "tags",
+          "type": "array",
+          "description": "标签字符串数组"
+      },
+      {
+          "name": "icalUid",
+          "type": "string",
+          "description": "日历事件标识符"
+      },
+      {
+          "name": "attendees",
+          "type": "array",
+          "description": "与会者对象数组，包含姓名和邮箱"
+      },
+      {
+          "name": "notes",
+          "type": "string",
+          "description": "Markdown 格式的会议纪要"
+      },
+      {
+          "name": "actionItems",
+          "type": "array",
+          "description": "待办事项对象数组，包含 id、title、description、assignee、status"
+      },
+      {
+          "name": "transcript",
+          "type": "array",
+          "description": "转录片段数组，包含 speaker、text 和时间戳（秒）"
+      },
+      {
+          "name": "insights",
+          "type": "object",
+          "description": "用户创建的洞察，以洞察名称为键，每个值包含洞察结果数组"
+      },
+      {
+          "name": "meeting",
+          "type": "object",
+          "description": "完整会议载荷对象"
+      }
+  ]}
+/>
+
+---

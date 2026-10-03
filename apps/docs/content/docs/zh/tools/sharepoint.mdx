@@ -1,0 +1,915 @@
+---
+title: Sharepoint
+description: 处理页面和列表
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="sharepoint"
+  color="#1A9BA1"
+/>
+
+## 配置
+
+### 创建页面
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sharepoint"
+    type="sharepoint"
+    color="#1A9BA1"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "create_page",
+                    "label": "创建页面"
+                },
+                {
+                    "id": "read_page",
+                    "label": "读取页面"
+                },
+                {
+                    "id": "list_sites",
+                    "label": "列出站点"
+                },
+                {
+                    "id": "create_list",
+                    "label": "创建列表"
+                },
+                {
+                    "id": "read_list",
+                    "label": "读取列表"
+                },
+                {
+                    "id": "update_list",
+                    "label": "更新列表"
+                },
+                {
+                    "id": "add_list_items",
+                    "label": "添加列表项"
+                },
+                {
+                    "id": "upload_file",
+                    "label": "上传文件"
+                }
+            ],
+            "defaultValue": "create_page"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft 账户",
+            "layout": "full",
+            "placeholder": "选择 Microsoft 账户",
+            "provider": "sharepoint"
+        },
+        {
+            "id": "siteSelector",
+            "type": "file-selector",
+            "title": "选择站点",
+            "layout": "full",
+            "placeholder": "选择站点",
+            "provider": "microsoft"
+        },
+        {
+            "id": "pageName",
+            "type": "short-input",
+            "title": "页面名称",
+            "layout": "full",
+            "placeholder": "页面名称"
+        },
+        {
+            "id": "manualSiteId",
+            "type": "short-input",
+            "title": "站点 ID",
+            "layout": "full",
+            "placeholder": "输入站点 ID（留空则使用根站点）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建页面（<code>sharepoint_create_page</code>）</div>
+
+在 SharePoint 站点中创建新页面
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 否 | SharePoint 站点的 ID |
+| `pageName` | string | 是 | 要创建的页面名称 |
+| `pageTitle` | string | 否 | 页面标题（未提供时默认为页面名称） |
+| `pageContent` | string | 否 | 页面内容 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `page` | object | 已创建的 SharePoint 页面信息 |
+
+</div>
+
+---
+
+### 读取页面
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sharepoint"
+    type="sharepoint"
+    color="#1A9BA1"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "create_page",
+                    "label": "创建页面"
+                },
+                {
+                    "id": "read_page",
+                    "label": "读取页面"
+                },
+                {
+                    "id": "list_sites",
+                    "label": "列出站点"
+                },
+                {
+                    "id": "create_list",
+                    "label": "创建列表"
+                },
+                {
+                    "id": "read_list",
+                    "label": "读取列表"
+                },
+                {
+                    "id": "update_list",
+                    "label": "更新列表"
+                },
+                {
+                    "id": "add_list_items",
+                    "label": "添加列表项"
+                },
+                {
+                    "id": "upload_file",
+                    "label": "上传文件"
+                }
+            ],
+            "defaultValue": "read_page"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft 帐户",
+            "layout": "full",
+            "placeholder": "选择 Microsoft 帐户",
+            "provider": "sharepoint"
+        },
+        {
+            "id": "siteSelector",
+            "type": "file-selector",
+            "title": "选择站点",
+            "layout": "full",
+            "placeholder": "选择站点",
+            "provider": "microsoft"
+        },
+        {
+            "id": "pageName",
+            "type": "short-input",
+            "title": "页面名称",
+            "layout": "full",
+            "placeholder": "页面名称"
+        },
+        {
+            "id": "pageId",
+            "type": "short-input",
+            "title": "页面 ID",
+            "layout": "full",
+            "placeholder": "页面 ID（页面名称的替代项）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">读取页面（<code>sharepoint_read_page</code>）</div>
+
+从 SharePoint 站点读取指定页面
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 否 | SharePoint 站点的 ID |
+| `pageId` | string | 否 | 要读取的页面 ID |
+| `pageName` | string | 否 | 要读取的页面名称（pageId 的替代项） |
+| `maxPages` | number | 否 | 列出全部页面时返回的最大数量（默认：10，最大：50） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `page` | object | SharePoint 页面信息 |
+| `pages` | array | SharePoint 页面列表 |
+| `content` | object | SharePoint 页面内容 |
+| `totalPages` | number | 找到的页面总数 |
+
+</div>
+
+---
+
+### 列出网站
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sharepoint"
+    type="sharepoint"
+    color="#1A9BA1"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "create_page",
+                    "label": "创建页面"
+                },
+                {
+                    "id": "read_page",
+                    "label": "读取页面"
+                },
+                {
+                    "id": "list_sites",
+                    "label": "列出网站"
+                },
+                {
+                    "id": "create_list",
+                    "label": "创建列表"
+                },
+                {
+                    "id": "read_list",
+                    "label": "读取列表"
+                },
+                {
+                    "id": "update_list",
+                    "label": "更新列表"
+                },
+                {
+                    "id": "add_list_items",
+                    "label": "添加列表项"
+                },
+                {
+                    "id": "upload_file",
+                    "label": "上传文件"
+                }
+            ],
+            "defaultValue": "list_sites"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft 帐户",
+            "layout": "full",
+            "placeholder": "选择 Microsoft 帐户",
+            "provider": "sharepoint"
+        },
+        {
+            "id": "siteSelector",
+            "type": "file-selector",
+            "title": "选择网站",
+            "layout": "full",
+            "placeholder": "选择一个网站",
+            "provider": "microsoft"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出网站 (<code>sharepoint_list_sites</code>)</div>
+
+列出所有 SharePoint 网站的详细信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 否 | SharePoint 网站的 ID |
+| `groupId` | string | 否 | 用于访问组团队网站的组 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `site` | object | 当前 SharePoint 站点的信息 |
+| `sites` | array | 所有可访问的 SharePoint 站点列表 |
+
+</div>
+
+---
+
+### 创建列表
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sharepoint"
+    type="sharepoint"
+    color="#1A9BA1"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "create_page",
+                    "label": "创建页面"
+                },
+                {
+                    "id": "read_page",
+                    "label": "读取页面"
+                },
+                {
+                    "id": "list_sites",
+                    "label": "列出站点"
+                },
+                {
+                    "id": "create_list",
+                    "label": "创建列表"
+                },
+                {
+                    "id": "read_list",
+                    "label": "读取列表"
+                },
+                {
+                    "id": "update_list",
+                    "label": "更新列表"
+                },
+                {
+                    "id": "add_list_items",
+                    "label": "添加列表项"
+                },
+                {
+                    "id": "upload_file",
+                    "label": "上传文件"
+                }
+            ],
+            "defaultValue": "create_list"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft 帐户",
+            "layout": "full",
+            "placeholder": "选择 Microsoft 帐户",
+            "provider": "sharepoint"
+        },
+        {
+            "id": "siteSelector",
+            "type": "file-selector",
+            "title": "选择站点",
+            "layout": "full",
+            "placeholder": "选择站点",
+            "provider": "microsoft"
+        },
+        {
+            "id": "listDisplayName",
+            "type": "short-input",
+            "title": "列表显示名称",
+            "layout": "full",
+            "placeholder": "列表名称"
+        },
+        {
+            "id": "listTemplate",
+            "type": "short-input",
+            "title": "列表模板",
+            "layout": "full",
+            "placeholder": "模板（例如 'genericList'）"
+        },
+        {
+            "id": "pageContent",
+            "type": "long-input",
+            "title": "页面内容",
+            "layout": "full",
+            "placeholder": "请提供页面内容"
+        },
+        {
+            "id": "listDescription",
+            "type": "long-input",
+            "title": "列表说明",
+            "layout": "full",
+            "placeholder": "可选说明"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建列表 (<code>sharepoint_create_list</code>)</div>
+
+在 SharePoint 站点中创建新列表
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 否 | SharePoint 站点的 ID |
+| `listDisplayName` | string | 是 | 要创建的列表的显示名称 |
+| `listDescription` | string | 否 | 列表的描述 |
+| `listTemplate` | string | 否 | 列表模板名称 \(例如 'genericList'\) |
+| `pageContent` | string | 否 | 可选的列 JSON。可以是列定义组成的顶层数组，也可以是包含 \{ columns: \[...\] \} 的对象。 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `list` | object | 已创建的 SharePoint 列表信息 |
+
+</div>
+
+---
+
+### 读取列表
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sharepoint"
+    type="sharepoint"
+    color="#1A9BA1"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "create_page",
+                    "label": "创建页面"
+                },
+                {
+                    "id": "read_page",
+                    "label": "读取页面"
+                },
+                {
+                    "id": "list_sites",
+                    "label": "列出站点"
+                },
+                {
+                    "id": "create_list",
+                    "label": "创建列表"
+                },
+                {
+                    "id": "read_list",
+                    "label": "读取列表"
+                },
+                {
+                    "id": "update_list",
+                    "label": "更新列表"
+                },
+                {
+                    "id": "add_list_items",
+                    "label": "添加列表项"
+                },
+                {
+                    "id": "upload_file",
+                    "label": "上传文件"
+                }
+            ],
+            "defaultValue": "read_list"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft 账户",
+            "layout": "full",
+            "placeholder": "选择 Microsoft 账户",
+            "provider": "sharepoint"
+        },
+        {
+            "id": "siteSelector",
+            "type": "file-selector",
+            "title": "选择站点",
+            "layout": "full",
+            "placeholder": "选择站点",
+            "provider": "microsoft"
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "列表 ID",
+            "layout": "full",
+            "placeholder": "输入列表 ID（GUID）。更新时必填；读取时可选。"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">读取列表 (<code>sharepoint_get_list</code>)</div>
+
+获取 SharePoint 列表的元数据（以及可选的列/项）
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 否 | SharePoint 站点的 ID |
+| `listId` | string | 否 | 要获取的列表 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `list` | object | SharePoint 列表的相关信息 |
+| `lists` | array | 未提供 listId/title 时返回站点中的所有列表 |
+
+</div>
+
+---
+
+### 更新列表
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sharepoint"
+    type="sharepoint"
+    color="#1A9BA1"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "create_page",
+                    "label": "创建页面"
+                },
+                {
+                    "id": "read_page",
+                    "label": "读取页面"
+                },
+                {
+                    "id": "list_sites",
+                    "label": "列出站点"
+                },
+                {
+                    "id": "create_list",
+                    "label": "创建列表"
+                },
+                {
+                    "id": "read_list",
+                    "label": "读取列表"
+                },
+                {
+                    "id": "update_list",
+                    "label": "更新列表"
+                },
+                {
+                    "id": "add_list_items",
+                    "label": "添加列表项"
+                },
+                {
+                    "id": "upload_file",
+                    "label": "上传文件"
+                }
+            ],
+            "defaultValue": "update_list"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft 帐户",
+            "layout": "full",
+            "placeholder": "选择 Microsoft 帐户",
+            "provider": "sharepoint"
+        },
+        {
+            "id": "siteSelector",
+            "type": "file-selector",
+            "title": "选择站点",
+            "layout": "full",
+            "placeholder": "选择站点",
+            "provider": "microsoft"
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "列表 ID",
+            "layout": "full",
+            "placeholder": "输入列表 ID（GUID）。更新时必填；读取时可选。"
+        },
+        {
+            "id": "listItemId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "layout": "full",
+            "placeholder": "输入项目 ID"
+        },
+        {
+            "id": "listItemFields",
+            "type": "long-input",
+            "title": "列表项字段",
+            "layout": "full",
+            "placeholder": "输入列表项字段"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新列表 (<code>sharepoint_update_list</code>)</div>
+
+更新 SharePoint 列表项的属性（字段）
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 否 | SharePoint 站点的 ID |
+| `listId` | string | 否 | 包含该项目的列表 ID |
+| `itemId` | string | 是 | 要更新的列表项 ID |
+| `listItemFields` | object | 是 | 要更新到列表项的字段值 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `item` | object | 已更新的 SharePoint 列表项 |
+
+</div>
+
+---
+
+### 添加列表项
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sharepoint"
+    type="sharepoint"
+    color="#1A9BA1"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "create_page",
+                    "label": "创建页面"
+                },
+                {
+                    "id": "read_page",
+                    "label": "读取页面"
+                },
+                {
+                    "id": "list_sites",
+                    "label": "列出站点"
+                },
+                {
+                    "id": "create_list",
+                    "label": "创建列表"
+                },
+                {
+                    "id": "read_list",
+                    "label": "读取列表"
+                },
+                {
+                    "id": "update_list",
+                    "label": "更新列表"
+                },
+                {
+                    "id": "add_list_items",
+                    "label": "添加列表项"
+                },
+                {
+                    "id": "upload_file",
+                    "label": "上传文件"
+                }
+            ],
+            "defaultValue": "add_list_items"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft 账户",
+            "layout": "full",
+            "placeholder": "选择 Microsoft 账户",
+            "provider": "sharepoint"
+        },
+        {
+            "id": "siteSelector",
+            "type": "file-selector",
+            "title": "选择站点",
+            "layout": "full",
+            "placeholder": "选择站点",
+            "provider": "microsoft"
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "列表 ID",
+            "layout": "full",
+            "placeholder": "输入列表 ID（GUID）。更新时必填；读取时可选。"
+        },
+        {
+            "id": "listItemFields",
+            "type": "long-input",
+            "title": "列表项字段",
+            "layout": "full",
+            "placeholder": "输入列表项字段"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">添加列表项（<code>sharepoint_add_list_items</code>）</div>
+
+向 SharePoint 列表添加新项
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | 否 | SharePoint 站点的 ID |
+| `listId` | string | 是 | 要添加项的列表 ID |
+| `listItemFields` | object | 是 | 新列表项的字段值 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `item` | object | 已创建的 SharePoint 列表项 |
+
+</div>
+
+---
+
+### 上传文件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sharepoint"
+    type="sharepoint"
+    color="#1A9BA1"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "create_page",
+                    "label": "创建页面"
+                },
+                {
+                    "id": "read_page",
+                    "label": "读取页面"
+                },
+                {
+                    "id": "list_sites",
+                    "label": "列出站点"
+                },
+                {
+                    "id": "create_list",
+                    "label": "创建列表"
+                },
+                {
+                    "id": "read_list",
+                    "label": "读取列表"
+                },
+                {
+                    "id": "update_list",
+                    "label": "更新列表"
+                },
+                {
+                    "id": "add_list_items",
+                    "label": "添加列表项"
+                },
+                {
+                    "id": "upload_file",
+                    "label": "上传文件"
+                }
+            ],
+            "defaultValue": "upload_file"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft 帐户",
+            "layout": "full",
+            "placeholder": "选择 Microsoft 帐户",
+            "provider": "sharepoint"
+        },
+        {
+            "id": "siteSelector",
+            "type": "file-selector",
+            "title": "选择站点",
+            "layout": "full",
+            "placeholder": "选择站点",
+            "provider": "microsoft"
+        },
+        {
+            "id": "driveId",
+            "type": "short-input",
+            "title": "文档库 ID",
+            "layout": "full",
+            "placeholder": "输入文档库（drive）ID"
+        },
+        {
+            "id": "folderPath",
+            "type": "short-input",
+            "title": "文件夹路径",
+            "layout": "full",
+            "placeholder": "可选文件夹路径（例如 /Documents/Subfolder）",
+            "required": false
+        },
+        {
+            "id": "fileName",
+            "type": "short-input",
+            "title": "文件名",
+            "layout": "full",
+            "placeholder": "可选：覆盖上传文件的文件名",
+            "required": false
+        },
+        {
+            "id": "uploadFiles",
+            "type": "file-upload",
+            "title": "文件",
+            "layout": "full",
+            "placeholder": "将文件上传到 SharePoint",
+            "required": false
+        },
+        {
+            "id": "files",
+            "type": "short-input",
+            "title": "文件",
+            "layout": "full",
+            "placeholder": "引用先前块中的文件",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">上传文件（<code>sharepoint_upload_file</code>）</div>
+
+将文件上传到 SharePoint 文档库
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `driveId` | string | 否 | 文档库（drive）的 ID。未提供时使用默认驱动器。 |
+| `folderPath` | string | 否 | 文档库内的可选文件夹路径（例如 /Documents/Subfolder） |
+| `fileName` | string | 否 | 可选：覆盖上传后的文件名 |
+| `files` | file[] | 否 | 要上传到 SharePoint 的文件 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `uploadedFiles` | array | 已上传文件对象的数组 |
+| `fileCount` | number | 已上传的文件数量 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 SharePoint 集成到工作流。读取/创建页面、列出站点，并处理列表（读取、创建、更新项目）。需要 OAuth。
+
+## 注意事项
+
+- 分类：`tools`
+- 类型：`sharepoint`

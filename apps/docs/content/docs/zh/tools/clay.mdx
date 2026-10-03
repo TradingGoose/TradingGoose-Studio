@@ -1,0 +1,83 @@
+---
+title: Clay
+description: 填充 Clay 工作簿
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="clay"
+  color=""
+/>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Clay"
+    type="clay"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "webhookURL",
+            "type": "short-input",
+            "title": "Webhook URL",
+            "layout": "full",
+            "placeholder": "输入 Clay Webhook URL",
+            "required": true
+        },
+        {
+            "id": "data",
+            "type": "long-input",
+            "title": "数据（JSON 或纯文本）",
+            "layout": "full",
+            "placeholder": "输入 JSON 数据以填充 Clay 表格",
+            "description": "JSON 与纯文本：\nJSON：最适合填充多列。\n纯文本：最适合以自由格式填充表格。\n      ",
+            "required": true
+        },
+        {
+            "id": "authToken",
+            "type": "short-input",
+            "title": "认证令牌",
+            "layout": "full",
+            "placeholder": "输入您的 Clay Webhook 认证令牌",
+            "description": "可选：如果您的 Clay 表格启用了 Webhook 认证，请在此输入认证令牌。它会通过 x-clay-webhook-auth 请求头发送。",
+            "password": true,
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+### `clay_populate`
+
+使用 JSON 文件中的数据填充 Clay。支持直接通信和通知，并具备时间戳跟踪与渠道确认功能。
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `webhookURL` | string | 是 | 要填充的 Webhook URL |
+| `data` | json | 是 | 要填充的数据 |
+| `authToken` | string | 否 | 可选的 Clay Webhook 认证令牌 \(大多数 Webhook 不需要\) |
+
+#### 输出
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `data` | json | 来自 Clay Webhook 的响应数据 |
+| `metadata` | object | Webhook 响应元数据 |
+
+## 使用说明
+
+将 Clay 集成到工作流中。可向表格填充数据。
+
+## 注意事项
+
+- 类别：`tools`
+- 类型：`clay`

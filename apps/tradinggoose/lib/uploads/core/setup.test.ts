@@ -14,7 +14,7 @@ async function loadSetup(env: Record<string, string | undefined>) {
 
 describe('uploads setup', () => {
   afterEach(() => {
-    vi.unmock('@/lib/env')
+    vi.doUnmock('@/lib/env')
   })
 
   it.each([

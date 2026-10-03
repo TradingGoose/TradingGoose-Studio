@@ -1,0 +1,169 @@
+---
+title: LinkedIn
+description: 分享帖子并管理你的 LinkedIn 形象
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="linkedin"
+  color="#0072B1"
+/>
+
+## 配置
+
+### 分享帖子
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="LinkedIn"
+    type="linkedin"
+    color="#0072B1"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "share_post",
+            "options": [
+                {
+                    "id": "share_post",
+                    "label": "分享帖子"
+                },
+                {
+                    "id": "get_profile",
+                    "label": "获取个人资料"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "LinkedIn 账户",
+            "placeholder": "选择 LinkedIn 账户",
+            "provider": "linkedin",
+            "required": true
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "帖子文本",
+            "placeholder": "你想在 LinkedIn 上分享什么？",
+            "required": true
+        },
+        {
+            "id": "visibility",
+            "type": "dropdown",
+            "title": "可见性",
+            "required": true,
+            "defaultValue": "PUBLIC",
+            "options": [
+                {
+                    "id": "PUBLIC",
+                    "label": "公开"
+                },
+                {
+                    "id": "CONNECTIONS",
+                    "label": "仅限人脉"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">分享帖子 (<code>linkedin_share_post</code>)</div>
+
+将帖子分享到你的个人 LinkedIn 动态
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `text` | string | 是 | LinkedIn 帖子的文本内容 |
+| `visibility` | string | 否 | 谁可以看到此帖子："PUBLIC" 或 "CONNECTIONS" \(默认："PUBLIC"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出（块级契约）</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作成功状态 |
+| `postId` | string | 创建的帖子 ID |
+| `profile` | json | LinkedIn 个人资料信息 |
+| `error` | string | 操作失败时的错误信息 |
+
+</div>
+
+---
+
+### 获取个人资料
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="LinkedIn"
+    type="linkedin"
+    color="#0072B1"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_profile",
+            "options": [
+                {
+                    "id": "share_post",
+                    "label": "分享帖子"
+                },
+                {
+                    "id": "get_profile",
+                    "label": "获取个人资料"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "LinkedIn 账户",
+            "placeholder": "选择 LinkedIn 账户",
+            "provider": "linkedin",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取个人资料 (<code>linkedin_get_profile</code>)</div>
+
+获取你的 LinkedIn 个人资料信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+此操作没有直接参数。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出（块级契约）</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作成功状态 |
+| `postId` | string | 创建的帖子 ID |
+| `profile` | json | LinkedIn 个人资料信息 |
+| `error` | string | 操作失败时的错误信息 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 LinkedIn 集成到工作流中。分享帖子到你的个人动态，并访问你的 LinkedIn 个人资料信息。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`linkedin`

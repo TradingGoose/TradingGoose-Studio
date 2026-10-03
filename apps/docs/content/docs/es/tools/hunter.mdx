@@ -1,0 +1,705 @@
+---
+title: Hunter io
+description: Encuentra y verifica direcciones de correo electrónico profesionales
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="hunter"
+  color=""
+/>
+
+## Configuración
+
+### Búsqueda de dominio
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Hunter io"
+    type="hunter"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "hunter_domain_search",
+            "options": [
+                {
+                    "id": "hunter_domain_search",
+                    "label": "Búsqueda de dominio"
+                },
+                {
+                    "id": "hunter_email_finder",
+                    "label": "Buscador de correos"
+                },
+                {
+                    "id": "hunter_email_verifier",
+                    "label": "Verificador de correos"
+                },
+                {
+                    "id": "hunter_discover",
+                    "label": "Descubrir empresas"
+                },
+                {
+                    "id": "hunter_companies_find",
+                    "label": "Buscar empresa"
+                },
+                {
+                    "id": "hunter_email_count",
+                    "label": "Recuento de correos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Hunter.io",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Dominio",
+            "layout": "full",
+            "placeholder": "Introduce el nombre de dominio (p. ej., stripe.com)",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Número de resultados",
+            "layout": "full",
+            "placeholder": "10"
+        },
+        {
+            "id": "type",
+            "type": "dropdown",
+            "title": "Tipo de correo",
+            "layout": "full",
+            "defaultValue": "all",
+            "options": [
+                {
+                    "id": "all",
+                    "label": "Todos"
+                },
+                {
+                    "id": "personal",
+                    "label": "Personal"
+                },
+                {
+                    "id": "generic",
+                    "label": "Genérico"
+                }
+            ]
+        },
+        {
+            "id": "seniority",
+            "type": "dropdown",
+            "title": "Nivel de antigüedad",
+            "layout": "full",
+            "defaultValue": "all",
+            "options": [
+                {
+                    "id": "all",
+                    "label": "Todos"
+                },
+                {
+                    "id": "junior",
+                    "label": "Junior"
+                },
+                {
+                    "id": "senior",
+                    "label": "Senior"
+                },
+                {
+                    "id": "executive",
+                    "label": "Ejecutivo"
+                }
+            ]
+        },
+        {
+            "id": "department",
+            "type": "short-input",
+            "title": "Departamento",
+            "layout": "full",
+            "placeholder": "p. ej., ventas, marketing, ingeniería"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Búsqueda de dominio (<code>hunter_domain_search</code>)</div>
+
+Devuelve todas las direcciones de correo electrónico encontradas usando un nombre de dominio dado, con sus fuentes.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | Sí | Nombre de dominio en el que buscar direcciones de correo electrónico |
+| `limit` | number | No | Número máximo de direcciones de correo electrónico a devolver \(predeterminado: 10\) |
+| `type` | string | No | Filtro para correos personales o genéricos |
+| `seniority` | string | No | Filtro por nivel de antigüedad: junior, senior o ejecutivo |
+| `department` | string | No | Filtro por departamentos específicos \(p. ej., ventas, marketing\) |
+| `apiKey` | string | Sí | Clave de API de Hunter.io |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `domain` | string | El nombre de dominio buscado |
+| `disposable` | boolean | Indica si el dominio acepta direcciones de correo desechables |
+| `webmail` | boolean | Indica si el dominio es un proveedor de correo web |
+| `accept_all` | boolean | Indica si el dominio acepta todas las direcciones de correo electrónico |
+| `pattern` | string | El patrón de correo electrónico que utiliza la organización |
+| `organization` | string | El nombre de la organización |
+| `description` | string | Descripción de la organización |
+| `industry` | string | Sector de la organización |
+| `twitter` | string | Perfil de Twitter de la organización |
+| `facebook` | string | Perfil de Facebook de la organización |
+| `linkedin` | string | Perfil de LinkedIn de la organización |
+| `instagram` | string | Perfil de Instagram de la organización |
+| `youtube` | string | Canal de YouTube de la organización |
+| `technologies` | array | Matriz de tecnologías utilizadas por la organización |
+| `country` | string | País donde se ubica la organización |
+| `state` | string | Estado donde se ubica la organización |
+| `city` | string | Ciudad donde se ubica la organización |
+| `postal_code` | string | Código postal de la organización |
+| `street` | string | Dirección de la organización |
+| `emails` | array | Matriz de direcciones de correo electrónico encontradas para el dominio; cada una contiene valor, tipo, confianza, fuentes y datos de la persona |
+
+</div>
+
+---
+
+### Buscador de correos electrónicos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Hunter io"
+    type="hunter"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "hunter_email_finder",
+            "options": [
+                {
+                    "id": "hunter_domain_search",
+                    "label": "Búsqueda de dominio"
+                },
+                {
+                    "id": "hunter_email_finder",
+                    "label": "Buscador de correos electrónicos"
+                },
+                {
+                    "id": "hunter_email_verifier",
+                    "label": "Verificador de correos electrónicos"
+                },
+                {
+                    "id": "hunter_discover",
+                    "label": "Descubrir empresas"
+                },
+                {
+                    "id": "hunter_companies_find",
+                    "label": "Buscar empresa"
+                },
+                {
+                    "id": "hunter_email_count",
+                    "label": "Recuento de correos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Hunter.io",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Dominio",
+            "layout": "full",
+            "placeholder": "Introduce el nombre de dominio (p. ej., stripe.com)",
+            "required": true
+        },
+        {
+            "id": "first_name",
+            "type": "short-input",
+            "title": "Nombre",
+            "layout": "full",
+            "placeholder": "Introduce el nombre",
+            "required": true
+        },
+        {
+            "id": "last_name",
+            "type": "short-input",
+            "title": "Apellido",
+            "layout": "full",
+            "placeholder": "Introduce el apellido",
+            "required": true
+        },
+        {
+            "id": "company",
+            "type": "short-input",
+            "title": "Nombre de la empresa",
+            "layout": "full",
+            "placeholder": "Introduce el nombre de la empresa"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscador de correos electrónicos (<code>hunter_email_finder</code>)</div>
+
+Encuentra la dirección de correo electrónico más probable de una persona a partir de su nombre y del dominio de su empresa.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | Sí | Nombre de dominio de la empresa |
+| `first_name` | string | Sí | Nombre de la persona |
+| `last_name` | string | Sí | Apellido de la persona |
+| `company` | string | No | Nombre de la empresa |
+| `apiKey` | string | Sí | Clave de API de Hunter.io |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `email` | string | La dirección de correo encontrada |
+| `score` | number | Puntuación de confianza de la dirección de correo encontrada |
+| `sources` | array | Matriz de fuentes donde se encontró el correo, cada una con domain, uri, extracted_on, last_seen_on y still_on_page |
+| `verification` | object | Información de verificación que incluye date y status |
+
+</div>
+
+---
+
+### Verificador de correo electrónico
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Hunter io"
+    type="hunter"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "hunter_email_verifier",
+            "options": [
+                {
+                    "id": "hunter_domain_search",
+                    "label": "Búsqueda de dominio"
+                },
+                {
+                    "id": "hunter_email_finder",
+                    "label": "Buscador de correos"
+                },
+                {
+                    "id": "hunter_email_verifier",
+                    "label": "Verificador de correo electrónico"
+                },
+                {
+                    "id": "hunter_discover",
+                    "label": "Descubrir empresas"
+                },
+                {
+                    "id": "hunter_companies_find",
+                    "label": "Buscar empresa"
+                },
+                {
+                    "id": "hunter_email_count",
+                    "label": "Recuento de correos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Hunter.io",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Dirección de correo electrónico",
+            "layout": "full",
+            "placeholder": "Introduce la dirección de correo a verificar",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Verificador de correo electrónico (<code>hunter_email_verifier</code>)</div>
+
+Verifica la entregabilidad de una dirección de correo electrónico y proporciona un estado de verificación detallado.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | La dirección de correo electrónico a verificar |
+| `apiKey` | string | Sí | Clave de API de Hunter.io |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `result` | string | Resultado de entregabilidad: deliverable, undeliverable o risky |
+| `score` | number | Puntuación de confianza del resultado de verificación |
+| `email` | string | La dirección de correo verificada |
+| `regexp` | boolean | Indica si el correo sigue un patrón regex válido |
+| `gibberish` | boolean | Indica si el correo parece ser texto sin sentido |
+| `disposable` | boolean | Indica si el correo proviene de un proveedor de correo desechable |
+| `webmail` | boolean | Indica si el correo proviene de un proveedor de webmail |
+| `mx_records` | boolean | Indica si existen registros MX para el dominio |
+| `smtp_server` | boolean | Indica si se puede acceder al servidor SMTP |
+| `smtp_check` | boolean | Indica si la comprobación SMTP fue correcta |
+| `accept_all` | boolean | Indica si el dominio acepta todas las direcciones de correo |
+| `block` | boolean | Indica si el correo está bloqueado |
+| `status` | string | Estado de verificación: valid, invalid, accept_all, webmail, disposable o unknown |
+| `sources` | array | Matriz de fuentes donde se encontró el correo |
+
+</div>
+
+---
+
+### Descubrir empresas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Hunter io"
+    type="hunter"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "hunter_discover",
+            "options": [
+                {
+                    "id": "hunter_domain_search",
+                    "label": "Búsqueda por dominio"
+                },
+                {
+                    "id": "hunter_email_finder",
+                    "label": "Buscador de correos"
+                },
+                {
+                    "id": "hunter_email_verifier",
+                    "label": "Verificador de correos"
+                },
+                {
+                    "id": "hunter_discover",
+                    "label": "Descubrir empresas"
+                },
+                {
+                    "id": "hunter_companies_find",
+                    "label": "Buscar empresa"
+                },
+                {
+                    "id": "hunter_email_count",
+                    "label": "Recuento de correos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Hunter.io",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Consulta de búsqueda",
+            "layout": "full",
+            "placeholder": "Introduce la consulta de búsqueda (p. ej., \"empresas de software en San Francisco\")",
+            "required": true
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Filtro de dominio",
+            "layout": "full",
+            "placeholder": "Filtrar por dominio"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Descubrir empresas (<code>hunter_discover</code>)</div>
+
+Devuelve empresas que coinciden con un conjunto de criterios mediante la búsqueda con IA de Hunter.io.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | No | Consulta de búsqueda en lenguaje natural para empresas |
+| `domain` | string | No | Nombres de dominio de empresas para filtrar |
+| `headcount` | string | No | Filtro de tamaño de empresa \(p. ej., "1-10", "11-50"\) |
+| `company_type` | string | No | Tipo de organización |
+| `technology` | string | No | Tecnología utilizada por las empresas |
+| `apiKey` | string | Sí | Clave de API de Hunter.io |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `results` | array | Array de empresas que coinciden con los criterios de búsqueda; cada una incluye domain, name, headcount, technologies y email_count |
+
+</div>
+
+---
+
+### Buscar empresa
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Hunter io"
+    type="hunter"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "hunter_companies_find",
+            "options": [
+                {
+                    "id": "hunter_domain_search",
+                    "label": "Búsqueda de dominio"
+                },
+                {
+                    "id": "hunter_email_finder",
+                    "label": "Buscador de correo electrónico"
+                },
+                {
+                    "id": "hunter_email_verifier",
+                    "label": "Verificador de correo electrónico"
+                },
+                {
+                    "id": "hunter_discover",
+                    "label": "Descubrir empresas"
+                },
+                {
+                    "id": "hunter_companies_find",
+                    "label": "Buscar empresa"
+                },
+                {
+                    "id": "hunter_email_count",
+                    "label": "Recuento de correos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Hunter.io",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Dominio",
+            "layout": "full",
+            "placeholder": "Introduce el dominio de la empresa",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar empresa (<code>hunter_companies_find</code>)</div>
+
+Enriquece los datos de la empresa usando el nombre de dominio.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | Sí | Dominio para buscar datos de la empresa |
+| `apiKey` | string | Sí | Clave de API de Hunter.io |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `person` | object | Información de la persona \(indefinida para la herramienta companies_find\) |
+| `company` | object | Información de la empresa que incluye nombre, dominio, industria, tamaño, país, linkedin y twitter |
+
+</div>
+
+---
+
+### Recuento de correos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Hunter io"
+    type="hunter"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "hunter_email_count",
+            "options": [
+                {
+                    "id": "hunter_domain_search",
+                    "label": "Búsqueda de dominio"
+                },
+                {
+                    "id": "hunter_email_finder",
+                    "label": "Búsqueda de correos"
+                },
+                {
+                    "id": "hunter_email_verifier",
+                    "label": "Verificador de correos"
+                },
+                {
+                    "id": "hunter_discover",
+                    "label": "Descubrir empresas"
+                },
+                {
+                    "id": "hunter_companies_find",
+                    "label": "Buscar empresa"
+                },
+                {
+                    "id": "hunter_email_count",
+                    "label": "Recuento de correos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Hunter.io",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Dominio",
+            "layout": "full",
+            "placeholder": "Introduce el nombre de dominio",
+            "required": true
+        },
+        {
+            "id": "company",
+            "type": "short-input",
+            "title": "Nombre de la empresa",
+            "layout": "full",
+            "placeholder": "Introduce el nombre de la empresa"
+        },
+        {
+            "id": "type",
+            "type": "dropdown",
+            "title": "Tipo de correo",
+            "layout": "full",
+            "defaultValue": "all",
+            "options": [
+                {
+                    "id": "all",
+                    "label": "Todos"
+                },
+                {
+                    "id": "personal",
+                    "label": "Personal"
+                },
+                {
+                    "id": "generic",
+                    "label": "Genérico"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Recuento de correos electrónicos (<code>hunter_email_count</code>)</div>
+
+Devuelve el número total de direcciones de correo electrónico encontradas para un dominio o una empresa.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | No | Dominio del que contar correos electrónicos \(obligatorio si no se proporciona la empresa\) |
+| `company` | string | No | Nombre de la empresa de la que contar correos electrónicos \(obligatorio si no se proporciona el dominio\) |
+| `type` | string | No | Filtrar solo correos personales o genéricos |
+| `apiKey` | string | Sí | Clave de API de Hunter.io |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `total` | number | Número total de direcciones de correo electrónico encontradas |
+| `personal_emails` | number | Número de direcciones de correo electrónico personales encontradas |
+| `generic_emails` | number | Número de direcciones de correo electrónico genéricas encontradas |
+| `department` | object | Desglose de las direcciones de correo electrónico por departamento \(executive, it, finance, management, sales, legal, support, hr, marketing, communication\) |
+| `seniority` | object | Desglose de las direcciones de correo electrónico por nivel de antigüedad \(junior, senior, executive\) |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Hunter en el flujo de trabajo. Puede buscar dominios, encontrar direcciones de correo electrónico, verificar direcciones de correo electrónico, descubrir empresas, encontrar empresas y contar direcciones de correo electrónico.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `hunter`

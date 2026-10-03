@@ -1,0 +1,314 @@
+---
+title: Mem0
+description: Gestión de memoria de agentes
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="mem0"
+  color=""
+/>
+
+## Configuración
+
+### Agregar memorias
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mem0"
+    type="mem0"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "half",
+            "placeholder": "Seleccionar una operación",
+            "defaultValue": "add",
+            "options": [
+                {
+                    "id": "add",
+                    "label": "Agregar memorias"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar memorias"
+                },
+                {
+                    "id": "get",
+                    "label": "Obtener memorias"
+                }
+            ]
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "ID de usuario",
+            "layout": "full",
+            "placeholder": "Ingrese el identificador de usuario",
+            "required": true,
+            "defaultValue": "userid"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Ingrese su clave de API de Mem0",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "messages",
+            "type": "code",
+            "title": "Mensajes",
+            "layout": "full",
+            "placeholder": "Arreglo JSON, por ejemplo, [{\"role\": \"user\", \"content\": \"¡Me encanta TradingGoose!\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Agregar memorias (<code>mem0_add_memories</code>)</div>
+
+Agregar memorias a Mem0 para almacenamiento y recuperación persistentes
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `userId` | string | Sí | ID de usuario asociado con la memoria |
+| `messages` | json | Sí | Arreglo de objetos de mensaje con rol y contenido |
+| `apiKey` | string | Sí | Su clave de API de Mem0 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ids` | array | Arreglo de ID de memorias que se crearon |
+| `memories` | array | Arreglo de objetos de memoria que se crearon |
+
+</div>
+
+---
+
+### Buscar memorias
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mem0"
+    type="mem0"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "half",
+            "placeholder": "Selecciona una operación",
+            "defaultValue": "search",
+            "options": [
+                {
+                    "id": "add",
+                    "label": "Agregar memorias"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar memorias"
+                },
+                {
+                    "id": "get",
+                    "label": "Obtener memorias"
+                }
+            ]
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "ID de usuario",
+            "layout": "full",
+            "placeholder": "Introduce el identificador del usuario",
+            "required": true,
+            "defaultValue": "userid"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Mem0",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Consulta de búsqueda",
+            "layout": "full",
+            "placeholder": "Introduce la consulta de búsqueda para encontrar memorias relevantes",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "slider",
+            "title": "Límite de resultados",
+            "layout": "full",
+            "min": 1,
+            "max": 50,
+            "step": 1
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar memorias (<code>mem0_search_memories</code>)</div>
+
+Busca memorias en Mem0 mediante búsqueda semántica
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `userId` | string | Sí | ID de usuario para el que se buscan memorias |
+| `query` | string | Sí | Consulta de búsqueda para encontrar memorias relevantes |
+| `limit` | number | No | Número máximo de resultados que devolver |
+| `apiKey` | string | Sí | Tu clave de API de Mem0 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `searchResults` | array | Array de resultados de búsqueda con datos de memoria; cada uno contiene id, data y score |
+| `ids` | array | Array de IDs de memoria encontrados en los resultados de búsqueda |
+
+</div>
+
+---
+
+### Obtener memorias
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mem0"
+    type="mem0"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "half",
+            "placeholder": "Selecciona una operación",
+            "defaultValue": "get",
+            "options": [
+                {
+                    "id": "add",
+                    "label": "Añadir memorias"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar memorias"
+                },
+                {
+                    "id": "get",
+                    "label": "Obtener memorias"
+                }
+            ]
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "ID de usuario",
+            "layout": "full",
+            "placeholder": "Introduce el identificador de usuario",
+            "required": true,
+            "defaultValue": "userid"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Mem0",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "memoryId",
+            "type": "short-input",
+            "title": "ID de memoria",
+            "layout": "full",
+            "placeholder": "ID de memoria específico que recuperar"
+        },
+        {
+            "id": "startDate",
+            "type": "datetime-input",
+            "title": "Fecha de inicio",
+            "layout": "half",
+            "placeholder": "YYYY-MM-DD"
+        },
+        {
+            "id": "endDate",
+            "type": "datetime-input",
+            "title": "Fecha de fin",
+            "layout": "half",
+            "placeholder": "YYYY-MM-DD"
+        },
+        {
+            "id": "limit",
+            "type": "slider",
+            "title": "Límite de resultados",
+            "layout": "full",
+            "min": 1,
+            "max": 50,
+            "step": 1
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener memorias (<code>mem0_get_memories</code>)</div>
+
+Recupera memorias de Mem0 por ID o por criterios de filtro
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `userId` | string | Sí | ID de usuario del que recuperar memorias |
+| `memoryId` | string | No | ID de memoria específico que recuperar |
+| `startDate` | string | No | Fecha de inicio para filtrar por created_at \(formato: YYYY-MM-DD\) |
+| `endDate` | string | No | Fecha de fin para filtrar por created_at \(formato: YYYY-MM-DD\) |
+| `apiKey` | string | Sí | Tu clave de API de Mem0 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `memories` | array | Array de objetos de memoria recuperados |
+| `ids` | array | Array de IDs de memoria que se recuperaron |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Mem0 en el flujo de trabajo. Puede añadir, buscar y recuperar memorias.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `mem0`

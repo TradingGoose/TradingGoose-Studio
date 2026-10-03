@@ -1,0 +1,124 @@
+---
+title: Amazon SQS
+description: 连接到 Amazon SQS
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="sqs"
+  color="#527FFF"
+/>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon SQS"
+    type="sqs"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "send",
+            "options": [
+                {
+                    "id": "send",
+                    "label": "发送消息"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "AWS 区域",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "AWS 访问密钥 ID",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "AWS 秘密访问密钥",
+            "placeholder": "您的秘密访问密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "queueUrl",
+            "type": "short-input",
+            "title": "队列 URL",
+            "placeholder": "https://sqs.us-east-1.amazonaws.com/123456789012/my-queue",
+            "required": true
+        },
+        {
+            "id": "messageGroupId",
+            "type": "short-input",
+            "title": "消息组 ID（可选）",
+            "placeholder": "5FAB0F0B-30C6-4427-9407-5634F4A3984A",
+            "description": "当操作为“send”时显示。"
+        },
+        {
+            "id": "messageDeduplicationId",
+            "type": "short-input",
+            "title": "消息去重 ID（可选）",
+            "placeholder": "5FAB0F0B-30C6-4427-9407-5634F4A3984A",
+            "description": "当操作为“send”时显示。"
+        },
+        {
+            "id": "data",
+            "type": "code",
+            "title": "数据（JSON）",
+            "placeholder": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"active\": true\n}",
+            "language": "json",
+            "description": "当操作为“send”时显示。"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+### `sqs_send`
+
+向 Amazon SQS 队列发送消息
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | 是 | AWS 区域（例如 us-east-1） |
+| `accessKeyId` | string | 是 | AWS 访问密钥 ID |
+| `secretAccessKey` | string | 是 | AWS 秘密访问密钥 |
+| `queueUrl` | string | 是 | 队列 URL |
+| `data` | object | 是 | 要发送的消息正文 |
+| `messageGroupId` | string | 否 | 消息组 ID（可选） |
+| `messageDeduplicationId` | string | 否 | 消息去重 ID（可选） |
+
+#### 输出
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | string | 操作状态消息 |
+| `id` | string | 消息 ID |
+
+## 使用说明
+
+将 Amazon SQS 集成到工作流中。可向 SQS 队列发送消息。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`sqs`

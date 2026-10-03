@@ -1,0 +1,50 @@
+---
+title: 概览
+description: 启动 TradingGoose 工作流的核心方式
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## 核心触发器
+
+一个工作流可以有多个触发入口。API、Chat、Input Form 和 Manual 每种类型在同一工作流中最多各有一个块，并非总共只能有一个触发器。编辑器运行时请选择入口。
+
+<Cards>
+  <Card title="API" href="/triggers/api">
+    将 JSON 请求体映射为工作流输入的 HTTP 端点
+  </Card>
+  <Card title="聊天" href="/triggers/chat">
+    已部署的聊天界面，支持流式响应
+  </Card>
+  <Card title="输入表单" href="/triggers/input-form">
+    用于编辑器运行和子工作流的类型化手动输入
+  </Card>
+  <Card title="手动" href="/triggers/manual">
+    按需运行，无需附加数据
+  </Card>
+  <Card title="定时" href="/triggers/schedule">
+    基于 Cron 或间隔的执行
+  </Card>
+  <Card title="Webhook" href="/triggers/webhook">
+    接收外部 webhook 载荷
+  </Card>
+</Cards>
+
+## 快速对比
+
+| 触发器 | 启动条件 |
+|---------|-----------------|
+| **API** | 已认证的 HTTP POST |
+| **聊天** | 聊天部署消息 |
+| **输入表单** | 在编辑器或父工作流中手动提交 |
+| **手动** | 编辑器中的运行按钮 |
+| **定时** | 在定时弹窗中管理的计时器 |
+| **Webhook** | 收到入站 HTTP 请求 |
+
+## 使用触发器
+
+1. 将触发器块添加到画布。
+2. 配置所需的结构或认证。
+3. 将该模块连接到工作流的其余部分。
+
+> 编辑器运行使用当前已保存工作流。外部 API、已发布 Chat、定时和 webhook 运行使用已部署快照。子工作流继承父工作流的 live/deployed 目标。需要将变更应用到外部入口时，请重新部署。详见[执行 → 部署快照](/execution)。

@@ -1,0 +1,23 @@
+---
+title: SDK
+description: 通过 TypeScript 和 Python 以编程方式访问 TradingGoose 工作流
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+TradingGoose Studio 仓库包含预览版 TypeScript/JavaScript 和 Python 客户端，用于执行已部署的工作流、检查部署状态、处理速率限制以及查询用量上限。
+
+> SDK 包仍在开发中，目前尚未发布到 npm 或 PyPI，因此这些注册源的安装命令暂不可用。生产集成请使用受支持的 [Execution API](/execution/api)。
+
+<Cards>
+  <Card title="Python SDK" href="/sdks/python">
+    查看仓库本地提供的同步 Python 客户端。
+  </Card>
+  <Card title="TypeScript SDK" href="/sdks/typescript">
+    查看仓库本地提供的 Node.js 客户端。
+  </Card>
+</Cards>
+
+从仓库源码使用时，两个客户端都通过 `X-API-Key` 使用 API 密钥进行身份验证，并默认使用 `https://www.tradinggoose.ai`。它们提供非流式工作流执行与状态查询、速率限制重试行为以及用量上限。各语言特有的名称、类型、限制和超时单位记录在各自的页面上。
+
+流式执行可通过 HTTP API 以服务器发送事件的形式提供，但预览版 SDK 客户端不消费该流。如需流式执行，或需要 Response 块的自定义 HTTP 状态码和响应头，请直接使用 [Execution API](/execution/api)。

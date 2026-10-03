@@ -1,0 +1,67 @@
+---
+title: 订单详情
+description: 获取此前已提交交易订单的提供商侧详情。
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="trading_order_detail"
+  color="#0f766e"
+/>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="订单详情"
+    type="trading_order_detail"
+    color="#0f766e"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "orderId",
+            "type": "order-id-selector",
+            "title": "订单 ID",
+            "layout": "full",
+            "placeholder": "按订单 ID、代码、ticker、报价或日期搜索",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+### `trading_order_detail`
+
+根据 Trading Goose 订单 ID，获取此前已记录交易订单在提供商侧的全部可用详情。
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `orderId` | string | 是 | 提交订单时创建的 Trading Goose 订单 ID \(orderHistoryTable.id\)。 |
+
+#### 输出
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `summary` | string | 订单详情检索的状态消息。 |
+| `provider` | string | 订单所属经纪商/提供商。 |
+| `appOrderId` | string | Trading Goose 订单 ID \(orderHistoryTable.id\)。 |
+| `providerOrderId` | string | 用于 API 查询的提供商原生订单 ID。 |
+| `workspaceId` | string | 拥有该已记录订单的工作区。 |
+| `logId` | string | 关联的日志 ID（如有）。 |
+| `orderDetail` | json | 包含提供商原始响应的规范化订单详情载荷。 |
+
+## 使用说明
+
+根据订单 ID 查找 Trading Goose 订单历史记录，解析提供商订单 ID，并获取最新的提供商订单详情。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`trading_order_detail`

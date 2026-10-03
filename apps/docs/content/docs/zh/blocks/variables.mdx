@@ -1,0 +1,48 @@
+---
+title: 变量
+description: 设置和管理工作流范围内的变量
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+Variables 区块更新工作流中已定义的变量。赋值只改变当前执行的值，不会保存新的初始值，也不会在多次运行间持久保存运行状态。
+
+## 配置赋值
+
+1. 在工作流的 Variables 面板中创建变量，设置名称、类型和初始值。
+2. 添加 Variables 区块并选择需要更新的变量。
+3. 提供字面值或准确的上游输出引用。
+
+例如，在 API 区块返回客户资料后：
+
+```text
+customerEmail = <api.data.email>
+userId = <api.data.id>
+userTier = <api.data.tier>
+```
+
+请使用实际来源区块的名称。在纯文本值字段中直接输入文本，不要添加外围引号。
+
+## 计算
+
+Variables 区块将值转换为所选变量类型，不会求值 JavaScript 表达式。数值赋值 `<variable.retryCount> + 1` 会变成 `0 + 1` 这样的文本，导致数值转换失败。
+
+先在 Function 区块中计算：
+
+```typescript
+return <variable.retryCount> + 1;
+```
+
+然后在 Variables 区块中将 `retryCount` 赋值为 `<function.result>`。更新 `itemsProcessed` 等循环计数器也使用此方式。
+
+## 读取值和输出
+
+- 通过 `<variable.retryCount>` 或 `<variable.customerEmail>` 在运行中的任意位置读取当前值。
+- 区块输出直接使用被赋值的名称，例如 `<variables.retryCount>`，没有 `assignments` 包装层。
+- 重试工作流需要将失败区块的**错误路径**连接到恢复逻辑。普通成功路径连接不能处理抛出的失败。
+
+<Callout type="warning">
+  并行实例共享工作流变量，并发赋值可能相互覆盖。请将每个项目的数据保留在区块输出中，再汇总 Parallel 结果，不要把共享变量当作隔离的实例状态。
+</Callout>
+
+需要跨运行保留的状态应使用持久存储。

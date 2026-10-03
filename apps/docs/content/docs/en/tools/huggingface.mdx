@@ -10,7 +10,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <BlockInfoCard
   type="huggingface"
-  color=""
+  color="#FFD21E"
 />
 
 
@@ -20,7 +20,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="Hugging Face"
     type="huggingface"
-    color=""
+    color="#FFD21E"
     hideHeader
     subBlocks={[
         {
@@ -44,54 +44,55 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Provider",
             "layout": "half",
             "required": true,
+            "defaultValue": "novita",
             "options": [
                 {
-                    "label": "Novita",
-                    "id": "novita"
+                    "id": "novita",
+                    "label": "Novita"
                 },
                 {
-                    "label": "Cerebras",
-                    "id": "cerebras"
+                    "id": "cerebras",
+                    "label": "Cerebras"
                 },
                 {
-                    "label": "Cohere",
-                    "id": "cohere"
+                    "id": "cohere",
+                    "label": "Cohere"
                 },
                 {
-                    "label": "Fal AI",
-                    "id": "fal"
+                    "id": "fal",
+                    "label": "Fal AI"
                 },
                 {
-                    "label": "Fireworks",
-                    "id": "fireworks"
+                    "id": "fireworks",
+                    "label": "Fireworks"
                 },
                 {
-                    "label": "Hyperbolic",
-                    "id": "hyperbolic"
+                    "id": "hyperbolic",
+                    "label": "Hyperbolic"
                 },
                 {
-                    "label": "HF Inference",
-                    "id": "hf-inference"
+                    "id": "hf-inference",
+                    "label": "HF Inference"
                 },
                 {
-                    "label": "Nebius",
-                    "id": "nebius"
+                    "id": "nebius",
+                    "label": "Nebius"
                 },
                 {
-                    "label": "Nscale",
-                    "id": "nscale"
+                    "id": "nscale",
+                    "label": "Nscale"
                 },
                 {
-                    "label": "Replicate",
-                    "id": "replicate"
+                    "id": "replicate",
+                    "label": "Replicate"
                 },
                 {
-                    "label": "SambaNova",
-                    "id": "sambanova"
+                    "id": "sambanova",
+                    "label": "SambaNova"
                 },
                 {
-                    "label": "Together",
-                    "id": "together"
+                    "id": "together",
+                    "label": "Together"
                 }
             ]
         },
@@ -110,7 +111,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Temperature",
             "layout": "half",
             "min": 0,
-            "max": 2
+            "max": 2,
+            "defaultValue": "0.7"
         },
         {
             "id": "maxTokens",
@@ -155,10 +157,7 @@ Generate completions using Hugging Face Inference API
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `success` | boolean | Operation success status |
-| `content` | string | Generated text content |
-| `model` | string | Model used for generation |
-| `prompt_tokens` | number | Number of tokens in the prompt |
-| `completion_tokens` | number | Number of tokens in the completion |
+| `output` | object | Chat completion results |
 
 
 ## Usage Instructions

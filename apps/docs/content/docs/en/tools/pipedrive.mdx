@@ -29,81 +29,81 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_all_deals",
             "options": [
                 {
-                    "label": "Get All Deals",
-                    "id": "get_all_deals"
+                    "id": "get_all_deals",
+                    "label": "Get All Deals"
                 },
                 {
-                    "label": "Get Deal",
-                    "id": "get_deal"
+                    "id": "get_deal",
+                    "label": "Get Deal"
                 },
                 {
-                    "label": "Create Deal",
-                    "id": "create_deal"
+                    "id": "create_deal",
+                    "label": "Create Deal"
                 },
                 {
-                    "label": "Update Deal",
-                    "id": "update_deal"
+                    "id": "update_deal",
+                    "label": "Update Deal"
                 },
                 {
-                    "label": "Get Files",
-                    "id": "get_files"
+                    "id": "get_files",
+                    "label": "Get Files"
                 },
                 {
-                    "label": "Get Mail Threads",
-                    "id": "get_mail_messages"
+                    "id": "get_mail_messages",
+                    "label": "Get Mail Threads"
                 },
                 {
-                    "label": "Get Mail Thread Messages",
-                    "id": "get_mail_thread"
+                    "id": "get_mail_thread",
+                    "label": "Get Mail Thread Messages"
                 },
                 {
-                    "label": "Get Pipelines",
-                    "id": "get_pipelines"
+                    "id": "get_pipelines",
+                    "label": "Get Pipelines"
                 },
                 {
-                    "label": "Get Pipeline Deals",
-                    "id": "get_pipeline_deals"
+                    "id": "get_pipeline_deals",
+                    "label": "Get Pipeline Deals"
                 },
                 {
-                    "label": "Get Projects",
-                    "id": "get_projects"
+                    "id": "get_projects",
+                    "label": "Get Projects"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "create_project"
+                    "id": "create_project",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Get Activities",
-                    "id": "get_activities"
+                    "id": "get_activities",
+                    "label": "Get Activities"
                 },
                 {
-                    "label": "Create Activity",
-                    "id": "create_activity"
+                    "id": "create_activity",
+                    "label": "Create Activity"
                 },
                 {
-                    "label": "Update Activity",
-                    "id": "update_activity"
+                    "id": "update_activity",
+                    "label": "Update Activity"
                 },
                 {
-                    "label": "Get Leads",
-                    "id": "get_leads"
+                    "id": "get_leads",
+                    "label": "Get Leads"
                 },
                 {
-                    "label": "Create Lead",
-                    "id": "create_lead"
+                    "id": "create_lead",
+                    "label": "Create Lead"
                 },
                 {
-                    "label": "Update Lead",
-                    "id": "update_lead"
+                    "id": "update_lead",
+                    "label": "Update Lead"
                 },
                 {
-                    "label": "Delete Lead",
-                    "id": "delete_lead"
+                    "id": "delete_lead",
+                    "label": "Delete Lead"
                 }
-            ],
-            "defaultValue": "get_all_deals"
+            ]
         },
         {
             "id": "credential",
@@ -117,18 +117,23 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "status",
             "type": "dropdown",
             "title": "Status",
+            "defaultValue": "",
             "options": [
                 {
-                    "label": "Open",
-                    "id": "open"
+                    "id": "",
+                    "label": "All (not deleted)"
                 },
                 {
-                    "label": "Won",
-                    "id": "won"
+                    "id": "open",
+                    "label": "Open"
                 },
                 {
-                    "label": "Lost",
-                    "id": "lost"
+                    "id": "won",
+                    "label": "Won"
+                },
+                {
+                    "id": "lost",
+                    "label": "Lost"
                 }
             ]
         },
@@ -188,6 +193,7 @@ Retrieve all deals from Pipedrive with optional filters
 | --------- | ---- | ----------- |
 | `deals` | array | Array of deal objects from Pipedrive |
 | `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -208,81 +214,81 @@ Retrieve all deals from Pipedrive with optional filters
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_deal",
             "options": [
                 {
-                    "label": "Get All Deals",
-                    "id": "get_all_deals"
+                    "id": "get_all_deals",
+                    "label": "Get All Deals"
                 },
                 {
-                    "label": "Get Deal",
-                    "id": "get_deal"
+                    "id": "get_deal",
+                    "label": "Get Deal"
                 },
                 {
-                    "label": "Create Deal",
-                    "id": "create_deal"
+                    "id": "create_deal",
+                    "label": "Create Deal"
                 },
                 {
-                    "label": "Update Deal",
-                    "id": "update_deal"
+                    "id": "update_deal",
+                    "label": "Update Deal"
                 },
                 {
-                    "label": "Get Files",
-                    "id": "get_files"
+                    "id": "get_files",
+                    "label": "Get Files"
                 },
                 {
-                    "label": "Get Mail Threads",
-                    "id": "get_mail_messages"
+                    "id": "get_mail_messages",
+                    "label": "Get Mail Threads"
                 },
                 {
-                    "label": "Get Mail Thread Messages",
-                    "id": "get_mail_thread"
+                    "id": "get_mail_thread",
+                    "label": "Get Mail Thread Messages"
                 },
                 {
-                    "label": "Get Pipelines",
-                    "id": "get_pipelines"
+                    "id": "get_pipelines",
+                    "label": "Get Pipelines"
                 },
                 {
-                    "label": "Get Pipeline Deals",
-                    "id": "get_pipeline_deals"
+                    "id": "get_pipeline_deals",
+                    "label": "Get Pipeline Deals"
                 },
                 {
-                    "label": "Get Projects",
-                    "id": "get_projects"
+                    "id": "get_projects",
+                    "label": "Get Projects"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "create_project"
+                    "id": "create_project",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Get Activities",
-                    "id": "get_activities"
+                    "id": "get_activities",
+                    "label": "Get Activities"
                 },
                 {
-                    "label": "Create Activity",
-                    "id": "create_activity"
+                    "id": "create_activity",
+                    "label": "Create Activity"
                 },
                 {
-                    "label": "Update Activity",
-                    "id": "update_activity"
+                    "id": "update_activity",
+                    "label": "Update Activity"
                 },
                 {
-                    "label": "Get Leads",
-                    "id": "get_leads"
+                    "id": "get_leads",
+                    "label": "Get Leads"
                 },
                 {
-                    "label": "Create Lead",
-                    "id": "create_lead"
+                    "id": "create_lead",
+                    "label": "Create Lead"
                 },
                 {
-                    "label": "Update Lead",
-                    "id": "update_lead"
+                    "id": "update_lead",
+                    "label": "Update Lead"
                 },
                 {
-                    "label": "Delete Lead",
-                    "id": "delete_lead"
+                    "id": "delete_lead",
+                    "label": "Delete Lead"
                 }
-            ],
-            "defaultValue": "get_deal"
+            ]
         },
         {
             "id": "credential",
@@ -320,6 +326,7 @@ Retrieve detailed information about a specific deal
 | --------- | ---- | ----------- |
 | `deal` | object | Deal object with full details |
 | `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -340,81 +347,81 @@ Retrieve detailed information about a specific deal
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create_deal",
             "options": [
                 {
-                    "label": "Get All Deals",
-                    "id": "get_all_deals"
+                    "id": "get_all_deals",
+                    "label": "Get All Deals"
                 },
                 {
-                    "label": "Get Deal",
-                    "id": "get_deal"
+                    "id": "get_deal",
+                    "label": "Get Deal"
                 },
                 {
-                    "label": "Create Deal",
-                    "id": "create_deal"
+                    "id": "create_deal",
+                    "label": "Create Deal"
                 },
                 {
-                    "label": "Update Deal",
-                    "id": "update_deal"
+                    "id": "update_deal",
+                    "label": "Update Deal"
                 },
                 {
-                    "label": "Get Files",
-                    "id": "get_files"
+                    "id": "get_files",
+                    "label": "Get Files"
                 },
                 {
-                    "label": "Get Mail Threads",
-                    "id": "get_mail_messages"
+                    "id": "get_mail_messages",
+                    "label": "Get Mail Threads"
                 },
                 {
-                    "label": "Get Mail Thread Messages",
-                    "id": "get_mail_thread"
+                    "id": "get_mail_thread",
+                    "label": "Get Mail Thread Messages"
                 },
                 {
-                    "label": "Get Pipelines",
-                    "id": "get_pipelines"
+                    "id": "get_pipelines",
+                    "label": "Get Pipelines"
                 },
                 {
-                    "label": "Get Pipeline Deals",
-                    "id": "get_pipeline_deals"
+                    "id": "get_pipeline_deals",
+                    "label": "Get Pipeline Deals"
                 },
                 {
-                    "label": "Get Projects",
-                    "id": "get_projects"
+                    "id": "get_projects",
+                    "label": "Get Projects"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "create_project"
+                    "id": "create_project",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Get Activities",
-                    "id": "get_activities"
+                    "id": "get_activities",
+                    "label": "Get Activities"
                 },
                 {
-                    "label": "Create Activity",
-                    "id": "create_activity"
+                    "id": "create_activity",
+                    "label": "Create Activity"
                 },
                 {
-                    "label": "Update Activity",
-                    "id": "update_activity"
+                    "id": "update_activity",
+                    "label": "Update Activity"
                 },
                 {
-                    "label": "Get Leads",
-                    "id": "get_leads"
+                    "id": "get_leads",
+                    "label": "Get Leads"
                 },
                 {
-                    "label": "Create Lead",
-                    "id": "create_lead"
+                    "id": "create_lead",
+                    "label": "Create Lead"
                 },
                 {
-                    "label": "Update Lead",
-                    "id": "update_lead"
+                    "id": "update_lead",
+                    "label": "Update Lead"
                 },
                 {
-                    "label": "Delete Lead",
-                    "id": "delete_lead"
+                    "id": "delete_lead",
+                    "label": "Delete Lead"
                 }
-            ],
-            "defaultValue": "create_deal"
+            ]
         },
         {
             "id": "credential",
@@ -471,18 +478,19 @@ Retrieve detailed information about a specific deal
             "id": "status",
             "type": "dropdown",
             "title": "Status",
+            "defaultValue": "open",
             "options": [
                 {
-                    "label": "Open",
-                    "id": "open"
+                    "id": "open",
+                    "label": "Open"
                 },
                 {
-                    "label": "Won",
-                    "id": "won"
+                    "id": "won",
+                    "label": "Won"
                 },
                 {
-                    "label": "Lost",
-                    "id": "lost"
+                    "id": "lost",
+                    "label": "Lost"
                 }
             ]
         },
@@ -521,6 +529,7 @@ Create a new deal in Pipedrive
 | --------- | ---- | ----------- |
 | `deal` | object | The created deal object |
 | `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -541,81 +550,81 @@ Create a new deal in Pipedrive
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "update_deal",
             "options": [
                 {
-                    "label": "Get All Deals",
-                    "id": "get_all_deals"
+                    "id": "get_all_deals",
+                    "label": "Get All Deals"
                 },
                 {
-                    "label": "Get Deal",
-                    "id": "get_deal"
+                    "id": "get_deal",
+                    "label": "Get Deal"
                 },
                 {
-                    "label": "Create Deal",
-                    "id": "create_deal"
+                    "id": "create_deal",
+                    "label": "Create Deal"
                 },
                 {
-                    "label": "Update Deal",
-                    "id": "update_deal"
+                    "id": "update_deal",
+                    "label": "Update Deal"
                 },
                 {
-                    "label": "Get Files",
-                    "id": "get_files"
+                    "id": "get_files",
+                    "label": "Get Files"
                 },
                 {
-                    "label": "Get Mail Threads",
-                    "id": "get_mail_messages"
+                    "id": "get_mail_messages",
+                    "label": "Get Mail Threads"
                 },
                 {
-                    "label": "Get Mail Thread Messages",
-                    "id": "get_mail_thread"
+                    "id": "get_mail_thread",
+                    "label": "Get Mail Thread Messages"
                 },
                 {
-                    "label": "Get Pipelines",
-                    "id": "get_pipelines"
+                    "id": "get_pipelines",
+                    "label": "Get Pipelines"
                 },
                 {
-                    "label": "Get Pipeline Deals",
-                    "id": "get_pipeline_deals"
+                    "id": "get_pipeline_deals",
+                    "label": "Get Pipeline Deals"
                 },
                 {
-                    "label": "Get Projects",
-                    "id": "get_projects"
+                    "id": "get_projects",
+                    "label": "Get Projects"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "create_project"
+                    "id": "create_project",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Get Activities",
-                    "id": "get_activities"
+                    "id": "get_activities",
+                    "label": "Get Activities"
                 },
                 {
-                    "label": "Create Activity",
-                    "id": "create_activity"
+                    "id": "create_activity",
+                    "label": "Create Activity"
                 },
                 {
-                    "label": "Update Activity",
-                    "id": "update_activity"
+                    "id": "update_activity",
+                    "label": "Update Activity"
                 },
                 {
-                    "label": "Get Leads",
-                    "id": "get_leads"
+                    "id": "get_leads",
+                    "label": "Get Leads"
                 },
                 {
-                    "label": "Create Lead",
-                    "id": "create_lead"
+                    "id": "create_lead",
+                    "label": "Create Lead"
                 },
                 {
-                    "label": "Update Lead",
-                    "id": "update_lead"
+                    "id": "update_lead",
+                    "label": "Update Lead"
                 },
                 {
-                    "label": "Delete Lead",
-                    "id": "delete_lead"
+                    "id": "delete_lead",
+                    "label": "Delete Lead"
                 }
-            ],
-            "defaultValue": "update_deal"
+            ]
         },
         {
             "id": "credential",
@@ -648,18 +657,19 @@ Create a new deal in Pipedrive
             "id": "status",
             "type": "dropdown",
             "title": "Status",
+            "defaultValue": "open",
             "options": [
                 {
-                    "label": "Open",
-                    "id": "open"
+                    "id": "open",
+                    "label": "Open"
                 },
                 {
-                    "label": "Won",
-                    "id": "won"
+                    "id": "won",
+                    "label": "Won"
                 },
                 {
-                    "label": "Lost",
-                    "id": "lost"
+                    "id": "lost",
+                    "label": "Lost"
                 }
             ]
         },
@@ -701,6 +711,7 @@ Update an existing deal in Pipedrive
 | --------- | ---- | ----------- |
 | `deal` | object | The updated deal object |
 | `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -721,81 +732,81 @@ Update an existing deal in Pipedrive
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_files",
             "options": [
                 {
-                    "label": "Get All Deals",
-                    "id": "get_all_deals"
+                    "id": "get_all_deals",
+                    "label": "Get All Deals"
                 },
                 {
-                    "label": "Get Deal",
-                    "id": "get_deal"
+                    "id": "get_deal",
+                    "label": "Get Deal"
                 },
                 {
-                    "label": "Create Deal",
-                    "id": "create_deal"
+                    "id": "create_deal",
+                    "label": "Create Deal"
                 },
                 {
-                    "label": "Update Deal",
-                    "id": "update_deal"
+                    "id": "update_deal",
+                    "label": "Update Deal"
                 },
                 {
-                    "label": "Get Files",
-                    "id": "get_files"
+                    "id": "get_files",
+                    "label": "Get Files"
                 },
                 {
-                    "label": "Get Mail Threads",
-                    "id": "get_mail_messages"
+                    "id": "get_mail_messages",
+                    "label": "Get Mail Threads"
                 },
                 {
-                    "label": "Get Mail Thread Messages",
-                    "id": "get_mail_thread"
+                    "id": "get_mail_thread",
+                    "label": "Get Mail Thread Messages"
                 },
                 {
-                    "label": "Get Pipelines",
-                    "id": "get_pipelines"
+                    "id": "get_pipelines",
+                    "label": "Get Pipelines"
                 },
                 {
-                    "label": "Get Pipeline Deals",
-                    "id": "get_pipeline_deals"
+                    "id": "get_pipeline_deals",
+                    "label": "Get Pipeline Deals"
                 },
                 {
-                    "label": "Get Projects",
-                    "id": "get_projects"
+                    "id": "get_projects",
+                    "label": "Get Projects"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "create_project"
+                    "id": "create_project",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Get Activities",
-                    "id": "get_activities"
+                    "id": "get_activities",
+                    "label": "Get Activities"
                 },
                 {
-                    "label": "Create Activity",
-                    "id": "create_activity"
+                    "id": "create_activity",
+                    "label": "Create Activity"
                 },
                 {
-                    "label": "Update Activity",
-                    "id": "update_activity"
+                    "id": "update_activity",
+                    "label": "Update Activity"
                 },
                 {
-                    "label": "Get Leads",
-                    "id": "get_leads"
+                    "id": "get_leads",
+                    "label": "Get Leads"
                 },
                 {
-                    "label": "Create Lead",
-                    "id": "create_lead"
+                    "id": "create_lead",
+                    "label": "Create Lead"
                 },
                 {
-                    "label": "Update Lead",
-                    "id": "update_lead"
+                    "id": "update_lead",
+                    "label": "Update Lead"
                 },
                 {
-                    "label": "Delete Lead",
-                    "id": "delete_lead"
+                    "id": "delete_lead",
+                    "label": "Delete Lead"
                 }
-            ],
-            "defaultValue": "get_files"
+            ]
         },
         {
             "id": "credential",
@@ -853,6 +864,7 @@ Retrieve files from Pipedrive with optional filters
 | --------- | ---- | ----------- |
 | `files` | array | Array of file objects from Pipedrive |
 | `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -873,81 +885,81 @@ Retrieve files from Pipedrive with optional filters
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_mail_messages",
             "options": [
                 {
-                    "label": "Get All Deals",
-                    "id": "get_all_deals"
+                    "id": "get_all_deals",
+                    "label": "Get All Deals"
                 },
                 {
-                    "label": "Get Deal",
-                    "id": "get_deal"
+                    "id": "get_deal",
+                    "label": "Get Deal"
                 },
                 {
-                    "label": "Create Deal",
-                    "id": "create_deal"
+                    "id": "create_deal",
+                    "label": "Create Deal"
                 },
                 {
-                    "label": "Update Deal",
-                    "id": "update_deal"
+                    "id": "update_deal",
+                    "label": "Update Deal"
                 },
                 {
-                    "label": "Get Files",
-                    "id": "get_files"
+                    "id": "get_files",
+                    "label": "Get Files"
                 },
                 {
-                    "label": "Get Mail Threads",
-                    "id": "get_mail_messages"
+                    "id": "get_mail_messages",
+                    "label": "Get Mail Threads"
                 },
                 {
-                    "label": "Get Mail Thread Messages",
-                    "id": "get_mail_thread"
+                    "id": "get_mail_thread",
+                    "label": "Get Mail Thread Messages"
                 },
                 {
-                    "label": "Get Pipelines",
-                    "id": "get_pipelines"
+                    "id": "get_pipelines",
+                    "label": "Get Pipelines"
                 },
                 {
-                    "label": "Get Pipeline Deals",
-                    "id": "get_pipeline_deals"
+                    "id": "get_pipeline_deals",
+                    "label": "Get Pipeline Deals"
                 },
                 {
-                    "label": "Get Projects",
-                    "id": "get_projects"
+                    "id": "get_projects",
+                    "label": "Get Projects"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "create_project"
+                    "id": "create_project",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Get Activities",
-                    "id": "get_activities"
+                    "id": "get_activities",
+                    "label": "Get Activities"
                 },
                 {
-                    "label": "Create Activity",
-                    "id": "create_activity"
+                    "id": "create_activity",
+                    "label": "Create Activity"
                 },
                 {
-                    "label": "Update Activity",
-                    "id": "update_activity"
+                    "id": "update_activity",
+                    "label": "Update Activity"
                 },
                 {
-                    "label": "Get Leads",
-                    "id": "get_leads"
+                    "id": "get_leads",
+                    "label": "Get Leads"
                 },
                 {
-                    "label": "Create Lead",
-                    "id": "create_lead"
+                    "id": "create_lead",
+                    "label": "Create Lead"
                 },
                 {
-                    "label": "Update Lead",
-                    "id": "update_lead"
+                    "id": "update_lead",
+                    "label": "Update Lead"
                 },
                 {
-                    "label": "Delete Lead",
-                    "id": "delete_lead"
+                    "id": "delete_lead",
+                    "label": "Delete Lead"
                 }
-            ],
-            "defaultValue": "get_mail_messages"
+            ]
         },
         {
             "id": "credential",
@@ -961,22 +973,23 @@ Retrieve files from Pipedrive with optional filters
             "id": "folder",
             "type": "dropdown",
             "title": "Folder",
+            "defaultValue": "inbox",
             "options": [
                 {
-                    "label": "Inbox",
-                    "id": "inbox"
+                    "id": "inbox",
+                    "label": "Inbox"
                 },
                 {
-                    "label": "Drafts",
-                    "id": "drafts"
+                    "id": "drafts",
+                    "label": "Drafts"
                 },
                 {
-                    "label": "Sent",
-                    "id": "sent"
+                    "id": "sent",
+                    "label": "Sent"
                 },
                 {
-                    "label": "Archive",
-                    "id": "archive"
+                    "id": "archive",
+                    "label": "Archive"
                 }
             ]
         },
@@ -1008,6 +1021,7 @@ Retrieve mail threads from Pipedrive mailbox
 | --------- | ---- | ----------- |
 | `messages` | array | Array of mail thread objects from Pipedrive mailbox |
 | `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -1028,81 +1042,81 @@ Retrieve mail threads from Pipedrive mailbox
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_mail_thread",
             "options": [
                 {
-                    "label": "Get All Deals",
-                    "id": "get_all_deals"
+                    "id": "get_all_deals",
+                    "label": "Get All Deals"
                 },
                 {
-                    "label": "Get Deal",
-                    "id": "get_deal"
+                    "id": "get_deal",
+                    "label": "Get Deal"
                 },
                 {
-                    "label": "Create Deal",
-                    "id": "create_deal"
+                    "id": "create_deal",
+                    "label": "Create Deal"
                 },
                 {
-                    "label": "Update Deal",
-                    "id": "update_deal"
+                    "id": "update_deal",
+                    "label": "Update Deal"
                 },
                 {
-                    "label": "Get Files",
-                    "id": "get_files"
+                    "id": "get_files",
+                    "label": "Get Files"
                 },
                 {
-                    "label": "Get Mail Threads",
-                    "id": "get_mail_messages"
+                    "id": "get_mail_messages",
+                    "label": "Get Mail Threads"
                 },
                 {
-                    "label": "Get Mail Thread Messages",
-                    "id": "get_mail_thread"
+                    "id": "get_mail_thread",
+                    "label": "Get Mail Thread Messages"
                 },
                 {
-                    "label": "Get Pipelines",
-                    "id": "get_pipelines"
+                    "id": "get_pipelines",
+                    "label": "Get Pipelines"
                 },
                 {
-                    "label": "Get Pipeline Deals",
-                    "id": "get_pipeline_deals"
+                    "id": "get_pipeline_deals",
+                    "label": "Get Pipeline Deals"
                 },
                 {
-                    "label": "Get Projects",
-                    "id": "get_projects"
+                    "id": "get_projects",
+                    "label": "Get Projects"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "create_project"
+                    "id": "create_project",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Get Activities",
-                    "id": "get_activities"
+                    "id": "get_activities",
+                    "label": "Get Activities"
                 },
                 {
-                    "label": "Create Activity",
-                    "id": "create_activity"
+                    "id": "create_activity",
+                    "label": "Create Activity"
                 },
                 {
-                    "label": "Update Activity",
-                    "id": "update_activity"
+                    "id": "update_activity",
+                    "label": "Update Activity"
                 },
                 {
-                    "label": "Get Leads",
-                    "id": "get_leads"
+                    "id": "get_leads",
+                    "label": "Get Leads"
                 },
                 {
-                    "label": "Create Lead",
-                    "id": "create_lead"
+                    "id": "create_lead",
+                    "label": "Create Lead"
                 },
                 {
-                    "label": "Update Lead",
-                    "id": "update_lead"
+                    "id": "update_lead",
+                    "label": "Update Lead"
                 },
                 {
-                    "label": "Delete Lead",
-                    "id": "delete_lead"
+                    "id": "delete_lead",
+                    "label": "Delete Lead"
                 }
-            ],
-            "defaultValue": "get_mail_thread"
+            ]
         },
         {
             "id": "credential",
@@ -1140,6 +1154,7 @@ Retrieve all messages from a specific mail thread
 | --------- | ---- | ----------- |
 | `messages` | array | Array of mail message objects from the thread |
 | `metadata` | object | Operation metadata including thread ID |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -1160,81 +1175,81 @@ Retrieve all messages from a specific mail thread
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_pipelines",
             "options": [
                 {
-                    "label": "Get All Deals",
-                    "id": "get_all_deals"
+                    "id": "get_all_deals",
+                    "label": "Get All Deals"
                 },
                 {
-                    "label": "Get Deal",
-                    "id": "get_deal"
+                    "id": "get_deal",
+                    "label": "Get Deal"
                 },
                 {
-                    "label": "Create Deal",
-                    "id": "create_deal"
+                    "id": "create_deal",
+                    "label": "Create Deal"
                 },
                 {
-                    "label": "Update Deal",
-                    "id": "update_deal"
+                    "id": "update_deal",
+                    "label": "Update Deal"
                 },
                 {
-                    "label": "Get Files",
-                    "id": "get_files"
+                    "id": "get_files",
+                    "label": "Get Files"
                 },
                 {
-                    "label": "Get Mail Threads",
-                    "id": "get_mail_messages"
+                    "id": "get_mail_messages",
+                    "label": "Get Mail Threads"
                 },
                 {
-                    "label": "Get Mail Thread Messages",
-                    "id": "get_mail_thread"
+                    "id": "get_mail_thread",
+                    "label": "Get Mail Thread Messages"
                 },
                 {
-                    "label": "Get Pipelines",
-                    "id": "get_pipelines"
+                    "id": "get_pipelines",
+                    "label": "Get Pipelines"
                 },
                 {
-                    "label": "Get Pipeline Deals",
-                    "id": "get_pipeline_deals"
+                    "id": "get_pipeline_deals",
+                    "label": "Get Pipeline Deals"
                 },
                 {
-                    "label": "Get Projects",
-                    "id": "get_projects"
+                    "id": "get_projects",
+                    "label": "Get Projects"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "create_project"
+                    "id": "create_project",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Get Activities",
-                    "id": "get_activities"
+                    "id": "get_activities",
+                    "label": "Get Activities"
                 },
                 {
-                    "label": "Create Activity",
-                    "id": "create_activity"
+                    "id": "create_activity",
+                    "label": "Create Activity"
                 },
                 {
-                    "label": "Update Activity",
-                    "id": "update_activity"
+                    "id": "update_activity",
+                    "label": "Update Activity"
                 },
                 {
-                    "label": "Get Leads",
-                    "id": "get_leads"
+                    "id": "get_leads",
+                    "label": "Get Leads"
                 },
                 {
-                    "label": "Create Lead",
-                    "id": "create_lead"
+                    "id": "create_lead",
+                    "label": "Create Lead"
                 },
                 {
-                    "label": "Update Lead",
-                    "id": "update_lead"
+                    "id": "update_lead",
+                    "label": "Update Lead"
                 },
                 {
-                    "label": "Delete Lead",
-                    "id": "delete_lead"
+                    "id": "delete_lead",
+                    "label": "Delete Lead"
                 }
-            ],
-            "defaultValue": "get_pipelines"
+            ]
         },
         {
             "id": "credential",
@@ -1248,18 +1263,19 @@ Retrieve all messages from a specific mail thread
             "id": "sort_by",
             "type": "dropdown",
             "title": "Sort By",
+            "defaultValue": "id",
             "options": [
                 {
-                    "label": "ID",
-                    "id": "id"
+                    "id": "id",
+                    "label": "ID"
                 },
                 {
-                    "label": "Update Time",
-                    "id": "update_time"
+                    "id": "update_time",
+                    "label": "Update Time"
                 },
                 {
-                    "label": "Add Time",
-                    "id": "add_time"
+                    "id": "add_time",
+                    "label": "Add Time"
                 }
             ]
         },
@@ -1267,14 +1283,15 @@ Retrieve all messages from a specific mail thread
             "id": "sort_direction",
             "type": "dropdown",
             "title": "Sort Direction",
+            "defaultValue": "asc",
             "options": [
                 {
-                    "label": "Ascending",
-                    "id": "asc"
+                    "id": "asc",
+                    "label": "Ascending"
                 },
                 {
-                    "label": "Descending",
-                    "id": "desc"
+                    "id": "desc",
+                    "label": "Descending"
                 }
             ]
         },
@@ -1314,6 +1331,7 @@ Retrieve all pipelines from Pipedrive
 | --------- | ---- | ----------- |
 | `pipelines` | array | Array of pipeline objects from Pipedrive |
 | `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -1334,81 +1352,81 @@ Retrieve all pipelines from Pipedrive
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_pipeline_deals",
             "options": [
                 {
-                    "label": "Get All Deals",
-                    "id": "get_all_deals"
+                    "id": "get_all_deals",
+                    "label": "Get All Deals"
                 },
                 {
-                    "label": "Get Deal",
-                    "id": "get_deal"
+                    "id": "get_deal",
+                    "label": "Get Deal"
                 },
                 {
-                    "label": "Create Deal",
-                    "id": "create_deal"
+                    "id": "create_deal",
+                    "label": "Create Deal"
                 },
                 {
-                    "label": "Update Deal",
-                    "id": "update_deal"
+                    "id": "update_deal",
+                    "label": "Update Deal"
                 },
                 {
-                    "label": "Get Files",
-                    "id": "get_files"
+                    "id": "get_files",
+                    "label": "Get Files"
                 },
                 {
-                    "label": "Get Mail Threads",
-                    "id": "get_mail_messages"
+                    "id": "get_mail_messages",
+                    "label": "Get Mail Threads"
                 },
                 {
-                    "label": "Get Mail Thread Messages",
-                    "id": "get_mail_thread"
+                    "id": "get_mail_thread",
+                    "label": "Get Mail Thread Messages"
                 },
                 {
-                    "label": "Get Pipelines",
-                    "id": "get_pipelines"
+                    "id": "get_pipelines",
+                    "label": "Get Pipelines"
                 },
                 {
-                    "label": "Get Pipeline Deals",
-                    "id": "get_pipeline_deals"
+                    "id": "get_pipeline_deals",
+                    "label": "Get Pipeline Deals"
                 },
                 {
-                    "label": "Get Projects",
-                    "id": "get_projects"
+                    "id": "get_projects",
+                    "label": "Get Projects"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "create_project"
+                    "id": "create_project",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Get Activities",
-                    "id": "get_activities"
+                    "id": "get_activities",
+                    "label": "Get Activities"
                 },
                 {
-                    "label": "Create Activity",
-                    "id": "create_activity"
+                    "id": "create_activity",
+                    "label": "Create Activity"
                 },
                 {
-                    "label": "Update Activity",
-                    "id": "update_activity"
+                    "id": "update_activity",
+                    "label": "Update Activity"
                 },
                 {
-                    "label": "Get Leads",
-                    "id": "get_leads"
+                    "id": "get_leads",
+                    "label": "Get Leads"
                 },
                 {
-                    "label": "Create Lead",
-                    "id": "create_lead"
+                    "id": "create_lead",
+                    "label": "Create Lead"
                 },
                 {
-                    "label": "Update Lead",
-                    "id": "update_lead"
+                    "id": "update_lead",
+                    "label": "Update Lead"
                 },
                 {
-                    "label": "Delete Lead",
-                    "id": "delete_lead"
+                    "id": "delete_lead",
+                    "label": "Delete Lead"
                 }
-            ],
-            "defaultValue": "get_pipeline_deals"
+            ]
         },
         {
             "id": "credential",
@@ -1435,18 +1453,23 @@ Retrieve all pipelines from Pipedrive
             "id": "status",
             "type": "dropdown",
             "title": "Status",
+            "defaultValue": "",
             "options": [
                 {
-                    "label": "Open",
-                    "id": "open"
+                    "id": "",
+                    "label": "All"
                 },
                 {
-                    "label": "Won",
-                    "id": "won"
+                    "id": "open",
+                    "label": "Open"
                 },
                 {
-                    "label": "Lost",
-                    "id": "lost"
+                    "id": "won",
+                    "label": "Won"
+                },
+                {
+                    "id": "lost",
+                    "label": "Lost"
                 }
             ]
         },
@@ -1480,6 +1503,7 @@ Retrieve all deals in a specific pipeline
 | --------- | ---- | ----------- |
 | `deals` | array | Array of deal objects from the pipeline |
 | `metadata` | object | Operation metadata including pipeline ID |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -1500,81 +1524,81 @@ Retrieve all deals in a specific pipeline
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_projects",
             "options": [
                 {
-                    "label": "Get All Deals",
-                    "id": "get_all_deals"
+                    "id": "get_all_deals",
+                    "label": "Get All Deals"
                 },
                 {
-                    "label": "Get Deal",
-                    "id": "get_deal"
+                    "id": "get_deal",
+                    "label": "Get Deal"
                 },
                 {
-                    "label": "Create Deal",
-                    "id": "create_deal"
+                    "id": "create_deal",
+                    "label": "Create Deal"
                 },
                 {
-                    "label": "Update Deal",
-                    "id": "update_deal"
+                    "id": "update_deal",
+                    "label": "Update Deal"
                 },
                 {
-                    "label": "Get Files",
-                    "id": "get_files"
+                    "id": "get_files",
+                    "label": "Get Files"
                 },
                 {
-                    "label": "Get Mail Threads",
-                    "id": "get_mail_messages"
+                    "id": "get_mail_messages",
+                    "label": "Get Mail Threads"
                 },
                 {
-                    "label": "Get Mail Thread Messages",
-                    "id": "get_mail_thread"
+                    "id": "get_mail_thread",
+                    "label": "Get Mail Thread Messages"
                 },
                 {
-                    "label": "Get Pipelines",
-                    "id": "get_pipelines"
+                    "id": "get_pipelines",
+                    "label": "Get Pipelines"
                 },
                 {
-                    "label": "Get Pipeline Deals",
-                    "id": "get_pipeline_deals"
+                    "id": "get_pipeline_deals",
+                    "label": "Get Pipeline Deals"
                 },
                 {
-                    "label": "Get Projects",
-                    "id": "get_projects"
+                    "id": "get_projects",
+                    "label": "Get Projects"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "create_project"
+                    "id": "create_project",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Get Activities",
-                    "id": "get_activities"
+                    "id": "get_activities",
+                    "label": "Get Activities"
                 },
                 {
-                    "label": "Create Activity",
-                    "id": "create_activity"
+                    "id": "create_activity",
+                    "label": "Create Activity"
                 },
                 {
-                    "label": "Update Activity",
-                    "id": "update_activity"
+                    "id": "update_activity",
+                    "label": "Update Activity"
                 },
                 {
-                    "label": "Get Leads",
-                    "id": "get_leads"
+                    "id": "get_leads",
+                    "label": "Get Leads"
                 },
                 {
-                    "label": "Create Lead",
-                    "id": "create_lead"
+                    "id": "create_lead",
+                    "label": "Create Lead"
                 },
                 {
-                    "label": "Update Lead",
-                    "id": "update_lead"
+                    "id": "update_lead",
+                    "label": "Update Lead"
                 },
                 {
-                    "label": "Delete Lead",
-                    "id": "delete_lead"
+                    "id": "delete_lead",
+                    "label": "Delete Lead"
                 }
-            ],
-            "defaultValue": "get_projects"
+            ]
         },
         {
             "id": "credential",
@@ -1594,14 +1618,19 @@ Retrieve all deals in a specific pipeline
             "id": "status",
             "type": "dropdown",
             "title": "Status",
+            "defaultValue": "",
             "options": [
                 {
-                    "label": "Open",
-                    "id": "open"
+                    "id": "",
+                    "label": "All"
                 },
                 {
-                    "label": "Completed",
-                    "id": "completed"
+                    "id": "open",
+                    "label": "Open"
+                },
+                {
+                    "id": "completed",
+                    "label": "Completed"
                 }
             ]
         },
@@ -1635,6 +1664,7 @@ Retrieve all projects or a specific project from Pipedrive
 | `projects` | array | Array of project objects \(when listing all\) |
 | `project` | object | Single project object \(when project_id is provided\) |
 | `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -1655,81 +1685,81 @@ Retrieve all projects or a specific project from Pipedrive
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create_project",
             "options": [
                 {
-                    "label": "Get All Deals",
-                    "id": "get_all_deals"
+                    "id": "get_all_deals",
+                    "label": "Get All Deals"
                 },
                 {
-                    "label": "Get Deal",
-                    "id": "get_deal"
+                    "id": "get_deal",
+                    "label": "Get Deal"
                 },
                 {
-                    "label": "Create Deal",
-                    "id": "create_deal"
+                    "id": "create_deal",
+                    "label": "Create Deal"
                 },
                 {
-                    "label": "Update Deal",
-                    "id": "update_deal"
+                    "id": "update_deal",
+                    "label": "Update Deal"
                 },
                 {
-                    "label": "Get Files",
-                    "id": "get_files"
+                    "id": "get_files",
+                    "label": "Get Files"
                 },
                 {
-                    "label": "Get Mail Threads",
-                    "id": "get_mail_messages"
+                    "id": "get_mail_messages",
+                    "label": "Get Mail Threads"
                 },
                 {
-                    "label": "Get Mail Thread Messages",
-                    "id": "get_mail_thread"
+                    "id": "get_mail_thread",
+                    "label": "Get Mail Thread Messages"
                 },
                 {
-                    "label": "Get Pipelines",
-                    "id": "get_pipelines"
+                    "id": "get_pipelines",
+                    "label": "Get Pipelines"
                 },
                 {
-                    "label": "Get Pipeline Deals",
-                    "id": "get_pipeline_deals"
+                    "id": "get_pipeline_deals",
+                    "label": "Get Pipeline Deals"
                 },
                 {
-                    "label": "Get Projects",
-                    "id": "get_projects"
+                    "id": "get_projects",
+                    "label": "Get Projects"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "create_project"
+                    "id": "create_project",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Get Activities",
-                    "id": "get_activities"
+                    "id": "get_activities",
+                    "label": "Get Activities"
                 },
                 {
-                    "label": "Create Activity",
-                    "id": "create_activity"
+                    "id": "create_activity",
+                    "label": "Create Activity"
                 },
                 {
-                    "label": "Update Activity",
-                    "id": "update_activity"
+                    "id": "update_activity",
+                    "label": "Update Activity"
                 },
                 {
-                    "label": "Get Leads",
-                    "id": "get_leads"
+                    "id": "get_leads",
+                    "label": "Get Leads"
                 },
                 {
-                    "label": "Create Lead",
-                    "id": "create_lead"
+                    "id": "create_lead",
+                    "label": "Create Lead"
                 },
                 {
-                    "label": "Update Lead",
-                    "id": "update_lead"
+                    "id": "update_lead",
+                    "label": "Update Lead"
                 },
                 {
-                    "label": "Delete Lead",
-                    "id": "delete_lead"
+                    "id": "delete_lead",
+                    "label": "Delete Lead"
                 }
-            ],
-            "defaultValue": "create_project"
+            ]
         },
         {
             "id": "credential",
@@ -1788,6 +1818,7 @@ Create a new project in Pipedrive
 | --------- | ---- | ----------- |
 | `project` | object | The created project object |
 | `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -1808,81 +1839,81 @@ Create a new project in Pipedrive
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_activities",
             "options": [
                 {
-                    "label": "Get All Deals",
-                    "id": "get_all_deals"
+                    "id": "get_all_deals",
+                    "label": "Get All Deals"
                 },
                 {
-                    "label": "Get Deal",
-                    "id": "get_deal"
+                    "id": "get_deal",
+                    "label": "Get Deal"
                 },
                 {
-                    "label": "Create Deal",
-                    "id": "create_deal"
+                    "id": "create_deal",
+                    "label": "Create Deal"
                 },
                 {
-                    "label": "Update Deal",
-                    "id": "update_deal"
+                    "id": "update_deal",
+                    "label": "Update Deal"
                 },
                 {
-                    "label": "Get Files",
-                    "id": "get_files"
+                    "id": "get_files",
+                    "label": "Get Files"
                 },
                 {
-                    "label": "Get Mail Threads",
-                    "id": "get_mail_messages"
+                    "id": "get_mail_messages",
+                    "label": "Get Mail Threads"
                 },
                 {
-                    "label": "Get Mail Thread Messages",
-                    "id": "get_mail_thread"
+                    "id": "get_mail_thread",
+                    "label": "Get Mail Thread Messages"
                 },
                 {
-                    "label": "Get Pipelines",
-                    "id": "get_pipelines"
+                    "id": "get_pipelines",
+                    "label": "Get Pipelines"
                 },
                 {
-                    "label": "Get Pipeline Deals",
-                    "id": "get_pipeline_deals"
+                    "id": "get_pipeline_deals",
+                    "label": "Get Pipeline Deals"
                 },
                 {
-                    "label": "Get Projects",
-                    "id": "get_projects"
+                    "id": "get_projects",
+                    "label": "Get Projects"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "create_project"
+                    "id": "create_project",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Get Activities",
-                    "id": "get_activities"
+                    "id": "get_activities",
+                    "label": "Get Activities"
                 },
                 {
-                    "label": "Create Activity",
-                    "id": "create_activity"
+                    "id": "create_activity",
+                    "label": "Create Activity"
                 },
                 {
-                    "label": "Update Activity",
-                    "id": "update_activity"
+                    "id": "update_activity",
+                    "label": "Update Activity"
                 },
                 {
-                    "label": "Get Leads",
-                    "id": "get_leads"
+                    "id": "get_leads",
+                    "label": "Get Leads"
                 },
                 {
-                    "label": "Create Lead",
-                    "id": "create_lead"
+                    "id": "create_lead",
+                    "label": "Create Lead"
                 },
                 {
-                    "label": "Update Lead",
-                    "id": "update_lead"
+                    "id": "update_lead",
+                    "label": "Update Lead"
                 },
                 {
-                    "label": "Delete Lead",
-                    "id": "delete_lead"
+                    "id": "delete_lead",
+                    "label": "Delete Lead"
                 }
-            ],
-            "defaultValue": "get_activities"
+            ]
         },
         {
             "id": "credential",
@@ -1914,30 +1945,35 @@ Create a new project in Pipedrive
             "id": "type",
             "type": "dropdown",
             "title": "Activity Type",
+            "defaultValue": "",
             "options": [
                 {
-                    "label": "Call",
-                    "id": "call"
+                    "id": "",
+                    "label": "All"
                 },
                 {
-                    "label": "Meeting",
-                    "id": "meeting"
+                    "id": "call",
+                    "label": "Call"
                 },
                 {
-                    "label": "Task",
-                    "id": "task"
+                    "id": "meeting",
+                    "label": "Meeting"
                 },
                 {
-                    "label": "Deadline",
-                    "id": "deadline"
+                    "id": "task",
+                    "label": "Task"
                 },
                 {
-                    "label": "Email",
-                    "id": "email"
+                    "id": "deadline",
+                    "label": "Deadline"
                 },
                 {
-                    "label": "Lunch",
-                    "id": "lunch"
+                    "id": "email",
+                    "label": "Email"
+                },
+                {
+                    "id": "lunch",
+                    "label": "Lunch"
                 }
             ]
         },
@@ -1945,14 +1981,19 @@ Create a new project in Pipedrive
             "id": "done",
             "type": "dropdown",
             "title": "Completion Status",
+            "defaultValue": "",
             "options": [
                 {
-                    "label": "Not Done",
-                    "id": "0"
+                    "id": "",
+                    "label": "All"
                 },
                 {
-                    "label": "Done",
-                    "id": "1"
+                    "id": "0",
+                    "label": "Not Done"
+                },
+                {
+                    "id": "1",
+                    "label": "Done"
                 }
             ]
         },
@@ -1988,6 +2029,7 @@ Retrieve activities (tasks) from Pipedrive with optional filters
 | --------- | ---- | ----------- |
 | `activities` | array | Array of activity objects from Pipedrive |
 | `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -2008,81 +2050,81 @@ Retrieve activities (tasks) from Pipedrive with optional filters
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create_activity",
             "options": [
                 {
-                    "label": "Get All Deals",
-                    "id": "get_all_deals"
+                    "id": "get_all_deals",
+                    "label": "Get All Deals"
                 },
                 {
-                    "label": "Get Deal",
-                    "id": "get_deal"
+                    "id": "get_deal",
+                    "label": "Get Deal"
                 },
                 {
-                    "label": "Create Deal",
-                    "id": "create_deal"
+                    "id": "create_deal",
+                    "label": "Create Deal"
                 },
                 {
-                    "label": "Update Deal",
-                    "id": "update_deal"
+                    "id": "update_deal",
+                    "label": "Update Deal"
                 },
                 {
-                    "label": "Get Files",
-                    "id": "get_files"
+                    "id": "get_files",
+                    "label": "Get Files"
                 },
                 {
-                    "label": "Get Mail Threads",
-                    "id": "get_mail_messages"
+                    "id": "get_mail_messages",
+                    "label": "Get Mail Threads"
                 },
                 {
-                    "label": "Get Mail Thread Messages",
-                    "id": "get_mail_thread"
+                    "id": "get_mail_thread",
+                    "label": "Get Mail Thread Messages"
                 },
                 {
-                    "label": "Get Pipelines",
-                    "id": "get_pipelines"
+                    "id": "get_pipelines",
+                    "label": "Get Pipelines"
                 },
                 {
-                    "label": "Get Pipeline Deals",
-                    "id": "get_pipeline_deals"
+                    "id": "get_pipeline_deals",
+                    "label": "Get Pipeline Deals"
                 },
                 {
-                    "label": "Get Projects",
-                    "id": "get_projects"
+                    "id": "get_projects",
+                    "label": "Get Projects"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "create_project"
+                    "id": "create_project",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Get Activities",
-                    "id": "get_activities"
+                    "id": "get_activities",
+                    "label": "Get Activities"
                 },
                 {
-                    "label": "Create Activity",
-                    "id": "create_activity"
+                    "id": "create_activity",
+                    "label": "Create Activity"
                 },
                 {
-                    "label": "Update Activity",
-                    "id": "update_activity"
+                    "id": "update_activity",
+                    "label": "Update Activity"
                 },
                 {
-                    "label": "Get Leads",
-                    "id": "get_leads"
+                    "id": "get_leads",
+                    "label": "Get Leads"
                 },
                 {
-                    "label": "Create Lead",
-                    "id": "create_lead"
+                    "id": "create_lead",
+                    "label": "Create Lead"
                 },
                 {
-                    "label": "Update Lead",
-                    "id": "update_lead"
+                    "id": "update_lead",
+                    "label": "Update Lead"
                 },
                 {
-                    "label": "Delete Lead",
-                    "id": "delete_lead"
+                    "id": "delete_lead",
+                    "label": "Delete Lead"
                 }
-            ],
-            "defaultValue": "create_activity"
+            ]
         },
         {
             "id": "credential",
@@ -2122,30 +2164,31 @@ Retrieve activities (tasks) from Pipedrive with optional filters
             "type": "dropdown",
             "title": "Activity Type",
             "required": true,
+            "defaultValue": "task",
             "options": [
                 {
-                    "label": "Call",
-                    "id": "call"
+                    "id": "call",
+                    "label": "Call"
                 },
                 {
-                    "label": "Meeting",
-                    "id": "meeting"
+                    "id": "meeting",
+                    "label": "Meeting"
                 },
                 {
-                    "label": "Task",
-                    "id": "task"
+                    "id": "task",
+                    "label": "Task"
                 },
                 {
-                    "label": "Deadline",
-                    "id": "deadline"
+                    "id": "deadline",
+                    "label": "Deadline"
                 },
                 {
-                    "label": "Email",
-                    "id": "email"
+                    "id": "email",
+                    "label": "Email"
                 },
                 {
-                    "label": "Lunch",
-                    "id": "lunch"
+                    "id": "lunch",
+                    "label": "Lunch"
                 }
             ]
         },
@@ -2203,6 +2246,7 @@ Create a new activity (task) in Pipedrive
 | --------- | ---- | ----------- |
 | `activity` | object | The created activity object |
 | `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -2223,81 +2267,81 @@ Create a new activity (task) in Pipedrive
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "update_activity",
             "options": [
                 {
-                    "label": "Get All Deals",
-                    "id": "get_all_deals"
+                    "id": "get_all_deals",
+                    "label": "Get All Deals"
                 },
                 {
-                    "label": "Get Deal",
-                    "id": "get_deal"
+                    "id": "get_deal",
+                    "label": "Get Deal"
                 },
                 {
-                    "label": "Create Deal",
-                    "id": "create_deal"
+                    "id": "create_deal",
+                    "label": "Create Deal"
                 },
                 {
-                    "label": "Update Deal",
-                    "id": "update_deal"
+                    "id": "update_deal",
+                    "label": "Update Deal"
                 },
                 {
-                    "label": "Get Files",
-                    "id": "get_files"
+                    "id": "get_files",
+                    "label": "Get Files"
                 },
                 {
-                    "label": "Get Mail Threads",
-                    "id": "get_mail_messages"
+                    "id": "get_mail_messages",
+                    "label": "Get Mail Threads"
                 },
                 {
-                    "label": "Get Mail Thread Messages",
-                    "id": "get_mail_thread"
+                    "id": "get_mail_thread",
+                    "label": "Get Mail Thread Messages"
                 },
                 {
-                    "label": "Get Pipelines",
-                    "id": "get_pipelines"
+                    "id": "get_pipelines",
+                    "label": "Get Pipelines"
                 },
                 {
-                    "label": "Get Pipeline Deals",
-                    "id": "get_pipeline_deals"
+                    "id": "get_pipeline_deals",
+                    "label": "Get Pipeline Deals"
                 },
                 {
-                    "label": "Get Projects",
-                    "id": "get_projects"
+                    "id": "get_projects",
+                    "label": "Get Projects"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "create_project"
+                    "id": "create_project",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Get Activities",
-                    "id": "get_activities"
+                    "id": "get_activities",
+                    "label": "Get Activities"
                 },
                 {
-                    "label": "Create Activity",
-                    "id": "create_activity"
+                    "id": "create_activity",
+                    "label": "Create Activity"
                 },
                 {
-                    "label": "Update Activity",
-                    "id": "update_activity"
+                    "id": "update_activity",
+                    "label": "Update Activity"
                 },
                 {
-                    "label": "Get Leads",
-                    "id": "get_leads"
+                    "id": "get_leads",
+                    "label": "Get Leads"
                 },
                 {
-                    "label": "Create Lead",
-                    "id": "create_lead"
+                    "id": "create_lead",
+                    "label": "Create Lead"
                 },
                 {
-                    "label": "Update Lead",
-                    "id": "update_lead"
+                    "id": "update_lead",
+                    "label": "Update Lead"
                 },
                 {
-                    "label": "Delete Lead",
-                    "id": "delete_lead"
+                    "id": "delete_lead",
+                    "label": "Delete Lead"
                 }
-            ],
-            "defaultValue": "update_activity"
+            ]
         },
         {
             "id": "credential",
@@ -2350,14 +2394,15 @@ Create a new activity (task) in Pipedrive
             "id": "done",
             "type": "dropdown",
             "title": "Mark as Done",
+            "defaultValue": "0",
             "options": [
                 {
-                    "label": "Not Done",
-                    "id": "0"
+                    "id": "0",
+                    "label": "Not Done"
                 },
                 {
-                    "label": "Done",
-                    "id": "1"
+                    "id": "1",
+                    "label": "Done"
                 }
             ]
         }
@@ -2388,6 +2433,7 @@ Update an existing activity (task) in Pipedrive
 | --------- | ---- | ----------- |
 | `activity` | object | The updated activity object |
 | `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -2408,81 +2454,81 @@ Update an existing activity (task) in Pipedrive
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_leads",
             "options": [
                 {
-                    "label": "Get All Deals",
-                    "id": "get_all_deals"
+                    "id": "get_all_deals",
+                    "label": "Get All Deals"
                 },
                 {
-                    "label": "Get Deal",
-                    "id": "get_deal"
+                    "id": "get_deal",
+                    "label": "Get Deal"
                 },
                 {
-                    "label": "Create Deal",
-                    "id": "create_deal"
+                    "id": "create_deal",
+                    "label": "Create Deal"
                 },
                 {
-                    "label": "Update Deal",
-                    "id": "update_deal"
+                    "id": "update_deal",
+                    "label": "Update Deal"
                 },
                 {
-                    "label": "Get Files",
-                    "id": "get_files"
+                    "id": "get_files",
+                    "label": "Get Files"
                 },
                 {
-                    "label": "Get Mail Threads",
-                    "id": "get_mail_messages"
+                    "id": "get_mail_messages",
+                    "label": "Get Mail Threads"
                 },
                 {
-                    "label": "Get Mail Thread Messages",
-                    "id": "get_mail_thread"
+                    "id": "get_mail_thread",
+                    "label": "Get Mail Thread Messages"
                 },
                 {
-                    "label": "Get Pipelines",
-                    "id": "get_pipelines"
+                    "id": "get_pipelines",
+                    "label": "Get Pipelines"
                 },
                 {
-                    "label": "Get Pipeline Deals",
-                    "id": "get_pipeline_deals"
+                    "id": "get_pipeline_deals",
+                    "label": "Get Pipeline Deals"
                 },
                 {
-                    "label": "Get Projects",
-                    "id": "get_projects"
+                    "id": "get_projects",
+                    "label": "Get Projects"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "create_project"
+                    "id": "create_project",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Get Activities",
-                    "id": "get_activities"
+                    "id": "get_activities",
+                    "label": "Get Activities"
                 },
                 {
-                    "label": "Create Activity",
-                    "id": "create_activity"
+                    "id": "create_activity",
+                    "label": "Create Activity"
                 },
                 {
-                    "label": "Update Activity",
-                    "id": "update_activity"
+                    "id": "update_activity",
+                    "label": "Update Activity"
                 },
                 {
-                    "label": "Get Leads",
-                    "id": "get_leads"
+                    "id": "get_leads",
+                    "label": "Get Leads"
                 },
                 {
-                    "label": "Create Lead",
-                    "id": "create_lead"
+                    "id": "create_lead",
+                    "label": "Create Lead"
                 },
                 {
-                    "label": "Update Lead",
-                    "id": "update_lead"
+                    "id": "update_lead",
+                    "label": "Update Lead"
                 },
                 {
-                    "label": "Delete Lead",
-                    "id": "delete_lead"
+                    "id": "delete_lead",
+                    "label": "Delete Lead"
                 }
-            ],
-            "defaultValue": "get_leads"
+            ]
         },
         {
             "id": "credential",
@@ -2502,14 +2548,15 @@ Update an existing activity (task) in Pipedrive
             "id": "archived",
             "type": "dropdown",
             "title": "Archived",
+            "defaultValue": "false",
             "options": [
                 {
-                    "label": "Active Leads",
-                    "id": "false"
+                    "id": "false",
+                    "label": "Active Leads"
                 },
                 {
-                    "label": "Archived Leads",
-                    "id": "true"
+                    "id": "true",
+                    "label": "Archived Leads"
                 }
             ]
         },
@@ -2564,6 +2611,7 @@ Retrieve all leads or a specific lead from Pipedrive
 | `leads` | array | Array of lead objects \(when listing all\) |
 | `lead` | object | Single lead object \(when lead_id is provided\) |
 | `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -2584,81 +2632,81 @@ Retrieve all leads or a specific lead from Pipedrive
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create_lead",
             "options": [
                 {
-                    "label": "Get All Deals",
-                    "id": "get_all_deals"
+                    "id": "get_all_deals",
+                    "label": "Get All Deals"
                 },
                 {
-                    "label": "Get Deal",
-                    "id": "get_deal"
+                    "id": "get_deal",
+                    "label": "Get Deal"
                 },
                 {
-                    "label": "Create Deal",
-                    "id": "create_deal"
+                    "id": "create_deal",
+                    "label": "Create Deal"
                 },
                 {
-                    "label": "Update Deal",
-                    "id": "update_deal"
+                    "id": "update_deal",
+                    "label": "Update Deal"
                 },
                 {
-                    "label": "Get Files",
-                    "id": "get_files"
+                    "id": "get_files",
+                    "label": "Get Files"
                 },
                 {
-                    "label": "Get Mail Threads",
-                    "id": "get_mail_messages"
+                    "id": "get_mail_messages",
+                    "label": "Get Mail Threads"
                 },
                 {
-                    "label": "Get Mail Thread Messages",
-                    "id": "get_mail_thread"
+                    "id": "get_mail_thread",
+                    "label": "Get Mail Thread Messages"
                 },
                 {
-                    "label": "Get Pipelines",
-                    "id": "get_pipelines"
+                    "id": "get_pipelines",
+                    "label": "Get Pipelines"
                 },
                 {
-                    "label": "Get Pipeline Deals",
-                    "id": "get_pipeline_deals"
+                    "id": "get_pipeline_deals",
+                    "label": "Get Pipeline Deals"
                 },
                 {
-                    "label": "Get Projects",
-                    "id": "get_projects"
+                    "id": "get_projects",
+                    "label": "Get Projects"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "create_project"
+                    "id": "create_project",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Get Activities",
-                    "id": "get_activities"
+                    "id": "get_activities",
+                    "label": "Get Activities"
                 },
                 {
-                    "label": "Create Activity",
-                    "id": "create_activity"
+                    "id": "create_activity",
+                    "label": "Create Activity"
                 },
                 {
-                    "label": "Update Activity",
-                    "id": "update_activity"
+                    "id": "update_activity",
+                    "label": "Update Activity"
                 },
                 {
-                    "label": "Get Leads",
-                    "id": "get_leads"
+                    "id": "get_leads",
+                    "label": "Get Leads"
                 },
                 {
-                    "label": "Create Lead",
-                    "id": "create_lead"
+                    "id": "create_lead",
+                    "label": "Create Lead"
                 },
                 {
-                    "label": "Update Lead",
-                    "id": "update_lead"
+                    "id": "update_lead",
+                    "label": "Update Lead"
                 },
                 {
-                    "label": "Delete Lead",
-                    "id": "delete_lead"
+                    "id": "delete_lead",
+                    "label": "Delete Lead"
                 }
-            ],
-            "defaultValue": "create_lead"
+            ]
         },
         {
             "id": "credential",
@@ -2739,6 +2787,7 @@ Create a new lead in Pipedrive
 | --------- | ---- | ----------- |
 | `lead` | object | The created lead object |
 | `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -2759,81 +2808,81 @@ Create a new lead in Pipedrive
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "update_lead",
             "options": [
                 {
-                    "label": "Get All Deals",
-                    "id": "get_all_deals"
+                    "id": "get_all_deals",
+                    "label": "Get All Deals"
                 },
                 {
-                    "label": "Get Deal",
-                    "id": "get_deal"
+                    "id": "get_deal",
+                    "label": "Get Deal"
                 },
                 {
-                    "label": "Create Deal",
-                    "id": "create_deal"
+                    "id": "create_deal",
+                    "label": "Create Deal"
                 },
                 {
-                    "label": "Update Deal",
-                    "id": "update_deal"
+                    "id": "update_deal",
+                    "label": "Update Deal"
                 },
                 {
-                    "label": "Get Files",
-                    "id": "get_files"
+                    "id": "get_files",
+                    "label": "Get Files"
                 },
                 {
-                    "label": "Get Mail Threads",
-                    "id": "get_mail_messages"
+                    "id": "get_mail_messages",
+                    "label": "Get Mail Threads"
                 },
                 {
-                    "label": "Get Mail Thread Messages",
-                    "id": "get_mail_thread"
+                    "id": "get_mail_thread",
+                    "label": "Get Mail Thread Messages"
                 },
                 {
-                    "label": "Get Pipelines",
-                    "id": "get_pipelines"
+                    "id": "get_pipelines",
+                    "label": "Get Pipelines"
                 },
                 {
-                    "label": "Get Pipeline Deals",
-                    "id": "get_pipeline_deals"
+                    "id": "get_pipeline_deals",
+                    "label": "Get Pipeline Deals"
                 },
                 {
-                    "label": "Get Projects",
-                    "id": "get_projects"
+                    "id": "get_projects",
+                    "label": "Get Projects"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "create_project"
+                    "id": "create_project",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Get Activities",
-                    "id": "get_activities"
+                    "id": "get_activities",
+                    "label": "Get Activities"
                 },
                 {
-                    "label": "Create Activity",
-                    "id": "create_activity"
+                    "id": "create_activity",
+                    "label": "Create Activity"
                 },
                 {
-                    "label": "Update Activity",
-                    "id": "update_activity"
+                    "id": "update_activity",
+                    "label": "Update Activity"
                 },
                 {
-                    "label": "Get Leads",
-                    "id": "get_leads"
+                    "id": "get_leads",
+                    "label": "Get Leads"
                 },
                 {
-                    "label": "Create Lead",
-                    "id": "create_lead"
+                    "id": "create_lead",
+                    "label": "Create Lead"
                 },
                 {
-                    "label": "Update Lead",
-                    "id": "update_lead"
+                    "id": "update_lead",
+                    "label": "Update Lead"
                 },
                 {
-                    "label": "Delete Lead",
-                    "id": "delete_lead"
+                    "id": "delete_lead",
+                    "label": "Delete Lead"
                 }
-            ],
-            "defaultValue": "update_lead"
+            ]
         },
         {
             "id": "credential",
@@ -2895,14 +2944,15 @@ Create a new lead in Pipedrive
             "id": "is_archived",
             "type": "dropdown",
             "title": "Archive Lead",
+            "defaultValue": "false",
             "options": [
                 {
-                    "label": "No",
-                    "id": "false"
+                    "id": "false",
+                    "label": "No"
                 },
                 {
-                    "label": "Yes",
-                    "id": "true"
+                    "id": "true",
+                    "label": "Yes"
                 }
             ]
         }
@@ -2935,6 +2985,7 @@ Update an existing lead in Pipedrive
 | --------- | ---- | ----------- |
 | `lead` | object | The updated lead object |
 | `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -2955,81 +3006,81 @@ Update an existing lead in Pipedrive
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "delete_lead",
             "options": [
                 {
-                    "label": "Get All Deals",
-                    "id": "get_all_deals"
+                    "id": "get_all_deals",
+                    "label": "Get All Deals"
                 },
                 {
-                    "label": "Get Deal",
-                    "id": "get_deal"
+                    "id": "get_deal",
+                    "label": "Get Deal"
                 },
                 {
-                    "label": "Create Deal",
-                    "id": "create_deal"
+                    "id": "create_deal",
+                    "label": "Create Deal"
                 },
                 {
-                    "label": "Update Deal",
-                    "id": "update_deal"
+                    "id": "update_deal",
+                    "label": "Update Deal"
                 },
                 {
-                    "label": "Get Files",
-                    "id": "get_files"
+                    "id": "get_files",
+                    "label": "Get Files"
                 },
                 {
-                    "label": "Get Mail Threads",
-                    "id": "get_mail_messages"
+                    "id": "get_mail_messages",
+                    "label": "Get Mail Threads"
                 },
                 {
-                    "label": "Get Mail Thread Messages",
-                    "id": "get_mail_thread"
+                    "id": "get_mail_thread",
+                    "label": "Get Mail Thread Messages"
                 },
                 {
-                    "label": "Get Pipelines",
-                    "id": "get_pipelines"
+                    "id": "get_pipelines",
+                    "label": "Get Pipelines"
                 },
                 {
-                    "label": "Get Pipeline Deals",
-                    "id": "get_pipeline_deals"
+                    "id": "get_pipeline_deals",
+                    "label": "Get Pipeline Deals"
                 },
                 {
-                    "label": "Get Projects",
-                    "id": "get_projects"
+                    "id": "get_projects",
+                    "label": "Get Projects"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "create_project"
+                    "id": "create_project",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Get Activities",
-                    "id": "get_activities"
+                    "id": "get_activities",
+                    "label": "Get Activities"
                 },
                 {
-                    "label": "Create Activity",
-                    "id": "create_activity"
+                    "id": "create_activity",
+                    "label": "Create Activity"
                 },
                 {
-                    "label": "Update Activity",
-                    "id": "update_activity"
+                    "id": "update_activity",
+                    "label": "Update Activity"
                 },
                 {
-                    "label": "Get Leads",
-                    "id": "get_leads"
+                    "id": "get_leads",
+                    "label": "Get Leads"
                 },
                 {
-                    "label": "Create Lead",
-                    "id": "create_lead"
+                    "id": "create_lead",
+                    "label": "Create Lead"
                 },
                 {
-                    "label": "Update Lead",
-                    "id": "update_lead"
+                    "id": "update_lead",
+                    "label": "Update Lead"
                 },
                 {
-                    "label": "Delete Lead",
-                    "id": "delete_lead"
+                    "id": "delete_lead",
+                    "label": "Delete Lead"
                 }
-            ],
-            "defaultValue": "delete_lead"
+            ]
         },
         {
             "id": "credential",
@@ -3066,6 +3117,7 @@ Delete a specific lead from Pipedrive
 | --------- | ---- | ----------- |
 | `data` | object | Deletion confirmation data |
 | `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 

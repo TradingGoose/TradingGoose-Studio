@@ -9,6 +9,16 @@ import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { decryptSecret } from '@/lib/utils-server'
 import { loadDeployedWorkflowState, requireWorkflowRealtimeState } from '@/lib/workflows/db-helpers'
+import { workflowPauseLinks } from '@/lib/workflows/human-in-the-loop/links'
+import { dispatchWorkflowPauseNotifications } from '@/lib/workflows/human-in-the-loop/notifications'
+import {
+  completeWorkflowCheckpointChild,
+  saveWorkflowCheckpoint,
+} from '@/lib/workflows/human-in-the-loop/service'
+import type {
+  WorkflowCheckpointSnapshot,
+  WorkflowPausePoint,
+} from '@/lib/workflows/human-in-the-loop/types'
 import { TriggerUtils } from '@/lib/workflows/triggers'
 import { updateWorkflowRunCounts } from '@/lib/workflows/utils'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
@@ -54,12 +64,11 @@ export type WorkflowExecutionBlueprint = {
   }
 }
 
-export type WorkflowRunnerExecutionResult = ExecutionResult
 export type WorkflowDispatchFailureReason = 'usage_limit_exceeded' | 'missing_trigger_block'
 
 export type WorkflowRunnerResult = {
   executionId: string
-  result: WorkflowRunnerExecutionResult
+  result: ExecutionResult
   workflowData: WorkflowExecutionBlueprint['workflowData']
   workspaceId: string
   dispatchFailureReason?: WorkflowDispatchFailureReason
@@ -323,6 +332,7 @@ export async function runPreparedWorkflowExecution(params: {
   triggerData?: Record<string, unknown>
   contextExtensions?: Partial<ExecutionContextExtensions>
   startupError?: unknown
+  resume?: { snapshot: WorkflowCheckpointSnapshot; pausePoints: WorkflowPausePoint[] }
 }): Promise<WorkflowRunnerResult> {
   const executionId = params.executionId ?? uuidv4()
   const requestId = params.requestId ?? executionId.slice(0, 8)
@@ -332,19 +342,31 @@ export async function runPreparedWorkflowExecution(params: {
     params.blueprint.workflowId,
     executionId,
     loggingTriggerType,
-    requestId
+    requestId,
+    params.resume?.snapshot.workflowLogId
   )
 
   // Workflow logs are the durable terminal state for queued and non-stream executions.
-  const workflowLogId = await loggingSession.start({
-    userId: params.actorUserId,
-    workspaceId,
-    workflowState: params.blueprint.workflowData,
-    triggerData: params.triggerData,
-  })
+  const workflowLogId =
+    params.resume?.snapshot.workflowLogId ??
+    (await loggingSession.start({
+      userId: params.actorUserId,
+      workspaceId,
+      workflowState: params.blueprint.workflowData,
+      triggerData: params.triggerData,
+    }))
 
   let encryptedEnvVars: Record<string, string> | undefined
-  let result: ExecutionResult
+  const isChildExecution =
+    params.contextExtensions?.isChildExecution === true ||
+    (params.resume?.snapshot.executor.context.workflowDepth ?? 0) > 0
+  let result: ExecutionResult = {
+    success: false,
+    output: {},
+    logs: params.resume?.snapshot.executor.context.blockLogs ?? [],
+    metadata: params.resume?.snapshot.executor.context.metadata ?? { duration: 0 },
+  }
+  let dispatchFailureReason: WorkflowDispatchFailureReason | undefined
   try {
     if (params.startupError) {
       throw params.startupError
@@ -362,25 +384,34 @@ export async function runPreparedWorkflowExecution(params: {
       )
     }
 
-    const { personalEncrypted, workspaceEncrypted } = await getPersonalAndWorkspaceEnv(
-      params.actorUserId,
-      workspaceId
-    )
-    encryptedEnvVars = {
-      ...personalEncrypted,
-      ...workspaceEncrypted,
+    if (params.resume) {
+      encryptedEnvVars = params.resume.snapshot.encryptedEnvVars ?? {}
+    } else {
+      const { personalEncrypted, workspaceEncrypted } = await getPersonalAndWorkspaceEnv(
+        params.actorUserId,
+        workspaceId
+      )
+      encryptedEnvVars = { ...personalEncrypted, ...workspaceEncrypted }
     }
-    const decryptedEnvVars = await decryptEnvironmentVariables(encryptedEnvVars)
+    const checkpoint = params.resume?.snapshot.executor
+    const decryptedEnvVars =
+      checkpoint?.context.environmentVariables ??
+      (await decryptEnvironmentVariables(encryptedEnvVars))
     const mergedStates = mergeSubblockState(params.blueprint.workflowData.blocks, {})
-    const processedBlockStates = buildProcessedBlockStates(mergedStates, decryptedEnvVars)
-    const serializedWorkflow = new Serializer().serializeWorkflow(
-      mergedStates,
-      params.blueprint.workflowData.edges,
-      params.blueprint.workflowData.loops,
-      params.blueprint.workflowData.parallels,
-      true
-    )
-    const workflowVariables = normalizeVariables(params.blueprint.workflowContext.variables)
+    const processedBlockStates =
+      checkpoint?.currentBlockStates ?? buildProcessedBlockStates(mergedStates, decryptedEnvVars)
+    const serializedWorkflow =
+      checkpoint?.workflow ??
+      new Serializer().serializeWorkflow(
+        mergedStates,
+        params.blueprint.workflowData.edges,
+        params.blueprint.workflowData.loops,
+        params.blueprint.workflowData.parallels,
+        true
+      )
+    const workflowVariables =
+      checkpoint?.context.workflowVariables ??
+      normalizeVariables(params.blueprint.workflowContext.variables)
 
     const contextExtensions: ExecutionContextExtensions = {
       ...params.contextExtensions,
@@ -389,7 +420,8 @@ export async function runPreparedWorkflowExecution(params: {
       userId: params.actorUserId,
       isDeployedContext: params.blueprint.executionTarget !== 'live',
       triggerType: params.triggerType,
-      workflowDepth: params.contextExtensions?.workflowDepth ?? 0,
+      workflowDepth:
+        checkpoint?.context.workflowDepth ?? params.contextExtensions?.workflowDepth ?? 0,
       submissionSource: 'workflow',
       workflowLogId,
     }
@@ -408,16 +440,69 @@ export async function runPreparedWorkflowExecution(params: {
       workflowInput: params.workflowInput,
       workflowVariables,
       contextExtensions,
+      checkpoint,
+      resumeInputs:
+        params.resume &&
+        new Map(
+          params.resume.pausePoints.map((point) => [
+            point.id,
+            {
+              ...point.input,
+              ...(point.kind === 'child' ? { childWorkflowName: point.childWorkflowName } : {}),
+            },
+          ])
+        ),
     })
 
-    const triggerBlockId = resolveTriggerBlockId({
-      mergedStates,
-      serializedWorkflow,
-      target: params.triggerTarget,
-      isChildExecution: contextExtensions.isChildExecution === true,
-    })
+    const triggerBlockId =
+      checkpoint?.context.triggerBlockId ??
+      resolveTriggerBlockId({
+        mergedStates,
+        serializedWorkflow,
+        target: params.triggerTarget,
+        isChildExecution: contextExtensions.isChildExecution === true,
+      })
 
     result = await executor.execute(params.blueprint.workflowId, triggerBlockId)
+
+    if (result.status === 'paused' && (!result.checkpoint || !result.pausePoints?.length)) {
+      throw new Error('Paused execution is missing its durable checkpoint')
+    }
+
+    if (result.status === 'paused' && result.checkpoint && result.pausePoints) {
+      const { checkpoint: nextCheckpoint, pausePoints, ...publicResult } = result
+      const saved = await saveWorkflowCheckpoint({
+        executionId,
+        pendingExecutionId: contextExtensions.pendingExecutionId,
+        workflowId: params.blueprint.workflowId,
+        workspaceId,
+        userId: params.actorUserId,
+        pausePoints,
+        snapshot: {
+          executor: nextCheckpoint,
+          blueprint: params.blueprint,
+          workflowInput: params.workflowInput,
+          triggerType: params.triggerType,
+          triggerData: params.triggerData,
+          workflowLogId,
+          encryptedEnvVars,
+        },
+      })
+      result = {
+        ...publicResult,
+        output: {
+          ...workflowPauseLinks(params.blueprint.workflowId, executionId),
+          revision: saved.revision,
+        },
+      }
+      await contextExtensions
+        .onExecutionEvent?.({ type: 'execution:paused', data: { result } })
+        .catch((error) => logger.error('Could not publish pause event; checkpoint is saved', error))
+      await dispatchWorkflowPauseNotifications(nextCheckpoint, pausePoints).catch((error) =>
+        logger.error('Could not dispatch notifications; checkpoint is saved', error)
+      )
+      return { executionId, result, workflowData: params.blueprint.workflowData, workspaceId }
+    }
 
     if (result.success) {
       await updateWorkflowRunCounts(params.blueprint.workflowId).catch((error) =>
@@ -426,63 +511,54 @@ export async function runPreparedWorkflowExecution(params: {
     }
   } catch (error: any) {
     const message = error.message || 'Workflow execution failed'
-    const dispatchFailureReason =
+    dispatchFailureReason =
       error instanceof WorkflowUsageLimitError
         ? 'usage_limit_exceeded'
         : error instanceof WorkflowTriggerBlockError
           ? 'missing_trigger_block'
           : undefined
-    result = (error?.executionResult as ExecutionResult | undefined) || {
+    result = {
       success: false,
       output: {},
       error: message,
-      logs: [],
-    }
-    const { traceSpans, totalDuration } = buildTraceSpans(result)
-
-    await loggingSession.completeWithError({
-      endedAt: new Date().toISOString(),
-      totalDurationMs: totalDuration || 0,
-      error: {
-        message,
-        stackTrace: error.stack,
-      },
-      traceSpans,
-      workspaceId,
-      actorUserId: params.actorUserId,
-      variables: encryptedEnvVars,
-    })
-    return {
-      executionId,
-      result,
-      workflowData: params.blueprint.workflowData,
-      workspaceId,
-      dispatchFailureReason,
+      logs: result.logs,
+      metadata: result.metadata,
     }
   }
 
-  const { traceSpans, totalDuration } = buildTraceSpans(result)
+  const { traceSpans } = buildTraceSpans(result)
 
   await loggingSession.complete({
-    endedAt: new Date().toISOString(),
-    totalDurationMs: totalDuration || 0,
-    finalOutput: result.output === undefined ? {} : result.output,
+    totalDurationMs: result.metadata?.duration ?? 0,
+    finalOutput: result.output,
     success: result.success,
     failureReason: result.error,
-    traceSpans: traceSpans || [],
+    traceSpans,
     workflowInput: params.workflowInput,
     workspaceId,
-    actorUserId: params.actorUserId,
     hasResponseBlock:
       result.logs?.some((log) => log.success && log.blockType === 'response') === true,
     variables: encryptedEnvVars,
   })
+
+  if (!result.success) {
+    const { cancelPendingExecutionDescendants } = await import(
+      '@/background/pending-execution-worker'
+    )
+    await cancelPendingExecutionDescendants(executionId)
+  }
+  if (isChildExecution)
+    await completeWorkflowCheckpointChild({
+      childExecutionId: executionId,
+      input: { ...result, traceSpans },
+    })
 
   return {
     executionId,
     result,
     workflowData: params.blueprint.workflowData,
     workspaceId,
+    dispatchFailureReason,
   }
 }
 

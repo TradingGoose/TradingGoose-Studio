@@ -1,0 +1,83 @@
+---
+title: DuckDuckGo
+description: Buscar con DuckDuckGo
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="duckduckgo"
+  color="#FFFFFF"
+/>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="DuckDuckGo"
+    type="duckduckgo"
+    color="#FFFFFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Consulta de búsqueda",
+            "placeholder": "Introduce tu consulta de búsqueda...",
+            "required": true
+        },
+        {
+            "id": "noHtml",
+            "type": "switch",
+            "title": "Eliminar HTML",
+            "defaultValue": true
+        },
+        {
+            "id": "skipDisambig",
+            "type": "switch",
+            "title": "Omitir desambiguación"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `duckduckgo_search`
+
+Busca en la web con la API de DuckDuckGo Instant Answers. Devuelve respuestas instantáneas, resúmenes y temas relacionados para tu consulta. De uso gratuito y sin clave de API.
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | Sí | La consulta de búsqueda que se va a ejecutar |
+| `noHtml` | boolean | No | Elimina el HTML del texto en los resultados \(predeterminado: true\) |
+| `skipDisambig` | boolean | No | Omite los resultados de desambiguación \(predeterminado: false\) |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `heading` | string | El encabezado/título de la respuesta instantánea |
+| `abstract` | string | Un breve resumen del tema |
+| `abstractText` | string | Versión en texto sin formato del resumen |
+| `abstractSource` | string | La fuente del resumen \(p. ej., Wikipedia\) |
+| `abstractURL` | string | URL de la fuente del resumen |
+| `image` | string | URL de una imagen relacionada con el tema |
+| `answer` | string | Respuesta directa si está disponible \(p. ej., para cálculos\) |
+| `answerType` | string | Tipo de la respuesta \(p. ej., calc, ip, etc.\) |
+| `type` | string | Tipo de respuesta: A \(artículo\), D \(desambiguación\), C \(categoría\), N \(nombre\), E \(exclusiva\) |
+| `relatedTopics` | array | Matriz de temas relacionados con URL y descripciones |
+| `results` | array | Matriz de resultados de enlaces externos |
+
+## Instrucciones de uso
+
+Busca en la web usando la API de DuckDuckGo Instant Answers. Devuelve respuestas instantáneas, resúmenes, temas relacionados y más. Gratis, sin necesidad de clave API.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `duckduckgo`

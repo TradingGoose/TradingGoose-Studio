@@ -1,13 +1,6 @@
 import type { ReactNode } from 'react'
-import { i18n } from '@/lib/i18n'
 
 const baseUrl = 'https://docs.tradinggoose.ai'
-const languageAlternates = Object.fromEntries(
-  i18n.languages.map((lang) => [
-    lang,
-    lang === i18n.defaultLanguage ? baseUrl : `${baseUrl}/${lang}`,
-  ])
-)
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return children
@@ -58,8 +51,6 @@ export const metadata = {
   },
   openGraph: {
     type: 'website',
-    locale: 'en_US',
-    url: baseUrl,
     siteName: 'TradingGoose Documentation',
     title: 'TradingGoose Documentation - Visual Workflow Builder for AI Applications',
     description:
@@ -83,13 +74,6 @@ export const metadata = {
       'max-video-preview': -1,
       'max-image-preview': 'large',
       'max-snippet': -1,
-    },
-  },
-  alternates: {
-    canonical: baseUrl,
-    languages: {
-      'x-default': baseUrl,
-      ...languageAlternates,
     },
   },
 }

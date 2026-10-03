@@ -18,7 +18,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 Trigger workflow when a Fireflies meeting transcription is complete
 
 <Callout type="info">
-  This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
+  This is a **webhook-based** trigger. Configure the external service to send events to the workflow webhook URL.
 </Callout>
 
 <Cards>
@@ -27,6 +27,10 @@ Trigger workflow when a Fireflies meeting transcription is complete
   </Card>
 </Cards>
 
+
+## Setup Instructions
+
+<div class="mb-3"><strong>1.</strong> Go to <a href="https://app.fireflies.ai/settings" target="_blank" rel="noopener noreferrer">app.fireflies.ai/settings</a></div><div class="mb-3"><strong>2.</strong> Navigate to the <strong>Developer settings</strong> tab</div><div class="mb-3"><strong>3.</strong> In the <strong>Webhook</strong> section, paste the Webhook URL above</div><div class="mb-3"><strong>4.</strong> Enter a <strong>Secret</strong> (16-32 characters) and save it here as well</div><div class="mb-3"><strong>5.</strong> Click <strong>Save</strong> in Fireflies to activate the webhook</div><div class="mb-3"><strong>6.</strong> Your workflow will now trigger when any meeting transcription completes</div>
 
 ## Configuration
 
@@ -42,13 +46,14 @@ Trigger workflow when a Fireflies meeting transcription is complete
             "title": "Webhook Secret",
             "placeholder": "Enter your 16-32 character secret",
             "description": "Secret key for HMAC signature verification (set in Fireflies dashboard)",
-            "password": true
+            "password": true,
+            "required": false
         }
     ]}
   />
 </ShowcaseCard>
 
-#### Output Schema
+## Output Schema
 
 <SchemaTree
   title="Event Payload"
@@ -70,5 +75,3 @@ Trigger workflow when a Fireflies meeting transcription is complete
       }
   ]}
 />
-
-

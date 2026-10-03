@@ -1,0 +1,334 @@
+---
+title: Slack
+description: 向 Slack 发送消息，或根据 Slack 事件触发工作流
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="slack"
+  color=""
+/>
+
+<Cards>
+  <Card title="用作触发器" href="/triggers/slack">
+    查看 Slack 的触发事件、设置和事件载荷。
+  </Card>
+</Cards>
+
+## 配置
+
+### 发送消息
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Slack"
+    type="slack"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "send",
+            "options": [
+                {
+                    "id": "send",
+                    "label": "发送消息"
+                },
+                {
+                    "id": "canvas",
+                    "label": "创建画布"
+                },
+                {
+                    "id": "read",
+                    "label": "读取消息"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Slack 账号",
+            "layout": "full",
+            "placeholder": "选择 Slack 工作区",
+            "provider": "slack"
+        },
+        {
+            "id": "channel",
+            "type": "channel-selector",
+            "title": "频道",
+            "layout": "full",
+            "placeholder": "选择 Slack 频道",
+            "provider": "slack"
+        },
+        {
+            "id": "manualChannel",
+            "type": "short-input",
+            "title": "频道 ID",
+            "layout": "full",
+            "placeholder": "输入 Slack 频道 ID（例如 C1234567890）"
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "消息",
+            "layout": "full",
+            "placeholder": "输入消息（支持 Slack mrkdwn）",
+            "required": true
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "附件",
+            "layout": "full",
+            "placeholder": "上传要附加的文件",
+            "required": false
+        },
+        {
+            "id": "files",
+            "type": "short-input",
+            "title": "文件附件",
+            "layout": "full",
+            "placeholder": "引用先前块中的文件",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">发送消息 (<code>slack_message</code>)</div>
+
+向 Slack 频道或私信发送消息。支持 Slack mrkdwn 格式。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `destinationType` | string | 否 | 目标类型：channel 或 dm |
+| `channel` | string | 否 | 目标 Slack 频道（例如 #general） |
+| `dmUserId` | string | 否 | 私信的目标 Slack 用户 |
+| `text` | string | 是 | 要发送的消息文本（支持 Slack mrkdwn 格式） |
+| `thread_ts` | string | 否 | 要回复的线程时间戳（创建线程回复） |
+| `files` | file[] | 否 | 要附加到消息的文件 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | object | 包含 Slack 返回的全部属性的完整消息对象 |
+| `ts` | string | 消息时间戳 |
+| `channel` | string | 消息发送到的频道 ID |
+| `fileCount` | number | 上传的文件数量（附加文件时） |
+
+</div>
+
+---
+
+### 创建画布
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Slack"
+    type="slack"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "canvas",
+            "options": [
+                {
+                    "id": "send",
+                    "label": "发送消息"
+                },
+                {
+                    "id": "canvas",
+                    "label": "创建画布"
+                },
+                {
+                    "id": "read",
+                    "label": "读取消息"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Slack 账号",
+            "layout": "full",
+            "placeholder": "选择 Slack 工作区",
+            "provider": "slack"
+        },
+        {
+            "id": "channel",
+            "type": "channel-selector",
+            "title": "频道",
+            "layout": "full",
+            "placeholder": "选择 Slack 频道",
+            "provider": "slack"
+        },
+        {
+            "id": "manualChannel",
+            "type": "short-input",
+            "title": "频道 ID",
+            "layout": "full",
+            "placeholder": "输入 Slack 频道 ID（例如 C1234567890）"
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "画布标题",
+            "layout": "full",
+            "placeholder": "输入画布标题",
+            "required": true
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "画布内容",
+            "layout": "full",
+            "placeholder": "输入画布内容（支持 markdown）",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建画布（<code>slack_canvas</code>）</div>
+
+在频道中创建并分享 Slack 画布。画布是 Slack 中的协作文档。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `channel` | string | 是 | 目标 Slack 频道（例如 #general） |
+| `title` | string | 是 | 画布标题 |
+| `content` | string | 是 | Markdown 格式的画布内容 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `canvas_id` | string | 已创建画布的 ID |
+| `channel` | string | 创建画布的频道 |
+| `title` | string | 画布标题 |
+
+</div>
+
+---
+
+### 读取消息
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Slack"
+    type="slack"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "read",
+            "options": [
+                {
+                    "id": "send",
+                    "label": "发送消息"
+                },
+                {
+                    "id": "canvas",
+                    "label": "创建画布"
+                },
+                {
+                    "id": "read",
+                    "label": "读取消息"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Slack 账号",
+            "layout": "full",
+            "placeholder": "选择 Slack 工作区",
+            "provider": "slack"
+        },
+        {
+            "id": "channel",
+            "type": "channel-selector",
+            "title": "频道",
+            "layout": "full",
+            "placeholder": "选择 Slack 频道",
+            "provider": "slack"
+        },
+        {
+            "id": "manualChannel",
+            "type": "short-input",
+            "title": "频道 ID",
+            "layout": "full",
+            "placeholder": "输入 Slack 频道 ID（例如 C1234567890）"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "消息条数限制",
+            "layout": "half",
+            "placeholder": "15"
+        },
+        {
+            "id": "oldest",
+            "type": "datetime-input",
+            "title": "最早时间戳",
+            "layout": "half",
+            "placeholder": "ISO 8601 时间戳"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">读取消息（<code>slack_message_reader</code>）</div>
+
+从 Slack 频道读取最新消息。可按条件筛选并获取对话历史。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `channel` | string | 是 | 要从中读取消息的 Slack 频道（例如 #general） |
+| `limit` | number | 否 | 要获取的消息数量（默认：10，最大：100） |
+| `oldest` | string | 否 | 时间范围起始（时间戳） |
+| `latest` | string | 否 | 时间范围结束（时间戳） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `messages` | array | 来自频道的消息对象数组 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Slack 集成到工作流中。可发送消息、创建画布并读取消息。也可用于触发模式，在有消息发送到频道时触发工作流。
+
+## 备注
+
+- 分类：`tools`
+- 类型：`slack`

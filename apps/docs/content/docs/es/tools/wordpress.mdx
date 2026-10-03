@@ -1,0 +1,5344 @@
+---
+title: WordPress
+description: Gestionar contenido de WordPress
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="wordpress"
+  color="#21759B"
+/>
+
+## Configuración
+
+### Crear entrada
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_create_post",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medios"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medios"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID o dominio del sitio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "ID o dominio de tu sitio de WordPress.com. Lo encontrarás en Ajustes → General.",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Título",
+            "placeholder": "Título de la entrada o página",
+            "required": true
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Contenido",
+            "placeholder": "Contenido de la entrada o página (HTML o texto sin formato)"
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "Estado",
+            "defaultValue": "publish",
+            "options": [
+                {
+                    "id": "publish",
+                    "label": "Publicar"
+                },
+                {
+                    "id": "draft",
+                    "label": "Borrador"
+                },
+                {
+                    "id": "pending",
+                    "label": "Pendiente"
+                },
+                {
+                    "id": "private",
+                    "label": "Privado"
+                }
+            ]
+        },
+        {
+            "id": "excerpt",
+            "type": "long-input",
+            "title": "Extracto",
+            "placeholder": "Extracto de la entrada o página"
+        },
+        {
+            "id": "slug",
+            "type": "short-input",
+            "title": "Slug",
+            "placeholder": "Slug de URL (opcional)"
+        },
+        {
+            "id": "categories",
+            "type": "short-input",
+            "title": "Categorías",
+            "placeholder": "ID de categoría separados por comas"
+        },
+        {
+            "id": "tags",
+            "type": "short-input",
+            "title": "Etiquetas",
+            "placeholder": "ID de etiqueta separados por comas"
+        },
+        {
+            "id": "featuredMedia",
+            "type": "short-input",
+            "title": "ID de imagen destacada",
+            "placeholder": "ID de medio para la imagen destacada"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear entrada (<code>wordpress_create_post</code>)</div>
+
+Crea una nueva entrada de blog en WordPress.com
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID o dominio del sitio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+| `title` | string | Sí | Título de la entrada |
+| `content` | string | No | Contenido de la entrada \(HTML o texto sin formato\) |
+| `status` | string | No | Estado de la entrada: publish, draft, pending, private o future |
+| `excerpt` | string | No | Extracto de la entrada |
+| `categories` | string | No | IDs de categorías separados por comas |
+| `tags` | string | No | IDs de etiquetas separados por comas |
+| `featuredMedia` | number | No | ID de medio de la imagen destacada |
+| `slug` | string | No | Slug de URL de la entrada |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `post` | object | La entrada creada |
+
+</div>
+
+---
+
+### Actualizar entrada
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_update_post",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medio"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medio"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID o dominio del sitio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "Tu ID o dominio del sitio de WordPress.com. Lo encontrarás en Ajustes → General.",
+            "required": true
+        },
+        {
+            "id": "postId",
+            "type": "short-input",
+            "title": "ID de entrada",
+            "placeholder": "Introduce el ID de la entrada",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Título",
+            "placeholder": "Título de la entrada o página"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Contenido",
+            "placeholder": "Contenido de la entrada o página (HTML o texto sin formato)"
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "Estado",
+            "defaultValue": "publish",
+            "options": [
+                {
+                    "id": "publish",
+                    "label": "Publicar"
+                },
+                {
+                    "id": "draft",
+                    "label": "Borrador"
+                },
+                {
+                    "id": "pending",
+                    "label": "Pendiente"
+                },
+                {
+                    "id": "private",
+                    "label": "Privado"
+                }
+            ]
+        },
+        {
+            "id": "excerpt",
+            "type": "long-input",
+            "title": "Extracto",
+            "placeholder": "Extracto de la entrada o página"
+        },
+        {
+            "id": "slug",
+            "type": "short-input",
+            "title": "Slug",
+            "placeholder": "Slug de URL (opcional)"
+        },
+        {
+            "id": "categories",
+            "type": "short-input",
+            "title": "Categorías",
+            "placeholder": "IDs de categorías separados por comas"
+        },
+        {
+            "id": "tags",
+            "type": "short-input",
+            "title": "Etiquetas",
+            "placeholder": "IDs de etiquetas separados por comas"
+        },
+        {
+            "id": "featuredMedia",
+            "type": "short-input",
+            "title": "ID de imagen destacada",
+            "placeholder": "ID de medio de la imagen destacada"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar entrada (<code>wordpress_update_post</code>)</div>
+
+Actualizar una entrada de blog existente en WordPress.com
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID o dominio del sitio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+| `postId` | number | Sí | El ID de la entrada que se va a actualizar |
+| `title` | string | No | Título de la entrada |
+| `content` | string | No | Contenido de la entrada \(HTML o texto sin formato\) |
+| `status` | string | No | Estado de la entrada: publish, draft, pending, private o future |
+| `excerpt` | string | No | Extracto de la entrada |
+| `categories` | string | No | IDs de categorías separados por comas |
+| `tags` | string | No | IDs de etiquetas separados por comas |
+| `featuredMedia` | number | No | ID de medio de la imagen destacada |
+| `slug` | string | No | Slug de URL de la entrada |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `post` | object | La entrada actualizada |
+
+</div>
+
+---
+
+### Eliminar entrada
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_delete_post",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medio"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medio"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID o dominio del sitio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "ID o dominio de tu sitio de WordPress.com. Lo encontrarás en Ajustes → General.",
+            "required": true
+        },
+        {
+            "id": "postId",
+            "type": "short-input",
+            "title": "ID de entrada",
+            "placeholder": "Introduce el ID de la entrada",
+            "required": true
+        },
+        {
+            "id": "force",
+            "type": "switch",
+            "title": "Forzar eliminación"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar entrada (<code>wordpress_delete_post</code>)</div>
+
+Eliminar una entrada de blog de WordPress.com
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID o dominio del sitio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+| `postId` | number | Sí | ID de la entrada que se va a eliminar |
+| `force` | boolean | No | Omitir la papelera y forzar la eliminación permanente |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `deleted` | boolean | Si se eliminó la entrada |
+| `post` | object | La entrada eliminada |
+
+</div>
+
+---
+
+### Obtener entrada
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_get_post",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medios"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medios"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID o dominio del sitio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "ID o dominio de tu sitio de WordPress.com. Lo encontrarás en Ajustes → General.",
+            "required": true
+        },
+        {
+            "id": "postId",
+            "type": "short-input",
+            "title": "ID de la entrada",
+            "placeholder": "Introduce el ID de la entrada",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener entrada (<code>wordpress_get_post</code>)</div>
+
+Obtener una entrada de blog de WordPress.com por ID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID o dominio del sitio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+| `postId` | number | Sí | ID de la entrada que se va a obtener |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `post` | object | La entrada obtenida |
+
+</div>
+
+---
+
+### Listar entradas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_list_posts",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medios"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medios"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID o dominio del sitio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "ID o dominio de tu sitio de WordPress.com. Lo encontrarás en Ajustes → General.",
+            "required": true
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "Resultados por página",
+            "placeholder": "10 (máx. 100)"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Número de página",
+            "placeholder": "1"
+        },
+        {
+            "id": "search",
+            "type": "short-input",
+            "title": "Filtro de búsqueda",
+            "placeholder": "Término de búsqueda para filtrar resultados"
+        },
+        {
+            "id": "orderBy",
+            "type": "dropdown",
+            "title": "Ordenar por",
+            "defaultValue": "date",
+            "options": [
+                {
+                    "id": "date",
+                    "label": "Fecha"
+                },
+                {
+                    "id": "id",
+                    "label": "ID"
+                },
+                {
+                    "id": "title",
+                    "label": "Título"
+                },
+                {
+                    "id": "slug",
+                    "label": "Slug"
+                },
+                {
+                    "id": "modified",
+                    "label": "Modificado"
+                }
+            ]
+        },
+        {
+            "id": "order",
+            "type": "dropdown",
+            "title": "Orden",
+            "defaultValue": "desc",
+            "options": [
+                {
+                    "id": "desc",
+                    "label": "Descendente"
+                },
+                {
+                    "id": "asc",
+                    "label": "Ascendente"
+                }
+            ]
+        },
+        {
+            "id": "listStatus",
+            "type": "dropdown",
+            "title": "Filtro de estado",
+            "defaultValue": "",
+            "options": [
+                {
+                    "id": "",
+                    "label": "Todos"
+                },
+                {
+                    "id": "publish",
+                    "label": "Publicado"
+                },
+                {
+                    "id": "draft",
+                    "label": "Borrador"
+                },
+                {
+                    "id": "pending",
+                    "label": "Pendiente"
+                },
+                {
+                    "id": "private",
+                    "label": "Privado"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar entradas (<code>wordpress_list_posts</code>)</div>
+
+Listar las entradas del blog de WordPress.com con filtros opcionales
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID o dominio del sitio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+| `perPage` | number | No | Número de entradas por página \(por defecto: 10, máx.: 100\) |
+| `page` | number | No | Número de página para la paginación |
+| `status` | string | No | Filtro de estado de la entrada: publish, draft, pending, private |
+| `author` | number | No | Filtrar por ID de autor |
+| `categories` | string | No | IDs de categoría separados por comas para filtrar |
+| `tags` | string | No | IDs de etiqueta separados por comas para filtrar |
+| `search` | string | No | Término de búsqueda para filtrar entradas |
+| `orderBy` | string | No | Ordenar por campo: date, id, title, slug, modified |
+| `order` | string | No | Dirección de ordenación: asc o desc |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `posts` | array | Lista de entradas |
+| `total` | number | Número total de entradas |
+| `totalPages` | number | Número total de páginas |
+
+</div>
+
+---
+
+### Crear página
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_create_page",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medio"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medio"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID o dominio del sitio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "ID o dominio de tu sitio de WordPress.com. Lo encontrarás en Ajustes → General.",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Título",
+            "placeholder": "Título de la entrada o página",
+            "required": true
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Contenido",
+            "placeholder": "Contenido de la entrada o página (HTML o texto sin formato)"
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "Estado",
+            "defaultValue": "publish",
+            "options": [
+                {
+                    "id": "publish",
+                    "label": "Publicado"
+                },
+                {
+                    "id": "draft",
+                    "label": "Borrador"
+                },
+                {
+                    "id": "pending",
+                    "label": "Pendiente"
+                },
+                {
+                    "id": "private",
+                    "label": "Privado"
+                }
+            ]
+        },
+        {
+            "id": "excerpt",
+            "type": "long-input",
+            "title": "Extracto",
+            "placeholder": "Extracto de la entrada o página"
+        },
+        {
+            "id": "slug",
+            "type": "short-input",
+            "title": "Slug",
+            "placeholder": "Slug de URL (opcional)"
+        },
+        {
+            "id": "featuredMedia",
+            "type": "short-input",
+            "title": "ID de imagen destacada",
+            "placeholder": "ID de medio para la imagen destacada"
+        },
+        {
+            "id": "parent",
+            "type": "short-input",
+            "title": "ID de página principal",
+            "placeholder": "ID de la página principal (para la jerarquía)"
+        },
+        {
+            "id": "menuOrder",
+            "type": "short-input",
+            "title": "Orden del menú",
+            "placeholder": "Orden en el menú (número)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear página (<code>wordpress_create_page</code>)</div>
+
+Crear una página nueva en WordPress.com
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID o dominio del sitio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+| `title` | string | Sí | Título de la página |
+| `content` | string | No | Contenido de la página \(HTML o texto sin formato\) |
+| `status` | string | No | Estado de la página: publish, draft, pending, private |
+| `excerpt` | string | No | Extracto de la página |
+| `parent` | number | No | ID de la página principal para páginas jerárquicas |
+| `menuOrder` | number | No | Orden en el menú de páginas |
+| `featuredMedia` | number | No | ID de medios de la imagen destacada |
+| `slug` | string | No | Slug de URL de la página |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `page` | object | La página creada |
+
+</div>
+
+---
+
+### Actualizar página
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_update_page",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medios"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medios"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID o dominio del sitio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "ID o dominio de tu sitio de WordPress.com. Lo encontrarás en Ajustes → General.",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Título",
+            "placeholder": "Título de la entrada o página"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Contenido",
+            "placeholder": "Contenido de la entrada o página (HTML o texto sin formato)"
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "Estado",
+            "defaultValue": "publish",
+            "options": [
+                {
+                    "id": "publish",
+                    "label": "Publicar"
+                },
+                {
+                    "id": "draft",
+                    "label": "Borrador"
+                },
+                {
+                    "id": "pending",
+                    "label": "Pendiente"
+                },
+                {
+                    "id": "private",
+                    "label": "Privado"
+                }
+            ]
+        },
+        {
+            "id": "excerpt",
+            "type": "long-input",
+            "title": "Extracto",
+            "placeholder": "Extracto de la entrada o página"
+        },
+        {
+            "id": "slug",
+            "type": "short-input",
+            "title": "Slug",
+            "placeholder": "Slug de URL (opcional)"
+        },
+        {
+            "id": "featuredMedia",
+            "type": "short-input",
+            "title": "ID de imagen destacada",
+            "placeholder": "ID de medios de la imagen destacada"
+        },
+        {
+            "id": "pageId",
+            "type": "short-input",
+            "title": "ID de página",
+            "placeholder": "Introduce el ID de la página",
+            "required": true
+        },
+        {
+            "id": "parent",
+            "type": "short-input",
+            "title": "ID de página principal",
+            "placeholder": "ID de la página principal (para jerarquía)"
+        },
+        {
+            "id": "menuOrder",
+            "type": "short-input",
+            "title": "Orden del menú",
+            "placeholder": "Orden en el menú (número)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar página (<code>wordpress_update_page</code>)</div>
+
+Actualizar una página existente en WordPress.com
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID o dominio del sitio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+| `pageId` | number | Sí | ID de la página que se va a actualizar |
+| `title` | string | No | Título de la página |
+| `content` | string | No | Contenido de la página \(HTML o texto plano\) |
+| `status` | string | No | Estado de la página: publish, draft, pending, private |
+| `excerpt` | string | No | Extracto de la página |
+| `parent` | number | No | ID de la página superior para páginas jerárquicas |
+| `menuOrder` | number | No | Orden en el menú de páginas |
+| `featuredMedia` | number | No | ID del medio de la imagen destacada |
+| `slug` | string | No | Slug de URL de la página |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `page` | object | La página actualizada |
+
+</div>
+
+---
+
+### Eliminar página
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_delete_page",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medios"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medios"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID o dominio del sitio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "ID o dominio de tu sitio de WordPress.com. Lo encontrarás en Ajustes → General.",
+            "required": true
+        },
+        {
+            "id": "pageId",
+            "type": "short-input",
+            "title": "ID de página",
+            "placeholder": "Introduce el ID de la página",
+            "required": true
+        },
+        {
+            "id": "force",
+            "type": "switch",
+            "title": "Forzar eliminación"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar página (<code>wordpress_delete_page</code>)</div>
+
+Eliminar una página de WordPress.com
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID o dominio del sitio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+| `pageId` | number | Sí | El ID de la página que se va a eliminar |
+| `force` | boolean | No | Omitir la papelera y forzar la eliminación permanente |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `deleted` | boolean | Si la página se eliminó |
+| `page` | object | La página eliminada |
+
+</div>
+
+---
+
+### Obtener página
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_get_page",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medio"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medio"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID o dominio del sitio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "ID o dominio de tu sitio de WordPress.com. Lo encontrarás en Ajustes → General.",
+            "required": true
+        },
+        {
+            "id": "pageId",
+            "type": "short-input",
+            "title": "ID de página",
+            "placeholder": "Introducir ID de página",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener página (<code>wordpress_get_page</code>)</div>
+
+Obtener una sola página de WordPress.com por ID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID o dominio del sitio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+| `pageId` | number | Sí | ID de la página que se va a recuperar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `page` | object | La página recuperada |
+
+</div>
+
+---
+
+### Listar páginas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_list_pages",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medios"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medios"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID o dominio del sitio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "ID o dominio de tu sitio de WordPress.com. Lo encontrarás en Ajustes → General.",
+            "required": true
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "Resultados por página",
+            "placeholder": "10 (máx. 100)"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Número de página",
+            "placeholder": "1"
+        },
+        {
+            "id": "search",
+            "type": "short-input",
+            "title": "Filtro de búsqueda",
+            "placeholder": "Término de búsqueda para filtrar resultados"
+        },
+        {
+            "id": "orderBy",
+            "type": "dropdown",
+            "title": "Ordenar por",
+            "defaultValue": "date",
+            "options": [
+                {
+                    "id": "date",
+                    "label": "Fecha"
+                },
+                {
+                    "id": "id",
+                    "label": "ID"
+                },
+                {
+                    "id": "title",
+                    "label": "Título"
+                },
+                {
+                    "id": "slug",
+                    "label": "Slug"
+                },
+                {
+                    "id": "modified",
+                    "label": "Modificado"
+                }
+            ]
+        },
+        {
+            "id": "order",
+            "type": "dropdown",
+            "title": "Orden",
+            "defaultValue": "desc",
+            "options": [
+                {
+                    "id": "desc",
+                    "label": "Descendente"
+                },
+                {
+                    "id": "asc",
+                    "label": "Ascendente"
+                }
+            ]
+        },
+        {
+            "id": "listStatus",
+            "type": "dropdown",
+            "title": "Filtro de estado",
+            "defaultValue": "",
+            "options": [
+                {
+                    "id": "",
+                    "label": "Todos"
+                },
+                {
+                    "id": "publish",
+                    "label": "Publicado"
+                },
+                {
+                    "id": "draft",
+                    "label": "Borrador"
+                },
+                {
+                    "id": "pending",
+                    "label": "Pendiente"
+                },
+                {
+                    "id": "private",
+                    "label": "Privado"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar páginas (<code>wordpress_list_pages</code>)</div>
+
+Listar páginas de WordPress.com con filtros opcionales
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID o dominio del sitio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+| `perPage` | number | No | Número de páginas por solicitud \(predeterminado: 10, máx.: 100\) |
+| `page` | number | No | Número de página para la paginación |
+| `status` | string | No | Filtro de estado de página: publish, draft, pending, private |
+| `parent` | number | No | Filtrar por ID de página principal |
+| `search` | string | No | Término de búsqueda para filtrar páginas |
+| `orderBy` | string | No | Ordenar por campo: date, id, title, slug, modified, menu_order |
+| `order` | string | No | Dirección de orden: asc o desc |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `pages` | array | Lista de páginas |
+| `total` | number | Número total de páginas |
+| `totalPages` | number | Número total de páginas de resultados |
+
+</div>
+
+---
+
+### Subir medios
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_upload_media",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medios"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medios"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID o dominio del sitio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "ID o dominio de tu sitio de WordPress.com. Lo encuentras en Ajustes → General.",
+            "required": true
+        },
+        {
+            "id": "fileUpload",
+            "type": "file-upload",
+            "title": "Subir archivo",
+            "placeholder": "Sube un archivo multimedia a WordPress",
+            "required": false
+        },
+        {
+            "id": "file",
+            "type": "short-input",
+            "title": "Referencia de archivo",
+            "placeholder": "Archivo de referencia del bloque anterior (p. ej., {{block_name.file}})",
+            "required": false
+        },
+        {
+            "id": "filename",
+            "type": "short-input",
+            "title": "Sustituir nombre de archivo",
+            "placeholder": "Opcional: sustituir el nombre de archivo (p. ej., image.jpg)"
+        },
+        {
+            "id": "mediaTitle",
+            "type": "short-input",
+            "title": "Título del medio",
+            "placeholder": "Título del medio"
+        },
+        {
+            "id": "caption",
+            "type": "short-input",
+            "title": "Leyenda",
+            "placeholder": "Leyenda del medio"
+        },
+        {
+            "id": "altText",
+            "type": "short-input",
+            "title": "Texto alternativo",
+            "placeholder": "Texto alternativo para accesibilidad"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Subir medios (<code>wordpress_upload_media</code>)</div>
+
+Subir un archivo de medios (imagen, vídeo, documento) a WordPress.com
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID o dominio del sitio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+| `file` | file | No | Archivo que se va a subir \(objeto UserFile\) |
+| `filename` | string | No | Nombre de archivo opcional \(p. ej., image.jpg\) |
+| `title` | string | No | Título del medio |
+| `caption` | string | No | Leyenda del medio |
+| `altText` | string | No | Texto alternativo para accesibilidad |
+| `description` | string | No | Descripción del medio |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `media` | object | El elemento de medios subido |
+
+</div>
+
+---
+
+### Obtener medios
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_get_media",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medios"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medios"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID o dominio del sitio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "ID o dominio de tu sitio de WordPress.com. Lo encontrarás en Ajustes → General.",
+            "required": true
+        },
+        {
+            "id": "mediaId",
+            "type": "short-input",
+            "title": "ID de medio",
+            "placeholder": "Introduce el ID de medio",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener medios (<code>wordpress_get_media</code>)</div>
+
+Obtener un único elemento de medios de WordPress.com por ID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID o dominio del sitio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+| `mediaId` | number | Sí | El ID del elemento de medios que se va a recuperar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `media` | object | El elemento de medios recuperado |
+
+</div>
+
+---
+
+### Listar medios
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_list_media",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medios"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medios"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID o dominio del sitio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "El ID o dominio de tu sitio de WordPress.com. Lo encontrarás en Ajustes → General.",
+            "required": true
+        },
+        {
+            "id": "mediaType",
+            "type": "dropdown",
+            "title": "Tipo de medio",
+            "defaultValue": "",
+            "options": [
+                {
+                    "id": "",
+                    "label": "Todos los tipos"
+                },
+                {
+                    "id": "image",
+                    "label": "Imagen"
+                },
+                {
+                    "id": "video",
+                    "label": "Video"
+                },
+                {
+                    "id": "audio",
+                    "label": "Audio"
+                },
+                {
+                    "id": "application",
+                    "label": "Aplicación"
+                }
+            ]
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "Resultados por página",
+            "placeholder": "10 (máx. 100)"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Número de página",
+            "placeholder": "1"
+        },
+        {
+            "id": "search",
+            "type": "short-input",
+            "title": "Filtro de búsqueda",
+            "placeholder": "Término de búsqueda para filtrar resultados"
+        },
+        {
+            "id": "orderBy",
+            "type": "dropdown",
+            "title": "Ordenar por",
+            "defaultValue": "date",
+            "options": [
+                {
+                    "id": "date",
+                    "label": "Fecha"
+                },
+                {
+                    "id": "id",
+                    "label": "ID"
+                },
+                {
+                    "id": "title",
+                    "label": "Título"
+                },
+                {
+                    "id": "slug",
+                    "label": "Slug"
+                },
+                {
+                    "id": "modified",
+                    "label": "Modificado"
+                }
+            ]
+        },
+        {
+            "id": "order",
+            "type": "dropdown",
+            "title": "Orden",
+            "defaultValue": "desc",
+            "options": [
+                {
+                    "id": "desc",
+                    "label": "Descendente"
+                },
+                {
+                    "id": "asc",
+                    "label": "Ascendente"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar medios (<code>wordpress_list_media</code>)</div>
+
+Listar elementos de medios de la biblioteca de medios de WordPress.com
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID o dominio del sitio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+| `perPage` | number | No | Número de elementos de medios por solicitud \(predeterminado: 10, máx.: 100\) |
+| `page` | number | No | Número de página para la paginación |
+| `search` | string | No | Término de búsqueda para filtrar medios |
+| `mediaType` | string | No | Filtrar por tipo de medio: image, video, audio, application |
+| `mimeType` | string | No | Filtrar por tipo MIME específico \(p. ej., image/jpeg\) |
+| `orderBy` | string | No | Ordenar por campo: date, id, title, slug |
+| `order` | string | No | Dirección de orden: asc o desc |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `media` | array | Lista de elementos de medios |
+| `total` | number | Número total de elementos de medios |
+| `totalPages` | number | Número total de páginas de resultados |
+
+</div>
+
+---
+
+### Eliminar medios
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_delete_media",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medio"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medios"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID o dominio del sitio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "ID o dominio de tu sitio de WordPress.com. Lo encontrarás en Ajustes → General.",
+            "required": true
+        },
+        {
+            "id": "mediaId",
+            "type": "short-input",
+            "title": "ID de medio",
+            "placeholder": "Introducir ID de medio",
+            "required": true
+        },
+        {
+            "id": "force",
+            "type": "switch",
+            "title": "Forzar eliminación"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar medios (<code>wordpress_delete_media</code>)</div>
+
+Eliminar un elemento de medios de WordPress.com
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID o dominio del sitio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+| `mediaId` | number | Sí | El ID del elemento de medios que se va a eliminar |
+| `force` | boolean | No | Forzar eliminación \(los medios no tienen papelera, por lo que la eliminación es permanente\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `deleted` | boolean | Si se eliminó el elemento de medios |
+| `media` | object | El elemento de medios eliminado |
+
+</div>
+
+---
+
+### Crear comentario
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_create_comment",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medios"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medios"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID o dominio del sitio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "ID o dominio de tu sitio de WordPress.com. Lo encontrarás en Ajustes → General.",
+            "required": true
+        },
+        {
+            "id": "commentPostId",
+            "type": "short-input",
+            "title": "ID de la entrada",
+            "placeholder": "ID de la entrada en la que comentar",
+            "required": true
+        },
+        {
+            "id": "commentContent",
+            "type": "long-input",
+            "title": "Contenido del comentario",
+            "placeholder": "Texto del comentario",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear comentario (<code>wordpress_create_comment</code>)</div>
+
+Crear un comentario nuevo en una entrada de WordPress.com
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID o dominio del sitio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+| `postId` | number | Sí | ID de la entrada en la que comentar |
+| `content` | string | Sí | Contenido del comentario |
+| `parent` | number | No | ID del comentario principal para respuestas |
+| `authorName` | string | No | Nombre visible del autor del comentario |
+| `authorEmail` | string | No | Correo del autor del comentario |
+| `authorUrl` | string | No | URL del autor del comentario |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `comment` | object | El comentario creado |
+
+</div>
+
+---
+
+### Listar comentarios
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_list_comments",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medio"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medio"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID o dominio del sitio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "ID o dominio de tu sitio de WordPress.com. Lo encontrarás en Ajustes → General.",
+            "required": true
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "Resultados por página",
+            "placeholder": "10 (máx. 100)"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Número de página",
+            "placeholder": "1"
+        },
+        {
+            "id": "search",
+            "type": "short-input",
+            "title": "Filtro de búsqueda",
+            "placeholder": "Término de búsqueda para filtrar resultados"
+        },
+        {
+            "id": "orderBy",
+            "type": "dropdown",
+            "title": "Ordenar por",
+            "defaultValue": "date",
+            "options": [
+                {
+                    "id": "date",
+                    "label": "Fecha"
+                },
+                {
+                    "id": "id",
+                    "label": "ID"
+                },
+                {
+                    "id": "title",
+                    "label": "Título"
+                },
+                {
+                    "id": "slug",
+                    "label": "Slug"
+                },
+                {
+                    "id": "modified",
+                    "label": "Modificado"
+                }
+            ]
+        },
+        {
+            "id": "order",
+            "type": "dropdown",
+            "title": "Orden",
+            "defaultValue": "desc",
+            "options": [
+                {
+                    "id": "desc",
+                    "label": "Descendente"
+                },
+                {
+                    "id": "asc",
+                    "label": "Ascendente"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar comentarios (<code>wordpress_list_comments</code>)</div>
+
+Listar comentarios de WordPress.com con filtros opcionales
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID o dominio del sitio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+| `perPage` | number | No | Número de comentarios por solicitud \(predeterminado: 10, máx.: 100\) |
+| `page` | number | No | Número de página para la paginación |
+| `postId` | number | No | Filtrar por ID de entrada |
+| `status` | string | No | Filtrar por estado del comentario: approved, hold, spam, trash |
+| `search` | string | No | Término de búsqueda para filtrar comentarios |
+| `orderBy` | string | No | Ordenar por campo: date, id, parent |
+| `order` | string | No | Dirección de orden: asc o desc |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `comments` | array | Lista de comentarios |
+| `total` | number | Número total de comentarios |
+| `totalPages` | number | Número total de páginas de resultados |
+
+</div>
+
+---
+
+### Actualizar comentario
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_update_comment",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medios"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medios"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID o dominio del sitio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "ID o dominio de tu sitio de WordPress.com. Lo encontrarás en Ajustes → General.",
+            "required": true
+        },
+        {
+            "id": "commentContent",
+            "type": "long-input",
+            "title": "Contenido del comentario",
+            "placeholder": "Texto del comentario"
+        },
+        {
+            "id": "commentId",
+            "type": "short-input",
+            "title": "ID del comentario",
+            "placeholder": "Introduce el ID del comentario",
+            "required": true
+        },
+        {
+            "id": "commentStatus",
+            "type": "dropdown",
+            "title": "Estado del comentario",
+            "defaultValue": "approved",
+            "options": [
+                {
+                    "id": "approved",
+                    "label": "Aprobado"
+                },
+                {
+                    "id": "hold",
+                    "label": "Pendiente"
+                },
+                {
+                    "id": "spam",
+                    "label": "Spam"
+                },
+                {
+                    "id": "trash",
+                    "label": "Papelera"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar comentario (<code>wordpress_update_comment</code>)</div>
+
+Actualiza un comentario en WordPress.com (contenido o estado)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID o dominio del sitio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+| `commentId` | number | Sí | El ID del comentario que se va a actualizar |
+| `content` | string | No | Contenido actualizado del comentario |
+| `status` | string | No | Estado del comentario: approved, hold, spam, trash |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `comment` | object | El comentario actualizado |
+
+</div>
+
+---
+
+### Eliminar comentario
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_delete_comment",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medios"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medios"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID o dominio del sitio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "ID o dominio de tu sitio de WordPress.com. Lo encontrarás en Ajustes → General.",
+            "required": true
+        },
+        {
+            "id": "commentId",
+            "type": "short-input",
+            "title": "ID del comentario",
+            "placeholder": "Introduce el ID del comentario",
+            "required": true
+        },
+        {
+            "id": "force",
+            "type": "switch",
+            "title": "Forzar eliminación"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar comentario (<code>wordpress_delete_comment</code>)</div>
+
+Eliminar un comentario de WordPress.com
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID o dominio del sitio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+| `commentId` | number | Sí | El ID del comentario que se va a eliminar |
+| `force` | boolean | No | Omitir la papelera y forzar la eliminación permanente |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `deleted` | boolean | Indica si se eliminó el comentario |
+| `comment` | object | El comentario eliminado |
+
+</div>
+
+---
+
+### Crear categoría
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_create_category",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medios"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medios"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID o dominio del sitio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "ID o dominio de tu sitio de WordPress.com. Lo encontrarás en Ajustes → General.",
+            "required": true
+        },
+        {
+            "id": "categoryName",
+            "type": "short-input",
+            "title": "Nombre de categoría",
+            "placeholder": "Nombre de la categoría",
+            "required": true
+        },
+        {
+            "id": "categoryDescription",
+            "type": "long-input",
+            "title": "Descripción",
+            "placeholder": "Descripción de la categoría"
+        },
+        {
+            "id": "categoryParent",
+            "type": "short-input",
+            "title": "ID de categoría principal",
+            "placeholder": "ID de la categoría principal"
+        },
+        {
+            "id": "categorySlug",
+            "type": "short-input",
+            "title": "Slug de categoría",
+            "placeholder": "Slug de URL (opcional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear categoría (<code>wordpress_create_category</code>)</div>
+
+Crear una categoría nueva en WordPress.com
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID o dominio del sitio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+| `name` | string | Sí | Nombre de la categoría |
+| `description` | string | No | Descripción de la categoría |
+| `parent` | number | No | ID de la categoría padre para categorías jerárquicas |
+| `slug` | string | No | Slug de URL de la categoría |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `category` | object | La categoría creada |
+
+</div>
+
+---
+
+### Listar categorías
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_list_categories",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medios"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medios"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID o dominio del sitio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "ID o dominio de tu sitio de WordPress.com. Lo encontrarás en Ajustes → General.",
+            "required": true
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "Resultados por página",
+            "placeholder": "10 (máx. 100)"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Número de página",
+            "placeholder": "1"
+        },
+        {
+            "id": "search",
+            "type": "short-input",
+            "title": "Filtro de búsqueda",
+            "placeholder": "Término de búsqueda para filtrar resultados"
+        },
+        {
+            "id": "order",
+            "type": "dropdown",
+            "title": "Orden",
+            "defaultValue": "desc",
+            "options": [
+                {
+                    "id": "desc",
+                    "label": "Descendente"
+                },
+                {
+                    "id": "asc",
+                    "label": "Ascendente"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar categorías (<code>wordpress_list_categories</code>)</div>
+
+Lista las categorías de WordPress.com
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID o dominio del sitio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+| `perPage` | number | No | Número de categorías por solicitud \(valor predeterminado: 10, máx.: 100\) |
+| `page` | number | No | Número de página para la paginación |
+| `search` | string | No | Término de búsqueda para filtrar categorías |
+| `order` | string | No | Dirección del orden: asc o desc |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `categories` | array | Lista de categorías |
+| `total` | number | Número total de categorías |
+| `totalPages` | number | Número total de páginas de resultados |
+
+</div>
+
+---
+
+### Crear etiqueta
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_create_tag",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medios"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medios"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID o dominio del sitio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "ID o dominio de tu sitio de WordPress.com. Lo encontrarás en Ajustes → General.",
+            "required": true
+        },
+        {
+            "id": "tagName",
+            "type": "short-input",
+            "title": "Nombre de la etiqueta",
+            "placeholder": "Nombre de la etiqueta",
+            "required": true
+        },
+        {
+            "id": "tagDescription",
+            "type": "long-input",
+            "title": "Descripción",
+            "placeholder": "Descripción de la etiqueta"
+        },
+        {
+            "id": "tagSlug",
+            "type": "short-input",
+            "title": "Slug de la etiqueta",
+            "placeholder": "Slug de URL (opcional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear etiqueta (<code>wordpress_create_tag</code>)</div>
+
+Crear una etiqueta nueva en WordPress.com
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID o dominio del sitio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+| `name` | string | Sí | Nombre de la etiqueta |
+| `description` | string | No | Descripción de la etiqueta |
+| `slug` | string | No | Slug de URL de la etiqueta |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `tag` | object | La etiqueta creada |
+
+</div>
+
+---
+
+### Listar etiquetas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_list_tags",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medios"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medios"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID o dominio del sitio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "ID o dominio de tu sitio de WordPress.com. Lo encontrarás en Ajustes → General.",
+            "required": true
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "Resultados por página",
+            "placeholder": "10 (máx. 100)"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Número de página",
+            "placeholder": "1"
+        },
+        {
+            "id": "search",
+            "type": "short-input",
+            "title": "Filtro de búsqueda",
+            "placeholder": "Término de búsqueda para filtrar resultados"
+        },
+        {
+            "id": "order",
+            "type": "dropdown",
+            "title": "Orden",
+            "defaultValue": "desc",
+            "options": [
+                {
+                    "id": "desc",
+                    "label": "Descendente"
+                },
+                {
+                    "id": "asc",
+                    "label": "Ascendente"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar etiquetas (<code>wordpress_list_tags</code>)</div>
+
+Listar etiquetas de WordPress.com
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID o dominio del sitio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+| `perPage` | number | No | Número de etiquetas por solicitud \(predeterminado: 10, máx.: 100\) |
+| `page` | number | No | Número de página para la paginación |
+| `search` | string | No | Término de búsqueda para filtrar etiquetas |
+| `order` | string | No | Dirección del orden: asc o desc |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `tags` | array | Lista de etiquetas |
+| `total` | number | Número total de etiquetas |
+| `totalPages` | number | Número total de páginas de resultados |
+
+</div>
+
+---
+
+### Obtener usuario actual
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_get_current_user",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medios"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medios"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID o dominio del sitio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "ID o dominio de tu sitio de WordPress.com. Lo encontrarás en Ajustes → General.",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener usuario actual (<code>wordpress_get_current_user</code>)</div>
+
+Obtener información sobre el usuario de WordPress.com autenticado actualmente
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID o dominio del sitio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `user` | object | El usuario actual |
+
+</div>
+
+---
+
+### Listar usuarios
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_list_users",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medios"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medios"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID o dominio del sitio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "ID o dominio de tu sitio de WordPress.com. Lo encontrarás en Ajustes → General.",
+            "required": true
+        },
+        {
+            "id": "roles",
+            "type": "short-input",
+            "title": "Roles de usuario",
+            "placeholder": "Nombres de roles separados por comas (p. ej., administrator, editor)"
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "Resultados por página",
+            "placeholder": "10 (máx. 100)"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Número de página",
+            "placeholder": "1"
+        },
+        {
+            "id": "search",
+            "type": "short-input",
+            "title": "Filtro de búsqueda",
+            "placeholder": "Término de búsqueda para filtrar resultados"
+        },
+        {
+            "id": "order",
+            "type": "dropdown",
+            "title": "Orden",
+            "defaultValue": "desc",
+            "options": [
+                {
+                    "id": "desc",
+                    "label": "Descendente"
+                },
+                {
+                    "id": "asc",
+                    "label": "Ascendente"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar usuarios (<code>wordpress_list_users</code>)</div>
+
+Listar usuarios de WordPress.com (requiere privilegios de administrador)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID del sitio o dominio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+| `perPage` | number | No | Número de usuarios por solicitud \(predeterminado: 10, máx.: 100\) |
+| `page` | number | No | Número de página para la paginación |
+| `search` | string | No | Término de búsqueda para filtrar usuarios |
+| `roles` | string | No | Nombres de roles separados por comas para filtrar |
+| `order` | string | No | Dirección de orden: asc o desc |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `users` | array | Lista de usuarios |
+| `total` | number | Número total de usuarios |
+| `totalPages` | number | Número total de páginas de resultados |
+
+</div>
+
+---
+
+### Obtener usuario
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_get_user",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medios"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medios"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID del sitio o dominio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "ID del sitio o dominio de WordPress.com. Lo encontrarás en Ajustes → General.",
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "ID de usuario",
+            "placeholder": "Introducir ID de usuario",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener usuario (<code>wordpress_get_user</code>)</div>
+
+Obtener un usuario específico de WordPress.com por ID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID o dominio del sitio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+| `userId` | number | Sí | ID del usuario que se va a recuperar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `user` | object | El usuario recuperado |
+
+</div>
+
+---
+
+### Buscar contenido
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WordPress"
+    type="wordpress"
+    color="#21759B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "wordpress_search_content",
+            "options": [
+                {
+                    "id": "wordpress_create_post",
+                    "label": "Crear entrada"
+                },
+                {
+                    "id": "wordpress_update_post",
+                    "label": "Actualizar entrada"
+                },
+                {
+                    "id": "wordpress_delete_post",
+                    "label": "Eliminar entrada"
+                },
+                {
+                    "id": "wordpress_get_post",
+                    "label": "Obtener entrada"
+                },
+                {
+                    "id": "wordpress_list_posts",
+                    "label": "Listar entradas"
+                },
+                {
+                    "id": "wordpress_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "wordpress_update_page",
+                    "label": "Actualizar página"
+                },
+                {
+                    "id": "wordpress_delete_page",
+                    "label": "Eliminar página"
+                },
+                {
+                    "id": "wordpress_get_page",
+                    "label": "Obtener página"
+                },
+                {
+                    "id": "wordpress_list_pages",
+                    "label": "Listar páginas"
+                },
+                {
+                    "id": "wordpress_upload_media",
+                    "label": "Subir medios"
+                },
+                {
+                    "id": "wordpress_get_media",
+                    "label": "Obtener medio"
+                },
+                {
+                    "id": "wordpress_list_media",
+                    "label": "Listar medios"
+                },
+                {
+                    "id": "wordpress_delete_media",
+                    "label": "Eliminar medio"
+                },
+                {
+                    "id": "wordpress_create_comment",
+                    "label": "Crear comentario"
+                },
+                {
+                    "id": "wordpress_list_comments",
+                    "label": "Listar comentarios"
+                },
+                {
+                    "id": "wordpress_update_comment",
+                    "label": "Actualizar comentario"
+                },
+                {
+                    "id": "wordpress_delete_comment",
+                    "label": "Eliminar comentario"
+                },
+                {
+                    "id": "wordpress_create_category",
+                    "label": "Crear categoría"
+                },
+                {
+                    "id": "wordpress_list_categories",
+                    "label": "Listar categorías"
+                },
+                {
+                    "id": "wordpress_create_tag",
+                    "label": "Crear etiqueta"
+                },
+                {
+                    "id": "wordpress_list_tags",
+                    "label": "Listar etiquetas"
+                },
+                {
+                    "id": "wordpress_get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "wordpress_list_users",
+                    "label": "Listar usuarios"
+                },
+                {
+                    "id": "wordpress_get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "wordpress_search_content",
+                    "label": "Buscar contenido"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de WordPress",
+            "placeholder": "Seleccionar cuenta de WordPress",
+            "provider": "wordpress",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "short-input",
+            "title": "ID o dominio del sitio",
+            "placeholder": "p. ej., 12345678 o yoursite.wordpress.com",
+            "description": "El ID o dominio de tu sitio de WordPress.com. Lo encuentras en Ajustes → General.",
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "Consulta de búsqueda",
+            "placeholder": "Palabras clave de búsqueda",
+            "required": true
+        },
+        {
+            "id": "searchType",
+            "type": "dropdown",
+            "title": "Tipo de contenido",
+            "defaultValue": "",
+            "options": [
+                {
+                    "id": "",
+                    "label": "Todos los tipos"
+                },
+                {
+                    "id": "post",
+                    "label": "Entrada"
+                },
+                {
+                    "id": "page",
+                    "label": "Página"
+                },
+                {
+                    "id": "attachment",
+                    "label": "Adjunto"
+                }
+            ]
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "Resultados por página",
+            "placeholder": "10 (máx. 100)"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Número de página",
+            "placeholder": "1"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar contenido (<code>wordpress_search_content</code>)</div>
+
+Busca en todos los tipos de contenido de WordPress.com (entradas, páginas y medios)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `siteId` | string | Sí | ID o dominio del sitio de WordPress.com \(p. ej., 12345678 o mysite.wordpress.com\) |
+| `query` | string | Sí | Consulta de búsqueda |
+| `perPage` | number | No | Número de resultados por solicitud \(predeterminado: 10, máx.: 100\) |
+| `page` | number | No | Número de página para la paginación |
+| `type` | string | No | Filtrar por tipo de contenido: post, page, attachment |
+| `subtype` | string | No | Filtrar por slug de tipo de publicación \(p. ej., post, page\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `results` | array | Resultados de la búsqueda |
+| `total` | number | Número total de resultados |
+| `totalPages` | number | Número total de páginas de resultados |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra WordPress para crear, actualizar y gestionar entradas, páginas, medios, comentarios, categorías, etiquetas y usuarios. Compatible con sitios de WordPress.com mediante OAuth y con sitios WordPress autohospedados mediante autenticación con Application Passwords.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `wordpress`

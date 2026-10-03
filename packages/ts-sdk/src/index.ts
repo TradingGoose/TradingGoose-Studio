@@ -1,4 +1,4 @@
-import fetch from 'node-fetch'
+import fetch, { type Response } from 'node-fetch'
 
 export interface TradingGooseConfig {
   apiKey: string
@@ -7,35 +7,31 @@ export interface TradingGooseConfig {
 
 export interface WorkflowExecutionResult {
   success: boolean
-  output?: any
+  output: any
   error?: string
-  logs?: any[]
+  status?: 'paused'
   metadata?: {
     duration?: number
-    executionId?: string
-    [key: string]: any
+    startTime?: string
+    endTime?: string
   }
-  traceSpans?: any[]
-  totalDuration?: number
 }
 
 export interface WorkflowStatus {
   isDeployed: boolean
-  deployedAt?: string
+  deployedAt: string | null
   needsRedeployment: boolean
 }
 
 export interface ExecutionOptions {
-  input?: any
+  input?: Record<string, unknown>
   timeout?: number
-  stream?: boolean
-  selectedOutputs?: string[]
 }
 
 export interface RateLimitInfo {
   limit: number
   remaining: number
-  reset: number
+  reset: string
   retryAfter?: number
 }
 
@@ -66,7 +62,12 @@ export interface UsageLimits {
   usage: {
     currentPeriodCost: number
     limit: number
-    plan: string
+    tier: Record<string, unknown>
+  }
+  storage: {
+    usedBytes: number
+    limitBytes: number
+    percentUsed: number
   }
 }
 
@@ -96,6 +97,17 @@ function normalizeBaseUrl(url: string): string {
   return normalized
 }
 
+function parseRetryAfter(value: string | null): number | undefined {
+  if (value === null) return undefined
+
+  const seconds = Number(value)
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000
+
+  const date = Date.parse(value)
+  if (Number.isNaN(date)) return undefined
+  return Math.max(0, date - Date.now())
+}
+
 export class TradingGooseClient {
   private apiKey: string
   private baseUrl: string
@@ -103,7 +115,22 @@ export class TradingGooseClient {
 
   constructor(config: TradingGooseConfig) {
     this.apiKey = config.apiKey
-    this.baseUrl = normalizeBaseUrl(config.baseUrl || 'https://tradinggoose.ai')
+    this.baseUrl = normalizeBaseUrl(config.baseUrl || 'https://www.tradinggoose.ai')
+  }
+
+  private async readResponse<TResult>(response: Response): Promise<TResult> {
+    if (!response.ok) {
+      const errorData = (await response.json().catch(() => ({}))) as {
+        error?: string
+        code?: string
+      }
+      throw new TradingGooseError(
+        errorData.error || `HTTP ${response.status}: ${response.statusText}`,
+        errorData.code,
+        response.status
+      )
+    }
+    return (await response.json()) as TResult
   }
 
   /**
@@ -114,7 +141,7 @@ export class TradingGooseClient {
     value: any,
     visited: WeakSet<object> = new WeakSet()
   ): Promise<any> {
-    if (value instanceof File) {
+    if (typeof File !== 'undefined' && value instanceof File) {
       const arrayBuffer = await value.arrayBuffer()
       const buffer = Buffer.from(arrayBuffer)
       const base64 = buffer.toString('base64')
@@ -155,51 +182,38 @@ export class TradingGooseClient {
     return value
   }
 
-  async executeWorkflow(
+  async executeWorkflow<TResult = WorkflowExecutionResult>(
     workflowId: string,
     options: ExecutionOptions = {}
-  ): Promise<WorkflowExecutionResult> {
+  ): Promise<TResult> {
     const url = `${this.baseUrl}/api/workflows/${workflowId}/execute`
-    const { input, timeout = 30000, stream, selectedOutputs } = options
+    const { input, timeout = 30000 } = options
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeout)
 
     try {
-      // Create a timeout promise
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('TIMEOUT')), timeout)
-      })
-
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         'X-API-Key': this.apiKey,
       }
 
-      // Build JSON body - spread input at root level, then add API control parameters
-      let jsonBody: any = input !== undefined ? { ...input } : {}
-
       // Convert any File objects in the input to base64 format
-      jsonBody = await this.convertFilesToBase64(jsonBody)
+      const convertedInput = await this.convertFilesToBase64(input ?? {})
 
-      if (stream !== undefined) {
-        jsonBody.stream = stream
-      }
-      if (selectedOutputs !== undefined) {
-        jsonBody.selectedOutputs = selectedOutputs
-      }
-
-      const fetchPromise = fetch(url, {
+      const response = await fetch(url, {
         method: 'POST',
         headers,
-        body: JSON.stringify(jsonBody),
+        body: JSON.stringify({ input: convertedInput }),
+        redirect: 'manual',
+        signal: controller.signal,
       })
-
-      const response = await Promise.race([fetchPromise, timeoutPromise])
 
       // Extract rate limit headers
       this.updateRateLimitInfo(response)
 
       // Handle rate limiting with retry
       if (response.status === 429) {
-        const retryAfter = this.rateLimitInfo?.retryAfter || 1000
+        const retryAfter = this.rateLimitInfo?.retryAfter ?? 1000
         throw new TradingGooseError(
           `Rate limit exceeded. Retry after ${retryAfter}ms`,
           'RATE_LIMIT_EXCEEDED',
@@ -207,27 +221,19 @@ export class TradingGooseClient {
         )
       }
 
-      if (!response.ok) {
-        const errorData = (await response.json().catch(() => ({}))) as unknown as any
-        throw new TradingGooseError(
-          errorData.error || `HTTP ${response.status}: ${response.statusText}`,
-          errorData.code,
-          response.status
-        )
-      }
-
-      const result = await response.json()
-      return result as WorkflowExecutionResult
+      return await this.readResponse<TResult>(response)
     } catch (error: any) {
       if (error instanceof TradingGooseError) {
         throw error
       }
 
-      if (error.message === 'TIMEOUT') {
+      if (error?.name === 'AbortError') {
         throw new TradingGooseError(`Workflow execution timed out after ${timeout}ms`, 'TIMEOUT')
       }
 
       throw new TradingGooseError(error?.message || 'Failed to execute workflow', 'EXECUTION_ERROR')
+    } finally {
+      clearTimeout(timeoutId)
     }
   }
 
@@ -243,19 +249,10 @@ export class TradingGooseClient {
         headers: {
           'X-API-Key': this.apiKey,
         },
+        redirect: 'manual',
       })
 
-      if (!response.ok) {
-        const errorData = (await response.json().catch(() => ({}))) as unknown as any
-        throw new TradingGooseError(
-          errorData.error || `HTTP ${response.status}: ${response.statusText}`,
-          errorData.code,
-          response.status
-        )
-      }
-
-      const result = await response.json()
-      return result as WorkflowStatus
+      return await this.readResponse<WorkflowStatus>(response)
     } catch (error: any) {
       if (error instanceof TradingGooseError) {
         throw error
@@ -294,11 +291,11 @@ export class TradingGooseClient {
   /**
    * Execute workflow with automatic retry on rate limit
    */
-  async executeWithRetry(
+  async executeWithRetry<TResult = WorkflowExecutionResult>(
     workflowId: string,
     options: ExecutionOptions = {},
     retryOptions: RetryOptions = {}
-  ): Promise<WorkflowExecutionResult> {
+  ): Promise<TResult> {
     const {
       maxRetries = 3,
       initialDelay = 1000,
@@ -311,7 +308,7 @@ export class TradingGooseClient {
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        return await this.executeWorkflow(workflowId, options)
+        return await this.executeWorkflow<TResult>(workflowId, options)
       } catch (error: any) {
         if (!(error instanceof TradingGooseError) || error.code !== 'RATE_LIMIT_EXCEEDED') {
           throw error
@@ -324,16 +321,13 @@ export class TradingGooseClient {
           break
         }
 
-        // Use retry-after if provided, otherwise use exponential backoff
-        const waitTime =
-          error.status === 429 && this.rateLimitInfo?.retryAfter
-            ? this.rateLimitInfo.retryAfter
-            : Math.min(delay, maxDelay)
+        // A server-provided Retry-After is a minimum and must not be shortened by jitter.
+        const retryAfter = error.status === 429 ? this.rateLimitInfo?.retryAfter : undefined
+        const waitTime = retryAfter ?? Math.min(delay, maxDelay)
+        const sleepTime =
+          retryAfter === undefined ? waitTime * (0.75 + Math.random() * 0.5) : waitTime
 
-        // Add jitter (±25%)
-        const jitter = waitTime * (0.75 + Math.random() * 0.5)
-
-        await new Promise((resolve) => setTimeout(resolve, jitter))
+        await new Promise((resolve) => setTimeout(resolve, sleepTime))
 
         // Exponential backoff for next attempt
         delay *= backoffMultiplier
@@ -354,19 +348,21 @@ export class TradingGooseClient {
    * Update rate limit info from response headers
    * @private
    */
-  private updateRateLimitInfo(response: any): void {
+  private updateRateLimitInfo(response: Response): void {
     const limit = response.headers.get('x-ratelimit-limit')
     const remaining = response.headers.get('x-ratelimit-remaining')
     const reset = response.headers.get('x-ratelimit-reset')
-    const retryAfter = response.headers.get('retry-after')
+    const retryAfter = parseRetryAfter(response.headers.get('retry-after'))
 
-    if (limit || remaining || reset) {
+    if (limit || remaining || reset || retryAfter !== undefined) {
       this.rateLimitInfo = {
         limit: limit ? Number.parseInt(limit, 10) : 0,
         remaining: remaining ? Number.parseInt(remaining, 10) : 0,
-        reset: reset ? Number.parseInt(reset, 10) : 0,
-        retryAfter: retryAfter ? Number.parseInt(retryAfter, 10) * 1000 : undefined,
+        reset: reset || '',
+        retryAfter,
       }
+    } else {
+      this.rateLimitInfo = null
     }
   }
 
@@ -382,21 +378,12 @@ export class TradingGooseClient {
         headers: {
           'X-API-Key': this.apiKey,
         },
+        redirect: 'manual',
       })
 
       this.updateRateLimitInfo(response)
 
-      if (!response.ok) {
-        const errorData = (await response.json().catch(() => ({}))) as unknown as any
-        throw new TradingGooseError(
-          errorData.error || `HTTP ${response.status}: ${response.statusText}`,
-          errorData.code,
-          response.status
-        )
-      }
-
-      const result = await response.json()
-      return result as UsageLimits
+      return await this.readResponse<UsageLimits>(response)
     } catch (error: any) {
       if (error instanceof TradingGooseError) {
         throw error

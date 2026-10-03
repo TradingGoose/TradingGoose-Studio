@@ -1,11 +1,17 @@
 # TradingGoose Python SDK
 
-The official Python SDK for [TradingGoose](https://tradinggoose.ai), allowing you to execute workflows programmatically from your Python applications.
+Repository-local preview of the TradingGoose Python client.
 
-## Installation
+> **Development status:** `tradinggoose-sdk` is not currently published to PyPI. For production integrations, use the supported [Execution API](https://docs.tradinggoose.ai/execution/api).
+
+## Install from source
 
 ```bash
-pip install tradinggoose-sdk
+git clone https://github.com/TradingGoose/TradingGoose-Studio.git
+cd TradingGoose-Studio/packages/python-sdk
+python3 -m venv venv
+source venv/bin/activate
+pip install -e .
 ```
 
 ## Quick Start
@@ -17,7 +23,7 @@ from tradinggoose import TradingGooseClient
 # Initialize the client
 client = TradingGooseClient(
     api_key=os.getenv("TRADINGGOOSE_API_KEY", "your-api-key-here"),
-    base_url="https://tradinggoose.ai"  # optional, defaults to https://tradinggoose.ai
+    base_url="https://www.tradinggoose.ai"  # optional
 )
 
 # Execute a workflow
@@ -35,11 +41,11 @@ except Exception as error:
 #### Constructor
 
 ```python
-TradingGooseClient(api_key: str, base_url: str = "https://tradinggoose.ai")
+TradingGooseClient(api_key: str, base_url: str = "https://www.tradinggoose.ai")
 ```
 
 - `api_key` (str): Your TradingGoose API key
-- `base_url` (str, optional): Base URL for the TradingGoose API (defaults to `https://tradinggoose.ai`)
+- `base_url` (str, optional): Base URL for the TradingGoose API (defaults to `https://www.tradinggoose.ai`)
 
 #### Methods
 
@@ -51,7 +57,7 @@ Execute a workflow with optional input data.
 result = client.execute_workflow(
     "workflow-id",
     input_data={"message": "Hello, world!"},
-    timeout=30.0  # 30 seconds
+    timeout=30.0,  # seconds
 )
 ```
 
@@ -60,7 +66,13 @@ result = client.execute_workflow(
 - `input_data` (dict, optional): Input data to pass to the workflow. File objects are automatically converted to base64.
 - `timeout` (float): Timeout in seconds (default: 30.0)
 
-**Returns:** `WorkflowExecutionResult`
+**Returns:** `WorkflowExecutionResult | Dict[str, Any]`
+
+For a workflow with a Response block, the endpoint returns the block's custom JSON body instead of `WorkflowExecutionResult`. For a successful 2xx response, the Python client returns bodies that do not match the standard execution envelope as dictionaries. It does not expose custom response headers, and a non-2xx custom status becomes `TradingGooseError`; use the direct [Execution API](https://docs.tradinggoose.ai/execution/api) when the status or headers matter.
+
+#### Streaming
+
+Streaming makes the API return `text/event-stream`. This preview SDK does not expose streaming or selected-output parameters because it does not implement an SSE reader. Consume the [Execution API](https://docs.tradinggoose.ai/execution/api) directly for streaming.
 
 ##### get_workflow_status(workflow_id)
 
@@ -108,6 +120,31 @@ Update the base URL.
 client.set_base_url("https://my-custom-domain.com")
 ```
 
+##### execute_with_retry(workflow_id, input_data=None, timeout=30.0, max_retries=3, initial_delay=1.0, max_delay=30.0, backoff_multiplier=2.0)
+
+Execute a workflow and retry only `RATE_LIMIT_EXCEEDED` responses. Defaults are 3 retries, a 1.0 second initial delay, a 30.0 second maximum delay, and a 2.0× backoff multiplier. The current workflow endpoint does not emit `Retry-After`, so retries use exponential backoff with ±25% jitter. A compatible deployment that supplies the header overrides that delay.
+
+**Returns:** `WorkflowExecutionResponse`
+
+```python
+result = client.execute_with_retry(
+    "workflow-id",
+    input_data={"message": "Hello"},
+    max_retries=3,
+    initial_delay=1.0,
+    max_delay=30.0,
+    backoff_multiplier=2.0,
+)
+```
+
+##### get_rate_limit_info()
+
+Return the latest `RateLimitInfo`. The current workflow and usage endpoints do not emit rate-limit headers, so this normally remains `None`; a compatible deployment or proxy may supply them. `retry_after` is stored in milliseconds.
+
+##### get_usage_limits()
+
+Return a `UsageLimits` value from `/api/users/me/usage-limits`.
+
 ##### close()
 
 Close the underlying HTTP session.
@@ -118,19 +155,43 @@ client.close()
 
 ## Data Classes
 
+### RateLimitInfo and UsageLimits
+
+```python
+@dataclass
+class RateLimitInfo:
+    limit: int
+    remaining: int
+    reset: str  # ISO timestamp
+    retry_after: Optional[int] = None  # milliseconds
+
+@dataclass
+class UsageLimits:
+    success: bool
+    rate_limit: Dict[str, Any]
+    usage: Dict[str, Any]
+    storage: Dict[str, Any]
+```
+
+Python does not export a separate retry-options type; retry settings are keyword arguments to `execute_with_retry`.
+
 ### WorkflowExecutionResult
 
 ```python
 @dataclass
 class WorkflowExecutionResult:
     success: bool
-    output: Optional[Any] = None
+    output: Any
     error: Optional[str] = None
-    logs: Optional[list] = None
     metadata: Optional[Dict[str, Any]] = None
-    trace_spans: Optional[list] = None
-    total_duration: Optional[float] = None
+    status: Optional[Literal["paused"]] = None
+
+WorkflowExecutionResponse = Union[WorkflowExecutionResult, Dict[str, Any]]
 ```
+
+`WorkflowExecutionResult` is the normal non-streaming response for a workflow without a Response block. A successful Response block whose body does not match that standard envelope returns its custom JSON object as the dictionary branch of `WorkflowExecutionResponse`.
+
+An execution waiting for human review returns the same result model with `success=True`, `status="paused"`, and review details in `output`. Completed executions omit the API status field, so `result.status` is `None`.
 
 ### WorkflowStatus
 
@@ -152,9 +213,13 @@ class TradingGooseError(Exception):
         self.status = status
 ```
 
+HTTP failures preserve the API error code and status. Timeouts use `TIMEOUT`; request/execution failures use `EXECUTION_ERROR`; usage-limit failures use `USAGE_ERROR`; HTTP 429 uses `RATE_LIMIT_EXCEEDED`.
+
 ## Examples
 
 ### Basic Workflow Execution
+
+This example assumes the workflow does not use a Response block, so the result uses the standard `WorkflowExecutionResult` envelope.
 
 ```python
 import os
@@ -203,13 +268,13 @@ def execute_with_error_handling():
         result = client.execute_workflow("workflow-id")
         return result
     except TradingGooseError as error:
-        if error.code == "UNAUTHORIZED":
+        if error.status == 401:
             print("Invalid API key")
         elif error.code == "TIMEOUT":
             print("Workflow execution timed out")
         elif error.code == "USAGE_LIMIT_EXCEEDED":
             print("Usage limit exceeded")
-        elif error.code == "INVALID_JSON":
+        elif error.code == "INVALID_JSON_IN_REQUEST_BODY":
             print("Invalid JSON in request body")
         else:
             print(f"Workflow error: {error}")
@@ -241,7 +306,7 @@ from tradinggoose import TradingGooseClient
 # Using environment variables
 client = TradingGooseClient(
     api_key=os.getenv("TRADINGGOOSE_API_KEY"),
-    base_url=os.getenv("TRADINGGOOSE_BASE_URL", "https://tradinggoose.ai")
+    base_url=os.getenv("TRADINGGOOSE_BASE_URL", "https://www.tradinggoose.ai")
 )
 ```
 
@@ -298,6 +363,8 @@ with open('doc1.pdf', 'rb') as f1, open('doc2.pdf', 'rb') as f2:
 
 ### Batch Workflow Execution
 
+This example assumes each workflow returns the standard execution envelope rather than a custom Response-block body.
+
 ```python
 from tradinggoose import TradingGooseClient
 import os
@@ -345,7 +412,7 @@ for result in results:
 
 ## Getting Your API Key
 
-1. Log in to your [TradingGoose](https://tradinggoose.ai) account
+1. Log in to your [TradingGoose](https://www.tradinggoose.ai) account
 2. Navigate to your workflow
 3. Click on "Deploy" to deploy your workflow
 4. Select or create an API key during the deployment process

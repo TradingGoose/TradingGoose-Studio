@@ -30,25 +30,25 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "wikipedia_summary",
             "options": [
                 {
-                    "label": "Get Page Summary",
-                    "id": "wikipedia_summary"
+                    "id": "wikipedia_summary",
+                    "label": "Get Page Summary"
                 },
                 {
-                    "label": "Search Pages",
-                    "id": "wikipedia_search"
+                    "id": "wikipedia_search",
+                    "label": "Search Pages"
                 },
                 {
-                    "label": "Get Page Content",
-                    "id": "wikipedia_content"
+                    "id": "wikipedia_content",
+                    "label": "Get Page Content"
                 },
                 {
-                    "label": "Random Page",
-                    "id": "wikipedia_random"
+                    "id": "wikipedia_random",
+                    "label": "Random Page"
                 }
-            ],
-            "defaultValue": "wikipedia_summary"
+            ]
         },
         {
             "id": "pageTitle",
@@ -77,11 +77,7 @@ Get a summary and metadata for a specific Wikipedia page.
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `title` | string | Page title |
-| `extract` | string | Page extract/summary text |
-| `description` | string | Short page description |
-| `thumbnail` | object | Thumbnail image data |
-| `content_urls` | object | URLs to access the page |
+| `summary` | object | Wikipedia page summary and metadata |
 
 </div>
 
@@ -103,25 +99,25 @@ Get a summary and metadata for a specific Wikipedia page.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "wikipedia_search",
             "options": [
                 {
-                    "label": "Get Page Summary",
-                    "id": "wikipedia_summary"
+                    "id": "wikipedia_summary",
+                    "label": "Get Page Summary"
                 },
                 {
-                    "label": "Search Pages",
-                    "id": "wikipedia_search"
+                    "id": "wikipedia_search",
+                    "label": "Search Pages"
                 },
                 {
-                    "label": "Get Page Content",
-                    "id": "wikipedia_content"
+                    "id": "wikipedia_content",
+                    "label": "Get Page Content"
                 },
                 {
-                    "label": "Random Page",
-                    "id": "wikipedia_random"
+                    "id": "wikipedia_random",
+                    "label": "Random Page"
                 }
-            ],
-            "defaultValue": "wikipedia_search"
+            ]
         },
         {
             "id": "query",
@@ -158,8 +154,9 @@ Search for Wikipedia pages by title or content.
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `title` | string | title output |
-| `excerpt` | string | excerpt output |
+| `searchResults` | array | Array of matching Wikipedia pages |
+| `totalHits` | number | Total number of search results found |
+| `query` | string | The search query that was executed |
 
 </div>
 
@@ -181,25 +178,25 @@ Search for Wikipedia pages by title or content.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "wikipedia_content",
             "options": [
                 {
-                    "label": "Get Page Summary",
-                    "id": "wikipedia_summary"
+                    "id": "wikipedia_summary",
+                    "label": "Get Page Summary"
                 },
                 {
-                    "label": "Search Pages",
-                    "id": "wikipedia_search"
+                    "id": "wikipedia_search",
+                    "label": "Search Pages"
                 },
                 {
-                    "label": "Get Page Content",
-                    "id": "wikipedia_content"
+                    "id": "wikipedia_content",
+                    "label": "Get Page Content"
                 },
                 {
-                    "label": "Random Page",
-                    "id": "wikipedia_random"
+                    "id": "wikipedia_random",
+                    "label": "Random Page"
                 }
-            ],
-            "defaultValue": "wikipedia_content"
+            ]
         },
         {
             "id": "pageTitle",
@@ -228,10 +225,7 @@ Get the full HTML content of a Wikipedia page.
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `title` | string | Page title |
-| `pageid` | number | Wikipedia page ID |
-| `html` | string | Full HTML content of the page |
-| `revision` | number | Page revision number |
+| `content` | object | Full HTML content and metadata of the Wikipedia page |
 
 </div>
 
@@ -253,25 +247,25 @@ Get the full HTML content of a Wikipedia page.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "wikipedia_random",
             "options": [
                 {
-                    "label": "Get Page Summary",
-                    "id": "wikipedia_summary"
+                    "id": "wikipedia_summary",
+                    "label": "Get Page Summary"
                 },
                 {
-                    "label": "Search Pages",
-                    "id": "wikipedia_search"
+                    "id": "wikipedia_search",
+                    "label": "Search Pages"
                 },
                 {
-                    "label": "Get Page Content",
-                    "id": "wikipedia_content"
+                    "id": "wikipedia_content",
+                    "label": "Get Page Content"
                 },
                 {
-                    "label": "Random Page",
-                    "id": "wikipedia_random"
+                    "id": "wikipedia_random",
+                    "label": "Random Page"
                 }
-            ],
-            "defaultValue": "wikipedia_random"
+            ]
         }
     ]}
   />
@@ -284,17 +278,13 @@ Get a random Wikipedia page.
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
-| Parameter | Type | Required | Description |
-| --------- | ---- | -------- | ----------- |
+This operation has no direct parameters.
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `title` | string | Page title |
-| `extract` | string | Page extract/summary |
-| `description` | string | Page description |
-| `thumbnail` | object | Thumbnail image data |
+| `randomPage` | object | Random Wikipedia page data |
 
 </div>
 

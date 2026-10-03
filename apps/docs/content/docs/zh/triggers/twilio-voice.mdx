@@ -1,0 +1,258 @@
+---
+title: Twilio Voice 触发器
+description: 通过 Twilio Voice 接收来电时触发工作流
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="twilio_voice"
+  color=""
+/>
+
+通过 Twilio Voice 接收来电时触发工作流
+
+<Callout type="info">
+  这是**基于 webhook** 的触发器。请将外部服务配置为向工作流 webhook URL 发送事件。
+</Callout>
+
+<Cards>
+  <Card title="用作工具" href="/tools/twilio_voice">
+    查看 Twilio Voice 的工作流动作、操作和工具输入。
+  </Card>
+</Cards>
+
+## 设置说明
+
+1. 在上方输入 TwiML Response，用于告知 Twilio 来电时应执行的操作（例如播放留言、录音、收集输入）。注意：TwiML 标签请使用方括号 [Tag]，不要使用尖括号
+
+2. 带转录的录音 TwiML 示例：[Response][Say]Please leave a message.[/Say][Record transcribe="true" maxLength="120"/][/Response]
+
+3. 打开 Twilio Console 的电话号码页面：https://console.twilio.com/us1/develop/phone-numbers/manage/incoming
+
+4. 选择要用于接听来电的电话号码。
+
+5. 向下滚动到 "Voice Configuration" 部分。
+
+6. 在 "A CALL COMES IN" 字段中选择 "Webhook"，并粘贴上方的 Webhook URL。
+
+7. 确保 HTTP 方法设置为 POST。
+
+8. 点击 "Save configuration"。
+
+9. 工作原理：来电时，Twilio 会立即收到你的 TwiML 响应并执行这些指令。工作流在后台运行，可获取来电者信息、通话状态以及任何已录音/已转录的数据。
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Twilio 语音 Webhook"
+    type="twilio_voice_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "accountSid",
+            "type": "short-input",
+            "title": "Twilio 账户 SID",
+            "placeholder": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "description": "来自 Twilio 控制台的 Twilio 账户 SID",
+            "required": true
+        },
+        {
+            "id": "authToken",
+            "type": "short-input",
+            "title": "身份验证令牌",
+            "placeholder": "你的 Twilio 身份验证令牌",
+            "description": "用于 webhook 签名验证的 Twilio 身份验证令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "twimlResponse",
+            "type": "long-input",
+            "title": "TwiML 响应",
+            "placeholder": "[Response][Say]请稍候。[/Say][/Response]",
+            "description": "立即返回给 Twilio 的 TwiML 指令。请使用方括号代替尖括号（例如用 [Response] 而不是 <Response>）。这用于控制来电时的处理（例如播放消息、录音、收集输入）。你的工作流将在后台执行。",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "callSid",
+          "type": "string",
+          "description": "此次通话的唯一标识符"
+      },
+      {
+          "name": "accountSid",
+          "type": "string",
+          "description": "Twilio 账户 SID"
+      },
+      {
+          "name": "from",
+          "type": "string",
+          "description": "主叫电话号码（E.164 格式）"
+      },
+      {
+          "name": "to",
+          "type": "string",
+          "description": "被叫电话号码（你的 Twilio 号码）"
+      },
+      {
+          "name": "callStatus",
+          "type": "string",
+          "description": "通话状态（queued、ringing、in-progress、completed 等）"
+      },
+      {
+          "name": "direction",
+          "type": "string",
+          "description": "通话方向：inbound 或 outbound"
+      },
+      {
+          "name": "apiVersion",
+          "type": "string",
+          "description": "Twilio API 版本"
+      },
+      {
+          "name": "callerName",
+          "type": "string",
+          "description": "主叫名称（如有）"
+      },
+      {
+          "name": "forwardedFrom",
+          "type": "string",
+          "description": "转接此通话的电话号码"
+      },
+      {
+          "name": "digits",
+          "type": "string",
+          "description": "主叫输入的 DTMF 按键（来自 <Gather>）"
+      },
+      {
+          "name": "speechResult",
+          "type": "string",
+          "description": "语音识别结果（若使用带语音的 <Gather>）"
+      },
+      {
+          "name": "recordingUrl",
+          "type": "string",
+          "description": "通话录音 URL（如有）"
+      },
+      {
+          "name": "recordingSid",
+          "type": "string",
+          "description": "录音 SID（如有）"
+      },
+      {
+          "name": "called",
+          "type": "string",
+          "description": "被叫电话号码（与 \"to\" 相同）"
+      },
+      {
+          "name": "caller",
+          "type": "string",
+          "description": "主叫电话号码（与 \"from\" 相同）"
+      },
+      {
+          "name": "toCity",
+          "type": "string",
+          "description": "被叫号码所在城市"
+      },
+      {
+          "name": "toState",
+          "type": "string",
+          "description": "被叫号码所在州/省"
+      },
+      {
+          "name": "toZip",
+          "type": "string",
+          "description": "被叫号码的邮政编码"
+      },
+      {
+          "name": "toCountry",
+          "type": "string",
+          "description": "被叫号码所在国家/地区"
+      },
+      {
+          "name": "fromCity",
+          "type": "string",
+          "description": "主叫所在城市"
+      },
+      {
+          "name": "fromState",
+          "type": "string",
+          "description": "主叫所在州/省"
+      },
+      {
+          "name": "fromZip",
+          "type": "string",
+          "description": "主叫的邮政编码"
+      },
+      {
+          "name": "fromCountry",
+          "type": "string",
+          "description": "主叫所在国家/地区"
+      },
+      {
+          "name": "calledCity",
+          "type": "string",
+          "description": "被叫号码所在城市（与 toCity 相同）"
+      },
+      {
+          "name": "calledState",
+          "type": "string",
+          "description": "被叫号码所在州（与 toState 相同）"
+      },
+      {
+          "name": "calledZip",
+          "type": "string",
+          "description": "被叫号码的邮政编码（与 toZip 相同）"
+      },
+      {
+          "name": "calledCountry",
+          "type": "string",
+          "description": "被叫号码所在国家/地区（与 toCountry 相同）"
+      },
+      {
+          "name": "callerCity",
+          "type": "string",
+          "description": "主叫所在城市（与 fromCity 相同）"
+      },
+      {
+          "name": "callerState",
+          "type": "string",
+          "description": "主叫所在州（与 fromState 相同）"
+      },
+      {
+          "name": "callerZip",
+          "type": "string",
+          "description": "主叫的邮政编码（与 fromZip 相同）"
+      },
+      {
+          "name": "callerCountry",
+          "type": "string",
+          "description": "主叫所在国家/地区（与 fromCountry 相同）"
+      },
+      {
+          "name": "callToken",
+          "type": "string",
+          "description": "用于身份验证的 Twilio 通话令牌"
+      },
+      {
+          "name": "raw",
+          "type": "string",
+          "description": "来自 Twilio 的完整原始 webhook 载荷，JSON 字符串格式"
+      }
+  ]}
+/>

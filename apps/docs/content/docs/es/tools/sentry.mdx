@@ -1,0 +1,1708 @@
+---
+title: Sentry
+description: Gestiona incidencias, proyectos, eventos y versiones de Sentry
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="sentry"
+  color="#6e4bb4"
+/>
+
+## Configuración
+
+### Listar incidencias
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "sentry_issues_list",
+            "options": [
+                {
+                    "id": "sentry_issues_list",
+                    "label": "Listar incidencias"
+                },
+                {
+                    "id": "sentry_issues_get",
+                    "label": "Obtener incidencia"
+                },
+                {
+                    "id": "sentry_issues_update",
+                    "label": "Actualizar incidencia"
+                },
+                {
+                    "id": "sentry_projects_list",
+                    "label": "Listar proyectos"
+                },
+                {
+                    "id": "sentry_projects_get",
+                    "label": "Obtener proyecto"
+                },
+                {
+                    "id": "sentry_projects_create",
+                    "label": "Crear proyecto"
+                },
+                {
+                    "id": "sentry_projects_update",
+                    "label": "Actualizar proyecto"
+                },
+                {
+                    "id": "sentry_events_list",
+                    "label": "Listar eventos"
+                },
+                {
+                    "id": "sentry_events_get",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "sentry_releases_list",
+                    "label": "Listar versiones"
+                },
+                {
+                    "id": "sentry_releases_create",
+                    "label": "Crear versión"
+                },
+                {
+                    "id": "sentry_releases_deploy",
+                    "label": "Crear despliegue"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu token de API de Sentry",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "Slug de organización",
+            "placeholder": "Slug de tu organización de Sentry",
+            "required": true
+        },
+        {
+            "id": "projectSlug",
+            "type": "short-input",
+            "title": "Slug del proyecto",
+            "placeholder": "Filtrar por proyecto (opcional)"
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Consulta de búsqueda",
+            "placeholder": "p. ej., is:unresolved, level:error"
+        },
+        {
+            "id": "statsPeriod",
+            "type": "short-input",
+            "title": "Periodo de estadísticas",
+            "placeholder": "24h, 7d, 30d"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "25"
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "Estado",
+            "defaultValue": "",
+            "options": [
+                {
+                    "id": "",
+                    "label": "Todos"
+                },
+                {
+                    "id": "unresolved",
+                    "label": "Sin resolver"
+                },
+                {
+                    "id": "resolved",
+                    "label": "Resuelto"
+                },
+                {
+                    "id": "ignored",
+                    "label": "Ignorado"
+                },
+                {
+                    "id": "muted",
+                    "label": "Silenciado"
+                }
+            ]
+        },
+        {
+            "id": "sort",
+            "type": "dropdown",
+            "title": "Ordenar por",
+            "defaultValue": "date",
+            "options": [
+                {
+                    "id": "date",
+                    "label": "Fecha"
+                },
+                {
+                    "id": "new",
+                    "label": "Nuevo"
+                },
+                {
+                    "id": "freq",
+                    "label": "Frecuencia"
+                },
+                {
+                    "id": "priority",
+                    "label": "Prioridad"
+                },
+                {
+                    "id": "user",
+                    "label": "Recuento de usuarios"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar incidencias (<code>sentry_issues_list</code>)</div>
+
+Lista incidencias de Sentry de una organización concreta y, opcionalmente, de un proyecto concreto. Devuelve los detalles de las incidencias, incluidos el estado, los recuentos de errores y las marcas de tiempo de la última aparición.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de autenticación de la API de Sentry |
+| `organizationSlug` | string | Sí | El slug de la organización |
+| `projectSlug` | string | No | Filtrar incidencias por el slug de un proyecto concreto \(opcional\) |
+| `query` | string | No | Consulta de búsqueda para filtrar incidencias. Admite la sintaxis de búsqueda de Sentry \(p. ej., "is:unresolved", "level:error"\) |
+| `statsPeriod` | string | No | Periodo de tiempo para las estadísticas \(p. ej., "24h", "7d", "30d"\). El valor predeterminado es 24h si no se especifica. |
+| `cursor` | string | No | Cursor de paginación para obtener la página siguiente de resultados |
+| `limit` | number | No | Número de incidencias que se devuelven por página \(valor predeterminado: 25, máximo: 100\) |
+| `status` | string | No | Filtrar por estado de incidencia: unresolved, resolved, ignored o muted |
+| `sort` | string | No | Orden de clasificación: date, new, freq, priority o user \(valor predeterminado: date\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `issues` | array | Lista de incidencias de Sentry |
+| `nextCursor` | string | Cursor de la página siguiente de resultados \(si está disponible\) |
+| `hasMore` | boolean | Indica si hay más resultados disponibles |
+
+</div>
+
+---
+
+### Obtener incidencia
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "sentry_issues_get",
+            "options": [
+                {
+                    "id": "sentry_issues_list",
+                    "label": "Listar incidencias"
+                },
+                {
+                    "id": "sentry_issues_get",
+                    "label": "Obtener incidencia"
+                },
+                {
+                    "id": "sentry_issues_update",
+                    "label": "Actualizar incidencia"
+                },
+                {
+                    "id": "sentry_projects_list",
+                    "label": "Listar proyectos"
+                },
+                {
+                    "id": "sentry_projects_get",
+                    "label": "Obtener proyecto"
+                },
+                {
+                    "id": "sentry_projects_create",
+                    "label": "Crear proyecto"
+                },
+                {
+                    "id": "sentry_projects_update",
+                    "label": "Actualizar proyecto"
+                },
+                {
+                    "id": "sentry_events_list",
+                    "label": "Listar eventos"
+                },
+                {
+                    "id": "sentry_events_get",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "sentry_releases_list",
+                    "label": "Listar versiones"
+                },
+                {
+                    "id": "sentry_releases_create",
+                    "label": "Crear versión"
+                },
+                {
+                    "id": "sentry_releases_deploy",
+                    "label": "Crear despliegue"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Introduce tu token de API de Sentry",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "Slug de la organización",
+            "placeholder": "Slug de tu organización de Sentry",
+            "required": true
+        },
+        {
+            "id": "issueId",
+            "type": "short-input",
+            "title": "ID de incidencia",
+            "placeholder": "Introduce el ID de la incidencia",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener incidencia (<code>sentry_issues_get</code>)</div>
+
+Recupera información detallada de una incidencia concreta de Sentry a partir de su ID. Devuelve los detalles completos de la incidencia, incluidos metadatos, etiquetas y estadísticas.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de autenticación de la API de Sentry |
+| `organizationSlug` | string | Sí | El slug de la organización |
+| `issueId` | string | Sí | El ID único de la incidencia que se va a recuperar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `issue` | object | Información detallada sobre la incidencia de Sentry |
+
+</div>
+
+---
+
+### Actualizar incidencia
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "sentry_issues_update",
+            "options": [
+                {
+                    "id": "sentry_issues_list",
+                    "label": "Listar incidencias"
+                },
+                {
+                    "id": "sentry_issues_get",
+                    "label": "Obtener incidencia"
+                },
+                {
+                    "id": "sentry_issues_update",
+                    "label": "Actualizar incidencia"
+                },
+                {
+                    "id": "sentry_projects_list",
+                    "label": "Listar proyectos"
+                },
+                {
+                    "id": "sentry_projects_get",
+                    "label": "Obtener proyecto"
+                },
+                {
+                    "id": "sentry_projects_create",
+                    "label": "Crear proyecto"
+                },
+                {
+                    "id": "sentry_projects_update",
+                    "label": "Actualizar proyecto"
+                },
+                {
+                    "id": "sentry_events_list",
+                    "label": "Listar eventos"
+                },
+                {
+                    "id": "sentry_events_get",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "sentry_releases_list",
+                    "label": "Listar versiones"
+                },
+                {
+                    "id": "sentry_releases_create",
+                    "label": "Crear versión"
+                },
+                {
+                    "id": "sentry_releases_deploy",
+                    "label": "Crear despliegue"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Introduce tu token de API de Sentry",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "Slug de organización",
+            "placeholder": "Slug de tu organización de Sentry",
+            "required": true
+        },
+        {
+            "id": "issueId",
+            "type": "short-input",
+            "title": "ID de incidencia",
+            "placeholder": "Introduce el ID de la incidencia",
+            "required": true
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "Nuevo estado",
+            "defaultValue": "",
+            "options": [
+                {
+                    "id": "",
+                    "label": "Sin cambios"
+                },
+                {
+                    "id": "resolved",
+                    "label": "Resuelto"
+                },
+                {
+                    "id": "unresolved",
+                    "label": "Sin resolver"
+                },
+                {
+                    "id": "ignored",
+                    "label": "Ignorado"
+                },
+                {
+                    "id": "resolvedInNextRelease",
+                    "label": "Resuelto en la próxima versión"
+                }
+            ]
+        },
+        {
+            "id": "assignedTo",
+            "type": "short-input",
+            "title": "Asignar a",
+            "placeholder": "ID de usuario o correo (vacío para desasignar)"
+        },
+        {
+            "id": "isBookmarked",
+            "type": "switch",
+            "title": "Marcar incidencia"
+        },
+        {
+            "id": "isSubscribed",
+            "type": "switch",
+            "title": "Suscribirse a actualizaciones"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar incidencia (<code>sentry_issues_update</code>)</div>
+
+Actualiza una incidencia de Sentry cambiando su estado, asignación, marcador u otras propiedades. Devuelve los detalles de la incidencia actualizada.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de autenticación de la API de Sentry |
+| `organizationSlug` | string | Sí | El slug de la organización |
+| `issueId` | string | Sí | El ID único de la incidencia que se va a actualizar |
+| `status` | string | No | Nuevo estado de la incidencia: resolved, unresolved, ignored o resolvedInNextRelease |
+| `assignedTo` | string | No | ID de usuario o correo electrónico al que asignar la incidencia. Usa una cadena vacía para quitar la asignación. |
+| `isBookmarked` | boolean | No | Si se debe marcar la incidencia |
+| `isSubscribed` | boolean | No | Si se debe suscribir a las actualizaciones de la incidencia |
+| `isPublic` | boolean | No | Si la incidencia debe ser visible públicamente |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `issue` | object | La incidencia de Sentry actualizada |
+
+</div>
+
+---
+
+### Listar proyectos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "sentry_projects_list",
+            "options": [
+                {
+                    "id": "sentry_issues_list",
+                    "label": "Listar incidencias"
+                },
+                {
+                    "id": "sentry_issues_get",
+                    "label": "Obtener incidencia"
+                },
+                {
+                    "id": "sentry_issues_update",
+                    "label": "Actualizar incidencia"
+                },
+                {
+                    "id": "sentry_projects_list",
+                    "label": "Listar proyectos"
+                },
+                {
+                    "id": "sentry_projects_get",
+                    "label": "Obtener proyecto"
+                },
+                {
+                    "id": "sentry_projects_create",
+                    "label": "Crear proyecto"
+                },
+                {
+                    "id": "sentry_projects_update",
+                    "label": "Actualizar proyecto"
+                },
+                {
+                    "id": "sentry_events_list",
+                    "label": "Listar eventos"
+                },
+                {
+                    "id": "sentry_events_get",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "sentry_releases_list",
+                    "label": "Listar versiones"
+                },
+                {
+                    "id": "sentry_releases_create",
+                    "label": "Crear versión"
+                },
+                {
+                    "id": "sentry_releases_deploy",
+                    "label": "Crear despliegue"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu token de API de Sentry",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "Slug de la organización",
+            "placeholder": "Slug de tu organización de Sentry",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "25"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar proyectos (<code>sentry_projects_list</code>)</div>
+
+Lista todos los proyectos de una organización de Sentry. Devuelve los detalles del proyecto, incluidos el nombre, la plataforma, los equipos y la configuración.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de autenticación de la API de Sentry |
+| `organizationSlug` | string | Sí | El slug de la organización |
+| `cursor` | string | No | Cursor de paginación para obtener la siguiente página de resultados |
+| `limit` | number | No | Número de proyectos que se devolverán por página \(predeterminado: 25, máximo: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `projects` | array | Lista de proyectos de Sentry |
+| `nextCursor` | string | Cursor para la siguiente página de resultados \(si está disponible\) |
+| `hasMore` | boolean | Indica si hay más resultados disponibles |
+
+</div>
+
+---
+
+### Obtener proyecto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "sentry_projects_get",
+            "options": [
+                {
+                    "id": "sentry_issues_list",
+                    "label": "Listar incidencias"
+                },
+                {
+                    "id": "sentry_issues_get",
+                    "label": "Obtener incidencia"
+                },
+                {
+                    "id": "sentry_issues_update",
+                    "label": "Actualizar incidencia"
+                },
+                {
+                    "id": "sentry_projects_list",
+                    "label": "Listar proyectos"
+                },
+                {
+                    "id": "sentry_projects_get",
+                    "label": "Obtener proyecto"
+                },
+                {
+                    "id": "sentry_projects_create",
+                    "label": "Crear proyecto"
+                },
+                {
+                    "id": "sentry_projects_update",
+                    "label": "Actualizar proyecto"
+                },
+                {
+                    "id": "sentry_events_list",
+                    "label": "Listar eventos"
+                },
+                {
+                    "id": "sentry_events_get",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "sentry_releases_list",
+                    "label": "Listar versiones"
+                },
+                {
+                    "id": "sentry_releases_create",
+                    "label": "Crear versión"
+                },
+                {
+                    "id": "sentry_releases_deploy",
+                    "label": "Crear despliegue"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu token de API de Sentry",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "Slug de la organización",
+            "placeholder": "Slug de tu organización de Sentry",
+            "required": true
+        },
+        {
+            "id": "projectSlug",
+            "type": "short-input",
+            "title": "ID o slug del proyecto",
+            "placeholder": "Introduce el ID o slug del proyecto",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener proyecto (<code>sentry_projects_get</code>)</div>
+
+Obtiene información detallada de un proyecto de Sentry específico por su slug. Devuelve los detalles completos del proyecto, incluidos equipos, características y configuración.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de autenticación de la API de Sentry |
+| `organizationSlug` | string | Sí | El slug de la organización |
+| `projectSlug` | string | Sí | El ID o slug del proyecto que se va a recuperar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `project` | object | Información detallada sobre el proyecto de Sentry |
+
+</div>
+
+---
+
+### Crear proyecto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "sentry_projects_create",
+            "options": [
+                {
+                    "id": "sentry_issues_list",
+                    "label": "Listar incidencias"
+                },
+                {
+                    "id": "sentry_issues_get",
+                    "label": "Obtener incidencia"
+                },
+                {
+                    "id": "sentry_issues_update",
+                    "label": "Actualizar incidencia"
+                },
+                {
+                    "id": "sentry_projects_list",
+                    "label": "Listar proyectos"
+                },
+                {
+                    "id": "sentry_projects_get",
+                    "label": "Obtener proyecto"
+                },
+                {
+                    "id": "sentry_projects_create",
+                    "label": "Crear proyecto"
+                },
+                {
+                    "id": "sentry_projects_update",
+                    "label": "Actualizar proyecto"
+                },
+                {
+                    "id": "sentry_events_list",
+                    "label": "Listar eventos"
+                },
+                {
+                    "id": "sentry_events_get",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "sentry_releases_list",
+                    "label": "Listar versiones"
+                },
+                {
+                    "id": "sentry_releases_create",
+                    "label": "Crear versión"
+                },
+                {
+                    "id": "sentry_releases_deploy",
+                    "label": "Crear despliegue"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Introduce tu token de la API de Sentry",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "Slug de la organización",
+            "placeholder": "Slug de tu organización de Sentry",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "Nombre del proyecto",
+            "placeholder": "Introduce el nombre del proyecto",
+            "required": true
+        },
+        {
+            "id": "teamSlug",
+            "type": "short-input",
+            "title": "Slug del equipo",
+            "placeholder": "Equipo que será propietario del proyecto",
+            "required": true
+        },
+        {
+            "id": "slug",
+            "type": "short-input",
+            "title": "Slug del proyecto",
+            "placeholder": "Se genera automáticamente si no se indica"
+        },
+        {
+            "id": "platform",
+            "type": "short-input",
+            "title": "Plataforma",
+            "placeholder": "javascript, python, node, etc."
+        },
+        {
+            "id": "defaultRules",
+            "type": "switch",
+            "title": "Crear reglas de alerta predeterminadas"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear proyecto (<code>sentry_projects_create</code>)</div>
+
+Crea un proyecto de Sentry nuevo en una organización. Requiere un equipo al que asociar el proyecto. Devuelve los detalles del proyecto creado.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de autenticación de la API de Sentry |
+| `organizationSlug` | string | Sí | El slug de la organización |
+| `name` | string | Sí | El nombre del proyecto |
+| `teamSlug` | string | Sí | El slug del equipo propietario de este proyecto |
+| `slug` | string | No | Identificador del proyecto compatible con URL \(se genera automáticamente a partir del nombre si no se proporciona\) |
+| `platform` | string | No | Plataforma/lenguaje del proyecto \(p. ej., javascript, python, node, react-native\). Si no se especifica, el valor predeterminado es "other" |
+| `defaultRules` | boolean | No | Indica si se crean reglas de alerta predeterminadas \(predeterminado: true\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `project` | object | El proyecto de Sentry recién creado |
+
+</div>
+
+---
+
+### Actualizar proyecto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "sentry_projects_update",
+            "options": [
+                {
+                    "id": "sentry_issues_list",
+                    "label": "Listar incidencias"
+                },
+                {
+                    "id": "sentry_issues_get",
+                    "label": "Obtener incidencia"
+                },
+                {
+                    "id": "sentry_issues_update",
+                    "label": "Actualizar incidencia"
+                },
+                {
+                    "id": "sentry_projects_list",
+                    "label": "Listar proyectos"
+                },
+                {
+                    "id": "sentry_projects_get",
+                    "label": "Obtener proyecto"
+                },
+                {
+                    "id": "sentry_projects_create",
+                    "label": "Crear proyecto"
+                },
+                {
+                    "id": "sentry_projects_update",
+                    "label": "Actualizar proyecto"
+                },
+                {
+                    "id": "sentry_events_list",
+                    "label": "Listar eventos"
+                },
+                {
+                    "id": "sentry_events_get",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "sentry_releases_list",
+                    "label": "Listar lanzamientos"
+                },
+                {
+                    "id": "sentry_releases_create",
+                    "label": "Crear lanzamiento"
+                },
+                {
+                    "id": "sentry_releases_deploy",
+                    "label": "Crear despliegue"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu token de API de Sentry",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "Slug de la organización",
+            "placeholder": "Slug de tu organización de Sentry",
+            "required": true
+        },
+        {
+            "id": "projectSlug",
+            "type": "short-input",
+            "title": "Slug del proyecto",
+            "placeholder": "Introduce el slug del proyecto",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "Nuevo nombre",
+            "placeholder": "Déjalo vacío para conservar el nombre actual"
+        },
+        {
+            "id": "slug",
+            "type": "short-input",
+            "title": "Nuevo slug",
+            "placeholder": "Déjalo vacío para conservar el slug actual"
+        },
+        {
+            "id": "platform",
+            "type": "short-input",
+            "title": "Plataforma",
+            "placeholder": "Déjalo vacío para conservar la plataforma actual"
+        },
+        {
+            "id": "isBookmarked",
+            "type": "switch",
+            "title": "Marcar proyecto"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar proyecto (<code>sentry_projects_update</code>)</div>
+
+Actualiza un proyecto de Sentry cambiando su nombre, slug, plataforma u otros ajustes. Devuelve los detalles del proyecto actualizado.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de autenticación de la API de Sentry |
+| `organizationSlug` | string | Sí | El slug de la organización |
+| `projectSlug` | string | Sí | El slug del proyecto a actualizar |
+| `name` | string | No | Nuevo nombre del proyecto |
+| `slug` | string | No | Nuevo identificador del proyecto compatible con URL |
+| `platform` | string | No | Nueva plataforma/lenguaje del proyecto \(p. ej., javascript, python, node\) |
+| `isBookmarked` | boolean | No | Si se debe marcar el proyecto como favorito |
+| `digestsMinDelay` | number | No | Retraso mínimo \(en segundos\) para las notificaciones de resumen |
+| `digestsMaxDelay` | number | No | Retraso máximo \(en segundos\) para las notificaciones de resumen |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `project` | object | El proyecto de Sentry actualizado |
+
+</div>
+
+---
+
+### Listar eventos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "sentry_events_list",
+            "options": [
+                {
+                    "id": "sentry_issues_list",
+                    "label": "Listar incidencias"
+                },
+                {
+                    "id": "sentry_issues_get",
+                    "label": "Obtener incidencia"
+                },
+                {
+                    "id": "sentry_issues_update",
+                    "label": "Actualizar incidencia"
+                },
+                {
+                    "id": "sentry_projects_list",
+                    "label": "Listar proyectos"
+                },
+                {
+                    "id": "sentry_projects_get",
+                    "label": "Obtener proyecto"
+                },
+                {
+                    "id": "sentry_projects_create",
+                    "label": "Crear proyecto"
+                },
+                {
+                    "id": "sentry_projects_update",
+                    "label": "Actualizar proyecto"
+                },
+                {
+                    "id": "sentry_events_list",
+                    "label": "Listar eventos"
+                },
+                {
+                    "id": "sentry_events_get",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "sentry_releases_list",
+                    "label": "Listar lanzamientos"
+                },
+                {
+                    "id": "sentry_releases_create",
+                    "label": "Crear lanzamiento"
+                },
+                {
+                    "id": "sentry_releases_deploy",
+                    "label": "Crear despliegue"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu token de API de Sentry",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "Slug de la organización",
+            "placeholder": "Slug de tu organización de Sentry",
+            "required": true
+        },
+        {
+            "id": "projectSlug",
+            "type": "short-input",
+            "title": "Slug del proyecto",
+            "placeholder": "Introduce el slug del proyecto",
+            "required": true
+        },
+        {
+            "id": "issueId",
+            "type": "short-input",
+            "title": "ID de incidencia",
+            "placeholder": "Filtrar por incidencia específica (opcional)"
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Consulta de búsqueda",
+            "placeholder": "p. ej., user.email:*@example.com"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "50"
+        },
+        {
+            "id": "statsPeriod",
+            "type": "short-input",
+            "title": "Periodo de estadísticas",
+            "placeholder": "24h, 7d, 30d, 90d"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar eventos (<code>sentry_events_list</code>)</div>
+
+Lista eventos de un proyecto de Sentry. Se puede filtrar por ID de incidencia, consulta o período de tiempo. Devuelve los detalles del evento, incluidos el contexto, las etiquetas y la información del usuario.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de autenticación de la API de Sentry |
+| `organizationSlug` | string | Sí | El slug de la organización |
+| `projectSlug` | string | Sí | El slug del proyecto del que se listan los eventos |
+| `issueId` | string | No | Filtrar eventos por un ID de incidencia específico |
+| `query` | string | No | Consulta de búsqueda para filtrar eventos. Admite la sintaxis de búsqueda de Sentry \(p. ej., "user.email:*@example.com"\) |
+| `cursor` | string | No | Cursor de paginación para recuperar la página siguiente de resultados |
+| `limit` | number | No | Número de eventos que se devuelven por página \(valor predeterminado: 50, máximo: 100\) |
+| `statsPeriod` | string | No | Período de tiempo de la consulta \(p. ej., "24h", "7d", "30d"\). El valor predeterminado es 90d si no se especifica. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `events` | array | Lista de eventos de Sentry |
+| `nextCursor` | string | Cursor de la página siguiente de resultados \(si está disponible\) |
+| `hasMore` | boolean | Indica si hay más resultados disponibles |
+
+</div>
+
+---
+
+### Obtener evento
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "sentry_events_get",
+            "options": [
+                {
+                    "id": "sentry_issues_list",
+                    "label": "Listar incidencias"
+                },
+                {
+                    "id": "sentry_issues_get",
+                    "label": "Obtener incidencia"
+                },
+                {
+                    "id": "sentry_issues_update",
+                    "label": "Actualizar incidencia"
+                },
+                {
+                    "id": "sentry_projects_list",
+                    "label": "Listar proyectos"
+                },
+                {
+                    "id": "sentry_projects_get",
+                    "label": "Obtener proyecto"
+                },
+                {
+                    "id": "sentry_projects_create",
+                    "label": "Crear proyecto"
+                },
+                {
+                    "id": "sentry_projects_update",
+                    "label": "Actualizar proyecto"
+                },
+                {
+                    "id": "sentry_events_list",
+                    "label": "Listar eventos"
+                },
+                {
+                    "id": "sentry_events_get",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "sentry_releases_list",
+                    "label": "Listar lanzamientos"
+                },
+                {
+                    "id": "sentry_releases_create",
+                    "label": "Crear lanzamiento"
+                },
+                {
+                    "id": "sentry_releases_deploy",
+                    "label": "Crear despliegue"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu token de API de Sentry",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "Slug de organización",
+            "placeholder": "Slug de tu organización de Sentry",
+            "required": true
+        },
+        {
+            "id": "projectSlug",
+            "type": "short-input",
+            "title": "Slug de proyecto",
+            "placeholder": "Introduce el slug del proyecto",
+            "required": true
+        },
+        {
+            "id": "eventId",
+            "type": "short-input",
+            "title": "ID de evento",
+            "placeholder": "Introduce el ID del evento",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener evento (<code>sentry_events_get</code>)</div>
+
+Recupera información detallada sobre un evento de Sentry específico por su ID. Devuelve los detalles completos del evento, incluidas las trazas de pila, los breadcrumbs, el contexto y la información del usuario.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de autenticación de la API de Sentry |
+| `organizationSlug` | string | Sí | El slug de la organización |
+| `projectSlug` | string | Sí | El slug del proyecto |
+| `eventId` | string | Sí | El ID único del evento que se va a recuperar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `event` | object | Información detallada sobre el evento de Sentry |
+
+</div>
+
+---
+
+### Listar lanzamientos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "sentry_releases_list",
+            "options": [
+                {
+                    "id": "sentry_issues_list",
+                    "label": "Listar problemas"
+                },
+                {
+                    "id": "sentry_issues_get",
+                    "label": "Obtener problema"
+                },
+                {
+                    "id": "sentry_issues_update",
+                    "label": "Actualizar problema"
+                },
+                {
+                    "id": "sentry_projects_list",
+                    "label": "Listar proyectos"
+                },
+                {
+                    "id": "sentry_projects_get",
+                    "label": "Obtener proyecto"
+                },
+                {
+                    "id": "sentry_projects_create",
+                    "label": "Crear proyecto"
+                },
+                {
+                    "id": "sentry_projects_update",
+                    "label": "Actualizar proyecto"
+                },
+                {
+                    "id": "sentry_events_list",
+                    "label": "Listar eventos"
+                },
+                {
+                    "id": "sentry_events_get",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "sentry_releases_list",
+                    "label": "Listar lanzamientos"
+                },
+                {
+                    "id": "sentry_releases_create",
+                    "label": "Crear lanzamiento"
+                },
+                {
+                    "id": "sentry_releases_deploy",
+                    "label": "Crear despliegue"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu token de API de Sentry",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "Slug de organización",
+            "placeholder": "Slug de tu organización de Sentry",
+            "required": true
+        },
+        {
+            "id": "projectSlug",
+            "type": "short-input",
+            "title": "Slug de proyecto",
+            "placeholder": "Filtrar por proyecto (opcional)"
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Consulta de búsqueda",
+            "placeholder": "Buscar versiones de lanzamiento específicas"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "25"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar lanzamientos (<code>sentry_releases_list</code>)</div>
+
+Lista los lanzamientos de una organización o proyecto de Sentry. Devuelve los detalles del lanzamiento, incluida la versión, los commits, la información de despliegue y los proyectos asociados.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de autenticación de la API de Sentry |
+| `organizationSlug` | string | Sí | El slug de la organización |
+| `projectSlug` | string | No | Filtrar lanzamientos por slug de proyecto específico \(opcional\) |
+| `query` | string | No | Consulta de búsqueda para filtrar lanzamientos \(p. ej., patrón de nombre de versión\) |
+| `cursor` | string | No | Cursor de paginación para obtener la página siguiente de resultados |
+| `limit` | number | No | Número de lanzamientos que devolver por página \(valor predeterminado: 25, máx.: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `releases` | array | Lista de lanzamientos de Sentry |
+| `nextCursor` | string | Cursor de la página siguiente de resultados \(si está disponible\) |
+| `hasMore` | boolean | Indica si hay más resultados disponibles |
+
+</div>
+
+---
+
+### Crear lanzamiento
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "sentry_releases_create",
+            "options": [
+                {
+                    "id": "sentry_issues_list",
+                    "label": "Listar incidencias"
+                },
+                {
+                    "id": "sentry_issues_get",
+                    "label": "Obtener incidencia"
+                },
+                {
+                    "id": "sentry_issues_update",
+                    "label": "Actualizar incidencia"
+                },
+                {
+                    "id": "sentry_projects_list",
+                    "label": "Listar proyectos"
+                },
+                {
+                    "id": "sentry_projects_get",
+                    "label": "Obtener proyecto"
+                },
+                {
+                    "id": "sentry_projects_create",
+                    "label": "Crear proyecto"
+                },
+                {
+                    "id": "sentry_projects_update",
+                    "label": "Actualizar proyecto"
+                },
+                {
+                    "id": "sentry_events_list",
+                    "label": "Listar eventos"
+                },
+                {
+                    "id": "sentry_events_get",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "sentry_releases_list",
+                    "label": "Listar lanzamientos"
+                },
+                {
+                    "id": "sentry_releases_create",
+                    "label": "Crear lanzamiento"
+                },
+                {
+                    "id": "sentry_releases_deploy",
+                    "label": "Crear despliegue"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu token de API de Sentry",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "Slug de la organización",
+            "placeholder": "Slug de tu organización de Sentry",
+            "required": true
+        },
+        {
+            "id": "version",
+            "type": "short-input",
+            "title": "Versión",
+            "placeholder": "p. ej., 2.0.0 o my-app@1.0.0",
+            "required": true
+        },
+        {
+            "id": "projects",
+            "type": "long-input",
+            "title": "Proyectos",
+            "placeholder": "Slugs de proyectos separados por comas",
+            "required": true
+        },
+        {
+            "id": "ref",
+            "type": "short-input",
+            "title": "Referencia de Git",
+            "placeholder": "SHA de commit, etiqueta o rama"
+        },
+        {
+            "id": "url",
+            "type": "long-input",
+            "title": "URL del lanzamiento",
+            "placeholder": "URL de la página del lanzamiento (p. ej., lanzamiento de GitHub)"
+        },
+        {
+            "id": "dateReleased",
+            "type": "datetime-input",
+            "title": "Fecha de lanzamiento",
+            "placeholder": "Marca de tiempo ISO 8601 (valor predeterminado: ahora)"
+        },
+        {
+            "id": "commits",
+            "type": "long-input",
+            "title": "Commits (JSON)",
+            "placeholder": "[{\"id\":\"abc123\",\"message\":\"Fix bug\"}]"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear release (<code>sentry_releases_create</code>)</div>
+
+Crea un nuevo release en Sentry. Un release es una versión de tu código desplegada en un entorno. Puede incluir información de commits y proyectos asociados. Devuelve los detalles del release creado.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de autenticación de la API de Sentry |
+| `organizationSlug` | string | Sí | El slug de la organización |
+| `version` | string | Sí | Identificador de versión del release \(p. ej., "2.0.0", "my-app@1.0.0" o un SHA de commit de git\) |
+| `projects` | string | Sí | Lista de slugs de proyectos separados por comas para asociar con este release |
+| `ref` | string | No | Referencia de Git \(SHA de commit, etiqueta o rama\) de este release |
+| `url` | string | No | URL que apunta al release \(p. ej., página de release de GitHub\) |
+| `dateReleased` | string | No | Marca de tiempo ISO 8601 de cuándo se desplegó el release \(el valor predeterminado es la hora actual\) |
+| `commits` | string | No | Array JSON de objetos de commit con id, repository \(opcional\) y message \(opcional\). Ejemplo: \[\{"id":"abc123","message":"Fix bug"\}\] |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `release` | object | El release de Sentry recién creado |
+
+</div>
+
+---
+
+### Crear despliegue
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "sentry_releases_deploy",
+            "options": [
+                {
+                    "id": "sentry_issues_list",
+                    "label": "Listar incidencias"
+                },
+                {
+                    "id": "sentry_issues_get",
+                    "label": "Obtener incidencia"
+                },
+                {
+                    "id": "sentry_issues_update",
+                    "label": "Actualizar incidencia"
+                },
+                {
+                    "id": "sentry_projects_list",
+                    "label": "Listar proyectos"
+                },
+                {
+                    "id": "sentry_projects_get",
+                    "label": "Obtener proyecto"
+                },
+                {
+                    "id": "sentry_projects_create",
+                    "label": "Crear proyecto"
+                },
+                {
+                    "id": "sentry_projects_update",
+                    "label": "Actualizar proyecto"
+                },
+                {
+                    "id": "sentry_events_list",
+                    "label": "Listar eventos"
+                },
+                {
+                    "id": "sentry_events_get",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "sentry_releases_list",
+                    "label": "Listar releases"
+                },
+                {
+                    "id": "sentry_releases_create",
+                    "label": "Crear release"
+                },
+                {
+                    "id": "sentry_releases_deploy",
+                    "label": "Crear despliegue"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu token de API de Sentry",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "Slug de la organización",
+            "placeholder": "Slug de tu organización de Sentry",
+            "required": true
+        },
+        {
+            "id": "version",
+            "type": "short-input",
+            "title": "Versión",
+            "placeholder": "Versión del release a desplegar",
+            "required": true
+        },
+        {
+            "id": "environment",
+            "type": "short-input",
+            "title": "Entorno",
+            "placeholder": "producción, staging, etc.",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "Nombre del despliegue",
+            "placeholder": "Nombre de despliegue opcional"
+        },
+        {
+            "id": "url",
+            "type": "long-input",
+            "title": "URL del despliegue",
+            "placeholder": "URL del pipeline de CI/CD o del despliegue"
+        },
+        {
+            "id": "dateStarted",
+            "type": "datetime-input",
+            "title": "Hora de inicio",
+            "placeholder": "Marca de tiempo ISO 8601 (el valor predeterminado es ahora)"
+        },
+        {
+            "id": "dateFinished",
+            "type": "datetime-input",
+            "title": "Hora de finalización",
+            "placeholder": "Marca de tiempo ISO 8601"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear despliegue (<code>sentry_releases_deploy</code>)</div>
+
+Crea un registro de despliegue para una versión de Sentry en un entorno específico. Los despliegues registran cuándo y dónde se despliegan las versiones. Devuelve los detalles del despliegue creado.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de autenticación de la API de Sentry |
+| `organizationSlug` | string | Sí | El slug de la organización |
+| `version` | string | Sí | Identificador de versión de la versión que se está desplegando |
+| `environment` | string | Sí | Nombre del entorno donde se está desplegando la versión \(p. ej., "production", "staging"\) |
+| `name` | string | No | Nombre opcional para este despliegue \(p. ej., "Despliegue v2.0 a Production"\) |
+| `url` | string | No | URL que apunta al despliegue \(p. ej., URL del pipeline de CI/CD\) |
+| `dateStarted` | string | No | Timestamp ISO 8601 de inicio del despliegue \(el valor predeterminado es la hora actual\) |
+| `dateFinished` | string | No | Timestamp ISO 8601 de finalización del despliegue |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `deploy` | object | El registro de despliegue recién creado |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Sentry en el flujo de trabajo. Supervisa incidencias, gestiona proyectos, realiza el seguimiento de eventos y coordina las versiones en tus aplicaciones.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `sentry`

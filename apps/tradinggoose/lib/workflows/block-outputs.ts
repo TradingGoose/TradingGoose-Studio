@@ -1,26 +1,7 @@
 import { extractFieldsFromSchema, parseResponseFormatSafely } from '@/lib/response-format'
 import { getBlock } from '@/blocks'
-import type { BlockConfig, BlockOutput, SubBlockType } from '@/blocks/types'
-import { resolveOutputType } from '@/blocks/utils'
 import { getTrigger } from '@/triggers'
 import { resolveTriggerIdFromSubBlocks } from '@/triggers/resolution'
-
-type WorkflowRuntimeSubBlocks = Record<string, { id: string; type: SubBlockType; value: unknown }>
-
-export function resolveBlockRuntimeState<TSubBlocks extends WorkflowRuntimeSubBlocks>(args: {
-  blockType: string
-  blockConfig: Pick<BlockConfig, 'category' | 'subBlocks' | 'triggers'>
-  subBlocks: TSubBlocks
-  triggerMode: boolean
-}): {
-  subBlocks: TSubBlocks
-  outputs: Record<string, BlockOutput>
-} {
-  return {
-    subBlocks: args.subBlocks,
-    outputs: resolveOutputType(readBlockOutputs(args.blockType, args.subBlocks, args.triggerMode)),
-  }
-}
 
 /**
  * Get the effective outputs for a block, including dynamic outputs from inputFormat
@@ -68,57 +49,32 @@ export function readBlockOutputs(
     }
   }
 
-  // For blocks with inputFormat, add dynamic outputs
-  if (hasInputFormat(blockConfig) && subBlocks?.inputFormat?.value) {
-    let inputFormatValue = subBlocks.inputFormat.value
-
-    // Sanitize inputFormat - ensure it's an array
+  const inputFormat = subBlocks?.inputFormat?.value
+  if (
+    inputFormat &&
+    blockConfig.subBlocks?.some((subBlock) => subBlock.type === 'input-format') &&
+    ['api_trigger', 'input_trigger', 'generic_webhook', 'human_in_the_loop'].includes(blockType)
+  ) {
+    const fields = Array.isArray(inputFormat) ? inputFormat : []
+    // HITL keeps review links; unconfigured webhooks keep their pass-through body.
     if (
-      inputFormatValue !== null &&
-      inputFormatValue !== undefined &&
-      !Array.isArray(inputFormatValue)
+      blockType === 'api_trigger' ||
+      blockType === 'input_trigger' ||
+      (blockType === 'generic_webhook' && fields.length > 0)
     ) {
-      // Invalid format, default to empty array
-      inputFormatValue = []
-    }
-
-    if (Array.isArray(inputFormatValue)) {
-      // For API, Input triggers, and Generic Webhook, use inputFormat fields
-      if (
-        blockType === 'api_trigger' ||
-        blockType === 'input_trigger' ||
-        blockType === 'generic_webhook'
-      ) {
-        // For generic_webhook, only clear outputs if inputFormat has fields
-        // Otherwise keep the default outputs (pass-through body)
-        if (inputFormatValue.length > 0 || blockType !== 'generic_webhook') {
-          outputs = {} // Clear all default outputs
-        }
-
-        // Add each field from inputFormat as an output at root level
-        inputFormatValue.forEach((field: { name?: string; type?: string }) => {
-          if (field?.name && field.name.trim() !== '') {
-            outputs[field.name] = {
-              type: (field.type || 'any') as any,
-              description: `Field from input format`,
-            }
-          }
-        })
-      }
-    } else if (blockType === 'api_trigger' || blockType === 'input_trigger') {
-      // If no inputFormat defined, API/Input trigger has no outputs
       outputs = {}
+    }
+    for (const field of fields) {
+      if (field?.name && field.name.trim() !== '') {
+        outputs[field.name] = {
+          type: field.type || 'any',
+          description: 'Field from input format',
+        }
+      }
     }
   }
 
   return outputs
-}
-
-/**
- * Check if a block config has an inputFormat sub-block
- */
-function hasInputFormat(blockConfig: BlockConfig): boolean {
-  return blockConfig.subBlocks?.some((sb) => sb.type === 'input-format') || false
 }
 
 /**
@@ -138,8 +94,8 @@ export function getBlockOutputPaths(
     for (const [key, value] of Object.entries(obj)) {
       const path = prefix ? `${prefix}.${key}` : key
 
-      // If value has 'type' property, it's a leaf node (output definition)
-      if (value && typeof value === 'object' && 'type' in value) {
+      // Typed objects expose both their value and their declared properties.
+      if (value && typeof value === 'object' && typeof value.type === 'string') {
         // Special handling for 'files' type - expand to show array element properties
         if (value.type === 'files') {
           // Show properties without [0] for cleaner display
@@ -153,6 +109,14 @@ export function getBlockOutputPaths(
           paths.push(`${path}.expiresAt`)
         } else {
           paths.push(path)
+          if (
+            value.type === 'object' &&
+            value.properties &&
+            typeof value.properties === 'object' &&
+            !Array.isArray(value.properties)
+          ) {
+            collectPaths(value.properties, path)
+          }
         }
       }
       // If value is an object without 'type', recurse into it
@@ -184,6 +148,7 @@ export function getBlockOutputType(
   const arrayIndexRegex = /\[(\d+)\]/g
   const cleanPath = outputPath.replace(arrayIndexRegex, '')
   const pathParts = cleanPath.split('.').filter(Boolean)
+  if (pathParts.length === 0) return 'any'
 
   const filePropertyTypes: Record<string, string> = {
     url: 'string',
@@ -195,31 +160,26 @@ export function getBlockOutputType(
     expiresAt: 'string',
   }
 
-  const lastPart = pathParts[pathParts.length - 1]
-  if (lastPart && filePropertyTypes[lastPart]) {
-    const parentPath = pathParts.slice(0, -1).join('.')
-    let current: any = outputs
-    for (const part of pathParts.slice(0, -1)) {
-      if (!current || typeof current !== 'object') break
-      current = current[part]
-    }
-    if (current && typeof current === 'object' && 'type' in current && current.type === 'files') {
-      return filePropertyTypes[lastPart]
-    }
-  }
+  let current: any = outputs[pathParts[0]]
 
-  let current: any = outputs
-
-  for (const part of pathParts) {
+  for (let index = 1; index < pathParts.length; index++) {
+    const part = pathParts[index]
     if (!current || typeof current !== 'object') {
       return 'any'
     }
-    current = current[part]
+    if (typeof current.type === 'string') {
+      if (current.type === 'files' && index === pathParts.length - 1) {
+        return Object.hasOwn(filePropertyTypes, part) ? filePropertyTypes[part] : 'any'
+      }
+      current = current.type === 'object' ? current.properties?.[part] : undefined
+    } else {
+      current = current[part]
+    }
   }
 
   if (!current) return 'any'
 
-  if (typeof current === 'object' && 'type' in current) {
+  if (typeof current === 'object' && typeof current.type === 'string') {
     return current.type
   }
 

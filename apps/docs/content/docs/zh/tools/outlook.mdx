@@ -1,0 +1,512 @@
+---
+title: Outlook
+description: 访问Outlook
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="outlook"
+  color="#50D9FF"
+/>
+
+<Cards>
+  <Card title="用作触发器" href="/triggers/outlook">
+    查看 Outlook 的触发事件、设置和事件负载。
+  </Card>
+</Cards>
+
+## 配置
+
+### 发送邮件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Outlook"
+    type="outlook"
+    color="#50D9FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "send_outlook",
+            "options": [
+                {
+                    "id": "send_outlook",
+                    "label": "发送邮件"
+                },
+                {
+                    "id": "draft_outlook",
+                    "label": "草拟邮件"
+                },
+                {
+                    "id": "read_outlook",
+                    "label": "读取邮件"
+                },
+                {
+                    "id": "forward_outlook",
+                    "label": "转发邮件"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft 账户",
+            "layout": "full",
+            "placeholder": "选择 Microsoft 账户",
+            "provider": "outlook",
+            "required": true
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "收件人",
+            "layout": "full",
+            "placeholder": "收件人邮箱地址",
+            "required": true
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "主题",
+            "layout": "full",
+            "placeholder": "邮件主题",
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "正文",
+            "layout": "full",
+            "placeholder": "邮件内容",
+            "required": true
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "附件",
+            "layout": "full",
+            "placeholder": "上传要附加的文件",
+            "required": false
+        },
+        {
+            "id": "attachments",
+            "type": "short-input",
+            "title": "附件",
+            "layout": "full",
+            "placeholder": "引用之前区块中的文件",
+            "required": false
+        },
+        {
+            "id": "replyToMessageId",
+            "type": "short-input",
+            "title": "回复邮件 ID",
+            "layout": "full",
+            "placeholder": "要回复的邮件 ID（用于会话线程）",
+            "required": false
+        },
+        {
+            "id": "conversationId",
+            "type": "short-input",
+            "title": "会话 ID",
+            "layout": "full",
+            "placeholder": "用于会话线程的会话 ID",
+            "required": false
+        },
+        {
+            "id": "cc",
+            "type": "short-input",
+            "title": "抄送",
+            "layout": "full",
+            "placeholder": "抄送收件人（逗号分隔）",
+            "required": false
+        },
+        {
+            "id": "bcc",
+            "type": "short-input",
+            "title": "密送",
+            "layout": "full",
+            "placeholder": "密送收件人（逗号分隔）",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">发送邮件（<code>outlook_send</code>）</div>
+
+使用 Outlook 发送邮件
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `to` | string | 是 | 收件人邮箱地址 |
+| `subject` | string | 是 | 邮件主题 |
+| `body` | string | 是 | 邮件正文内容 |
+| `contentType` | string | 否 | 邮件正文的内容类型 \(text 或 html\) |
+| `replyToMessageId` | string | 否 | 要回复的消息 ID \(用于会话串联\) |
+| `conversationId` | string | 否 | 用于会话串联的会话 ID |
+| `cc` | string | 否 | 抄送收件人 \(以逗号分隔\) |
+| `bcc` | string | 否 | 密送收件人 \(以逗号分隔\) |
+| `attachments` | file[] | 否 | 要附加到邮件的文件 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 邮件发送成功状态 |
+| `status` | string | 邮件的送达状态 |
+| `timestamp` | string | 邮件发送时间戳 |
+| `message` | string | 成功或错误消息 |
+
+</div>
+
+---
+
+### 草拟邮件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Outlook"
+    type="outlook"
+    color="#50D9FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "draft_outlook",
+            "options": [
+                {
+                    "id": "send_outlook",
+                    "label": "发送邮件"
+                },
+                {
+                    "id": "draft_outlook",
+                    "label": "草拟邮件"
+                },
+                {
+                    "id": "read_outlook",
+                    "label": "读取邮件"
+                },
+                {
+                    "id": "forward_outlook",
+                    "label": "转发邮件"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft 账户",
+            "layout": "full",
+            "placeholder": "选择 Microsoft 账户",
+            "provider": "outlook",
+            "required": true
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "收件人",
+            "layout": "full",
+            "placeholder": "收件人邮箱地址",
+            "required": true
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "主题",
+            "layout": "full",
+            "placeholder": "邮件主题",
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "正文",
+            "layout": "full",
+            "placeholder": "邮件内容",
+            "required": true
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "附件",
+            "layout": "full",
+            "placeholder": "上传要附加的文件",
+            "required": false
+        },
+        {
+            "id": "attachments",
+            "type": "short-input",
+            "title": "附件",
+            "layout": "full",
+            "placeholder": "引用前面块中的文件",
+            "required": false
+        },
+        {
+            "id": "cc",
+            "type": "short-input",
+            "title": "抄送",
+            "layout": "full",
+            "placeholder": "抄送收件人（以逗号分隔）",
+            "required": false
+        },
+        {
+            "id": "bcc",
+            "type": "short-input",
+            "title": "密送",
+            "layout": "full",
+            "placeholder": "密送收件人（以逗号分隔）",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">草拟邮件 (<code>outlook_draft</code>)</div>
+
+使用 Outlook 草拟邮件
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `to` | string | 是 | 收件人电子邮件地址 |
+| `subject` | string | 是 | 邮件主题 |
+| `body` | string | 是 | 邮件正文内容 |
+| `contentType` | string | 否 | 邮件正文的内容类型 \(text 或 html\) |
+| `cc` | string | 否 | 抄送收件人 \(用逗号分隔\) |
+| `bcc` | string | 否 | 密送收件人 \(用逗号分隔\) |
+| `attachments` | file[] | 否 | 要附加到邮件草稿的文件 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 邮件草稿创建成功状态 |
+| `messageId` | string | 草稿邮件的唯一标识符 |
+| `status` | string | 邮件的草稿状态 |
+| `subject` | string | 草稿邮件的主题 |
+| `timestamp` | string | 草稿创建时间戳 |
+| `message` | string | 成功或错误消息 |
+
+</div>
+
+---
+
+### 读取邮件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Outlook"
+    type="outlook"
+    color="#50D9FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "read_outlook",
+            "options": [
+                {
+                    "id": "send_outlook",
+                    "label": "发送邮件"
+                },
+                {
+                    "id": "draft_outlook",
+                    "label": "草拟邮件"
+                },
+                {
+                    "id": "read_outlook",
+                    "label": "读取邮件"
+                },
+                {
+                    "id": "forward_outlook",
+                    "label": "转发邮件"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft 账户",
+            "layout": "full",
+            "placeholder": "选择 Microsoft 账户",
+            "provider": "outlook",
+            "required": true
+        },
+        {
+            "id": "folder",
+            "type": "folder-selector",
+            "title": "文件夹",
+            "layout": "full",
+            "placeholder": "选择 Outlook 文件夹",
+            "provider": "outlook"
+        },
+        {
+            "id": "manualFolder",
+            "type": "short-input",
+            "title": "文件夹",
+            "layout": "full",
+            "placeholder": "输入 Outlook 文件夹名称（例如：INBOX、SENT 或自定义文件夹）"
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "邮件数量",
+            "layout": "full",
+            "placeholder": "要检索的邮件数量（默认：1，最大：10）"
+        },
+        {
+            "id": "includeAttachments",
+            "type": "switch",
+            "title": "包含附件",
+            "layout": "full"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">读取邮件 (<code>outlook_read</code>)</div>
+
+从 Outlook 读取邮件
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `folder` | string | 否 | 用于读取邮件的文件夹 ID \(默认：收件箱\) |
+| `maxResults` | number | 否 | 最多检索的邮件数量 \(默认：1，最大：10\) |
+| `includeAttachments` | boolean | 否 | 下载并包含邮件附件 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `message` | string | 成功或状态消息 |
+| `results` | array | 邮件消息对象数组 |
+| `attachments` | file[] | 从所有邮件中展平的所有邮件附件 |
+
+</div>
+
+---
+
+### 转发邮件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Outlook"
+    type="outlook"
+    color="#50D9FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "forward_outlook",
+            "options": [
+                {
+                    "id": "send_outlook",
+                    "label": "发送邮件"
+                },
+                {
+                    "id": "draft_outlook",
+                    "label": "草拟邮件"
+                },
+                {
+                    "id": "read_outlook",
+                    "label": "读取邮件"
+                },
+                {
+                    "id": "forward_outlook",
+                    "label": "转发邮件"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft 账户",
+            "layout": "full",
+            "placeholder": "选择 Microsoft 账户",
+            "provider": "outlook",
+            "required": true
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "收件人",
+            "layout": "full",
+            "placeholder": "收件人电子邮件地址",
+            "required": true
+        },
+        {
+            "id": "messageId",
+            "type": "short-input",
+            "title": "消息 ID",
+            "layout": "full",
+            "placeholder": "要转发的消息 ID",
+            "required": true
+        },
+        {
+            "id": "comment",
+            "type": "long-input",
+            "title": "备注",
+            "layout": "full",
+            "placeholder": "转发时包含的可选备注",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">转发邮件 (<code>outlook_forward</code>)</div>
+
+将现有 Outlook 邮件转发给指定收件人
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `messageId` | string | 是 | 要转发的邮件 ID |
+| `to` | string | 是 | 收件人电子邮件地址\(es\)，以逗号分隔 |
+| `comment` | string | 否 | 随转发邮件附带的可选备注 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | string | 成功或错误消息 |
+| `results` | object | 投递结果详情 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Outlook 集成到工作流中。可读取、起草和发送电子邮件。可在触发模式下使用，在收到新邮件时触发工作流。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`outlook`

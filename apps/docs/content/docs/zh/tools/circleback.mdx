@@ -1,0 +1,52 @@
+---
+title: Circleback
+description: AI 驱动的会议记录和行动项
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="circleback"
+  color=""
+/>
+
+<Cards>
+  <Card title="用作触发器" href="/triggers/circleback">
+    查看 Circleback 的触发器事件、设置和事件负载。
+  </Card>
+</Cards>
+
+## 输入
+
+此块不暴露可配置的输入。
+
+## 输出
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `id` | number | Circleback 会议 ID |
+| `name` | string | 会议标题 |
+| `url` | string | 虚拟会议 URL（Zoom、Meet、Teams） |
+| `createdAt` | string | 会议创建时间戳 |
+| `duration` | number | 持续时间（秒） |
+| `recordingUrl` | string | 录制 URL（24 小时内有效） |
+| `tags` | json | 标签数组 |
+| `icalUid` | string | 日历事件 ID |
+| `attendees` | json | 参会者对象数组 |
+| `notes` | string | Markdown 格式的会议记录 |
+| `actionItems` | json | 行动项数组 |
+| `transcript` | json | 转录片段数组 |
+| `insights` | json | 用户创建的见解 |
+| `meeting` | json | 完整会议负载 |
+
+## 使用说明
+
+当会议处理完成后，接收会议记录、行动项、转录和录制。Circleback 使用 Webhook 将数据推送到你的工作流。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`circleback`

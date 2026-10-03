@@ -1,0 +1,493 @@
+---
+title: Google Sheets
+description: 读取、写入和更新数据
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="google_sheets"
+  color="#34A853"
+/>
+
+## 配置
+
+### 读取数据
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Sheets"
+    type="google_sheets"
+    color="#34A853"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "read",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "读取数据"
+                },
+                {
+                    "id": "write",
+                    "label": "写入数据"
+                },
+                {
+                    "id": "update",
+                    "label": "更新数据"
+                },
+                {
+                    "id": "append",
+                    "label": "追加数据"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google 账号",
+            "layout": "full",
+            "placeholder": "选择 Google 账号",
+            "provider": "google-sheets",
+            "required": true
+        },
+        {
+            "id": "spreadsheetId",
+            "type": "file-selector",
+            "title": "选择工作表",
+            "layout": "full",
+            "placeholder": "选择电子表格",
+            "provider": "google-drive"
+        },
+        {
+            "id": "manualSpreadsheetId",
+            "type": "short-input",
+            "title": "电子表格 ID",
+            "layout": "full",
+            "placeholder": "电子表格 ID（来自 URL）"
+        },
+        {
+            "id": "range",
+            "type": "short-input",
+            "title": "范围",
+            "layout": "full",
+            "placeholder": "工作表名称和单元格范围（如 Sheet1!A1:D10）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">读取数据（<code>google_sheets_read</code>）</div>
+
+从 Google Sheets 电子表格读取数据
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 是否必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `spreadsheetId` | string | 是 | 要读取的电子表格 ID |
+| `range` | string | 否 | 要读取的单元格范围 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `data` | json | 工作表数据，包括范围和单元格值 |
+| `metadata` | json | 电子表格元数据，包括 ID 和 URL |
+
+</div>
+
+---
+
+### 写入数据
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Sheets"
+    type="google_sheets"
+    color="#34A853"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "write",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "读取数据"
+                },
+                {
+                    "id": "write",
+                    "label": "写入数据"
+                },
+                {
+                    "id": "update",
+                    "label": "更新数据"
+                },
+                {
+                    "id": "append",
+                    "label": "追加数据"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google 账号",
+            "layout": "full",
+            "placeholder": "选择 Google 账号",
+            "provider": "google-sheets",
+            "required": true
+        },
+        {
+            "id": "spreadsheetId",
+            "type": "file-selector",
+            "title": "选择电子表格",
+            "layout": "full",
+            "placeholder": "选择电子表格",
+            "provider": "google-drive"
+        },
+        {
+            "id": "manualSpreadsheetId",
+            "type": "short-input",
+            "title": "电子表格 ID",
+            "layout": "full",
+            "placeholder": "电子表格 ID（来自 URL）"
+        },
+        {
+            "id": "range",
+            "type": "short-input",
+            "title": "范围",
+            "layout": "full",
+            "placeholder": "工作表名称和单元格范围（例如：Sheet1!A1:D10）"
+        },
+        {
+            "id": "values",
+            "type": "long-input",
+            "title": "值",
+            "layout": "full",
+            "placeholder": "输入值，格式为 JSON 二维数组（例如：[[\"A1\", \"B1\"], [\"A2\", \"B2\"]]）或对象数组（例如：[{\"name\":\"John\", \"age\":30}, {\"name\":\"Jane\", \"age\":25}]）",
+            "required": true
+        },
+        {
+            "id": "valueInputOption",
+            "type": "dropdown",
+            "title": "值输入选项",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "USER_ENTERED",
+                    "label": "用户输入（解析公式）"
+                },
+                {
+                    "id": "RAW",
+                    "label": "原始（不解析公式）"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">写入数据 (<code>google_sheets_write</code>)</div>
+
+将数据写入 Google Sheets 电子表格
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必需 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `spreadsheetId` | 字符串 | 是 | 要写入的电子表格 ID |
+| `range` | 字符串 | 否 | 要写入的单元格范围 |
+| `values` | 数组 | 是 | 要写入电子表格的数据 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `updatedRange` | string | 更新的单元格范围 |
+| `updatedRows` | number | 更新的行数 |
+| `updatedColumns` | number | 更新的列数 |
+| `updatedCells` | number | 更新的单元格数量 |
+| `metadata` | json | 电子表格元数据（包括 ID 和 URL） |
+
+</div>
+
+---
+
+### 更新数据
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Sheets"
+    type="google_sheets"
+    color="#34A853"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "update",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "读取数据"
+                },
+                {
+                    "id": "write",
+                    "label": "写入数据"
+                },
+                {
+                    "id": "update",
+                    "label": "更新数据"
+                },
+                {
+                    "id": "append",
+                    "label": "追加数据"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google 账户",
+            "layout": "full",
+            "placeholder": "选择 Google 账户",
+            "provider": "google-sheets",
+            "required": true
+        },
+        {
+            "id": "spreadsheetId",
+            "type": "file-selector",
+            "title": "选择工作表",
+            "layout": "full",
+            "placeholder": "选择电子表格",
+            "provider": "google-drive"
+        },
+        {
+            "id": "manualSpreadsheetId",
+            "type": "short-input",
+            "title": "电子表格 ID",
+            "layout": "full",
+            "placeholder": "电子表格的 ID（来自 URL）"
+        },
+        {
+            "id": "range",
+            "type": "short-input",
+            "title": "范围",
+            "layout": "full",
+            "placeholder": "工作表名称和单元格范围（例如 Sheet1!A1:D10）"
+        },
+        {
+            "id": "values",
+            "type": "long-input",
+            "title": "值",
+            "layout": "full",
+            "placeholder": "以 JSON 数组的数组形式输入值（例如 [[\"A1\", \"B1\"], [\"A2\", \"B2\"]]）或对象数组（例如 [{\"name\":\"John\", \"age\":30}, {\"name\":\"Jane\", \"age\":25}]）",
+            "required": true
+        },
+        {
+            "id": "valueInputOption",
+            "type": "dropdown",
+            "title": "值输入选项",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "USER_ENTERED",
+                    "label": "用户输入（解析公式）"
+                },
+                {
+                    "id": "RAW",
+                    "label": "原始（不解析公式）"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新数据（<code>google_sheets_update</code>）</div>
+
+更新 Google Sheets 电子表格中的数据
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `spreadsheetId` | string | 是 | 要更新的电子表格 ID |
+| `range` | string | 否 | 要更新的单元格范围 |
+| `values` | array | 是 | 要在电子表格中更新的数据 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `updatedRange` | string | 已更新的单元格范围 |
+| `updatedRows` | number | 已更新的行数 |
+| `updatedColumns` | number | 已更新的列数 |
+| `updatedCells` | number | 已更新的单元格数 |
+| `metadata` | json | 电子表格元数据，包括 ID 和 URL |
+
+</div>
+
+---
+
+### 追加数据
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Sheets"
+    type="google_sheets"
+    color="#34A853"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "append",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "读取数据"
+                },
+                {
+                    "id": "write",
+                    "label": "写入数据"
+                },
+                {
+                    "id": "update",
+                    "label": "更新数据"
+                },
+                {
+                    "id": "append",
+                    "label": "追加数据"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google 账户",
+            "layout": "full",
+            "placeholder": "选择 Google 账户",
+            "provider": "google-sheets",
+            "required": true
+        },
+        {
+            "id": "spreadsheetId",
+            "type": "file-selector",
+            "title": "选择工作表",
+            "layout": "full",
+            "placeholder": "选择电子表格",
+            "provider": "google-drive"
+        },
+        {
+            "id": "manualSpreadsheetId",
+            "type": "short-input",
+            "title": "电子表格 ID",
+            "layout": "full",
+            "placeholder": "电子表格 ID（来自 URL）"
+        },
+        {
+            "id": "range",
+            "type": "short-input",
+            "title": "范围",
+            "layout": "full",
+            "placeholder": "工作表名称和单元格范围（例如 Sheet1!A1:D10）"
+        },
+        {
+            "id": "values",
+            "type": "long-input",
+            "title": "值",
+            "layout": "full",
+            "placeholder": "以 JSON 数组的数组形式输入值（例如 [[\"A1\", \"B1\"], [\"A2\", \"B2\"]]），或以对象数组形式输入（例如 [{\"name\":\"John\", \"age\":30}, {\"name\":\"Jane\", \"age\":25}]）",
+            "required": true
+        },
+        {
+            "id": "valueInputOption",
+            "type": "dropdown",
+            "title": "值输入选项",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "USER_ENTERED",
+                    "label": "用户输入（解析公式）"
+                },
+                {
+                    "id": "RAW",
+                    "label": "原始（不解析公式）"
+                }
+            ]
+        },
+        {
+            "id": "insertDataOption",
+            "type": "dropdown",
+            "title": "数据插入选项",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "INSERT_ROWS",
+                    "label": "插入行（添加新行）"
+                },
+                {
+                    "id": "OVERWRITE",
+                    "label": "覆盖（添加到现有数据）"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">追加数据 (<code>google_sheets_append</code>)</div>
+
+将数据追加到 Google Sheets 电子表格末尾
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `spreadsheetId` | string | 是 | 要追加到的电子表格 ID |
+| `range` | string | 否 | 在其后追加数据的单元格范围 |
+| `values` | array | 是 | 要追加到电子表格的数据 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `tableRange` | string | 追加数据的表格范围 |
+| `updatedRange` | string | 已更新的单元格范围 |
+| `updatedRows` | number | 已更新的行数 |
+| `updatedColumns` | number | 已更新的列数 |
+| `updatedCells` | number | 已更新的单元格数 |
+| `metadata` | json | 电子表格元数据，包括 ID 和 URL |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Google Sheets 集成到工作流中。可读取、写入、追加和更新数据。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`google_sheets`

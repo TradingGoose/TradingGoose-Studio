@@ -15,7 +15,7 @@ export const ORDER_SORT_BY_VALUES = [
 ] as const
 
 export const ORDER_SORT_ORDER_VALUES = ['asc', 'desc'] as const
-export const ORDER_PROVIDER_FILTER_VALUES = ['', 'alpaca', 'tradier'] as const
+export const ORDER_PROVIDER_FILTER_VALUES = ['', 'alpaca', 'tradier', 'robinhood'] as const
 export const ORDER_ENVIRONMENT_FILTER_VALUES = ['', 'paper', 'live'] as const
 export const ORDER_SUBMISSION_SOURCE_FILTER_VALUES = ['', 'manual', 'copilot', 'workflow'] as const
 export const ORDER_STATUS_FILTER_VALUES = [
@@ -27,6 +27,7 @@ export const ORDER_STATUS_FILTER_VALUES = [
   'expired',
   'rejected',
   'failed',
+  'unknown',
 ] as const
 export const ORDER_SIDE_FILTER_VALUES = ['', 'buy', 'sell'] as const
 export const ORDER_TYPE_FILTER_VALUES = ['', ...getTradingOrderTypeFilterValues()] as const
@@ -91,6 +92,7 @@ const ORDER_STATUS_RECORD_VALUES: Record<Exclude<OrderStatusFilter, ''>, readonl
   expired: ['expired'],
   rejected: ['rejected', 'invalid'],
   failed: ['failed'],
+  unknown: ['unknown'],
 }
 
 const ORDER_TIME_IN_FORCE_RECORD_VALUES: Record<

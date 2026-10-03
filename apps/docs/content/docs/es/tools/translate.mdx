@@ -1,0 +1,104 @@
+---
+title: Traducir
+description: Traduce texto a cualquier idioma
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="translate"
+  color=""
+/>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Traducir"
+    type="translate"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "context",
+            "type": "long-input",
+            "title": "Texto a traducir",
+            "layout": "full",
+            "placeholder": "Introduce el texto que quieres traducir",
+            "required": true
+        },
+        {
+            "id": "targetLanguage",
+            "type": "short-input",
+            "title": "Traducir a",
+            "layout": "full",
+            "placeholder": "Introduce el idioma (p. ej., español, francés, etc.)",
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "combobox",
+            "title": "Modelo",
+            "layout": "half",
+            "placeholder": "Escribe o selecciona un modelo...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API",
+            "password": true,
+            "description": "Se muestra cuando corresponde al modelo seleccionado en tiempo de ejecución."
+        },
+        {
+            "id": "azureEndpoint",
+            "type": "short-input",
+            "title": "Punto de conexión de Azure OpenAI",
+            "layout": "full",
+            "placeholder": "https://your-resource.openai.azure.com",
+            "password": true,
+            "description": "Se muestra cuando el modelo es uno de 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano', 'azure/model-router'."
+        },
+        {
+            "id": "azureApiVersion",
+            "type": "short-input",
+            "title": "Versión de API de Azure",
+            "layout": "full",
+            "placeholder": "2024-07-01-preview",
+            "description": "Se muestra cuando el modelo es uno de 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano', 'azure/model-router'."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `context` | string | Sí | Texto a traducir |
+| `targetLanguage` | string | Sí | Idioma de destino |
+| `model` | combobox | Sí | Modelo |
+| `apiKey` | string | No | Clave de API del proveedor |
+| `azureEndpoint` | string | No | URL del punto de conexión de Azure OpenAI |
+| `azureApiVersion` | string | No | Versión de API de Azure |
+
+## Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Texto traducido |
+| `model` | string | Modelo usado |
+| `tokens` | json | Uso de tokens |
+
+## Instrucciones de uso
+
+Traduce texto a cualquier idioma. La lista de modelos se carga en tiempo de ejecución a partir de los modelos base, Ollama y OpenRouter disponibles en el despliegue.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `translate`

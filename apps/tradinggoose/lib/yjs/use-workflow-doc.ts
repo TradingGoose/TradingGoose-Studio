@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { Edge } from '@xyflow/react'
 import type * as Y from 'yjs'
 import { escapeRegExp } from '@/lib/utils'
-import { readBlockOutputs, resolveBlockRuntimeState } from '@/lib/workflows/block-outputs'
+import { readBlockOutputs } from '@/lib/workflows/block-outputs'
 import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
 import { YJS_ORIGINS, type YjsOrigin } from '@/lib/yjs/transaction-origins'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
@@ -858,14 +858,10 @@ export function useWorkflowMutations() {
             SubBlockState
           >
 
-          const runtimeState = resolveBlockRuntimeState({
-            blockType: type,
-            blockConfig,
-            subBlocks,
-            triggerMode: blockProperties?.triggerMode ?? false,
-          })
-          subBlocks = runtimeState.subBlocks
-          Object.assign(outputs, runtimeState.outputs)
+          Object.assign(
+            outputs,
+            resolveOutputType(readBlockOutputs(type, subBlocks, blockProperties?.triggerMode))
+          )
         }
 
         const block: BlockState = {
@@ -1076,16 +1072,10 @@ export function useWorkflowMutations() {
         const blockConfig = block ? getBlock(block.type) : undefined
         if (!block || !blockConfig) return
 
-        const runtimeState = resolveBlockRuntimeState({
-          blockType: block.type,
-          blockConfig,
-          subBlocks: block.subBlocks ?? {},
-          triggerMode,
-        })
         const updated = {
           ...block,
-          subBlocks: runtimeState.subBlocks,
-          outputs: runtimeState.outputs,
+          subBlocks: block.subBlocks ?? {},
+          outputs: resolveOutputType(readBlockOutputs(block.type, block.subBlocks, triggerMode)),
           triggerMode,
         }
 

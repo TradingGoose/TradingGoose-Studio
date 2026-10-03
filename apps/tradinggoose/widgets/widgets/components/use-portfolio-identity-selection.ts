@@ -53,6 +53,7 @@ export function usePortfolioIdentitySelection({
     accountsQuery,
     activeServiceId,
     activePortfolioIdentity,
+    selectedPortfolioIdentity,
     services,
     portfolioIdentities,
   }

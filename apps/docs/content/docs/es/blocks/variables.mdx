@@ -1,0 +1,48 @@
+---
+title: Variables
+description: Establecer y gestionar variables del flujo de trabajo
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+El bloque Variables actualiza variables ya definidas en el flujo. Las asignaciones cambian los valores de la ejecución actual; no guardan nuevos valores iniciales ni persisten el estado entre ejecuciones.
+
+## Configurar asignaciones
+
+1. Crea las variables en el panel Variables del flujo, con nombres, tipos y valores iniciales.
+2. Añade un bloque Variables y selecciona cada variable que quieras actualizar.
+3. Proporciona un valor literal o una referencia exacta a una salida anterior.
+
+Por ejemplo, después de que un bloque API devuelva un perfil de cliente:
+
+```text
+customerEmail = <api.data.email>
+userId = <api.data.id>
+userTier = <api.data.tier>
+```
+
+Usa el nombre real del bloque de origen. En campos de texto simple, escribe el texto sin comillas alrededor.
+
+## Cálculos
+
+El bloque Variables convierte los valores al tipo seleccionado; no evalúa expresiones JavaScript. Una asignación numérica como `<variable.retryCount> + 1` se convierte en texto como `0 + 1` y falla al convertirse a número.
+
+Calcula primero en un bloque Function:
+
+```typescript
+return <variable.retryCount> + 1;
+```
+
+Después asigna `retryCount` a `<function.result>` en Variables. Usa el mismo patrón para un contador de bucle como `itemsProcessed`.
+
+## Leer valores y salidas
+
+- Lee el valor actual en cualquier parte de la ejecución con `<variable.retryCount>` o `<variable.customerEmail>`.
+- Las salidas del bloque contienen directamente los nombres asignados, por ejemplo `<variables.retryCount>`. No existe un contenedor `assignments`.
+- Para reintentar, conecta la **ruta de error** del bloque fallido a la lógica de recuperación. Una conexión normal de éxito no gestiona un fallo lanzado.
+
+<Callout type="warning">
+  Las variables del flujo se comparten entre instancias paralelas. Las asignaciones simultáneas pueden sobrescribirse. Conserva los datos de cada elemento en las salidas de los bloques y agrega los resultados de Parallel, en lugar de usar variables compartidas como estado aislado.
+</Callout>
+
+Usa almacenamiento persistente para conservar el estado entre ejecuciones.

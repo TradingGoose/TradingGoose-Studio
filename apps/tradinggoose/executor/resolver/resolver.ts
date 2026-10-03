@@ -119,6 +119,11 @@ export class InputResolver {
 
     // Process each input parameter
     for (const [key, value] of Object.entries(inputs)) {
+      // Resolve notifications after persistence, when this block's review URL exists.
+      if (block.metadata?.id === 'human_in_the_loop' && key === 'notification') {
+        result[key] = value
+        continue
+      }
       if (isConditionBlock && key === 'conditions') {
         result.conditions = value
         continue

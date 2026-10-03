@@ -141,10 +141,8 @@ export const JiraBlock: BlockConfig<JiraResponse> = {
             return 'jira_update'
           case 'write':
             return 'jira_write'
-          case 'read-bulk':
-            return 'jira_bulk_read'
           default:
-            return 'jira_retrieve'
+            throw new Error(`Unsupported Jira operation: ${params.operation}`)
         }
       },
       params: (params) => {
@@ -162,16 +160,13 @@ export const JiraBlock: BlockConfig<JiraResponse> = {
             if (!effectiveProjectId) {
               throw new Error('Project ID is required.')
             }
-            const writeParams = {
+            return {
+              ...baseParams,
               projectId: effectiveProjectId,
               summary: params.summary || '',
               description: params.description || '',
               issueType: params.issueType || 'Task',
               parent: params.parentIssue ? { key: params.parentIssue } : undefined,
-            }
-            return {
-              ...baseParams,
-              ...writeParams,
             }
           }
           case 'update': {
@@ -181,46 +176,28 @@ export const JiraBlock: BlockConfig<JiraResponse> = {
             if (!effectiveIssueKey) {
               throw new Error('Issue Key is required.')
             }
-            const updateParams = {
+            return {
+              ...baseParams,
               projectId: effectiveProjectId,
               issueKey: effectiveIssueKey,
               summary: params.summary || '',
               description: params.description || '',
             }
-            return {
-              ...baseParams,
-              ...updateParams,
-            }
           }
           case 'read': {
-            const projectForRead = (params.projectId || '').trim()
-            const issueForRead = (params.issueKey || '').trim()
-
-            if (!issueForRead) {
+            if (!effectiveIssueKey && !effectiveProjectId) {
               throw new Error(
                 'Select a project to read issues, or provide an issue key to read a single issue.'
               )
             }
             return {
               ...baseParams,
-              issueKey: issueForRead,
-              // Include projectId if available for context
-              ...(projectForRead && { projectId: projectForRead }),
-            }
-          }
-          case 'read-bulk': {
-            const finalProjectId = params.projectId || ''
-
-            if (!finalProjectId) {
-              throw new Error('Project ID is required.')
-            }
-            return {
-              ...baseParams,
-              projectId: finalProjectId.trim(),
+              ...(effectiveIssueKey && { issueKey: effectiveIssueKey }),
+              ...(effectiveProjectId && { projectId: effectiveProjectId }),
             }
           }
           default:
-            return baseParams
+            throw new Error(`Unsupported Jira operation: ${params.operation}`)
         }
       },
     },
@@ -238,7 +215,7 @@ export const JiraBlock: BlockConfig<JiraResponse> = {
     issueType: { type: 'string', description: 'Issue type' },
   },
   outputs: {
-    // Common outputs across all Jira operations
+    // Single-issue operation timestamp
     ts: { type: 'string', description: 'Timestamp of the operation' },
 
     // jira_retrieve (read) outputs
@@ -254,8 +231,6 @@ export const JiraBlock: BlockConfig<JiraResponse> = {
     // jira_write (create) outputs
     url: { type: 'string', description: 'URL to the created/accessed issue' },
 
-    // jira_bulk_read outputs (array of issues)
-    // Note: bulk_read returns an array in the output field, each item contains:
-    // ts, summary, description, created, updated
+    issues: { type: 'array', description: 'Issues returned by a bulk read' },
   },
 }

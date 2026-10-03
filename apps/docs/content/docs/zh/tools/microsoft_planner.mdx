@@ -1,0 +1,216 @@
+---
+title: Microsoft Planner
+description: 在 Microsoft Planner 中读取和创建任务
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="microsoft_planner"
+  color="#33C481"
+/>
+
+## 配置
+
+### 读取任务
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Microsoft Planner"
+    type="microsoft_planner"
+    color="#33C481"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "read_task",
+                    "label": "读取任务"
+                },
+                {
+                    "id": "create_task",
+                    "label": "创建任务"
+                }
+            ],
+            "defaultValue": "read_task"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft 账户",
+            "layout": "full",
+            "placeholder": "选择 Microsoft 账户",
+            "provider": "microsoft-planner"
+        },
+        {
+            "id": "planId",
+            "type": "short-input",
+            "title": "计划 ID",
+            "layout": "full",
+            "placeholder": "输入计划 ID"
+        },
+        {
+            "id": "taskId",
+            "type": "file-selector",
+            "title": "任务 ID",
+            "layout": "full",
+            "placeholder": "选择任务",
+            "provider": "microsoft-planner"
+        },
+        {
+            "id": "manualTaskId",
+            "type": "short-input",
+            "title": "手动任务 ID",
+            "layout": "full",
+            "placeholder": "输入任务 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">读取任务 (<code>microsoft_planner_read_task</code>)</div>
+
+从 Microsoft Planner 读取任务，获取用户的全部任务或指定计划中的全部任务
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `planId` | string | 否 | 要获取任务的计划 ID（未提供则获取用户的全部任务） |
+| `taskId` | string | 否 | 要获取的任务 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 是否成功获取任务 |
+| `tasks` | array | 筛选后的任务对象数组 |
+| `metadata` | object | 元数据，包含 planId、userId 和 planUrl |
+
+</div>
+
+---
+
+### 创建任务
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Microsoft Planner"
+    type="microsoft_planner"
+    color="#33C481"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "read_task",
+                    "label": "读取任务"
+                },
+                {
+                    "id": "create_task",
+                    "label": "创建任务"
+                }
+            ],
+            "defaultValue": "create_task"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft 账户",
+            "layout": "full",
+            "placeholder": "选择 Microsoft 账户",
+            "provider": "microsoft-planner"
+        },
+        {
+            "id": "planId",
+            "type": "short-input",
+            "title": "计划 ID",
+            "layout": "full",
+            "placeholder": "输入计划 ID"
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "任务标题",
+            "layout": "full",
+            "placeholder": "输入任务标题"
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "描述",
+            "layout": "full",
+            "placeholder": "输入任务描述（可选）"
+        },
+        {
+            "id": "dueDateTime",
+            "type": "datetime-input",
+            "title": "截止日期",
+            "layout": "full",
+            "placeholder": "输入截止日期，格式为 2024-12-31 23:59:59"
+        },
+        {
+            "id": "assigneeUserId",
+            "type": "short-input",
+            "title": "被分配人用户 ID",
+            "layout": "full",
+            "placeholder": "输入要将此任务分配给的用户 ID（可选）"
+        },
+        {
+            "id": "bucketId",
+            "type": "short-input",
+            "title": "存储桶 ID",
+            "layout": "full",
+            "placeholder": "输入用于整理任务的存储桶 ID（可选）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建任务 (<code>microsoft_planner_create_task</code>)</div>
+
+在 Microsoft Planner 中创建新任务
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `planId` | string | 是 | 将在其中创建任务的计划 ID |
+| `title` | string | 是 | 任务标题 |
+| `description` | string | 否 | 任务描述 |
+| `dueDateTime` | string | 否 | 任务的截止日期和时间（ISO 8601 格式） |
+| `assigneeUserId` | string | 否 | 要将任务分配给的用户 ID |
+| `bucketId` | string | 否 | 要将任务放入的存储桶 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 任务是否创建成功 |
+| `task` | object | 包含全部属性的已创建任务对象 |
+| `metadata` | object | 包含 planId、taskId 和 taskUrl 的元数据 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Microsoft Planner 集成到工作流中。可读取和创建任务。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`microsoft_planner`

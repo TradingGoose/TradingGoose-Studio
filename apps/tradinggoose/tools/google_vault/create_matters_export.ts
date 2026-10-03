@@ -16,9 +16,24 @@ export const createMattersExportTool: ToolConfig<GoogleVaultCreateMattersExportP
   },
 
   params: {
-    accessToken: { type: 'string', required: true, visibility: 'hidden' },
-    matterId: { type: 'string', required: true, visibility: 'user-only' },
-    exportName: { type: 'string', required: true, visibility: 'user-only' },
+    accessToken: {
+      type: 'string',
+      required: true,
+      visibility: 'hidden',
+      description: 'OAuth access token for Google Vault',
+    },
+    matterId: {
+      type: 'string',
+      required: true,
+      visibility: 'user-only',
+      description: 'ID of the Vault matter that will contain the export',
+    },
+    exportName: {
+      type: 'string',
+      required: true,
+      visibility: 'user-only',
+      description: 'Name for the new Vault export',
+    },
     corpus: {
       type: 'string',
       required: true,

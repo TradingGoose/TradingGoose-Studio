@@ -3,8 +3,29 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { getEffectiveDecryptedEnvMock } = vi.hoisted(() => ({
+const {
+  getEffectiveDecryptedEnvMock,
+  checkWorkspaceAccessMock,
+  resolveOAuthCredentialAccountForUserMock,
+} = vi.hoisted(() => ({
   getEffectiveDecryptedEnvMock: vi.fn(),
+  checkWorkspaceAccessMock: vi.fn(),
+  resolveOAuthCredentialAccountForUserMock: vi.fn(),
+}))
+
+vi.mock('@/lib/permissions/utils', () => ({
+  checkWorkspaceAccess: checkWorkspaceAccessMock,
+}))
+
+vi.mock('@/lib/credentials/oauth', () => ({
+  resolveOAuthCredentialAccountForUser: resolveOAuthCredentialAccountForUserMock,
+}))
+
+const { refreshAccessTokenIfNeededMock } = vi.hoisted(() => ({
+  refreshAccessTokenIfNeededMock: vi.fn(),
+}))
+vi.mock('@/lib/oauth/tokens', () => ({
+  refreshAccessTokenIfNeeded: refreshAccessTokenIfNeededMock,
 }))
 
 const {
@@ -57,6 +78,8 @@ vi.mock('@/providers/market/finnhub/config', () => ({
 
 vi.mock('@/providers/market/providers', () => ({
   getMarketProviderConfig: getMarketProviderConfigMock,
+  getMarketProviderDefinition: (id: string) =>
+    id === 'robinhood' ? { oauth: { provider: 'robinhood' } } : undefined,
   getMarketProviderPollingIntervalMs: getMarketProviderPollingIntervalMsMock,
 }))
 
@@ -112,6 +135,15 @@ const listing = {
   base_id: '',
   quote_id: '',
   listing_type: 'default' as const,
+}
+
+const robinhoodBarsPayload: MarketSubscribePayload = {
+  provider: 'robinhood',
+  workspaceId: 'workspace-1',
+  listing,
+  channel: 'bars',
+  interval: '1m',
+  providerParams: { credentialId: 'connection' },
 }
 
 const quoteSnapshot = {
@@ -248,6 +280,60 @@ describe('MarketStreamManager quote snapshots', () => {
     expect(finnhubStreamInstances).toHaveLength(0)
   })
 
+  it.each([
+    ['robinhood', 'disconnect'],
+    ['alpaca', 'unsubscribe'],
+    ['finnhub', 'unsubscribe'],
+  ])('cancels pending %s setup on %s', async (provider, action) => {
+    const manager = new MarketStreamManager()
+    const socket = createSocket('socket-1')
+    checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: true })
+    refreshAccessTokenIfNeededMock.mockResolvedValue('token')
+    resolveListingContextMock.mockImplementationOnce(async () => {
+      if (action === 'disconnect') manager.removeSocket(socket.id)
+      else manager.unsubscribe(socket, { clientSubscriptionId: 'chart' })
+      return { listing, base: 'AAPL', assetClass: 'stock' }
+    })
+    await expect(
+      manager.subscribe(socket, {
+        provider,
+        listing,
+        workspaceId: 'workspace-1',
+        channel: 'bars',
+        interval: '1m',
+        clientSubscriptionId: 'chart',
+        providerParams: { credentialId: 'connection' },
+        auth: { apiKey: 'key', apiSecret: 'secret' },
+      })
+    ).rejects.toThrow()
+    expect(manager.unsubscribe(socket, {})).toEqual([])
+  })
+
+  it('preserves unrelated pending subscriptions and a replacement after cancellation', async () => {
+    vi.useFakeTimers()
+    const manager = new MarketStreamManager()
+    const socket = createSocket('socket-1')
+    let resolveListing!: (context: unknown) => void
+    resolveListingContextMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolveListing = resolve
+      })
+    )
+    const payload = { provider: 'yahoo-finance', listing, clientSubscriptionId: 'chart' }
+    const pending = manager.subscribe(socket, payload)
+    const cancelled = expect(pending).rejects.toThrow()
+    const other = manager.subscribe(socket, { ...payload, clientSubscriptionId: 'other' })
+    await vi.advanceTimersByTimeAsync(0)
+    manager.unsubscribe(socket, { clientSubscriptionId: 'chart' })
+    const replacement = manager.subscribe(socket, payload)
+    resolveListing({ listing, base: 'AAPL', assetClass: 'stock' })
+    await Promise.all([cancelled, other, replacement])
+    expect(manager.unsubscribe(socket, {}).map((record) => record.clientSubscriptionId)).toEqual([
+      'other',
+      'chart',
+    ])
+  })
+
   it('shares one upstream trade subscription for duplicate streaming quote snapshots', async () => {
     const manager = new MarketStreamManager()
     const socket = createSocket('socket-1')
@@ -319,6 +405,29 @@ describe('MarketStreamManager quote snapshots', () => {
     manager.removeSocket(firstSocket.id)
     manager.removeSocket(secondSocket.id)
   })
+
+  it.each(['bars', 'trades'] as const)(
+    'identifies each streaming %s subscriber',
+    async (channel) => {
+      const manager = new MarketStreamManager()
+      const socket = createSocket('socket-1')
+      await manager.subscribe(socket, {
+        provider: 'alpaca',
+        listing,
+        channel,
+        clientSubscriptionId: 'chart-1',
+        auth: { apiKey: 'key', apiSecret: 'secret' },
+      })
+      const event = channel === 'bars' ? 'bar' : 'trade'
+      const handler = channel === 'bars' ? 'onBar' : 'onTrade'
+      alpacaStreamInstances[0].handlers[handler]({ symbol: 'AAPL', [event]: { close: 101 } })
+      expect(socket.emit).toHaveBeenCalledWith(
+        `market-${event}`,
+        expect.objectContaining({ clientSubscriptionId: 'chart-1' })
+      )
+      manager.removeSocket(socket.id)
+    }
+  )
 
   it('uses one polling pull for duplicate polling-provider quote snapshots', async () => {
     vi.useFakeTimers()
@@ -408,7 +517,8 @@ describe('MarketStreamManager quote snapshots', () => {
         kind: 'series',
         interval: '1m',
         windows: [{ mode: 'bars', barCount: 1 }],
-      })
+      }),
+      { userId: 'user-1' }
     )
     expect(firstSocket.emit).toHaveBeenCalledWith(
       'market-bar',
@@ -442,5 +552,217 @@ describe('MarketStreamManager quote snapshots', () => {
 
     manager.removeSocket(firstSocket.id)
     manager.removeSocket(secondSocket.id)
+  })
+
+  it('corrects the previous candle and resumes missed bars after empty or failed polls', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-22T14:00:30Z'))
+    const manager = new MarketStreamManager()
+    const socket = createSocket('socket-1')
+    const partial = {
+      timeStamp: '2026-09-22T14:00:00.000Z',
+      open: 100,
+      high: 101,
+      low: 99,
+      close: 101,
+      volume: 10,
+    }
+    const finalized = { ...partial, high: 110, close: 110, volume: 20 }
+    const next = { ...partial, timeStamp: '2026-09-22T14:01:00.000Z' }
+    refreshAccessTokenIfNeededMock.mockResolvedValue('token')
+    checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: true })
+    executeProviderRequestMock.mockResolvedValue({ bars: [partial] })
+    await manager.subscribe(socket, { ...robinhoodBarsPayload, clientSubscriptionId: 'chart' })
+    await vi.advanceTimersByTimeAsync(0)
+
+    executeProviderRequestMock.mockResolvedValue({ bars: [finalized, next] })
+    vi.setSystemTime(new Date('2026-09-22T14:01:00Z'))
+    await vi.advanceTimersByTimeAsync(15_000)
+    const emittedBars = () =>
+      socket.emit.mock.calls
+        .filter(([event]: [string]) => event === 'market-bar')
+        .map(([, payload]: [string, any]) => payload.bar)
+    expect(emittedBars()).toEqual([partial, finalized, next])
+    expect(executeProviderRequestMock.mock.lastCall?.[1].windows).toEqual([
+      { mode: 'absolute', start: partial.timeStamp, end: new Date().toISOString() },
+    ])
+
+    const missed = [2, 3].map((minute) => ({
+      ...finalized,
+      timeStamp: `2026-09-22T14:0${minute}:00.000Z`,
+    }))
+    executeProviderRequestMock
+      .mockResolvedValueOnce({ bars: [] })
+      .mockRejectedValueOnce(new Error('Temporary provider failure'))
+      .mockResolvedValue({ bars: [next, ...missed] })
+    vi.setSystemTime(new Date('2026-09-22T14:03:00Z'))
+    await vi.advanceTimersByTimeAsync(45_000)
+    expect(emittedBars()).toEqual([partial, finalized, next, ...missed])
+    for (const [, request] of executeProviderRequestMock.mock.calls.slice(-3)) {
+      expect(request.windows).toEqual([
+        { mode: 'absolute', start: next.timeStamp, end: expect.any(String) },
+      ])
+    }
+
+    executeProviderRequestMock
+      .mockResolvedValueOnce({ bars: [partial] })
+      .mockResolvedValue({ bars: [missed[1]] })
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(emittedBars()).toEqual([partial, finalized, next, ...missed])
+    expect(executeProviderRequestMock.mock.lastCall?.[1].windows).toEqual([
+      { mode: 'absolute', start: missed[1].timeStamp, end: new Date().toISOString() },
+    ])
+    manager.removeSocket(socket.id)
+  })
+
+  it.each([
+    ['1m', 1999 * 60_000, 1999 * 60_000],
+    ['1m', 3932 * 60_000, 2000 * 60_000],
+    ['1d', 2000 * 60_000, 2000 * 60_000],
+    ['1m', -60_000, null],
+    ['1m', Number.NaN, null],
+    ['invalid', 60_000, null],
+  ] as const)('bounds recovery for %s with cached age %s', async (interval, ageMs, span) => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-23T14:30:00Z'))
+    const manager = new MarketStreamManager()
+    const socket = createSocket('recovery')
+    const timeStamp = Number.isFinite(ageMs)
+      ? new Date(Date.now() - ageMs).toISOString()
+      : 'invalid'
+    executeProviderRequestMock.mockResolvedValue({ bars: [{ timeStamp, close: 100 }] })
+    await manager.subscribe(socket, {
+      provider: 'yahoo-finance',
+      listing,
+      channel: 'bars',
+      interval,
+    })
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(executeProviderRequestMock.mock.lastCall?.[1].windows).toEqual([
+      span === null
+        ? { mode: 'bars', barCount: 1 }
+        : {
+            mode: 'absolute',
+            start: span === ageMs ? timeStamp : new Date(Date.now() - span).toISOString(),
+            end: new Date().toISOString(),
+          },
+    ])
+    manager.removeSocket(socket.id)
+  })
+
+  it('isolates polled candles and their caches by normalization mode', async () => {
+    vi.useFakeTimers()
+    const manager = new MarketStreamManager()
+    const socket = createSocket('socket-1')
+    refreshAccessTokenIfNeededMock.mockResolvedValue('token')
+    checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: true })
+    for (const [index, normalizationMode] of (
+      ['raw', 'split_adjusted', 'raw'] as const
+    ).entries()) {
+      await manager.subscribe(socket, {
+        ...robinhoodBarsPayload,
+        normalizationMode,
+        clientSubscriptionId: `chart-${index}`,
+      })
+      await vi.advanceTimersByTimeAsync(0)
+    }
+    expect(
+      executeProviderRequestMock.mock.calls.map(([, request]) => request.normalizationMode)
+    ).toEqual(['raw', 'split_adjusted'])
+    expect(
+      socket.emit.mock.calls.filter(([event]: [string]) => event === 'market-bar')
+    ).toHaveLength(3)
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(executeProviderRequestMock).toHaveBeenCalledTimes(4)
+    manager.removeSocket(socket.id)
+  })
+
+  it.each(['bars', 'quote-snapshots'] as const)('authorizes OAuth %s', async (channel) => {
+    vi.useFakeTimers()
+    const manager = new MarketStreamManager()
+    const owner = createSocket('owner-socket')
+    const other = { ...createSocket('other-socket'), userId: 'other-user' }
+    const payload: MarketSubscribePayload = {
+      ...robinhoodBarsPayload,
+      channel,
+    }
+    const sharedPayload = {
+      ...payload,
+      providerParams: { credentialId: 'workspace-credential' },
+    }
+    refreshAccessTokenIfNeededMock.mockResolvedValue('token')
+    checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: false })
+    await expect(manager.subscribe(owner, payload)).rejects.toThrow('workspace access')
+    expect(refreshAccessTokenIfNeededMock).not.toHaveBeenCalled()
+
+    checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: true })
+    await manager.subscribe(owner, payload)
+    resolveOAuthCredentialAccountForUserMock.mockResolvedValue({
+      credentialId: 'workspace-credential',
+      accountId: 'connection',
+      credentialOwnerUserId: 'user-1',
+      providerId: 'robinhood',
+      workspaceId: 'workspace-1',
+    })
+    const fetchData = channel === 'bars' ? executeProviderRequestMock : buildMarketQuoteSnapshotMock
+    expect(fetchData).toHaveBeenCalledTimes(1)
+    expect(checkWorkspaceAccessMock).toHaveBeenCalledWith('workspace-1', 'user-1')
+
+    await manager.subscribe(other, sharedPayload, 'workspace')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(refreshAccessTokenIfNeededMock).toHaveBeenCalledWith(
+      'connection',
+      'user-1',
+      expect.any(String),
+      'robinhood'
+    )
+    expect(
+      fetchData.mock.calls.map((args) => (channel === 'bars' ? args[2] : args[0].context))
+    ).toEqual([{ userId: 'user-1' }, { userId: 'user-1' }])
+    expect(resolveOAuthCredentialAccountForUserMock).toHaveBeenCalledWith({
+      credentialId: 'workspace-credential',
+      userId: 'other-user',
+      workspaceId: 'workspace-1',
+    })
+    resolveOAuthCredentialAccountForUserMock.mockResolvedValue(null)
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(other.emit).toHaveBeenCalledWith(
+      'market-error',
+      expect.objectContaining({ message: 'Market connection access was revoked' })
+    )
+    expect(manager.unsubscribe(other, {})).toEqual([])
+    executeProviderRequestMock.mockClear()
+    buildMarketQuoteSnapshotMock.mockClear()
+    await manager.subscribe(owner, {
+      ...payload,
+      channel: channel === 'bars' ? 'quote-snapshots' : 'bars',
+    })
+    const fetchOtherData =
+      channel === 'bars' ? buildMarketQuoteSnapshotMock : executeProviderRequestMock
+    checkWorkspaceAccessMock.mockClear()
+
+    checkWorkspaceAccessMock.mockRejectedValueOnce(new Error('Permission lookup unavailable'))
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(fetchData).not.toHaveBeenCalled()
+    expect(fetchOtherData).not.toHaveBeenCalled()
+    expect(checkWorkspaceAccessMock).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(fetchData).toHaveBeenCalledTimes(1)
+    expect(fetchOtherData).toHaveBeenCalledTimes(1)
+    expect(checkWorkspaceAccessMock).toHaveBeenCalledTimes(2)
+
+    checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: false })
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(fetchData).toHaveBeenCalledTimes(1)
+    expect(fetchOtherData).toHaveBeenCalledTimes(1)
+    expect(checkWorkspaceAccessMock).toHaveBeenCalledTimes(3)
+    expect(refreshAccessTokenIfNeededMock).toHaveBeenCalledTimes(3)
+    expect(manager.unsubscribe(owner, {})).toEqual([])
+    expect(owner.emit).toHaveBeenCalledWith(
+      'market-error',
+      expect.objectContaining({
+        message: expect.stringContaining('access was revoked'),
+      })
+    )
   })
 })

@@ -1,360 +1,52 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Check, ChevronDown, ExternalLink, RefreshCw } from 'lucide-react'
-import { useLocale, useMessages } from 'next-intl'
-import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
-import { Button } from '@/components/ui/button'
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { createLogger } from '@/lib/logs/console/logger'
-import {
-  type Credential,
-  getProviderIdFromServiceId,
-  getServiceByProviderAndId,
-  getServiceIdFromScopes,
-  getServiceIdsFromScopes,
-  OAUTH_PROVIDERS,
-  type OAuthProvider,
-  type OAuthService,
-  parseProvider,
-} from '@/lib/oauth'
+import { useLocale } from 'next-intl'
 import type { SubBlockConfig } from '@/blocks/types'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
 import type { LocaleCode } from '@/i18n/utils'
-import { formatTemplate } from '@/i18n/utils'
+import { getMarketProviderDefinition } from '@/providers/market/providers'
+import { ToolCredentialSelector } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/tool-credential-selector'
+import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-depends-on-gate'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
-import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-
-const logger = createLogger('CredentialSelector')
 
 interface CredentialSelectorProps {
   blockId: string
   subBlock: SubBlockConfig
   disabled?: boolean
+  contextValues?: Record<string, any>
 }
 
 export function CredentialSelector({
   blockId,
   subBlock,
-  disabled = false,
+  disabled,
+  contextValues,
 }: CredentialSelectorProps) {
   const locale = useLocale() as LocaleCode
-  const copy = useMessages().workspace.widgets.blockEditor.toolInput
-  const labelCopy = {
-    searchCredentials: translateWorkflowLabel(locale, 'searchCredentials'),
-    loadingCredentials: translateWorkflowLabel(locale, 'loadingCredentials'),
-    noCredentialsFound: translateWorkflowLabel(locale, 'noCredentialsFound'),
-    connectNewAccountToContinue: translateWorkflowLabel(locale, 'connectNewAccountToContinue'),
-  }
-  const [open, setOpen] = useState(false)
-  const [credentials, setCredentials] = useState<Credential[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [showOAuthModal, setShowOAuthModal] = useState(false)
-  const [selectedId, setSelectedId] = useState('')
-  const activeWorkflowId = useWorkflowId()
-
-  // Use collaborative state management via useSubBlockValue hook
-  const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlock.id)
-
-  // Extract values from subBlock config
-  const provider = subBlock.provider as OAuthProvider
-  const requiredScopes = subBlock.requiredScopes || []
-  const label = subBlock.placeholder || translateWorkflowLabel(locale, 'selectCredential')
-  const serviceId = subBlock.serviceId
-  const serviceIds = subBlock.serviceIds
-
-  // Initialize selectedId with the current store value
-  useEffect(() => {
-    setSelectedId(storeValue || '')
-  }, [storeValue])
-
-  const effectiveServiceIds = useMemo(() => {
-    const configuredServiceIds = Array.isArray(serviceIds)
-      ? serviceIds.map((id) => id.trim()).filter(Boolean)
-      : []
-    if (configuredServiceIds.length > 0) return Array.from(new Set(configuredServiceIds))
-    if (serviceId?.trim()) return [serviceId.trim()]
-    return getServiceIdsFromScopes(provider, requiredScopes)
-  }, [provider, requiredScopes, serviceId, serviceIds])
-
-  const primaryServiceId =
-    effectiveServiceIds[0] ?? getServiceIdFromScopes(provider, requiredScopes)
-
-  const effectiveProviderIds = useMemo(
-    () => Array.from(new Set(effectiveServiceIds.map((id) => getProviderIdFromServiceId(id)))),
-    [effectiveServiceIds]
-  )
-
-  const [oauthModalServiceId, setOAuthModalServiceId] = useState<OAuthService | null>(null)
-
-  // Fetch available credentials for this provider
-  const fetchCredentials = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      const responses = await Promise.all(
-        effectiveProviderIds.map(async (providerId) => {
-          const params = new URLSearchParams({ provider: providerId })
-          if (activeWorkflowId) params.set('workflowId', activeWorkflowId)
-          const response = await fetch(`/api/auth/oauth/credentials?${params.toString()}`)
-          if (!response.ok) return [] as Credential[]
-          const data = await response.json()
-          return (data.credentials ?? []) as Credential[]
-        })
-      )
-      const creds = responses.flat()
-
-      setCredentials(creds)
-
-      // Do not auto-select or reset. We only show what's persisted.
-    } catch (error) {
-      logger.error('Error fetching credentials:', { error })
-    } finally {
-      setIsLoading(false)
-    }
-  }, [effectiveProviderIds, activeWorkflowId])
-
-  // Fetch credentials on initial mount and whenever the subblock value changes externally
-  useEffect(() => {
-    fetchCredentials()
-  }, [fetchCredentials, storeValue])
-
-  // Listen for visibility changes to update credentials when user returns from settings
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        fetchCredentials()
-      }
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-    }
-  }, [fetchCredentials])
-
-  // Also handle BFCache restores (back/forward navigation) where visibility change may not fire reliably
-  useEffect(() => {
-    const handlePageShow = (event: any) => {
-      if (event?.persisted) {
-        fetchCredentials()
-      }
-    }
-    window.addEventListener('pageshow', handlePageShow)
-    return () => {
-      window.removeEventListener('pageshow', handlePageShow)
-    }
-  }, [fetchCredentials])
-
-  // Handle popover open to fetch fresh credentials
-  const handleOpenChange = (isOpen: boolean) => {
-    setOpen((prev) => (prev === isOpen ? prev : isOpen))
-    if (isOpen) {
-      // Fetch fresh credentials when opening the dropdown
-      fetchCredentials()
-    }
-  }
-
-  // Get the selected credential
-  const selectedCredential = credentials.find((cred) => cred.id === selectedId)
-  const isForeign = !!(selectedId && selectedCredential?.isOwner === false)
-
-  const displayName = isForeign
-    ? translateWorkflowLabel(locale, 'savedByCollaborator')
-    : selectedCredential
-      ? selectedCredential.name
-      : undefined
-
-  // Handle selection
-  const handleSelect = (credentialId: string) => {
-    setSelectedId(credentialId)
-    setStoreValue(credentialId)
-    setOpen(false)
-  }
-
-  // Handle adding a new credential
-  const handleAddCredential = (connectServiceId: OAuthService) => {
-    // Show the OAuth modal
-    setOAuthModalServiceId(connectServiceId)
-    setShowOAuthModal(true)
-    setOpen(false)
-  }
-
-  // Get provider icon
-  const getProviderIcon = (providerName: OAuthProvider) => {
-    const { baseProvider } = parseProvider(providerName)
-    const baseProviderConfig = OAUTH_PROVIDERS[baseProvider]
-
-    if (!baseProviderConfig) {
-      return <ExternalLink className='h-4 w-4' />
-    }
-    // Always use the base provider icon for a more consistent UI
-    return baseProviderConfig.icon({ className: 'h-4 w-4' })
-  }
-
-  // Get provider name
-  const getProviderName = (providerName: OAuthProvider) => {
-    const { baseProvider } = parseProvider(providerName)
-    const baseProviderConfig = OAUTH_PROVIDERS[baseProvider]
-
-    if (baseProviderConfig) {
-      return baseProviderConfig.name
-    }
-
-    // Fallback: capitalize the provider name
-    return providerName
-      .split('-')
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(' ')
-  }
-
-  const getServiceName = (connectServiceId: string) => {
-    try {
-      return getServiceByProviderAndId(provider, connectServiceId).name
-    } catch {
-      return getProviderName(connectServiceId)
-    }
-  }
-
-  const showServiceNames = effectiveServiceIds.length > 1
+  const { dependsOn, dependencyValues } = useDependsOnGate(blockId, subBlock, { contextValues })
+  const [value, setValue] = useSubBlockValue<string>(blockId, subBlock.id)
+  const isMarket = subBlock.providerType === 'market'
+  const marketProvider = dependencyValues[dependsOn.indexOf('provider')]
+  const provider = isMarket
+    ? getMarketProviderDefinition(typeof marketProvider === 'string' ? marketProvider : '')?.oauth
+        ?.provider
+    : subBlock.provider
+  if (!provider) return null
 
   return (
-    <>
-      <Popover open={open} onOpenChange={handleOpenChange}>
-        <PopoverTrigger
-          disabled={disabled}
-          render={
-            <Button
-              variant='outline'
-              role='combobox'
-              aria-expanded={open}
-              className='relative w-full justify-between'
-              disabled={disabled}
-            />
-          }
-        >
-          <div className='flex max-w-[calc(100%-20px)] items-center gap-2 overflow-hidden'>
-            {getProviderIcon(provider)}
-            <span
-              className={displayName ? 'truncate font-normal' : 'truncate text-muted-foreground'}
-            >
-              {displayName || label}
-            </span>
-          </div>
-          <ChevronDown className='absolute right-3 h-4 w-4 shrink-0 opacity-50' />
-        </PopoverTrigger>
-        <PopoverContent className='w-[250px] p-0' align='start'>
-          <Command>
-            <CommandInput
-              placeholder={labelCopy.searchCredentials}
-              className='text-foreground placeholder:text-muted-foreground'
-            />
-            <CommandList>
-              <CommandEmpty>
-                {isLoading ? (
-                  <div className='flex items-center justify-center p-4'>
-                    <RefreshCw className='h-4 w-4 animate-spin' />
-                    <span className='ml-2'>{labelCopy.loadingCredentials}</span>
-                  </div>
-                ) : (
-                  <div className='p-4 text-center'>
-                    <p className='font-medium text-sm'>{labelCopy.noCredentialsFound}</p>
-                    <p className='text-muted-foreground text-xs'>
-                      {labelCopy.connectNewAccountToContinue}
-                    </p>
-                  </div>
-                )}
-              </CommandEmpty>
-              {credentials.length > 0 && (
-                <CommandGroup>
-                  {credentials.map((cred) => (
-                    <CommandItem
-                      key={cred.id}
-                      value={cred.id}
-                      onSelect={() => handleSelect(cred.id)}
-                    >
-                      <div className='flex min-w-0 items-center gap-1'>
-                        {getProviderIcon(cred.provider)}
-                        <span className='min-w-0 truncate font-normal'>
-                          {cred.isOwner === false
-                            ? translateWorkflowLabel(locale, 'savedByCollaborator')
-                            : cred.name}
-                        </span>
-                        {showServiceNames ? (
-                          <span className='shrink-0 text-muted-foreground text-xs'>
-                            {getServiceName(cred.provider)}
-                          </span>
-                        ) : null}
-                      </div>
-                      {cred.id === selectedId && <Check className='ml-auto h-4 w-4' />}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              )}
-              {credentials.length === 0 && (
-                <CommandGroup>
-                  {effectiveServiceIds.map((connectServiceId) => (
-                    <CommandItem
-                      key={connectServiceId}
-                      onSelect={() => handleAddCredential(connectServiceId)}
-                    >
-                      <div className='flex items-center gap-1 text-foreground'>
-                        {getProviderIcon(connectServiceId)}
-                        <span>
-                          {formatTemplate(copy.selectProviderAccount, {
-                            provider: getServiceName(connectServiceId),
-                          })}
-                        </span>
-                      </div>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              )}
-              {credentials.length > 0 && showServiceNames && (
-                <CommandGroup>
-                  {effectiveServiceIds.map((connectServiceId) => (
-                    <CommandItem
-                      key={`connect-${connectServiceId}`}
-                      onSelect={() => handleAddCredential(connectServiceId)}
-                    >
-                      <div className='flex items-center gap-1 text-foreground'>
-                        {getProviderIcon(connectServiceId)}
-                        <span>
-                          {formatTemplate(copy.selectProviderAccount, {
-                            provider: getServiceName(connectServiceId),
-                          })}
-                        </span>
-                      </div>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              )}
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-
-      {showOAuthModal && (
-        <OAuthRequiredModal
-          isOpen={showOAuthModal}
-          onClose={() => setShowOAuthModal(false)}
-          provider={provider}
-          toolName={getProviderName(provider)}
-          requiredScopes={requiredScopes}
-          serviceId={
-            oauthModalServiceId ?? (effectiveServiceIds.length === 1 ? primaryServiceId : undefined)
-          }
-          serviceIds={effectiveServiceIds}
-        />
-      )}
-    </>
+    <ToolCredentialSelector
+      provider={provider}
+      serviceId={isMarket ? provider : subBlock.serviceId}
+      serviceIds={subBlock.serviceIds}
+      requiredScopes={subBlock.requiredScopes}
+      value={value ?? ''}
+      onChange={setValue}
+      label={
+        isMarket
+          ? subBlock.title
+          : subBlock.placeholder || translateWorkflowLabel(locale, 'selectCredential')
+      }
+      disabled={disabled}
+    />
   )
 }

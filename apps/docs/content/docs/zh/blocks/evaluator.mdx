@@ -1,0 +1,206 @@
+---
+title: 评估器
+description: 使用 AI 对内容质量进行评分和评估
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { BlockConfigPreview } from '@/components/ui/block-config-preview'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
+
+<BlockInfoCard
+  type="number"
+  color="#4D5FFF"
+/>
+
+评估器区块使用 AI，通过你自定义的评估指标对内容质量进行评分和评估。非常适合质量控制、A/B 测试，以及确保 AI 输出符合特定标准。
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Evaluator"
+    type="evaluator"
+    color="#4D5FFF"
+    hideHeader
+    subBlocks={[
+      { "id": "metrics", "title": "评估指标", "type": "eval-input", "layout": "full", "required": true },
+      { "id": "content", "title": "内容", "type": "short-input", "layout": "full", "placeholder": "输入要评估的内容", "required": true },
+      { "id": "model", "title": "模型", "type": "combobox", "layout": "half", "placeholder": "输入或选择模型...", "required": true },
+      { "id": "apiKey", "title": "API 密钥", "type": "short-input", "layout": "full", "placeholder": "输入你的 API 密钥", "password": true, "required": true },
+      { "id": "azureEndpoint", "title": "Azure OpenAI 端点", "type": "short-input", "layout": "full", "password": true, "placeholder": "https://your-resource.openai.azure.com" },
+      { "id": "azureApiVersion", "title": "Azure API 版本", "type": "short-input", "layout": "full", "placeholder": "2024-07-01-preview" }
+    ]}
+  />
+</ShowcaseCard>
+
+## 概述
+
+评估器区块让你可以：
+
+<Steps>
+  <Step>
+    <strong>内容质量评分</strong>：使用 AI 依据自定义指标对内容进行评分，给出数值分数
+  </Step>
+  <Step>
+    <strong>自定义指标</strong>：针对你的使用场景创建专属评估标准
+  </Step>
+  <Step>
+    <strong>自动化质量控制</strong>：构建可自动评估和筛选内容的工作流
+  </Step>
+  <Step>
+    <strong>跟踪表现</strong>：通过客观评分持续监控改进情况和一致性
+  </Step>
+</Steps>
+
+## 工作原理
+
+评估器块通过 AI 驱动的评估处理内容：
+
+1. **接收内容** - 从前面的块获取输入内容
+2. **应用指标** - 根据您定义的自定义指标评估内容
+3. **生成分数** - AI 模型为每个指标分配数字分数
+4. **返回评分** - 以小写指标名返回数值评分，不返回单独的自然语言评估摘要。
+
+## 配置选项
+
+### 评估指标
+
+定义用于评估内容的自定义指标。每个指标包括：
+
+- **名称**：指标的简短标识符
+- **描述**：对指标测量内容的详细说明
+- **范围**：评分的数值范围（例如 1-5、0-10）
+
+示例指标：
+
+```
+Accuracy (1-5): How factually accurate is the content?
+Clarity (1-5): How clear and understandable is the content?
+Relevance (1-5): How relevant is the content to the original query?
+```
+
+### 内容
+
+要评估的内容。可以是：
+
+- 直接在块配置中提供
+- 从另一个块的输出连接（通常是 Agent 块）
+- 在工作流执行期间动态生成
+
+### 模型选择
+
+选择用于执行评估的 AI 模型：
+
+**OpenAI**：GPT-4o、o1、o3、o4-mini、gpt-4.1
+**Anthropic**：Claude 3.7 Sonnet
+**Google**：Gemini 2.5 Pro、Gemini 2.0 Flash
+**其他提供商**：Groq、Cerebras、xAI、DeepSeek
+**本地模型**：任何在 Ollama 上运行的模型
+
+**建议**：使用具有强大推理能力的模型，例如 GPT-4o 或 Claude 3.7 Sonnet，以获得更准确的评估。
+
+### API 密钥
+
+用于所选 LLM 提供商的 API 密钥。该密钥会被安全存储并用于身份验证。
+
+## 工作原理
+
+1. 评估器块获取提供的内容和您的自定义指标
+2. 它生成一个专门的提示，指示 LLM 评估内容
+3. 提示包含关于如何对每个指标进行评分的明确指南
+4. LLM 评估内容并返回每个指标的数字分数
+5. 评估器块将这些分数格式化为结构化输出，以便在工作流中使用
+
+## 示例用例
+
+### 内容质量评估
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">场景：在发布前评估博客文章质量</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>Agent 块生成博客文章内容</li>
+    <li>评估器评估准确性、可读性和参与度</li>
+    <li>条件块检查分数是否达到最低阈值</li>
+    <li>高分 → 发布，低分 → 修改并重试</li>
+  </ol>
+</div>
+
+### A/B 测试内容
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">场景：比较多个 AI 生成的响应</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>并行块生成多个响应变体</li>
+    <li>评估器根据清晰度和相关性为每个变体评分</li>
+    <li>函数块选择得分最高的响应</li>
+    <li>响应块返回最佳结果</li>
+  </ol>
+</div>
+
+### 客户支持质量控制
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">场景：确保支持响应符合质量标准</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>支持 Agent 生成对客户咨询的响应</li>
+    <li>评估器对有用性、同理心和准确性进行评分</li>
+    <li>评分会被记录，用于训练和绩效监控</li>
+    <li>低分触发人工审核流程</li>
+  </ol>
+</div>
+
+## 输入与输出
+
+<Tabs items={['配置', '变量', '结果']}>
+  <Tab>
+    <ul className="list-disc space-y-2 pl-6">
+      <li>
+        <strong>内容</strong>：要评估的文本或结构化数据
+      </li>
+      <li>
+        <strong>评估指标</strong>：带评分范围的自定义标准
+      </li>
+      <li>
+        <strong>模型</strong>：用于评估分析的 AI 模型
+      </li>
+      <li>
+        <strong>API 密钥</strong>：所选 LLM 提供商的认证信息
+      </li>
+    </ul>
+  </Tab>
+  <Tab>
+    <ul className="list-disc space-y-2 pl-6">
+      <li>
+        <strong>evaluator.content</strong>：评估摘要
+      </li>
+      <li>
+        <strong>evaluator.model</strong>：用于评估的模型
+      </li>
+      <li>
+        <strong>evaluator.tokens</strong>：Token 用量统计
+      </li>
+      <li>
+        <strong>evaluator.cost</strong>：评估调用的成本摘要
+      </li>
+    </ul>
+  </Tab>
+  <Tab>
+    <ul className="list-disc space-y-2 pl-6">
+      <li>
+        <strong>指标评分</strong>：以小写指标名作为键的数值输出
+      </li>
+      <li>
+        <strong>访问</strong>：可在评估器之后的块中使用
+      </li>
+    </ul>
+  </Tab>
+</Tabs>
+
+## 最佳实践
+
+- **使用具体的指标描述**：明确界定每个指标衡量什么，以获得更准确的评估
+- **选择合适的范围**：选择评分范围时，既要保证足够的粒度，又不要过于复杂
+- **与 Agent 块连接**：使用 Evaluator 块评估 Agent 块的输出，并建立反馈闭环
+- **保持指标一致**：进行对比分析时，在相似的评估中保持指标一致
+- **组合多个指标**：使用多个指标以获得全面的评估

@@ -10,7 +10,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
   type="google_forms"
-  color=""
+  color="#7248B9"
 />
 
 <Cards>
@@ -26,7 +26,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
   <BlockConfigPreview
     name="Google Forms"
     type="google_forms"
-    color=""
+    color="#7248B9"
     hideHeader
     subBlocks={[
         {
@@ -68,12 +68,17 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 
 ### `google_forms_get_responses`
 
+Retrieve a single response or list responses from a Google Form
+
 #### Input
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
+| `formId` | string | Yes | The ID of the Google Form |
+| `responseId` | string | No | If provided, returns this specific response |
+| `pageSize` | number | No | Maximum number of responses to return \(service may return fewer\). Defaults to 5000. |
 
-#### Output
+#### Output (block-level contract)
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |

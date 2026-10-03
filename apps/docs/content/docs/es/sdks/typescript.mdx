@@ -1,0 +1,57 @@
+---
+title: SDK de TypeScript
+description: Cliente de TypeScript y JavaScript para flujos de trabajo de TradingGoose
+---
+
+## Estado de desarrollo
+
+El SDK de TypeScript es una vista previa local del repositorio para Node.js. `tradinggoose-ts-sdk` no está publicado actualmente en npm, por lo que `npm install tradinggoose-ts-sdk` no está disponible. Los colaboradores del repositorio pueden compilar el paquete desde [`packages/ts-sdk`](https://github.com/TradingGoose/TradingGoose-Studio/tree/staging/packages/ts-sdk).
+
+Para integraciones de producción, usa la [API de ejecución](/execution/api) compatible. Los ejemplos siguientes describen el paquete de vista previa cuando se vincula desde el código fuente del repositorio.
+
+## Ejecutar un flujo de trabajo
+
+```typescript
+import { TradingGooseClient } from 'tradinggoose-ts-sdk'
+
+const client = new TradingGooseClient({
+  apiKey: process.env.TRADINGGOOSE_API_KEY!,
+  baseUrl: 'https://www.tradinggoose.ai',
+})
+
+const result = await client.executeWorkflow('workflow-id', {
+  input: { message: 'Analyze this' },
+  timeout: 30000,
+})
+```
+
+`ExecutionOptions` contiene un `input` con valor de objeto y `timeout` (milisegundos, valor predeterminado `30000`).
+
+## Limitación de streaming
+
+El streaming hace que la API de ejecución devuelva `text/event-stream`. El SDK de vista previa no expone opciones de streaming ni de salida seleccionada porque no implementa un lector SSE. Usa la [API de ejecución](/execution/api) directamente para consumir SSE y seleccionar las salidas transmitidas de los bloques.
+
+## Estado y validación
+
+- `getWorkflowStatus(workflowId)` devuelve `WorkflowStatus`.
+- `validateWorkflow(workflowId)` devuelve si el flujo de trabajo está desplegado.
+- `setApiKey(apiKey)` y `setBaseUrl(baseUrl)` actualizan la configuración del cliente.
+
+## Reintentos y límites
+
+`executeWithRetry(workflowId, options, retryOptions)` solo reintenta `RATE_LIMIT_EXCEEDED`. Los valores predeterminados de `RetryOptions` son `maxRetries: 3`, `initialDelay: 1000` ms, `maxDelay: 30000` ms y `backoffMultiplier: 2`. El endpoint de flujo de trabajo actual no emite `Retry-After`, por lo que el cliente usa retroceso exponencial con ±25 % de fluctuación. Un despliegue compatible que proporcione el encabezado anula ese retraso.
+
+- `getRateLimitInfo(): RateLimitInfo | null` normalmente devuelve `null` porque los endpoints de flujo de trabajo y de uso actuales no emiten encabezados de límite de tasa. Un despliegue o proxy compatible puede proporcionar `limit`, `remaining`, una marca de tiempo ISO `reset` y, de forma opcional, `retryAfter` en milisegundos.
+- `getUsageLimits(): Promise<UsageLimits>` expone `isLimited` sincrónico y asíncrono, `limit`, `remaining` e `resetAt`, además de `authType`; uso `currentPeriodCost`, `limit` y el objeto de resumen del nivel de facturación; y almacenamiento `usedBytes`, `limitBytes` e `percentUsed`.
+
+## Errores y resultados
+
+`TradingGooseError` conserva la API `code` y HTTP `status`. El cliente usa `TIMEOUT`, `EXECUTION_ERROR`, `STATUS_ERROR`, `RATE_LIMIT_EXCEEDED` e `USAGE_ERROR` para sus propias rutas de error.
+
+Para un flujo de trabajo sin streaming y sin un bloque Response, `executeWorkflow()` devuelve `WorkflowExecutionResult` con `success`, `output`, `error` opcional y metadatos de temporización opcionales (`duration`, `startTime` e `endTime`).
+
+Mientras espera una revisión humana, el resultado tiene `success: true`, `status: 'paused'` y los detalles de la revisión en `output`. Las ejecuciones completadas omiten `status`.
+
+Un flujo de trabajo con un bloque Response, en cambio, devuelve el cuerpo JSON, el estado HTTP y los encabezados configurados de ese bloque. El cliente TypeScript decodifica y devuelve un cuerpo JSON correcto, pero no expone los encabezados de respuesta y trata un estado personalizado que no sea 2xx como `TradingGooseError`. Proporcione el tipo de cuerpo esperado como parámetro de tipo del método —por ejemplo, `executeWorkflow<MyResponse>('workflow-id')`— o use la [API de ejecución](/execution/api) directamente cuando el estado o los encabezados sean importantes.
+
+Consulte el [README del paquete SDK de TypeScript](https://github.com/TradingGoose/TradingGoose-Studio/blob/staging/packages/ts-sdk/README.md) para obtener ejemplos completos y el comportamiento de carga de archivos.

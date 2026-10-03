@@ -114,7 +114,6 @@ type RawLogRow = {
   startedAt: Date | null
   endedAt: Date | null
   totalDurationMs: number | null
-  outcome?: WorkflowLogOutcome | null
   executionData?: any
   cost: any
   files?: any
@@ -136,132 +135,12 @@ export const readMonitorSnapshot = (executionData: unknown) => {
   return snapshot && typeof snapshot === 'object' ? snapshot : null
 }
 
-const collectTraceSpanStatuses = (spans: unknown): string[] => {
-  if (!Array.isArray(spans)) return []
-  return spans.flatMap((span: any) => [
-    ...(typeof span?.status === 'string' ? [span.status] : []),
-    ...collectTraceSpanStatuses(span?.children),
-  ])
-}
-
-const collectStatuses = (executionData: unknown): string[] => {
-  const traceSpanStatuses = collectTraceSpanStatuses((executionData as any)?.traceSpans)
-
-  if (traceSpanStatuses.length > 0) {
-    return traceSpanStatuses
-  }
-
-  return Array.isArray((executionData as any)?.blockExecutions)
-    ? (executionData as any).blockExecutions
-        .map((execution: any) => (typeof execution?.status === 'string' ? execution.status : null))
-        .filter((status: string | null): status is string => Boolean(status))
-    : []
-}
-
 export const deriveWorkflowLogOutcome = (
-  row: Pick<RawLogRow, 'endedAt' | 'level' | 'executionData'>
-): WorkflowLogOutcome => {
-  if (row.endedAt === null) {
-    return 'running'
-  }
+  row: Pick<RawLogRow, 'endedAt' | 'level'>
+): WorkflowLogOutcome =>
+  row.endedAt === null ? 'running' : row.level === 'error' ? 'error' : 'success'
 
-  const statuses = collectStatuses(row.executionData)
-
-  if (statuses.some((status) => status === 'error')) {
-    return 'error'
-  }
-
-  if (statuses.length > 0 && statuses.every((status) => status === 'skipped')) {
-    return 'skipped'
-  }
-
-  if (statuses.length > 0) {
-    return 'success'
-  }
-
-  if (row.level === 'error') {
-    return 'error'
-  }
-
-  return 'unknown'
-}
-
-const synthesizeTraceSpans = (executionData: unknown): TraceSpan[] | undefined => {
-  if (!executionData || typeof executionData !== 'object') {
-    return undefined
-  }
-
-  const existingTraceSpans = Array.isArray((executionData as any).traceSpans)
-    ? ((executionData as any).traceSpans as TraceSpan[])
-    : []
-  if (existingTraceSpans.length > 0) {
-    return existingTraceSpans
-  }
-
-  if (!Array.isArray((executionData as any).blockExecutions)) {
-    return undefined
-  }
-
-  const synthesizedTraceSpans: TraceSpan[] = []
-
-  ;((executionData as any).blockExecutions as any[]).forEach((execution) => {
-    const startTime = typeof execution?.startedAt === 'string' ? execution.startedAt : null
-    const endTime = typeof execution?.endedAt === 'string' ? execution.endedAt : null
-
-    if (!startTime || !endTime) {
-      return
-    }
-
-    const duration =
-      typeof execution?.durationMs === 'number'
-        ? execution.durationMs
-        : Math.max(0, new Date(endTime).getTime() - new Date(startTime).getTime())
-
-    synthesizedTraceSpans.push({
-      id:
-        typeof execution?.id === 'string'
-          ? execution.id
-          : typeof execution?.blockId === 'string'
-            ? execution.blockId
-            : crypto.randomUUID(),
-      name:
-        typeof execution?.blockName === 'string' && execution.blockName
-          ? execution.blockName
-          : typeof execution?.blockId === 'string' && execution.blockId
-            ? execution.blockId
-            : 'Block execution',
-      type:
-        typeof execution?.blockType === 'string' && execution.blockType
-          ? execution.blockType
-          : 'block',
-      duration,
-      startTime,
-      endTime,
-      status: execution?.status === 'error' ? 'error' : 'success',
-      blockId: typeof execution?.blockId === 'string' ? execution.blockId : undefined,
-      input:
-        execution?.inputData && typeof execution.inputData === 'object'
-          ? execution.inputData
-          : undefined,
-      output:
-        execution?.outputData && typeof execution.outputData === 'object'
-          ? execution.outputData
-          : undefined,
-      cost:
-        execution?.cost && typeof execution.cost === 'object'
-          ? {
-              input: typeof execution.cost.input === 'number' ? execution.cost.input : undefined,
-              output: typeof execution.cost.output === 'number' ? execution.cost.output : undefined,
-              total: typeof execution.cost.total === 'number' ? execution.cost.total : undefined,
-            }
-          : undefined,
-    })
-  })
-
-  return synthesizedTraceSpans.length > 0 ? synthesizedTraceSpans : undefined
-}
-
-const buildPublicWorkflowLogExecutionData = (
+export const buildPublicWorkflowLogExecutionData = (
   row: Pick<RawLogRow, 'executionData'>
 ): WorkflowLog['executionData'] | undefined => {
   if (!isRecord(row.executionData)) {
@@ -271,12 +150,14 @@ const buildPublicWorkflowLogExecutionData = (
   const trigger = toPublicMonitorTrigger(row.executionData)
 
   return {
-    traceSpans: synthesizeTraceSpans(row.executionData),
-    blockExecutions: Array.isArray(row.executionData.blockExecutions)
-      ? row.executionData.blockExecutions
+    traceSpans: Array.isArray(row.executionData.traceSpans)
+      ? (row.executionData.traceSpans as TraceSpan[])
       : undefined,
     finalOutput: row.executionData.finalOutput,
-    enhanced: true,
+    errorMessage:
+      typeof row.executionData.errorMessage === 'string'
+        ? row.executionData.errorMessage
+        : undefined,
     ...(trigger ? { trigger } : {}),
   } as WorkflowLog['executionData']
 }
@@ -326,7 +207,6 @@ export const serializeWorkflowLog = (row: RawLogRow, details: 'basic' | 'full'):
       '',
   }
   const executionData = details === 'full' ? buildPublicWorkflowLogExecutionData(row) : undefined
-  const outcome = row.outcome ?? deriveWorkflowLogOutcome(row)
 
   return {
     id: row.id,
@@ -340,7 +220,7 @@ export const serializeWorkflowLog = (row: RawLogRow, details: 'basic' | 'full'):
     recordCreatedAt: row.createdAt.toISOString(),
     endedAt: row.endedAt?.toISOString() ?? null,
     durationMs: row.totalDurationMs ?? null,
-    outcome,
+    outcome: deriveWorkflowLogOutcome(row),
     workflow,
     files: details === 'full' ? row.files || undefined : undefined,
     cost: row.cost || undefined,

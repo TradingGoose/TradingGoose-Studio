@@ -28,11 +28,36 @@ export const downloadExportFileTool: ToolConfig<DownloadParams> = {
   },
 
   params: {
-    accessToken: { type: 'string', required: true, visibility: 'hidden' },
-    matterId: { type: 'string', required: true, visibility: 'user-only' },
-    bucketName: { type: 'string', required: true, visibility: 'user-only' },
-    objectName: { type: 'string', required: true, visibility: 'user-only' },
-    fileName: { type: 'string', required: false, visibility: 'user-only' },
+    accessToken: {
+      type: 'string',
+      required: true,
+      visibility: 'hidden',
+      description: 'OAuth access token for Google Vault and Cloud Storage',
+    },
+    matterId: {
+      type: 'string',
+      required: true,
+      visibility: 'user-only',
+      description: 'ID of the Vault matter associated with the export',
+    },
+    bucketName: {
+      type: 'string',
+      required: true,
+      visibility: 'user-only',
+      description: 'Cloud Storage bucket containing the exported file',
+    },
+    objectName: {
+      type: 'string',
+      required: true,
+      visibility: 'user-only',
+      description: 'Cloud Storage object name for the exported file',
+    },
+    fileName: {
+      type: 'string',
+      required: false,
+      visibility: 'user-only',
+      description: 'Optional file name for the downloaded result',
+    },
   },
 
   request: {

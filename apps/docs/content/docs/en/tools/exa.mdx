@@ -10,7 +10,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <BlockInfoCard
   type="exa"
-  color=""
+  color="#1E40ED"
 />
 
 
@@ -22,7 +22,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="Exa"
     type="exa"
-    color=""
+    color="#1E40ED"
     hideHeader
     subBlocks={[
         {
@@ -30,29 +30,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "exa_search",
             "options": [
                 {
-                    "label": "Search",
-                    "id": "exa_search"
+                    "id": "exa_search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Get Contents",
-                    "id": "exa_get_contents"
+                    "id": "exa_get_contents",
+                    "label": "Get Contents"
                 },
                 {
-                    "label": "Find Similar Links",
-                    "id": "exa_find_similar_links"
+                    "id": "exa_find_similar_links",
+                    "label": "Find Similar Links"
                 },
                 {
-                    "label": "Answer",
-                    "id": "exa_answer"
+                    "id": "exa_answer",
+                    "label": "Answer"
                 },
                 {
-                    "label": "Research",
-                    "id": "exa_research"
+                    "id": "exa_research",
+                    "label": "Research"
                 }
-            ],
-            "defaultValue": "exa_search"
+            ]
         },
         {
             "id": "apiKey",
@@ -89,22 +89,23 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Search Type",
             "layout": "full",
+            "defaultValue": "auto",
             "options": [
                 {
-                    "label": "Auto",
-                    "id": "auto"
+                    "id": "auto",
+                    "label": "Auto"
                 },
                 {
-                    "label": "Neural",
-                    "id": "neural"
+                    "id": "neural",
+                    "label": "Neural"
                 },
                 {
-                    "label": "Keyword",
-                    "id": "keyword"
+                    "id": "keyword",
+                    "label": "Keyword"
                 },
                 {
-                    "label": "Fast",
-                    "id": "fast"
+                    "id": "fast",
+                    "label": "Fast"
                 }
             ]
         }
@@ -131,14 +132,7 @@ Search the web using Exa AI. Returns relevant search results with titles, URLs, 
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `title` | string | The title of the search result |
-| `url` | string | The URL of the search result |
-| `publishedDate` | string | Date when the content was published |
-| `author` | string | The author of the content |
-| `summary` | string | A brief summary of the content |
-| `favicon` | string | URL of the site |
-| `image` | string | URL of a representative image from the page |
-| `text` | string | Text snippet or full content from the page |
+| `results` | array | Search results with titles, URLs, and text snippets |
 
 </div>
 
@@ -152,7 +146,7 @@ Search the web using Exa AI. Returns relevant search results with titles, URLs, 
   <BlockConfigPreview
     name="Exa"
     type="exa"
-    color=""
+    color="#1E40ED"
     hideHeader
     subBlocks={[
         {
@@ -160,29 +154,29 @@ Search the web using Exa AI. Returns relevant search results with titles, URLs, 
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "exa_get_contents",
             "options": [
                 {
-                    "label": "Search",
-                    "id": "exa_search"
+                    "id": "exa_search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Get Contents",
-                    "id": "exa_get_contents"
+                    "id": "exa_get_contents",
+                    "label": "Get Contents"
                 },
                 {
-                    "label": "Find Similar Links",
-                    "id": "exa_find_similar_links"
+                    "id": "exa_find_similar_links",
+                    "label": "Find Similar Links"
                 },
                 {
-                    "label": "Answer",
-                    "id": "exa_answer"
+                    "id": "exa_answer",
+                    "label": "Answer"
                 },
                 {
-                    "label": "Research",
-                    "id": "exa_research"
+                    "id": "exa_research",
+                    "label": "Research"
                 }
-            ],
-            "defaultValue": "exa_get_contents"
+            ]
         },
         {
             "id": "apiKey",
@@ -236,9 +230,7 @@ Retrieve the contents of webpages using Exa AI. Returns the title, text content,
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `url` | string | The URL that content was retrieved from |
-| `title` | string | The title of the webpage |
-| `text` | string | The full text content of the webpage |
+| `results` | array | Retrieved content from URLs with title, text, and summaries |
 
 </div>
 
@@ -252,7 +244,7 @@ Retrieve the contents of webpages using Exa AI. Returns the title, text content,
   <BlockConfigPreview
     name="Exa"
     type="exa"
-    color=""
+    color="#1E40ED"
     hideHeader
     subBlocks={[
         {
@@ -260,29 +252,29 @@ Retrieve the contents of webpages using Exa AI. Returns the title, text content,
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "exa_find_similar_links",
             "options": [
                 {
-                    "label": "Search",
-                    "id": "exa_search"
+                    "id": "exa_search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Get Contents",
-                    "id": "exa_get_contents"
+                    "id": "exa_get_contents",
+                    "label": "Get Contents"
                 },
                 {
-                    "label": "Find Similar Links",
-                    "id": "exa_find_similar_links"
+                    "id": "exa_find_similar_links",
+                    "label": "Find Similar Links"
                 },
                 {
-                    "label": "Answer",
-                    "id": "exa_answer"
+                    "id": "exa_answer",
+                    "label": "Answer"
                 },
                 {
-                    "label": "Research",
-                    "id": "exa_research"
+                    "id": "exa_research",
+                    "label": "Research"
                 }
-            ],
-            "defaultValue": "exa_find_similar_links"
+            ]
         },
         {
             "id": "apiKey",
@@ -336,9 +328,7 @@ Find webpages similar to a given URL using Exa AI. Returns a list of similar lin
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `title` | string | The title of the similar webpage |
-| `url` | string | The URL of the similar webpage |
-| `text` | string | Text snippet or full content from the similar webpage |
+| `similarLinks` | array | Similar links found with titles, URLs, and text snippets |
 
 </div>
 
@@ -352,7 +342,7 @@ Find webpages similar to a given URL using Exa AI. Returns a list of similar lin
   <BlockConfigPreview
     name="Exa"
     type="exa"
-    color=""
+    color="#1E40ED"
     hideHeader
     subBlocks={[
         {
@@ -360,29 +350,29 @@ Find webpages similar to a given URL using Exa AI. Returns a list of similar lin
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "exa_answer",
             "options": [
                 {
-                    "label": "Search",
-                    "id": "exa_search"
+                    "id": "exa_search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Get Contents",
-                    "id": "exa_get_contents"
+                    "id": "exa_get_contents",
+                    "label": "Get Contents"
                 },
                 {
-                    "label": "Find Similar Links",
-                    "id": "exa_find_similar_links"
+                    "id": "exa_find_similar_links",
+                    "label": "Find Similar Links"
                 },
                 {
-                    "label": "Answer",
-                    "id": "exa_answer"
+                    "id": "exa_answer",
+                    "label": "Answer"
                 },
                 {
-                    "label": "Research",
-                    "id": "exa_research"
+                    "id": "exa_research",
+                    "label": "Research"
                 }
-            ],
-            "defaultValue": "exa_answer"
+            ]
         },
         {
             "id": "apiKey",
@@ -429,8 +419,7 @@ Get an AI-generated answer to a question with citations from the web using Exa A
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `answer` | string | AI-generated answer to the question |
-| `title` | string | The title of the cited source |
-| `url` | string | The URL of the cited source |
+| `citations` | array | Sources and citations for the answer |
 
 </div>
 
@@ -444,7 +433,7 @@ Get an AI-generated answer to a question with citations from the web using Exa A
   <BlockConfigPreview
     name="Exa"
     type="exa"
-    color=""
+    color="#1E40ED"
     hideHeader
     subBlocks={[
         {
@@ -452,29 +441,29 @@ Get an AI-generated answer to a question with citations from the web using Exa A
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "exa_research",
             "options": [
                 {
-                    "label": "Search",
-                    "id": "exa_search"
+                    "id": "exa_search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Get Contents",
-                    "id": "exa_get_contents"
+                    "id": "exa_get_contents",
+                    "label": "Get Contents"
                 },
                 {
-                    "label": "Find Similar Links",
-                    "id": "exa_find_similar_links"
+                    "id": "exa_find_similar_links",
+                    "label": "Find Similar Links"
                 },
                 {
-                    "label": "Answer",
-                    "id": "exa_answer"
+                    "id": "exa_answer",
+                    "label": "Answer"
                 },
                 {
-                    "label": "Research",
-                    "id": "exa_research"
+                    "id": "exa_research",
+                    "label": "Research"
                 }
-            ],
-            "defaultValue": "exa_research"
+            ]
         },
         {
             "id": "apiKey",
@@ -520,12 +509,7 @@ Perform comprehensive research using AI to generate detailed reports with citati
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `title` | string | title output |
-| `url` | string | url output |
-| `summary` | string | summary output |
-| `text` | string | text output |
-| `publishedDate` | string | publishedDate output |
-| `author` | string | author output |
+| `research` | array | Comprehensive research findings with citations and summaries |
 
 </div>
 

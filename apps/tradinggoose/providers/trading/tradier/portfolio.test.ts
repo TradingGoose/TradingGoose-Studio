@@ -3,14 +3,16 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getTradingPortfolioSupportedWindows } from '@/providers/trading/portfolio'
+import {
+  getPortfolioDetail,
+  getTradingPortfolioSupportedWindows,
+} from '@/providers/trading/portfolio'
 import { normalizeTradierTradingAccount } from '@/providers/trading/tradier/accounts'
 import {
   getTradierTradingAccountPerformance,
   mapTradierPerformanceWindow,
   normalizeTradierHistoricalBalancesResponse,
 } from '@/providers/trading/tradier/performance'
-import { getTradierTradingAccountSnapshot } from '@/providers/trading/tradier/snapshot'
 
 const { resolveTradingListingIdentityMock } = vi.hoisted(() => ({
   resolveTradingListingIdentityMock: vi.fn(),
@@ -19,6 +21,12 @@ const { resolveTradingListingIdentityMock } = vi.hoisted(() => ({
 vi.mock('@/providers/trading/listing-resolution', () => ({
   resolveTradingListingIdentity: (...args: unknown[]) => resolveTradingListingIdentityMock(...args),
 }))
+
+const tradierConnection = {
+  providerId: 'tradier',
+  credentialId: 'oauth-credential-1',
+  serviceId: 'tradier-live',
+} as const
 
 describe('Tradier portfolio helpers', () => {
   beforeEach(() => {
@@ -45,16 +53,10 @@ describe('Tradier portfolio helpers', () => {
           type: 'margin',
           status: 'active',
         },
-        {
-          providerId: 'tradier',
-          credentialId: 'oauth-credential-1',
-          serviceId: 'tradier-live',
-        }
+        tradierConnection
       )
     ).toEqual({
-      providerId: 'tradier',
-      credentialId: 'oauth-credential-1',
-      serviceId: 'tradier-live',
+      ...tradierConnection,
       accountId: 'ACC-123',
       providerName: 'Tradier',
       accountName: 'Individual (ACC-123)',
@@ -64,7 +66,7 @@ describe('Tradier portfolio helpers', () => {
     })
   })
 
-  it('builds snapshot totals from balances and positions with the documented priority order', async () => {
+  it('builds snapshot totals while keeping current balance metadata', async () => {
     const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>
 
     fetchMock
@@ -73,7 +75,8 @@ describe('Tradier portfolio helpers', () => {
           JSON.stringify({
             balances: {
               account_number: 'ACC-123',
-              account_type: 'cash',
+              account_type: 'margin',
+              status: 'closed',
               total_cash: '1200',
               total_equity: '5400',
               equity: '5400',
@@ -108,16 +111,24 @@ describe('Tradier portfolio helpers', () => {
         )
       )
 
-    const snapshot = await getTradierTradingAccountSnapshot({
-      providerId: 'tradier',
-      credentialId: 'oauth-credential-1',
+    const snapshot = await getPortfolioDetail({
+      ...tradierConnection,
       tokenAccountId: 'oauth-account-1',
-      serviceId: 'tradier-live',
       environment: 'live',
       accessToken: 'token',
       accountId: 'ACC-123',
+      portfolioIdentity: {
+        ...tradierConnection,
+        accountId: 'ACC-123',
+        accountName: 'Individual (ACC-123)',
+        accountType: 'cash',
+        accountStatus: 'active',
+      },
     })
 
+    expect(snapshot.accountName).toBe('Individual (ACC-123)')
+    expect(snapshot.accountType).toBe('margin')
+    expect(snapshot.accountStatus).toBe('closed')
     expect(snapshot.summary).toMatchObject({
       totalCashValue: 1200,
       totalHoldingsValue: 4200,

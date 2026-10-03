@@ -1,0 +1,68 @@
+---
+title: Detalle de orden
+description: Recupera los detalles del proveedor de una orden de trading enviada
+  previamente.
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="trading_order_detail"
+  color="#0f766e"
+/>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Detalle de orden"
+    type="trading_order_detail"
+    color="#0f766e"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "orderId",
+            "type": "order-id-selector",
+            "title": "ID de orden",
+            "layout": "full",
+            "placeholder": "Buscar por ID de orden, símbolo, ticker, cotización o fecha",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `trading_order_detail`
+
+Recupera todos los detalles disponibles del proveedor de una orden de trading registrada previamente mediante el ID de orden de Trading Goose.
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `orderId` | string | Sí | ID de orden de Trading Goose \(orderHistoryTable.id\) creado al enviar la orden. |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `summary` | string | Mensaje de estado de la recuperación del detalle de la orden. |
+| `provider` | string | Bróker/proveedor de la orden. |
+| `appOrderId` | string | ID de orden de Trading Goose \(orderHistoryTable.id\). |
+| `providerOrderId` | string | ID de orden nativo del proveedor usado para la consulta de la API. |
+| `workspaceId` | string | Espacio de trabajo al que pertenece la orden registrada. |
+| `logId` | string | ID de registro vinculado, si existe. |
+| `orderDetail` | json | Payload normalizado del detalle de la orden con la respuesta original del proveedor. |
+
+## Instrucciones de uso
+
+Busca el registro del historial de órdenes de Trading Goose por ID de orden, resuelve el ID de orden del proveedor y obtiene el detalle más reciente de la orden del proveedor.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `trading_order_detail`

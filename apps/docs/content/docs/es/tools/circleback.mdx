@@ -1,0 +1,52 @@
+---
+title: Circleback
+description: Notas de reunión y elementos de acción impulsados por IA
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="circleback"
+  color=""
+/>
+
+<Cards>
+  <Card title="Usar como disparador" href="/triggers/circleback">
+    Consulta los eventos de disparador, la configuración y los payloads de eventos de Circleback.
+  </Card>
+</Cards>
+
+## Entrada
+
+Este bloque no expone entradas configurables.
+
+## Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | number | ID de la reunión de Circleback |
+| `name` | string | Título de la reunión |
+| `url` | string | URL de la reunión virtual \(Zoom, Meet, Teams\) |
+| `createdAt` | string | Marca de tiempo de creación de la reunión |
+| `duration` | number | Duración en segundos |
+| `recordingUrl` | string | URL de la grabación \(válida 24 horas\) |
+| `tags` | json | Array de etiquetas |
+| `icalUid` | string | ID del evento de calendario |
+| `attendees` | json | Array de objetos de asistentes |
+| `notes` | string | Notas de la reunión en Markdown |
+| `actionItems` | json | Array de elementos de acción |
+| `transcript` | json | Array de segmentos de transcripción |
+| `insights` | json | Insights creados por el usuario |
+| `meeting` | json | Payload completo de la reunión |
+
+## Instrucciones de uso
+
+Recibe notas de reunión, elementos de acción, transcripciones y grabaciones cuando se procesan las reuniones. Circleback usa webhooks para enviar datos a tus flujos de trabajo.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `circleback`

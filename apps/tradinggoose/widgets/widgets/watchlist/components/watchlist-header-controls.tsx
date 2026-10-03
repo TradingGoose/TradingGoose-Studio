@@ -201,6 +201,7 @@ export const WatchlistHeaderLeftControls = ({
     auth?: Record<string, unknown>
   }) => {
     patchWidgetParams({
+      provider: providerId,
       providerParams,
       auth: auth as WatchlistWidgetParams['auth'],
       runtime: {

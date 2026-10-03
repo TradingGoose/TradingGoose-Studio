@@ -1,5 +1,4 @@
 import type * as PageTree from 'fumadocs-core/page-tree'
-import { i18n } from './i18n'
 
 export function normalizeKey(value?: string | null) {
   if (!value) return undefined
@@ -64,8 +63,6 @@ export function getFolderSlug(folder: PageTree.Folder): string | undefined {
   )
 }
 
-export const supportedLanguages = i18n.languages
-
 export function humanizeSlug(value: string) {
   return value
     .split('-')
@@ -78,15 +75,6 @@ function folderMatchesSlug(folder: PageTree.Folder, slug: string) {
   if (folderSlug && folderSlug === slug) return true
   if (typeof folder.name === 'string' && normalizeKey(folder.name) === slug) return true
   return false
-}
-
-export function findFolderBySegments(
-  tree: PageTree.Root,
-  segments: string[]
-): PageTree.Folder | null {
-  const path = findFolderPathBySegments(tree, segments)
-  if (!path || path.length === 0) return null
-  return path[path.length - 1]
 }
 
 export function findFolderPathBySegments(

@@ -6,7 +6,8 @@ export const WorkflowInputBlock: BlockConfig = {
   type: 'workflow_input',
   name: 'Workflow',
   description: 'Execute another workflow and map variables to its Input Form Trigger schema.',
-  longDescription: `Execute another child workflow and map variables to its Input Form Trigger schema. Helps with modularizing workflows.`,
+  longDescription:
+    'Select a child workflow and map values to its Input Form Trigger fields. The child runs with the mapped input and its own workflow variables. Deployed parent executions select the deployed child version; live parent executions use the live child. The parent waits for the child, then exposes its final output under result. Child failures fail this block rather than returning success: false; connect an error path if recovery is required. Recursive workflow nesting is limited to 10 levels.',
   bestPractices: `
   - Usually clarify/check if the user has tagged a workflow to use as the child workflow. Understand the child workflow to determine the logical position of this block in the workflow.
   - Remember, that the start point of the child workflow is the Input Form Trigger block.
@@ -43,6 +44,6 @@ export const WorkflowInputBlock: BlockConfig = {
     success: { type: 'boolean', description: 'Execution success status' },
     childWorkflowName: { type: 'string', description: 'Child workflow name' },
     result: { type: 'json', description: 'Workflow execution result' },
-    error: { type: 'string', description: 'Error message' },
+    childTraceSpans: { type: 'array', description: 'Trace spans from the child execution.' },
   },
 }

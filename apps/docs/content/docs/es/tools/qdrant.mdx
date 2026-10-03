@@ -1,0 +1,372 @@
+---
+title: Qdrant
+description: Usa la base de datos vectorial Qdrant
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="qdrant"
+  color="#DC244C"
+/>
+
+## Configuración
+
+### Upsert
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Qdrant"
+    type="qdrant"
+    color="#DC244C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "upsert",
+            "options": [
+                {
+                    "id": "upsert",
+                    "label": "Upsert"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "fetch",
+                    "label": "Obtener"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "layout": "full",
+            "placeholder": "Tu clave API de Qdrant (opcional)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "url",
+            "type": "short-input",
+            "title": "URL de Qdrant",
+            "layout": "full",
+            "placeholder": "http://localhost:6333",
+            "required": true
+        },
+        {
+            "id": "collection",
+            "type": "short-input",
+            "title": "Colección",
+            "layout": "full",
+            "placeholder": "my-collection",
+            "required": true
+        },
+        {
+            "id": "points",
+            "type": "long-input",
+            "title": "Puntos",
+            "layout": "full",
+            "placeholder": "[{\"id\": 1, \"vector\": [0.1, 0.2], \"payload\": {\"category\": \"a\"}}]",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Upsert (<code>qdrant_upsert_points</code>)</div>
+
+Inserta o actualiza puntos en una colección de Qdrant
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `url` | string | Sí | URL base de Qdrant |
+| `apiKey` | string | No | Clave API de Qdrant \(opcional\) |
+| `collection` | string | Sí | Nombre de la colección |
+| `points` | array | Sí | Array de puntos a insertar o actualizar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `status` | string | Estado de la operación de upsert |
+| `data` | object | Datos de resultado de la operación de upsert |
+
+</div>
+
+---
+
+### Búsqueda
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Qdrant"
+    type="qdrant"
+    color="#DC244C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "search",
+            "options": [
+                {
+                    "id": "upsert",
+                    "label": "Upsert"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "fetch",
+                    "label": "Obtener"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Tu clave de API de Qdrant (opcional)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "url",
+            "type": "short-input",
+            "title": "URL de Qdrant",
+            "layout": "full",
+            "placeholder": "http://localhost:6333",
+            "required": true
+        },
+        {
+            "id": "collection",
+            "type": "short-input",
+            "title": "Colección",
+            "layout": "full",
+            "placeholder": "my-collection",
+            "required": true
+        },
+        {
+            "id": "vector",
+            "type": "long-input",
+            "title": "Vector de consulta",
+            "layout": "full",
+            "placeholder": "[0.1, 0.2]",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "layout": "full",
+            "placeholder": "10"
+        },
+        {
+            "id": "filter",
+            "type": "long-input",
+            "title": "Filtro",
+            "layout": "full",
+            "placeholder": "{\"must\":[{\"key\":\"city\",\"match\":{\"value\":\"London\"}}]}"
+        },
+        {
+            "id": "search_return_data",
+            "type": "dropdown",
+            "title": "Datos a devolver",
+            "layout": "full",
+            "defaultValue": "payload_only",
+            "options": [
+                {
+                    "id": "payload_only",
+                    "label": "Solo payload"
+                },
+                {
+                    "id": "vector_only",
+                    "label": "Solo vector"
+                },
+                {
+                    "id": "both",
+                    "label": "Payload y vector"
+                },
+                {
+                    "id": "none",
+                    "label": "Ninguno (solo IDs y puntuaciones)"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Búsqueda (<code>qdrant_search_vector</code>)</div>
+
+Buscar vectores similares en una colección de Qdrant
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `url` | string | Sí | URL base de Qdrant |
+| `apiKey` | string | No | Clave de API de Qdrant \(opcional\) |
+| `collection` | string | Sí | Nombre de la colección |
+| `vector` | array | Sí | Vector a buscar |
+| `limit` | number | No | Número de resultados a devolver |
+| `filter` | object | No | Filtro que aplicar a la búsqueda |
+| `search_return_data` | string | No | Datos que devolver de la búsqueda |
+| `with_payload` | boolean | No | Incluir payload en la respuesta |
+| `with_vector` | boolean | No | Incluir vector en la respuesta |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `data` | array | Resultados de búsqueda vectorial con ID, puntuación, payload y datos de vector opcionales |
+| `status` | string | Estado de la operación de búsqueda |
+
+</div>
+
+---
+
+### Obtener
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Qdrant"
+    type="qdrant"
+    color="#DC244C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "fetch",
+            "options": [
+                {
+                    "id": "upsert",
+                    "label": "Upsert"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "fetch",
+                    "label": "Obtener"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Tu clave de API de Qdrant (opcional)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "url",
+            "type": "short-input",
+            "title": "URL de Qdrant",
+            "layout": "full",
+            "placeholder": "http://localhost:6333",
+            "required": true
+        },
+        {
+            "id": "collection",
+            "type": "short-input",
+            "title": "Colección",
+            "layout": "full",
+            "placeholder": "my-collection",
+            "required": true
+        },
+        {
+            "id": "ids",
+            "type": "long-input",
+            "title": "IDs",
+            "layout": "full",
+            "placeholder": "[\"370446a3-310f-58db-8ce7-31db947c6c1e\"]",
+            "required": true
+        },
+        {
+            "id": "fetch_return_data",
+            "type": "dropdown",
+            "title": "Datos a devolver",
+            "layout": "full",
+            "defaultValue": "payload_only",
+            "options": [
+                {
+                    "id": "payload_only",
+                    "label": "Solo payload"
+                },
+                {
+                    "id": "vector_only",
+                    "label": "Solo vector"
+                },
+                {
+                    "id": "both",
+                    "label": "Payload y vector"
+                },
+                {
+                    "id": "none",
+                    "label": "Ninguno (solo IDs)"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener (<code>qdrant_fetch_points</code>)</div>
+
+Obtiene puntos por ID de una colección de Qdrant
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `url` | string | Sí | URL base de Qdrant |
+| `apiKey` | string | No | Clave de API de Qdrant \(opcional\) |
+| `collection` | string | Sí | Nombre de la colección |
+| `ids` | array | Sí | Array de IDs de puntos a obtener |
+| `fetch_return_data` | string | No | Datos a devolver de la obtención |
+| `with_payload` | boolean | No | Incluir payload en la respuesta |
+| `with_vector` | boolean | No | Incluir vector en la respuesta |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `data` | array | Puntos obtenidos con ID, payload y datos vectoriales opcionales |
+| `status` | string | Estado de la operación de obtención |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Qdrant en el workflow. Permite hacer upsert, buscar y obtener puntos.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `qdrant`

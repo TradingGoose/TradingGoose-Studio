@@ -27,12 +27,14 @@ export interface JiraRetrieveBulkParams {
 
 export interface JiraRetrieveResponseBulk extends ToolResponse {
   output: {
-    ts: string
-    summary: string
-    description: string
-    created: string
-    updated: string
-  }[]
+    issues: {
+      ts: string
+      summary: string
+      description: string
+      created: string
+      updated: string
+    }[]
+  }
 }
 
 export interface JiraUpdateParams {

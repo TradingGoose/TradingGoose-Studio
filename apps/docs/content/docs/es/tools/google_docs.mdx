@@ -1,0 +1,289 @@
+---
+title: Google Docs
+description: Leer, escribir y crear documentos
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="google_docs"
+  color="#3086F6"
+/>
+
+## Configuración
+
+### Leer documento
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Docs"
+    type="google_docs"
+    color="#3086F6"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "read",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "Leer documento"
+                },
+                {
+                    "id": "write",
+                    "label": "Escribir en documento"
+                },
+                {
+                    "id": "create",
+                    "label": "Crear documento"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Google",
+            "provider": "google-docs",
+            "required": true
+        },
+        {
+            "id": "documentId",
+            "type": "file-selector",
+            "title": "Seleccionar documento",
+            "layout": "full",
+            "placeholder": "Seleccionar un documento",
+            "provider": "google-drive"
+        },
+        {
+            "id": "manualDocumentId",
+            "type": "short-input",
+            "title": "ID del documento",
+            "layout": "full",
+            "placeholder": "Introducir ID del documento"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Leer documento (<code>google_docs_read</code>)</div>
+
+Leer contenido de un documento de Google Docs
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `documentId` | string | Sí | El ID del documento que se va a leer |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Contenido de texto extraído del documento |
+| `metadata` | json | Metadatos del documento, incluidos ID, título y URL |
+
+</div>
+
+---
+
+### Escribir en documento
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Docs"
+    type="google_docs"
+    color="#3086F6"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "write",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "Leer documento"
+                },
+                {
+                    "id": "write",
+                    "label": "Escribir en documento"
+                },
+                {
+                    "id": "create",
+                    "label": "Crear documento"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Google",
+            "provider": "google-docs",
+            "required": true
+        },
+        {
+            "id": "documentId",
+            "type": "file-selector",
+            "title": "Seleccionar documento",
+            "layout": "full",
+            "placeholder": "Seleccionar un documento",
+            "provider": "google-drive"
+        },
+        {
+            "id": "manualDocumentId",
+            "type": "short-input",
+            "title": "ID del documento",
+            "layout": "full",
+            "placeholder": "Introducir ID del documento"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Contenido",
+            "layout": "full",
+            "placeholder": "Introducir contenido del documento",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Escribir en documento (<code>google_docs_write</code>)</div>
+
+Escribir o actualizar contenido en un documento de Google Docs
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `documentId` | string | Sí | El ID del documento en el que se escribirá |
+| `content` | string | Sí | El contenido a escribir en el documento |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `updatedContent` | boolean | Indica si el contenido del documento se actualizó correctamente |
+| `metadata` | json | Metadatos actualizados del documento, incluidos ID, título y URL |
+
+</div>
+
+---
+
+### Crear documento
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Docs"
+    type="google_docs"
+    color="#3086F6"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "create",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "Leer documento"
+                },
+                {
+                    "id": "write",
+                    "label": "Escribir en documento"
+                },
+                {
+                    "id": "create",
+                    "label": "Crear documento"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Google",
+            "provider": "google-docs",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Título del documento",
+            "layout": "full",
+            "placeholder": "Introduzca el título del nuevo documento",
+            "required": true
+        },
+        {
+            "id": "folderSelector",
+            "type": "file-selector",
+            "title": "Seleccionar carpeta principal",
+            "layout": "full",
+            "placeholder": "Seleccione una carpeta principal",
+            "provider": "google-drive"
+        },
+        {
+            "id": "folderId",
+            "type": "short-input",
+            "title": "ID de carpeta principal",
+            "layout": "full",
+            "placeholder": "Introduzca el ID de la carpeta principal (deje vacío para la carpeta raíz)"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Contenido",
+            "layout": "full",
+            "placeholder": "Introduzca el contenido del documento"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear documento (<code>google_docs_create</code>)</div>
+
+Crear un nuevo documento de Google Docs
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `title` | string | Sí | El título del documento a crear |
+| `content` | string | No | El contenido del documento a crear |
+| `folderId` | string | No | El ID de la carpeta donde crear el documento |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `metadata` | json | Metadatos del documento creado, incluyendo ID, título y URL |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Google Docs en el flujo de trabajo. Puede leer, escribir y crear documentos.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `google_docs`

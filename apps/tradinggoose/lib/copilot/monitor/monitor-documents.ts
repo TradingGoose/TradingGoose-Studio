@@ -5,6 +5,7 @@ import {
   type ListingResolved,
 } from '@/lib/listing/identity'
 import { INDICATOR_MONITOR_PROVIDER, PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
+import { getPortfolioAccountLabel } from '@/providers/trading/portfolio-identity'
 
 export const MONITOR_DOCUMENT_FORMAT = 'tg-monitor-document-v1' as const
 
@@ -71,7 +72,7 @@ export function readMonitorDocumentName(
 ): string {
   const parsed = MonitorDocumentSchema.parse(fields)
   if (parsed.source === PORTFOLIO_MONITOR_PROVIDER) {
-    return `Portfolio state (${parsed.accountId})`
+    return `Portfolio state (${getPortfolioAccountLabel(parsed)})`
   }
 
   const listingLabel = resolvedListing

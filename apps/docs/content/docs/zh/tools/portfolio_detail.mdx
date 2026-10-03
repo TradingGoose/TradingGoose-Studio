@@ -1,0 +1,72 @@
+---
+title: 投资组合详情
+description: 从所选券商账户获取完整投资组合详情。
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="portfolio_detail"
+  color="#115e59"
+/>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="投资组合详情"
+    type="portfolio_detail"
+    color="#115e59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "trading-provider-selector",
+            "title": "券商",
+            "layout": "full",
+            "placeholder": "选择券商",
+            "required": true
+        },
+        {
+            "id": "portfolioIdentity",
+            "type": "trading-account-selector",
+            "title": "券商账户",
+            "layout": "full",
+            "placeholder": "选择券商账户",
+            "description": "用于获取投资组合详情的券商账户。",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+### `trading_get_portfolio_detail`
+
+从 Alpaca 或 Tradier 获取账户摘要、现金、持仓和订单。
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `portfolioIdentity` | json | 是 | 由券商账户字段选定的规范 portfolioIdentity。 |
+
+#### 输出
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `summary` | string | 投资组合详情获取的状态消息。 |
+| `provider` | string | 本次请求使用的券商/提供商。 |
+| `portfolioDetail` | json | 包含现金、持仓和摘要的规范投资组合详情。 |
+
+## 使用说明
+
+投资组合详情区块，从 Alpaca 或 Tradier 返回账户摘要、现金、持仓和订单。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`portfolio_detail`

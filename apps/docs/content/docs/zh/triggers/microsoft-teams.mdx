@@ -1,0 +1,333 @@
+---
+title: Microsoft Teams 触发器
+description: 通过传出 webhook，从 Microsoft Teams 频道消息触发工作流
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="microsoftteams"
+  color=""
+/>
+
+通过传出 webhook，从 Microsoft Teams 频道消息触发工作流
+
+<Callout type="info">
+  这是基于 **webhook** 的触发器。请将外部服务配置为向工作流 webhook URL 发送事件。
+</Callout>
+
+<Cards>
+  <Card title="用作工具" href="/tools/microsoft_teams">
+    查看 Microsoft Teams 的工作流动作、操作和工具输入。
+  </Card>
+</Cards>
+
+## 事件
+
+### Microsoft Teams 频道
+
+通过传出 webhook，从 Microsoft Teams 频道消息触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>1.</strong> 打开 Microsoft Teams，进入要添加 webhook 的团队。</div><div class="mb-3"><strong>2.</strong> 点击团队名称旁的三个点 (•••)，然后选择“管理团队”。</div><div class="mb-3"><strong>3.</strong> 转到“应用”选项卡，点击“创建传出 webhook”。</div><div class="mb-3"><strong>4.</strong> 填写名称、说明，并可选择添加个人资料图片。</div><div class="mb-3"><strong>5.</strong> 将回调 URL 设置为上方的 TradingGoose webhook URL。</div><div class="mb-3"><strong>6.</strong> 复制 HMAC 安全令牌，并将其粘贴到“HMAC 密钥”字段。</div><div class="mb-3"><strong>7.</strong> 点击“创建”完成设置。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Microsoft Teams 频道"
+    type="microsoftteams_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "hmacSecret",
+            "type": "short-input",
+            "title": "HMAC 密钥",
+            "placeholder": "输入 Teams 提供的 HMAC 密钥",
+            "description": "创建传出 webhook 时 Teams 提供的安全令牌，用于验证请求真实性。",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件负载"
+  fields={[
+      {
+          "name": "from",
+          "type": "object",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "发送者 ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "发送者名称"
+              },
+              {
+                  "name": "aadObjectId",
+                  "type": "string",
+                  "description": "AAD 对象 ID"
+              }
+          ]
+      },
+      {
+          "name": "message",
+          "type": "object",
+          "children": [
+              {
+                  "name": "raw",
+                  "type": "object",
+                  "children": [
+                      {
+                          "name": "attachments",
+                          "type": "array",
+                          "description": "附件数组"
+                      },
+                      {
+                          "name": "channelData",
+                          "type": "object",
+                          "children": [
+                              {
+                                  "name": "team",
+                                  "type": "object",
+                                  "children": [
+                                      {
+                                          "name": "id",
+                                          "type": "string",
+                                          "description": "团队 ID"
+                                      }
+                                  ]
+                              },
+                              {
+                                  "name": "tenant",
+                                  "type": "object",
+                                  "children": [
+                                      {
+                                          "name": "id",
+                                          "type": "string",
+                                          "description": "租户 ID"
+                                      }
+                                  ]
+                              },
+                              {
+                                  "name": "channel",
+                                  "type": "object",
+                                  "children": [
+                                      {
+                                          "name": "id",
+                                          "type": "string",
+                                          "description": "频道 ID"
+                                      }
+                                  ]
+                              },
+                              {
+                                  "name": "teamsTeamId",
+                                  "type": "string",
+                                  "description": "Teams 团队 ID"
+                              },
+                              {
+                                  "name": "teamsChannelId",
+                                  "type": "string",
+                                  "description": "Teams 频道 ID"
+                              }
+                          ]
+                      },
+                      {
+                          "name": "conversation",
+                          "type": "object",
+                          "children": [
+                              {
+                                  "name": "id",
+                                  "type": "string",
+                                  "description": "复合会话 ID"
+                              },
+                              {
+                                  "name": "name",
+                                  "type": "string",
+                                  "description": "会话名称（可为空）"
+                              },
+                              {
+                                  "name": "isGroup",
+                                  "type": "boolean",
+                                  "description": "是否为群组会话"
+                              },
+                              {
+                                  "name": "tenantId",
+                                  "type": "string",
+                                  "description": "租户 ID"
+                              },
+                              {
+                                  "name": "aadObjectId",
+                                  "type": "string",
+                                  "description": "AAD 对象 ID（可为空）"
+                              },
+                              {
+                                  "name": "conversationType",
+                                  "type": "string",
+                                  "description": "会话类型（频道）"
+                              }
+                          ]
+                      },
+                      {
+                          "name": "text",
+                          "type": "string",
+                          "description": "消息文本内容"
+                      },
+                      {
+                          "name": "messageType",
+                          "type": "string",
+                          "description": "消息类型"
+                      },
+                      {
+                          "name": "channelId",
+                          "type": "string",
+                          "description": "频道 ID（msteams）"
+                      },
+                      {
+                          "name": "timestamp",
+                          "type": "string",
+                          "description": "时间戳"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "activity",
+          "type": "object",
+          "description": "活动负载"
+      },
+      {
+          "name": "conversation",
+          "type": "object",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "复合会话 ID"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "会话名称（可为空）"
+              },
+              {
+                  "name": "isGroup",
+                  "type": "boolean",
+                  "description": "是否为群组会话"
+              },
+              {
+                  "name": "tenantId",
+                  "type": "string",
+                  "description": "租户 ID"
+              },
+              {
+                  "name": "aadObjectId",
+                  "type": "string",
+                  "description": "AAD 对象 ID（可为空）"
+              },
+              {
+                  "name": "conversationType",
+                  "type": "string",
+                  "description": "会话类型（频道）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Microsoft Teams 聊天
+
+通过 Microsoft Graph 订阅，从 Microsoft Teams 聊天中的新消息触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>1.</strong> 连接你的 Microsoft Teams 账号并授予所需权限。</div><div class="mb-3"><strong>2.</strong> 输入要监控的 Teams 聊天 ID。</div><div class="mb-3"><strong>3.</strong> 我们将创建 Microsoft Graph 更改通知订阅，把聊天消息事件投递到你的 TradingGoose webhook URL。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Microsoft Teams 聊天"
+    type="microsoftteams_chat_subscription"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "凭据",
+            "description": "此触发器需要 Microsoft Teams 凭据才能访问你的账号。",
+            "provider": "microsoft-teams",
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "聊天 ID",
+            "placeholder": "输入聊天 ID",
+            "description": "要监控的 Teams 聊天 ID",
+            "required": true
+        },
+        {
+            "id": "includeAttachments",
+            "type": "switch",
+            "title": "包含附件",
+            "description": "获取托管内容并上传到存储",
+            "required": false,
+            "defaultValue": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件负载"
+  fields={[
+      {
+          "name": "message_id",
+          "type": "string",
+          "description": "消息 ID"
+      },
+      {
+          "name": "chat_id",
+          "type": "string",
+          "description": "聊天 ID"
+      },
+      {
+          "name": "from_name",
+          "type": "string",
+          "description": "发送者显示名称"
+      },
+      {
+          "name": "text",
+          "type": "string",
+          "description": "消息正文（HTML 或文本）"
+      },
+      {
+          "name": "created_at",
+          "type": "string",
+          "description": "消息时间戳"
+      },
+      {
+          "name": "attachments",
+          "type": "file[]",
+          "description": "已上传为文件的附件"
+      }
+  ]}
+/>
+
+---
