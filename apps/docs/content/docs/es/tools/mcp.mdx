@@ -1,0 +1,73 @@
+---
+title: Herramienta MCP
+description: Ejecuta herramientas de servidores Model Context Protocol (MCP)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="mcp"
+  color=""
+/>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Herramienta MCP"
+    type="mcp"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "server",
+            "type": "mcp-server-selector",
+            "title": "Servidor MCP",
+            "layout": "full",
+            "placeholder": "Seleccionar un servidor MCP",
+            "description": "Elige entre los servidores MCP configurados en tu espacio de trabajo",
+            "required": true
+        },
+        {
+            "id": "tool",
+            "type": "mcp-tool-selector",
+            "title": "Herramienta",
+            "layout": "full",
+            "placeholder": "Seleccionar una herramienta",
+            "description": "Herramientas disponibles del servidor MCP seleccionado. Se muestra cuando el servidor no es ''."
+        },
+        {
+            "id": "arguments",
+            "type": "mcp-dynamic-args",
+            "title": "",
+            "layout": "full",
+            "description": "Se muestra cuando la herramienta no es ''."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `server` | string | Sí | ID del servidor MCP en el que ejecutar la herramienta |
+| `tool` | string | No | Nombre de la herramienta a ejecutar |
+| `arguments` | json | No | Argumentos que se pasan a la herramienta |
+
+## Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | array | Matriz de contenido de la respuesta de la herramienta MCP: el formato estándar para todas las herramientas MCP |
+
+## Instrucciones de uso
+
+Integra MCP en el flujo de trabajo. Puede ejecutar herramientas de servidores MCP configurados en los widgets del panel del espacio de trabajo.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `mcp`

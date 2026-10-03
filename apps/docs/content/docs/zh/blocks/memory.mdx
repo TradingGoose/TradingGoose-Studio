@@ -1,0 +1,151 @@
+---
+title: 记忆
+description: 在多次工作流执行之间持久保存对话消息
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="memory"
+  color="#F64F9E"
+  icon={true}
+/>
+
+记忆块在同一工作流的多次执行之间存储和检索对话消息，并向 Agent 提供历史记录。Add Memory 会将消息追加到指定 ID 的对话中。所有操作均要求能够访问工作流所属工作区；写入操作还需要写权限。
+
+## 概览
+
+<Steps>
+  <Step>
+    <strong>添加记忆</strong>：将消息保存到指定记忆 ID；重复使用相同 ID 会向同一对话追加消息
+  </Step>
+  <Step>
+    <strong>获取记忆</strong>：按 ID 检索单条记忆条目
+  </Step>
+  <Step>
+    <strong>获取全部记忆</strong>: 获取当前工作流最多 50 条记忆记录
+  </Step>
+  <Step>
+    <strong>删除记忆</strong>：按 ID 删除记忆条目
+  </Step>
+</Steps>
+
+## 工作原理
+
+记忆条目以聊天风格的消息存储，包含三个必填字段：用于限定记忆范围的 **ID**、**Role**（`user`、`assistant` 或 `system`）以及 **Content** 文本。之后检索记忆并将其传入 Agent 块的 Memories 输入时，Agent 会将它们视为先前的对话轮次——从而支持跨独立执行的多轮对话。
+
+使用 Add Memory 保存用户和助手消息。在后续执行中，以相同 ID 调用 Get Memory，并将返回的消息数组传入 Agent 的 Memories 字段。
+
+<Callout type="info">
+  记忆 ID 用于限定对话范围。在多次执行中使用同一 ID 可构建连续的对话历史，或使用不同 ID 来维护独立线程。
+</Callout>
+
+## 操作
+
+<Tabs items={['添加记忆', '获取记忆', '获取所有记忆', '删除记忆']}>
+  <Tab>
+    向指定对话追加消息。执行上下文会自动提供工作流 ID 和记忆类型。
+
+    | 字段 | 必填 | 描述 |
+    |---|---|---|
+    | **ID** | 是 | 记忆标识符——将消息分组到对话中 |
+    | **角色** | 是 | `user`, `assistant`, 或 `system` |
+    | **内容** | 是 | 要存储的消息文本 |
+  </Tab>
+  <Tab>
+    检索存储在特定记忆 ID 下的所有消息。
+
+    | 字段 | 必填 | 描述 |
+    |---|---|---|
+    | **ID** | 是 | 要检索的记忆标识符 |
+  </Tab>
+  <Tab>
+    返回当前工作流最多 50 条记忆记录。该块不提供分页，因此不能用来导出完整历史。
+  </Tab>
+  <Tab>
+    按 ID 删除记忆条目。
+
+    | 字段 | 必填 | 描述 |
+    |---|---|---|
+    | **ID** | 是 | 要删除的记忆标识符 |
+  </Tab>
+</Tabs>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="记忆"
+    type="memory"
+    color="#F64F9E"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "placeholder": "选择操作",
+            "options": [
+                { "label": "添加记忆", "id": "add" },
+                { "label": "获取所有记忆", "id": "getAll" },
+                { "label": "获取记忆", "id": "get" },
+                { "label": "删除记忆", "id": "delete" }
+            ]
+        },
+        {
+            "id": "id",
+            "type": "short-input",
+            "title": "ID",
+            "layout": "full",
+            "placeholder": "输入记忆标识符",
+            "required": true,
+            "condition": { "field": "operation", "value": "add" }
+        },
+        {
+            "id": "role",
+            "type": "dropdown",
+            "title": "角色",
+            "layout": "full",
+            "placeholder": "选择代理角色",
+            "required": true,
+            "options": [
+                { "label": "用户", "id": "user" },
+                { "label": "助手", "id": "assistant" },
+                { "label": "系统", "id": "system" }
+            ],
+            "condition": { "field": "operation", "value": "add" }
+        },
+        {
+            "id": "content",
+            "type": "short-input",
+            "title": "内容",
+            "layout": "full",
+            "placeholder": "输入消息内容",
+            "required": true,
+            "condition": { "field": "operation", "value": "add" }
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 输出
+
+| 操作 | 输出 |
+|---|---|
+| Get Memory | `memories`：所选 ID 的消息数组；`message`：状态文本 |
+| Get All Memories | `memories`：最多 50 条 `{ key, type, data }` 记录；`message`：状态文本 |
+| Delete Memory | `message`：删除确认 |
+| Add Memory | `memories`：追加消息后的对话消息数组 |
+
+Get All Memories 不返回一个扁平消息数组。将对话用作 Agent 记忆前，请先选择所需记录的 `data`。输出顶层不包含单独的 `id`。
+
+## 最佳实践
+
+- **使用一致的 ID** -- 记忆 ID 是将消息分组为对话的键。使用稳定的标识符（例如用户 ID 或会话 ID），以便记忆在多次运行中正确累积。
+- **需要时清理** -- 使用删除操作清除陈旧的对话，并防止记忆无限增长。

@@ -1,0 +1,104 @@
+---
+title: 翻译
+description: 将文本翻译成任意语言
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="translate"
+  color=""
+/>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="翻译"
+    type="translate"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "context",
+            "type": "long-input",
+            "title": "待翻译文本",
+            "layout": "full",
+            "placeholder": "输入要翻译的文本",
+            "required": true
+        },
+        {
+            "id": "targetLanguage",
+            "type": "short-input",
+            "title": "翻译为",
+            "layout": "full",
+            "placeholder": "输入语言（例如：西班牙语、法语等）",
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "combobox",
+            "title": "模型",
+            "layout": "half",
+            "placeholder": "输入或选择模型...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 API 密钥",
+            "password": true,
+            "description": "在运行时对所选模型适用时显示。"
+        },
+        {
+            "id": "azureEndpoint",
+            "type": "short-input",
+            "title": "Azure OpenAI 终结点",
+            "layout": "full",
+            "placeholder": "https://your-resource.openai.azure.com",
+            "password": true,
+            "description": "当模型为 'azure/gpt-5.4'、'azure/gpt-5.4-mini'、'azure/gpt-5.4-nano'、'azure/gpt-5.2'、'azure/gpt-5.1'、'azure/gpt-5.1-codex'、'azure/gpt-5'、'azure/gpt-5-mini'、'azure/gpt-5-nano'、'azure/gpt-5-chat'、'azure/o3'、'azure/o4-mini'、'azure/gpt-4.1'、'azure/gpt-4.1-mini'、'azure/gpt-4.1-nano'、'azure/model-router' 之一时显示。"
+        },
+        {
+            "id": "azureApiVersion",
+            "type": "short-input",
+            "title": "Azure API 版本",
+            "layout": "full",
+            "placeholder": "2024-07-01-preview",
+            "description": "当模型为 'azure/gpt-5.4'、'azure/gpt-5.4-mini'、'azure/gpt-5.4-nano'、'azure/gpt-5.2'、'azure/gpt-5.1'、'azure/gpt-5.1-codex'、'azure/gpt-5'、'azure/gpt-5-mini'、'azure/gpt-5-nano'、'azure/gpt-5-chat'、'azure/o3'、'azure/o4-mini'、'azure/gpt-4.1'、'azure/gpt-4.1-mini'、'azure/gpt-4.1-nano'、'azure/model-router' 之一时显示。"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `context` | string | 是 | 要翻译的文本 |
+| `targetLanguage` | string | 是 | 目标语言 |
+| `model` | combobox | 是 | 模型 |
+| `apiKey` | string | 否 | 提供商 API 密钥 |
+| `azureEndpoint` | string | 否 | Azure OpenAI 终结点 URL |
+| `azureApiVersion` | string | 否 | Azure API 版本 |
+
+## 输出
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | string | 翻译文本 |
+| `model` | string | 所用模型 |
+| `tokens` | json | Token 用量 |
+
+## 使用说明
+
+将文本翻译为任意语言。模型列表在运行时从该部署可用的基础模型、Ollama 和 OpenRouter 模型加载。
+
+## 备注
+
+- 分类：`tools`
+- 类型：`translate`

@@ -1,23 +1,11 @@
-import { getResolvedBillingSettings } from '@/lib/billing/settings'
-import {
-  getTierWorkflowExecutionMultiplier,
-  getTierWorkflowModelCostMultiplier,
-} from '@/lib/billing/tiers'
-import { resolveWorkspaceBillingContext } from '@/lib/billing/workspace-billing'
 import { createLogger } from '@/lib/logs/console/logger'
 import { executionLogger } from '@/lib/logs/execution/logger'
 import {
-  calculateCostSummary,
   createEnvironmentObject,
   createTriggerObject,
   loadWorkflowSummaryForExecution,
 } from '@/lib/logs/execution/logging-factory'
-import type {
-  ExecutionEnvironment,
-  ExecutionTrigger,
-  TraceSpan,
-  WorkflowState,
-} from '@/lib/logs/types'
+import type { ExecutionTrigger, TraceSpan, WorkflowState } from '@/lib/logs/types'
 
 const logger = createLogger('LoggingSession')
 
@@ -34,32 +22,15 @@ export interface SessionCompleteParams {
   finalOutput?: any
   success: boolean
   failureReason?: string
-  traceSpans?: any[]
-  workflowInput?: any
-  workspaceId?: string
-  actorUserId?: string | null
-  hasResponseBlock?: boolean
-  variables?: Record<string, string>
-}
-
-export interface SessionErrorCompleteParams {
-  endedAt?: string
-  totalDurationMs?: number
-  error?: {
-    message?: string
-    stackTrace?: string
-  }
   traceSpans?: TraceSpan[]
-  workspaceId?: string
-  actorUserId?: string | null
+  workflowInput?: any
+  workspaceId: string
+  hasResponseBlock?: boolean
   variables?: Record<string, string>
   billable?: boolean
 }
 
 export class LoggingSession {
-  private trigger?: ExecutionTrigger
-  private environment?: ExecutionEnvironment
-
   constructor(
     private workflowId: string,
     private executionId: string,
@@ -71,8 +42,8 @@ export class LoggingSession {
   async start(params: SessionStartParams): Promise<string> {
     const { userId, workspaceId, workflowState, triggerData } = params
 
-    this.trigger = createTriggerObject(this.triggerType, triggerData)
-    this.environment = createEnvironmentObject(
+    const trigger = createTriggerObject(this.triggerType, triggerData)
+    const environment = createEnvironmentObject(
       this.workflowId,
       this.executionId,
       userId,
@@ -83,8 +54,8 @@ export class LoggingSession {
     const { workflowLog } = await executionLogger.startWorkflowExecution({
       workflowId: this.workflowId,
       executionId: this.executionId,
-      trigger: this.trigger,
-      environment: this.environment,
+      trigger,
+      environment,
       workflowState,
       workflowSummary,
     })
@@ -97,122 +68,43 @@ export class LoggingSession {
     return workflowLog.id
   }
 
-  private async resolveWorkflowExecutionPricing(params?: {
-    workspaceId?: string
-    actorUserId?: string | null
-  }): Promise<{
-    workflowExecutionChargeUsd: number
-    workflowModelCostMultiplier: number
-  }> {
-    const billingSettings = await getResolvedBillingSettings()
-
-    if (!billingSettings.billingEnabled) {
-      return {
-        workflowExecutionChargeUsd: 0,
-        workflowModelCostMultiplier: 1,
-      }
-    }
-
-    const workspaceId = params?.workspaceId ?? this.environment?.workspaceId
-    if (!workspaceId) {
-      throw new Error('Workflow execution billing requires workspaceId')
-    }
-
-    const billingContext = await resolveWorkspaceBillingContext({
-      workspaceId,
-      actorUserId: params?.actorUserId ?? this.environment?.userId ?? null,
-    })
-
-    return {
-      workflowExecutionChargeUsd:
-        billingSettings.workflowExecutionChargeUsd *
-        getTierWorkflowExecutionMultiplier(billingContext.tier),
-      workflowModelCostMultiplier: getTierWorkflowModelCostMultiplier(billingContext.tier),
-    }
-  }
-
-  private async resolveWorkflowExecutionPricingForCompletion(params?: {
-    workspaceId?: string
-    actorUserId?: string | null
-  }) {
-    try {
-      return await this.resolveWorkflowExecutionPricing(params)
-    } catch (error) {
-      logger.error(
-        this.requestId
-          ? `[${this.requestId}] Workflow completion pricing failed`
-          : 'Workflow completion pricing failed',
-        error
-      )
-      return {
-        workflowExecutionChargeUsd: 0,
-        workflowModelCostMultiplier: 1,
-      }
-    }
-  }
-
-  private resolveCompletionScope(params: { workspaceId?: string }): {
-    workflowLogId: string
-    workspaceId: string
-  } {
-    if (!this.workflowLogId) {
-      throw new Error('Workflow log id is required to complete workflow execution logging')
-    }
-    const workspaceId = params.workspaceId ?? this.environment?.workspaceId
-    if (!workspaceId) {
-      throw new Error('Workflow execution billing requires workspaceId')
-    }
-    return { workflowLogId: this.workflowLogId, workspaceId }
-  }
-
   async complete(params: SessionCompleteParams): Promise<void> {
     const {
-      endedAt,
-      totalDurationMs,
-      finalOutput,
+      endedAt = new Date().toISOString(),
+      totalDurationMs = 0,
+      finalOutput = {},
       success,
       failureReason,
-      traceSpans,
+      traceSpans = [],
       workflowInput,
       workspaceId,
-      actorUserId,
       hasResponseBlock,
       variables,
+      billable,
     } = params
 
     try {
-      const scope = this.resolveCompletionScope({ workspaceId })
-      const { workflowExecutionChargeUsd, workflowModelCostMultiplier } =
-        await this.resolveWorkflowExecutionPricingForCompletion({
-          workspaceId: scope.workspaceId,
-          actorUserId,
-        })
-      const costSummary = calculateCostSummary(
-        traceSpans || [],
-        workflowExecutionChargeUsd,
-        workflowModelCostMultiplier
-      )
-      const endTime = endedAt || new Date().toISOString()
-      const duration = totalDurationMs || 0
-
-      await executionLogger.completeWorkflowExecution({
+      if (!this.workflowLogId) {
+        throw new Error('Workflow log id is required to complete workflow execution logging')
+      }
+      const completed = await executionLogger.completeWorkflowExecution({
         executionId: this.executionId,
-        workflowLogId: scope.workflowLogId,
-        workspaceId: scope.workspaceId,
-        endedAt: endTime,
-        totalDurationMs: duration,
-        costSummary,
-        finalOutput: finalOutput === undefined ? {} : finalOutput,
+        workflowLogId: this.workflowLogId,
+        workspaceId,
+        endedAt,
+        totalDurationMs,
+        billable,
+        finalOutput,
         success,
         failureReason,
-        traceSpans: traceSpans || [],
+        traceSpans,
         workflowInput,
         hasResponseBlock,
         variables,
       })
 
       // Track workflow execution outcome
-      if (traceSpans && traceSpans.length > 0) {
+      if (!success || traceSpans.length > 0) {
         try {
           const { trackPlatformEvent } = await import('@/lib/telemetry/tracer')
 
@@ -220,12 +112,13 @@ export class LoggingSession {
 
           trackPlatformEvent('platform.workflow.executed', {
             'workflow.id': this.workflowId,
-            'execution.duration_ms': duration,
+            'execution.duration_ms': totalDurationMs,
             'execution.status': failed ? 'error' : 'success',
             'execution.trigger': this.triggerType,
             'execution.blocks_executed': traceSpans.length,
             'execution.has_errors': failed,
-            'execution.total_cost': costSummary.totalCost || 0,
+            'execution.total_cost': completed.cost.total,
+            ...(failureReason ? { 'execution.error_message': failureReason } : {}),
           })
         } catch (_e) {
           // Silently fail
@@ -240,103 +133,6 @@ export class LoggingSession {
         logger.error(`[${this.requestId}] Failed to complete logging:`, error)
       }
       throw error
-    }
-  }
-
-  async completeWithError(params: SessionErrorCompleteParams = {}): Promise<void> {
-    try {
-      const {
-        endedAt,
-        totalDurationMs,
-        error,
-        traceSpans,
-        workspaceId,
-        actorUserId,
-        variables,
-        billable,
-      } = params
-      const scope = this.resolveCompletionScope({ workspaceId })
-
-      const endTime = endedAt ? new Date(endedAt) : new Date()
-      const durationMs = typeof totalDurationMs === 'number' ? totalDurationMs : 0
-      const startTime = new Date(endTime.getTime() - Math.max(1, durationMs))
-      const workflowExecutionChargeUsd =
-        billable === false
-          ? 0
-          : (
-              await this.resolveWorkflowExecutionPricingForCompletion({
-                workspaceId: scope.workspaceId,
-                actorUserId,
-              })
-            ).workflowExecutionChargeUsd
-
-      const costSummary = {
-        totalCost: workflowExecutionChargeUsd,
-        totalInputCost: 0,
-        totalOutputCost: 0,
-        totalTokens: 0,
-        totalPromptTokens: 0,
-        totalCompletionTokens: 0,
-        baseExecutionCharge: workflowExecutionChargeUsd,
-        modelCost: 0,
-        models: {},
-      }
-
-      const message = error?.message || 'Execution failed before starting blocks'
-
-      const hasProvidedSpans = Array.isArray(traceSpans) && traceSpans.length > 0
-
-      const errorSpan: TraceSpan = {
-        id: 'workflow-error-root',
-        name: 'Workflow Error',
-        type: 'workflow',
-        duration: Math.max(1, durationMs),
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString(),
-        status: 'error',
-        ...(hasProvidedSpans ? {} : { children: [] }),
-        output: { error: message },
-      }
-
-      const spans = hasProvidedSpans ? traceSpans : [errorSpan]
-
-      await executionLogger.completeWorkflowExecution({
-        executionId: this.executionId,
-        workflowLogId: scope.workflowLogId,
-        workspaceId: scope.workspaceId,
-        endedAt: endTime.toISOString(),
-        totalDurationMs: Math.max(1, durationMs),
-        costSummary,
-        finalOutput: { error: message },
-        success: false,
-        traceSpans: spans,
-        variables,
-      })
-
-      // Track workflow execution error outcome
-      try {
-        const { trackPlatformEvent } = await import('@/lib/telemetry/tracer')
-        trackPlatformEvent('platform.workflow.executed', {
-          'workflow.id': this.workflowId,
-          'execution.duration_ms': Math.max(1, durationMs),
-          'execution.status': 'error',
-          'execution.trigger': this.triggerType,
-          'execution.blocks_executed': spans.length,
-          'execution.has_errors': true,
-          'execution.error_message': message,
-        })
-      } catch (_e) {
-        // Silently fail
-      }
-
-      if (this.requestId) {
-        logger.debug(`[${this.requestId}] Completed logging for execution ${this.executionId}`)
-      }
-    } catch (enhancedError) {
-      if (this.requestId) {
-        logger.error(`[${this.requestId}] Failed to complete logging:`, enhancedError)
-      }
-      throw enhancedError
     }
   }
 }

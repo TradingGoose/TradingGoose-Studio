@@ -1,0 +1,735 @@
+---
+title: Notion
+description: Gestionar páginas de Notion
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="notion"
+  color=""
+/>
+
+## Configuración
+
+### Leer página
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Notion"
+    type="notion"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "notion_read",
+            "options": [
+                {
+                    "id": "notion_read",
+                    "label": "Leer página"
+                },
+                {
+                    "id": "notion_read_database",
+                    "label": "Leer base de datos"
+                },
+                {
+                    "id": "notion_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "notion_create_database",
+                    "label": "Crear base de datos"
+                },
+                {
+                    "id": "notion_write",
+                    "label": "Añadir contenido"
+                },
+                {
+                    "id": "notion_query_database",
+                    "label": "Consultar base de datos"
+                },
+                {
+                    "id": "notion_search",
+                    "label": "Buscar espacio de trabajo"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Notion",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Notion",
+            "provider": "notion",
+            "required": true
+        },
+        {
+            "id": "pageId",
+            "type": "short-input",
+            "title": "ID de página",
+            "layout": "full",
+            "placeholder": "Introducir ID de página de Notion",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Leer página (<code>notion_read</code>)</div>
+
+Leer el contenido de una página de Notion
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `pageId` | string | Sí | El ID de la página de Notion que se va a leer |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Contenido de la página en formato markdown con encabezados, párrafos, listas y tareas pendientes |
+| `metadata` | object | Metadatos de la página, incluidos título, URL y marcas de tiempo |
+
+</div>
+
+---
+
+### Leer base de datos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Notion"
+    type="notion"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "notion_read_database",
+            "options": [
+                {
+                    "id": "notion_read",
+                    "label": "Leer página"
+                },
+                {
+                    "id": "notion_read_database",
+                    "label": "Leer base de datos"
+                },
+                {
+                    "id": "notion_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "notion_create_database",
+                    "label": "Crear base de datos"
+                },
+                {
+                    "id": "notion_write",
+                    "label": "Anexar contenido"
+                },
+                {
+                    "id": "notion_query_database",
+                    "label": "Consultar base de datos"
+                },
+                {
+                    "id": "notion_search",
+                    "label": "Buscar espacio de trabajo"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Notion",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Notion",
+            "provider": "notion",
+            "required": true
+        },
+        {
+            "id": "databaseId",
+            "type": "short-input",
+            "title": "ID de base de datos",
+            "layout": "full",
+            "placeholder": "Introducir ID de la base de datos de Notion",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Leer base de datos (<code>notion_read_database</code>)</div>
+
+Leer información y estructura de la base de datos de Notion
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `databaseId` | string | Sí | ID de la base de datos de Notion que se va a leer |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Información de la base de datos, incluido el título, el esquema de propiedades y los metadatos |
+| `metadata` | object | Metadatos de la base de datos, incluidos el título, el ID, la URL, las marcas de tiempo y el esquema de propiedades |
+
+</div>
+
+---
+
+### Crear página
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Notion"
+    type="notion"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "notion_create_page",
+            "options": [
+                {
+                    "id": "notion_read",
+                    "label": "Leer página"
+                },
+                {
+                    "id": "notion_read_database",
+                    "label": "Leer base de datos"
+                },
+                {
+                    "id": "notion_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "notion_create_database",
+                    "label": "Crear base de datos"
+                },
+                {
+                    "id": "notion_write",
+                    "label": "Anexar contenido"
+                },
+                {
+                    "id": "notion_query_database",
+                    "label": "Consultar base de datos"
+                },
+                {
+                    "id": "notion_search",
+                    "label": "Buscar espacio de trabajo"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Notion",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Notion",
+            "provider": "notion",
+            "required": true
+        },
+        {
+            "id": "parentId",
+            "type": "short-input",
+            "title": "ID de página principal",
+            "layout": "full",
+            "placeholder": "ID de la página principal",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Título de la página",
+            "layout": "full",
+            "placeholder": "Título de la nueva página"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Contenido",
+            "layout": "full",
+            "placeholder": "Introducir el contenido que se añadirá a la página",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear página (<code>notion_create_page</code>)</div>
+
+Crear una página nueva en Notion
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `parentId` | string | Sí | ID de la página padre |
+| `title` | string | No | Título de la página nueva |
+| `content` | string | No | Contenido opcional que se añade a la página al crearla |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Mensaje de confirmación de la creación de la página |
+| `metadata` | object | Metadatos de la página, incluidos título, ID de página, URL y marcas de tiempo |
+
+</div>
+
+---
+
+### Crear base de datos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Notion"
+    type="notion"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "notion_create_database",
+            "options": [
+                {
+                    "id": "notion_read",
+                    "label": "Leer página"
+                },
+                {
+                    "id": "notion_read_database",
+                    "label": "Leer base de datos"
+                },
+                {
+                    "id": "notion_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "notion_create_database",
+                    "label": "Crear base de datos"
+                },
+                {
+                    "id": "notion_write",
+                    "label": "Añadir contenido"
+                },
+                {
+                    "id": "notion_query_database",
+                    "label": "Consultar base de datos"
+                },
+                {
+                    "id": "notion_search",
+                    "label": "Buscar workspace"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Notion",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Notion",
+            "provider": "notion",
+            "required": true
+        },
+        {
+            "id": "parentId",
+            "type": "short-input",
+            "title": "ID de página padre",
+            "layout": "full",
+            "placeholder": "ID de la página padre donde se creará la base de datos",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Título de la base de datos",
+            "layout": "full",
+            "placeholder": "Título de la nueva base de datos",
+            "required": true
+        },
+        {
+            "id": "properties",
+            "type": "long-input",
+            "title": "Propiedades de la base de datos (JSON)",
+            "layout": "full",
+            "placeholder": "Introduce las propiedades de la base de datos como objeto JSON"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear base de datos (<code>notion_create_database</code>)</div>
+
+Crear una nueva base de datos en Notion con propiedades personalizadas
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `parentId` | string | Sí | ID de la página principal donde se creará la base de datos |
+| `title` | string | Sí | Título de la nueva base de datos |
+| `properties` | string | No | Propiedades de la base de datos como objeto JSON \(opcional; si está vacío, se crea una propiedad "Name" predeterminada\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Mensaje de éxito con los detalles de la base de datos y la lista de propiedades |
+| `metadata` | object | Metadatos de la base de datos, incluidos ID, título, URL, hora de creación y esquema de propiedades |
+
+</div>
+
+---
+
+### Añadir contenido
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Notion"
+    type="notion"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "notion_write",
+            "options": [
+                {
+                    "id": "notion_read",
+                    "label": "Leer página"
+                },
+                {
+                    "id": "notion_read_database",
+                    "label": "Leer base de datos"
+                },
+                {
+                    "id": "notion_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "notion_create_database",
+                    "label": "Crear base de datos"
+                },
+                {
+                    "id": "notion_write",
+                    "label": "Añadir contenido"
+                },
+                {
+                    "id": "notion_query_database",
+                    "label": "Consultar base de datos"
+                },
+                {
+                    "id": "notion_search",
+                    "label": "Buscar en el espacio de trabajo"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Notion",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Notion",
+            "provider": "notion",
+            "required": true
+        },
+        {
+            "id": "pageId",
+            "type": "short-input",
+            "title": "ID de página",
+            "layout": "full",
+            "placeholder": "Introducir ID de página de Notion",
+            "required": true
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Contenido",
+            "layout": "full",
+            "placeholder": "Introducir el contenido que se añadirá a la página",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Añadir contenido (<code>notion_write</code>)</div>
+
+Añadir contenido a una página de Notion
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `pageId` | string | Sí | El ID de la página de Notion a la que añadir el contenido |
+| `content` | string | Sí | El contenido que añadir a la página |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Mensaje de confirmación de que el contenido se añadió a la página |
+
+</div>
+
+---
+
+### Consultar base de datos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Notion"
+    type="notion"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "notion_query_database",
+            "options": [
+                {
+                    "id": "notion_read",
+                    "label": "Leer página"
+                },
+                {
+                    "id": "notion_read_database",
+                    "label": "Leer base de datos"
+                },
+                {
+                    "id": "notion_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "notion_create_database",
+                    "label": "Crear base de datos"
+                },
+                {
+                    "id": "notion_write",
+                    "label": "Añadir contenido"
+                },
+                {
+                    "id": "notion_query_database",
+                    "label": "Consultar base de datos"
+                },
+                {
+                    "id": "notion_search",
+                    "label": "Buscar espacio de trabajo"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Notion",
+            "layout": "full",
+            "placeholder": "Selecciona una cuenta de Notion",
+            "provider": "notion",
+            "required": true
+        },
+        {
+            "id": "databaseId",
+            "type": "short-input",
+            "title": "ID de la base de datos",
+            "layout": "full",
+            "placeholder": "Introduce el ID de la base de datos de Notion",
+            "required": true
+        },
+        {
+            "id": "filter",
+            "type": "long-input",
+            "title": "Filtro (JSON)",
+            "layout": "full",
+            "placeholder": "Introduce las condiciones de filtro en JSON (opcional)",
+            "required": true
+        },
+        {
+            "id": "sorts",
+            "type": "long-input",
+            "title": "Criterios de ordenación (JSON)",
+            "layout": "full",
+            "placeholder": "Introduce los criterios de ordenación como array JSON (opcional)"
+        },
+        {
+            "id": "pageSize",
+            "type": "short-input",
+            "title": "Tamaño de página",
+            "layout": "full",
+            "placeholder": "Número de resultados (predeterminado: 100, máx.: 100)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Consultar base de datos (<code>notion_query_database</code>)</div>
+
+Consultar y filtrar entradas de bases de datos de Notion con filtrado avanzado
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `databaseId` | string | Sí | El ID de la base de datos que se va a consultar |
+| `filter` | string | No | Condiciones de filtro como JSON \(opcional\) |
+| `sorts` | string | No | Criterios de ordenación como array JSON \(opcional\) |
+| `pageSize` | number | No | Número de resultados que devolver \(predeterminado: 100, máx.: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Lista con formato de las entradas de la base de datos con sus propiedades |
+| `metadata` | object | Metadatos de la consulta, incluidos el recuento total de resultados, la información de paginación y el array de resultados sin procesar |
+
+</div>
+
+---
+
+### Buscar en el espacio de trabajo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Notion"
+    type="notion"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "notion_search",
+            "options": [
+                {
+                    "id": "notion_read",
+                    "label": "Leer página"
+                },
+                {
+                    "id": "notion_read_database",
+                    "label": "Leer base de datos"
+                },
+                {
+                    "id": "notion_create_page",
+                    "label": "Crear página"
+                },
+                {
+                    "id": "notion_create_database",
+                    "label": "Crear base de datos"
+                },
+                {
+                    "id": "notion_write",
+                    "label": "Anexar contenido"
+                },
+                {
+                    "id": "notion_query_database",
+                    "label": "Consultar base de datos"
+                },
+                {
+                    "id": "notion_search",
+                    "label": "Buscar en el espacio de trabajo"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Notion",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Notion",
+            "provider": "notion",
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "Consulta de búsqueda",
+            "layout": "full",
+            "placeholder": "Introducir términos de búsqueda (dejar vacío para todas las páginas)"
+        },
+        {
+            "id": "filterType",
+            "type": "dropdown",
+            "title": "Tipo de filtro",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "all",
+                    "label": "Todo"
+                },
+                {
+                    "id": "page",
+                    "label": "Solo páginas"
+                },
+                {
+                    "id": "database",
+                    "label": "Solo bases de datos"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar espacio de trabajo (<code>notion_search</code>)</div>
+
+Buscar en todas las páginas y bases de datos del espacio de trabajo de Notion
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | No | Términos de búsqueda \(dejar vacío para obtener todas las páginas\) |
+| `filterType` | string | No | Filtrar por tipo de objeto: page, database o dejar vacío para todos |
+| `pageSize` | number | No | Número de resultados que se devolverán \(predeterminado: 100, máx.: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | Lista formateada de resultados de búsqueda, incluidas páginas y bases de datos |
+| `metadata` | object | Metadatos de búsqueda, incluido el recuento total de resultados, información de paginación y el array de resultados sin procesar |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integre Notion en el flujo de trabajo. Puede leer páginas, leer bases de datos, crear páginas, crear bases de datos, añadir contenido, consultar bases de datos y buscar en el espacio de trabajo.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `notion`

@@ -31,6 +31,16 @@ export type PortfolioDetail = PortfolioIdentity & {
   summary: UnifiedTradingAccountSummary
 }
 
+export const getPortfolioAccountLabel = (portfolio: {
+  providerId?: string | null
+  accountId?: string | null
+  accountName?: string | null
+}) =>
+  portfolio.accountName ||
+  (portfolio.providerId === 'robinhood' && portfolio.accountId
+    ? `Agentic • ${portfolio.accountId.slice(-4)}`
+    : (portfolio.accountId ?? ''))
+
 const readText = (record: Record<string, unknown>, key: string): string | undefined => {
   const value = record[key]
   if (typeof value !== 'string') return undefined

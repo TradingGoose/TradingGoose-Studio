@@ -164,7 +164,7 @@ async function readQueuedWorkflowExecutionJob(params: {
     }
 
     const payload = (await response.json().catch(() => null)) as JobStatusResponse | null
-    if (payload?.status === 'completed') {
+    if (payload?.status === 'completed' || payload?.status === 'paused') {
       if (isExecutionResult(payload.output)) return payload.output
       throw new Error('Workflow execution job completed without a final result')
     }
@@ -222,7 +222,7 @@ async function readQueuedWorkflowExecutionStream(params: {
         const event = JSON.parse(data) as WorkflowExecutionEvent
         await params.callbacks?.onEvent?.(event)
 
-        if (event.type === 'execution:completed') {
+        if (event.type === 'execution:completed' || event.type === 'execution:paused') {
           if (isExecutionResult(event.data.result)) {
             terminalResult = event.data.result
           }

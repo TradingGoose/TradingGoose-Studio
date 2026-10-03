@@ -78,8 +78,11 @@ export async function calculateOrganizationIndividualOverage(params: {
 /**
  * Get organization subscription directly by organization ID
  */
-export async function getOrganizationSubscription(organizationId: string) {
-  const orgSubs = await db
+export async function getOrganizationSubscription(
+  organizationId: string,
+  store: Pick<typeof db, 'select'> = db
+) {
+  const orgSubs = await store
     .select()
     .from(subscription)
     .where(
@@ -91,7 +94,7 @@ export async function getOrganizationSubscription(organizationId: string) {
     )
     .limit(1)
 
-  const hydrated = await hydrateSubscriptionsWithTiers(orgSubs)
+  const hydrated = await hydrateSubscriptionsWithTiers(orgSubs, store)
   return hydrated[0] ?? null
 }
 

@@ -1,0 +1,515 @@
+---
+title: Exa
+description: Buscar con Exa AI
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="exa"
+  color="#1E40ED"
+/>
+
+## Configuración
+
+### Búsqueda
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Exa"
+    type="exa"
+    color="#1E40ED"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "exa_search",
+            "options": [
+                {
+                    "id": "exa_search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "exa_get_contents",
+                    "label": "Obtener contenido"
+                },
+                {
+                    "id": "exa_find_similar_links",
+                    "label": "Buscar enlaces similares"
+                },
+                {
+                    "id": "exa_answer",
+                    "label": "Responder"
+                },
+                {
+                    "id": "exa_research",
+                    "label": "Investigar"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Exa",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Consulta de búsqueda",
+            "layout": "full",
+            "placeholder": "Introduce tu consulta de búsqueda...",
+            "required": true
+        },
+        {
+            "id": "numResults",
+            "type": "short-input",
+            "title": "Número de resultados",
+            "layout": "full",
+            "placeholder": "10"
+        },
+        {
+            "id": "useAutoprompt",
+            "type": "switch",
+            "title": "Usar autoprompt",
+            "layout": "full"
+        },
+        {
+            "id": "type",
+            "type": "dropdown",
+            "title": "Tipo de búsqueda",
+            "layout": "full",
+            "defaultValue": "auto",
+            "options": [
+                {
+                    "id": "auto",
+                    "label": "Automático"
+                },
+                {
+                    "id": "neural",
+                    "label": "Neural"
+                },
+                {
+                    "id": "keyword",
+                    "label": "Palabra clave"
+                },
+                {
+                    "id": "fast",
+                    "label": "Rápido"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar (<code>exa_search</code>)</div>
+
+Busca en la web con Exa AI. Devuelve resultados de búsqueda relevantes con títulos, URL y fragmentos de texto.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | Sí | La consulta de búsqueda que se va a ejecutar |
+| `numResults` | number | No | Número de resultados que se devuelven \(por defecto: 10, máx.: 25\) |
+| `useAutoprompt` | boolean | No | Indica si se debe usar autoprompt para mejorar la consulta \(por defecto: false\) |
+| `type` | string | No | Tipo de búsqueda: neural, keyword, auto o fast \(por defecto: auto\) |
+| `apiKey` | string | Sí | Clave de API de Exa AI |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `results` | array | Resultados de búsqueda con títulos, URL y fragmentos de texto |
+
+</div>
+
+---
+
+### Obtener contenidos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Exa"
+    type="exa"
+    color="#1E40ED"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "exa_get_contents",
+            "options": [
+                {
+                    "id": "exa_search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "exa_get_contents",
+                    "label": "Obtener contenidos"
+                },
+                {
+                    "id": "exa_find_similar_links",
+                    "label": "Buscar enlaces similares"
+                },
+                {
+                    "id": "exa_answer",
+                    "label": "Responder"
+                },
+                {
+                    "id": "exa_research",
+                    "label": "Investigar"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Exa",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "urls",
+            "type": "long-input",
+            "title": "URL",
+            "layout": "full",
+            "placeholder": "Introduce las URL de las que obtener contenido (separadas por comas)...",
+            "required": true
+        },
+        {
+            "id": "text",
+            "type": "switch",
+            "title": "Incluir texto",
+            "layout": "full"
+        },
+        {
+            "id": "summaryQuery",
+            "type": "long-input",
+            "title": "Consulta de resumen",
+            "layout": "full",
+            "placeholder": "Introduce una consulta para guiar la generación del resumen..."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener contenidos (<code>exa_get_contents</code>)</div>
+
+Recupera el contenido de páginas web con Exa AI. Devuelve el título, el contenido de texto y resúmenes opcionales para cada URL.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `urls` | string | Sí | Lista de URL de las que recuperar contenido, separadas por comas |
+| `text` | boolean | No | Si es true, devuelve el texto completo de la página con la configuración predeterminada. Si es false, desactiva la devolución de texto. |
+| `summaryQuery` | string | No | Consulta para guiar la generación del resumen |
+| `apiKey` | string | Sí | Clave de API de Exa AI |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `results` | array | Contenido recuperado de las URL con título, texto y resúmenes |
+
+</div>
+
+---
+
+### Buscar enlaces similares
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Exa"
+    type="exa"
+    color="#1E40ED"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "exa_find_similar_links",
+            "options": [
+                {
+                    "id": "exa_search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "exa_get_contents",
+                    "label": "Obtener contenido"
+                },
+                {
+                    "id": "exa_find_similar_links",
+                    "label": "Buscar enlaces similares"
+                },
+                {
+                    "id": "exa_answer",
+                    "label": "Responder"
+                },
+                {
+                    "id": "exa_research",
+                    "label": "Investigar"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Exa",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "url",
+            "type": "long-input",
+            "title": "URL",
+            "layout": "full",
+            "placeholder": "Introduce la URL para buscar enlaces similares...",
+            "required": true
+        },
+        {
+            "id": "numResults",
+            "type": "short-input",
+            "title": "Número de resultados",
+            "layout": "full",
+            "placeholder": "10"
+        },
+        {
+            "id": "text",
+            "type": "switch",
+            "title": "Incluir texto",
+            "layout": "full"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar enlaces similares (<code>exa_find_similar_links</code>)</div>
+
+Busca páginas web similares a una URL dada usando Exa AI. Devuelve una lista de enlaces similares con títulos y fragmentos de texto.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `url` | string | Sí | La URL para la que buscar enlaces similares |
+| `numResults` | number | No | Número de enlaces similares a devolver \(predeterminado: 10, máx.: 25\) |
+| `text` | boolean | No | Si se debe incluir el texto completo de las páginas similares |
+| `apiKey` | string | Sí | Clave de API de Exa AI |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `similarLinks` | array | Enlaces similares encontrados con títulos, URLs y fragmentos de texto |
+
+</div>
+
+---
+
+### Respuesta
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Exa"
+    type="exa"
+    color="#1E40ED"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "exa_answer",
+            "options": [
+                {
+                    "id": "exa_search",
+                    "label": "Búsqueda"
+                },
+                {
+                    "id": "exa_get_contents",
+                    "label": "Obtener contenido"
+                },
+                {
+                    "id": "exa_find_similar_links",
+                    "label": "Buscar enlaces similares"
+                },
+                {
+                    "id": "exa_answer",
+                    "label": "Respuesta"
+                },
+                {
+                    "id": "exa_research",
+                    "label": "Investigación"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Exa",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Pregunta",
+            "layout": "full",
+            "placeholder": "Escribe tu pregunta...",
+            "required": true
+        },
+        {
+            "id": "text",
+            "type": "switch",
+            "title": "Incluir texto",
+            "layout": "full"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Respuesta (<code>exa_answer</code>)</div>
+
+Obtén una respuesta generada por IA a una pregunta, con citas de la web, usando Exa AI.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | Sí | La pregunta que se debe responder |
+| `text` | boolean | No | Indica si se debe incluir el texto completo de la respuesta |
+| `apiKey` | string | Sí | Clave de API de Exa AI |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `answer` | string | Respuesta generada por IA a la pregunta |
+| `citations` | array | Fuentes y citas de la respuesta |
+
+</div>
+
+---
+
+### Investigación
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Exa"
+    type="exa"
+    color="#1E40ED"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "exa_research",
+            "options": [
+                {
+                    "id": "exa_search",
+                    "label": "Búsqueda"
+                },
+                {
+                    "id": "exa_get_contents",
+                    "label": "Obtener contenido"
+                },
+                {
+                    "id": "exa_find_similar_links",
+                    "label": "Buscar enlaces similares"
+                },
+                {
+                    "id": "exa_answer",
+                    "label": "Respuesta"
+                },
+                {
+                    "id": "exa_research",
+                    "label": "Investigación"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Exa",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Consulta de investigación",
+            "layout": "full",
+            "placeholder": "Introduce tu tema o pregunta de investigación...",
+            "required": true
+        },
+        {
+            "id": "includeText",
+            "type": "switch",
+            "title": "Incluir texto completo",
+            "layout": "full"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Investigación (<code>exa_research</code>)</div>
+
+Realiza una investigación exhaustiva con IA para generar informes detallados con citas
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | Sí | Consulta o tema de investigación |
+| `includeText` | boolean | No | Incluir el contenido de texto completo en los resultados |
+| `apiKey` | string | Sí | Clave de API de Exa AI |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `research` | array | Hallazgos de investigación exhaustivos con citas y resúmenes |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Exa en el flujo de trabajo. Puede buscar, obtener contenido, encontrar enlaces similares, responder a una pregunta y realizar investigaciones.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `exa`

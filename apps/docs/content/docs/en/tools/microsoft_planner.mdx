@@ -10,7 +10,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <BlockInfoCard
   type="microsoft_planner"
-  color=""
+  color="#33C481"
 />
 
 
@@ -22,7 +22,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="Microsoft Planner"
     type="microsoft_planner"
-    color=""
+    color="#33C481"
     hideHeader
     subBlocks={[
         {
@@ -32,12 +32,12 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "layout": "full",
             "options": [
                 {
-                    "label": "Read Task",
-                    "id": "read_task"
+                    "id": "read_task",
+                    "label": "Read Task"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "create_task"
+                    "id": "create_task",
+                    "label": "Create Task"
                 }
             ],
             "defaultValue": "read_task"
@@ -94,6 +94,7 @@ Read tasks from Microsoft Planner - get all user tasks or all tasks from a speci
 | --------- | ---- | ----------- |
 | `success` | boolean | Whether tasks were retrieved successfully |
 | `tasks` | array | Array of task objects with filtered properties |
+| `metadata` | object | Metadata including planId, userId, and planUrl |
 
 </div>
 
@@ -107,7 +108,7 @@ Read tasks from Microsoft Planner - get all user tasks or all tasks from a speci
   <BlockConfigPreview
     name="Microsoft Planner"
     type="microsoft_planner"
-    color=""
+    color="#33C481"
     hideHeader
     subBlocks={[
         {
@@ -117,12 +118,12 @@ Read tasks from Microsoft Planner - get all user tasks or all tasks from a speci
             "layout": "full",
             "options": [
                 {
-                    "label": "Read Task",
-                    "id": "read_task"
+                    "id": "read_task",
+                    "label": "Read Task"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "create_task"
+                    "id": "create_task",
+                    "label": "Create Task"
                 }
             ],
             "defaultValue": "create_task"
@@ -203,6 +204,7 @@ Create a new task in Microsoft Planner
 | --------- | ---- | ----------- |
 | `success` | boolean | Whether the task was created successfully |
 | `task` | object | The created task object with all properties |
+| `metadata` | object | Metadata including planId, taskId, and taskUrl |
 
 </div>
 

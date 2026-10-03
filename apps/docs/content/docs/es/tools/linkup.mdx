@@ -1,0 +1,107 @@
+---
+title: Linkup
+description: Buscar en la web con Linkup
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="linkup"
+  color="#0084ff"
+/>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Linkup"
+    type="linkup"
+    color="#0084ff"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "q",
+            "type": "long-input",
+            "title": "Consulta de búsqueda",
+            "layout": "full",
+            "placeholder": "Introduce tu consulta de búsqueda",
+            "required": true
+        },
+        {
+            "id": "outputType",
+            "type": "dropdown",
+            "title": "Tipo de salida",
+            "layout": "half",
+            "defaultValue": "sourcedAnswer",
+            "options": [
+                {
+                    "id": "sourcedAnswer",
+                    "label": "Respuesta"
+                },
+                {
+                    "id": "searchResults",
+                    "label": "Búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "depth",
+            "type": "dropdown",
+            "title": "Profundidad de búsqueda",
+            "layout": "half",
+            "options": [
+                {
+                    "id": "standard",
+                    "label": "Estándar"
+                },
+                {
+                    "id": "deep",
+                    "label": "Profunda"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave API de Linkup",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `linkup_search`
+
+Buscar información en la web usando Linkup
+
+#### Entrada
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `q` | string | Sí | La consulta de búsqueda |
+| `depth` | string | Sí | Profundidad de búsqueda \(debe ser "standard" o "deep"\) |
+| `outputType` | string | Sí | Tipo de salida a devolver \(debe ser "sourcedAnswer" o "searchResults"\) |
+| `apiKey` | string | Sí | Introduce tu clave API de Linkup |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `answer` | string | La respuesta con fuentes a la consulta de búsqueda |
+| `sources` | array | Array de fuentes utilizadas para compilar la respuesta, cada una contiene nombre, url y fragmento |
+
+## Instrucciones de uso
+
+Integra Linkup en el flujo de trabajo. Puede buscar en la web.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `linkup`

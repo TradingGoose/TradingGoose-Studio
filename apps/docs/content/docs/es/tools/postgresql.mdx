@@ -1,0 +1,774 @@
+---
+title: PostgreSQL
+description: Conectar a una base de datos PostgreSQL
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="postgresql"
+  color="#336791"
+/>
+
+## Configuración
+
+### Consulta (SELECT)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="PostgreSQL"
+    type="postgresql"
+    color="#336791"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "query",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Consulta (SELECT)"
+                },
+                {
+                    "id": "insert",
+                    "label": "Insertar datos"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar datos"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar datos"
+                },
+                {
+                    "id": "execute",
+                    "label": "Ejecutar SQL en bruto"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "layout": "full",
+            "placeholder": "localhost o your.database.host",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto",
+            "layout": "full",
+            "placeholder": "5432",
+            "required": true,
+            "defaultValue": "5432"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "layout": "full",
+            "placeholder": "your_database",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Usuario",
+            "layout": "full",
+            "placeholder": "postgres",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "layout": "full",
+            "placeholder": "Contraseña de la base de datos",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "Modo SSL",
+            "layout": "full",
+            "defaultValue": "preferred",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "Desactivado"
+                },
+                {
+                    "id": "required",
+                    "label": "Requerido"
+                },
+                {
+                    "id": "preferred",
+                    "label": "Preferido"
+                }
+            ]
+        },
+        {
+            "id": "query",
+            "type": "code",
+            "title": "Consulta SQL",
+            "layout": "full",
+            "placeholder": "SELECT * FROM users WHERE active = true",
+            "language": "sql",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Consulta (SELECT) (<code>postgresql_query</code>)</div>
+
+Ejecutar una consulta SELECT en una base de datos PostgreSQL
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Sí | Nombre de host o dirección IP del servidor PostgreSQL |
+| `port` | number | Sí | Puerto del servidor PostgreSQL \(predeterminado: 5432\) |
+| `database` | string | Sí | Nombre de la base de datos a la que conectarse |
+| `username` | string | Sí | Nombre de usuario de la base de datos |
+| `password` | string | Sí | Contraseña de la base de datos |
+| `ssl` | string | No | Modo de conexión SSL \(disabled, required, preferred\) |
+| `query` | string | Sí | Consulta SQL SELECT que ejecutar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `rows` | array | Array de filas devueltas por la consulta |
+| `rowCount` | number | Número de filas devueltas |
+
+</div>
+
+---
+
+### Insertar datos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="PostgreSQL"
+    type="postgresql"
+    color="#336791"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "insert",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Consulta (SELECT)"
+                },
+                {
+                    "id": "insert",
+                    "label": "Insertar datos"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar datos"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar datos"
+                },
+                {
+                    "id": "execute",
+                    "label": "Ejecutar SQL sin procesar"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "layout": "full",
+            "placeholder": "localhost o your.database.host",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto",
+            "layout": "full",
+            "placeholder": "5432",
+            "required": true,
+            "defaultValue": "5432"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "layout": "full",
+            "placeholder": "your_database",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Usuario",
+            "layout": "full",
+            "placeholder": "postgres",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "layout": "full",
+            "placeholder": "Contraseña de la base de datos",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "Modo SSL",
+            "layout": "full",
+            "defaultValue": "preferred",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "Deshabilitado"
+                },
+                {
+                    "id": "required",
+                    "label": "Obligatorio"
+                },
+                {
+                    "id": "preferred",
+                    "label": "Preferido"
+                }
+            ]
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "Nombre de la tabla",
+            "layout": "full",
+            "placeholder": "users",
+            "required": true
+        },
+        {
+            "id": "data",
+            "type": "code",
+            "title": "Datos (JSON)",
+            "layout": "full",
+            "placeholder": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"active\": true\n}",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Insertar datos (<code>postgresql_insert</code>)</div>
+
+Insertar datos en la base de datos PostgreSQL
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Sí | Nombre de host o dirección IP del servidor PostgreSQL |
+| `port` | number | Sí | Puerto del servidor PostgreSQL \(predeterminado: 5432\) |
+| `database` | string | Sí | Nombre de la base de datos a la que conectarse |
+| `username` | string | Sí | Nombre de usuario de la base de datos |
+| `password` | string | Sí | Contraseña de la base de datos |
+| `ssl` | string | No | Modo de conexión SSL \(disabled, required, preferred\) |
+| `table` | string | Sí | Nombre de la tabla en la que insertar datos |
+| `data` | object | Sí | Objeto de datos a insertar \(pares clave-valor\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `rows` | array | Datos insertados \(si se usa la cláusula RETURNING\) |
+| `rowCount` | number | Número de filas insertadas |
+
+</div>
+
+---
+
+### Actualizar datos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="PostgreSQL"
+    type="postgresql"
+    color="#336791"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "update",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Consulta (SELECT)"
+                },
+                {
+                    "id": "insert",
+                    "label": "Insertar datos"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar datos"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar datos"
+                },
+                {
+                    "id": "execute",
+                    "label": "Ejecutar SQL sin procesar"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "layout": "full",
+            "placeholder": "localhost o your.database.host",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto",
+            "layout": "full",
+            "placeholder": "5432",
+            "required": true,
+            "defaultValue": "5432"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "layout": "full",
+            "placeholder": "your_database",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Nombre de usuario",
+            "layout": "full",
+            "placeholder": "postgres",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "layout": "full",
+            "placeholder": "Contraseña de la base de datos",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "Modo SSL",
+            "layout": "full",
+            "defaultValue": "preferred",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "Deshabilitado"
+                },
+                {
+                    "id": "required",
+                    "label": "Requerido"
+                },
+                {
+                    "id": "preferred",
+                    "label": "Preferido"
+                }
+            ]
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "Nombre de la tabla",
+            "layout": "full",
+            "placeholder": "users",
+            "required": true
+        },
+        {
+            "id": "data",
+            "type": "code",
+            "title": "Datos de actualización (JSON)",
+            "layout": "full",
+            "placeholder": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\"\n}",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "where",
+            "type": "short-input",
+            "title": "Condición WHERE",
+            "layout": "full",
+            "placeholder": "id = 1",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar datos (<code>postgresql_update</code>)</div>
+
+Actualizar datos en la base de datos PostgreSQL
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Sí | Nombre de host o dirección IP del servidor PostgreSQL |
+| `port` | number | Sí | Puerto del servidor PostgreSQL \(predeterminado: 5432\) |
+| `database` | string | Sí | Nombre de la base de datos a la que conectarse |
+| `username` | string | Sí | Nombre de usuario de la base de datos |
+| `password` | string | Sí | Contraseña de la base de datos |
+| `ssl` | string | No | Modo de conexión SSL \(disabled, required, preferred\) |
+| `table` | string | Sí | Nombre de la tabla donde actualizar los datos |
+| `data` | object | Sí | Objeto de datos con los campos a actualizar \(pares clave-valor\) |
+| `where` | string | Sí | Condición de la cláusula WHERE \(sin la palabra clave WHERE\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `rows` | array | Datos actualizados \(si se usa la cláusula RETURNING\) |
+| `rowCount` | number | Número de filas actualizadas |
+
+</div>
+
+---
+
+### Eliminar datos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="PostgreSQL"
+    type="postgresql"
+    color="#336791"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "delete",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Consulta (SELECT)"
+                },
+                {
+                    "id": "insert",
+                    "label": "Insertar datos"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar datos"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar datos"
+                },
+                {
+                    "id": "execute",
+                    "label": "Ejecutar SQL sin procesar"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "layout": "full",
+            "placeholder": "localhost o your.database.host",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto",
+            "layout": "full",
+            "placeholder": "5432",
+            "required": true,
+            "defaultValue": "5432"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "layout": "full",
+            "placeholder": "your_database",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Nombre de usuario",
+            "layout": "full",
+            "placeholder": "postgres",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "layout": "full",
+            "placeholder": "Contraseña de la base de datos",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "Modo SSL",
+            "layout": "full",
+            "defaultValue": "preferred",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "Deshabilitado"
+                },
+                {
+                    "id": "required",
+                    "label": "Obligatorio"
+                },
+                {
+                    "id": "preferred",
+                    "label": "Preferido"
+                }
+            ]
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "Nombre de la tabla",
+            "layout": "full",
+            "placeholder": "users",
+            "required": true
+        },
+        {
+            "id": "where",
+            "type": "short-input",
+            "title": "Condición WHERE",
+            "layout": "full",
+            "placeholder": "id = 1",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar datos (<code>postgresql_delete</code>)</div>
+
+Eliminar datos de la base de datos PostgreSQL
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Sí | Nombre de host o dirección IP del servidor PostgreSQL |
+| `port` | number | Sí | Puerto del servidor PostgreSQL \(predeterminado: 5432\) |
+| `database` | string | Sí | Nombre de la base de datos a la que conectarse |
+| `username` | string | Sí | Nombre de usuario de la base de datos |
+| `password` | string | Sí | Contraseña de la base de datos |
+| `ssl` | string | No | Modo de conexión SSL \(disabled, required, preferred\) |
+| `table` | string | Sí | Nombre de la tabla de la que eliminar datos |
+| `where` | string | Sí | Condición de la cláusula WHERE \(sin la palabra clave WHERE\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `rows` | array | Datos eliminados \(si se usa la cláusula RETURNING\) |
+| `rowCount` | number | Número de filas eliminadas |
+
+</div>
+
+---
+
+### Ejecutar SQL sin procesar
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="PostgreSQL"
+    type="postgresql"
+    color="#336791"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "execute",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "Consulta (SELECT)"
+                },
+                {
+                    "id": "insert",
+                    "label": "Insertar datos"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar datos"
+                },
+                {
+                    "id": "delete",
+                    "label": "Eliminar datos"
+                },
+                {
+                    "id": "execute",
+                    "label": "Ejecutar SQL sin procesar"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "Host",
+            "layout": "full",
+            "placeholder": "localhost o your.database.host",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto",
+            "layout": "full",
+            "placeholder": "5432",
+            "required": true,
+            "defaultValue": "5432"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "Nombre de la base de datos",
+            "layout": "full",
+            "placeholder": "your_database",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Nombre de usuario",
+            "layout": "full",
+            "placeholder": "postgres",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "layout": "full",
+            "placeholder": "Contraseña de la base de datos",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "Modo SSL",
+            "layout": "full",
+            "defaultValue": "preferred",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "Deshabilitado"
+                },
+                {
+                    "id": "required",
+                    "label": "Requerido"
+                },
+                {
+                    "id": "preferred",
+                    "label": "Preferido"
+                }
+            ]
+        },
+        {
+            "id": "query",
+            "type": "code",
+            "title": "Consulta SQL",
+            "layout": "full",
+            "placeholder": "SELECT * FROM table_name",
+            "language": "sql",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Ejecutar SQL sin procesar (<code>postgresql_execute</code>)</div>
+
+Ejecutar una consulta SQL sin procesar en la base de datos PostgreSQL
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | Sí | Nombre de host o dirección IP del servidor PostgreSQL |
+| `port` | number | Sí | Puerto del servidor PostgreSQL \(predeterminado: 5432\) |
+| `database` | string | Sí | Nombre de la base de datos a la que conectarse |
+| `username` | string | Sí | Nombre de usuario de la base de datos |
+| `password` | string | Sí | Contraseña de la base de datos |
+| `ssl` | string | No | Modo de conexión SSL \(disabled, required, preferred\) |
+| `query` | string | Sí | Consulta SQL sin procesar que se va a ejecutar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de estado de la operación |
+| `rows` | array | Array de filas devueltas por la consulta |
+| `rowCount` | number | Número de filas afectadas |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra PostgreSQL en el flujo de trabajo. Permite consultar, insertar, actualizar, eliminar y ejecutar SQL sin procesar.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `postgresql`

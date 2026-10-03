@@ -18,7 +18,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 Trigger workflow when a new item is created in a Webflow CMS collection (requires Webflow credentials)
 
 <Callout type="info">
-  This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
+  This is a **webhook-based** trigger. Configure the external service to send events to the workflow webhook URL.
 </Callout>
 
 <Cards>
@@ -34,6 +34,10 @@ Trigger workflow when a new item is created in a Webflow CMS collection (require
 
 Trigger workflow when a new item is created in a Webflow CMS collection (requires Webflow credentials)
 
+#### Setup Instructions
+
+<div class="mb-3"><strong>1.</strong> Connect your Webflow account using the "Select Webflow credential" button above.</div><div class="mb-3"><strong>2.</strong> Enter your Webflow Site ID (found in the site URL or site settings).</div><div class="mb-3"><strong>3.</strong> Optionally enter a Collection ID to monitor only specific collections.</div><div class="mb-3"><strong>4.</strong> If no Collection ID is provided, the trigger will fire for items created in any collection on the site.</div><div class="mb-3"><strong>5.</strong> The webhook will trigger whenever a new item is created in the specified collection(s).</div><div class="mb-3"><strong>6.</strong> Make sure your Webflow account has appropriate permissions for the specified site.</div>
+
 <ShowcaseCard>
   <BlockConfigPreview
     name="Collection Item Created"
@@ -41,30 +45,11 @@ Trigger workflow when a new item is created in a Webflow CMS collection (require
     hideHeader
     subBlocks={[
         {
-            "id": "selectedTriggerId",
-            "type": "dropdown",
-            "title": "Trigger Type",
-            "required": true,
-            "options": [
-                {
-                    "label": "Collection Item Created",
-                    "id": "webflow_collection_item_created"
-                },
-                {
-                    "label": "Collection Item Changed",
-                    "id": "webflow_collection_item_changed"
-                },
-                {
-                    "label": "Collection Item Deleted",
-                    "id": "webflow_collection_item_deleted"
-                }
-            ]
-        },
-        {
             "id": "triggerCredentials",
             "type": "oauth-input",
             "title": "Credentials",
             "description": "This trigger requires webflow credentials to access your account.",
+            "provider": "webflow",
             "required": true
         },
         {
@@ -80,7 +65,8 @@ Trigger workflow when a new item is created in a Webflow CMS collection (require
             "type": "dropdown",
             "title": "Collection",
             "placeholder": "Select a collection (optional)",
-            "description": "Optionally filter to monitor only a specific collection"
+            "description": "Optionally filter to monitor only a specific collection",
+            "required": false
         }
     ]}
   />
@@ -104,7 +90,6 @@ Trigger workflow when a new item is created in a Webflow CMS collection (require
       {
           "name": "payload",
           "type": "object",
-          "description": "payload",
           "children": [
               {
                   "name": "id",
@@ -153,9 +138,199 @@ Trigger workflow when a new item is created in a Webflow CMS collection (require
 
 ---
 
+### Collection Item Changed
+
+Trigger workflow when an item is updated in a Webflow CMS collection (requires Webflow credentials)
+
+#### Setup Instructions
+
+<div class="mb-3"><strong>1.</strong> Connect your Webflow account using the "Select Webflow credential" button above.</div><div class="mb-3"><strong>2.</strong> Enter your Webflow Site ID (found in the site URL or site settings).</div><div class="mb-3"><strong>3.</strong> Optionally enter a Collection ID to monitor only specific collections.</div><div class="mb-3"><strong>4.</strong> If no Collection ID is provided, the trigger will fire for items changed in any collection on the site.</div><div class="mb-3"><strong>5.</strong> The webhook will trigger whenever an existing item is updated in the specified collection(s).</div><div class="mb-3"><strong>6.</strong> Make sure your Webflow account has appropriate permissions for the specified site.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Collection Item Changed"
+    type="webflow_collection_item_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credentials",
+            "description": "This trigger requires webflow credentials to access your account.",
+            "provider": "webflow",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "dropdown",
+            "title": "Site",
+            "placeholder": "Select a site",
+            "description": "The Webflow site to monitor",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "dropdown",
+            "title": "Collection",
+            "placeholder": "Select a collection (optional)",
+            "description": "Optionally filter to monitor only a specific collection",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "siteId",
+          "type": "string",
+          "description": "The site ID where the event occurred"
+      },
+      {
+          "name": "collectionId",
+          "type": "string",
+          "description": "The collection ID where the item was changed"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "The ID of the changed item"
+              },
+              {
+                  "name": "cmsLocaleId",
+                  "type": "string",
+                  "description": "CMS locale ID"
+              },
+              {
+                  "name": "lastPublished",
+                  "type": "string",
+                  "description": "Last published timestamp"
+              },
+              {
+                  "name": "lastUpdated",
+                  "type": "string",
+                  "description": "Last updated timestamp"
+              },
+              {
+                  "name": "createdOn",
+                  "type": "string",
+                  "description": "Timestamp when the item was created"
+              },
+              {
+                  "name": "isArchived",
+                  "type": "boolean",
+                  "description": "Whether the item is archived"
+              },
+              {
+                  "name": "isDraft",
+                  "type": "boolean",
+                  "description": "Whether the item is a draft"
+              },
+              {
+                  "name": "fieldData",
+                  "type": "object",
+                  "description": "The updated field data of the item"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Collection Item Deleted
+
+Trigger workflow when an item is deleted from a Webflow CMS collection (requires Webflow credentials)
+
+#### Setup Instructions
+
+<div class="mb-3"><strong>1.</strong> Connect your Webflow account using the "Select Webflow credential" button above.</div><div class="mb-3"><strong>2.</strong> Enter your Webflow Site ID (found in the site URL or site settings).</div><div class="mb-3"><strong>3.</strong> Optionally enter a Collection ID to monitor only specific collections.</div><div class="mb-3"><strong>4.</strong> If no Collection ID is provided, the trigger will fire for items deleted in any collection on the site.</div><div class="mb-3"><strong>5.</strong> The webhook will trigger whenever an item is deleted from the specified collection(s).</div><div class="mb-3"><strong>6.</strong> Note: Once an item is deleted, only minimal information (ID, collection, site) is available.</div><div class="mb-3"><strong>7.</strong> Make sure your Webflow account has appropriate permissions for the specified site.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Collection Item Deleted"
+    type="webflow_collection_item_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credentials",
+            "description": "This trigger requires webflow credentials to access your account.",
+            "provider": "webflow",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "dropdown",
+            "title": "Site",
+            "placeholder": "Select a site",
+            "description": "The Webflow site to monitor",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "dropdown",
+            "title": "Collection",
+            "placeholder": "Select a collection (optional)",
+            "description": "Optionally filter to monitor only a specific collection",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "siteId",
+          "type": "string",
+          "description": "The site ID where the event occurred"
+      },
+      {
+          "name": "collectionId",
+          "type": "string",
+          "description": "The collection ID where the item was deleted"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "The ID of the deleted item"
+              },
+              {
+                  "name": "deletedOn",
+                  "type": "string",
+                  "description": "Timestamp when the item was deleted"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
 ### Form Submission
 
 Trigger workflow when a form is submitted on a Webflow site (requires Webflow credentials)
+
+#### Setup Instructions
+
+<div class="mb-3"><strong>1.</strong> Connect your Webflow account using the "Select Webflow credential" button above.</div><div class="mb-3"><strong>2.</strong> Enter your Webflow Site ID (found in the site URL or site settings).</div><div class="mb-3"><strong>3.</strong> Optionally enter a Form ID to monitor only a specific form.</div><div class="mb-3"><strong>4.</strong> If no Form ID is provided, the trigger will fire for any form submission on the site.</div><div class="mb-3"><strong>5.</strong> The webhook will trigger whenever a form is submitted on the specified site.</div><div class="mb-3"><strong>6.</strong> Form data will be included in the payload with all submitted field values.</div><div class="mb-3"><strong>7.</strong> Make sure your Webflow account has appropriate permissions for the specified site.</div>
 
 <ShowcaseCard>
   <BlockConfigPreview
@@ -168,6 +343,7 @@ Trigger workflow when a form is submitted on a Webflow site (requires Webflow cr
             "type": "oauth-input",
             "title": "Credentials",
             "description": "This trigger requires webflow credentials to access your account.",
+            "provider": "webflow",
             "required": true
         },
         {
@@ -183,7 +359,8 @@ Trigger workflow when a form is submitted on a Webflow site (requires Webflow cr
             "type": "short-input",
             "title": "Form ID",
             "placeholder": "form-123abc (optional)",
-            "description": "The ID of the specific form to monitor (optional - leave empty for all forms)"
+            "description": "The ID of the specific form to monitor (optional - leave empty for all forms)",
+            "required": false
         }
     ]}
   />
@@ -238,181 +415,3 @@ Trigger workflow when a form is submitted on a Webflow site (requires Webflow cr
 />
 
 ---
-
-### Collection Item Changed
-
-Trigger workflow when an item is updated in a Webflow CMS collection (requires Webflow credentials)
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="Collection Item Changed"
-    type="webflow_collection_item_changed"
-    hideHeader
-    subBlocks={[
-        {
-            "id": "triggerCredentials",
-            "type": "oauth-input",
-            "title": "Credentials",
-            "description": "This trigger requires webflow credentials to access your account.",
-            "required": true
-        },
-        {
-            "id": "siteId",
-            "type": "dropdown",
-            "title": "Site",
-            "placeholder": "Select a site",
-            "description": "The Webflow site to monitor",
-            "required": true
-        },
-        {
-            "id": "collectionId",
-            "type": "dropdown",
-            "title": "Collection",
-            "placeholder": "Select a collection (optional)",
-            "description": "Optionally filter to monitor only a specific collection"
-        }
-    ]}
-  />
-</ShowcaseCard>
-
-#### Output Schema
-
-<SchemaTree
-  title="Event Payload"
-  fields={[
-      {
-          "name": "siteId",
-          "type": "string",
-          "description": "The site ID where the event occurred"
-      },
-      {
-          "name": "collectionId",
-          "type": "string",
-          "description": "The collection ID where the item was changed"
-      },
-      {
-          "name": "payload",
-          "type": "object",
-          "description": "payload",
-          "children": [
-              {
-                  "name": "id",
-                  "type": "string",
-                  "description": "The ID of the changed item"
-              },
-              {
-                  "name": "cmsLocaleId",
-                  "type": "string",
-                  "description": "CMS locale ID"
-              },
-              {
-                  "name": "lastPublished",
-                  "type": "string",
-                  "description": "Last published timestamp"
-              },
-              {
-                  "name": "lastUpdated",
-                  "type": "string",
-                  "description": "Last updated timestamp"
-              },
-              {
-                  "name": "createdOn",
-                  "type": "string",
-                  "description": "Timestamp when the item was created"
-              },
-              {
-                  "name": "isArchived",
-                  "type": "boolean",
-                  "description": "Whether the item is archived"
-              },
-              {
-                  "name": "isDraft",
-                  "type": "boolean",
-                  "description": "Whether the item is a draft"
-              },
-              {
-                  "name": "fieldData",
-                  "type": "object",
-                  "description": "The updated field data of the item"
-              }
-          ]
-      }
-  ]}
-/>
-
----
-
-### Collection Item Deleted
-
-Trigger workflow when an item is deleted from a Webflow CMS collection (requires Webflow credentials)
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="Collection Item Deleted"
-    type="webflow_collection_item_deleted"
-    hideHeader
-    subBlocks={[
-        {
-            "id": "triggerCredentials",
-            "type": "oauth-input",
-            "title": "Credentials",
-            "description": "This trigger requires webflow credentials to access your account.",
-            "required": true
-        },
-        {
-            "id": "siteId",
-            "type": "dropdown",
-            "title": "Site",
-            "placeholder": "Select a site",
-            "description": "The Webflow site to monitor",
-            "required": true
-        },
-        {
-            "id": "collectionId",
-            "type": "dropdown",
-            "title": "Collection",
-            "placeholder": "Select a collection (optional)",
-            "description": "Optionally filter to monitor only a specific collection"
-        }
-    ]}
-  />
-</ShowcaseCard>
-
-#### Output Schema
-
-<SchemaTree
-  title="Event Payload"
-  fields={[
-      {
-          "name": "siteId",
-          "type": "string",
-          "description": "The site ID where the event occurred"
-      },
-      {
-          "name": "collectionId",
-          "type": "string",
-          "description": "The collection ID where the item was deleted"
-      },
-      {
-          "name": "payload",
-          "type": "object",
-          "description": "payload",
-          "children": [
-              {
-                  "name": "id",
-                  "type": "string",
-                  "description": "The ID of the deleted item"
-              },
-              {
-                  "name": "deletedOn",
-                  "type": "string",
-                  "description": "Timestamp when the item was deleted"
-              }
-          ]
-      }
-  ]}
-/>
-
----
-
-

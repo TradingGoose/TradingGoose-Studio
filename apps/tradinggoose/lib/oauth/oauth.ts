@@ -31,7 +31,7 @@ import {
   WebflowIcon,
   xIcon,
 } from '@/components/icons/icons'
-import { AlpacaIcon } from '@/components/icons/provider-icons'
+import { AlpacaIcon, RobinHoodIcon } from '@/components/icons/provider-icons'
 
 export type OAuthProvider =
   | 'google'
@@ -92,6 +92,7 @@ export interface OAuthCredentialFieldConfig {
   placeholder: string
   isSensitive: boolean
   required?: boolean
+  systemManaged?: boolean
   oauthProperty?: 'clientId' | 'clientSecret'
 }
 
@@ -167,6 +168,44 @@ export const HUBSPOT_OAUTH_SCOPES = [
 ]
 
 export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
+  robinhood: {
+    id: 'robinhood',
+    name: 'Robinhood',
+    icon: (props) => RobinHoodIcon(props),
+    credentialFields: [
+      {
+        key: 'client_id',
+        label: 'Client ID',
+        note: 'Registered automatically when connecting Robinhood',
+        placeholder: 'Automatically registered',
+        isSensitive: false,
+        required: false,
+        systemManaged: true,
+        oauthProperty: 'clientId',
+      },
+      {
+        key: 'redirect_uri',
+        label: 'Redirect URI',
+        note: 'Registered automatically when connecting Robinhood',
+        placeholder: 'Automatically registered',
+        isSensitive: false,
+        required: false,
+        systemManaged: true,
+      },
+    ],
+    services: {
+      robinhood: {
+        id: 'robinhood',
+        name: 'Robinhood',
+        description: 'Connect on desktop to access Robinhood market data and trading.',
+        providerId: 'robinhood',
+        icon: (props) => RobinHoodIcon(props),
+        baseProviderIcon: (props) => RobinHoodIcon(props),
+        scopes: ['internal'],
+      },
+    },
+    defaultService: 'robinhood',
+  },
   alpaca: {
     id: 'alpaca',
     name: 'Alpaca',

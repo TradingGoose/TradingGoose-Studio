@@ -1,0 +1,121 @@
+---
+title: Primeros pasos
+description: Escribe y despliega tu primer indicador personalizado
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+
+## Crea tu primer indicador
+
+<Steps>
+  <Step>
+    **Abre el Editor de indicadores** — Agrega un widget Editor de indicadores a tu espacio de trabajo, o ve a la lista de Indicadores y haz clic en "Nuevo indicador"
+  </Step>
+  <Step>
+    **Escribe tu código** — Comienza con la declaración `indicator()`, define entradas, calcula valores y traza resultados
+  </Step>
+  <Step>
+    **Previsualiza en el gráfico** — El widget Gráfico de datos representa la salida de tu indicador en tiempo real mientras editas
+  </Step>
+  <Step>
+    **Guarda y despliega** — Ponle nombre a tu indicador y guárdalo en tu espacio de trabajo para usarlo en gráficos y flujos de trabajo
+  </Step>
+</Steps>
+
+## Ejemplo mínimo
+
+Todo indicador comienza con una llamada a `indicator()` y al menos un `plot()`:
+
+```javascript
+indicator('Simple Moving Average', { overlay: true });
+
+const length = input.int(20, 'Length');
+const sma = ta.sma(close, length);
+
+plot(sma, 'SMA', { color: '#2962FF' });
+```
+
+Esto crea un indicador con:
+- Un parámetro configurable `Length` (valor predeterminado 20) que aparece en la interfaz
+- Una media móvil simple calculada sobre los precios de cierre
+- Una línea azul trazada como superposición en el gráfico de precios
+
+## Opciones del indicador
+
+La función `indicator()` acepta un título y un objeto de opciones:
+
+```javascript
+indicator('My Indicator', {
+  overlay: true,        // Plot on price chart (false = separate pane)
+  precision: 2,         // Decimal places for values
+  format: format.price, // Display format
+});
+```
+
+| Opción | Tipo | Valor predeterminado | Descripción |
+|--------|------|---------|-------------|
+| `overlay` | boolean | `false` | Traza en el gráfico de precios en lugar de un panel separado |
+| `precision` | number | auto | Número de decimales |
+| `format` | string | `format.inherit` | Formato de visualización (`format.price`, `format.volume`, `format.percent`) |
+| `scale` | string | auto | Tipo de escala |
+| `max_bars_back` | number | auto | Número máximo de barras históricas de referencia |
+| `max_lines_count` | number | auto | Máximo de objetos de dibujo de líneas |
+| `max_labels_count` | number | auto | Máximo de objetos de dibujo de etiquetas |
+| `max_boxes_count` | number | auto | Máximo de objetos de dibujo de cajas |
+
+## Un ejemplo más completo
+
+Aquí tienes un indicador de Bandas de Bollinger que muestra entradas, desestructuración de tuplas, múltiples trazados y relleno:
+
+```javascript
+indicator('Bollinger Bands', { overlay: true });
+
+const length = input.int(20, 'Length');
+const mult = input.float(2, 'StdDev');
+
+// ta.bb returns [middle, upper, lower] as a tuple
+const [middle, upper, lower] = ta.bb(close, length, mult);
+
+const upperPlot = plot(upper, 'Upper', { color: '#F23645' });
+plot(middle, 'Middle', { color: '#2962FF' });
+const lowerPlot = plot(lower, 'Lower', { color: '#089981' });
+
+// Fill the area between upper and lower bands
+fill(upperPlot, lowerPlot);
+```
+
+## Agregar un disparador de flujo de trabajo
+
+La función `trigger()` es una extensión de TradingGoose que conecta las señales de los indicadores con la automatización de flujos de trabajo:
+
+```javascript
+indicator('MACD Crossover Signal');
+
+const [macdLine, signalLine, hist] = ta.macd(close, 12, 26, 9);
+
+plot(hist, 'Histogram', { style: plot.style_histogram });
+plot(macdLine, 'MACD');
+plot(signalLine, 'Signal');
+
+// Fire a workflow when MACD crosses above signal line
+if (ta.crossover(macdLine, signalLine)) {
+  trigger('macd_bullish_cross', {
+    condition: ta.crossover(macdLine, signalLine),
+    input: 'MACD bullish crossover detected',
+    signal: 'long',
+    position: 'belowBar',
+    color: '#00FF00'
+  });
+}
+```
+
+<Callout type="info">
+  La API `trigger()` es exclusiva de TradingGoose y no existe en Pine Script estándar. Consulta la [guía de Triggers](/indicators/triggers) para ver la documentación completa.
+</Callout>
+
+## Próximos pasos
+
+- Aprende las [reglas de sintaxis de PineTS](/indicators/syntax) — en especial `let` frente a `var` para la gestión de estado
+- Explora los [tipos de entradas](/indicators/inputs) para crear indicadores configurables
+- Consulta la [referencia de análisis técnico](/indicators/ta) para ver todas las 57+ funciones integradas

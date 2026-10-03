@@ -1,0 +1,417 @@
+---
+title: Trigger de Webflow
+description: Activa el workflow cuando se crea un elemento nuevo en una
+  colección CMS de Webflow (requiere credenciales de Webflow)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="webflow"
+  color=""
+/>
+
+Activa el workflow cuando se crea un elemento nuevo en una colección CMS de Webflow (requiere credenciales de Webflow)
+
+<Callout type="info">
+  Este es un trigger **basado en webhook**. Configura el servicio externo para enviar eventos a la URL del webhook del workflow.
+</Callout>
+
+<Cards>
+  <Card title="Usar como Tool" href="/tools/webflow">
+    Consulta las acciones, operaciones y entradas de tool del workflow para Webflow.
+  </Card>
+</Cards>
+
+## Eventos
+
+### Elemento de colección creado
+
+Activa el workflow cuando se crea un elemento nuevo en una colección CMS de Webflow (requiere credenciales de Webflow)
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>1.</strong> Conecta tu cuenta de Webflow con el botón "Seleccionar credencial de Webflow" de arriba.</div><div class="mb-3"><strong>2.</strong> Introduce el ID de sitio de Webflow (lo encontrarás en la URL del sitio o en la configuración del sitio).</div><div class="mb-3"><strong>3.</strong> Opcionalmente, introduce un ID de colección para supervisar solo colecciones específicas.</div><div class="mb-3"><strong>4.</strong> Si no se indica un ID de colección, el trigger se activará para los elementos creados en cualquier colección del sitio.</div><div class="mb-3"><strong>5.</strong> El webhook se activará cada vez que se cree un elemento nuevo en la colección o colecciones especificadas.</div><div class="mb-3"><strong>6.</strong> Asegúrate de que tu cuenta de Webflow tenga los permisos adecuados para el sitio indicado.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elemento de colección creado"
+    type="webflow_collection_item_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credenciales",
+            "description": "Este trigger requiere credenciales de Webflow para acceder a tu cuenta.",
+            "provider": "webflow",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "dropdown",
+            "title": "Sitio",
+            "placeholder": "Selecciona un sitio",
+            "description": "El sitio de Webflow que se va a supervisar",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "dropdown",
+            "title": "Colección",
+            "placeholder": "Selecciona una colección (opcional)",
+            "description": "Filtra de forma opcional para supervisar solo una colección específica",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "siteId",
+          "type": "string",
+          "description": "El ID del sitio donde ocurrió el evento"
+      },
+      {
+          "name": "collectionId",
+          "type": "string",
+          "description": "El ID de la colección donde se creó el elemento"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "El ID del elemento creado"
+              },
+              {
+                  "name": "cmsLocaleId",
+                  "type": "string",
+                  "description": "ID de locale del CMS"
+              },
+              {
+                  "name": "lastPublished",
+                  "type": "string",
+                  "description": "Marca de tiempo de la última publicación"
+              },
+              {
+                  "name": "lastUpdated",
+                  "type": "string",
+                  "description": "Marca de tiempo de la última actualización"
+              },
+              {
+                  "name": "createdOn",
+                  "type": "string",
+                  "description": "Marca de tiempo de creación del elemento"
+              },
+              {
+                  "name": "isArchived",
+                  "type": "boolean",
+                  "description": "Indica si el elemento está archivado"
+              },
+              {
+                  "name": "isDraft",
+                  "type": "boolean",
+                  "description": "Indica si el elemento es un borrador"
+              },
+              {
+                  "name": "fieldData",
+                  "type": "object",
+                  "description": "Los datos de los campos del elemento"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Elemento de colección modificado
+
+Activa el flujo de trabajo cuando se actualiza un elemento en una colección de CMS de Webflow (requiere credenciales de Webflow)
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>1.</strong> Conecta tu cuenta de Webflow con el botón "Seleccionar credencial de Webflow" de arriba.</div><div class="mb-3"><strong>2.</strong> Introduce el ID de sitio de Webflow (lo encontrarás en la URL del sitio o en la configuración del sitio).</div><div class="mb-3"><strong>3.</strong> Opcionalmente, introduce un ID de colección para supervisar solo colecciones específicas.</div><div class="mb-3"><strong>4.</strong> Si no se indica un ID de colección, el activador se disparará para los elementos modificados en cualquier colección del sitio.</div><div class="mb-3"><strong>5.</strong> El webhook se activará cada vez que se actualice un elemento existente en la colección o colecciones especificadas.</div><div class="mb-3"><strong>6.</strong> Asegúrate de que tu cuenta de Webflow tenga los permisos adecuados para el sitio especificado.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elemento de colección modificado"
+    type="webflow_collection_item_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credenciales",
+            "description": "Este activador requiere credenciales de Webflow para acceder a tu cuenta.",
+            "provider": "webflow",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "dropdown",
+            "title": "Sitio",
+            "placeholder": "Selecciona un sitio",
+            "description": "El sitio de Webflow que se va a supervisar",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "dropdown",
+            "title": "Colección",
+            "placeholder": "Selecciona una colección (opcional)",
+            "description": "Filtra de forma opcional para supervisar solo una colección específica",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Carga útil del evento"
+  fields={[
+      {
+          "name": "siteId",
+          "type": "string",
+          "description": "El ID del sitio donde ocurrió el evento"
+      },
+      {
+          "name": "collectionId",
+          "type": "string",
+          "description": "El ID de la colección donde se modificó el elemento"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "El ID del elemento modificado"
+              },
+              {
+                  "name": "cmsLocaleId",
+                  "type": "string",
+                  "description": "ID de locale del CMS"
+              },
+              {
+                  "name": "lastPublished",
+                  "type": "string",
+                  "description": "Marca de tiempo de la última publicación"
+              },
+              {
+                  "name": "lastUpdated",
+                  "type": "string",
+                  "description": "Marca de tiempo de la última actualización"
+              },
+              {
+                  "name": "createdOn",
+                  "type": "string",
+                  "description": "Marca de tiempo de creación del elemento"
+              },
+              {
+                  "name": "isArchived",
+                  "type": "boolean",
+                  "description": "Indica si el elemento está archivado"
+              },
+              {
+                  "name": "isDraft",
+                  "type": "boolean",
+                  "description": "Indica si el elemento es un borrador"
+              },
+              {
+                  "name": "fieldData",
+                  "type": "object",
+                  "description": "Los datos de campo actualizados del elemento"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Elemento de colección eliminado
+
+Activa el flujo de trabajo cuando se elimina un elemento de una colección CMS de Webflow (requiere credenciales de Webflow)
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>1.</strong> Conecta tu cuenta de Webflow con el botón "Seleccionar credencial de Webflow" de arriba.</div><div class="mb-3"><strong>2.</strong> Introduce el ID del sitio de Webflow (se encuentra en la URL del sitio o en la configuración del sitio).</div><div class="mb-3"><strong>3.</strong> Opcionalmente, introduce un ID de colección para supervisar solo colecciones específicas.</div><div class="mb-3"><strong>4.</strong> Si no se indica un ID de colección, el disparador se activará para los elementos eliminados en cualquier colección del sitio.</div><div class="mb-3"><strong>5.</strong> El webhook se activará cada vez que se elimine un elemento de las colecciones especificadas.</div><div class="mb-3"><strong>6.</strong> Nota: Una vez eliminado un elemento, solo hay información mínima disponible (ID, colección, sitio).</div><div class="mb-3"><strong>7.</strong> Asegúrate de que tu cuenta de Webflow tenga los permisos adecuados para el sitio especificado.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Elemento de colección eliminado"
+    type="webflow_collection_item_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credenciales",
+            "description": "Este trigger requiere credenciales de Webflow para acceder a tu cuenta.",
+            "provider": "webflow",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "dropdown",
+            "title": "Sitio",
+            "placeholder": "Selecciona un sitio",
+            "description": "El sitio de Webflow que se va a supervisar",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "dropdown",
+            "title": "Colección",
+            "placeholder": "Selecciona una colección (opcional)",
+            "description": "Filtra de forma opcional para supervisar solo una colección específica",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "siteId",
+          "type": "string",
+          "description": "El ID del sitio donde ocurrió el evento"
+      },
+      {
+          "name": "collectionId",
+          "type": "string",
+          "description": "El ID de la colección donde se eliminó el elemento"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "El ID del elemento eliminado"
+              },
+              {
+                  "name": "deletedOn",
+                  "type": "string",
+                  "description": "Marca de tiempo en la que se eliminó el elemento"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Envío de formulario
+
+Activa el workflow cuando se envía un formulario en un sitio de Webflow (requiere credenciales de Webflow)
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>1.</strong> Conecta tu cuenta de Webflow con el botón "Seleccionar credencial de Webflow" de arriba.</div><div class="mb-3"><strong>2.</strong> Introduce el Site ID de Webflow (se encuentra en la URL del sitio o en la configuración del sitio).</div><div class="mb-3"><strong>3.</strong> Opcionalmente, introduce un Form ID para supervisar solo un formulario específico.</div><div class="mb-3"><strong>4.</strong> Si no se proporciona un Form ID, el trigger se activará con cualquier envío de formulario en el sitio.</div><div class="mb-3"><strong>5.</strong> El webhook se activará cada vez que se envíe un formulario en el sitio especificado.</div><div class="mb-3"><strong>6.</strong> Los datos del formulario se incluirán en el payload con todos los valores de los campos enviados.</div><div class="mb-3"><strong>7.</strong> Asegúrate de que tu cuenta de Webflow tenga los permisos adecuados para el sitio especificado.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Envío de formulario"
+    type="webflow_form_submission"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credenciales",
+            "description": "Este trigger requiere credenciales de Webflow para acceder a tu cuenta.",
+            "provider": "webflow",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "dropdown",
+            "title": "Sitio",
+            "placeholder": "Selecciona un sitio",
+            "description": "El sitio de Webflow que se va a supervisar",
+            "required": true
+        },
+        {
+            "id": "formId",
+            "type": "short-input",
+            "title": "ID del formulario",
+            "placeholder": "form-123abc (opcional)",
+            "description": "El ID del formulario específico que se va a supervisar (opcional: déjalo vacío para todos los formularios)",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "siteId",
+          "type": "string",
+          "description": "El ID del sitio donde se envió el formulario"
+      },
+      {
+          "name": "formId",
+          "type": "string",
+          "description": "El ID del formulario"
+      },
+      {
+          "name": "name",
+          "type": "string",
+          "description": "El nombre del formulario"
+      },
+      {
+          "name": "id",
+          "type": "string",
+          "description": "El ID único del envío del formulario"
+      },
+      {
+          "name": "submittedAt",
+          "type": "string",
+          "description": "Marca de tiempo de cuando se envió el formulario"
+      },
+      {
+          "name": "data",
+          "type": "object",
+          "description": "Los datos de los campos del envío del formulario (las claves son los nombres de los campos)"
+      },
+      {
+          "name": "schema",
+          "type": "object",
+          "description": "Información del esquema del formulario"
+      },
+      {
+          "name": "formElementId",
+          "type": "string",
+          "description": "El ID del elemento del formulario"
+      }
+  ]}
+/>
+
+---

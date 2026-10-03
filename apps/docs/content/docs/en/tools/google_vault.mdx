@@ -30,37 +30,37 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "create_matters_export",
             "options": [
                 {
-                    "label": "Create Export",
-                    "id": "create_matters_export"
+                    "id": "create_matters_export",
+                    "label": "Create Export"
                 },
                 {
-                    "label": "List Exports",
-                    "id": "list_matters_export"
+                    "id": "list_matters_export",
+                    "label": "List Exports"
                 },
                 {
-                    "label": "Download Export File",
-                    "id": "download_export_file"
+                    "id": "download_export_file",
+                    "label": "Download Export File"
                 },
                 {
-                    "label": "Create Hold",
-                    "id": "create_matters_holds"
+                    "id": "create_matters_holds",
+                    "label": "Create Hold"
                 },
                 {
-                    "label": "List Holds",
-                    "id": "list_matters_holds"
+                    "id": "list_matters_holds",
+                    "label": "List Holds"
                 },
                 {
-                    "label": "Create Matter",
-                    "id": "create_matters"
+                    "id": "create_matters",
+                    "label": "Create Matter"
                 },
                 {
-                    "label": "List Matters",
-                    "id": "list_matters"
+                    "id": "list_matters",
+                    "label": "List Matters"
                 }
-            ],
-            "defaultValue": "create_matters_export"
+            ]
         },
         {
             "id": "credential",
@@ -94,24 +94,24 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "required": true,
             "options": [
                 {
-                    "label": "MAIL",
-                    "id": "MAIL"
+                    "id": "MAIL",
+                    "label": "MAIL"
                 },
                 {
-                    "label": "DRIVE",
-                    "id": "DRIVE"
+                    "id": "DRIVE",
+                    "label": "DRIVE"
                 },
                 {
-                    "label": "GROUPS",
-                    "id": "GROUPS"
+                    "id": "GROUPS",
+                    "label": "GROUPS"
                 },
                 {
-                    "label": "HANGOUTS_CHAT",
-                    "id": "HANGOUTS_CHAT"
+                    "id": "HANGOUTS_CHAT",
+                    "label": "HANGOUTS_CHAT"
                 },
                 {
-                    "label": "VOICE",
-                    "id": "VOICE"
+                    "id": "VOICE",
+                    "label": "VOICE"
                 }
             ]
         },
@@ -142,15 +142,18 @@ Create an export in a matter
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `matterId` | string | Yes | No description |
-| `exportName` | string | Yes | No description |
+| `matterId` | string | Yes | ID of the Vault matter that will contain the export |
+| `exportName` | string | Yes | Name for the new Vault export |
 | `corpus` | string | Yes | Data corpus to export \(MAIL, DRIVE, GROUPS, HANGOUTS_CHAT, VOICE\) |
 | `accountEmails` | string | No | Comma-separated list of user emails to scope export |
 | `orgUnitId` | string | No | Organization unit ID to scope export \(alternative to emails\) |
 
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output (block-level contract)</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `output` | json | Vault API response data |
+| `file` | json | Downloaded export file \(UserFile\) from execution files |
 
 </div>
 
@@ -172,37 +175,37 @@ Refer to the block outputs for this operation.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "list_matters_export",
             "options": [
                 {
-                    "label": "Create Export",
-                    "id": "create_matters_export"
+                    "id": "create_matters_export",
+                    "label": "Create Export"
                 },
                 {
-                    "label": "List Exports",
-                    "id": "list_matters_export"
+                    "id": "list_matters_export",
+                    "label": "List Exports"
                 },
                 {
-                    "label": "Download Export File",
-                    "id": "download_export_file"
+                    "id": "download_export_file",
+                    "label": "Download Export File"
                 },
                 {
-                    "label": "Create Hold",
-                    "id": "create_matters_holds"
+                    "id": "create_matters_holds",
+                    "label": "Create Hold"
                 },
                 {
-                    "label": "List Holds",
-                    "id": "list_matters_holds"
+                    "id": "list_matters_holds",
+                    "label": "List Holds"
                 },
                 {
-                    "label": "Create Matter",
-                    "id": "create_matters"
+                    "id": "create_matters",
+                    "label": "Create Matter"
                 },
                 {
-                    "label": "List Matters",
-                    "id": "list_matters"
+                    "id": "list_matters",
+                    "label": "List Matters"
                 }
-            ],
-            "defaultValue": "list_matters_export"
+            ]
         },
         {
             "id": "credential",
@@ -254,14 +257,16 @@ List exports for a matter
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `matterId` | string | Yes | No description |
-| `pageSize` | number | No | No description |
-| `pageToken` | string | No | No description |
-| `exportId` | string | No | No description |
+| `matterId` | string | Yes | ID of the Vault matter whose exports will be read |
+| `pageSize` | number | No | Maximum number of exports to return |
+| `exportId` | string | No | Optional export ID to retrieve instead of listing exports |
 
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output (block-level contract)</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `output` | json | Vault API response data |
+| `file` | json | Downloaded export file \(UserFile\) from execution files |
 
 </div>
 
@@ -283,37 +288,37 @@ Refer to the block outputs for this operation.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "download_export_file",
             "options": [
                 {
-                    "label": "Create Export",
-                    "id": "create_matters_export"
+                    "id": "create_matters_export",
+                    "label": "Create Export"
                 },
                 {
-                    "label": "List Exports",
-                    "id": "list_matters_export"
+                    "id": "list_matters_export",
+                    "label": "List Exports"
                 },
                 {
-                    "label": "Download Export File",
-                    "id": "download_export_file"
+                    "id": "download_export_file",
+                    "label": "Download Export File"
                 },
                 {
-                    "label": "Create Hold",
-                    "id": "create_matters_holds"
+                    "id": "create_matters_holds",
+                    "label": "Create Hold"
                 },
                 {
-                    "label": "List Holds",
-                    "id": "list_matters_holds"
+                    "id": "list_matters_holds",
+                    "label": "List Holds"
                 },
                 {
-                    "label": "Create Matter",
-                    "id": "create_matters"
+                    "id": "create_matters",
+                    "label": "Create Matter"
                 },
                 {
-                    "label": "List Matters",
-                    "id": "list_matters"
+                    "id": "list_matters",
+                    "label": "List Matters"
                 }
-            ],
-            "defaultValue": "download_export_file"
+            ]
         },
         {
             "id": "credential",
@@ -367,14 +372,16 @@ Download a single file from a Google Vault export (GCS object)
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `matterId` | string | Yes | No description |
-| `bucketName` | string | Yes | No description |
-| `objectName` | string | Yes | No description |
-| `fileName` | string | No | No description |
+| `matterId` | string | Yes | ID of the Vault matter associated with the export |
+| `bucketName` | string | Yes | Cloud Storage bucket containing the exported file |
+| `objectName` | string | Yes | Cloud Storage object name for the exported file |
+| `fileName` | string | No | Optional file name for the downloaded result |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `file` | file | Downloaded Vault export file stored in execution files |
 
 </div>
 
@@ -396,37 +403,37 @@ Refer to the block outputs for this operation.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "create_matters_holds",
             "options": [
                 {
-                    "label": "Create Export",
-                    "id": "create_matters_export"
+                    "id": "create_matters_export",
+                    "label": "Create Export"
                 },
                 {
-                    "label": "List Exports",
-                    "id": "list_matters_export"
+                    "id": "list_matters_export",
+                    "label": "List Exports"
                 },
                 {
-                    "label": "Download Export File",
-                    "id": "download_export_file"
+                    "id": "download_export_file",
+                    "label": "Download Export File"
                 },
                 {
-                    "label": "Create Hold",
-                    "id": "create_matters_holds"
+                    "id": "create_matters_holds",
+                    "label": "Create Hold"
                 },
                 {
-                    "label": "List Holds",
-                    "id": "list_matters_holds"
+                    "id": "list_matters_holds",
+                    "label": "List Holds"
                 },
                 {
-                    "label": "Create Matter",
-                    "id": "create_matters"
+                    "id": "create_matters",
+                    "label": "Create Matter"
                 },
                 {
-                    "label": "List Matters",
-                    "id": "list_matters"
+                    "id": "list_matters",
+                    "label": "List Matters"
                 }
-            ],
-            "defaultValue": "create_matters_holds"
+            ]
         },
         {
             "id": "credential",
@@ -460,24 +467,24 @@ Refer to the block outputs for this operation.
             "required": true,
             "options": [
                 {
-                    "label": "MAIL",
-                    "id": "MAIL"
+                    "id": "MAIL",
+                    "label": "MAIL"
                 },
                 {
-                    "label": "DRIVE",
-                    "id": "DRIVE"
+                    "id": "DRIVE",
+                    "label": "DRIVE"
                 },
                 {
-                    "label": "GROUPS",
-                    "id": "GROUPS"
+                    "id": "GROUPS",
+                    "label": "GROUPS"
                 },
                 {
-                    "label": "HANGOUTS_CHAT",
-                    "id": "HANGOUTS_CHAT"
+                    "id": "HANGOUTS_CHAT",
+                    "label": "HANGOUTS_CHAT"
                 },
                 {
-                    "label": "VOICE",
-                    "id": "VOICE"
+                    "id": "VOICE",
+                    "label": "VOICE"
                 }
             ]
         },
@@ -508,15 +515,18 @@ Create a hold in a matter
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `matterId` | string | Yes | No description |
-| `holdName` | string | Yes | No description |
+| `matterId` | string | Yes | ID of the Vault matter that will contain the hold |
+| `holdName` | string | Yes | Name for the new Vault hold |
 | `corpus` | string | Yes | Data corpus to hold \(MAIL, DRIVE, GROUPS, HANGOUTS_CHAT, VOICE\) |
 | `accountEmails` | string | No | Comma-separated list of user emails to put on hold |
 | `orgUnitId` | string | No | Organization unit ID to put on hold \(alternative to accounts\) |
 
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output (block-level contract)</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `output` | json | Vault API response data |
+| `file` | json | Downloaded export file \(UserFile\) from execution files |
 
 </div>
 
@@ -538,37 +548,37 @@ Refer to the block outputs for this operation.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "list_matters_holds",
             "options": [
                 {
-                    "label": "Create Export",
-                    "id": "create_matters_export"
+                    "id": "create_matters_export",
+                    "label": "Create Export"
                 },
                 {
-                    "label": "List Exports",
-                    "id": "list_matters_export"
+                    "id": "list_matters_export",
+                    "label": "List Exports"
                 },
                 {
-                    "label": "Download Export File",
-                    "id": "download_export_file"
+                    "id": "download_export_file",
+                    "label": "Download Export File"
                 },
                 {
-                    "label": "Create Hold",
-                    "id": "create_matters_holds"
+                    "id": "create_matters_holds",
+                    "label": "Create Hold"
                 },
                 {
-                    "label": "List Holds",
-                    "id": "list_matters_holds"
+                    "id": "list_matters_holds",
+                    "label": "List Holds"
                 },
                 {
-                    "label": "Create Matter",
-                    "id": "create_matters"
+                    "id": "create_matters",
+                    "label": "Create Matter"
                 },
                 {
-                    "label": "List Matters",
-                    "id": "list_matters"
+                    "id": "list_matters",
+                    "label": "List Matters"
                 }
-            ],
-            "defaultValue": "list_matters_holds"
+            ]
         },
         {
             "id": "credential",
@@ -620,14 +630,16 @@ List holds for a matter
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `matterId` | string | Yes | No description |
-| `pageSize` | number | No | No description |
-| `pageToken` | string | No | No description |
-| `holdId` | string | No | No description |
+| `matterId` | string | Yes | ID of the Vault matter whose holds will be read |
+| `pageSize` | number | No | Maximum number of holds to return |
+| `holdId` | string | No | Optional hold ID to retrieve instead of listing holds |
 
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output (block-level contract)</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `output` | json | Vault API response data |
+| `file` | json | Downloaded export file \(UserFile\) from execution files |
 
 </div>
 
@@ -649,37 +661,37 @@ Refer to the block outputs for this operation.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "create_matters",
             "options": [
                 {
-                    "label": "Create Export",
-                    "id": "create_matters_export"
+                    "id": "create_matters_export",
+                    "label": "Create Export"
                 },
                 {
-                    "label": "List Exports",
-                    "id": "list_matters_export"
+                    "id": "list_matters_export",
+                    "label": "List Exports"
                 },
                 {
-                    "label": "Download Export File",
-                    "id": "download_export_file"
+                    "id": "download_export_file",
+                    "label": "Download Export File"
                 },
                 {
-                    "label": "Create Hold",
-                    "id": "create_matters_holds"
+                    "id": "create_matters_holds",
+                    "label": "Create Hold"
                 },
                 {
-                    "label": "List Holds",
-                    "id": "list_matters_holds"
+                    "id": "list_matters_holds",
+                    "label": "List Holds"
                 },
                 {
-                    "label": "Create Matter",
-                    "id": "create_matters"
+                    "id": "create_matters",
+                    "label": "Create Matter"
                 },
                 {
-                    "label": "List Matters",
-                    "id": "list_matters"
+                    "id": "list_matters",
+                    "label": "List Matters"
                 }
-            ],
-            "defaultValue": "create_matters"
+            ]
         },
         {
             "id": "credential",
@@ -689,13 +701,6 @@ Refer to the block outputs for this operation.
             "placeholder": "Select Google Vault account",
             "provider": "google-vault",
             "required": true
-        },
-        {
-            "id": "matterId",
-            "type": "short-input",
-            "title": "Matter ID",
-            "layout": "full",
-            "placeholder": "Enter Matter ID"
         },
         {
             "id": "name",
@@ -725,12 +730,15 @@ Create a new matter in Google Vault
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `name` | string | Yes | No description |
-| `description` | string | No | No description |
+| `name` | string | Yes | Name for the new Vault matter |
+| `description` | string | No | Optional description for the new Vault matter |
 
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output (block-level contract)</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `output` | json | Vault API response data |
+| `file` | json | Downloaded export file \(UserFile\) from execution files |
 
 </div>
 
@@ -752,37 +760,37 @@ Refer to the block outputs for this operation.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "list_matters",
             "options": [
                 {
-                    "label": "Create Export",
-                    "id": "create_matters_export"
+                    "id": "create_matters_export",
+                    "label": "Create Export"
                 },
                 {
-                    "label": "List Exports",
-                    "id": "list_matters_export"
+                    "id": "list_matters_export",
+                    "label": "List Exports"
                 },
                 {
-                    "label": "Download Export File",
-                    "id": "download_export_file"
+                    "id": "download_export_file",
+                    "label": "Download Export File"
                 },
                 {
-                    "label": "Create Hold",
-                    "id": "create_matters_holds"
+                    "id": "create_matters_holds",
+                    "label": "Create Hold"
                 },
                 {
-                    "label": "List Holds",
-                    "id": "list_matters_holds"
+                    "id": "list_matters_holds",
+                    "label": "List Holds"
                 },
                 {
-                    "label": "Create Matter",
-                    "id": "create_matters"
+                    "id": "create_matters",
+                    "label": "Create Matter"
                 },
                 {
-                    "label": "List Matters",
-                    "id": "list_matters"
+                    "id": "list_matters",
+                    "label": "List Matters"
                 }
-            ],
-            "defaultValue": "list_matters"
+            ]
         },
         {
             "id": "credential",
@@ -792,13 +800,6 @@ Refer to the block outputs for this operation.
             "placeholder": "Select Google Vault account",
             "provider": "google-vault",
             "required": true
-        },
-        {
-            "id": "matterId",
-            "type": "short-input",
-            "title": "Matter ID",
-            "layout": "full",
-            "placeholder": "Enter Matter ID"
         },
         {
             "id": "pageSize",
@@ -834,13 +835,15 @@ List matters, or get a specific matter if matterId is provided
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `pageSize` | number | No | No description |
-| `pageToken` | string | No | No description |
-| `matterId` | string | No | No description |
+| `pageSize` | number | No | Maximum number of matters to return |
+| `matterId` | string | No | Optional matter ID to retrieve instead of listing matters |
 
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output (block-level contract)</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `output` | json | Vault API response data |
+| `file` | json | Downloaded export file \(UserFile\) from execution files |
 
 </div>
 

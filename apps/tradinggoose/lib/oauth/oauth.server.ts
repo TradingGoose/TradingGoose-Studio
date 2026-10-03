@@ -7,11 +7,12 @@ import {
   type OAuthProviderAvailability,
 } from '@/lib/oauth/oauth'
 import {
+  getSystemOAuthClientCredentialsForRequest,
   loadSystemOAuthClientCredentials,
-  loadSystemOAuthClientCredentialsForProvider,
 } from '@/lib/oauth/system-managed-config'
 
 const logger = createLogger('OAuth')
+const TOKEN_REFRESH_TIMEOUT_MS = 15_000
 
 interface ProviderAuthConfig {
   tokenEndpoint: string
@@ -22,6 +23,7 @@ interface ProviderAuthConfig {
   additionalHeaders?: Record<string, string>
   supportsRefreshTokenRotation?: boolean
   useJsonBody?: boolean
+  additionalBodyParams?: Record<string, string>
 }
 
 interface ProviderAuthCredentials {
@@ -46,6 +48,14 @@ function getProviderAuthTemplate(
   providerId: string
 ): Omit<ProviderAuthConfig, 'clientId' | 'clientSecret'> {
   switch (providerId) {
+    case 'robinhood':
+      return {
+        tokenEndpoint: 'https://api.robinhood.com/oauth2/token/',
+        useBasicAuth: false,
+        requiresClientSecret: false,
+        supportsRefreshTokenRotation: true,
+        additionalBodyParams: { resource: 'https://agent.robinhood.com/mcp/trading' },
+      }
     case 'google':
       return {
         tokenEndpoint: 'https://oauth2.googleapis.com/token',
@@ -168,25 +178,23 @@ function pickCredentials(
   }
 }
 
-async function getProviderAuthCredentials(
-  providerId: string
-): Promise<ProviderAuthCredentials | null> {
+function getProviderAuthCredentials(providerId: string): ProviderAuthCredentials | null {
   const normalizedProviderId = providerId.trim()
   if (!isSystemIntegrationManagedOAuthServiceProviderId(normalizedProviderId)) {
     return null
   }
 
   const authTemplate = getProviderAuthTemplate(getBaseProviderForService(normalizedProviderId))
-  const credentials = await loadSystemOAuthClientCredentialsForProvider(normalizedProviderId)
+  const credentials = getSystemOAuthClientCredentialsForRequest(normalizedProviderId)
   return pickCredentials(
-    credentials?.clientId,
-    credentials?.clientSecret,
+    credentials.clientId,
+    credentials.clientSecret,
     authTemplate.requiresClientSecret !== false
   )
 }
 
-async function getProviderAuthConfig(providerId: string): Promise<ProviderAuthConfig> {
-  const credentials = await getProviderAuthCredentials(providerId)
+function getProviderAuthConfig(providerId: string): ProviderAuthConfig {
+  const credentials = getProviderAuthCredentials(providerId)
 
   if (!credentials) {
     throw new Error(`Missing client credentials for provider: ${providerId}`)
@@ -210,6 +218,7 @@ function buildAuthRequest(
   const bodyParams: Record<string, string> = {
     grant_type: 'refresh_token',
     refresh_token: refreshToken,
+    ...config.additionalBodyParams,
   }
 
   if (config.useBasicAuth) {
@@ -254,7 +263,7 @@ export async function refreshOAuthToken(
   refreshToken: string
 ): Promise<{ accessToken: string; expiresIn: number; refreshToken: string } | null> {
   try {
-    const config = await getProviderAuthConfig(providerId)
+    const config = getProviderAuthConfig(providerId)
     const provider = getBaseProviderForService(providerId)
     const { headers, bodyParams, useJsonBody } = buildAuthRequest(config, refreshToken)
 
@@ -262,6 +271,7 @@ export async function refreshOAuthToken(
       method: 'POST',
       headers,
       body: useJsonBody ? JSON.stringify(bodyParams) : new URLSearchParams(bodyParams).toString(),
+      signal: AbortSignal.timeout(TOKEN_REFRESH_TIMEOUT_MS),
     })
 
     if (!response.ok) {

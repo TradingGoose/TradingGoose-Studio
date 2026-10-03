@@ -10,7 +10,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
   type="webflow"
-  color=""
+  color="#146EF5"
 />
 
 <Cards>
@@ -28,7 +28,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
   <BlockConfigPreview
     name="Webflow"
     type="webflow"
-    color=""
+    color="#146EF5"
     hideHeader
     subBlocks={[
         {
@@ -36,29 +36,29 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "list",
             "options": [
                 {
-                    "label": "List Items",
-                    "id": "list"
+                    "id": "list",
+                    "label": "List Items"
                 },
                 {
-                    "label": "Get Item",
-                    "id": "get"
+                    "id": "get",
+                    "label": "Get Item"
                 },
                 {
-                    "label": "Create Item",
-                    "id": "create"
+                    "id": "create",
+                    "label": "Create Item"
                 },
                 {
-                    "label": "Update Item",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Item"
                 },
                 {
-                    "label": "Delete Item",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Item"
                 }
-            ],
-            "defaultValue": "list"
+            ]
         },
         {
             "id": "credential",
@@ -113,6 +113,7 @@ List all items from a Webflow CMS collection
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `items` | json | Array of collection items |
+| `metadata` | json | Metadata about the query |
 
 </div>
 
@@ -126,7 +127,7 @@ List all items from a Webflow CMS collection
   <BlockConfigPreview
     name="Webflow"
     type="webflow"
-    color=""
+    color="#146EF5"
     hideHeader
     subBlocks={[
         {
@@ -134,29 +135,29 @@ List all items from a Webflow CMS collection
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "get",
             "options": [
                 {
-                    "label": "List Items",
-                    "id": "list"
+                    "id": "list",
+                    "label": "List Items"
                 },
                 {
-                    "label": "Get Item",
-                    "id": "get"
+                    "id": "get",
+                    "label": "Get Item"
                 },
                 {
-                    "label": "Create Item",
-                    "id": "create"
+                    "id": "create",
+                    "label": "Create Item"
                 },
                 {
-                    "label": "Update Item",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Item"
                 },
                 {
-                    "label": "Delete Item",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Item"
                 }
-            ],
-            "defaultValue": "get"
+            ]
         },
         {
             "id": "credential",
@@ -204,6 +205,7 @@ Get a single item from a Webflow CMS collection
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `item` | json | The retrieved item object |
+| `metadata` | json | Metadata about the retrieved item |
 
 </div>
 
@@ -217,7 +219,7 @@ Get a single item from a Webflow CMS collection
   <BlockConfigPreview
     name="Webflow"
     type="webflow"
-    color=""
+    color="#146EF5"
     hideHeader
     subBlocks={[
         {
@@ -225,29 +227,29 @@ Get a single item from a Webflow CMS collection
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "create",
             "options": [
                 {
-                    "label": "List Items",
-                    "id": "list"
+                    "id": "list",
+                    "label": "List Items"
                 },
                 {
-                    "label": "Get Item",
-                    "id": "get"
+                    "id": "get",
+                    "label": "Get Item"
                 },
                 {
-                    "label": "Create Item",
-                    "id": "create"
+                    "id": "create",
+                    "label": "Create Item"
                 },
                 {
-                    "label": "Update Item",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Item"
                 },
                 {
-                    "label": "Delete Item",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Item"
                 }
-            ],
-            "defaultValue": "create"
+            ]
         },
         {
             "id": "credential",
@@ -296,6 +298,7 @@ Create a new item in a Webflow CMS collection
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `item` | json | The created item object |
+| `metadata` | json | Metadata about the created item |
 
 </div>
 
@@ -309,7 +312,7 @@ Create a new item in a Webflow CMS collection
   <BlockConfigPreview
     name="Webflow"
     type="webflow"
-    color=""
+    color="#146EF5"
     hideHeader
     subBlocks={[
         {
@@ -317,29 +320,29 @@ Create a new item in a Webflow CMS collection
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "update",
             "options": [
                 {
-                    "label": "List Items",
-                    "id": "list"
+                    "id": "list",
+                    "label": "List Items"
                 },
                 {
-                    "label": "Get Item",
-                    "id": "get"
+                    "id": "get",
+                    "label": "Get Item"
                 },
                 {
-                    "label": "Create Item",
-                    "id": "create"
+                    "id": "create",
+                    "label": "Create Item"
                 },
                 {
-                    "label": "Update Item",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Item"
                 },
                 {
-                    "label": "Delete Item",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Item"
                 }
-            ],
-            "defaultValue": "update"
+            ]
         },
         {
             "id": "credential",
@@ -397,6 +400,7 @@ Update an existing item in a Webflow CMS collection
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `item` | json | The updated item object |
+| `metadata` | json | Metadata about the updated item |
 
 </div>
 
@@ -410,7 +414,7 @@ Update an existing item in a Webflow CMS collection
   <BlockConfigPreview
     name="Webflow"
     type="webflow"
-    color=""
+    color="#146EF5"
     hideHeader
     subBlocks={[
         {
@@ -418,29 +422,29 @@ Update an existing item in a Webflow CMS collection
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "delete",
             "options": [
                 {
-                    "label": "List Items",
-                    "id": "list"
+                    "id": "list",
+                    "label": "List Items"
                 },
                 {
-                    "label": "Get Item",
-                    "id": "get"
+                    "id": "get",
+                    "label": "Get Item"
                 },
                 {
-                    "label": "Create Item",
-                    "id": "create"
+                    "id": "create",
+                    "label": "Create Item"
                 },
                 {
-                    "label": "Update Item",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Item"
                 },
                 {
-                    "label": "Delete Item",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Item"
                 }
-            ],
-            "defaultValue": "delete"
+            ]
         },
         {
             "id": "credential",
@@ -488,6 +492,7 @@ Delete an item from a Webflow CMS collection
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `success` | boolean | Whether the deletion was successful |
+| `metadata` | json | Metadata about the deletion |
 
 </div>
 

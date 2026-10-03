@@ -16,25 +16,11 @@ export const memoryGetTool: ToolConfig<any, MemoryResponse> = {
   },
 
   request: {
-    url: (params): any => {
-      // Get workflowId from context (set by workflow execution)
+    url: (params) => {
       const workflowId = params._context?.workflowId
-
       if (!workflowId) {
-        return {
-          _errorResponse: {
-            status: 400,
-            data: {
-              success: false,
-              error: {
-                message: 'workflowId is required and must be provided in execution context',
-              },
-            },
-          },
-        }
+        throw new Error('workflowId is required in execution context')
       }
-
-      // Append workflowId as query parameter
       return `/api/memory/${encodeURIComponent(params.id)}?workflowId=${encodeURIComponent(workflowId)}`
     },
     method: 'GET',
@@ -44,8 +30,7 @@ export const memoryGetTool: ToolConfig<any, MemoryResponse> = {
   },
 
   transformResponse: async (response): Promise<MemoryResponse> => {
-    const result = await response.json()
-    const data = result.data || result
+    const { data } = await response.json()
 
     return {
       success: true,
@@ -57,9 +42,7 @@ export const memoryGetTool: ToolConfig<any, MemoryResponse> = {
   },
 
   outputs: {
-    success: { type: 'boolean', description: 'Whether the memory was retrieved successfully' },
     memories: { type: 'array', description: 'Array of memory data for the requested ID' },
     message: { type: 'string', description: 'Success or error message' },
-    error: { type: 'string', description: 'Error message if operation failed' },
   },
 }

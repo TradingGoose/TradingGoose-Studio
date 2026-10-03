@@ -29,41 +29,41 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "send_message",
             "options": [
                 {
-                    "label": "Send Message",
-                    "id": "send_message"
+                    "id": "send_message",
+                    "label": "Send Message"
                 },
                 {
-                    "label": "Get Message",
-                    "id": "get_message"
+                    "id": "get_message",
+                    "label": "Get Message"
                 },
                 {
-                    "label": "List Messages",
-                    "id": "list_messages"
+                    "id": "list_messages",
+                    "label": "List Messages"
                 },
                 {
-                    "label": "Create Mailing List",
-                    "id": "create_mailing_list"
+                    "id": "create_mailing_list",
+                    "label": "Create Mailing List"
                 },
                 {
-                    "label": "Get Mailing List",
-                    "id": "get_mailing_list"
+                    "id": "get_mailing_list",
+                    "label": "Get Mailing List"
                 },
                 {
-                    "label": "Add List Member",
-                    "id": "add_list_member"
+                    "id": "add_list_member",
+                    "label": "Add List Member"
                 },
                 {
-                    "label": "List Domains",
-                    "id": "list_domains"
+                    "id": "list_domains",
+                    "label": "List Domains"
                 },
                 {
-                    "label": "Get Domain",
-                    "id": "get_domain"
+                    "id": "get_domain",
+                    "label": "Get Domain"
                 }
-            ],
-            "defaultValue": "send_message"
+            ]
         },
         {
             "id": "apiKey",
@@ -137,18 +137,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Send Message (<code>mailgun_send_message</code>)</div>
+
+Send an email using Mailgun API
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Mailgun API key |
+| `domain` | string | Yes | Mailgun domain \(e.g., mg.example.com\) |
+| `from` | string | Yes | Sender email address |
+| `to` | string | Yes | Recipient email address \(comma-separated for multiple\) |
+| `subject` | string | Yes | Email subject |
+| `text` | string | No | Plain text body of the email |
+| `html` | string | No | HTML body of the email |
+| `cc` | string | No | CC email address \(comma-separated for multiple\) |
+| `bcc` | string | No | BCC email address \(comma-separated for multiple\) |
+| `tags` | string | No | Tags for the email \(comma-separated\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success status |
+| `success` | boolean | Whether the message was sent successfully |
 | `id` | string | Message ID |
-| `message` | string | Response message |
-| `items` | json | Array of items \(messages, domains\) |
-| `list` | json | Mailing list details |
-| `member` | json | Member details |
-| `domain` | json | Domain details |
-| `totalCount` | number | Total count of items |
+| `message` | string | Response message from Mailgun |
 
 </div>
 
@@ -169,41 +183,41 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_message",
             "options": [
                 {
-                    "label": "Send Message",
-                    "id": "send_message"
+                    "id": "send_message",
+                    "label": "Send Message"
                 },
                 {
-                    "label": "Get Message",
-                    "id": "get_message"
+                    "id": "get_message",
+                    "label": "Get Message"
                 },
                 {
-                    "label": "List Messages",
-                    "id": "list_messages"
+                    "id": "list_messages",
+                    "label": "List Messages"
                 },
                 {
-                    "label": "Create Mailing List",
-                    "id": "create_mailing_list"
+                    "id": "create_mailing_list",
+                    "label": "Create Mailing List"
                 },
                 {
-                    "label": "Get Mailing List",
-                    "id": "get_mailing_list"
+                    "id": "get_mailing_list",
+                    "label": "Get Mailing List"
                 },
                 {
-                    "label": "Add List Member",
-                    "id": "add_list_member"
+                    "id": "add_list_member",
+                    "label": "Add List Member"
                 },
                 {
-                    "label": "List Domains",
-                    "id": "list_domains"
+                    "id": "list_domains",
+                    "label": "List Domains"
                 },
                 {
-                    "label": "Get Domain",
-                    "id": "get_domain"
+                    "id": "get_domain",
+                    "label": "Get Domain"
                 }
-            ],
-            "defaultValue": "get_message"
+            ]
         },
         {
             "id": "apiKey",
@@ -232,18 +246,35 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Get Message (<code>mailgun_get_message</code>)</div>
+
+Retrieve a stored message by its key
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Mailgun API key |
+| `domain` | string | Yes | Mailgun domain |
+| `messageKey` | string | Yes | Message storage key |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success status |
-| `id` | string | Message ID |
-| `message` | string | Response message |
-| `items` | json | Array of items \(messages, domains\) |
-| `list` | json | Mailing list details |
-| `member` | json | Member details |
-| `domain` | json | Domain details |
-| `totalCount` | number | Total count of items |
+| `success` | boolean | Whether the request was successful |
+| `recipients` | string | Message recipients |
+| `from` | string | Sender email |
+| `subject` | string | Message subject |
+| `bodyPlain` | string | Plain text body |
+| `strippedText` | string | Stripped text |
+| `strippedSignature` | string | Stripped signature |
+| `bodyHtml` | string | HTML body |
+| `strippedHtml` | string | Stripped HTML |
+| `attachmentCount` | number | Number of attachments |
+| `timestamp` | number | Message timestamp |
+| `messageHeaders` | json | Message headers |
+| `contentIdMap` | json | Content ID map |
 
 </div>
 
@@ -264,41 +295,41 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "list_messages",
             "options": [
                 {
-                    "label": "Send Message",
-                    "id": "send_message"
+                    "id": "send_message",
+                    "label": "Send Message"
                 },
                 {
-                    "label": "Get Message",
-                    "id": "get_message"
+                    "id": "get_message",
+                    "label": "Get Message"
                 },
                 {
-                    "label": "List Messages",
-                    "id": "list_messages"
+                    "id": "list_messages",
+                    "label": "List Messages"
                 },
                 {
-                    "label": "Create Mailing List",
-                    "id": "create_mailing_list"
+                    "id": "create_mailing_list",
+                    "label": "Create Mailing List"
                 },
                 {
-                    "label": "Get Mailing List",
-                    "id": "get_mailing_list"
+                    "id": "get_mailing_list",
+                    "label": "Get Mailing List"
                 },
                 {
-                    "label": "Add List Member",
-                    "id": "add_list_member"
+                    "id": "add_list_member",
+                    "label": "Add List Member"
                 },
                 {
-                    "label": "List Domains",
-                    "id": "list_domains"
+                    "id": "list_domains",
+                    "label": "List Domains"
                 },
                 {
-                    "label": "Get Domain",
-                    "id": "get_domain"
+                    "id": "get_domain",
+                    "label": "Get Domain"
                 }
-            ],
-            "defaultValue": "list_messages"
+            ]
         },
         {
             "id": "apiKey",
@@ -319,38 +350,43 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "event",
             "type": "dropdown",
             "title": "Event Type",
+            "defaultValue": "",
             "options": [
                 {
-                    "label": "Accepted",
-                    "id": "accepted"
+                    "id": "",
+                    "label": "All Events"
                 },
                 {
-                    "label": "Delivered",
-                    "id": "delivered"
+                    "id": "accepted",
+                    "label": "Accepted"
                 },
                 {
-                    "label": "Failed",
-                    "id": "failed"
+                    "id": "delivered",
+                    "label": "Delivered"
                 },
                 {
-                    "label": "Opened",
-                    "id": "opened"
+                    "id": "failed",
+                    "label": "Failed"
                 },
                 {
-                    "label": "Clicked",
-                    "id": "clicked"
+                    "id": "opened",
+                    "label": "Opened"
                 },
                 {
-                    "label": "Unsubscribed",
-                    "id": "unsubscribed"
+                    "id": "clicked",
+                    "label": "Clicked"
                 },
                 {
-                    "label": "Complained",
-                    "id": "complained"
+                    "id": "unsubscribed",
+                    "label": "Unsubscribed"
                 },
                 {
-                    "label": "Stored",
-                    "id": "stored"
+                    "id": "complained",
+                    "label": "Complained"
+                },
+                {
+                    "id": "stored",
+                    "label": "Stored"
                 }
             ]
         },
@@ -365,18 +401,26 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">List Messages (<code>mailgun_list_messages</code>)</div>
+
+List events (logs) for messages sent through Mailgun
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Mailgun API key |
+| `domain` | string | Yes | Mailgun domain |
+| `event` | string | No | Filter by event type \(accepted, delivered, failed, opened, clicked, etc.\) |
+| `limit` | number | No | Maximum number of events to return \(default: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success status |
-| `id` | string | Message ID |
-| `message` | string | Response message |
-| `items` | json | Array of items \(messages, domains\) |
-| `list` | json | Mailing list details |
-| `member` | json | Member details |
-| `domain` | json | Domain details |
-| `totalCount` | number | Total count of items |
+| `success` | boolean | Whether the request was successful |
+| `items` | json | Array of event items |
+| `paging` | json | Paging information |
 
 </div>
 
@@ -397,41 +441,41 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create_mailing_list",
             "options": [
                 {
-                    "label": "Send Message",
-                    "id": "send_message"
+                    "id": "send_message",
+                    "label": "Send Message"
                 },
                 {
-                    "label": "Get Message",
-                    "id": "get_message"
+                    "id": "get_message",
+                    "label": "Get Message"
                 },
                 {
-                    "label": "List Messages",
-                    "id": "list_messages"
+                    "id": "list_messages",
+                    "label": "List Messages"
                 },
                 {
-                    "label": "Create Mailing List",
-                    "id": "create_mailing_list"
+                    "id": "create_mailing_list",
+                    "label": "Create Mailing List"
                 },
                 {
-                    "label": "Get Mailing List",
-                    "id": "get_mailing_list"
+                    "id": "get_mailing_list",
+                    "label": "Get Mailing List"
                 },
                 {
-                    "label": "Add List Member",
-                    "id": "add_list_member"
+                    "id": "add_list_member",
+                    "label": "Add List Member"
                 },
                 {
-                    "label": "List Domains",
-                    "id": "list_domains"
+                    "id": "list_domains",
+                    "label": "List Domains"
                 },
                 {
-                    "label": "Get Domain",
-                    "id": "get_domain"
+                    "id": "get_domain",
+                    "label": "Get Domain"
                 }
-            ],
-            "defaultValue": "create_mailing_list"
+            ]
         },
         {
             "id": "apiKey",
@@ -464,18 +508,19 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "accessLevel",
             "type": "dropdown",
             "title": "Access Level",
+            "defaultValue": "readonly",
             "options": [
                 {
-                    "label": "Read Only",
-                    "id": "readonly"
+                    "id": "readonly",
+                    "label": "Read Only"
                 },
                 {
-                    "label": "Members",
-                    "id": "members"
+                    "id": "members",
+                    "label": "Members"
                 },
                 {
-                    "label": "Everyone",
-                    "id": "everyone"
+                    "id": "everyone",
+                    "label": "Everyone"
                 }
             ]
         }
@@ -484,18 +529,27 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Create Mailing List (<code>mailgun_create_mailing_list</code>)</div>
+
+Create a new mailing list
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Mailgun API key |
+| `address` | string | Yes | Mailing list address \(e.g., list@example.com\) |
+| `name` | string | No | Mailing list name |
+| `description` | string | No | Mailing list description |
+| `accessLevel` | string | No | Access level: readonly, members, or everyone |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success status |
-| `id` | string | Message ID |
+| `success` | boolean | Whether the list was created successfully |
 | `message` | string | Response message |
-| `items` | json | Array of items \(messages, domains\) |
-| `list` | json | Mailing list details |
-| `member` | json | Member details |
-| `domain` | json | Domain details |
-| `totalCount` | number | Total count of items |
+| `list` | json | Created mailing list details |
 
 </div>
 
@@ -516,41 +570,41 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_mailing_list",
             "options": [
                 {
-                    "label": "Send Message",
-                    "id": "send_message"
+                    "id": "send_message",
+                    "label": "Send Message"
                 },
                 {
-                    "label": "Get Message",
-                    "id": "get_message"
+                    "id": "get_message",
+                    "label": "Get Message"
                 },
                 {
-                    "label": "List Messages",
-                    "id": "list_messages"
+                    "id": "list_messages",
+                    "label": "List Messages"
                 },
                 {
-                    "label": "Create Mailing List",
-                    "id": "create_mailing_list"
+                    "id": "create_mailing_list",
+                    "label": "Create Mailing List"
                 },
                 {
-                    "label": "Get Mailing List",
-                    "id": "get_mailing_list"
+                    "id": "get_mailing_list",
+                    "label": "Get Mailing List"
                 },
                 {
-                    "label": "Add List Member",
-                    "id": "add_list_member"
+                    "id": "add_list_member",
+                    "label": "Add List Member"
                 },
                 {
-                    "label": "List Domains",
-                    "id": "list_domains"
+                    "id": "list_domains",
+                    "label": "List Domains"
                 },
                 {
-                    "label": "Get Domain",
-                    "id": "get_domain"
+                    "id": "get_domain",
+                    "label": "Get Domain"
                 }
-            ],
-            "defaultValue": "get_mailing_list"
+            ]
         },
         {
             "id": "apiKey",
@@ -572,18 +626,23 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Get Mailing List (<code>mailgun_get_mailing_list</code>)</div>
+
+Get details of a mailing list
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Mailgun API key |
+| `address` | string | Yes | Mailing list address |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success status |
-| `id` | string | Message ID |
-| `message` | string | Response message |
-| `items` | json | Array of items \(messages, domains\) |
+| `success` | boolean | Whether the request was successful |
 | `list` | json | Mailing list details |
-| `member` | json | Member details |
-| `domain` | json | Domain details |
-| `totalCount` | number | Total count of items |
 
 </div>
 
@@ -604,41 +663,41 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "add_list_member",
             "options": [
                 {
-                    "label": "Send Message",
-                    "id": "send_message"
+                    "id": "send_message",
+                    "label": "Send Message"
                 },
                 {
-                    "label": "Get Message",
-                    "id": "get_message"
+                    "id": "get_message",
+                    "label": "Get Message"
                 },
                 {
-                    "label": "List Messages",
-                    "id": "list_messages"
+                    "id": "list_messages",
+                    "label": "List Messages"
                 },
                 {
-                    "label": "Create Mailing List",
-                    "id": "create_mailing_list"
+                    "id": "create_mailing_list",
+                    "label": "Create Mailing List"
                 },
                 {
-                    "label": "Get Mailing List",
-                    "id": "get_mailing_list"
+                    "id": "get_mailing_list",
+                    "label": "Get Mailing List"
                 },
                 {
-                    "label": "Add List Member",
-                    "id": "add_list_member"
+                    "id": "add_list_member",
+                    "label": "Add List Member"
                 },
                 {
-                    "label": "List Domains",
-                    "id": "list_domains"
+                    "id": "list_domains",
+                    "label": "List Domains"
                 },
                 {
-                    "label": "Get Domain",
-                    "id": "get_domain"
+                    "id": "get_domain",
+                    "label": "Get Domain"
                 }
-            ],
-            "defaultValue": "add_list_member"
+            ]
         },
         {
             "id": "apiKey",
@@ -679,14 +738,15 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "subscribed",
             "type": "dropdown",
             "title": "Subscribed",
+            "defaultValue": "true",
             "options": [
                 {
-                    "label": "Yes",
-                    "id": "true"
+                    "id": "true",
+                    "label": "Yes"
                 },
                 {
-                    "label": "No",
-                    "id": "false"
+                    "id": "false",
+                    "label": "No"
                 }
             ]
         }
@@ -695,18 +755,28 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Add List Member (<code>mailgun_add_list_member</code>)</div>
+
+Add a member to a mailing list
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Mailgun API key |
+| `listAddress` | string | Yes | Mailing list address |
+| `address` | string | Yes | Member email address |
+| `name` | string | No | Member name |
+| `vars` | string | No | JSON string of custom variables |
+| `subscribed` | boolean | No | Whether the member is subscribed |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success status |
-| `id` | string | Message ID |
+| `success` | boolean | Whether the member was added successfully |
 | `message` | string | Response message |
-| `items` | json | Array of items \(messages, domains\) |
-| `list` | json | Mailing list details |
-| `member` | json | Member details |
-| `domain` | json | Domain details |
-| `totalCount` | number | Total count of items |
+| `member` | json | Added member details |
 
 </div>
 
@@ -727,41 +797,41 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "list_domains",
             "options": [
                 {
-                    "label": "Send Message",
-                    "id": "send_message"
+                    "id": "send_message",
+                    "label": "Send Message"
                 },
                 {
-                    "label": "Get Message",
-                    "id": "get_message"
+                    "id": "get_message",
+                    "label": "Get Message"
                 },
                 {
-                    "label": "List Messages",
-                    "id": "list_messages"
+                    "id": "list_messages",
+                    "label": "List Messages"
                 },
                 {
-                    "label": "Create Mailing List",
-                    "id": "create_mailing_list"
+                    "id": "create_mailing_list",
+                    "label": "Create Mailing List"
                 },
                 {
-                    "label": "Get Mailing List",
-                    "id": "get_mailing_list"
+                    "id": "get_mailing_list",
+                    "label": "Get Mailing List"
                 },
                 {
-                    "label": "Add List Member",
-                    "id": "add_list_member"
+                    "id": "add_list_member",
+                    "label": "Add List Member"
                 },
                 {
-                    "label": "List Domains",
-                    "id": "list_domains"
+                    "id": "list_domains",
+                    "label": "List Domains"
                 },
                 {
-                    "label": "Get Domain",
-                    "id": "get_domain"
+                    "id": "get_domain",
+                    "label": "Get Domain"
                 }
-            ],
-            "defaultValue": "list_domains"
+            ]
         },
         {
             "id": "apiKey",
@@ -776,18 +846,23 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">List Domains (<code>mailgun_list_domains</code>)</div>
+
+List all domains for your Mailgun account
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Mailgun API key |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success status |
-| `id` | string | Message ID |
-| `message` | string | Response message |
-| `items` | json | Array of items \(messages, domains\) |
-| `list` | json | Mailing list details |
-| `member` | json | Member details |
-| `domain` | json | Domain details |
-| `totalCount` | number | Total count of items |
+| `success` | boolean | Whether the request was successful |
+| `totalCount` | number | Total number of domains |
+| `items` | json | Array of domain objects |
 
 </div>
 
@@ -808,41 +883,41 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_domain",
             "options": [
                 {
-                    "label": "Send Message",
-                    "id": "send_message"
+                    "id": "send_message",
+                    "label": "Send Message"
                 },
                 {
-                    "label": "Get Message",
-                    "id": "get_message"
+                    "id": "get_message",
+                    "label": "Get Message"
                 },
                 {
-                    "label": "List Messages",
-                    "id": "list_messages"
+                    "id": "list_messages",
+                    "label": "List Messages"
                 },
                 {
-                    "label": "Create Mailing List",
-                    "id": "create_mailing_list"
+                    "id": "create_mailing_list",
+                    "label": "Create Mailing List"
                 },
                 {
-                    "label": "Get Mailing List",
-                    "id": "get_mailing_list"
+                    "id": "get_mailing_list",
+                    "label": "Get Mailing List"
                 },
                 {
-                    "label": "Add List Member",
-                    "id": "add_list_member"
+                    "id": "add_list_member",
+                    "label": "Add List Member"
                 },
                 {
-                    "label": "List Domains",
-                    "id": "list_domains"
+                    "id": "list_domains",
+                    "label": "List Domains"
                 },
                 {
-                    "label": "Get Domain",
-                    "id": "get_domain"
+                    "id": "get_domain",
+                    "label": "Get Domain"
                 }
-            ],
-            "defaultValue": "get_domain"
+            ]
         },
         {
             "id": "apiKey",
@@ -864,18 +939,23 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Get Domain (<code>mailgun_get_domain</code>)</div>
+
+Get details of a specific domain
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Mailgun API key |
+| `domain` | string | Yes | Domain name |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success status |
-| `id` | string | Message ID |
-| `message` | string | Response message |
-| `items` | json | Array of items \(messages, domains\) |
-| `list` | json | Mailing list details |
-| `member` | json | Member details |
+| `success` | boolean | Whether the request was successful |
 | `domain` | json | Domain details |
-| `totalCount` | number | Total count of items |
 
 </div>
 

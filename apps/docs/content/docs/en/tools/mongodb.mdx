@@ -10,7 +10,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <BlockInfoCard
   type="mongodb"
-  color=""
+  color="#00684A"
 />
 
 
@@ -22,7 +22,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="MongoDB"
     type="mongodb"
-    color=""
+    color="#00684A"
     hideHeader
     subBlocks={[
         {
@@ -30,29 +30,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "query",
             "options": [
                 {
-                    "label": "Find Documents",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Find Documents"
                 },
                 {
-                    "label": "Insert Documents",
-                    "id": "insert"
+                    "id": "insert",
+                    "label": "Insert Documents"
                 },
                 {
-                    "label": "Update Documents",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Documents"
                 },
                 {
-                    "label": "Delete Documents",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Documents"
                 },
                 {
-                    "label": "Aggregate Pipeline",
-                    "id": "execute"
+                    "id": "execute",
+                    "label": "Aggregate Pipeline"
                 }
-            ],
-            "defaultValue": "query"
+            ]
         },
         {
             "id": "host",
@@ -68,7 +68,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Port",
             "layout": "full",
             "placeholder": "27017",
-            "required": true
+            "required": true,
+            "defaultValue": "27017"
         },
         {
             "id": "database",
@@ -107,18 +108,19 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "SSL Mode",
             "layout": "full",
+            "defaultValue": "preferred",
             "options": [
                 {
-                    "label": "Disabled",
-                    "id": "disabled"
+                    "id": "disabled",
+                    "label": "Disabled"
                 },
                 {
-                    "label": "Required",
-                    "id": "required"
+                    "id": "required",
+                    "label": "Required"
                 },
                 {
-                    "label": "Preferred",
-                    "id": "preferred"
+                    "id": "preferred",
+                    "label": "Preferred"
                 }
             ]
         },
@@ -184,6 +186,7 @@ Execute find operation on MongoDB collection
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
 | `documents` | array | Array of documents returned from the query |
+| `documentCount` | number | Number of documents returned |
 
 </div>
 
@@ -197,7 +200,7 @@ Execute find operation on MongoDB collection
   <BlockConfigPreview
     name="MongoDB"
     type="mongodb"
-    color=""
+    color="#00684A"
     hideHeader
     subBlocks={[
         {
@@ -205,29 +208,29 @@ Execute find operation on MongoDB collection
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "insert",
             "options": [
                 {
-                    "label": "Find Documents",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Find Documents"
                 },
                 {
-                    "label": "Insert Documents",
-                    "id": "insert"
+                    "id": "insert",
+                    "label": "Insert Documents"
                 },
                 {
-                    "label": "Update Documents",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Documents"
                 },
                 {
-                    "label": "Delete Documents",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Documents"
                 },
                 {
-                    "label": "Aggregate Pipeline",
-                    "id": "execute"
+                    "id": "execute",
+                    "label": "Aggregate Pipeline"
                 }
-            ],
-            "defaultValue": "insert"
+            ]
         },
         {
             "id": "host",
@@ -243,7 +246,8 @@ Execute find operation on MongoDB collection
             "title": "Port",
             "layout": "full",
             "placeholder": "27017",
-            "required": true
+            "required": true,
+            "defaultValue": "27017"
         },
         {
             "id": "database",
@@ -282,18 +286,19 @@ Execute find operation on MongoDB collection
             "type": "dropdown",
             "title": "SSL Mode",
             "layout": "full",
+            "defaultValue": "preferred",
             "options": [
                 {
-                    "label": "Disabled",
-                    "id": "disabled"
+                    "id": "disabled",
+                    "label": "Disabled"
                 },
                 {
-                    "label": "Required",
-                    "id": "required"
+                    "id": "required",
+                    "label": "Required"
                 },
                 {
-                    "label": "Preferred",
-                    "id": "preferred"
+                    "id": "preferred",
+                    "label": "Preferred"
                 }
             ]
         },
@@ -344,6 +349,7 @@ Insert documents into MongoDB collection
 | `message` | string | Operation status message |
 | `documentCount` | number | Number of documents inserted |
 | `insertedId` | string | ID of inserted document \(single insert\) |
+| `insertedIds` | array | Array of inserted document IDs \(multiple insert\) |
 
 </div>
 
@@ -357,7 +363,7 @@ Insert documents into MongoDB collection
   <BlockConfigPreview
     name="MongoDB"
     type="mongodb"
-    color=""
+    color="#00684A"
     hideHeader
     subBlocks={[
         {
@@ -365,29 +371,29 @@ Insert documents into MongoDB collection
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "update",
             "options": [
                 {
-                    "label": "Find Documents",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Find Documents"
                 },
                 {
-                    "label": "Insert Documents",
-                    "id": "insert"
+                    "id": "insert",
+                    "label": "Insert Documents"
                 },
                 {
-                    "label": "Update Documents",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Documents"
                 },
                 {
-                    "label": "Delete Documents",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Documents"
                 },
                 {
-                    "label": "Aggregate Pipeline",
-                    "id": "execute"
+                    "id": "execute",
+                    "label": "Aggregate Pipeline"
                 }
-            ],
-            "defaultValue": "update"
+            ]
         },
         {
             "id": "host",
@@ -403,7 +409,8 @@ Insert documents into MongoDB collection
             "title": "Port",
             "layout": "full",
             "placeholder": "27017",
-            "required": true
+            "required": true,
+            "defaultValue": "27017"
         },
         {
             "id": "database",
@@ -442,18 +449,19 @@ Insert documents into MongoDB collection
             "type": "dropdown",
             "title": "SSL Mode",
             "layout": "full",
+            "defaultValue": "preferred",
             "options": [
                 {
-                    "label": "Disabled",
-                    "id": "disabled"
+                    "id": "disabled",
+                    "label": "Disabled"
                 },
                 {
-                    "label": "Required",
-                    "id": "required"
+                    "id": "required",
+                    "label": "Required"
                 },
                 {
-                    "label": "Preferred",
-                    "id": "preferred"
+                    "id": "preferred",
+                    "label": "Preferred"
                 }
             ]
         },
@@ -488,14 +496,15 @@ Insert documents into MongoDB collection
             "type": "dropdown",
             "title": "Upsert",
             "layout": "full",
+            "defaultValue": "false",
             "options": [
                 {
-                    "label": "False",
-                    "id": "false"
+                    "id": "false",
+                    "label": "False"
                 },
                 {
-                    "label": "True",
-                    "id": "true"
+                    "id": "true",
+                    "label": "True"
                 }
             ]
         },
@@ -504,14 +513,15 @@ Insert documents into MongoDB collection
             "type": "dropdown",
             "title": "Update Multiple",
             "layout": "full",
+            "defaultValue": "false",
             "options": [
                 {
-                    "label": "False",
-                    "id": "false"
+                    "id": "false",
+                    "label": "False"
                 },
                 {
-                    "label": "True",
-                    "id": "true"
+                    "id": "true",
+                    "label": "True"
                 }
             ]
         }
@@ -549,6 +559,7 @@ Update documents in MongoDB collection
 | `matchedCount` | number | Number of documents matched by filter |
 | `modifiedCount` | number | Number of documents modified |
 | `documentCount` | number | Total number of documents affected |
+| `insertedId` | string | ID of inserted document \(if upsert\) |
 
 </div>
 
@@ -562,7 +573,7 @@ Update documents in MongoDB collection
   <BlockConfigPreview
     name="MongoDB"
     type="mongodb"
-    color=""
+    color="#00684A"
     hideHeader
     subBlocks={[
         {
@@ -570,29 +581,29 @@ Update documents in MongoDB collection
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "delete",
             "options": [
                 {
-                    "label": "Find Documents",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Find Documents"
                 },
                 {
-                    "label": "Insert Documents",
-                    "id": "insert"
+                    "id": "insert",
+                    "label": "Insert Documents"
                 },
                 {
-                    "label": "Update Documents",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Documents"
                 },
                 {
-                    "label": "Delete Documents",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Documents"
                 },
                 {
-                    "label": "Aggregate Pipeline",
-                    "id": "execute"
+                    "id": "execute",
+                    "label": "Aggregate Pipeline"
                 }
-            ],
-            "defaultValue": "delete"
+            ]
         },
         {
             "id": "host",
@@ -608,7 +619,8 @@ Update documents in MongoDB collection
             "title": "Port",
             "layout": "full",
             "placeholder": "27017",
-            "required": true
+            "required": true,
+            "defaultValue": "27017"
         },
         {
             "id": "database",
@@ -647,18 +659,19 @@ Update documents in MongoDB collection
             "type": "dropdown",
             "title": "SSL Mode",
             "layout": "full",
+            "defaultValue": "preferred",
             "options": [
                 {
-                    "label": "Disabled",
-                    "id": "disabled"
+                    "id": "disabled",
+                    "label": "Disabled"
                 },
                 {
-                    "label": "Required",
-                    "id": "required"
+                    "id": "required",
+                    "label": "Required"
                 },
                 {
-                    "label": "Preferred",
-                    "id": "preferred"
+                    "id": "preferred",
+                    "label": "Preferred"
                 }
             ]
         },
@@ -684,14 +697,15 @@ Update documents in MongoDB collection
             "type": "dropdown",
             "title": "Delete Multiple",
             "layout": "full",
+            "defaultValue": "false",
             "options": [
                 {
-                    "label": "False",
-                    "id": "false"
+                    "id": "false",
+                    "label": "False"
                 },
                 {
-                    "label": "True",
-                    "id": "true"
+                    "id": "true",
+                    "label": "True"
                 }
             ]
         }
@@ -725,6 +739,7 @@ Delete documents from MongoDB collection
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
 | `deletedCount` | number | Number of documents deleted |
+| `documentCount` | number | Total number of documents affected |
 
 </div>
 
@@ -738,7 +753,7 @@ Delete documents from MongoDB collection
   <BlockConfigPreview
     name="MongoDB"
     type="mongodb"
-    color=""
+    color="#00684A"
     hideHeader
     subBlocks={[
         {
@@ -746,29 +761,29 @@ Delete documents from MongoDB collection
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "execute",
             "options": [
                 {
-                    "label": "Find Documents",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Find Documents"
                 },
                 {
-                    "label": "Insert Documents",
-                    "id": "insert"
+                    "id": "insert",
+                    "label": "Insert Documents"
                 },
                 {
-                    "label": "Update Documents",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Documents"
                 },
                 {
-                    "label": "Delete Documents",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Documents"
                 },
                 {
-                    "label": "Aggregate Pipeline",
-                    "id": "execute"
+                    "id": "execute",
+                    "label": "Aggregate Pipeline"
                 }
-            ],
-            "defaultValue": "execute"
+            ]
         },
         {
             "id": "host",
@@ -784,7 +799,8 @@ Delete documents from MongoDB collection
             "title": "Port",
             "layout": "full",
             "placeholder": "27017",
-            "required": true
+            "required": true,
+            "defaultValue": "27017"
         },
         {
             "id": "database",
@@ -823,18 +839,19 @@ Delete documents from MongoDB collection
             "type": "dropdown",
             "title": "SSL Mode",
             "layout": "full",
+            "defaultValue": "preferred",
             "options": [
                 {
-                    "label": "Disabled",
-                    "id": "disabled"
+                    "id": "disabled",
+                    "label": "Disabled"
                 },
                 {
-                    "label": "Required",
-                    "id": "required"
+                    "id": "required",
+                    "label": "Required"
                 },
                 {
-                    "label": "Preferred",
-                    "id": "preferred"
+                    "id": "preferred",
+                    "label": "Preferred"
                 }
             ]
         },
@@ -884,6 +901,7 @@ Execute MongoDB aggregation pipeline
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
 | `documents` | array | Array of documents returned from aggregation |
+| `documentCount` | number | Number of documents returned |
 
 </div>
 

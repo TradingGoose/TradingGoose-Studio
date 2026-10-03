@@ -70,18 +70,7 @@ The `barstate` object provides flags about the current bar's position in the dat
 
 ## Symbol Information
 
-The `syminfo` object provides details about the current symbol:
-
-| Property | Description |
-|----------|-------------|
-| `syminfo.ticker` | Symbol name (e.g., `"BTCUSDT"`) |
-| `syminfo.tickerid` | Full ticker ID |
-| `syminfo.description` | Symbol description |
-| `syminfo.type` | Asset type (e.g., `"crypto"`, `"stock"`) |
-| `syminfo.currency` | Quote currency |
-| `syminfo.basecurrency` | Base currency |
-| `syminfo.mintick` | Minimum price increment |
-| `syminfo.timezone` | Exchange timezone |
+Studio runs PineTS with supplied OHLCV bars and does not populate `syminfo`. Accessing properties such as `syminfo.mintick` or `syminfo.ticker` will fail. Use explicit indicator inputs for required symbol-specific values, such as a minimum calculation increment.
 
 ## Special Values
 

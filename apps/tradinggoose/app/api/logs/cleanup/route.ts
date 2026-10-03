@@ -4,7 +4,7 @@ import {
   workflowLogWebhookDelivery,
   workspace,
 } from '@tradinggoose/db/schema'
-import { and, eq, inArray, lt, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, lt, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { verifyCronAuth } from '@/lib/auth/internal'
 import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
@@ -19,6 +19,15 @@ export const dynamic = 'force-dynamic'
 const logger = createLogger('LogsCleanupAPI')
 
 const BATCH_SIZE = 2000
+const completedLogReadyForRetention = and(
+  isNotNull(workflowExecutionLogs.endedAt),
+  sql`NOT EXISTS (
+    SELECT 1 FROM ${workflowExecutionLogs} AS retention_parent
+    WHERE retention_parent.execution_id = ${workflowExecutionLogs.executionData}->'trigger'->'data'->'queuedExecution'->>'parentExecutionId'
+    AND retention_parent.ended_at IS NULL
+    AND ${workflowExecutionLogs.executionData}->'trigger'->'data'->'queuedExecution'->>'source' = 'workflow_block'
+  )`
+)
 
 function parseLogRetentionDays(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
@@ -175,6 +184,7 @@ export async function GET(request: NextRequest) {
           .where(
             and(
               inArray(workflowExecutionLogs.workspaceId, workspaceGroup.workspaceIds),
+              completedLogReadyForRetention,
               lt(workflowExecutionLogs.createdAt, retentionDate),
               sql`NOT EXISTS (
                 SELECT 1 FROM ${workflowLogWebhookDelivery}
@@ -240,7 +250,7 @@ export async function GET(request: NextRequest) {
             try {
               const deleteResult = await db
                 .delete(workflowExecutionLogs)
-                .where(eq(workflowExecutionLogs.id, log.id))
+                .where(and(eq(workflowExecutionLogs.id, log.id), completedLogReadyForRetention))
                 .returning({ id: workflowExecutionLogs.id })
 
               if (deleteResult.length > 0) {

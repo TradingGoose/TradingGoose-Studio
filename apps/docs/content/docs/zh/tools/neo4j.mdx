@@ -1,0 +1,899 @@
+---
+title: Neo4j
+description: 连接 Neo4j 图数据库
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="neo4j"
+  color="#FFFFFF"
+/>
+
+## 配置
+
+### 查询 (MATCH)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Neo4j"
+    type="neo4j"
+    color="#FFFFFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "query",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "查询 (MATCH)"
+                },
+                {
+                    "id": "create",
+                    "label": "创建节点/关系"
+                },
+                {
+                    "id": "merge",
+                    "label": "合并（查找或创建）"
+                },
+                {
+                    "id": "update",
+                    "label": "更新属性 (SET)"
+                },
+                {
+                    "id": "delete",
+                    "label": "删除节点/关系"
+                },
+                {
+                    "id": "execute",
+                    "label": "执行 Cypher"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "placeholder": "localhost 或 your.neo4j.host",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "placeholder": "7687",
+            "required": true,
+            "defaultValue": "7687"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "数据库名称",
+            "placeholder": "neo4j",
+            "required": true,
+            "defaultValue": "neo4j"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "neo4j",
+            "required": true,
+            "defaultValue": "neo4j"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "数据库密码",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "encryption",
+            "type": "dropdown",
+            "title": "加密",
+            "defaultValue": "disabled",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "禁用"
+                },
+                {
+                    "id": "enabled",
+                    "label": "启用 (TLS/SSL)"
+                }
+            ]
+        },
+        {
+            "id": "parameters",
+            "type": "code",
+            "title": "参数",
+            "placeholder": "{\"name\": \"Alice\", \"minAge\": 21}",
+            "language": "json"
+        },
+        {
+            "id": "cypherQuery",
+            "type": "code",
+            "title": "Cypher 查询",
+            "placeholder": "MATCH (n:Person) WHERE n.age > 21 RETURN n LIMIT 10",
+            "language": "plaintext",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">查询 (MATCH) (<code>neo4j_query</code>)</div>
+
+执行 MATCH 查询，从 Neo4j 图数据库读取节点和关系。为获得最佳性能并避免结果集过大，请在查询中包含 LIMIT（例如 "MATCH (n:User) RETURN n LIMIT 100"），或使用 LIMIT $limit 并配合 limit 参数。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | 是 | Neo4j 服务器主机名或 IP 地址 |
+| `port` | number | 是 | Neo4j 服务器端口 \(默认：Bolt 协议为 7687\) |
+| `database` | string | 是 | 要连接的数据库名称 |
+| `username` | string | 是 | Neo4j 用户名 |
+| `password` | string | 是 | Neo4j 密码 |
+| `encryption` | string | 否 | 连接加密模式 \(enabled、disabled\) |
+| `cypherQuery` | string | 是 | 要执行的 Cypher 查询 \(通常为 MATCH 语句\) |
+| `parameters` | object | 否 | Cypher 查询参数，JSON 对象。用于包括 LIMIT 在内的所有动态值 \(例如 query: "MATCH \(n\) RETURN n LIMIT $limit", parameters: \{limit: 100\}\)。 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | string | 操作状态消息 |
+| `records` | array | 查询返回的记录数组 |
+| `recordCount` | number | 返回的记录数 |
+| `summary` | json | 查询执行摘要，包含耗时和计数器 |
+
+</div>
+
+---
+
+### 创建节点/关系
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Neo4j"
+    type="neo4j"
+    color="#FFFFFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "create",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "查询 (MATCH)"
+                },
+                {
+                    "id": "create",
+                    "label": "创建节点/关系"
+                },
+                {
+                    "id": "merge",
+                    "label": "合并（查找或创建）"
+                },
+                {
+                    "id": "update",
+                    "label": "更新属性 (SET)"
+                },
+                {
+                    "id": "delete",
+                    "label": "删除节点/关系"
+                },
+                {
+                    "id": "execute",
+                    "label": "执行 Cypher"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "placeholder": "localhost 或 your.neo4j.host",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "placeholder": "7687",
+            "required": true,
+            "defaultValue": "7687"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "数据库名称",
+            "placeholder": "neo4j",
+            "required": true,
+            "defaultValue": "neo4j"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "neo4j",
+            "required": true,
+            "defaultValue": "neo4j"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "数据库密码",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "encryption",
+            "type": "dropdown",
+            "title": "加密",
+            "defaultValue": "disabled",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "禁用"
+                },
+                {
+                    "id": "enabled",
+                    "label": "启用 (TLS/SSL)"
+                }
+            ]
+        },
+        {
+            "id": "parameters",
+            "type": "code",
+            "title": "参数",
+            "placeholder": "{\"name\": \"Alice\", \"minAge\": 21}",
+            "language": "json"
+        },
+        {
+            "id": "cypherQuery",
+            "type": "code",
+            "title": "Cypher CREATE 语句",
+            "placeholder": "CREATE (n:Person {name: \"Alice\", age: 30})",
+            "language": "plaintext",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建节点/关系（<code>neo4j_create</code>）</div>
+
+执行 CREATE 语句，向 Neo4j 图数据库添加新节点和关系
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | 是 | Neo4j 服务器主机名或 IP 地址 |
+| `port` | number | 是 | Neo4j 服务器端口（默认：Bolt 协议为 7687） |
+| `database` | string | 是 | 要连接的数据库名称 |
+| `username` | string | 是 | Neo4j 用户名 |
+| `password` | string | 是 | Neo4j 密码 |
+| `encryption` | string | 否 | 连接加密模式（enabled、disabled） |
+| `cypherQuery` | string | 是 | 要执行的 Cypher CREATE 语句 |
+| `parameters` | object | 否 | Cypher 查询参数，JSON 对象 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | string | 操作状态消息 |
+| `summary` | json | 创建摘要，包含已创建节点和关系的计数 |
+
+</div>
+
+---
+
+### 合并（查找或创建）
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Neo4j"
+    type="neo4j"
+    color="#FFFFFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "merge",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "查询（MATCH）"
+                },
+                {
+                    "id": "create",
+                    "label": "创建节点/关系"
+                },
+                {
+                    "id": "merge",
+                    "label": "合并（查找或创建）"
+                },
+                {
+                    "id": "update",
+                    "label": "更新属性（SET）"
+                },
+                {
+                    "id": "delete",
+                    "label": "删除节点/关系"
+                },
+                {
+                    "id": "execute",
+                    "label": "执行 Cypher"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "placeholder": "localhost 或 your.neo4j.host",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "placeholder": "7687",
+            "required": true,
+            "defaultValue": "7687"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "数据库名称",
+            "placeholder": "neo4j",
+            "required": true,
+            "defaultValue": "neo4j"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "neo4j",
+            "required": true,
+            "defaultValue": "neo4j"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "数据库密码",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "encryption",
+            "type": "dropdown",
+            "title": "加密",
+            "defaultValue": "disabled",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "禁用"
+                },
+                {
+                    "id": "enabled",
+                    "label": "启用（TLS/SSL）"
+                }
+            ]
+        },
+        {
+            "id": "parameters",
+            "type": "code",
+            "title": "参数",
+            "placeholder": "{\"name\": \"Alice\", \"minAge\": 21}",
+            "language": "json"
+        },
+        {
+            "id": "cypherQuery",
+            "type": "code",
+            "title": "Cypher MERGE 语句",
+            "placeholder": "MERGE (n:Person {email: \"alice@example.com\"}) ON CREATE SET n.created = timestamp() RETURN n",
+            "language": "plaintext",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">合并（查找或创建）(<code>neo4j_merge</code>)</div>
+
+执行 MERGE 语句，在 Neo4j 中查找或创建节点和关系（upsert 操作）
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | 是 | Neo4j 服务器主机名或 IP 地址 |
+| `port` | number | 是 | Neo4j 服务器端口 \(默认：Bolt 协议为 7687\) |
+| `database` | string | 是 | 要连接的数据库名称 |
+| `username` | string | 是 | Neo4j 用户名 |
+| `password` | string | 是 | Neo4j 密码 |
+| `encryption` | string | 否 | 连接加密模式 \(enabled、disabled\) |
+| `cypherQuery` | string | 是 | 要执行的 Cypher MERGE 语句 |
+| `parameters` | object | 否 | Cypher 查询的参数，JSON 对象 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | string | 操作状态消息 |
+| `summary` | json | 合并摘要，含已创建或已匹配的节点/关系计数 |
+
+</div>
+
+---
+
+### 更新属性（SET）
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Neo4j"
+    type="neo4j"
+    color="#FFFFFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "update",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "查询（MATCH）"
+                },
+                {
+                    "id": "create",
+                    "label": "创建节点/关系"
+                },
+                {
+                    "id": "merge",
+                    "label": "合并（查找或创建）"
+                },
+                {
+                    "id": "update",
+                    "label": "更新属性（SET）"
+                },
+                {
+                    "id": "delete",
+                    "label": "删除节点/关系"
+                },
+                {
+                    "id": "execute",
+                    "label": "执行 Cypher"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "placeholder": "localhost 或 your.neo4j.host",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "placeholder": "7687",
+            "required": true,
+            "defaultValue": "7687"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "数据库名称",
+            "placeholder": "neo4j",
+            "required": true,
+            "defaultValue": "neo4j"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "neo4j",
+            "required": true,
+            "defaultValue": "neo4j"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "数据库密码",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "encryption",
+            "type": "dropdown",
+            "title": "加密",
+            "defaultValue": "disabled",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "禁用"
+                },
+                {
+                    "id": "enabled",
+                    "label": "启用（TLS/SSL）"
+                }
+            ]
+        },
+        {
+            "id": "parameters",
+            "type": "code",
+            "title": "参数",
+            "placeholder": "{\"name\": \"Alice\", \"minAge\": 21}",
+            "language": "json"
+        },
+        {
+            "id": "cypherQuery",
+            "type": "code",
+            "title": "Cypher UPDATE 语句",
+            "placeholder": "MATCH (n:Person {name: \"Alice\"}) SET n.age = 31, n.updated = timestamp()",
+            "language": "plaintext",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新属性 (SET) (<code>neo4j_update</code>)</div>
+
+执行 SET 语句，更新 Neo4j 中现有节点和关系的属性
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | 是 | Neo4j 服务器主机名或 IP 地址 |
+| `port` | number | 是 | Neo4j 服务器端口 \(默认：Bolt 协议为 7687\) |
+| `database` | string | 是 | 要连接的数据库名称 |
+| `username` | string | 是 | Neo4j 用户名 |
+| `password` | string | 是 | Neo4j 密码 |
+| `encryption` | string | 否 | 连接加密模式 \(enabled、disabled\) |
+| `cypherQuery` | string | 是 | 包含 MATCH 和 SET 语句、用于更新属性的 Cypher 查询 |
+| `parameters` | object | 否 | Cypher 查询参数，JSON 对象 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | string | 操作状态消息 |
+| `summary` | json | 含属性设置计数的更新摘要 |
+
+</div>
+
+---
+
+### 删除节点/关系
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Neo4j"
+    type="neo4j"
+    color="#FFFFFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "delete",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "查询 (MATCH)"
+                },
+                {
+                    "id": "create",
+                    "label": "创建节点/关系"
+                },
+                {
+                    "id": "merge",
+                    "label": "合并（查找或创建）"
+                },
+                {
+                    "id": "update",
+                    "label": "更新属性 (SET)"
+                },
+                {
+                    "id": "delete",
+                    "label": "删除节点/关系"
+                },
+                {
+                    "id": "execute",
+                    "label": "执行 Cypher"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "placeholder": "localhost 或 your.neo4j.host",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "placeholder": "7687",
+            "required": true,
+            "defaultValue": "7687"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "数据库名称",
+            "placeholder": "neo4j",
+            "required": true,
+            "defaultValue": "neo4j"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "neo4j",
+            "required": true,
+            "defaultValue": "neo4j"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "数据库密码",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "encryption",
+            "type": "dropdown",
+            "title": "加密",
+            "defaultValue": "disabled",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "禁用"
+                },
+                {
+                    "id": "enabled",
+                    "label": "启用 (TLS/SSL)"
+                }
+            ]
+        },
+        {
+            "id": "parameters",
+            "type": "code",
+            "title": "参数",
+            "placeholder": "{\"name\": \"Alice\", \"minAge\": 21}",
+            "language": "json"
+        },
+        {
+            "id": "cypherQuery",
+            "type": "code",
+            "title": "Cypher DELETE 语句",
+            "placeholder": "MATCH (n:Person {name: \"Alice\"}) DETACH DELETE n",
+            "language": "plaintext",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除节点/关系 (<code>neo4j_delete</code>)</div>
+
+执行 DELETE 或 DETACH DELETE 语句，从 Neo4j 中删除节点和关系
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | 是 | Neo4j 服务器主机名或 IP 地址 |
+| `port` | number | 是 | Neo4j 服务器端口 \(默认：Bolt 协议为 7687\) |
+| `database` | string | 是 | 要连接的数据库名称 |
+| `username` | string | 是 | Neo4j 用户名 |
+| `password` | string | 是 | Neo4j 密码 |
+| `encryption` | string | 否 | 连接加密模式 \(enabled、disabled\) |
+| `cypherQuery` | string | 是 | 包含 MATCH 和 DELETE/DETACH DELETE 语句的 Cypher 查询 |
+| `parameters` | object | 否 | Cypher 查询的参数，JSON 对象 |
+| `detach` | boolean | 否 | 是否使用 DETACH DELETE，在删除节点前先删除关系 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | string | 操作状态消息 |
+| `summary` | json | 删除摘要，包含已删除节点和关系的计数 |
+
+</div>
+
+---
+
+### 执行 Cypher
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Neo4j"
+    type="neo4j"
+    color="#FFFFFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "execute",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "查询 (MATCH)"
+                },
+                {
+                    "id": "create",
+                    "label": "创建节点/关系"
+                },
+                {
+                    "id": "merge",
+                    "label": "合并（查找或创建）"
+                },
+                {
+                    "id": "update",
+                    "label": "更新属性 (SET)"
+                },
+                {
+                    "id": "delete",
+                    "label": "删除节点/关系"
+                },
+                {
+                    "id": "execute",
+                    "label": "执行 Cypher"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "placeholder": "localhost 或 your.neo4j.host",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "placeholder": "7687",
+            "required": true,
+            "defaultValue": "7687"
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "数据库名称",
+            "placeholder": "neo4j",
+            "required": true,
+            "defaultValue": "neo4j"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "neo4j",
+            "required": true,
+            "defaultValue": "neo4j"
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "数据库密码",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "encryption",
+            "type": "dropdown",
+            "title": "加密",
+            "defaultValue": "disabled",
+            "options": [
+                {
+                    "id": "disabled",
+                    "label": "禁用"
+                },
+                {
+                    "id": "enabled",
+                    "label": "启用 (TLS/SSL)"
+                }
+            ]
+        },
+        {
+            "id": "parameters",
+            "type": "code",
+            "title": "参数",
+            "placeholder": "{\"name\": \"Alice\", \"minAge\": 21}",
+            "language": "json"
+        },
+        {
+            "id": "cypherQuery",
+            "type": "code",
+            "title": "Cypher 查询",
+            "placeholder": "MATCH (n:Person) RETURN n LIMIT 10",
+            "language": "plaintext",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">执行 Cypher（<code>neo4j_execute</code>）</div>
+
+在 Neo4j 图数据库上执行任意 Cypher 查询，用于复杂操作
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | 是 | Neo4j 服务器主机名或 IP 地址 |
+| `port` | number | 是 | Neo4j 服务器端口（默认：Bolt 协议为 7687） |
+| `database` | string | 是 | 要连接的数据库名称 |
+| `username` | string | 是 | Neo4j 用户名 |
+| `password` | string | 是 | Neo4j 密码 |
+| `encryption` | string | 否 | 连接加密模式（enabled、disabled） |
+| `cypherQuery` | string | 是 | 要执行的 Cypher 查询（任意有效的 Cypher 语句） |
+| `parameters` | object | 否 | Cypher 查询的参数，JSON 对象 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | string | 操作状态消息 |
+| `records` | array | 查询返回的记录数组 |
+| `recordCount` | number | 返回的记录数 |
+| `summary` | json | 包含耗时和计数器的执行摘要 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Neo4j 图数据库集成到工作流中。可查询、创建、合并、更新和删除节点与关系。
+
+## 注意事项
+
+- 类别：`tools`
+- 类型：`neo4j`

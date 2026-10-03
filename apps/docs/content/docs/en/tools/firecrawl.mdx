@@ -10,7 +10,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <BlockInfoCard
   type="firecrawl"
-  color=""
+  color="#FA5D19"
 />
 
 
@@ -22,7 +22,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="Firecrawl"
     type="firecrawl"
-    color=""
+    color="#FA5D19"
     hideHeader
     subBlocks={[
         {
@@ -30,21 +30,21 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "scrape",
             "options": [
                 {
-                    "label": "Scrape",
-                    "id": "scrape"
+                    "id": "scrape",
+                    "label": "Scrape"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Crawl",
-                    "id": "crawl"
+                    "id": "crawl",
+                    "label": "Crawl"
                 }
-            ],
-            "defaultValue": "scrape"
+            ]
         },
         {
             "id": "apiKey",
@@ -83,7 +83,6 @@ Extract structured content from web pages with comprehensive metadata support. C
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `url` | string | Yes | The URL to scrape content from |
-| `scrapeOptions` | json | No | Options for content scraping |
 | `apiKey` | string | Yes | Firecrawl API key |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
@@ -92,6 +91,7 @@ Extract structured content from web pages with comprehensive metadata support. C
 | --------- | ---- | ----------- |
 | `markdown` | string | Page content in markdown format |
 | `html` | string | Raw HTML content of the page |
+| `metadata` | object | Page metadata including SEO and Open Graph information |
 
 </div>
 
@@ -105,7 +105,7 @@ Extract structured content from web pages with comprehensive metadata support. C
   <BlockConfigPreview
     name="Firecrawl"
     type="firecrawl"
-    color=""
+    color="#FA5D19"
     hideHeader
     subBlocks={[
         {
@@ -113,21 +113,21 @@ Extract structured content from web pages with comprehensive metadata support. C
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "search",
             "options": [
                 {
-                    "label": "Scrape",
-                    "id": "scrape"
+                    "id": "scrape",
+                    "label": "Scrape"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Crawl",
-                    "id": "crawl"
+                    "id": "crawl",
+                    "label": "Crawl"
                 }
-            ],
-            "defaultValue": "search"
+            ]
         },
         {
             "id": "apiKey",
@@ -166,14 +166,8 @@ Search for information on the web using Firecrawl
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `title` | string | title output |
-| `description` | string | description output |
-| `url` | string | url output |
-| `markdown` | string | markdown output |
-| `html` | string | html output |
-| `rawHtml` | string | rawHtml output |
-| `links` | array | links output |
-| `screenshot` | string | screenshot output |
+| `data` | array | Search results data |
+| `warning` | string | Warning messages from the search operation |
 
 </div>
 
@@ -187,7 +181,7 @@ Search for information on the web using Firecrawl
   <BlockConfigPreview
     name="Firecrawl"
     type="firecrawl"
-    color=""
+    color="#FA5D19"
     hideHeader
     subBlocks={[
         {
@@ -195,21 +189,21 @@ Search for information on the web using Firecrawl
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "crawl",
             "options": [
                 {
-                    "label": "Scrape",
-                    "id": "scrape"
+                    "id": "scrape",
+                    "label": "Scrape"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Crawl",
-                    "id": "crawl"
+                    "id": "crawl",
+                    "label": "Crawl"
                 }
-            ],
-            "defaultValue": "crawl"
+            ]
         },
         {
             "id": "apiKey",
@@ -257,12 +251,9 @@ Crawl entire websites and extract structured content from all accessible pages
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `markdown` | string | Page content in markdown format |
-| `html` | string | Page HTML content |
-| `title` | string | Page title |
-| `description` | string | Page description |
-| `language` | string | Page language |
-| `sourceURL` | string | Source URL of the page |
+| `pages` | array | Array of crawled pages with their content and metadata |
+| `total` | number | Total number of pages found during crawl |
+| `creditsUsed` | number | Number of credits consumed by the crawl operation |
 
 </div>
 

@@ -1,4 +1,5 @@
 import { CodeIcon } from '@/components/icons/icons'
+import { DEFAULT_EXECUTION_TIMEOUT_MS } from '@/lib/execution/constants'
 import type { BlockConfig } from '@/blocks/types'
 import type { CodeExecutionOutput } from '@/tools/function/types'
 
@@ -6,8 +7,7 @@ export const FunctionBlock: BlockConfig<CodeExecutionOutput> = {
   type: 'function',
   name: 'Function',
   description: 'Run custom logic',
-  longDescription:
-    'This is a core workflow block. Execute custom TypeScript code within your workflow. Code transpiles to JavaScript at runtime and executes on E2B when enabled, otherwise local VM. Available indicators are executed through indicator.<ID>(marketSeries) or indicator["<ID>"](marketSeries) with full Historical Data block output.',
+  longDescription: `Write TypeScript or JavaScript statements directly, using await and return without a function wrapper. Python is not supported. Code transpiles to JavaScript and runs in a local VM or an E2B sandbox, according to the deployment's E2B system-service configuration; there is no per-block runtime toggle. The default code timeout is ${DEFAULT_EXECUTION_TIMEOUT_MS / 1000} seconds, and workflow limits may end a run sooner. fetch() is available subject to URL restrictions; external imports require E2B runtime support. console.log() is captured in stdout. There is no automatically populated input object: use exact upstream tags such as <api.data>, workflow variables such as <variable.riskLimit>, and environment references such as {{API_KEY}}. For indicators, call await indicator.RSI(<historical_data>, { Length: 7 }) with the full Historical Data output and saved input titles; use indicator.list() to discover available IDs. Do not import PineTS or define an indicator in Function code. Execution errors fail the block and can be handled with an error-path connection.`,
   bestPractices: `
   - Write TypeScript statements only (no function wrapper).
   - If you need external imports, enable E2B at the environment level.

@@ -24,13 +24,14 @@ import {
   INDICATOR_MONITOR_PROVIDER,
   isMonitorProviderConfigForProvider,
 } from '@/lib/monitors/sources'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { decryptSecret } from '@/lib/utils-server'
 import type { MonitorExecutionPayload } from '@/background/monitor-execution'
 import { executeProviderRequest } from '@/providers/market'
-import { getMarketProviderConfig } from '@/providers/market/providers'
+import { getMarketProviderConfig, getMarketProviderDefinition } from '@/providers/market/providers'
 import type { MarketBar, MarketSeries } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
-import { type AnyMarketProviderId, marketStreamManager } from '@/socket-server/market/manager'
+import { marketStreamManager } from '@/socket-server/market/manager'
 import type { AuthenticatedSocket } from '@/socket-server/middleware/auth'
 import {
   createMonitorRuntimeLock,
@@ -72,9 +73,10 @@ type MonitorRuntimeConfig = {
   workflowId: string
   workspaceId: string
   userId: string
+  connectionOwnerUserId: string
   pinnedApiKeyId: string | null
   blockId: string
-  providerId: AnyMarketProviderId
+  providerId: string
   interval: string
   intervalMs: number | null
   indicatorId: string
@@ -137,6 +139,10 @@ const normalizeProviderConfig = (
   const triggerBlockId = toTrimmedString(monitor.triggerBlockId)
 
   if (!providerId || !getMarketProviderConfig(providerId)) return null
+  const connectionOwnerUserId = getMarketProviderDefinition(providerId)?.oauth
+    ? toTrimmedString(monitor.connectionOwnerUserId)
+    : userId
+  if (!connectionOwnerUserId) return null
   if (!interval || !indicatorId || !listing.success) return null
   if (!triggerBlockId) return null
 
@@ -161,9 +167,10 @@ const normalizeProviderConfig = (
     workflowId: row.workflowId,
     workspaceId,
     userId,
+    connectionOwnerUserId,
     pinnedApiKeyId,
     blockId: triggerBlockId,
-    providerId: providerId as AnyMarketProviderId,
+    providerId,
     interval,
     intervalMs,
     indicatorId,
@@ -566,6 +573,17 @@ export class IndicatorMonitorRuntime {
           continue
         }
 
+        if (getMarketProviderDefinition(monitor.providerId)?.oauth) {
+          const access = await checkWorkspaceAccess(
+            monitor.workspaceId,
+            monitor.connectionOwnerUserId
+          )
+          if (!access.exists || !access.hasAccess) {
+            await this.disconnectMonitor(monitor.id, 'connection_owner_workspace_access_revoked')
+            continue
+          }
+        }
+
         if (existing && existing.config.signature === monitor.signature) {
           continue
         }
@@ -668,7 +686,7 @@ export class IndicatorMonitorRuntime {
   ) {
     const syntheticSocket = {
       id: `indicator-monitor-runtime:${monitor.id}`,
-      userId: monitor.userId,
+      userId: monitor.connectionOwnerUserId,
       emit: (event: string, payload: any) => {
         if (event === 'market-bar') {
           const bar = payload?.bar as MarketBar | undefined
@@ -720,17 +738,21 @@ export class IndicatorMonitorRuntime {
     monitor: MonitorRuntimeConfig,
     auth: { apiKey?: string; apiSecret?: string }
   ): Promise<BarMs[]> {
-    const result = await executeProviderRequest(monitor.providerId, {
-      kind: 'series',
-      listing: monitor.listing,
-      interval: monitor.interval,
-      auth,
-      providerParams: {
-        ...(monitor.providerParams ?? {}),
-        allowEmpty: true,
+    const result = await executeProviderRequest(
+      monitor.providerId,
+      {
+        kind: 'series',
+        listing: monitor.listing,
+        interval: monitor.interval,
+        auth,
+        providerParams: {
+          ...(monitor.providerParams ?? {}),
+          allowEmpty: true,
+        },
+        windows: [{ mode: 'bars', barCount: MONITOR_WINDOW_BARS }],
       },
-      windows: [{ mode: 'bars', barCount: MONITOR_WINDOW_BARS }],
-    })
+      { userId: monitor.connectionOwnerUserId }
+    )
 
     const marketSeries = result as MarketSeries
     return normalizeBarsMs(
@@ -797,7 +819,7 @@ export class IndicatorMonitorRuntime {
   }
 
   private async enqueueMonitorExecution(subscription: IndicatorMonitorSubscription) {
-    const monitor = subscription.config
+    const { config: monitor, bars } = subscription
 
     try {
       const actorUserId = await getApiKeyOwnerUserId(monitor.pinnedApiKeyId)
@@ -833,7 +855,7 @@ export class IndicatorMonitorRuntime {
           pineCode: subscription.indicator.pineCode,
         },
         inputsMap: subscription.inputsMap,
-        bars: subscription.bars,
+        bars,
         marketCode: subscription.marketCode,
         timezone: subscription.timezone,
       }

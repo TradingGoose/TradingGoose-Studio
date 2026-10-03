@@ -11,9 +11,11 @@ import { getBillingTierById } from '@/lib/billing/tiers'
 import { getOccupiedSeatCount } from '@/lib/billing/validation/seat-management'
 import { isSignInOAuthProviderId } from '@/lib/oauth'
 import {
+  ensureRobinhoodOAuthClient,
   loadSystemOAuthClientCredentials,
   runWithSystemOAuthClientCredentials,
 } from '@/lib/oauth/system-managed-config'
+import { getBaseUrl } from '@/lib/urls/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -229,6 +231,31 @@ export const handleAuthRequest = async (request: Request) => {
   const credentials = await loadSystemOAuthClientCredentials([providerId])
   if (!credentials[providerId]) {
     return Response.json({ error: 'OAuth provider is not configured' }, { status: 400 })
+  }
+
+  if (providerId === 'robinhood') {
+    const isLinkRequest = request.method === 'POST' && pathname === '/api/auth/oauth2/link'
+    if (!isLinkRequest && !credentials[providerId].clientId) {
+      return Response.json({ error: 'OAuth provider is not configured' }, { status: 400 })
+    }
+    if (isLinkRequest) {
+      const session = await getSession(request.headers)
+      if (!session?.user?.id) {
+        return Response.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+
+      try {
+        const redirectUri = `${getBaseUrl()}/api/auth/oauth2/callback/${providerId}`
+        const clientId = await ensureRobinhoodOAuthClient(redirectUri)
+        credentials[providerId].clientId = clientId
+        credentials[providerId].fields.client_id = clientId
+      } catch {
+        return Response.json(
+          { error: 'Could not register the Robinhood connection' },
+          { status: 502 }
+        )
+      }
+    }
   }
 
   return runWithSystemOAuthClientCredentials(() => auth.handler(requestToHandle), credentials)

@@ -4,31 +4,17 @@ import type { ToolConfig } from '@/tools/types'
 export const memoryGetAllTool: ToolConfig<any, MemoryResponse> = {
   id: 'memory_get_all',
   name: 'Get All Memories',
-  description: 'Retrieve all memories from the database',
+  description: 'Retrieve up to 50 conversations stored in the current workflow.',
   version: '1.0.0',
 
   params: {},
 
   request: {
-    url: (params): any => {
-      // Get workflowId from context (set by workflow execution)
+    url: (params) => {
       const workflowId = params._context?.workflowId
-
       if (!workflowId) {
-        return {
-          _errorResponse: {
-            status: 400,
-            data: {
-              success: false,
-              error: {
-                message: 'workflowId is required and must be provided in execution context',
-              },
-            },
-          },
-        }
+        throw new Error('workflowId is required in execution context')
       }
-
-      // Append workflowId as query parameter
       return `/api/memory?workflowId=${encodeURIComponent(workflowId)}`
     },
     method: 'GET',
@@ -38,14 +24,10 @@ export const memoryGetAllTool: ToolConfig<any, MemoryResponse> = {
   },
 
   transformResponse: async (response): Promise<MemoryResponse> => {
-    const result = await response.json()
-
-    // Extract memories from the response
-    const data = result.data || result
-    const rawMemories = data.memories || data || []
+    const { data } = await response.json()
 
     // Transform memories to return them with their keys and types for better context
-    const memories = rawMemories.map((memory: any) => ({
+    const memories = data.memories.map((memory: any) => ({
       key: memory.key,
       type: memory.type,
       data: memory.data,
@@ -61,12 +43,10 @@ export const memoryGetAllTool: ToolConfig<any, MemoryResponse> = {
   },
 
   outputs: {
-    success: { type: 'boolean', description: 'Whether all memories were retrieved successfully' },
     memories: {
       type: 'array',
-      description: 'Array of all memory objects with keys, types, and data',
+      description: 'Up to 50 conversation objects with keys, types, and message data',
     },
     message: { type: 'string', description: 'Success or error message' },
-    error: { type: 'string', description: 'Error message if operation failed' },
   },
 }

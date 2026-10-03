@@ -146,10 +146,16 @@ export async function GET(req: NextRequest) {
     const scheduleData = schedule[0]
     const isDisabled = scheduleData.status === 'disabled'
     const hasFailures = scheduleData.failedCount > 0
+    let utcOffset: string | null = null
+    try {
+      utcOffset = (await resolveTimezoneState(scheduleData.timezone)).utcOffset
+    } catch (error) {
+      logger.error(`[${requestId}] Failed to resolve schedule display timezone`, error)
+    }
 
     return NextResponse.json(
       {
-        schedule: scheduleData,
+        schedule: { ...scheduleData, utcOffset },
         isDisabled,
         hasFailures,
         canBeReactivated: isDisabled,

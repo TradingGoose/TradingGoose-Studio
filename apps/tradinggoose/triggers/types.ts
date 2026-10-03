@@ -24,7 +24,8 @@ export interface TriggerConfigField {
 export interface TriggerOutput {
   type?: WorkflowOutputType
   description?: string
-  [key: string]: TriggerOutput | string | undefined
+  properties?: Record<string, TriggerOutput>
+  [key: string]: TriggerOutput | Record<string, TriggerOutput> | string | undefined
 }
 
 export interface TriggerConfig {

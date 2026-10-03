@@ -199,6 +199,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           source,
           parentWorkflowId: childWorkflowExecution?.parentWorkflowId ?? null,
           parentExecutionId: childWorkflowExecution?.parentExecutionId ?? null,
+          parentPendingExecutionId: childWorkflowExecution?.parentPendingExecutionId ?? null,
           parentBlockId: childWorkflowExecution?.parentBlockId ?? null,
         },
       },

@@ -30,29 +30,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Provider",
             "required": true,
+            "defaultValue": "runway",
             "options": [
                 {
-                    "label": "Runway Gen-4",
-                    "id": "runway"
+                    "id": "runway",
+                    "label": "Runway Gen-4"
                 },
                 {
-                    "label": "Google Veo 3",
-                    "id": "veo"
+                    "id": "veo",
+                    "label": "Google Veo 3"
                 },
                 {
-                    "label": "Luma Dream Machine",
-                    "id": "luma"
+                    "id": "luma",
+                    "label": "Luma Dream Machine"
                 },
                 {
-                    "label": "MiniMax Hailuo",
-                    "id": "minimax"
+                    "id": "minimax",
+                    "label": "MiniMax Hailuo"
                 },
                 {
-                    "label": "Fal.ai (Multi-Model)",
-                    "id": "falai"
+                    "id": "falai",
+                    "label": "Fal.ai (Multi-Model)"
                 }
-            ],
-            "defaultValue": "runway"
+            ]
         },
         {
             "id": "prompt",
@@ -65,35 +65,39 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "duration",
             "type": "dropdown",
             "title": "Duration (seconds)",
+            "defaultValue": "5",
             "options": [
                 {
-                    "label": "5",
-                    "id": "5"
+                    "id": "5",
+                    "label": "5"
                 },
                 {
-                    "label": "8",
-                    "id": "8"
+                    "id": "8",
+                    "label": "8"
                 },
                 {
-                    "label": "10",
-                    "id": "10"
+                    "id": "10",
+                    "label": "10"
                 }
-            ]
+            ],
+            "description": "Shown when model is one of 'kling-2.5-turbo-pro', 'kling-2.1-pro', 'minimax-hailuo-2.3-pro', 'minimax-hailuo-2.3-standard'."
         },
         {
             "id": "aspectRatio",
             "type": "dropdown",
             "title": "Aspect Ratio",
+            "defaultValue": "16:9",
             "options": [
                 {
-                    "label": "16:9",
-                    "id": "16:9"
+                    "id": "16:9",
+                    "label": "16:9"
                 },
                 {
-                    "label": "9:16",
-                    "id": "9:16"
+                    "id": "9:16",
+                    "label": "9:16"
                 }
-            ]
+            ],
+            "description": "Shown when model is one of 'kling-2.5-turbo-pro', 'kling-2.1-pro', 'minimax-hailuo-2.3-pro', 'minimax-hailuo-2.3-standard'."
         },
         {
             "id": "apiKey",
@@ -107,14 +111,16 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "duration",
             "type": "dropdown",
             "title": "Duration (seconds)",
+            "required": false,
+            "defaultValue": "5",
             "options": [
                 {
-                    "label": "5",
-                    "id": "5"
+                    "id": "5",
+                    "label": "5"
                 },
                 {
-                    "label": "10",
-                    "id": "10"
+                    "id": "10",
+                    "label": "10"
                 }
             ]
         },
@@ -122,18 +128,20 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "aspectRatio",
             "type": "dropdown",
             "title": "Aspect Ratio",
+            "required": false,
+            "defaultValue": "16:9",
             "options": [
                 {
-                    "label": "16:9",
-                    "id": "16:9"
+                    "id": "16:9",
+                    "label": "16:9"
                 },
                 {
-                    "label": "9:16",
-                    "id": "9:16"
+                    "id": "9:16",
+                    "label": "9:16"
                 },
                 {
-                    "label": "1:1",
-                    "id": "1:1"
+                    "id": "1:1",
+                    "label": "1:1"
                 }
             ]
         },
@@ -149,7 +157,24 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Runway Gen-4 (<code>video_runway</code>)</div>
+
+Generate videos using Runway Gen-4 with world consistency and visual references
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | Yes | Video provider \(runway\) |
+| `apiKey` | string | Yes | Runway API key |
+| `model` | string | No | Runway model: gen-4 \(default, higher quality\) or gen-4-turbo \(faster\) |
+| `prompt` | string | Yes | Text prompt describing the video to generate |
+| `duration` | number | No | Video duration in seconds \(5 or 10, default: 5\) |
+| `aspectRatio` | string | No | Aspect ratio: 16:9 \(landscape\), 9:16 \(portrait\), or 1:1 \(square\) |
+| `resolution` | string | No | Video resolution \(720p output\). Note: Gen-4 Turbo outputs at 720p natively |
+| `visualReference` | json | Yes | Reference image REQUIRED for Gen-4 \(UserFile object\). Gen-4 only supports image-to-video, not text-only generation |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
@@ -158,8 +183,9 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 | `duration` | number | Video duration in seconds |
 | `width` | number | Video width in pixels |
 | `height` | number | Video height in pixels |
-| `provider` | string | Provider used |
+| `provider` | string | Provider used \(runway\) |
 | `model` | string | Model used |
+| `jobId` | string | Runway job ID |
 
 </div>
 
@@ -181,29 +207,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Provider",
             "required": true,
+            "defaultValue": "veo",
             "options": [
                 {
-                    "label": "Runway Gen-4",
-                    "id": "runway"
+                    "id": "runway",
+                    "label": "Runway Gen-4"
                 },
                 {
-                    "label": "Google Veo 3",
-                    "id": "veo"
+                    "id": "veo",
+                    "label": "Google Veo 3"
                 },
                 {
-                    "label": "Luma Dream Machine",
-                    "id": "luma"
+                    "id": "luma",
+                    "label": "Luma Dream Machine"
                 },
                 {
-                    "label": "MiniMax Hailuo",
-                    "id": "minimax"
+                    "id": "minimax",
+                    "label": "MiniMax Hailuo"
                 },
                 {
-                    "label": "Fal.ai (Multi-Model)",
-                    "id": "falai"
+                    "id": "falai",
+                    "label": "Fal.ai (Multi-Model)"
                 }
-            ],
-            "defaultValue": "veo"
+            ]
         },
         {
             "id": "prompt",
@@ -216,35 +242,39 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "duration",
             "type": "dropdown",
             "title": "Duration (seconds)",
+            "defaultValue": "5",
             "options": [
                 {
-                    "label": "5",
-                    "id": "5"
+                    "id": "5",
+                    "label": "5"
                 },
                 {
-                    "label": "8",
-                    "id": "8"
+                    "id": "8",
+                    "label": "8"
                 },
                 {
-                    "label": "10",
-                    "id": "10"
+                    "id": "10",
+                    "label": "10"
                 }
-            ]
+            ],
+            "description": "Shown when model is one of 'kling-2.5-turbo-pro', 'kling-2.1-pro', 'minimax-hailuo-2.3-pro', 'minimax-hailuo-2.3-standard'."
         },
         {
             "id": "aspectRatio",
             "type": "dropdown",
             "title": "Aspect Ratio",
+            "defaultValue": "16:9",
             "options": [
                 {
-                    "label": "16:9",
-                    "id": "16:9"
+                    "id": "16:9",
+                    "label": "16:9"
                 },
                 {
-                    "label": "9:16",
-                    "id": "9:16"
+                    "id": "9:16",
+                    "label": "9:16"
                 }
-            ]
+            ],
+            "description": "Shown when model is one of 'kling-2.5-turbo-pro', 'kling-2.1-pro', 'minimax-hailuo-2.3-pro', 'minimax-hailuo-2.3-standard'."
         },
         {
             "id": "apiKey",
@@ -258,18 +288,20 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "model",
             "type": "dropdown",
             "title": "Model",
+            "required": false,
+            "defaultValue": "veo-3",
             "options": [
                 {
-                    "label": "Veo 3",
-                    "id": "veo-3"
+                    "id": "veo-3",
+                    "label": "Veo 3"
                 },
                 {
-                    "label": "Veo 3 Fast",
-                    "id": "veo-3-fast"
+                    "id": "veo-3-fast",
+                    "label": "Veo 3 Fast"
                 },
                 {
-                    "label": "Veo 3.1",
-                    "id": "veo-3.1"
+                    "id": "veo-3.1",
+                    "label": "Veo 3.1"
                 }
             ]
         },
@@ -277,18 +309,20 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "duration",
             "type": "dropdown",
             "title": "Duration (seconds)",
+            "required": false,
+            "defaultValue": "8",
             "options": [
                 {
-                    "label": "4",
-                    "id": "4"
+                    "id": "4",
+                    "label": "4"
                 },
                 {
-                    "label": "6",
-                    "id": "6"
+                    "id": "6",
+                    "label": "6"
                 },
                 {
-                    "label": "8",
-                    "id": "8"
+                    "id": "8",
+                    "label": "8"
                 }
             ]
         },
@@ -296,14 +330,16 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "aspectRatio",
             "type": "dropdown",
             "title": "Aspect Ratio",
+            "required": false,
+            "defaultValue": "16:9",
             "options": [
                 {
-                    "label": "16:9",
-                    "id": "16:9"
+                    "id": "16:9",
+                    "label": "16:9"
                 },
                 {
-                    "label": "9:16",
-                    "id": "9:16"
+                    "id": "9:16",
+                    "label": "9:16"
                 }
             ]
         },
@@ -311,14 +347,16 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "resolution",
             "type": "dropdown",
             "title": "Resolution",
+            "required": false,
+            "defaultValue": "1080p",
             "options": [
                 {
-                    "label": "720p",
-                    "id": "720p"
+                    "id": "720p",
+                    "label": "720p"
                 },
                 {
-                    "label": "1080p",
-                    "id": "1080p"
+                    "id": "1080p",
+                    "label": "1080p"
                 }
             ]
         }
@@ -327,7 +365,23 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Google Veo 3 (<code>video_veo</code>)</div>
+
+Generate videos using Google Veo 3/3.1 with native audio generation
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | Yes | Video provider \(veo\) |
+| `apiKey` | string | Yes | Google Gemini API key |
+| `model` | string | No | Veo model: veo-3 \(default, highest quality\), veo-3-fast \(faster\), or veo-3.1 \(latest\) |
+| `prompt` | string | Yes | Text prompt describing the video to generate |
+| `duration` | number | No | Video duration in seconds \(4, 6, or 8, default: 8\) |
+| `aspectRatio` | string | No | Aspect ratio: 16:9 \(landscape\) or 9:16 \(portrait\) |
+| `resolution` | string | No | Video resolution: 720p or 1080p \(default: 1080p\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
@@ -336,8 +390,9 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 | `duration` | number | Video duration in seconds |
 | `width` | number | Video width in pixels |
 | `height` | number | Video height in pixels |
-| `provider` | string | Provider used |
+| `provider` | string | Provider used \(veo\) |
 | `model` | string | Model used |
+| `jobId` | string | Veo job ID |
 
 </div>
 
@@ -359,29 +414,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Provider",
             "required": true,
+            "defaultValue": "luma",
             "options": [
                 {
-                    "label": "Runway Gen-4",
-                    "id": "runway"
+                    "id": "runway",
+                    "label": "Runway Gen-4"
                 },
                 {
-                    "label": "Google Veo 3",
-                    "id": "veo"
+                    "id": "veo",
+                    "label": "Google Veo 3"
                 },
                 {
-                    "label": "Luma Dream Machine",
-                    "id": "luma"
+                    "id": "luma",
+                    "label": "Luma Dream Machine"
                 },
                 {
-                    "label": "MiniMax Hailuo",
-                    "id": "minimax"
+                    "id": "minimax",
+                    "label": "MiniMax Hailuo"
                 },
                 {
-                    "label": "Fal.ai (Multi-Model)",
-                    "id": "falai"
+                    "id": "falai",
+                    "label": "Fal.ai (Multi-Model)"
                 }
-            ],
-            "defaultValue": "luma"
+            ]
         },
         {
             "id": "prompt",
@@ -394,35 +449,39 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "duration",
             "type": "dropdown",
             "title": "Duration (seconds)",
+            "defaultValue": "5",
             "options": [
                 {
-                    "label": "5",
-                    "id": "5"
+                    "id": "5",
+                    "label": "5"
                 },
                 {
-                    "label": "8",
-                    "id": "8"
+                    "id": "8",
+                    "label": "8"
                 },
                 {
-                    "label": "10",
-                    "id": "10"
+                    "id": "10",
+                    "label": "10"
                 }
-            ]
+            ],
+            "description": "Shown when model is one of 'kling-2.5-turbo-pro', 'kling-2.1-pro', 'minimax-hailuo-2.3-pro', 'minimax-hailuo-2.3-standard'."
         },
         {
             "id": "aspectRatio",
             "type": "dropdown",
             "title": "Aspect Ratio",
+            "defaultValue": "16:9",
             "options": [
                 {
-                    "label": "16:9",
-                    "id": "16:9"
+                    "id": "16:9",
+                    "label": "16:9"
                 },
                 {
-                    "label": "9:16",
-                    "id": "9:16"
+                    "id": "9:16",
+                    "label": "9:16"
                 }
-            ]
+            ],
+            "description": "Shown when model is one of 'kling-2.5-turbo-pro', 'kling-2.1-pro', 'minimax-hailuo-2.3-pro', 'minimax-hailuo-2.3-standard'."
         },
         {
             "id": "apiKey",
@@ -436,10 +495,12 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "model",
             "type": "dropdown",
             "title": "Model",
+            "required": false,
+            "defaultValue": "ray-2",
             "options": [
                 {
-                    "label": "Ray 2",
-                    "id": "ray-2"
+                    "id": "ray-2",
+                    "label": "Ray 2"
                 }
             ]
         },
@@ -447,14 +508,16 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "duration",
             "type": "dropdown",
             "title": "Duration (seconds)",
+            "required": false,
+            "defaultValue": "5",
             "options": [
                 {
-                    "label": "5",
-                    "id": "5"
+                    "id": "5",
+                    "label": "5"
                 },
                 {
-                    "label": "9",
-                    "id": "9"
+                    "id": "9",
+                    "label": "9"
                 }
             ]
         },
@@ -462,18 +525,20 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "aspectRatio",
             "type": "dropdown",
             "title": "Aspect Ratio",
+            "required": false,
+            "defaultValue": "16:9",
             "options": [
                 {
-                    "label": "16:9",
-                    "id": "16:9"
+                    "id": "16:9",
+                    "label": "16:9"
                 },
                 {
-                    "label": "9:16",
-                    "id": "9:16"
+                    "id": "9:16",
+                    "label": "9:16"
                 },
                 {
-                    "label": "1:1",
-                    "id": "1:1"
+                    "id": "1:1",
+                    "label": "1:1"
                 }
             ]
         },
@@ -481,18 +546,20 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "resolution",
             "type": "dropdown",
             "title": "Resolution",
+            "required": false,
+            "defaultValue": "1080p",
             "options": [
                 {
-                    "label": "540p",
-                    "id": "540p"
+                    "id": "540p",
+                    "label": "540p"
                 },
                 {
-                    "label": "720p",
-                    "id": "720p"
+                    "id": "720p",
+                    "label": "720p"
                 },
                 {
-                    "label": "1080p",
-                    "id": "1080p"
+                    "id": "1080p",
+                    "label": "1080p"
                 }
             ]
         },
@@ -500,14 +567,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "cameraControl",
             "type": "long-input",
             "title": "Camera Controls",
-            "placeholder": "JSON: [{ \"key\": \"pan_right\" }, { \"key\": \"zoom_in\" }]"
+            "placeholder": "JSON: [{ \"key\": \"pan_right\" }, { \"key\": \"zoom_in\" }]",
+            "required": false
         }
     ]}
   />
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Luma Dream Machine (<code>video_luma</code>)</div>
+
+Generate videos using Luma Dream Machine with advanced camera controls
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | Yes | Video provider \(luma\) |
+| `apiKey` | string | Yes | Luma AI API key |
+| `model` | string | No | Luma model: ray-2 \(default\) |
+| `prompt` | string | Yes | Text prompt describing the video to generate |
+| `duration` | number | No | Video duration in seconds \(5 or 9, default: 5\) |
+| `aspectRatio` | string | No | Aspect ratio: 16:9 \(landscape\), 9:16 \(portrait\), or 1:1 \(square\) |
+| `resolution` | string | No | Video resolution: 540p, 720p, or 1080p \(default: 1080p\) |
+| `cameraControl` | json | No | Camera controls as array of concept objects. Format: \[\{ "key": "concept_name" \}\]. Valid keys: truck_left, truck_right, pan_left, pan_right, tilt_up, tilt_down, zoom_in, zoom_out, push_in, pull_out, orbit_left, orbit_right, crane_up, crane_down, static, handheld, and 20+ more predefined options |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
@@ -516,8 +601,9 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 | `duration` | number | Video duration in seconds |
 | `width` | number | Video width in pixels |
 | `height` | number | Video height in pixels |
-| `provider` | string | Provider used |
+| `provider` | string | Provider used \(luma\) |
 | `model` | string | Model used |
+| `jobId` | string | Luma job ID |
 
 </div>
 
@@ -539,29 +625,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Provider",
             "required": true,
+            "defaultValue": "minimax",
             "options": [
                 {
-                    "label": "Runway Gen-4",
-                    "id": "runway"
+                    "id": "runway",
+                    "label": "Runway Gen-4"
                 },
                 {
-                    "label": "Google Veo 3",
-                    "id": "veo"
+                    "id": "veo",
+                    "label": "Google Veo 3"
                 },
                 {
-                    "label": "Luma Dream Machine",
-                    "id": "luma"
+                    "id": "luma",
+                    "label": "Luma Dream Machine"
                 },
                 {
-                    "label": "MiniMax Hailuo",
-                    "id": "minimax"
+                    "id": "minimax",
+                    "label": "MiniMax Hailuo"
                 },
                 {
-                    "label": "Fal.ai (Multi-Model)",
-                    "id": "falai"
+                    "id": "falai",
+                    "label": "Fal.ai (Multi-Model)"
                 }
-            ],
-            "defaultValue": "minimax"
+            ]
         },
         {
             "id": "prompt",
@@ -574,35 +660,39 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "duration",
             "type": "dropdown",
             "title": "Duration (seconds)",
+            "defaultValue": "5",
             "options": [
                 {
-                    "label": "5",
-                    "id": "5"
+                    "id": "5",
+                    "label": "5"
                 },
                 {
-                    "label": "8",
-                    "id": "8"
+                    "id": "8",
+                    "label": "8"
                 },
                 {
-                    "label": "10",
-                    "id": "10"
+                    "id": "10",
+                    "label": "10"
                 }
-            ]
+            ],
+            "description": "Shown when model is one of 'kling-2.5-turbo-pro', 'kling-2.1-pro', 'minimax-hailuo-2.3-pro', 'minimax-hailuo-2.3-standard'."
         },
         {
             "id": "aspectRatio",
             "type": "dropdown",
             "title": "Aspect Ratio",
+            "defaultValue": "16:9",
             "options": [
                 {
-                    "label": "16:9",
-                    "id": "16:9"
+                    "id": "16:9",
+                    "label": "16:9"
                 },
                 {
-                    "label": "9:16",
-                    "id": "9:16"
+                    "id": "9:16",
+                    "label": "9:16"
                 }
-            ]
+            ],
+            "description": "Shown when model is one of 'kling-2.5-turbo-pro', 'kling-2.1-pro', 'minimax-hailuo-2.3-pro', 'minimax-hailuo-2.3-standard'."
         },
         {
             "id": "apiKey",
@@ -616,10 +706,12 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "model",
             "type": "dropdown",
             "title": "Model",
+            "required": false,
+            "defaultValue": "hailuo-02",
             "options": [
                 {
-                    "label": "Hailuo 2.3",
-                    "id": "hailuo-02"
+                    "id": "hailuo-02",
+                    "label": "Hailuo 2.3"
                 }
             ]
         },
@@ -627,14 +719,16 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "endpoint",
             "type": "dropdown",
             "title": "Quality Endpoint",
+            "required": false,
+            "defaultValue": "standard",
             "options": [
                 {
-                    "label": "Pro",
-                    "id": "pro"
+                    "id": "pro",
+                    "label": "Pro"
                 },
                 {
-                    "label": "Standard",
-                    "id": "standard"
+                    "id": "standard",
+                    "label": "Standard"
                 }
             ]
         },
@@ -642,14 +736,16 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "duration",
             "type": "dropdown",
             "title": "Duration (seconds)",
+            "required": false,
+            "defaultValue": "6",
             "options": [
                 {
-                    "label": "6",
-                    "id": "6"
+                    "id": "6",
+                    "label": "6"
                 },
                 {
-                    "label": "10",
-                    "id": "10"
+                    "id": "10",
+                    "label": "10"
                 }
             ]
         },
@@ -663,7 +759,22 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">MiniMax Hailuo (<code>video_minimax</code>)</div>
+
+Generate videos using MiniMax Hailuo through MiniMax Platform API with advanced realism and prompt optimization
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | Yes | Video provider \(minimax\) |
+| `apiKey` | string | Yes | MiniMax API key from platform.minimax.io |
+| `model` | string | No | MiniMax model: hailuo-02 \(default\) |
+| `prompt` | string | Yes | Text prompt describing the video to generate |
+| `duration` | number | No | Video duration in seconds \(6 or 10, default: 6\) |
+| `promptOptimizer` | boolean | No | Enable prompt optimization for better results \(default: true\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
@@ -672,8 +783,9 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 | `duration` | number | Video duration in seconds |
 | `width` | number | Video width in pixels |
 | `height` | number | Video height in pixels |
-| `provider` | string | Provider used |
+| `provider` | string | Provider used \(minimax\) |
 | `model` | string | Model used |
+| `jobId` | string | MiniMax job ID |
 
 </div>
 
@@ -695,29 +807,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Provider",
             "required": true,
+            "defaultValue": "falai",
             "options": [
                 {
-                    "label": "Runway Gen-4",
-                    "id": "runway"
+                    "id": "runway",
+                    "label": "Runway Gen-4"
                 },
                 {
-                    "label": "Google Veo 3",
-                    "id": "veo"
+                    "id": "veo",
+                    "label": "Google Veo 3"
                 },
                 {
-                    "label": "Luma Dream Machine",
-                    "id": "luma"
+                    "id": "luma",
+                    "label": "Luma Dream Machine"
                 },
                 {
-                    "label": "MiniMax Hailuo",
-                    "id": "minimax"
+                    "id": "minimax",
+                    "label": "MiniMax Hailuo"
                 },
                 {
-                    "label": "Fal.ai (Multi-Model)",
-                    "id": "falai"
+                    "id": "falai",
+                    "label": "Fal.ai (Multi-Model)"
                 }
-            ],
-            "defaultValue": "falai"
+            ]
         },
         {
             "id": "prompt",
@@ -730,35 +842,39 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "duration",
             "type": "dropdown",
             "title": "Duration (seconds)",
+            "defaultValue": "5",
             "options": [
                 {
-                    "label": "5",
-                    "id": "5"
+                    "id": "5",
+                    "label": "5"
                 },
                 {
-                    "label": "8",
-                    "id": "8"
+                    "id": "8",
+                    "label": "8"
                 },
                 {
-                    "label": "10",
-                    "id": "10"
+                    "id": "10",
+                    "label": "10"
                 }
-            ]
+            ],
+            "description": "Shown when model is one of 'kling-2.5-turbo-pro', 'kling-2.1-pro', 'minimax-hailuo-2.3-pro', 'minimax-hailuo-2.3-standard'."
         },
         {
             "id": "aspectRatio",
             "type": "dropdown",
             "title": "Aspect Ratio",
+            "defaultValue": "16:9",
             "options": [
                 {
-                    "label": "16:9",
-                    "id": "16:9"
+                    "id": "16:9",
+                    "label": "16:9"
                 },
                 {
-                    "label": "9:16",
-                    "id": "9:16"
+                    "id": "9:16",
+                    "label": "9:16"
                 }
-            ]
+            ],
+            "description": "Shown when model is one of 'kling-2.5-turbo-pro', 'kling-2.1-pro', 'minimax-hailuo-2.3-pro', 'minimax-hailuo-2.3-standard'."
         },
         {
             "id": "apiKey",
@@ -773,38 +889,39 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Model",
             "required": true,
+            "defaultValue": "veo-3.1",
             "options": [
                 {
-                    "label": "Google Veo 3.1",
-                    "id": "veo-3.1"
+                    "id": "veo-3.1",
+                    "label": "Google Veo 3.1"
                 },
                 {
-                    "label": "OpenAI Sora 2",
-                    "id": "sora-2"
+                    "id": "sora-2",
+                    "label": "OpenAI Sora 2"
                 },
                 {
-                    "label": "Kling 2.5 Turbo Pro",
-                    "id": "kling-2.5-turbo-pro"
+                    "id": "kling-2.5-turbo-pro",
+                    "label": "Kling 2.5 Turbo Pro"
                 },
                 {
-                    "label": "Kling 2.1 Pro",
-                    "id": "kling-2.1-pro"
+                    "id": "kling-2.1-pro",
+                    "label": "Kling 2.1 Pro"
                 },
                 {
-                    "label": "MiniMax Hailuo 2.3 Pro",
-                    "id": "minimax-hailuo-2.3-pro"
+                    "id": "minimax-hailuo-2.3-pro",
+                    "label": "MiniMax Hailuo 2.3 Pro"
                 },
                 {
-                    "label": "MiniMax Hailuo 2.3 Standard",
-                    "id": "minimax-hailuo-2.3-standard"
+                    "id": "minimax-hailuo-2.3-standard",
+                    "label": "MiniMax Hailuo 2.3 Standard"
                 },
                 {
-                    "label": "WAN 2.1",
-                    "id": "wan-2.1"
+                    "id": "wan-2.1",
+                    "label": "WAN 2.1"
                 },
                 {
-                    "label": "LTXV 0.9.8",
-                    "id": "ltxv-0.9.8"
+                    "id": "ltxv-0.9.8",
+                    "label": "LTXV 0.9.8"
                 }
             ]
         }
@@ -813,7 +930,24 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Fal.ai (Multi-Model) (<code>video_falai</code>)</div>
+
+Generate videos using Fal.ai platform with access to multiple models including Veo 3.1, Sora 2, Kling 2.5, MiniMax Hailuo, and more
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | Yes | Video provider \(falai\) |
+| `apiKey` | string | Yes | Fal.ai API key |
+| `model` | string | Yes | Fal.ai model: veo-3.1 \(Google Veo 3.1\), sora-2 \(OpenAI Sora 2\), kling-2.5-turbo-pro \(Kling 2.5 Turbo Pro\), kling-2.1-pro \(Kling 2.1 Master\), minimax-hailuo-2.3-pro \(MiniMax Hailuo Pro\), minimax-hailuo-2.3-standard \(MiniMax Hailuo Standard\), wan-2.1 \(WAN T2V\), ltxv-0.9.8 \(LTXV 13B\) |
+| `prompt` | string | Yes | Text prompt describing the video to generate |
+| `duration` | number | No | Video duration in seconds \(varies by model\) |
+| `aspectRatio` | string | No | Aspect ratio \(varies by model\): 16:9, 9:16, 1:1 |
+| `resolution` | string | No | Video resolution \(varies by model\): 540p, 720p, 1080p |
+| `promptOptimizer` | boolean | No | Enable prompt optimization for MiniMax models \(default: true\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
@@ -822,8 +956,9 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 | `duration` | number | Video duration in seconds |
 | `width` | number | Video width in pixels |
 | `height` | number | Video height in pixels |
-| `provider` | string | Provider used |
+| `provider` | string | Provider used \(falai\) |
 | `model` | string | Model used |
+| `jobId` | string | Job ID |
 
 </div>
 

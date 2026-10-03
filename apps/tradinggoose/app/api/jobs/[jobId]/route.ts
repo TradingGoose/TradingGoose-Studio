@@ -48,6 +48,11 @@ export async function GET(
       return createErrorResponse('Authentication required', 401)
     }
 
+    const workspaceKey = auth.authType === AuthType.API_KEY && auth.apiKeyType === 'workspace'
+    if (workspaceKey && !auth.workspaceId) {
+      return createErrorResponse('Workspace API key is missing its workspace scope', 403)
+    }
+
     const [pendingRow] = await db
       .select({
         id: pendingExecution.id,
@@ -56,7 +61,13 @@ export async function GET(
         processingStartedAt: pendingExecution.processingStartedAt,
       })
       .from(pendingExecution)
-      .where(and(eq(pendingExecution.id, taskId), eq(pendingExecution.userId, auth.userId)))
+      .where(
+        and(
+          eq(pendingExecution.id, taskId),
+          eq(pendingExecution.userId, auth.userId),
+          ...(workspaceKey ? [eq(pendingExecution.workspaceId, auth.workspaceId!)] : [])
+        )
+      )
       .limit(1)
 
     if (pendingRow) {
@@ -76,7 +87,7 @@ export async function GET(
       workflowExecutionLogs.workspaceId
     )
     const accessFilter =
-      auth.apiKeyType === 'workspace' && auth.workspaceId
+      workspaceKey && auth.workspaceId
         ? eq(workflowExecutionLogs.workspaceId, auth.workspaceId)
         : workspaceAccess.accessFilter
     const [logRow] = await db
@@ -139,9 +150,20 @@ export async function DELETE(
       return createErrorResponse('Authentication required', 401)
     }
 
+    if (
+      auth.authType === AuthType.API_KEY &&
+      auth.apiKeyType === 'workspace' &&
+      !auth.workspaceId
+    ) {
+      return createErrorResponse('Workspace API key is missing its workspace scope', 403)
+    }
+
     const result = await cancelPendingWorkflowExecution({
       pendingExecutionId: taskId,
       userId: auth.userId,
+      ...(auth.authType === AuthType.API_KEY && auth.apiKeyType === 'workspace'
+        ? { workspaceId: auth.workspaceId ?? '' }
+        : {}),
     })
 
     if (result.status === 'not_found') {

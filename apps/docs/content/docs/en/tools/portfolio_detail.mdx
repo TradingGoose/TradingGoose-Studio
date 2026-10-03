@@ -1,0 +1,77 @@
+---
+title: Portfolio Detail
+description: Fetch full portfolio detail from a selected broker account.
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="portfolio_detail"
+  color="#115e59"
+/>
+
+
+## Configuration
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Portfolio Detail"
+    type="portfolio_detail"
+    color="#115e59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "trading-provider-selector",
+            "title": "Broker",
+            "layout": "full",
+            "placeholder": "Select broker",
+            "required": true
+        },
+        {
+            "id": "portfolioIdentity",
+            "type": "trading-account-selector",
+            "title": "Broker Account",
+            "layout": "full",
+            "placeholder": "Select broker account",
+            "description": "Broker account used to fetch portfolio detail.",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Tools
+
+### `trading_get_portfolio_detail`
+
+Fetch account summary, cash, positions, and orders from Alpaca or Tradier.
+
+#### Input
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `portfolioIdentity` | json | Yes | Canonical portfolioIdentity selected by the broker account field. |
+
+#### Output
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `summary` | string | Status message for portfolio detail retrieval. |
+| `provider` | string | Broker/provider used for the request. |
+| `portfolioDetail` | json | Canonical portfolio detail with cash, positions, and summary. |
+
+
+## Usage Instructions
+
+Portfolio detail block that returns account summary, cash, positions, and orders from Alpaca or Tradier.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `portfolio_detail`

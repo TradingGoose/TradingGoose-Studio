@@ -10,7 +10,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <BlockInfoCard
   type="google_docs"
-  color=""
+  color="#3086F6"
 />
 
 
@@ -22,7 +22,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="Google Docs"
     type="google_docs"
-    color=""
+    color="#3086F6"
     hideHeader
     subBlocks={[
         {
@@ -30,21 +30,21 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "read",
             "options": [
                 {
-                    "label": "Read Document",
-                    "id": "read"
+                    "id": "read",
+                    "label": "Read Document"
                 },
                 {
-                    "label": "Write to Document",
-                    "id": "write"
+                    "id": "write",
+                    "label": "Write to Document"
                 },
                 {
-                    "label": "Create Document",
-                    "id": "create"
+                    "id": "create",
+                    "label": "Create Document"
                 }
-            ],
-            "defaultValue": "read"
+            ]
         },
         {
             "id": "credential",
@@ -90,6 +90,7 @@ Read content from a Google Docs document
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Extracted document text content |
+| `metadata` | json | Document metadata including ID, title, and URL |
 
 </div>
 
@@ -103,7 +104,7 @@ Read content from a Google Docs document
   <BlockConfigPreview
     name="Google Docs"
     type="google_docs"
-    color=""
+    color="#3086F6"
     hideHeader
     subBlocks={[
         {
@@ -111,21 +112,21 @@ Read content from a Google Docs document
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "write",
             "options": [
                 {
-                    "label": "Read Document",
-                    "id": "read"
+                    "id": "read",
+                    "label": "Read Document"
                 },
                 {
-                    "label": "Write to Document",
-                    "id": "write"
+                    "id": "write",
+                    "label": "Write to Document"
                 },
                 {
-                    "label": "Create Document",
-                    "id": "create"
+                    "id": "create",
+                    "label": "Create Document"
                 }
-            ],
-            "defaultValue": "write"
+            ]
         },
         {
             "id": "credential",
@@ -180,6 +181,7 @@ Write or update content in a Google Docs document
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `updatedContent` | boolean | Indicates if document content was updated successfully |
+| `metadata` | json | Updated document metadata including ID, title, and URL |
 
 </div>
 
@@ -193,7 +195,7 @@ Write or update content in a Google Docs document
   <BlockConfigPreview
     name="Google Docs"
     type="google_docs"
-    color=""
+    color="#3086F6"
     hideHeader
     subBlocks={[
         {
@@ -201,21 +203,21 @@ Write or update content in a Google Docs document
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "create",
             "options": [
                 {
-                    "label": "Read Document",
-                    "id": "read"
+                    "id": "read",
+                    "label": "Read Document"
                 },
                 {
-                    "label": "Write to Document",
-                    "id": "write"
+                    "id": "write",
+                    "label": "Write to Document"
                 },
                 {
-                    "label": "Create Document",
-                    "id": "create"
+                    "id": "create",
+                    "label": "Create Document"
                 }
-            ],
-            "defaultValue": "create"
+            ]
         },
         {
             "id": "credential",
@@ -271,12 +273,13 @@ Create a new Google Docs document
 | --------- | ---- | -------- | ----------- |
 | `title` | string | Yes | The title of the document to create |
 | `content` | string | No | The content of the document to create |
-| `folderSelector` | string | No | Select the folder to create the document in |
-| `folderId` | string | No | The ID of the folder to create the document in \(internal use\) |
+| `folderId` | string | No | The ID of the folder to create the document in |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `metadata` | json | Created document metadata including ID, title, and URL |
 
 </div>
 

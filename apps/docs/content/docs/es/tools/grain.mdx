@@ -1,0 +1,919 @@
+---
+title: Grain
+description: Accede a grabaciones de reuniones, transcripciones y resúmenes de IA
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="grain"
+  color="#00B96C"
+/>
+
+<Cards>
+  <Card title="Usar como disparador" href="/triggers/grain">
+    Consulta los eventos del disparador, la configuración y los payloads de eventos para Grain.
+  </Card>
+</Cards>
+
+## Configuración
+
+### Listar grabaciones
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain"
+    type="grain"
+    color="#00B96C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grain_list_recordings",
+            "options": [
+                {
+                    "id": "grain_list_recordings",
+                    "label": "Listar grabaciones"
+                },
+                {
+                    "id": "grain_get_recording",
+                    "label": "Obtener grabación"
+                },
+                {
+                    "id": "grain_get_transcript",
+                    "label": "Obtener transcripción"
+                },
+                {
+                    "id": "grain_list_teams",
+                    "label": "Listar equipos"
+                },
+                {
+                    "id": "grain_list_meeting_types",
+                    "label": "Listar tipos de reunión"
+                },
+                {
+                    "id": "grain_create_hook",
+                    "label": "Crear webhook"
+                },
+                {
+                    "id": "grain_list_hooks",
+                    "label": "Listar webhooks"
+                },
+                {
+                    "id": "grain_delete_hook",
+                    "label": "Eliminar webhook"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingresa tu clave de API de Grain",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "Cursor de paginación",
+            "placeholder": "Cursor para la página siguiente (opcional)"
+        },
+        {
+            "id": "beforeDatetime",
+            "type": "datetime-input",
+            "title": "Fecha anterior",
+            "placeholder": "Marca de tiempo ISO8601 (ej., 2024-01-01T00:00:00Z)"
+        },
+        {
+            "id": "afterDatetime",
+            "type": "datetime-input",
+            "title": "Fecha posterior",
+            "placeholder": "Marca de tiempo ISO8601 (ej., 2024-01-01T00:00:00Z)"
+        },
+        {
+            "id": "participantScope",
+            "type": "dropdown",
+            "title": "Ámbito de participantes",
+            "defaultValue": "",
+            "options": [
+                {
+                    "id": "",
+                    "label": "Todos"
+                },
+                {
+                    "id": "internal",
+                    "label": "Interno"
+                },
+                {
+                    "id": "external",
+                    "label": "Externo"
+                }
+            ]
+        },
+        {
+            "id": "titleSearch",
+            "type": "short-input",
+            "title": "Búsqueda por título",
+            "placeholder": "Buscar por título de grabación"
+        },
+        {
+            "id": "teamId",
+            "type": "short-input",
+            "title": "ID de equipo",
+            "placeholder": "Filtrar por UUID de equipo (opcional)"
+        },
+        {
+            "id": "meetingTypeId",
+            "type": "short-input",
+            "title": "ID de tipo de reunión",
+            "placeholder": "Filtrar por UUID de tipo de reunión (opcional)"
+        },
+        {
+            "id": "includeHighlights",
+            "type": "switch",
+            "title": "Incluir destacados"
+        },
+        {
+            "id": "includeParticipants",
+            "type": "switch",
+            "title": "Incluir participantes"
+        },
+        {
+            "id": "includeAiSummary",
+            "type": "switch",
+            "title": "Incluir resumen de IA"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar grabaciones (<code>grain_list_recordings</code>)</div>
+
+Listar grabaciones de Grain con filtros opcionales y paginación
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Yes | Clave de API de Grain \(token de acceso personal\) |
+| `cursor` | string | No | Cursor de paginación para la página siguiente |
+| `beforeDatetime` | string | No | Solo grabaciones anteriores a esta marca de tiempo ISO8601 |
+| `afterDatetime` | string | No | Solo grabaciones posteriores a esta marca de tiempo ISO8601 |
+| `participantScope` | string | No | Filtro: "internal" o "external" |
+| `titleSearch` | string | No | Término de búsqueda para filtrar por título de la grabación |
+| `teamId` | string | No | Filtrar por UUID de equipo |
+| `meetingTypeId` | string | No | Filtrar por UUID de tipo de reunión |
+| `includeHighlights` | boolean | No | Incluir destacados/clips en la respuesta |
+| `includeParticipants` | boolean | No | Incluir lista de participantes en la respuesta |
+| `includeAiSummary` | boolean | No | Incluir resumen generado por IA |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `recordings` | array | Array de objetos de grabación |
+| `cursor` | string | Cursor de la página siguiente \(null si no hay más\) |
+
+</div>
+
+---
+
+### Obtener grabación
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain"
+    type="grain"
+    color="#00B96C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grain_get_recording",
+            "options": [
+                {
+                    "id": "grain_list_recordings",
+                    "label": "Listar grabaciones"
+                },
+                {
+                    "id": "grain_get_recording",
+                    "label": "Obtener grabación"
+                },
+                {
+                    "id": "grain_get_transcript",
+                    "label": "Obtener transcripción"
+                },
+                {
+                    "id": "grain_list_teams",
+                    "label": "Listar equipos"
+                },
+                {
+                    "id": "grain_list_meeting_types",
+                    "label": "Listar tipos de reunión"
+                },
+                {
+                    "id": "grain_create_hook",
+                    "label": "Crear webhook"
+                },
+                {
+                    "id": "grain_list_hooks",
+                    "label": "Listar webhooks"
+                },
+                {
+                    "id": "grain_delete_hook",
+                    "label": "Eliminar webhook"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API de Grain",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "recordingId",
+            "type": "short-input",
+            "title": "ID de grabación",
+            "placeholder": "Introduce el UUID de la grabación",
+            "required": true
+        },
+        {
+            "id": "includeHighlights",
+            "type": "switch",
+            "title": "Incluir destacados"
+        },
+        {
+            "id": "includeParticipants",
+            "type": "switch",
+            "title": "Incluir participantes"
+        },
+        {
+            "id": "includeAiSummary",
+            "type": "switch",
+            "title": "Incluir resumen de IA"
+        },
+        {
+            "id": "includeCalendarEvent",
+            "type": "switch",
+            "title": "Incluir evento de calendario"
+        },
+        {
+            "id": "includeHubspot",
+            "type": "switch",
+            "title": "Incluir datos de HubSpot"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener grabación (<code>grain_get_recording</code>)</div>
+
+Obtener los detalles de una sola grabación por ID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Grain \(token de acceso personal\) |
+| `recordingId` | string | Sí | El UUID de la grabación |
+| `includeHighlights` | boolean | No | Incluir momentos destacados/clips |
+| `includeParticipants` | boolean | No | Incluir la lista de participantes |
+| `includeAiSummary` | boolean | No | Incluir el resumen de IA |
+| `includeCalendarEvent` | boolean | No | Incluir los datos del evento de calendario |
+| `includeHubspot` | boolean | No | Incluir las asociaciones de HubSpot |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | string | UUID de la grabación |
+| `title` | string | Título de la grabación |
+| `start_datetime` | string | Marca de tiempo de inicio ISO8601 |
+| `end_datetime` | string | Marca de tiempo de fin ISO8601 |
+| `duration_ms` | number | Duración en milisegundos |
+| `media_type` | string | audio, transcripción o video |
+| `source` | string | Origen de la grabación \(zoom, meet, teams, etc.\) |
+| `url` | string | URL para verla en Grain |
+| `thumbnail_url` | string | URL de la imagen en miniatura |
+| `tags` | array | Matriz de cadenas de etiquetas |
+| `teams` | array | Equipos a los que pertenece la grabación |
+| `meeting_type` | object | Información del tipo de reunión \(id, name, scope\) |
+| `highlights` | array | Momentos destacados \(si se incluyen\) |
+| `participants` | array | Participantes \(si se incluyen\) |
+| `ai_summary` | object | Texto del resumen de IA \(si se incluye\) |
+| `calendar_event` | object | Datos del evento de calendario \(si se incluyen\) |
+| `hubspot` | object | Asociaciones de HubSpot \(si se incluyen\) |
+
+</div>
+
+---
+
+### Obtener transcripción
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain"
+    type="grain"
+    color="#00B96C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grain_get_transcript",
+            "options": [
+                {
+                    "id": "grain_list_recordings",
+                    "label": "Listar grabaciones"
+                },
+                {
+                    "id": "grain_get_recording",
+                    "label": "Obtener grabación"
+                },
+                {
+                    "id": "grain_get_transcript",
+                    "label": "Obtener transcripción"
+                },
+                {
+                    "id": "grain_list_teams",
+                    "label": "Listar equipos"
+                },
+                {
+                    "id": "grain_list_meeting_types",
+                    "label": "Listar tipos de reunión"
+                },
+                {
+                    "id": "grain_create_hook",
+                    "label": "Crear webhook"
+                },
+                {
+                    "id": "grain_list_hooks",
+                    "label": "Listar webhooks"
+                },
+                {
+                    "id": "grain_delete_hook",
+                    "label": "Eliminar webhook"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API de Grain",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "recordingId",
+            "type": "short-input",
+            "title": "ID de grabación",
+            "placeholder": "Introduce el UUID de la grabación",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener transcripción (<code>grain_get_transcript</code>)</div>
+
+Obtén la transcripción completa de una grabación
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Grain \(token de acceso personal\) |
+| `recordingId` | string | Sí | El UUID de la grabación |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `transcript` | array | Array de secciones de transcripción |
+
+</div>
+
+---
+
+### Listar equipos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain"
+    type="grain"
+    color="#00B96C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grain_list_teams",
+            "options": [
+                {
+                    "id": "grain_list_recordings",
+                    "label": "Listar grabaciones"
+                },
+                {
+                    "id": "grain_get_recording",
+                    "label": "Obtener grabación"
+                },
+                {
+                    "id": "grain_get_transcript",
+                    "label": "Obtener transcripción"
+                },
+                {
+                    "id": "grain_list_teams",
+                    "label": "Listar equipos"
+                },
+                {
+                    "id": "grain_list_meeting_types",
+                    "label": "Listar tipos de reunión"
+                },
+                {
+                    "id": "grain_create_hook",
+                    "label": "Crear webhook"
+                },
+                {
+                    "id": "grain_list_hooks",
+                    "label": "Listar webhooks"
+                },
+                {
+                    "id": "grain_delete_hook",
+                    "label": "Eliminar webhook"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API de Grain",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar equipos (<code>grain_list_teams</code>)</div>
+
+Listar todos los equipos en el espacio de trabajo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Grain \(token de acceso personal\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `teams` | array | Array de objetos de equipo |
+
+</div>
+
+---
+
+### Listar tipos de reunión
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain"
+    type="grain"
+    color="#00B96C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grain_list_meeting_types",
+            "options": [
+                {
+                    "id": "grain_list_recordings",
+                    "label": "Listar grabaciones"
+                },
+                {
+                    "id": "grain_get_recording",
+                    "label": "Obtener grabación"
+                },
+                {
+                    "id": "grain_get_transcript",
+                    "label": "Obtener transcripción"
+                },
+                {
+                    "id": "grain_list_teams",
+                    "label": "Listar equipos"
+                },
+                {
+                    "id": "grain_list_meeting_types",
+                    "label": "Listar tipos de reunión"
+                },
+                {
+                    "id": "grain_create_hook",
+                    "label": "Crear webhook"
+                },
+                {
+                    "id": "grain_list_hooks",
+                    "label": "Listar webhooks"
+                },
+                {
+                    "id": "grain_delete_hook",
+                    "label": "Eliminar webhook"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingresa tu clave de API de Grain",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar tipos de reunión (<code>grain_list_meeting_types</code>)</div>
+
+Listar todos los tipos de reunión en el espacio de trabajo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Grain \(token de acceso personal\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `meeting_types` | array | Arreglo de objetos de tipo de reunión |
+
+</div>
+
+---
+
+### Crear webhook
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain"
+    type="grain"
+    color="#00B96C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grain_create_hook",
+            "options": [
+                {
+                    "id": "grain_list_recordings",
+                    "label": "Listar grabaciones"
+                },
+                {
+                    "id": "grain_get_recording",
+                    "label": "Obtener grabación"
+                },
+                {
+                    "id": "grain_get_transcript",
+                    "label": "Obtener transcripción"
+                },
+                {
+                    "id": "grain_list_teams",
+                    "label": "Listar equipos"
+                },
+                {
+                    "id": "grain_list_meeting_types",
+                    "label": "Listar tipos de reunión"
+                },
+                {
+                    "id": "grain_create_hook",
+                    "label": "Crear webhook"
+                },
+                {
+                    "id": "grain_list_hooks",
+                    "label": "Listar webhooks"
+                },
+                {
+                    "id": "grain_delete_hook",
+                    "label": "Eliminar webhook"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API de Grain",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "beforeDatetime",
+            "type": "datetime-input",
+            "title": "Fecha anterior",
+            "placeholder": "Marca de tiempo ISO8601 (ej., 2024-01-01T00:00:00Z)"
+        },
+        {
+            "id": "afterDatetime",
+            "type": "datetime-input",
+            "title": "Fecha posterior",
+            "placeholder": "Marca de tiempo ISO8601 (ej., 2024-01-01T00:00:00Z)"
+        },
+        {
+            "id": "participantScope",
+            "type": "dropdown",
+            "title": "Alcance de participantes",
+            "defaultValue": "",
+            "options": [
+                {
+                    "id": "",
+                    "label": "Todos"
+                },
+                {
+                    "id": "internal",
+                    "label": "Interno"
+                },
+                {
+                    "id": "external",
+                    "label": "Externo"
+                }
+            ]
+        },
+        {
+            "id": "teamId",
+            "type": "short-input",
+            "title": "ID de equipo",
+            "placeholder": "Filtrar por UUID de equipo (opcional)"
+        },
+        {
+            "id": "meetingTypeId",
+            "type": "short-input",
+            "title": "ID de tipo de reunión",
+            "placeholder": "Filtrar por UUID de tipo de reunión (opcional)"
+        },
+        {
+            "id": "includeHighlights",
+            "type": "switch",
+            "title": "Incluir destacados"
+        },
+        {
+            "id": "includeParticipants",
+            "type": "switch",
+            "title": "Incluir participantes"
+        },
+        {
+            "id": "includeAiSummary",
+            "type": "switch",
+            "title": "Incluir resumen de IA"
+        },
+        {
+            "id": "hookUrl",
+            "type": "short-input",
+            "title": "URL del webhook",
+            "placeholder": "Introduce la URL del endpoint del webhook",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear webhook (<code>grain_create_hook</code>)</div>
+
+Crea un webhook para recibir eventos de grabación
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave API de Grain \(Token de acceso personal\) |
+| `hookUrl` | string | Sí | URL del endpoint del webhook \(debe responder 2xx\) |
+| `filterBeforeDatetime` | string | No | Filtro: grabaciones antes de esta fecha |
+| `filterAfterDatetime` | string | No | Filtro: grabaciones después de esta fecha |
+| `filterParticipantScope` | string | No | Filtro: "internal" o "external" |
+| `filterTeamId` | string | No | Filtro: UUID de equipo específico |
+| `filterMeetingTypeId` | string | No | Filtro: tipo de reunión específico |
+| `includeHighlights` | boolean | No | Incluir destacados en el payload del webhook |
+| `includeParticipants` | boolean | No | Incluir participantes en el payload del webhook |
+| `includeAiSummary` | boolean | No | Incluir resumen de IA en el payload del webhook |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | string | UUID del hook |
+| `enabled` | boolean | Si el hook está activo |
+| `hook_url` | string | La URL del webhook |
+| `filter` | object | Filtros aplicados |
+| `include` | object | Campos incluidos |
+| `inserted_at` | string | Marca de tiempo de creación ISO8601 |
+
+</div>
+
+---
+
+### Listar webhooks
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain"
+    type="grain"
+    color="#00B96C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grain_list_hooks",
+            "options": [
+                {
+                    "id": "grain_list_recordings",
+                    "label": "Listar grabaciones"
+                },
+                {
+                    "id": "grain_get_recording",
+                    "label": "Obtener grabación"
+                },
+                {
+                    "id": "grain_get_transcript",
+                    "label": "Obtener transcripción"
+                },
+                {
+                    "id": "grain_list_teams",
+                    "label": "Listar equipos"
+                },
+                {
+                    "id": "grain_list_meeting_types",
+                    "label": "Listar tipos de reunión"
+                },
+                {
+                    "id": "grain_create_hook",
+                    "label": "Crear webhook"
+                },
+                {
+                    "id": "grain_list_hooks",
+                    "label": "Listar webhooks"
+                },
+                {
+                    "id": "grain_delete_hook",
+                    "label": "Eliminar webhook"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Ingresa tu clave API de Grain",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar Webhooks (<code>grain_list_hooks</code>)</div>
+
+Lista todos los webhooks de la cuenta
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Grain \(Token de acceso personal\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `hooks` | array | Array de objetos de webhook |
+
+</div>
+
+---
+
+### Eliminar webhook
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain"
+    type="grain"
+    color="#00B96C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grain_delete_hook",
+            "options": [
+                {
+                    "id": "grain_list_recordings",
+                    "label": "Listar grabaciones"
+                },
+                {
+                    "id": "grain_get_recording",
+                    "label": "Obtener grabación"
+                },
+                {
+                    "id": "grain_get_transcript",
+                    "label": "Obtener transcripción"
+                },
+                {
+                    "id": "grain_list_teams",
+                    "label": "Listar equipos"
+                },
+                {
+                    "id": "grain_list_meeting_types",
+                    "label": "Listar tipos de reunión"
+                },
+                {
+                    "id": "grain_create_hook",
+                    "label": "Crear webhook"
+                },
+                {
+                    "id": "grain_list_hooks",
+                    "label": "Listar webhooks"
+                },
+                {
+                    "id": "grain_delete_hook",
+                    "label": "Eliminar webhook"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Ingresa tu clave de API de Grain",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "hookId",
+            "type": "short-input",
+            "title": "ID de webhook",
+            "placeholder": "Ingresa el UUID del webhook a eliminar",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar webhook (<code>grain_delete_hook</code>)</div>
+
+Elimina un webhook por ID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Grain \(Token de acceso personal\) |
+| `hookId` | string | Sí | El UUID del webhook a eliminar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | True cuando el webhook se eliminó correctamente |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Grain en tu flujo de trabajo. Accede a grabaciones de reuniones, transcripciones, momentos destacados y resúmenes generados por IA. También puede activar flujos de trabajo a partir de eventos de webhook de Grain.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `grain`

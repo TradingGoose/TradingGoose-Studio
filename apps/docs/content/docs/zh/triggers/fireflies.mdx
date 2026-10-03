@@ -1,0 +1,76 @@
+---
+title: Fireflies 触发器
+description: 当 Fireflies 会议转录完成时触发工作流
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="fireflies"
+  color=""
+/>
+
+当 Fireflies 会议转录完成时触发工作流
+
+<Callout type="info">
+  这是基于 **webhook** 的触发器。请将外部服务配置为向工作流 webhook URL 发送事件。
+</Callout>
+
+<Cards>
+  <Card title="作为工具使用" href="/tools/fireflies">
+    查看 Fireflies 的工作流操作、运算和工具输入。
+  </Card>
+</Cards>
+
+## 设置说明
+
+<div class="mb-3"><strong>1.</strong> 前往 <a href="https://app.fireflies.ai/settings" target="_blank" rel="noopener noreferrer">app.fireflies.ai/settings</a></div><div class="mb-3"><strong>2.</strong> 转到 <strong>开发者设置</strong> 选项卡</div><div class="mb-3"><strong>3.</strong> 在 <strong>Webhook</strong> 部分，粘贴上方的 Webhook URL</div><div class="mb-3"><strong>4.</strong> 输入 <strong>密钥</strong>（16-32 个字符），并在此处同样保存</div><div class="mb-3"><strong>5.</strong> 在 Fireflies 中点击 <strong>保存</strong> 以启用 webhook</div><div class="mb-3"><strong>6.</strong> 此后，任意会议转录完成后都会触发工作流</div>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies 转录完成"
+    type="fireflies_transcription_complete"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Webhook 密钥",
+            "placeholder": "输入 16-32 个字符的密钥",
+            "description": "用于 HMAC 签名验证的密钥（在 Fireflies 控制台中设置）",
+            "password": true,
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "meetingId",
+          "type": "string",
+          "description": "已转录会议的 ID"
+      },
+      {
+          "name": "eventType",
+          "type": "string",
+          "description": "事件类型（转录已完成）"
+      },
+      {
+          "name": "clientReferenceId",
+          "type": "string",
+          "description": "上传时设置的自定义引用 ID"
+      }
+  ]}
+/>

@@ -59,7 +59,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "code",
             "title": "Output Schema",
             "layout": "full",
-            "placeholder": "Enter JSON Schema...",
+            "placeholder": "Enter JSON schema...",
             "language": "json"
         }
     ]}
@@ -79,7 +79,6 @@ Run an autonomous web agent to complete tasks and extract structured data
 | `startUrl` | string | Yes | URL of the webpage to start the agent on |
 | `task` | string | Yes | The task to complete or goal to achieve on the website |
 | `variables` | json | No | Optional variables to substitute in the task \(format: \{key: value\}\). Reference in task using %key% |
-| `format` | string | No | No description |
 | `provider` | string | No | AI provider to use: openai or anthropic |
 | `apiKey` | string | Yes | API key for the selected provider |
 | `outputSchema` | json | No | Optional JSON schema defining the structure of data the agent should return |
@@ -88,9 +87,8 @@ Run an autonomous web agent to complete tasks and extract structured data
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Whether the agent task completed successfully |
-| `completed` | boolean | Whether the task was fully completed |
-| `message` | string | Status message or final result |
+| `agentResult` | object | Result from the Stagehand agent execution |
+| `structuredOutput` | object | Extracted data matching the provided output schema |
 
 
 ## Usage Instructions

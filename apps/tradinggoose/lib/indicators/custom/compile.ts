@@ -175,6 +175,7 @@ const expandSeriesPointsToBase = (
       time: timeSec,
       value: lastPoint.value,
       ...(lastPoint.color ? { color: lastPoint.color } : null),
+      ...(lastPoint.originTime !== undefined ? { originTime: lastPoint.originTime } : null),
     })
   })
 

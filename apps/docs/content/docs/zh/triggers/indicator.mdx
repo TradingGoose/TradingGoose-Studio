@@ -1,0 +1,111 @@
+---
+title: 指标触发器
+description: 根据指标监控事件触发工作流
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="indicator"
+  color=""
+/>
+
+根据指标监控事件触发工作流
+
+<Callout type="info">
+  这是**基于轮询**的触发器。TradingGoose 按固定间隔检查数据源中的匹配变化。
+</Callout>
+
+## 设置说明
+
+指标监控在 /workspace/[workspaceId]/monitor 中管理。在该处配置提供商、标的、周期、指标和工作流目标。
+
+## 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "input",
+          "type": "string",
+          "description": "工作流的主文本输入。"
+      },
+      {
+          "name": "event",
+          "type": "string",
+          "description": "传递给 trigger(...) 的事件键。"
+      },
+      {
+          "name": "time",
+          "type": "number",
+          "description": "K 线时间，Unix 秒。"
+      },
+      {
+          "name": "signal",
+          "type": "string",
+          "description": "信号：long、short、flat。"
+      },
+      {
+          "name": "listingBase",
+          "type": "string",
+          "description": "来自市场序列的标的基础值。"
+      },
+      {
+          "name": "listingQuote",
+          "type": "string",
+          "description": "来自市场序列的标的报价值。"
+      },
+      {
+          "name": "marketSeries",
+          "type": "json",
+          "description": "市场历史序列数据。"
+      },
+      {
+          "name": "listing",
+          "type": "listingIdentity",
+          "description": "标的信息。"
+      },
+      {
+          "name": "indicator",
+          "type": "object",
+          "children": [
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "指标名称。"
+              },
+              {
+                  "name": "settings",
+                  "type": "object",
+                  "children": [
+                      {
+                          "name": "options",
+                          "type": "object",
+                          "description": "已解析的指标选项。"
+                      },
+                      {
+                          "name": "interval",
+                          "type": "string",
+                          "description": "执行周期。"
+                      }
+                  ]
+              },
+              {
+                  "name": "output",
+                  "type": "object",
+                  "children": [
+                      {
+                          "name": "series",
+                          "type": "array",
+                          "description": "标准化序列输出。"
+                      }
+                  ]
+              }
+          ]
+      }
+  ]}
+/>

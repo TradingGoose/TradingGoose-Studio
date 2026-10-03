@@ -1,0 +1,159 @@
+---
+title: 费用计算
+---
+
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion'
+import { Callout } from 'fumadocs-ui/components/callout'
+
+TradingGoose 计量工作流执行、模型使用量以及 Function/自定义工具运行时间。费用根据工作区用户或组织账单负责人的计费配置和生效层级计算。
+
+## 费用如何计算
+
+启用计费时，用量可包含三类费用：
+
+- **执行费用**：配置的工作流费用乘以层级执行乘数，以该次执行保存的计费报价为准。
+- **AI 模型使用量**：每个执行跨度记录的提供商模型费用乘以该报价中保存的层级模型费用乘数。
+- **Function 运行费用**：配置的每秒 Function 费用乘以运行秒数和当前层级的 Function 执行乘数。Function/自定义工具运行费用单独累计，运行后失败的尝试也可能计费。
+
+```javascript
+executionCost = configuredWorkflowCharge * tierWorkflowExecutionMultiplier
+adjustedModelCost = recordedModelCost * tierWorkflowModelCostMultiplier
+workflowLogSubtotal = executionCost + sum(adjustedModelCost)
+functionCost = (executionTimeMs / 1000) * configuredFunctionChargePerSecond * tierFunctionExecutionMultiplier
+totalMeteredCost = workflowLogSubtotal + sum(functionCost)
+```
+
+此公式用于说明计算方式。每次 Function 运行费用保留六位小数。工作流日志的费用总额是执行与模型费用小计；单独累计的 Function 费用也会计入账单负责人的用量。它不是 AI 模型费用，无 AI 的工作流也可能产生此项费用。
+
+保存人工参与检查点时，已完成的模型工作会计入用量。恢复或取消执行不会对同一工作重复收费：同一次逻辑执行会复用已保存的执行与模型计费报价，基础执行费用只收取一次。子工作流的费用计入其自身日志，不会通过父工作流的嵌套追踪再次收费。
+
+<Callout type="info">
+  如果某次执行首次保存计费报价时计费已禁用，其基础执行费用为零，记录的模型费用按乘数 1 计算。禁用计费期间不累计额外的工作流或 Function 计费用量，也不会改写此前保存的报价。费用和乘数应以计费配置为准，而不是本指南中的固定值。
+</Callout>
+
+## 日志中的模型明细
+
+对于使用 AI 模块的工作流，你可以在日志中查看详细的费用信息：
+
+日志详情侧边栏包含一个模型明细部分，显示：
+- **Token 使用量**：每个模型的输入和输出 token 数量
+- **费用明细**：每个模型的输入、输出和总费用
+- **使用的模型**：哪些模型计入了执行费用
+- **总费用**：日志中的执行/模型费用小计；单独累计的 Function 运行费用请在用量中查看
+
+## 价格与限制
+
+可用的计费层级和模型目录由 TradingGoose 部署配置，并且可能独立于本文档发生变化。使用 **设置 → 订阅** 查看当前用量、用量限制以及可用的计划、价格和宣传功能。下方的用量限制 API 报告已认证用户的个人计费范围的速率、存储、保留和乘数数值；它不会确定组织针对工作区的生效层级。使用 Agent 模块的模型选择器查看当前可供工作区使用的模型。
+
+如果你收到私有层级的访问码，请在**设置 → 订阅**中输入。访问码区分大小写，但会忽略首尾空白字符。有效的访问码会让对应的私有方案对你的用户可用。
+
+计费层级还可以限制每个排队中工作流执行的最长时长。达到该上限的执行会被终止，并以错误 `Workflow execution time limit exceeded` 记录。
+
+## 成本优化策略
+
+<Accordions>
+  <Accordion title="模型选择">
+    选择与任务复杂度相匹配的模型，并在部署前查看其当前的服务商价格。
+  </Accordion>
+
+  <Accordion title="提示工程">
+    结构良好、简洁的提示词可减少 token 用量，同时不牺牲质量。
+  </Accordion>
+
+  <Accordion title="本地模型">
+    适合使用本地模型时，请使用 Ollama，以避免外部模型服务商的费用。工作流执行费用仍可能产生。
+  </Accordion>
+
+  <Accordion title="缓存与复用">
+    在一次运行中复用上游输出或工作流变量，而不是重复调用 AI 模型。
+  </Accordion>
+
+  <Accordion title="批量处理">
+    在一次 AI 请求中处理多个条目，而不是逐个调用。
+  </Accordion>
+</Accordions>
+
+## 用量监控
+
+在设置 → 订阅中监控你的用量和账单：
+
+- **当前用量**：当前周期内累计的用量与费用
+- **用量上限**：有效的支出限额及已消耗百分比
+- **方案管理**：启用账单后可用的订阅操作
+
+### 以编程方式跟踪个人用量
+
+你可以使用 API 以编程方式查询已认证用户的个人用量和限额：
+
+**端点：**
+
+```text
+GET /api/users/me/usage-limits
+```
+
+**身份验证：**
+- 在 `X-API-Key` 请求头中包含你的 API 密钥
+
+**示例请求：**
+
+```bash
+curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" https://www.tradinggoose.ai/api/users/me/usage-limits
+```
+
+**示例响应：**
+
+```jsonc
+{
+  "success": true,
+  "rateLimit": {
+    "sync": { "isLimited": false, "limit": 10, "remaining": 10, "resetAt": "2025-09-08T22:51:55.999Z" },
+    "async": { "isLimited": false, "limit": 50, "remaining": 50, "resetAt": "2025-09-08T22:51:56.155Z" },
+    "authType": "api"
+  },
+  "usage": {
+    "currentPeriodCost": 12.34,
+    "limit": 100,
+    "tier": {
+      "id": "tier_example",
+      "displayName": "Example Tier",
+      "ownerType": "user",
+      "usageScope": "individual",
+      "syncRateLimitPerMinute": 10,
+      "asyncRateLimitPerMinute": 50,
+      "apiEndpointRateLimitPerMinute": 60,
+      "logRetentionDays": 30,
+      "workflowExecutionMultiplier": 1,
+      "workflowModelCostMultiplier": 1
+      // The response includes the remaining BillingTierSummary fields.
+    }
+  },
+  "storage": {
+    "usedBytes": 5242880,
+    "limitBytes": 1073741824,
+    "percentUsed": 0.48828125
+  }
+}
+```
+
+**响应字段：**
+- `currentPeriodCost` 反映当前账单周期的用量
+- `limit` 是已认证用户账单范围内的有效用量上限
+- `tier` 是完整的计费层级摘要，包括其配置的速率限制、数据保留和成本倍率
+- `storage` 报告当前字节用量、字节上限和已用百分比
+
+示例值仅供参考。请以您账户返回的响应为准，不要依赖固定的套餐名称或限制。
+
+## 成本管理最佳实践
+
+1. **定期监控**：经常检查您的使用情况仪表板，以避免意外
+2. **设置预算**：在您的套餐允许的情况下，将可编辑的使用限额用作支出护栏
+3. **优化工作流**：检查高成本执行，并优化提示或模型选择
+4. **使用合适的模型**：根据任务需求匹配模型复杂度
+5. **批量处理相似任务**：尽可能合并多个请求以减少开销
+
+## 后续步骤
+
+- 在 **设置 → 订阅** 中查看当前使用情况
+- 了解[日志记录](/execution/logging)以跟踪执行详情
+- 探索[外部 API](/execution/api)以进行程序化成本监控
+- 查看[工作流优化技巧](/blocks)以降低成本

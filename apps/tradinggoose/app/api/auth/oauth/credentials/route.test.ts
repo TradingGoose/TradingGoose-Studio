@@ -1,313 +1,193 @@
-/**
- * Tests for OAuth credentials API route
- *
- * @vitest-environment node
- */
+/** @vitest-environment node */
 
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { GET, POST } from './route'
 
-describe('OAuth Credentials API Route', () => {
-  const mockCheckSessionOrInternalAuth = vi.fn()
-  const mockCheckWorkspaceAccess = vi.fn()
-  const mockParseProvider = vi.fn()
-  const mockListOAuthCredentialsForUser = vi.fn()
-  const mockDb = {
+const mocks = vi.hoisted(() => ({
+  authenticate: vi.fn(),
+  access: vi.fn(),
+  credentials: vi.fn(),
+  connections: vi.fn(),
+  logger: { warn: vi.fn(), error: vi.fn() },
+  db: {
     select: vi.fn().mockReturnThis(),
     from: vi.fn().mockReturnThis(),
-    innerJoin: vi.fn().mockReturnThis(),
     where: vi.fn().mockReturnThis(),
     limit: vi.fn(),
-  }
-  const mockLogger = {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-  }
+    insert: vi.fn().mockReturnThis(),
+    values: vi.fn().mockReturnThis(),
+    onConflictDoUpdate: vi.fn().mockReturnThis(),
+    returning: vi.fn(),
+  },
+}))
 
-  const mockUUID = 'mock-uuid-12345678-90ab-cdef-1234-567890abcdef'
+vi.mock('@/lib/auth/hybrid', () => ({
+  AuthType: { SESSION: 'session', API_KEY: 'api_key', INTERNAL_JWT: 'internal_jwt' },
+  checkHybridAuth: mocks.authenticate,
+}))
+vi.mock('@/lib/credentials/oauth', () => ({
+  listOAuthCredentialsForUser: mocks.credentials,
+  listOAuthConnectionsForUser: mocks.connections,
+}))
+vi.mock('@/lib/permissions/utils', () => ({ checkWorkspaceAccess: mocks.access }))
+vi.mock('@/lib/logs/console/logger', () => ({ createLogger: () => mocks.logger }))
+vi.mock('@tradinggoose/db', () => ({ db: mocks.db }))
+vi.mock('@tradinggoose/db/schema', () => ({
+  credential: { id: 'id', workspaceId: 'workspaceId', accountId: 'accountId' },
+  workflow: { id: 'id', workspaceId: 'workspaceId' },
+}))
+vi.mock('drizzle-orm', () => ({
+  eq: (field: string, value: unknown) => ({ field, value }),
+  isNotNull: (field: string) => ({ field, type: 'isNotNull' }),
+}))
 
-  function createMockRequestWithQuery(method = 'GET', queryParams = ''): NextRequest {
-    const url = `http://localhost:3000/api/auth/oauth/credentials${queryParams}`
-    return new NextRequest(new URL(url), { method })
-  }
+const credential = {
+  id: 'saved',
+  accountId: 'account-1',
+  provider: 'robinhood',
+  name: 'Canonical credential name',
+  isDefault: true,
+  scopes: ['canonical-scope'],
+}
+const request = (query: string) =>
+  new NextRequest(`http://localhost/api/auth/oauth/credentials?${query}`)
 
+describe('OAuth credentials API', () => {
   beforeEach(() => {
-    vi.resetModules()
-    mockCheckWorkspaceAccess.mockResolvedValue({ hasAccess: true })
-
-    vi.stubGlobal('crypto', {
-      randomUUID: vi.fn().mockReturnValue(mockUUID),
-    })
-
-    mockParseProvider.mockImplementation((providerId: string) => {
-      switch (providerId) {
-        case 'google-email':
-          return { baseProvider: 'google', featureType: 'gmail' }
-        case 'google-drive':
-          return { baseProvider: 'google', featureType: 'google-drive' }
-        case 'google':
-          return { baseProvider: 'google', featureType: 'default' }
-        default:
-          return { baseProvider: providerId.split('-')[0], featureType: 'default' }
-      }
-    })
-
-    vi.doMock('@/lib/auth/hybrid', () => ({
-      AuthType: {
-        SESSION: 'session',
-        API_KEY: 'api_key',
-        INTERNAL_JWT: 'internal_jwt',
-      },
-      checkHybridAuth: mockCheckSessionOrInternalAuth,
-    }))
-
-    vi.doMock('@/lib/credentials/oauth', () => ({
-      listOAuthCredentialsForUser: mockListOAuthCredentialsForUser,
-    }))
-
-    vi.doMock('@/lib/permissions/utils', () => ({
-      checkWorkspaceAccess: mockCheckWorkspaceAccess,
-    }))
-
-    vi.doMock('@/lib/oauth', () => ({
-      parseProvider: mockParseProvider,
-      getCanonicalScopesForProvider: vi.fn(() => ['canonical-scope']),
-      OAUTH_PROVIDERS: {
-        google: {
-          defaultService: 'gmail',
-          services: {
-            gmail: { providerId: 'google-email' },
-            'google-drive': { providerId: 'google-drive' },
-          },
-        },
-      },
-    }))
-
-    vi.doMock('@tradinggoose/db', () => ({
-      db: mockDb,
-    }))
-
-    vi.doMock('@tradinggoose/db/schema', () => ({
-      account: { id: 'id', userId: 'userId', providerId: 'providerId' },
-      credential: {
-        id: 'credentialId',
-        workspaceId: 'workspaceId',
-        type: 'type',
-        displayName: 'displayName',
-        accountId: 'accountId',
-      },
-      user: { email: 'email', id: 'id' },
-      workflow: { id: 'id', userId: 'userId', workspaceId: 'workspaceId' },
-    }))
-
-    vi.doMock('drizzle-orm', () => ({
-      and: vi.fn((...conditions) => ({ conditions, type: 'and' })),
-      eq: vi.fn((field, value) => ({ field, value, type: 'eq' })),
-    }))
-
-    vi.doMock('jwt-decode', () => ({
-      jwtDecode: vi.fn(),
-    }))
-
-    vi.doMock('@/lib/logs/console/logger', () => ({
-      createLogger: vi.fn().mockReturnValue(mockLogger),
-    }))
-  })
-
-  afterEach(() => {
     vi.clearAllMocks()
+    vi.stubGlobal('crypto', { randomUUID: () => 'credential-id' })
+    mocks.authenticate.mockResolvedValue({ success: true, authType: 'session', userId: 'owner' })
+    mocks.access.mockResolvedValue({ hasAccess: true, canWrite: true })
+    mocks.credentials.mockResolvedValue([])
+    mocks.connections.mockResolvedValue([])
+    mocks.db.limit.mockResolvedValue([{ workspaceId: 'workspace-1' }])
   })
 
-  it('should return credentials successfully', async () => {
-    mockCheckSessionOrInternalAuth.mockResolvedValueOnce({
-      success: true,
-      authType: 'session',
-      userId: 'user-123',
-    })
+  afterEach(() => vi.unstubAllGlobals())
 
-    const mockCredentials = [
-      {
-        id: 'credential-1',
-        provider: 'google-email',
-        name: 'Gmail Account',
-        lastUsed: '2024-01-01T00:00:00.000Z',
-        isDefault: true,
-        scopes: ['canonical-scope'],
-      },
-      {
-        id: 'credential-2',
-        provider: 'google-drive',
-        name: 'Drive Account',
-        lastUsed: '2024-01-02T00:00:00.000Z',
-        isDefault: false,
-        scopes: ['https://www.googleapis.com/auth/drive.file'],
-      },
-    ]
-
-    mockListOAuthCredentialsForUser.mockResolvedValueOnce(mockCredentials)
-
-    const req = createMockRequestWithQuery('GET', '?provider=google-email&workspaceId=workspace-1')
-    const { GET } = await import('@/app/api/auth/oauth/credentials/route')
-
-    const response = await GET(req)
-    const data = await response.json()
-
+  it('returns canonical credentials and only connections not yet saved in this workspace', async () => {
+    mocks.credentials.mockResolvedValue([credential])
+    mocks.connections.mockResolvedValue([{ id: 'account-1' }, { id: 'account-2' }])
+    const response = await GET(request('provider=robinhood&workspaceId=workspace-1'))
     expect(response.status).toBe(200)
-    expect(data.credentials).toHaveLength(2)
-    expect(data.credentials[0]).toMatchObject({
-      id: 'credential-1',
-      provider: 'google-email',
-      isDefault: true,
-      name: 'Gmail Account',
-      scopes: ['canonical-scope'],
+    expect(await response.json()).toEqual({
+      credentials: [credential],
+      connections: [{ id: 'account-2' }],
     })
-    expect(data.credentials[1]).toMatchObject({
-      id: 'credential-2',
-      provider: 'google-drive',
-      isDefault: false,
-      name: 'Drive Account',
-      scopes: ['https://www.googleapis.com/auth/drive.file'],
-    })
+    expect(mocks.connections).toHaveBeenCalledWith({ userId: 'owner', providerIds: ['robinhood'] })
+    expect(mocks.db.insert).not.toHaveBeenCalled()
   })
 
-  it('should handle unauthenticated user', async () => {
-    mockCheckSessionOrInternalAuth.mockResolvedValueOnce({
-      success: false,
-      error: 'User not authenticated',
-    })
-
-    const req = createMockRequestWithQuery('GET', '?provider=google')
-    const { GET } = await import('@/app/api/auth/oauth/credentials/route')
-
-    const response = await GET(req)
-    const data = await response.json()
-
-    expect(response.status).toBe(401)
-    expect(data.error).toBe('User not authenticated')
-    expect(mockLogger.warn).toHaveBeenCalled()
-  })
-
-  it('should handle missing provider parameter', async () => {
-    mockCheckSessionOrInternalAuth.mockResolvedValueOnce({
-      success: true,
-      authType: 'session',
-      userId: 'user-123',
-    })
-
-    const req = createMockRequestWithQuery('GET', '?workspaceId=workspace-1')
-    const { GET } = await import('@/app/api/auth/oauth/credentials/route')
-
-    const response = await GET(req)
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Provider or credentialId is required')
-    expect(mockLogger.warn).toHaveBeenCalled()
-  })
-
-  it('should handle no credentials found', async () => {
-    mockCheckSessionOrInternalAuth.mockResolvedValueOnce({
-      success: true,
-      authType: 'session',
-      userId: 'user-123',
-    })
-
-    mockListOAuthCredentialsForUser.mockResolvedValueOnce([])
-
-    const req = createMockRequestWithQuery('GET', '?provider=github&workspaceId=workspace-1')
-    const { GET } = await import('@/app/api/auth/oauth/credentials/route')
-
-    const response = await GET(req)
-    const data = await response.json()
-
+  it('returns empty lists when there are no saved credentials or personal connections', async () => {
+    const response = await GET(request('provider=github&workspaceId=workspace-1'))
     expect(response.status).toBe(200)
-    expect(data.credentials).toHaveLength(0)
+    expect(await response.json()).toEqual({ credentials: [], connections: [] })
   })
 
-  it('should use the canonical credential display name', async () => {
-    mockCheckSessionOrInternalAuth.mockResolvedValueOnce({
-      success: true,
-      authType: 'session',
-      userId: 'user-123',
-    })
-
-    mockListOAuthCredentialsForUser.mockResolvedValueOnce([
-      {
-        id: 'credential-1',
-        provider: 'google-email',
-        name: 'Canonical Gmail Credential',
-        lastUsed: '2024-01-01T00:00:00.000Z',
-        isDefault: true,
-        scopes: ['email', 'profile'],
-      },
-    ])
-
-    const req = createMockRequestWithQuery('GET', '?provider=google&workspaceId=workspace-1')
-    const { GET } = await import('@/app/api/auth/oauth/credentials/route')
-
-    const response = await GET(req)
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.credentials[0].name).toBe('Canonical Gmail Credential')
+  it.each([
+    [false, 'provider=google', 401, 'User not authenticated'],
+    [true, 'workspaceId=workspace-1', 400, 'Provider or credentialId is required'],
+  ])('rejects invalid GET requests: %s/%s', async (success, query, status, error) => {
+    mocks.authenticate.mockResolvedValue({ success, authType: 'session', userId: 'owner' })
+    const response = await GET(request(query))
+    expect(response.status).toBe(status)
+    expect(await response.json()).toEqual({ error })
+    expect(mocks.logger.warn).toHaveBeenCalled()
+    expect(mocks.credentials).not.toHaveBeenCalled()
   })
 
   it('scopes workflow credential lookups to the workflow workspace', async () => {
-    mockCheckSessionOrInternalAuth.mockResolvedValueOnce({
-      success: true,
-      authType: 'session',
-      userId: 'collaborator-1',
-    })
-    mockDb.limit.mockResolvedValueOnce([{ workspaceId: 'workspace-1' }])
-    mockCheckWorkspaceAccess.mockResolvedValueOnce({ hasAccess: true })
-    mockListOAuthCredentialsForUser.mockResolvedValueOnce([
-      {
-        id: 'credential-1',
-        provider: 'google-email',
-        name: 'Shared Gmail Credential',
-        lastUsed: '2024-01-01T00:00:00.000Z',
-        isDefault: true,
-        scopes: ['canonical-scope'],
-      },
-    ])
-
-    const req = createMockRequestWithQuery(
-      'GET',
-      '?workflowId=workflow-1&credentialId=credential-1'
-    )
-    const { GET } = await import('@/app/api/auth/oauth/credentials/route')
-
-    const response = await GET(req)
-    const data = await response.json()
-
+    mocks.credentials.mockResolvedValue([credential])
+    const response = await GET(request('workflowId=workflow-1&credentialId=saved'))
     expect(response.status).toBe(200)
-    expect(data.credentials[0]).toMatchObject({
-      id: 'credential-1',
-      provider: 'google-email',
-      name: 'Shared Gmail Credential',
+    expect((await response.json()).credentials).toEqual([credential])
+    expect(mocks.access).toHaveBeenCalledWith('workspace-1', 'owner')
+    expect(mocks.credentials).toHaveBeenCalledWith({
+      userId: 'owner',
+      workspaceId: 'workspace-1',
+      credentialId: 'saved',
+      providerIds: undefined,
     })
-    expect(mockCheckWorkspaceAccess).toHaveBeenCalledWith('workspace-1', 'collaborator-1')
   })
 
-  it('should handle database error', async () => {
-    mockCheckSessionOrInternalAuth.mockResolvedValueOnce({
-      success: true,
-      authType: 'session',
-      userId: 'user-123',
-    })
-
-    mockListOAuthCredentialsForUser.mockRejectedValueOnce(new Error('Database error'))
-
-    const req = createMockRequestWithQuery('GET', '?provider=google&workspaceId=workspace-1')
-    const { GET } = await import('@/app/api/auth/oauth/credentials/route')
-
-    const response = await GET(req)
-    const data = await response.json()
-
+  it('reports database failures', async () => {
+    mocks.credentials.mockRejectedValueOnce(new Error('Database error'))
+    const response = await GET(request('provider=google&workspaceId=workspace-1'))
     expect(response.status).toBe(500)
-    expect(data.error).toBe('Internal server error')
-    expect(mockLogger.error).toHaveBeenCalled()
+    expect(await response.json()).toEqual({ error: 'Internal server error' })
+    expect(mocks.logger.error).toHaveBeenCalled()
   })
+
+  it.each(['api_key', 'internal_jwt'])(
+    'hides unpublished personal connections from %s',
+    async (authType) => {
+      mocks.authenticate.mockResolvedValue({
+        success: true,
+        authType,
+        userId: 'owner',
+        workspaceId: 'workspace-1',
+      })
+      mocks.credentials.mockResolvedValue([credential])
+      const response = await GET(request('provider=robinhood&workspaceId=workspace-1'))
+      expect(await response.json()).toEqual({ credentials: [credential], connections: [] })
+      expect(mocks.connections).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each([
+    { authType: 'session', hasAccess: true, canWrite: true, ownAccount: true, status: 200 },
+    { authType: 'api_key', hasAccess: true, canWrite: true, ownAccount: true, status: 401 },
+    { authType: 'session', hasAccess: false, canWrite: false, ownAccount: true, status: 403 },
+    { authType: 'session', hasAccess: true, canWrite: false, ownAccount: true, status: 403 },
+    { authType: 'session', hasAccess: true, canWrite: true, ownAccount: false, status: 404 },
+  ])(
+    'requires session ownership and write access to save: $status/$authType/$ownAccount',
+    async (testCase) => {
+      mocks.authenticate.mockResolvedValue({
+        success: true,
+        authType: testCase.authType,
+        userId: 'owner',
+      })
+      mocks.access.mockResolvedValue(testCase)
+      mocks.connections.mockResolvedValue(
+        testCase.ownAccount
+          ? [{ id: 'personal-account', provider: 'robinhood', name: 'Broker account' }]
+          : []
+      )
+      mocks.db.returning.mockResolvedValue([{ id: 'workspace-credential' }])
+      const response = await POST(
+        new NextRequest('http://localhost/api/auth/oauth/credentials', {
+          method: 'POST',
+          body: JSON.stringify({
+            workspaceId: 'workspace-1',
+            accountId: 'personal-account',
+            userId: 'forged',
+          }),
+        })
+      )
+      expect(response.status).toBe(testCase.status)
+      if (testCase.status !== 200) {
+        expect(mocks.db.insert).not.toHaveBeenCalled()
+        return
+      }
+      expect(await response.json()).toEqual({ credentialId: 'workspace-credential' })
+      expect(mocks.connections).toHaveBeenCalledWith({ userId: 'owner' })
+      expect(mocks.db.values).toHaveBeenCalledWith({
+        id: 'credential-id',
+        workspaceId: 'workspace-1',
+        type: 'oauth',
+        providerId: 'robinhood',
+        displayName: 'Broker account',
+        accountId: 'personal-account',
+        createdBy: 'owner',
+      })
+      expect(mocks.db.onConflictDoUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          target: ['workspaceId', 'accountId'],
+          targetWhere: { field: 'accountId', type: 'isNotNull' },
+        })
+      )
+    }
+  )
 })

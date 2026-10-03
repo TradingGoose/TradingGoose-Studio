@@ -11,7 +11,7 @@ export const TradingPortfolioDetailBlock: BlockConfig<TradingPortfolioDetailResp
   description: 'Fetch full portfolio detail from a selected broker account.',
   authMode: AuthMode.OAuth,
   longDescription:
-    'Portfolio detail block that returns account summary, cash, positions, and orders from Alpaca or Tradier.',
+    'Portfolio detail block that returns account summary, cash, positions, and orders from a connected trading provider.',
   category: 'tools',
   bgColor: '#115e59',
   icon: DollarIcon,

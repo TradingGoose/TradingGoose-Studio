@@ -32,12 +32,12 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "layout": "full",
             "options": [
                 {
-                    "label": "File URL",
-                    "id": "url"
+                    "id": "url",
+                    "label": "File URL"
                 },
                 {
-                    "label": "Uploaded Files",
-                    "id": "upload"
+                    "id": "upload",
+                    "label": "Uploaded Files"
                 }
             ],
             "defaultValue": "url"
@@ -54,12 +54,23 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">File URL (<code>file_parser</code>)</div>
+
+Parse one or more uploaded files or files from URLs (text, PDF, CSV, images, etc.)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `filePath` | string | Yes | Path to the file\(s\). Can be a single path, URL, or an array of paths. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `files` | json | Array of parsed file objects with content, metadata, and file properties |
-| `combinedContent` | string | All file contents merged into a single text string |
+| `files` | array | Array of parsed files with content and metadata |
+| `combinedContent` | string | Combined content of all parsed files |
+| `processedFiles` | file[] | Array of UserFile objects for downstream use |
 
 </div>
 
@@ -83,12 +94,12 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "layout": "full",
             "options": [
                 {
-                    "label": "File URL",
-                    "id": "url"
+                    "id": "url",
+                    "label": "File URL"
                 },
                 {
-                    "label": "Uploaded Files",
-                    "id": "upload"
+                    "id": "upload",
+                    "label": "Uploaded Files"
                 }
             ],
             "defaultValue": "upload"
@@ -104,12 +115,23 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Uploaded Files (<code>file_parser</code>)</div>
+
+Parse one or more uploaded files or files from URLs (text, PDF, CSV, images, etc.)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `filePath` | string | Yes | Path to the file\(s\). Can be a single path, URL, or an array of paths. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `files` | json | Array of parsed file objects with content, metadata, and file properties |
-| `combinedContent` | string | All file contents merged into a single text string |
+| `files` | array | Array of parsed files with content and metadata |
+| `combinedContent` | string | Combined content of all parsed files |
+| `processedFiles` | file[] | Array of UserFile objects for downstream use |
 
 </div>
 

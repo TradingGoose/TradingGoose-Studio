@@ -1,0 +1,143 @@
+---
+title: Activador de Airtable
+description: Activa un flujo de trabajo a partir de cambios en registros de
+  Airtable, como eventos de creación, actualización y eliminación (requiere
+  credenciales de Airtable)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="airtable"
+  color=""
+/>
+
+Activa un flujo de trabajo a partir de cambios en registros de Airtable, como eventos de creación, actualización y eliminación (requiere credenciales de Airtable)
+
+<Callout type="info">
+  Este es un activador basado en **webhook**. Configura el servicio externo para enviar eventos a la URL del webhook del flujo de trabajo.
+</Callout>
+
+<Cards>
+  <Card title="Usar como herramienta" href="/tools/airtable">
+    Consulta las acciones, operaciones y entradas de herramienta del flujo de trabajo para Airtable.
+  </Card>
+</Cards>
+
+## Instrucciones de configuración
+
+<div class="mb-3"><strong>1.</strong> Conecta tu cuenta de Airtable con el botón "Seleccionar credencial de Airtable" de arriba.</div><div class="mb-3"><strong>2.</strong> Asegúrate de haber indicado el ID de la base y el ID de la tabla correctos arriba.</div><div class="mb-3"><strong>3.</strong> Puedes encontrar el ID de la base en la URL de Airtable: https://airtable.com/[baseId]/...</div><div class="mb-3"><strong>4.</strong> Puedes encontrar el ID de la tabla al hacer clic en el nombre de la tabla y revisar la URL.</div><div class="mb-3"><strong>5.</strong> El webhook se activará cada vez que se creen, actualicen o eliminen registros en la tabla especificada.</div><div class="mb-3"><strong>6.</strong> Asegúrate de que tu cuenta de Airtable tenga los permisos adecuados para la base especificada.</div>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Webhook de Airtable"
+    type="airtable_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credenciales",
+            "description": "Este activador requiere credenciales de Airtable para acceder a tu cuenta.",
+            "provider": "airtable",
+            "required": true
+        },
+        {
+            "id": "baseId",
+            "type": "short-input",
+            "title": "ID de la base",
+            "placeholder": "appXXXXXXXXXXXXXX",
+            "description": "El ID de la base de Airtable que supervisará este webhook.",
+            "required": true
+        },
+        {
+            "id": "tableId",
+            "type": "short-input",
+            "title": "ID de la tabla",
+            "placeholder": "tblXXXXXXXXXXXXXX",
+            "description": "El ID de la tabla dentro de la base que supervisará el webhook.",
+            "required": true
+        },
+        {
+            "id": "includeCellValues",
+            "type": "switch",
+            "title": "Incluir datos completos del registro",
+            "description": "Actívalo para recibir los datos completos del registro en el payload, no solo los cambios.",
+            "defaultValue": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "payloads",
+          "type": "array",
+          "description": "Los payloads de los cambios de Airtable"
+      },
+      {
+          "name": "latestPayload",
+          "type": "object",
+          "children": [
+              {
+                  "name": "timestamp",
+                  "type": "string",
+                  "description": "La marca de tiempo del cambio de Airtable"
+              },
+              {
+                  "name": "payloadFormat",
+                  "type": "object",
+                  "description": "El formato del cambio de Airtable"
+              },
+              {
+                  "name": "actionMetadata",
+                  "type": "object",
+                  "children": [
+                      {
+                          "name": "source",
+                          "type": "string",
+                          "description": "El origen del cambio de Airtable"
+                      },
+                      {
+                          "name": "sourceMetadata",
+                          "type": "object",
+                          "children": [
+                              {
+                                  "name": "pageId",
+                                  "type": "string",
+                                  "description": "El ID de la página que activó el cambio de Airtable"
+                              }
+                          ]
+                      },
+                      {
+                          "name": "changedTablesById",
+                          "type": "object",
+                          "description": "Las tablas que se modificaron"
+                      },
+                      {
+                          "name": "baseTransactionNumber",
+                          "type": "number",
+                          "description": "El número de transacción del cambio de Airtable"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "airtableChanges",
+          "type": "array",
+          "description": "Cambios realizados en la tabla de Airtable"
+      }
+  ]}
+/>

@@ -1,0 +1,48 @@
+---
+title: 投资组合快照
+description: 查看账户业绩、现金、持仓和行情覆盖情况。
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## 概述
+
+| 属性 | 值 |
+|----------|-------|
+| **键** | `portfolio_snapshot` |
+| **类别** | 交易 |
+
+投资组合快照是所选券商账户在受支持业绩窗口内的只读摘要。
+
+## 功能
+
+- **业绩摘要** -- 显示收益、期初权益、期末权益、最高权益、最低权益以及权益序列。
+- **账户详情** -- 显示所选投资组合的现金和持仓数量。
+- **行情增强** -- 补充行情增强后的市值、日涨跌额、日涨跌幅，以及行情覆盖持仓（已报价持仓占行情请求中符合条件持仓的比例）。
+- **部分可用** -- 行情增强可能部分可用或不可用，但不会隐藏券商投资组合数据。
+- **刷新** -- `runtime.refreshAt` 请求新的券商数据和行情数据。
+
+## 用法
+
+选择券商和券商账户，然后从该提供商支持的业绩窗口中选择 `selectedWindow`。配置行情提供商以进行当前行情增强。刷新会请求新的快照；行情不可用不会阻止现金、持仓或业绩数据的显示。
+
+## 配置
+
+| 参数 | 说明 |
+|-----------|-------------|
+| `provider` | 用于获取投资组合数据的交易提供商。 |
+| `serviceId` | 券商服务标识符。 |
+| `portfolioIdentity` | 所选券商账户的规范标识。 |
+| `marketProvider` | 用于行情增强的提供商。 |
+| `marketProviderParams` | 提供商特定的行情参数。 |
+| `marketAuth` | 可选的行情提供商凭证。 |
+| `selectedWindow` | 提供商支持的业绩窗口。 |
+| `runtime.refreshAt` | 用于请求刷新的时间戳。 |
+
+## 相关
+
+<Cards>
+  <Card title="热力图" href="/widgets/heatmap">可视化对比持仓与上市标的。</Card>
+  <Card title="快捷下单" href="/widgets/quick-order">为所选账户准备订单。</Card>
+  <Card title="投资组合详情工具" href="/tools/portfolio_detail">查看该工作流工具的输入与输出契约。</Card>
+</Cards>

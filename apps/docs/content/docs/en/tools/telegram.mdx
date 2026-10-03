@@ -10,7 +10,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
   type="telegram"
-  color=""
+  color="#24A1DE"
 />
 
 <Cards>
@@ -28,7 +28,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
   <BlockConfigPreview
     name="Telegram"
     type="telegram"
-    color=""
+    color="#24A1DE"
     hideHeader
     subBlocks={[
         {
@@ -36,37 +36,37 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "telegram_message",
             "options": [
                 {
-                    "label": "Send Message",
-                    "id": "telegram_message"
+                    "id": "telegram_message",
+                    "label": "Send Message"
                 },
                 {
-                    "label": "Send Photo",
-                    "id": "telegram_send_photo"
+                    "id": "telegram_send_photo",
+                    "label": "Send Photo"
                 },
                 {
-                    "label": "Send Video",
-                    "id": "telegram_send_video"
+                    "id": "telegram_send_video",
+                    "label": "Send Video"
                 },
                 {
-                    "label": "Send Audio",
-                    "id": "telegram_send_audio"
+                    "id": "telegram_send_audio",
+                    "label": "Send Audio"
                 },
                 {
-                    "label": "Send Animation",
-                    "id": "telegram_send_animation"
+                    "id": "telegram_send_animation",
+                    "label": "Send Animation"
                 },
                 {
-                    "label": "Send Document",
-                    "id": "telegram_send_document"
+                    "id": "telegram_send_document",
+                    "label": "Send Document"
                 },
                 {
-                    "label": "Delete Message",
-                    "id": "telegram_delete_message"
+                    "id": "telegram_delete_message",
+                    "label": "Delete Message"
                 }
-            ],
-            "defaultValue": "telegram_message"
+            ]
         },
         {
             "id": "botToken",
@@ -74,6 +74,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
             "title": "Bot Token",
             "layout": "full",
             "placeholder": "Enter your Telegram Bot Token",
+            "description": "Getting Bot Token:\n1. If you haven't already, message \"/newbot\" to @BotFather\n2. Choose a name for your bot\n3. Copy the token it provides and paste it here",
             "password": true,
             "required": true
         },
@@ -83,6 +84,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
             "title": "Chat ID",
             "layout": "full",
             "placeholder": "Enter Telegram Chat ID",
+            "description": "Getting Chat ID:\n1. Add your bot as a member to desired Telegram channel\n2. Send any message to the channel (e.g. \"I love TradingGoose\")\n3. Visit https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates\n4. Look for the chat field in the JSON response at the very bottom where you'll find the chat ID",
             "required": true
         },
         {
@@ -115,10 +117,7 @@ Send messages to Telegram channels or users through the Telegram Bot API. Enable
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Success or error message |
-| `message_id` | number | Unique Telegram message identifier |
-| `id` | number | Chat ID |
-| `is_bot` | boolean | Whether the chat is a bot or not |
-| `first_name` | string | Chat username \(if available\) |
+| `data` | object | Telegram message data |
 
 </div>
 
@@ -132,7 +131,7 @@ Send messages to Telegram channels or users through the Telegram Bot API. Enable
   <BlockConfigPreview
     name="Telegram"
     type="telegram"
-    color=""
+    color="#24A1DE"
     hideHeader
     subBlocks={[
         {
@@ -140,37 +139,37 @@ Send messages to Telegram channels or users through the Telegram Bot API. Enable
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "telegram_send_photo",
             "options": [
                 {
-                    "label": "Send Message",
-                    "id": "telegram_message"
+                    "id": "telegram_message",
+                    "label": "Send Message"
                 },
                 {
-                    "label": "Send Photo",
-                    "id": "telegram_send_photo"
+                    "id": "telegram_send_photo",
+                    "label": "Send Photo"
                 },
                 {
-                    "label": "Send Video",
-                    "id": "telegram_send_video"
+                    "id": "telegram_send_video",
+                    "label": "Send Video"
                 },
                 {
-                    "label": "Send Audio",
-                    "id": "telegram_send_audio"
+                    "id": "telegram_send_audio",
+                    "label": "Send Audio"
                 },
                 {
-                    "label": "Send Animation",
-                    "id": "telegram_send_animation"
+                    "id": "telegram_send_animation",
+                    "label": "Send Animation"
                 },
                 {
-                    "label": "Send Document",
-                    "id": "telegram_send_document"
+                    "id": "telegram_send_document",
+                    "label": "Send Document"
                 },
                 {
-                    "label": "Delete Message",
-                    "id": "telegram_delete_message"
+                    "id": "telegram_delete_message",
+                    "label": "Delete Message"
                 }
-            ],
-            "defaultValue": "telegram_send_photo"
+            ]
         },
         {
             "id": "botToken",
@@ -178,6 +177,7 @@ Send messages to Telegram channels or users through the Telegram Bot API. Enable
             "title": "Bot Token",
             "layout": "full",
             "placeholder": "Enter your Telegram Bot Token",
+            "description": "Getting Bot Token:\n1. If you haven't already, message \"/newbot\" to @BotFather\n2. Choose a name for your bot\n3. Copy the token it provides and paste it here",
             "password": true,
             "required": true
         },
@@ -187,6 +187,7 @@ Send messages to Telegram channels or users through the Telegram Bot API. Enable
             "title": "Chat ID",
             "layout": "full",
             "placeholder": "Enter Telegram Chat ID",
+            "description": "Getting Chat ID:\n1. Add your bot as a member to desired Telegram channel\n2. Send any message to the channel (e.g. \"I love TradingGoose\")\n3. Visit https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates\n4. Look for the chat field in the JSON response at the very bottom where you'll find the chat ID",
             "required": true
         },
         {
@@ -229,10 +230,7 @@ Send photos to Telegram channels or users through the Telegram Bot API.
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Success or error message |
-| `message_id` | number | Unique Telegram message identifier |
-| `id` | number | Chat ID |
-| `is_bot` | boolean | Whether the chat is a bot or not |
-| `first_name` | string | Chat username \(if available\) |
+| `data` | object | Telegram message data including optional photo\(s\) |
 
 </div>
 
@@ -246,7 +244,7 @@ Send photos to Telegram channels or users through the Telegram Bot API.
   <BlockConfigPreview
     name="Telegram"
     type="telegram"
-    color=""
+    color="#24A1DE"
     hideHeader
     subBlocks={[
         {
@@ -254,37 +252,37 @@ Send photos to Telegram channels or users through the Telegram Bot API.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "telegram_send_video",
             "options": [
                 {
-                    "label": "Send Message",
-                    "id": "telegram_message"
+                    "id": "telegram_message",
+                    "label": "Send Message"
                 },
                 {
-                    "label": "Send Photo",
-                    "id": "telegram_send_photo"
+                    "id": "telegram_send_photo",
+                    "label": "Send Photo"
                 },
                 {
-                    "label": "Send Video",
-                    "id": "telegram_send_video"
+                    "id": "telegram_send_video",
+                    "label": "Send Video"
                 },
                 {
-                    "label": "Send Audio",
-                    "id": "telegram_send_audio"
+                    "id": "telegram_send_audio",
+                    "label": "Send Audio"
                 },
                 {
-                    "label": "Send Animation",
-                    "id": "telegram_send_animation"
+                    "id": "telegram_send_animation",
+                    "label": "Send Animation"
                 },
                 {
-                    "label": "Send Document",
-                    "id": "telegram_send_document"
+                    "id": "telegram_send_document",
+                    "label": "Send Document"
                 },
                 {
-                    "label": "Delete Message",
-                    "id": "telegram_delete_message"
+                    "id": "telegram_delete_message",
+                    "label": "Delete Message"
                 }
-            ],
-            "defaultValue": "telegram_send_video"
+            ]
         },
         {
             "id": "botToken",
@@ -292,6 +290,7 @@ Send photos to Telegram channels or users through the Telegram Bot API.
             "title": "Bot Token",
             "layout": "full",
             "placeholder": "Enter your Telegram Bot Token",
+            "description": "Getting Bot Token:\n1. If you haven't already, message \"/newbot\" to @BotFather\n2. Choose a name for your bot\n3. Copy the token it provides and paste it here",
             "password": true,
             "required": true
         },
@@ -301,6 +300,7 @@ Send photos to Telegram channels or users through the Telegram Bot API.
             "title": "Chat ID",
             "layout": "full",
             "placeholder": "Enter Telegram Chat ID",
+            "description": "Getting Chat ID:\n1. Add your bot as a member to desired Telegram channel\n2. Send any message to the channel (e.g. \"I love TradingGoose\")\n3. Visit https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates\n4. Look for the chat field in the JSON response at the very bottom where you'll find the chat ID",
             "required": true
         },
         {
@@ -343,10 +343,7 @@ Send videos to Telegram channels or users through the Telegram Bot API.
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Success or error message |
-| `message_id` | number | Unique Telegram message identifier |
-| `id` | number | Sender ID |
-| `is_bot` | boolean | Whether the chat is a bot or not |
-| `first_name` | string | Sender |
+| `data` | object | Telegram message data including optional media |
 
 </div>
 
@@ -360,7 +357,7 @@ Send videos to Telegram channels or users through the Telegram Bot API.
   <BlockConfigPreview
     name="Telegram"
     type="telegram"
-    color=""
+    color="#24A1DE"
     hideHeader
     subBlocks={[
         {
@@ -368,37 +365,37 @@ Send videos to Telegram channels or users through the Telegram Bot API.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "telegram_send_audio",
             "options": [
                 {
-                    "label": "Send Message",
-                    "id": "telegram_message"
+                    "id": "telegram_message",
+                    "label": "Send Message"
                 },
                 {
-                    "label": "Send Photo",
-                    "id": "telegram_send_photo"
+                    "id": "telegram_send_photo",
+                    "label": "Send Photo"
                 },
                 {
-                    "label": "Send Video",
-                    "id": "telegram_send_video"
+                    "id": "telegram_send_video",
+                    "label": "Send Video"
                 },
                 {
-                    "label": "Send Audio",
-                    "id": "telegram_send_audio"
+                    "id": "telegram_send_audio",
+                    "label": "Send Audio"
                 },
                 {
-                    "label": "Send Animation",
-                    "id": "telegram_send_animation"
+                    "id": "telegram_send_animation",
+                    "label": "Send Animation"
                 },
                 {
-                    "label": "Send Document",
-                    "id": "telegram_send_document"
+                    "id": "telegram_send_document",
+                    "label": "Send Document"
                 },
                 {
-                    "label": "Delete Message",
-                    "id": "telegram_delete_message"
+                    "id": "telegram_delete_message",
+                    "label": "Delete Message"
                 }
-            ],
-            "defaultValue": "telegram_send_audio"
+            ]
         },
         {
             "id": "botToken",
@@ -406,6 +403,7 @@ Send videos to Telegram channels or users through the Telegram Bot API.
             "title": "Bot Token",
             "layout": "full",
             "placeholder": "Enter your Telegram Bot Token",
+            "description": "Getting Bot Token:\n1. If you haven't already, message \"/newbot\" to @BotFather\n2. Choose a name for your bot\n3. Copy the token it provides and paste it here",
             "password": true,
             "required": true
         },
@@ -415,6 +413,7 @@ Send videos to Telegram channels or users through the Telegram Bot API.
             "title": "Chat ID",
             "layout": "full",
             "placeholder": "Enter Telegram Chat ID",
+            "description": "Getting Chat ID:\n1. Add your bot as a member to desired Telegram channel\n2. Send any message to the channel (e.g. \"I love TradingGoose\")\n3. Visit https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates\n4. Look for the chat field in the JSON response at the very bottom where you'll find the chat ID",
             "required": true
         },
         {
@@ -457,10 +456,7 @@ Send audio files to Telegram channels or users through the Telegram Bot API.
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Success or error message |
-| `message_id` | number | Unique Telegram message identifier |
-| `id` | number | Sender ID |
-| `is_bot` | boolean | Whether the chat is a bot or not |
-| `first_name` | string | Sender |
+| `data` | object | Telegram message data including voice/audio information |
 
 </div>
 
@@ -474,7 +470,7 @@ Send audio files to Telegram channels or users through the Telegram Bot API.
   <BlockConfigPreview
     name="Telegram"
     type="telegram"
-    color=""
+    color="#24A1DE"
     hideHeader
     subBlocks={[
         {
@@ -482,37 +478,37 @@ Send audio files to Telegram channels or users through the Telegram Bot API.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "telegram_send_animation",
             "options": [
                 {
-                    "label": "Send Message",
-                    "id": "telegram_message"
+                    "id": "telegram_message",
+                    "label": "Send Message"
                 },
                 {
-                    "label": "Send Photo",
-                    "id": "telegram_send_photo"
+                    "id": "telegram_send_photo",
+                    "label": "Send Photo"
                 },
                 {
-                    "label": "Send Video",
-                    "id": "telegram_send_video"
+                    "id": "telegram_send_video",
+                    "label": "Send Video"
                 },
                 {
-                    "label": "Send Audio",
-                    "id": "telegram_send_audio"
+                    "id": "telegram_send_audio",
+                    "label": "Send Audio"
                 },
                 {
-                    "label": "Send Animation",
-                    "id": "telegram_send_animation"
+                    "id": "telegram_send_animation",
+                    "label": "Send Animation"
                 },
                 {
-                    "label": "Send Document",
-                    "id": "telegram_send_document"
+                    "id": "telegram_send_document",
+                    "label": "Send Document"
                 },
                 {
-                    "label": "Delete Message",
-                    "id": "telegram_delete_message"
+                    "id": "telegram_delete_message",
+                    "label": "Delete Message"
                 }
-            ],
-            "defaultValue": "telegram_send_animation"
+            ]
         },
         {
             "id": "botToken",
@@ -520,6 +516,7 @@ Send audio files to Telegram channels or users through the Telegram Bot API.
             "title": "Bot Token",
             "layout": "full",
             "placeholder": "Enter your Telegram Bot Token",
+            "description": "Getting Bot Token:\n1. If you haven't already, message \"/newbot\" to @BotFather\n2. Choose a name for your bot\n3. Copy the token it provides and paste it here",
             "password": true,
             "required": true
         },
@@ -529,6 +526,7 @@ Send audio files to Telegram channels or users through the Telegram Bot API.
             "title": "Chat ID",
             "layout": "full",
             "placeholder": "Enter Telegram Chat ID",
+            "description": "Getting Chat ID:\n1. Add your bot as a member to desired Telegram channel\n2. Send any message to the channel (e.g. \"I love TradingGoose\")\n3. Visit https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates\n4. Look for the chat field in the JSON response at the very bottom where you'll find the chat ID",
             "required": true
         },
         {
@@ -571,10 +569,7 @@ Send animations (GIFs) to Telegram channels or users through the Telegram Bot AP
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Success or error message |
-| `message_id` | number | Unique Telegram message identifier |
-| `id` | number | Sender ID |
-| `is_bot` | boolean | Whether the chat is a bot or not |
-| `first_name` | string | Sender |
+| `data` | object | Telegram message data including optional media |
 
 </div>
 
@@ -588,7 +583,7 @@ Send animations (GIFs) to Telegram channels or users through the Telegram Bot AP
   <BlockConfigPreview
     name="Telegram"
     type="telegram"
-    color=""
+    color="#24A1DE"
     hideHeader
     subBlocks={[
         {
@@ -596,37 +591,37 @@ Send animations (GIFs) to Telegram channels or users through the Telegram Bot AP
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "telegram_send_document",
             "options": [
                 {
-                    "label": "Send Message",
-                    "id": "telegram_message"
+                    "id": "telegram_message",
+                    "label": "Send Message"
                 },
                 {
-                    "label": "Send Photo",
-                    "id": "telegram_send_photo"
+                    "id": "telegram_send_photo",
+                    "label": "Send Photo"
                 },
                 {
-                    "label": "Send Video",
-                    "id": "telegram_send_video"
+                    "id": "telegram_send_video",
+                    "label": "Send Video"
                 },
                 {
-                    "label": "Send Audio",
-                    "id": "telegram_send_audio"
+                    "id": "telegram_send_audio",
+                    "label": "Send Audio"
                 },
                 {
-                    "label": "Send Animation",
-                    "id": "telegram_send_animation"
+                    "id": "telegram_send_animation",
+                    "label": "Send Animation"
                 },
                 {
-                    "label": "Send Document",
-                    "id": "telegram_send_document"
+                    "id": "telegram_send_document",
+                    "label": "Send Document"
                 },
                 {
-                    "label": "Delete Message",
-                    "id": "telegram_delete_message"
+                    "id": "telegram_delete_message",
+                    "label": "Delete Message"
                 }
-            ],
-            "defaultValue": "telegram_send_document"
+            ]
         },
         {
             "id": "botToken",
@@ -634,6 +629,7 @@ Send animations (GIFs) to Telegram channels or users through the Telegram Bot AP
             "title": "Bot Token",
             "layout": "full",
             "placeholder": "Enter your Telegram Bot Token",
+            "description": "Getting Bot Token:\n1. If you haven't already, message \"/newbot\" to @BotFather\n2. Choose a name for your bot\n3. Copy the token it provides and paste it here",
             "password": true,
             "required": true
         },
@@ -643,6 +639,7 @@ Send animations (GIFs) to Telegram channels or users through the Telegram Bot AP
             "title": "Chat ID",
             "layout": "full",
             "placeholder": "Enter Telegram Chat ID",
+            "description": "Getting Chat ID:\n1. Add your bot as a member to desired Telegram channel\n2. Send any message to the channel (e.g. \"I love TradingGoose\")\n3. Visit https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates\n4. Look for the chat field in the JSON response at the very bottom where you'll find the chat ID",
             "required": true
         },
         {
@@ -651,7 +648,8 @@ Send animations (GIFs) to Telegram channels or users through the Telegram Bot AP
             "title": "Document",
             "layout": "full",
             "placeholder": "Upload document file",
-            "description": "Document file to send (PDF, ZIP, DOC, etc.). Max size: 50MB"
+            "description": "Document file to send (PDF, ZIP, DOC, etc.). Max size: 50MB",
+            "required": false
         },
         {
             "id": "files",
@@ -659,7 +657,8 @@ Send animations (GIFs) to Telegram channels or users through the Telegram Bot AP
             "title": "Document",
             "layout": "full",
             "placeholder": "Reference document from previous blocks",
-            "description": "Reference a document file from a previous block"
+            "description": "Reference a document file from a previous block",
+            "required": false
         },
         {
             "id": "caption",
@@ -692,10 +691,7 @@ Send documents (PDF, ZIP, DOC, etc.) to Telegram channels or users through the T
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Success or error message |
-| `message_id` | number | Unique Telegram message identifier |
-| `id` | number | Sender ID |
-| `is_bot` | boolean | Whether the chat is a bot or not |
-| `first_name` | string | Sender |
+| `data` | object | Telegram message data including document |
 
 </div>
 
@@ -709,7 +705,7 @@ Send documents (PDF, ZIP, DOC, etc.) to Telegram channels or users through the T
   <BlockConfigPreview
     name="Telegram"
     type="telegram"
-    color=""
+    color="#24A1DE"
     hideHeader
     subBlocks={[
         {
@@ -717,37 +713,37 @@ Send documents (PDF, ZIP, DOC, etc.) to Telegram channels or users through the T
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "telegram_delete_message",
             "options": [
                 {
-                    "label": "Send Message",
-                    "id": "telegram_message"
+                    "id": "telegram_message",
+                    "label": "Send Message"
                 },
                 {
-                    "label": "Send Photo",
-                    "id": "telegram_send_photo"
+                    "id": "telegram_send_photo",
+                    "label": "Send Photo"
                 },
                 {
-                    "label": "Send Video",
-                    "id": "telegram_send_video"
+                    "id": "telegram_send_video",
+                    "label": "Send Video"
                 },
                 {
-                    "label": "Send Audio",
-                    "id": "telegram_send_audio"
+                    "id": "telegram_send_audio",
+                    "label": "Send Audio"
                 },
                 {
-                    "label": "Send Animation",
-                    "id": "telegram_send_animation"
+                    "id": "telegram_send_animation",
+                    "label": "Send Animation"
                 },
                 {
-                    "label": "Send Document",
-                    "id": "telegram_send_document"
+                    "id": "telegram_send_document",
+                    "label": "Send Document"
                 },
                 {
-                    "label": "Delete Message",
-                    "id": "telegram_delete_message"
+                    "id": "telegram_delete_message",
+                    "label": "Delete Message"
                 }
-            ],
-            "defaultValue": "telegram_delete_message"
+            ]
         },
         {
             "id": "botToken",
@@ -755,6 +751,7 @@ Send documents (PDF, ZIP, DOC, etc.) to Telegram channels or users through the T
             "title": "Bot Token",
             "layout": "full",
             "placeholder": "Enter your Telegram Bot Token",
+            "description": "Getting Bot Token:\n1. If you haven't already, message \"/newbot\" to @BotFather\n2. Choose a name for your bot\n3. Copy the token it provides and paste it here",
             "password": true,
             "required": true
         },
@@ -764,6 +761,7 @@ Send documents (PDF, ZIP, DOC, etc.) to Telegram channels or users through the T
             "title": "Chat ID",
             "layout": "full",
             "placeholder": "Enter Telegram Chat ID",
+            "description": "Getting Chat ID:\n1. Add your bot as a member to desired Telegram channel\n2. Send any message to the channel (e.g. \"I love TradingGoose\")\n3. Visit https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates\n4. Look for the chat field in the JSON response at the very bottom where you'll find the chat ID",
             "required": true
         },
         {
@@ -797,7 +795,7 @@ Delete messages in Telegram channels or chats through the Telegram Bot API. Requ
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Success or error message |
-| `ok` | boolean | API response success status |
+| `data` | object | Delete operation result |
 
 </div>
 

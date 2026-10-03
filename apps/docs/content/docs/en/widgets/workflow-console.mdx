@@ -22,7 +22,7 @@ The Workflow Console widget displays a real-time log of everything that happens 
 - **Sort by time** -- toggle between ascending and descending chronological order with a single header button
 - **Structured view** -- a toggle that switches log entries into a formatted JSON-style layout for inspecting complex output objects
 - **Wrap text** -- a toggle that controls whether long log lines wrap or scroll horizontally
-- **Export to CSV** -- downloads the current (filtered) console entries as a CSV file
+- **Export to CSV** -- downloads all console entries for the selected workflow as a CSV file; display filters do not limit the export
 - **Clear console** -- deletes all entries for the active workflow from the console store
 - **Workflow selector** -- header dropdown to switch between workflows; respects pair-color syncing when linked
 
@@ -43,7 +43,7 @@ Open the widget picker and select **Workflow Console**. It loads entries for the
 2. Open the filter popover to narrow results to specific blocks or error-only entries
 3. Toggle structured view to read JSON payloads more easily
 4. Toggle wrap text when entries contain long single-line strings
-5. Click the download button to export filtered entries as CSV for offline analysis
+5. Click the download button to export all entries for the selected workflow as CSV for offline analysis, including entries hidden by display filters
 6. Click the trash button to clear the console for the current workflow
 
 ### Pair color syncing

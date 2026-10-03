@@ -1,0 +1,136 @@
+---
+title: Lista de seguimiento
+description: Leer las listas de seguimiento del espacio de trabajo y sus elementos.
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="watchlist"
+  color="#0f766e"
+/>
+
+## Configuración
+
+### Leer listas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Lista de seguimiento"
+    type="watchlist"
+    color="#0f766e"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "required": true,
+            "defaultValue": "readLists",
+            "options": [
+                {
+                    "id": "readLists",
+                    "label": "Leer listas"
+                },
+                {
+                    "id": "readListItems",
+                    "label": "Leer elementos de la lista"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Leer listas (<code>watchlist_read_lists</code>)</div>
+
+Leer las listas de seguimiento raíz disponibles en el espacio de trabajo actual.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+Esta operación no tiene parámetros directos.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `watchlists` | array | Registros de listas de seguimiento, incluidos elementos, ajustes y metadatos. |
+
+</div>
+
+---
+
+### Leer elementos de la lista
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Lista de seguimiento"
+    type="watchlist"
+    color="#0f766e"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "required": true,
+            "defaultValue": "readListItems",
+            "options": [
+                {
+                    "id": "readLists",
+                    "label": "Leer listas"
+                },
+                {
+                    "id": "readListItems",
+                    "label": "Leer elementos de la lista"
+                }
+            ]
+        },
+        {
+            "id": "watchlistId",
+            "type": "dropdown",
+            "title": "Lista de seguimiento",
+            "layout": "full",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Leer elementos de la lista (<code>watchlist_read_list_items</code>)</div>
+
+Leer una lista de seguimiento con listados ordenados y elementos de sección/categoría.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `watchlistId` | string | Sí | Id de la lista de seguimiento raíz que se va a leer. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `watchlist` | json | Registro de lista de seguimiento. |
+| `items` | array | Elementos de la lista de seguimiento en orden de visualización, incluidos listados y secciones. |
+| `listings` | array | Elementos de listado de la lista de seguimiento. |
+| `sections` | array | Elementos de sección/categoría de la lista de seguimiento. |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Lee las listas de seguimiento del espacio de trabajo raíz, inspecciona los elementos de listado ordenados e inspecciona los elementos de sección/categoría.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `watchlist`

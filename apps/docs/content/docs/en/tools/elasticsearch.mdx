@@ -29,70 +29,71 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "elasticsearch_search",
             "options": [
                 {
-                    "label": "Search",
-                    "id": "elasticsearch_search"
+                    "id": "elasticsearch_search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Index Document",
-                    "id": "elasticsearch_index_document"
+                    "id": "elasticsearch_index_document",
+                    "label": "Index Document"
                 },
                 {
-                    "label": "Get Document",
-                    "id": "elasticsearch_get_document"
+                    "id": "elasticsearch_get_document",
+                    "label": "Get Document"
                 },
                 {
-                    "label": "Update Document",
-                    "id": "elasticsearch_update_document"
+                    "id": "elasticsearch_update_document",
+                    "label": "Update Document"
                 },
                 {
-                    "label": "Delete Document",
-                    "id": "elasticsearch_delete_document"
+                    "id": "elasticsearch_delete_document",
+                    "label": "Delete Document"
                 },
                 {
-                    "label": "Bulk Operations",
-                    "id": "elasticsearch_bulk"
+                    "id": "elasticsearch_bulk",
+                    "label": "Bulk Operations"
                 },
                 {
-                    "label": "Count Documents",
-                    "id": "elasticsearch_count"
+                    "id": "elasticsearch_count",
+                    "label": "Count Documents"
                 },
                 {
-                    "label": "Create Index",
-                    "id": "elasticsearch_create_index"
+                    "id": "elasticsearch_create_index",
+                    "label": "Create Index"
                 },
                 {
-                    "label": "Delete Index",
-                    "id": "elasticsearch_delete_index"
+                    "id": "elasticsearch_delete_index",
+                    "label": "Delete Index"
                 },
                 {
-                    "label": "Get Index Info",
-                    "id": "elasticsearch_get_index"
+                    "id": "elasticsearch_get_index",
+                    "label": "Get Index Info"
                 },
                 {
-                    "label": "Cluster Health",
-                    "id": "elasticsearch_cluster_health"
+                    "id": "elasticsearch_cluster_health",
+                    "label": "Cluster Health"
                 },
                 {
-                    "label": "Cluster Stats",
-                    "id": "elasticsearch_cluster_stats"
+                    "id": "elasticsearch_cluster_stats",
+                    "label": "Cluster Stats"
                 }
-            ],
-            "defaultValue": "elasticsearch_search"
+            ]
         },
         {
             "id": "deploymentType",
             "type": "dropdown",
             "title": "Deployment Type",
+            "defaultValue": "self_hosted",
             "options": [
                 {
-                    "label": "Self-Hosted",
-                    "id": "self_hosted"
+                    "id": "self_hosted",
+                    "label": "Self-Hosted"
                 },
                 {
-                    "label": "Elastic Cloud",
-                    "id": "cloud"
+                    "id": "cloud",
+                    "label": "Elastic Cloud"
                 }
             ]
         },
@@ -101,27 +102,28 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "short-input",
             "title": "Elasticsearch Host",
             "placeholder": "https://localhost:9200",
-            "required": true
+            "description": "Shown when deploymentType is 'self_hosted'."
         },
         {
             "id": "cloudId",
             "type": "short-input",
             "title": "Cloud ID",
             "placeholder": "deployment-name:base64-encoded-data",
-            "required": true
+            "description": "Shown when deploymentType is 'cloud'."
         },
         {
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "api_key",
             "options": [
                 {
-                    "label": "API Key",
-                    "id": "api_key"
+                    "id": "api_key",
+                    "label": "API Key"
                 },
                 {
-                    "label": "Basic Auth",
-                    "id": "basic_auth"
+                    "id": "basic_auth",
+                    "label": "Basic Auth"
                 }
             ]
         },
@@ -131,14 +133,14 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "API Key",
             "placeholder": "Enter encoded API key",
             "password": true,
-            "required": true
+            "description": "Shown when authMethod is 'api_key'."
         },
         {
             "id": "username",
             "type": "short-input",
             "title": "Username",
             "placeholder": "Enter username",
-            "required": true
+            "description": "Shown when authMethod is 'basic_auth'."
         },
         {
             "id": "password",
@@ -146,7 +148,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Password",
             "placeholder": "Enter password",
             "password": true,
-            "required": true
+            "description": "Shown when authMethod is 'basic_auth'."
         },
         {
             "id": "index",
@@ -229,6 +231,7 @@ Search documents in Elasticsearch using Query DSL. Returns matching documents wi
 | `took` | number | Time in milliseconds the search took |
 | `timed_out` | boolean | Whether the search timed out |
 | `hits` | object | Search results with total count and matching documents |
+| `aggregations` | json | Aggregation results if any |
 
 </div>
 
@@ -249,70 +252,71 @@ Search documents in Elasticsearch using Query DSL. Returns matching documents wi
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "elasticsearch_index_document",
             "options": [
                 {
-                    "label": "Search",
-                    "id": "elasticsearch_search"
+                    "id": "elasticsearch_search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Index Document",
-                    "id": "elasticsearch_index_document"
+                    "id": "elasticsearch_index_document",
+                    "label": "Index Document"
                 },
                 {
-                    "label": "Get Document",
-                    "id": "elasticsearch_get_document"
+                    "id": "elasticsearch_get_document",
+                    "label": "Get Document"
                 },
                 {
-                    "label": "Update Document",
-                    "id": "elasticsearch_update_document"
+                    "id": "elasticsearch_update_document",
+                    "label": "Update Document"
                 },
                 {
-                    "label": "Delete Document",
-                    "id": "elasticsearch_delete_document"
+                    "id": "elasticsearch_delete_document",
+                    "label": "Delete Document"
                 },
                 {
-                    "label": "Bulk Operations",
-                    "id": "elasticsearch_bulk"
+                    "id": "elasticsearch_bulk",
+                    "label": "Bulk Operations"
                 },
                 {
-                    "label": "Count Documents",
-                    "id": "elasticsearch_count"
+                    "id": "elasticsearch_count",
+                    "label": "Count Documents"
                 },
                 {
-                    "label": "Create Index",
-                    "id": "elasticsearch_create_index"
+                    "id": "elasticsearch_create_index",
+                    "label": "Create Index"
                 },
                 {
-                    "label": "Delete Index",
-                    "id": "elasticsearch_delete_index"
+                    "id": "elasticsearch_delete_index",
+                    "label": "Delete Index"
                 },
                 {
-                    "label": "Get Index Info",
-                    "id": "elasticsearch_get_index"
+                    "id": "elasticsearch_get_index",
+                    "label": "Get Index Info"
                 },
                 {
-                    "label": "Cluster Health",
-                    "id": "elasticsearch_cluster_health"
+                    "id": "elasticsearch_cluster_health",
+                    "label": "Cluster Health"
                 },
                 {
-                    "label": "Cluster Stats",
-                    "id": "elasticsearch_cluster_stats"
+                    "id": "elasticsearch_cluster_stats",
+                    "label": "Cluster Stats"
                 }
-            ],
-            "defaultValue": "elasticsearch_index_document"
+            ]
         },
         {
             "id": "deploymentType",
             "type": "dropdown",
             "title": "Deployment Type",
+            "defaultValue": "self_hosted",
             "options": [
                 {
-                    "label": "Self-Hosted",
-                    "id": "self_hosted"
+                    "id": "self_hosted",
+                    "label": "Self-Hosted"
                 },
                 {
-                    "label": "Elastic Cloud",
-                    "id": "cloud"
+                    "id": "cloud",
+                    "label": "Elastic Cloud"
                 }
             ]
         },
@@ -321,27 +325,28 @@ Search documents in Elasticsearch using Query DSL. Returns matching documents wi
             "type": "short-input",
             "title": "Elasticsearch Host",
             "placeholder": "https://localhost:9200",
-            "required": true
+            "description": "Shown when deploymentType is 'self_hosted'."
         },
         {
             "id": "cloudId",
             "type": "short-input",
             "title": "Cloud ID",
             "placeholder": "deployment-name:base64-encoded-data",
-            "required": true
+            "description": "Shown when deploymentType is 'cloud'."
         },
         {
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "api_key",
             "options": [
                 {
-                    "label": "API Key",
-                    "id": "api_key"
+                    "id": "api_key",
+                    "label": "API Key"
                 },
                 {
-                    "label": "Basic Auth",
-                    "id": "basic_auth"
+                    "id": "basic_auth",
+                    "label": "Basic Auth"
                 }
             ]
         },
@@ -351,14 +356,14 @@ Search documents in Elasticsearch using Query DSL. Returns matching documents wi
             "title": "API Key",
             "placeholder": "Enter encoded API key",
             "password": true,
-            "required": true
+            "description": "Shown when authMethod is 'api_key'."
         },
         {
             "id": "username",
             "type": "short-input",
             "title": "Username",
             "placeholder": "Enter username",
-            "required": true
+            "description": "Shown when authMethod is 'basic_auth'."
         },
         {
             "id": "password",
@@ -366,7 +371,7 @@ Search documents in Elasticsearch using Query DSL. Returns matching documents wi
             "title": "Password",
             "placeholder": "Enter password",
             "password": true,
-            "required": true
+            "description": "Shown when authMethod is 'basic_auth'."
         },
         {
             "id": "index",
@@ -393,18 +398,23 @@ Search documents in Elasticsearch using Query DSL. Returns matching documents wi
             "id": "refresh",
             "type": "dropdown",
             "title": "Refresh",
+            "defaultValue": "",
             "options": [
                 {
-                    "label": "Wait For",
-                    "id": "wait_for"
+                    "id": "",
+                    "label": "Default"
                 },
                 {
-                    "label": "Immediate",
-                    "id": "true"
+                    "id": "wait_for",
+                    "label": "Wait For"
                 },
                 {
-                    "label": "None",
-                    "id": "false"
+                    "id": "true",
+                    "label": "Immediate"
+                },
+                {
+                    "id": "false",
+                    "label": "None"
                 }
             ]
         }
@@ -440,6 +450,7 @@ Index (create or update) a document in Elasticsearch.
 | `_index` | string | Index where the document was stored |
 | `_id` | string | Document ID |
 | `_version` | number | Document version |
+| `result` | string | Operation result \(created or updated\) |
 
 </div>
 
@@ -460,70 +471,71 @@ Index (create or update) a document in Elasticsearch.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "elasticsearch_get_document",
             "options": [
                 {
-                    "label": "Search",
-                    "id": "elasticsearch_search"
+                    "id": "elasticsearch_search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Index Document",
-                    "id": "elasticsearch_index_document"
+                    "id": "elasticsearch_index_document",
+                    "label": "Index Document"
                 },
                 {
-                    "label": "Get Document",
-                    "id": "elasticsearch_get_document"
+                    "id": "elasticsearch_get_document",
+                    "label": "Get Document"
                 },
                 {
-                    "label": "Update Document",
-                    "id": "elasticsearch_update_document"
+                    "id": "elasticsearch_update_document",
+                    "label": "Update Document"
                 },
                 {
-                    "label": "Delete Document",
-                    "id": "elasticsearch_delete_document"
+                    "id": "elasticsearch_delete_document",
+                    "label": "Delete Document"
                 },
                 {
-                    "label": "Bulk Operations",
-                    "id": "elasticsearch_bulk"
+                    "id": "elasticsearch_bulk",
+                    "label": "Bulk Operations"
                 },
                 {
-                    "label": "Count Documents",
-                    "id": "elasticsearch_count"
+                    "id": "elasticsearch_count",
+                    "label": "Count Documents"
                 },
                 {
-                    "label": "Create Index",
-                    "id": "elasticsearch_create_index"
+                    "id": "elasticsearch_create_index",
+                    "label": "Create Index"
                 },
                 {
-                    "label": "Delete Index",
-                    "id": "elasticsearch_delete_index"
+                    "id": "elasticsearch_delete_index",
+                    "label": "Delete Index"
                 },
                 {
-                    "label": "Get Index Info",
-                    "id": "elasticsearch_get_index"
+                    "id": "elasticsearch_get_index",
+                    "label": "Get Index Info"
                 },
                 {
-                    "label": "Cluster Health",
-                    "id": "elasticsearch_cluster_health"
+                    "id": "elasticsearch_cluster_health",
+                    "label": "Cluster Health"
                 },
                 {
-                    "label": "Cluster Stats",
-                    "id": "elasticsearch_cluster_stats"
+                    "id": "elasticsearch_cluster_stats",
+                    "label": "Cluster Stats"
                 }
-            ],
-            "defaultValue": "elasticsearch_get_document"
+            ]
         },
         {
             "id": "deploymentType",
             "type": "dropdown",
             "title": "Deployment Type",
+            "defaultValue": "self_hosted",
             "options": [
                 {
-                    "label": "Self-Hosted",
-                    "id": "self_hosted"
+                    "id": "self_hosted",
+                    "label": "Self-Hosted"
                 },
                 {
-                    "label": "Elastic Cloud",
-                    "id": "cloud"
+                    "id": "cloud",
+                    "label": "Elastic Cloud"
                 }
             ]
         },
@@ -532,27 +544,28 @@ Index (create or update) a document in Elasticsearch.
             "type": "short-input",
             "title": "Elasticsearch Host",
             "placeholder": "https://localhost:9200",
-            "required": true
+            "description": "Shown when deploymentType is 'self_hosted'."
         },
         {
             "id": "cloudId",
             "type": "short-input",
             "title": "Cloud ID",
             "placeholder": "deployment-name:base64-encoded-data",
-            "required": true
+            "description": "Shown when deploymentType is 'cloud'."
         },
         {
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "api_key",
             "options": [
                 {
-                    "label": "API Key",
-                    "id": "api_key"
+                    "id": "api_key",
+                    "label": "API Key"
                 },
                 {
-                    "label": "Basic Auth",
-                    "id": "basic_auth"
+                    "id": "basic_auth",
+                    "label": "Basic Auth"
                 }
             ]
         },
@@ -562,14 +575,14 @@ Index (create or update) a document in Elasticsearch.
             "title": "API Key",
             "placeholder": "Enter encoded API key",
             "password": true,
-            "required": true
+            "description": "Shown when authMethod is 'api_key'."
         },
         {
             "id": "username",
             "type": "short-input",
             "title": "Username",
             "placeholder": "Enter username",
-            "required": true
+            "description": "Shown when authMethod is 'basic_auth'."
         },
         {
             "id": "password",
@@ -577,7 +590,7 @@ Index (create or update) a document in Elasticsearch.
             "title": "Password",
             "placeholder": "Enter password",
             "password": true,
-            "required": true
+            "description": "Shown when authMethod is 'basic_auth'."
         },
         {
             "id": "index",
@@ -638,6 +651,7 @@ Retrieve a document by ID from Elasticsearch.
 | `_id` | string | Document ID |
 | `_version` | number | Document version |
 | `found` | boolean | Whether the document was found |
+| `_source` | json | Document content |
 
 </div>
 
@@ -658,70 +672,71 @@ Retrieve a document by ID from Elasticsearch.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "elasticsearch_update_document",
             "options": [
                 {
-                    "label": "Search",
-                    "id": "elasticsearch_search"
+                    "id": "elasticsearch_search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Index Document",
-                    "id": "elasticsearch_index_document"
+                    "id": "elasticsearch_index_document",
+                    "label": "Index Document"
                 },
                 {
-                    "label": "Get Document",
-                    "id": "elasticsearch_get_document"
+                    "id": "elasticsearch_get_document",
+                    "label": "Get Document"
                 },
                 {
-                    "label": "Update Document",
-                    "id": "elasticsearch_update_document"
+                    "id": "elasticsearch_update_document",
+                    "label": "Update Document"
                 },
                 {
-                    "label": "Delete Document",
-                    "id": "elasticsearch_delete_document"
+                    "id": "elasticsearch_delete_document",
+                    "label": "Delete Document"
                 },
                 {
-                    "label": "Bulk Operations",
-                    "id": "elasticsearch_bulk"
+                    "id": "elasticsearch_bulk",
+                    "label": "Bulk Operations"
                 },
                 {
-                    "label": "Count Documents",
-                    "id": "elasticsearch_count"
+                    "id": "elasticsearch_count",
+                    "label": "Count Documents"
                 },
                 {
-                    "label": "Create Index",
-                    "id": "elasticsearch_create_index"
+                    "id": "elasticsearch_create_index",
+                    "label": "Create Index"
                 },
                 {
-                    "label": "Delete Index",
-                    "id": "elasticsearch_delete_index"
+                    "id": "elasticsearch_delete_index",
+                    "label": "Delete Index"
                 },
                 {
-                    "label": "Get Index Info",
-                    "id": "elasticsearch_get_index"
+                    "id": "elasticsearch_get_index",
+                    "label": "Get Index Info"
                 },
                 {
-                    "label": "Cluster Health",
-                    "id": "elasticsearch_cluster_health"
+                    "id": "elasticsearch_cluster_health",
+                    "label": "Cluster Health"
                 },
                 {
-                    "label": "Cluster Stats",
-                    "id": "elasticsearch_cluster_stats"
+                    "id": "elasticsearch_cluster_stats",
+                    "label": "Cluster Stats"
                 }
-            ],
-            "defaultValue": "elasticsearch_update_document"
+            ]
         },
         {
             "id": "deploymentType",
             "type": "dropdown",
             "title": "Deployment Type",
+            "defaultValue": "self_hosted",
             "options": [
                 {
-                    "label": "Self-Hosted",
-                    "id": "self_hosted"
+                    "id": "self_hosted",
+                    "label": "Self-Hosted"
                 },
                 {
-                    "label": "Elastic Cloud",
-                    "id": "cloud"
+                    "id": "cloud",
+                    "label": "Elastic Cloud"
                 }
             ]
         },
@@ -730,27 +745,28 @@ Retrieve a document by ID from Elasticsearch.
             "type": "short-input",
             "title": "Elasticsearch Host",
             "placeholder": "https://localhost:9200",
-            "required": true
+            "description": "Shown when deploymentType is 'self_hosted'."
         },
         {
             "id": "cloudId",
             "type": "short-input",
             "title": "Cloud ID",
             "placeholder": "deployment-name:base64-encoded-data",
-            "required": true
+            "description": "Shown when deploymentType is 'cloud'."
         },
         {
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "api_key",
             "options": [
                 {
-                    "label": "API Key",
-                    "id": "api_key"
+                    "id": "api_key",
+                    "label": "API Key"
                 },
                 {
-                    "label": "Basic Auth",
-                    "id": "basic_auth"
+                    "id": "basic_auth",
+                    "label": "Basic Auth"
                 }
             ]
         },
@@ -760,14 +776,14 @@ Retrieve a document by ID from Elasticsearch.
             "title": "API Key",
             "placeholder": "Enter encoded API key",
             "password": true,
-            "required": true
+            "description": "Shown when authMethod is 'api_key'."
         },
         {
             "id": "username",
             "type": "short-input",
             "title": "Username",
             "placeholder": "Enter username",
-            "required": true
+            "description": "Shown when authMethod is 'basic_auth'."
         },
         {
             "id": "password",
@@ -775,7 +791,7 @@ Retrieve a document by ID from Elasticsearch.
             "title": "Password",
             "placeholder": "Enter password",
             "password": true,
-            "required": true
+            "description": "Shown when authMethod is 'basic_auth'."
         },
         {
             "id": "index",
@@ -837,6 +853,7 @@ Partially update a document in Elasticsearch using doc merge.
 | `_index` | string | Index name |
 | `_id` | string | Document ID |
 | `_version` | number | New document version |
+| `result` | string | Operation result \(updated or noop\) |
 
 </div>
 
@@ -857,70 +874,71 @@ Partially update a document in Elasticsearch using doc merge.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "elasticsearch_delete_document",
             "options": [
                 {
-                    "label": "Search",
-                    "id": "elasticsearch_search"
+                    "id": "elasticsearch_search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Index Document",
-                    "id": "elasticsearch_index_document"
+                    "id": "elasticsearch_index_document",
+                    "label": "Index Document"
                 },
                 {
-                    "label": "Get Document",
-                    "id": "elasticsearch_get_document"
+                    "id": "elasticsearch_get_document",
+                    "label": "Get Document"
                 },
                 {
-                    "label": "Update Document",
-                    "id": "elasticsearch_update_document"
+                    "id": "elasticsearch_update_document",
+                    "label": "Update Document"
                 },
                 {
-                    "label": "Delete Document",
-                    "id": "elasticsearch_delete_document"
+                    "id": "elasticsearch_delete_document",
+                    "label": "Delete Document"
                 },
                 {
-                    "label": "Bulk Operations",
-                    "id": "elasticsearch_bulk"
+                    "id": "elasticsearch_bulk",
+                    "label": "Bulk Operations"
                 },
                 {
-                    "label": "Count Documents",
-                    "id": "elasticsearch_count"
+                    "id": "elasticsearch_count",
+                    "label": "Count Documents"
                 },
                 {
-                    "label": "Create Index",
-                    "id": "elasticsearch_create_index"
+                    "id": "elasticsearch_create_index",
+                    "label": "Create Index"
                 },
                 {
-                    "label": "Delete Index",
-                    "id": "elasticsearch_delete_index"
+                    "id": "elasticsearch_delete_index",
+                    "label": "Delete Index"
                 },
                 {
-                    "label": "Get Index Info",
-                    "id": "elasticsearch_get_index"
+                    "id": "elasticsearch_get_index",
+                    "label": "Get Index Info"
                 },
                 {
-                    "label": "Cluster Health",
-                    "id": "elasticsearch_cluster_health"
+                    "id": "elasticsearch_cluster_health",
+                    "label": "Cluster Health"
                 },
                 {
-                    "label": "Cluster Stats",
-                    "id": "elasticsearch_cluster_stats"
+                    "id": "elasticsearch_cluster_stats",
+                    "label": "Cluster Stats"
                 }
-            ],
-            "defaultValue": "elasticsearch_delete_document"
+            ]
         },
         {
             "id": "deploymentType",
             "type": "dropdown",
             "title": "Deployment Type",
+            "defaultValue": "self_hosted",
             "options": [
                 {
-                    "label": "Self-Hosted",
-                    "id": "self_hosted"
+                    "id": "self_hosted",
+                    "label": "Self-Hosted"
                 },
                 {
-                    "label": "Elastic Cloud",
-                    "id": "cloud"
+                    "id": "cloud",
+                    "label": "Elastic Cloud"
                 }
             ]
         },
@@ -929,27 +947,28 @@ Partially update a document in Elasticsearch using doc merge.
             "type": "short-input",
             "title": "Elasticsearch Host",
             "placeholder": "https://localhost:9200",
-            "required": true
+            "description": "Shown when deploymentType is 'self_hosted'."
         },
         {
             "id": "cloudId",
             "type": "short-input",
             "title": "Cloud ID",
             "placeholder": "deployment-name:base64-encoded-data",
-            "required": true
+            "description": "Shown when deploymentType is 'cloud'."
         },
         {
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "api_key",
             "options": [
                 {
-                    "label": "API Key",
-                    "id": "api_key"
+                    "id": "api_key",
+                    "label": "API Key"
                 },
                 {
-                    "label": "Basic Auth",
-                    "id": "basic_auth"
+                    "id": "basic_auth",
+                    "label": "Basic Auth"
                 }
             ]
         },
@@ -959,14 +978,14 @@ Partially update a document in Elasticsearch using doc merge.
             "title": "API Key",
             "placeholder": "Enter encoded API key",
             "password": true,
-            "required": true
+            "description": "Shown when authMethod is 'api_key'."
         },
         {
             "id": "username",
             "type": "short-input",
             "title": "Username",
             "placeholder": "Enter username",
-            "required": true
+            "description": "Shown when authMethod is 'basic_auth'."
         },
         {
             "id": "password",
@@ -974,7 +993,7 @@ Partially update a document in Elasticsearch using doc merge.
             "title": "Password",
             "placeholder": "Enter password",
             "password": true,
-            "required": true
+            "description": "Shown when authMethod is 'basic_auth'."
         },
         {
             "id": "index",
@@ -994,18 +1013,23 @@ Partially update a document in Elasticsearch using doc merge.
             "id": "refresh",
             "type": "dropdown",
             "title": "Refresh",
+            "defaultValue": "",
             "options": [
                 {
-                    "label": "Wait For",
-                    "id": "wait_for"
+                    "id": "",
+                    "label": "Default"
                 },
                 {
-                    "label": "Immediate",
-                    "id": "true"
+                    "id": "wait_for",
+                    "label": "Wait For"
                 },
                 {
-                    "label": "None",
-                    "id": "false"
+                    "id": "true",
+                    "label": "Immediate"
+                },
+                {
+                    "id": "false",
+                    "label": "None"
                 }
             ]
         }
@@ -1040,6 +1064,7 @@ Delete a document from Elasticsearch by ID.
 | `_index` | string | Index name |
 | `_id` | string | Document ID |
 | `_version` | number | Document version |
+| `result` | string | Operation result \(deleted or not_found\) |
 
 </div>
 
@@ -1060,70 +1085,71 @@ Delete a document from Elasticsearch by ID.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "elasticsearch_bulk",
             "options": [
                 {
-                    "label": "Search",
-                    "id": "elasticsearch_search"
+                    "id": "elasticsearch_search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Index Document",
-                    "id": "elasticsearch_index_document"
+                    "id": "elasticsearch_index_document",
+                    "label": "Index Document"
                 },
                 {
-                    "label": "Get Document",
-                    "id": "elasticsearch_get_document"
+                    "id": "elasticsearch_get_document",
+                    "label": "Get Document"
                 },
                 {
-                    "label": "Update Document",
-                    "id": "elasticsearch_update_document"
+                    "id": "elasticsearch_update_document",
+                    "label": "Update Document"
                 },
                 {
-                    "label": "Delete Document",
-                    "id": "elasticsearch_delete_document"
+                    "id": "elasticsearch_delete_document",
+                    "label": "Delete Document"
                 },
                 {
-                    "label": "Bulk Operations",
-                    "id": "elasticsearch_bulk"
+                    "id": "elasticsearch_bulk",
+                    "label": "Bulk Operations"
                 },
                 {
-                    "label": "Count Documents",
-                    "id": "elasticsearch_count"
+                    "id": "elasticsearch_count",
+                    "label": "Count Documents"
                 },
                 {
-                    "label": "Create Index",
-                    "id": "elasticsearch_create_index"
+                    "id": "elasticsearch_create_index",
+                    "label": "Create Index"
                 },
                 {
-                    "label": "Delete Index",
-                    "id": "elasticsearch_delete_index"
+                    "id": "elasticsearch_delete_index",
+                    "label": "Delete Index"
                 },
                 {
-                    "label": "Get Index Info",
-                    "id": "elasticsearch_get_index"
+                    "id": "elasticsearch_get_index",
+                    "label": "Get Index Info"
                 },
                 {
-                    "label": "Cluster Health",
-                    "id": "elasticsearch_cluster_health"
+                    "id": "elasticsearch_cluster_health",
+                    "label": "Cluster Health"
                 },
                 {
-                    "label": "Cluster Stats",
-                    "id": "elasticsearch_cluster_stats"
+                    "id": "elasticsearch_cluster_stats",
+                    "label": "Cluster Stats"
                 }
-            ],
-            "defaultValue": "elasticsearch_bulk"
+            ]
         },
         {
             "id": "deploymentType",
             "type": "dropdown",
             "title": "Deployment Type",
+            "defaultValue": "self_hosted",
             "options": [
                 {
-                    "label": "Self-Hosted",
-                    "id": "self_hosted"
+                    "id": "self_hosted",
+                    "label": "Self-Hosted"
                 },
                 {
-                    "label": "Elastic Cloud",
-                    "id": "cloud"
+                    "id": "cloud",
+                    "label": "Elastic Cloud"
                 }
             ]
         },
@@ -1132,27 +1158,28 @@ Delete a document from Elasticsearch by ID.
             "type": "short-input",
             "title": "Elasticsearch Host",
             "placeholder": "https://localhost:9200",
-            "required": true
+            "description": "Shown when deploymentType is 'self_hosted'."
         },
         {
             "id": "cloudId",
             "type": "short-input",
             "title": "Cloud ID",
             "placeholder": "deployment-name:base64-encoded-data",
-            "required": true
+            "description": "Shown when deploymentType is 'cloud'."
         },
         {
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "api_key",
             "options": [
                 {
-                    "label": "API Key",
-                    "id": "api_key"
+                    "id": "api_key",
+                    "label": "API Key"
                 },
                 {
-                    "label": "Basic Auth",
-                    "id": "basic_auth"
+                    "id": "basic_auth",
+                    "label": "Basic Auth"
                 }
             ]
         },
@@ -1162,14 +1189,14 @@ Delete a document from Elasticsearch by ID.
             "title": "API Key",
             "placeholder": "Enter encoded API key",
             "password": true,
-            "required": true
+            "description": "Shown when authMethod is 'api_key'."
         },
         {
             "id": "username",
             "type": "short-input",
             "title": "Username",
             "placeholder": "Enter username",
-            "required": true
+            "description": "Shown when authMethod is 'basic_auth'."
         },
         {
             "id": "password",
@@ -1177,7 +1204,7 @@ Delete a document from Elasticsearch by ID.
             "title": "Password",
             "placeholder": "Enter password",
             "password": true,
-            "required": true
+            "description": "Shown when authMethod is 'basic_auth'."
         },
         {
             "id": "index",
@@ -1190,7 +1217,7 @@ Delete a document from Elasticsearch by ID.
             "id": "operations",
             "type": "code",
             "title": "Bulk Operations",
-            "placeholder": "{ \"index\": { \"_index\": \"my-index\", \"_id\": \"1\" } }\\n{ \"field\": \"value\" }\\n{ \"delete\": { \"_index\": \"my-index\", \"_id\": \"2\" } }",
+            "placeholder": "{ \"index\": { \"_index\": \"my-index\", \"_id\": \"1\" } }\n{ \"field\": \"value\" }\n{ \"delete\": { \"_index\": \"my-index\", \"_id\": \"2\" } }",
             "language": "json",
             "required": true
         },
@@ -1198,18 +1225,23 @@ Delete a document from Elasticsearch by ID.
             "id": "refresh",
             "type": "dropdown",
             "title": "Refresh",
+            "defaultValue": "",
             "options": [
                 {
-                    "label": "Wait For",
-                    "id": "wait_for"
+                    "id": "",
+                    "label": "Default"
                 },
                 {
-                    "label": "Immediate",
-                    "id": "true"
+                    "id": "wait_for",
+                    "label": "Wait For"
                 },
                 {
-                    "label": "None",
-                    "id": "false"
+                    "id": "true",
+                    "label": "Immediate"
+                },
+                {
+                    "id": "false",
+                    "label": "None"
                 }
             ]
         }
@@ -1243,6 +1275,7 @@ Perform multiple index, create, delete, or update operations in a single request
 | --------- | ---- | ----------- |
 | `took` | number | Time in milliseconds the bulk operation took |
 | `errors` | boolean | Whether any operation had an error |
+| `items` | array | Results for each operation |
 
 </div>
 
@@ -1263,70 +1296,71 @@ Perform multiple index, create, delete, or update operations in a single request
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "elasticsearch_count",
             "options": [
                 {
-                    "label": "Search",
-                    "id": "elasticsearch_search"
+                    "id": "elasticsearch_search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Index Document",
-                    "id": "elasticsearch_index_document"
+                    "id": "elasticsearch_index_document",
+                    "label": "Index Document"
                 },
                 {
-                    "label": "Get Document",
-                    "id": "elasticsearch_get_document"
+                    "id": "elasticsearch_get_document",
+                    "label": "Get Document"
                 },
                 {
-                    "label": "Update Document",
-                    "id": "elasticsearch_update_document"
+                    "id": "elasticsearch_update_document",
+                    "label": "Update Document"
                 },
                 {
-                    "label": "Delete Document",
-                    "id": "elasticsearch_delete_document"
+                    "id": "elasticsearch_delete_document",
+                    "label": "Delete Document"
                 },
                 {
-                    "label": "Bulk Operations",
-                    "id": "elasticsearch_bulk"
+                    "id": "elasticsearch_bulk",
+                    "label": "Bulk Operations"
                 },
                 {
-                    "label": "Count Documents",
-                    "id": "elasticsearch_count"
+                    "id": "elasticsearch_count",
+                    "label": "Count Documents"
                 },
                 {
-                    "label": "Create Index",
-                    "id": "elasticsearch_create_index"
+                    "id": "elasticsearch_create_index",
+                    "label": "Create Index"
                 },
                 {
-                    "label": "Delete Index",
-                    "id": "elasticsearch_delete_index"
+                    "id": "elasticsearch_delete_index",
+                    "label": "Delete Index"
                 },
                 {
-                    "label": "Get Index Info",
-                    "id": "elasticsearch_get_index"
+                    "id": "elasticsearch_get_index",
+                    "label": "Get Index Info"
                 },
                 {
-                    "label": "Cluster Health",
-                    "id": "elasticsearch_cluster_health"
+                    "id": "elasticsearch_cluster_health",
+                    "label": "Cluster Health"
                 },
                 {
-                    "label": "Cluster Stats",
-                    "id": "elasticsearch_cluster_stats"
+                    "id": "elasticsearch_cluster_stats",
+                    "label": "Cluster Stats"
                 }
-            ],
-            "defaultValue": "elasticsearch_count"
+            ]
         },
         {
             "id": "deploymentType",
             "type": "dropdown",
             "title": "Deployment Type",
+            "defaultValue": "self_hosted",
             "options": [
                 {
-                    "label": "Self-Hosted",
-                    "id": "self_hosted"
+                    "id": "self_hosted",
+                    "label": "Self-Hosted"
                 },
                 {
-                    "label": "Elastic Cloud",
-                    "id": "cloud"
+                    "id": "cloud",
+                    "label": "Elastic Cloud"
                 }
             ]
         },
@@ -1335,27 +1369,28 @@ Perform multiple index, create, delete, or update operations in a single request
             "type": "short-input",
             "title": "Elasticsearch Host",
             "placeholder": "https://localhost:9200",
-            "required": true
+            "description": "Shown when deploymentType is 'self_hosted'."
         },
         {
             "id": "cloudId",
             "type": "short-input",
             "title": "Cloud ID",
             "placeholder": "deployment-name:base64-encoded-data",
-            "required": true
+            "description": "Shown when deploymentType is 'cloud'."
         },
         {
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "api_key",
             "options": [
                 {
-                    "label": "API Key",
-                    "id": "api_key"
+                    "id": "api_key",
+                    "label": "API Key"
                 },
                 {
-                    "label": "Basic Auth",
-                    "id": "basic_auth"
+                    "id": "basic_auth",
+                    "label": "Basic Auth"
                 }
             ]
         },
@@ -1365,14 +1400,14 @@ Perform multiple index, create, delete, or update operations in a single request
             "title": "API Key",
             "placeholder": "Enter encoded API key",
             "password": true,
-            "required": true
+            "description": "Shown when authMethod is 'api_key'."
         },
         {
             "id": "username",
             "type": "short-input",
             "title": "Username",
             "placeholder": "Enter username",
-            "required": true
+            "description": "Shown when authMethod is 'basic_auth'."
         },
         {
             "id": "password",
@@ -1380,7 +1415,7 @@ Perform multiple index, create, delete, or update operations in a single request
             "title": "Password",
             "placeholder": "Enter password",
             "password": true,
-            "required": true
+            "description": "Shown when authMethod is 'basic_auth'."
         },
         {
             "id": "index",
@@ -1424,6 +1459,7 @@ Count documents matching a query in Elasticsearch.
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `count` | number | Number of documents matching the query |
+| `_shards` | object | Shard statistics |
 
 </div>
 
@@ -1444,70 +1480,71 @@ Count documents matching a query in Elasticsearch.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "elasticsearch_create_index",
             "options": [
                 {
-                    "label": "Search",
-                    "id": "elasticsearch_search"
+                    "id": "elasticsearch_search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Index Document",
-                    "id": "elasticsearch_index_document"
+                    "id": "elasticsearch_index_document",
+                    "label": "Index Document"
                 },
                 {
-                    "label": "Get Document",
-                    "id": "elasticsearch_get_document"
+                    "id": "elasticsearch_get_document",
+                    "label": "Get Document"
                 },
                 {
-                    "label": "Update Document",
-                    "id": "elasticsearch_update_document"
+                    "id": "elasticsearch_update_document",
+                    "label": "Update Document"
                 },
                 {
-                    "label": "Delete Document",
-                    "id": "elasticsearch_delete_document"
+                    "id": "elasticsearch_delete_document",
+                    "label": "Delete Document"
                 },
                 {
-                    "label": "Bulk Operations",
-                    "id": "elasticsearch_bulk"
+                    "id": "elasticsearch_bulk",
+                    "label": "Bulk Operations"
                 },
                 {
-                    "label": "Count Documents",
-                    "id": "elasticsearch_count"
+                    "id": "elasticsearch_count",
+                    "label": "Count Documents"
                 },
                 {
-                    "label": "Create Index",
-                    "id": "elasticsearch_create_index"
+                    "id": "elasticsearch_create_index",
+                    "label": "Create Index"
                 },
                 {
-                    "label": "Delete Index",
-                    "id": "elasticsearch_delete_index"
+                    "id": "elasticsearch_delete_index",
+                    "label": "Delete Index"
                 },
                 {
-                    "label": "Get Index Info",
-                    "id": "elasticsearch_get_index"
+                    "id": "elasticsearch_get_index",
+                    "label": "Get Index Info"
                 },
                 {
-                    "label": "Cluster Health",
-                    "id": "elasticsearch_cluster_health"
+                    "id": "elasticsearch_cluster_health",
+                    "label": "Cluster Health"
                 },
                 {
-                    "label": "Cluster Stats",
-                    "id": "elasticsearch_cluster_stats"
+                    "id": "elasticsearch_cluster_stats",
+                    "label": "Cluster Stats"
                 }
-            ],
-            "defaultValue": "elasticsearch_create_index"
+            ]
         },
         {
             "id": "deploymentType",
             "type": "dropdown",
             "title": "Deployment Type",
+            "defaultValue": "self_hosted",
             "options": [
                 {
-                    "label": "Self-Hosted",
-                    "id": "self_hosted"
+                    "id": "self_hosted",
+                    "label": "Self-Hosted"
                 },
                 {
-                    "label": "Elastic Cloud",
-                    "id": "cloud"
+                    "id": "cloud",
+                    "label": "Elastic Cloud"
                 }
             ]
         },
@@ -1516,27 +1553,28 @@ Count documents matching a query in Elasticsearch.
             "type": "short-input",
             "title": "Elasticsearch Host",
             "placeholder": "https://localhost:9200",
-            "required": true
+            "description": "Shown when deploymentType is 'self_hosted'."
         },
         {
             "id": "cloudId",
             "type": "short-input",
             "title": "Cloud ID",
             "placeholder": "deployment-name:base64-encoded-data",
-            "required": true
+            "description": "Shown when deploymentType is 'cloud'."
         },
         {
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "api_key",
             "options": [
                 {
-                    "label": "API Key",
-                    "id": "api_key"
+                    "id": "api_key",
+                    "label": "API Key"
                 },
                 {
-                    "label": "Basic Auth",
-                    "id": "basic_auth"
+                    "id": "basic_auth",
+                    "label": "Basic Auth"
                 }
             ]
         },
@@ -1546,14 +1584,14 @@ Count documents matching a query in Elasticsearch.
             "title": "API Key",
             "placeholder": "Enter encoded API key",
             "password": true,
-            "required": true
+            "description": "Shown when authMethod is 'api_key'."
         },
         {
             "id": "username",
             "type": "short-input",
             "title": "Username",
             "placeholder": "Enter username",
-            "required": true
+            "description": "Shown when authMethod is 'basic_auth'."
         },
         {
             "id": "password",
@@ -1561,7 +1599,7 @@ Count documents matching a query in Elasticsearch.
             "title": "Password",
             "placeholder": "Enter password",
             "password": true,
-            "required": true
+            "description": "Shown when authMethod is 'basic_auth'."
         },
         {
             "id": "index",
@@ -1614,6 +1652,7 @@ Create a new index with optional settings and mappings.
 | --------- | ---- | ----------- |
 | `acknowledged` | boolean | Whether the request was acknowledged |
 | `shards_acknowledged` | boolean | Whether the shards were acknowledged |
+| `index` | string | Created index name |
 
 </div>
 
@@ -1634,70 +1673,71 @@ Create a new index with optional settings and mappings.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "elasticsearch_delete_index",
             "options": [
                 {
-                    "label": "Search",
-                    "id": "elasticsearch_search"
+                    "id": "elasticsearch_search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Index Document",
-                    "id": "elasticsearch_index_document"
+                    "id": "elasticsearch_index_document",
+                    "label": "Index Document"
                 },
                 {
-                    "label": "Get Document",
-                    "id": "elasticsearch_get_document"
+                    "id": "elasticsearch_get_document",
+                    "label": "Get Document"
                 },
                 {
-                    "label": "Update Document",
-                    "id": "elasticsearch_update_document"
+                    "id": "elasticsearch_update_document",
+                    "label": "Update Document"
                 },
                 {
-                    "label": "Delete Document",
-                    "id": "elasticsearch_delete_document"
+                    "id": "elasticsearch_delete_document",
+                    "label": "Delete Document"
                 },
                 {
-                    "label": "Bulk Operations",
-                    "id": "elasticsearch_bulk"
+                    "id": "elasticsearch_bulk",
+                    "label": "Bulk Operations"
                 },
                 {
-                    "label": "Count Documents",
-                    "id": "elasticsearch_count"
+                    "id": "elasticsearch_count",
+                    "label": "Count Documents"
                 },
                 {
-                    "label": "Create Index",
-                    "id": "elasticsearch_create_index"
+                    "id": "elasticsearch_create_index",
+                    "label": "Create Index"
                 },
                 {
-                    "label": "Delete Index",
-                    "id": "elasticsearch_delete_index"
+                    "id": "elasticsearch_delete_index",
+                    "label": "Delete Index"
                 },
                 {
-                    "label": "Get Index Info",
-                    "id": "elasticsearch_get_index"
+                    "id": "elasticsearch_get_index",
+                    "label": "Get Index Info"
                 },
                 {
-                    "label": "Cluster Health",
-                    "id": "elasticsearch_cluster_health"
+                    "id": "elasticsearch_cluster_health",
+                    "label": "Cluster Health"
                 },
                 {
-                    "label": "Cluster Stats",
-                    "id": "elasticsearch_cluster_stats"
+                    "id": "elasticsearch_cluster_stats",
+                    "label": "Cluster Stats"
                 }
-            ],
-            "defaultValue": "elasticsearch_delete_index"
+            ]
         },
         {
             "id": "deploymentType",
             "type": "dropdown",
             "title": "Deployment Type",
+            "defaultValue": "self_hosted",
             "options": [
                 {
-                    "label": "Self-Hosted",
-                    "id": "self_hosted"
+                    "id": "self_hosted",
+                    "label": "Self-Hosted"
                 },
                 {
-                    "label": "Elastic Cloud",
-                    "id": "cloud"
+                    "id": "cloud",
+                    "label": "Elastic Cloud"
                 }
             ]
         },
@@ -1706,27 +1746,28 @@ Create a new index with optional settings and mappings.
             "type": "short-input",
             "title": "Elasticsearch Host",
             "placeholder": "https://localhost:9200",
-            "required": true
+            "description": "Shown when deploymentType is 'self_hosted'."
         },
         {
             "id": "cloudId",
             "type": "short-input",
             "title": "Cloud ID",
             "placeholder": "deployment-name:base64-encoded-data",
-            "required": true
+            "description": "Shown when deploymentType is 'cloud'."
         },
         {
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "api_key",
             "options": [
                 {
-                    "label": "API Key",
-                    "id": "api_key"
+                    "id": "api_key",
+                    "label": "API Key"
                 },
                 {
-                    "label": "Basic Auth",
-                    "id": "basic_auth"
+                    "id": "basic_auth",
+                    "label": "Basic Auth"
                 }
             ]
         },
@@ -1736,14 +1777,14 @@ Create a new index with optional settings and mappings.
             "title": "API Key",
             "placeholder": "Enter encoded API key",
             "password": true,
-            "required": true
+            "description": "Shown when authMethod is 'api_key'."
         },
         {
             "id": "username",
             "type": "short-input",
             "title": "Username",
             "placeholder": "Enter username",
-            "required": true
+            "description": "Shown when authMethod is 'basic_auth'."
         },
         {
             "id": "password",
@@ -1751,7 +1792,7 @@ Create a new index with optional settings and mappings.
             "title": "Password",
             "placeholder": "Enter password",
             "password": true,
-            "required": true
+            "description": "Shown when authMethod is 'basic_auth'."
         },
         {
             "id": "index",
@@ -1784,7 +1825,9 @@ Delete an index and all its documents. This operation is irreversible.
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `acknowledged` | boolean | Whether the deletion was acknowledged |
 
 </div>
 
@@ -1805,70 +1848,71 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "elasticsearch_get_index",
             "options": [
                 {
-                    "label": "Search",
-                    "id": "elasticsearch_search"
+                    "id": "elasticsearch_search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Index Document",
-                    "id": "elasticsearch_index_document"
+                    "id": "elasticsearch_index_document",
+                    "label": "Index Document"
                 },
                 {
-                    "label": "Get Document",
-                    "id": "elasticsearch_get_document"
+                    "id": "elasticsearch_get_document",
+                    "label": "Get Document"
                 },
                 {
-                    "label": "Update Document",
-                    "id": "elasticsearch_update_document"
+                    "id": "elasticsearch_update_document",
+                    "label": "Update Document"
                 },
                 {
-                    "label": "Delete Document",
-                    "id": "elasticsearch_delete_document"
+                    "id": "elasticsearch_delete_document",
+                    "label": "Delete Document"
                 },
                 {
-                    "label": "Bulk Operations",
-                    "id": "elasticsearch_bulk"
+                    "id": "elasticsearch_bulk",
+                    "label": "Bulk Operations"
                 },
                 {
-                    "label": "Count Documents",
-                    "id": "elasticsearch_count"
+                    "id": "elasticsearch_count",
+                    "label": "Count Documents"
                 },
                 {
-                    "label": "Create Index",
-                    "id": "elasticsearch_create_index"
+                    "id": "elasticsearch_create_index",
+                    "label": "Create Index"
                 },
                 {
-                    "label": "Delete Index",
-                    "id": "elasticsearch_delete_index"
+                    "id": "elasticsearch_delete_index",
+                    "label": "Delete Index"
                 },
                 {
-                    "label": "Get Index Info",
-                    "id": "elasticsearch_get_index"
+                    "id": "elasticsearch_get_index",
+                    "label": "Get Index Info"
                 },
                 {
-                    "label": "Cluster Health",
-                    "id": "elasticsearch_cluster_health"
+                    "id": "elasticsearch_cluster_health",
+                    "label": "Cluster Health"
                 },
                 {
-                    "label": "Cluster Stats",
-                    "id": "elasticsearch_cluster_stats"
+                    "id": "elasticsearch_cluster_stats",
+                    "label": "Cluster Stats"
                 }
-            ],
-            "defaultValue": "elasticsearch_get_index"
+            ]
         },
         {
             "id": "deploymentType",
             "type": "dropdown",
             "title": "Deployment Type",
+            "defaultValue": "self_hosted",
             "options": [
                 {
-                    "label": "Self-Hosted",
-                    "id": "self_hosted"
+                    "id": "self_hosted",
+                    "label": "Self-Hosted"
                 },
                 {
-                    "label": "Elastic Cloud",
-                    "id": "cloud"
+                    "id": "cloud",
+                    "label": "Elastic Cloud"
                 }
             ]
         },
@@ -1877,27 +1921,28 @@ Refer to the block outputs for this operation.
             "type": "short-input",
             "title": "Elasticsearch Host",
             "placeholder": "https://localhost:9200",
-            "required": true
+            "description": "Shown when deploymentType is 'self_hosted'."
         },
         {
             "id": "cloudId",
             "type": "short-input",
             "title": "Cloud ID",
             "placeholder": "deployment-name:base64-encoded-data",
-            "required": true
+            "description": "Shown when deploymentType is 'cloud'."
         },
         {
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "api_key",
             "options": [
                 {
-                    "label": "API Key",
-                    "id": "api_key"
+                    "id": "api_key",
+                    "label": "API Key"
                 },
                 {
-                    "label": "Basic Auth",
-                    "id": "basic_auth"
+                    "id": "basic_auth",
+                    "label": "Basic Auth"
                 }
             ]
         },
@@ -1907,14 +1952,14 @@ Refer to the block outputs for this operation.
             "title": "API Key",
             "placeholder": "Enter encoded API key",
             "password": true,
-            "required": true
+            "description": "Shown when authMethod is 'api_key'."
         },
         {
             "id": "username",
             "type": "short-input",
             "title": "Username",
             "placeholder": "Enter username",
-            "required": true
+            "description": "Shown when authMethod is 'basic_auth'."
         },
         {
             "id": "password",
@@ -1922,7 +1967,7 @@ Refer to the block outputs for this operation.
             "title": "Password",
             "placeholder": "Enter password",
             "password": true,
-            "required": true
+            "description": "Shown when authMethod is 'basic_auth'."
         },
         {
             "id": "index",
@@ -1955,7 +2000,9 @@ Retrieve index information including settings, mappings, and aliases.
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `index` | json | Index information including aliases, mappings, and settings |
 
 </div>
 
@@ -1976,70 +2023,71 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "elasticsearch_cluster_health",
             "options": [
                 {
-                    "label": "Search",
-                    "id": "elasticsearch_search"
+                    "id": "elasticsearch_search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Index Document",
-                    "id": "elasticsearch_index_document"
+                    "id": "elasticsearch_index_document",
+                    "label": "Index Document"
                 },
                 {
-                    "label": "Get Document",
-                    "id": "elasticsearch_get_document"
+                    "id": "elasticsearch_get_document",
+                    "label": "Get Document"
                 },
                 {
-                    "label": "Update Document",
-                    "id": "elasticsearch_update_document"
+                    "id": "elasticsearch_update_document",
+                    "label": "Update Document"
                 },
                 {
-                    "label": "Delete Document",
-                    "id": "elasticsearch_delete_document"
+                    "id": "elasticsearch_delete_document",
+                    "label": "Delete Document"
                 },
                 {
-                    "label": "Bulk Operations",
-                    "id": "elasticsearch_bulk"
+                    "id": "elasticsearch_bulk",
+                    "label": "Bulk Operations"
                 },
                 {
-                    "label": "Count Documents",
-                    "id": "elasticsearch_count"
+                    "id": "elasticsearch_count",
+                    "label": "Count Documents"
                 },
                 {
-                    "label": "Create Index",
-                    "id": "elasticsearch_create_index"
+                    "id": "elasticsearch_create_index",
+                    "label": "Create Index"
                 },
                 {
-                    "label": "Delete Index",
-                    "id": "elasticsearch_delete_index"
+                    "id": "elasticsearch_delete_index",
+                    "label": "Delete Index"
                 },
                 {
-                    "label": "Get Index Info",
-                    "id": "elasticsearch_get_index"
+                    "id": "elasticsearch_get_index",
+                    "label": "Get Index Info"
                 },
                 {
-                    "label": "Cluster Health",
-                    "id": "elasticsearch_cluster_health"
+                    "id": "elasticsearch_cluster_health",
+                    "label": "Cluster Health"
                 },
                 {
-                    "label": "Cluster Stats",
-                    "id": "elasticsearch_cluster_stats"
+                    "id": "elasticsearch_cluster_stats",
+                    "label": "Cluster Stats"
                 }
-            ],
-            "defaultValue": "elasticsearch_cluster_health"
+            ]
         },
         {
             "id": "deploymentType",
             "type": "dropdown",
             "title": "Deployment Type",
+            "defaultValue": "self_hosted",
             "options": [
                 {
-                    "label": "Self-Hosted",
-                    "id": "self_hosted"
+                    "id": "self_hosted",
+                    "label": "Self-Hosted"
                 },
                 {
-                    "label": "Elastic Cloud",
-                    "id": "cloud"
+                    "id": "cloud",
+                    "label": "Elastic Cloud"
                 }
             ]
         },
@@ -2048,27 +2096,28 @@ Refer to the block outputs for this operation.
             "type": "short-input",
             "title": "Elasticsearch Host",
             "placeholder": "https://localhost:9200",
-            "required": true
+            "description": "Shown when deploymentType is 'self_hosted'."
         },
         {
             "id": "cloudId",
             "type": "short-input",
             "title": "Cloud ID",
             "placeholder": "deployment-name:base64-encoded-data",
-            "required": true
+            "description": "Shown when deploymentType is 'cloud'."
         },
         {
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "api_key",
             "options": [
                 {
-                    "label": "API Key",
-                    "id": "api_key"
+                    "id": "api_key",
+                    "label": "API Key"
                 },
                 {
-                    "label": "Basic Auth",
-                    "id": "basic_auth"
+                    "id": "basic_auth",
+                    "label": "Basic Auth"
                 }
             ]
         },
@@ -2078,14 +2127,14 @@ Refer to the block outputs for this operation.
             "title": "API Key",
             "placeholder": "Enter encoded API key",
             "password": true,
-            "required": true
+            "description": "Shown when authMethod is 'api_key'."
         },
         {
             "id": "username",
             "type": "short-input",
             "title": "Username",
             "placeholder": "Enter username",
-            "required": true
+            "description": "Shown when authMethod is 'basic_auth'."
         },
         {
             "id": "password",
@@ -2093,24 +2142,29 @@ Refer to the block outputs for this operation.
             "title": "Password",
             "placeholder": "Enter password",
             "password": true,
-            "required": true
+            "description": "Shown when authMethod is 'basic_auth'."
         },
         {
             "id": "waitForStatus",
             "type": "dropdown",
             "title": "Wait for Status",
+            "defaultValue": "",
             "options": [
                 {
-                    "label": "Green",
-                    "id": "green"
+                    "id": "",
+                    "label": "None"
                 },
                 {
-                    "label": "Yellow",
-                    "id": "yellow"
+                    "id": "green",
+                    "label": "Green"
                 },
                 {
-                    "label": "Red",
-                    "id": "red"
+                    "id": "yellow",
+                    "label": "Yellow"
+                },
+                {
+                    "id": "red",
+                    "label": "Red"
                 }
             ]
         },
@@ -2152,6 +2206,7 @@ Get the health status of the Elasticsearch cluster.
 | `number_of_nodes` | number | Total number of nodes in the cluster |
 | `number_of_data_nodes` | number | Number of data nodes |
 | `active_shards` | number | Number of active shards |
+| `unassigned_shards` | number | Number of unassigned shards |
 
 </div>
 
@@ -2172,70 +2227,71 @@ Get the health status of the Elasticsearch cluster.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "elasticsearch_cluster_stats",
             "options": [
                 {
-                    "label": "Search",
-                    "id": "elasticsearch_search"
+                    "id": "elasticsearch_search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Index Document",
-                    "id": "elasticsearch_index_document"
+                    "id": "elasticsearch_index_document",
+                    "label": "Index Document"
                 },
                 {
-                    "label": "Get Document",
-                    "id": "elasticsearch_get_document"
+                    "id": "elasticsearch_get_document",
+                    "label": "Get Document"
                 },
                 {
-                    "label": "Update Document",
-                    "id": "elasticsearch_update_document"
+                    "id": "elasticsearch_update_document",
+                    "label": "Update Document"
                 },
                 {
-                    "label": "Delete Document",
-                    "id": "elasticsearch_delete_document"
+                    "id": "elasticsearch_delete_document",
+                    "label": "Delete Document"
                 },
                 {
-                    "label": "Bulk Operations",
-                    "id": "elasticsearch_bulk"
+                    "id": "elasticsearch_bulk",
+                    "label": "Bulk Operations"
                 },
                 {
-                    "label": "Count Documents",
-                    "id": "elasticsearch_count"
+                    "id": "elasticsearch_count",
+                    "label": "Count Documents"
                 },
                 {
-                    "label": "Create Index",
-                    "id": "elasticsearch_create_index"
+                    "id": "elasticsearch_create_index",
+                    "label": "Create Index"
                 },
                 {
-                    "label": "Delete Index",
-                    "id": "elasticsearch_delete_index"
+                    "id": "elasticsearch_delete_index",
+                    "label": "Delete Index"
                 },
                 {
-                    "label": "Get Index Info",
-                    "id": "elasticsearch_get_index"
+                    "id": "elasticsearch_get_index",
+                    "label": "Get Index Info"
                 },
                 {
-                    "label": "Cluster Health",
-                    "id": "elasticsearch_cluster_health"
+                    "id": "elasticsearch_cluster_health",
+                    "label": "Cluster Health"
                 },
                 {
-                    "label": "Cluster Stats",
-                    "id": "elasticsearch_cluster_stats"
+                    "id": "elasticsearch_cluster_stats",
+                    "label": "Cluster Stats"
                 }
-            ],
-            "defaultValue": "elasticsearch_cluster_stats"
+            ]
         },
         {
             "id": "deploymentType",
             "type": "dropdown",
             "title": "Deployment Type",
+            "defaultValue": "self_hosted",
             "options": [
                 {
-                    "label": "Self-Hosted",
-                    "id": "self_hosted"
+                    "id": "self_hosted",
+                    "label": "Self-Hosted"
                 },
                 {
-                    "label": "Elastic Cloud",
-                    "id": "cloud"
+                    "id": "cloud",
+                    "label": "Elastic Cloud"
                 }
             ]
         },
@@ -2244,27 +2300,28 @@ Get the health status of the Elasticsearch cluster.
             "type": "short-input",
             "title": "Elasticsearch Host",
             "placeholder": "https://localhost:9200",
-            "required": true
+            "description": "Shown when deploymentType is 'self_hosted'."
         },
         {
             "id": "cloudId",
             "type": "short-input",
             "title": "Cloud ID",
             "placeholder": "deployment-name:base64-encoded-data",
-            "required": true
+            "description": "Shown when deploymentType is 'cloud'."
         },
         {
             "id": "authMethod",
             "type": "dropdown",
             "title": "Authentication Method",
+            "defaultValue": "api_key",
             "options": [
                 {
-                    "label": "API Key",
-                    "id": "api_key"
+                    "id": "api_key",
+                    "label": "API Key"
                 },
                 {
-                    "label": "Basic Auth",
-                    "id": "basic_auth"
+                    "id": "basic_auth",
+                    "label": "Basic Auth"
                 }
             ]
         },
@@ -2274,14 +2331,14 @@ Get the health status of the Elasticsearch cluster.
             "title": "API Key",
             "placeholder": "Enter encoded API key",
             "password": true,
-            "required": true
+            "description": "Shown when authMethod is 'api_key'."
         },
         {
             "id": "username",
             "type": "short-input",
             "title": "Username",
             "placeholder": "Enter username",
-            "required": true
+            "description": "Shown when authMethod is 'basic_auth'."
         },
         {
             "id": "password",
@@ -2289,7 +2346,7 @@ Get the health status of the Elasticsearch cluster.
             "title": "Password",
             "placeholder": "Enter password",
             "password": true,
-            "required": true
+            "description": "Shown when authMethod is 'basic_auth'."
         }
     ]}
   />
@@ -2319,6 +2376,7 @@ Get comprehensive statistics about the Elasticsearch cluster.
 | `cluster_name` | string | Name of the cluster |
 | `status` | string | Cluster health status |
 | `nodes` | object | Node statistics including count and versions |
+| `indices` | object | Index statistics including document count and store size |
 
 </div>
 

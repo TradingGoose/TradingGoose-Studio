@@ -28,7 +28,7 @@ Use an Input Form trigger when a workflow should start from the editor with type
     type="input_trigger"
     hideHeader
     subBlocks={[
-      { "id": "inputFormat", "title": "Input Format", "type": "short-input", "layout": "full", "description": "Define form fields with name, type, and default value" }
+      { "id": "inputFormat", "title": "Input Format", "type": "input-format", "layout": "full", "description": "Define form fields with name, type, and default value" }
     ]}
   />
 </ShowcaseCard>
@@ -38,7 +38,10 @@ Add fields in the Input Format builder. Supported types:
 - **string** — Text values
 - **number** — Numeric values
 - **boolean** — True/false values
-- **json** — JSON objects
+- **object** — JSON objects
+- **array** — JSON arrays
+- **listingIdentity** — Structured instrument/listing identity
+- **files** — Uploaded file values
 
 ### Output Schema
 

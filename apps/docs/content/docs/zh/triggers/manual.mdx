@@ -1,0 +1,44 @@
+---
+title: 手动触发器
+description: 按需运行工作流，无需输入
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="manual_trigger"
+  color=""
+  icon={true}
+/>
+
+手动触发器会在工作流中添加「运行」按钮。当你希望立即执行工作流、且无需收集额外数据时，可以使用它。
+
+<Callout type="info">
+  这是一个**手动**触发器。无需配置，点击「运行」即可。
+</Callout>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Manual Trigger"
+    type="manual_trigger"
+    hideHeader
+    subBlocks={[]}
+  />
+</ShowcaseCard>
+
+无需配置。手动触发器没有输入字段，也不产生输出。
+
+## 何时使用
+
+- 快速健全性检查和冒烟测试
+- 仅依赖内部变量或外部 API 调用的工作流
+- 开发与调试
+
+<Callout>
+需要结构化输入？请改用输入表单触发器。
+</Callout>

@@ -1,0 +1,90 @@
+---
+title: Búsqueda de Google
+description: Buscar en la web
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="google_search"
+  color=""
+/>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Búsqueda de Google"
+    type="google_search"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Consulta de búsqueda",
+            "layout": "full",
+            "placeholder": "Ingresa tu consulta de búsqueda",
+            "required": true
+        },
+        {
+            "id": "searchEngineId",
+            "type": "short-input",
+            "title": "ID del motor de búsqueda personalizado",
+            "layout": "full",
+            "placeholder": "Ingresa tu ID de motor de búsqueda personalizado",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Ingresa tu clave de API de Google",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "num",
+            "type": "short-input",
+            "title": "Número de resultados",
+            "layout": "half",
+            "placeholder": "10",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `google_search`
+
+Busca en la web con la API de Custom Search
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | Sí | La consulta de búsqueda que se va a ejecutar |
+| `searchEngineId` | string | Sí | ID del motor de búsqueda personalizado |
+| `num` | string | No | Número de resultados que se devolverán \(predeterminado: 10, máximo: 10\) |
+| `apiKey` | string | Sí | Clave de API de Google |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `items` | array | Array de resultados de búsqueda de Google |
+| `searchInformation` | object | Información sobre la consulta de búsqueda y los resultados |
+
+## Instrucciones de uso
+
+Integra la Búsqueda de Google en el flujo de trabajo. Puede buscar en la web.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `google_search`

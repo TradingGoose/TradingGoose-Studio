@@ -3,6 +3,7 @@ import {
   buildLocalizedAlternates,
   getLocaleDisplayName,
   getOpenGraphLocale,
+  locales,
   localizeDocsUrl,
   localizeSiteUrl,
   localizeUrl,
@@ -93,9 +94,31 @@ describe('i18n utils', () => {
     )
   })
 
-  it('keeps docs URLs aligned with the docs app locale contract', () => {
-    expect(localizeDocsUrl('en')).toBe('https://docs.tradinggoose.ai/')
-    expect(localizeDocsUrl('zh', '/widgets')).toBe('https://docs.tradinggoose.ai/zh/widgets')
+  it.each(locales)('explicitly selects %s for all docs URLs', (locale) => {
+    expect(localizeDocsUrl(locale)).toBe(`https://docs.tradinggoose.ai/${locale}`)
+    for (const [path, suffix] of [
+      ['/', ''],
+      ['/widgets', '/widgets'],
+      ['/widgets/', '/widgets'],
+      ['/?q=1#top', '?q=1#top'],
+      ['/widgets?tab=usage#examples', '/widgets?tab=usage#examples'],
+      ['/widgets/?url=https://example.com/', '/widgets?url=https://example.com/'],
+    ]) {
+      expect(localizeDocsUrl(locale, path)).toBe(`https://docs.tradinggoose.ai/${locale}${suffix}`)
+    }
+  })
+
+  it.each(['/en/widgets', '/es', '/zh?query=1', '//example.com', 'https://example.com', 'widgets'])(
+    'rejects non-canonical docs URL input %s instead of adding a second locale',
+    (path) => {
+      expect(() => localizeDocsUrl('en', path)).toThrow(/Expected an? /)
+    }
+  )
+
+  it('preserves query and fragment suffixes when localizing app URL roots', () => {
+    expect(localizeUrl('https://tradinggoose.ai', 'en', '/?query=1#top')).toBe(
+      'https://tradinggoose.ai/en?query=1#top'
+    )
   })
 
   it('rejects non-canonical app URL inputs', () => {

@@ -1,0 +1,112 @@
+---
+title: Copilot
+description: 可管理工作流、MCP 服务器、技能、自定义工具、知识库等的 AI 助手
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+Copilot 是一款 AI 助手，可在整个 TradingGoose 工作空间中工作——而不只是工作流。它可以管理工作流、MCP 服务器、技能、自定义工具、知识库、部署、变量等。在桌面端工作空间中，可通过全局侧边栏中的 **Copilot** 控件打开或关闭其常驻面板。移动端工作空间布局不提供该面板。
+
+本页介绍内置的 Studio 助手。如需从自己的编码代理使用 TradingGoose，请参阅 [Copilot MCP](/copilot/copilot-mcp)，了解其功能、安装与身份验证。
+
+## 功能
+
+Copilot 可调用一整套覆盖整个平台的工具：
+
+### 工作流管理
+- **编辑工作流** — 添加、删除或重新配置块与连接。编辑内容会以行内预览的形式实时流式呈现，之后才提交。
+- **部署工作流** — 查看部署状态并触发新的部署。
+- **运行工作流** — 执行工作流并查看结果。
+- **管理变量** — 获取和设置全局工作流变量。
+- **查看控制台** — 获取执行日志和流式输出。
+
+### 工作空间工具
+- **管理 MCP 服务器** — 创建、更新和配置 MCP 服务器连接。
+- **管理技能** — 创建、编辑和重命名可复用的技能定义。
+- **管理自定义工具** — 创建和编辑自定义工具的 schema 与代码。
+- **知识库** — 查询和引用知识库文档。
+
+### 通用
+- **解释** — 回答有关 TradingGoose 概念或工作空间中任意工作流的问题。
+- **规划** — 对于较大的任务，Copilot 会生成待办清单，在逐步推进的过程中跟踪进度。
+- **引用上下文** — 使用 `@` 提及菜单引入之前的对话、工作空间实体、特定块、文档或执行日志。
+- **文件附件** — 将文件直接附加到消息中，以提供更多上下文。
+
+## 访问级别
+
+输入栏中的访问级别切换控件决定 Copilot 的自主程度。
+
+<Cards>
+  <Card title="有限（默认）">
+    在执行任何带中断标记的工具调用之前，以及运行集成工具之前，Copilot 都会暂停。每个操作都由你审核并批准。
+  </Card>
+  <Card title="完全">
+    Copilot 会自动执行所有工具调用、集成工具和工作流编辑，无需确认。当你信任当前任务并希望更快迭代时使用此模式。
+  </Card>
+</Cards>
+
+## 支持的模型
+
+Copilot 仅支持六个 OpenRouter 模型。Studio 会原样发送每个 OpenRouter 规范模型 slug，你可以在输入栏中切换当前模型。
+
+**Anthropic** -- anthropic/claude-fable-5, anthropic/claude-opus-5
+
+**DeepSeek** -- deepseek/deepseek-v4-pro
+
+**OpenAI** -- openai/gpt-5.6-terra, openai/gpt-5.6-sol
+
+**xAI** -- x-ai/grok-4.6
+
+## 设置
+
+<Steps>
+  <Step>
+    ### 托管版（tradinggoose.ai）
+
+    Copilot 开箱即用。打开任意工作区，使用全局侧边栏中的 **Copilot** 控件打开工作区面板，即可开始对话。
+  </Step>
+  <Step>
+    ### 自托管版
+
+    自托管实例需要 Copilot API 密钥才能连接到托管推理服务。
+
+    1. 登录 [tradinggoose.ai](https://tradinggoose.ai)，打开 **Settings > Service API Keys**。
+    2. 在 **Copilot** 卡片中点击 **Create** 生成新的 API 密钥。请立即复制——它只显示一次。
+    3. 在自托管部署中以系统管理员身份登录，打开 **Admin > Services > Copilot API**。
+    4. 将复制的值填入 **API Key** 并保存。除非使用其他 Copilot 服务端点，否则保留 **Base URL** 的默认值。Studio 读取此处保存的服务配置，而不是通过环境变量配置。
+  </Step>
+</Steps>
+
+上述 Copilot 服务 API 密钥用于将内置助手连接到托管推理服务。[Copilot MCP](/copilot/copilot-mcp#installation) 使用通过其自有浏览器授权流程获取的个人 TradingGoose API 密钥。
+
+<Callout type="warn">
+  Copilot 服务 API 密钥可访问托管推理。请妥善保管，一旦泄露立即轮换。你可以在 **Settings > Service API Keys** 中删除服务密钥；删除后访问权限会立即撤销。
+</Callout>
+
+## 对话管理
+
+每个 Copilot 会话都限定于已认证用户和当前工作区。顶部下拉菜单按时间远近列出所有历史对话（今天、昨天、本周、上周、更早）。通过顶部菜单你可以：
+
+- **切换对话** -- 点击任意历史对话即可继续。
+- **新建对话** -- 点击顶部的 **+** 按钮创建新会话。
+- **删除对话** -- 将鼠标悬停在对话条目上并点击垃圾桶图标。确认对话框可防止误删。
+
+在工作区中导航，或折叠后重新打开面板时，对话状态都会保留。Copilot 会跟随当前页面和选中内容：例如知识详情、选中的执行日志或监控。在仪表盘上，当前上下文仅标识活动布局。当任务需要更多细节时，Copilot 可通过其仪表盘工具读取该布局。
+
+## 编辑器集成
+
+Copilot 具备上下文感知能力。当前页面只会公开所选对象的身份标识，例如活动的仪表盘布局、知识库、执行日志或监控。当你希望为消息添加其他显式上下文时，可使用 `@` 提及菜单。
+
+当 Copilot 流式返回包含工具调用的响应时（例如添加区块、创建技能或配置 MCP 服务器），每个操作都会以内联预览的形式呈现。在 **Limited** 模式下，你需要逐项批准或拒绝每个更改；在 **Full** 模式下，更改会自动应用。
+
+你可以编辑较早的提示词，以截断并重新生成其后的消息，但仅当该提示词之后没有已接受的实时变更时才能这样做。编辑聊天历史不会撤销已应用到工作区的更改；要撤销已执行的操作，请再次更改受影响的实体。可编辑点之后的消息会变暗，表示它们将被重新生成。
+
+## 计费
+
+Copilot 补全费用采用 OpenRouter 报告的权威总成本，然后乘以你套餐对应的 Copilot 成本倍率。这样可确保最终计费与实际路由的请求保持一致，包括适用的缓存 token、推理、媒体、搜索、长上下文和提供商特定费用。
+
+<Callout type="info">
+  Studio 可能会在请求前预留一笔保守估算。最终费用始终使用 OpenRouter 报告的补全成本，而不是该估算。
+</Callout>

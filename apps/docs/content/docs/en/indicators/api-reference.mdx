@@ -111,17 +111,13 @@ Complete reference of all supported PineTS functions in TradingGoose, organized 
 | `ta.highestbars(source, length)` | Bars since highest |
 | `ta.lowest(source, length)` | Lowest over N bars |
 | `ta.lowestbars(source, length)` | Bars since lowest |
-| `ta.max(a, b)` | Maximum |
 | `ta.median(source, length)` | Median |
-| `ta.min(a, b)` | Minimum |
 | `ta.mode(source, length)` | Mode |
 | `ta.percentile_linear_interpolation(source, len, pct)` | Percentile (linear) |
 | `ta.percentile_nearest_rank(source, len, pct)` | Percentile (nearest rank) |
 | `ta.percentrank(source, length)` | Percentile rank |
-| `ta.pivot_point_levels(type, anchor)` | Pivot point levels |
 | `ta.pivothigh(source, left, right)` | Pivot high |
 | `ta.pivotlow(source, left, right)` | Pivot low |
-| `ta.rci(source, length)` | Rank Correlation Index |
 | `ta.valuewhen(condition, source, occurrence)` | Value when condition |
 
 ## math (28 functions + 4 constants)
@@ -133,7 +129,7 @@ Complete reference of all supported PineTS functions in TradingGoose, organized 
 | `math.ceil(x)` | Round up |
 | `math.floor(x)` | Round down |
 | `math.round(x, precision?)` | Round |
-| `math.round_to_mintick(x)` | Round to min tick |
+| `math.round_to_mintick(x)` | Unavailable in Studio: requires `syminfo.mintick`; round using an explicit input instead |
 | `math.sign(x)` | Sign |
 | `math.max(a, b)` | Maximum |
 | `math.min(a, b)` | Minimum |
@@ -159,10 +155,10 @@ Complete reference of all supported PineTS functions in TradingGoose, organized 
 | `plotarrow(series, title?, options?)` | Arrow markers |
 | `plotbar(o, h, l, c, title?, options?)` | OHLC bars |
 | `plotcandle(o, h, l, c, title?, options?)` | Candlesticks |
-| `hline(price, title?, options?)` | Horizontal line |
+| `hline(price, title?, color?, linestyle?, linewidth?, editable?, display?)` | Horizontal line |
 | `fill(plot1, plot2, color?)` | Fill between plots |
-| `bgcolor(color, offset?, options?)` | Background color |
-| `barcolor(color, offset?, options?)` | Bar color |
+| `bgcolor(color, offset?, options?)` | Not rendered in Studio; produces an unsupported-style warning |
+| `barcolor(color, offset?, options?)` | Not rendered in Studio; use a plot's `color` option instead |
 
 ## array (52 methods)
 
@@ -181,7 +177,7 @@ Complete reference of all supported PineTS functions in TradingGoose, organized 
 
 `new`, `get`, `put`, `put_all`, `contains`, `remove`, `keys`, `values`, `size`, `clear`, `copy`
 
-## matrix (50 methods)
+## matrix
 
 | Category | Functions |
 |----------|-----------|
@@ -190,7 +186,7 @@ Complete reference of all supported PineTS functions in TradingGoose, organized 
 | **Modify** | `add_row`, `add_col`, `remove_row`, `remove_col`, `swap_rows`, `swap_columns`, `fill`, `reverse`, `concat`, `copy` |
 | **Arithmetic** | `mult`, `pow`, `diff`, `kron` |
 | **Linear Algebra** | `det`, `inv`, `pinv`, `eigenvalues`, `eigenvectors`, `rank`, `trace`, `transpose` |
-| **Stats** | `sum`, `avg`, `min`, `max`, `median`, `mode`, `stdev`, `variance` |
+| **Stats** | `sum`, `avg`, `min`, `max`, `median`, `mode` |
 | **Boolean** | `is_square`, `is_identity`, `is_diagonal`, `is_antidiagonal`, `is_triangular`, `is_symmetric`, `is_antisymmetric`, `is_stochastic`, `is_binary`, `is_zero` |
 | **Sort** | `sort` |
 
@@ -202,12 +198,9 @@ Complete reference of all supported PineTS functions in TradingGoose, organized 
 
 `log.info(msg)`, `log.warning(msg)`, `log.error(msg)`
 
-## request (2 functions)
+## request (unsupported)
 
-| Function | Description |
-|----------|-------------|
-| `request.security(symbol, timeframe, expression)` | Multi-timeframe data |
-| `request.security_lower_tf(expression)` | Lower timeframe data |
+`request.security` and `request.security_lower_tf` are not supported in TradingGoose. Indicator verification and server compilation reject these calls. Use the chart's supplied data or fetch the required series in a workflow instead.
 
 ## trigger (TradingGoose extension)
 

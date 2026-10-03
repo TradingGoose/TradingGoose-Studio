@@ -46,8 +46,14 @@ const QueryParamsSchema = z.object({
   maxCost: z.coerce.number().optional(),
   model: z.string().optional(),
   details: z.enum(['basic', 'full']).optional().default('basic'),
-  includeTraceSpans: z.coerce.boolean().optional().default(false),
-  includeFinalOutput: z.coerce.boolean().optional().default(false),
+  includeTraceSpans: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((value) => value === 'true'),
+  includeFinalOutput: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((value) => value === 'true'),
   monitorId: z.string().optional(),
   listing: z.string().optional(),
   indicatorId: z.string().optional(),
@@ -253,6 +259,12 @@ export async function GET(request: NextRequest) {
 
         if (log.executionData) {
           const execData = log.executionData as any
+          if (
+            (params.includeFinalOutput || params.includeTraceSpans) &&
+            typeof execData.errorMessage === 'string'
+          ) {
+            result.errorMessage = execData.errorMessage
+          }
           if (params.includeFinalOutput && execData.finalOutput !== undefined) {
             result.finalOutput = execData.finalOutput
           }

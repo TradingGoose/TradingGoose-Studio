@@ -71,7 +71,7 @@ export const genericWebhookTrigger: TriggerConfig = {
       defaultValue: [
         'Copy the webhook URL and use it in your external service or API.',
         'Configure your service to send webhooks to this URL.',
-        'The webhook will receive any HTTP method (GET, POST, PUT, DELETE, etc.).',
+        'Only HTTP POST requests can trigger the workflow. GET is reserved for provider verification challenges; PUT, PATCH, and DELETE are not supported.',
         'All request data (headers, body, query parameters) will be available in your workflow.',
         'If authentication is enabled, include the token in requests using either the custom header or "Authorization: Bearer TOKEN".',
         'Common fields like "event", "id", and "data" will be automatically extracted from the payload when available.',

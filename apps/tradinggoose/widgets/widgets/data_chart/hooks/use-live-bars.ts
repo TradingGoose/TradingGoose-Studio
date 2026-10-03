@@ -1,30 +1,25 @@
 'use client'
 
-import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
+import { type MutableRefObject, useCallback, useEffect, useRef, useState } from 'react'
 import type { ISeriesApi } from 'lightweight-charts'
 import type { Socket } from 'socket.io-client'
-import { areListingIdentitiesEqual, type ListingIdentity } from '@/lib/listing/identity'
-import type { MarketBar } from '@/providers/market/types'
-import type { DataChartCandleType } from '@/widgets/widgets/data_chart/contract'
+import type { ListingIdentity } from '@/lib/listing/identity'
+import { getMarketLiveCapabilities } from '@/providers/market/providers'
+import type { MarketBar, NormalizationMode } from '@/providers/market/types'
 import {
+  type BarMs,
   buildIndexMaps,
   intervalToMs,
   mapBarMsToSeriesDatum,
   mapBarsMsToSeriesData,
   mapMarketBarToBarMs,
   mergeBarsMs,
-  sanitizeSeriesData,
 } from '@/widgets/widgets/data_chart/series-data'
 import type { DataChartDataContext } from '@/widgets/widgets/data_chart/types'
 
-type MarketLiveProvider = 'alpaca' | 'finnhub'
-
-type MarketTradeEvent = {
-  provider?: string
-  channel?: string
-  subscriptionId?: string
-  listing?: ListingIdentity
-  interval?: string
+type MarketLiveEvent = {
+  clientSubscriptionId?: string
+  bar?: MarketBar
   trade?: {
     timeStamp?: string
     price?: number
@@ -38,15 +33,14 @@ type UseLiveBarsArgs = {
   providerId?: string | null
   listing: ListingIdentity | null
   interval?: string | null
+  normalizationMode?: NormalizationMode
   providerParams?: Record<string, unknown>
   auth?: { apiKey?: string; apiSecret?: string }
   enabled?: boolean
-  candleType?: DataChartCandleType | string
   mainSeriesRef: MutableRefObject<
     ISeriesApi<'Candlestick'> | ISeriesApi<'Bar'> | ISeriesApi<'Area'> | null
   >
   dataContext: DataChartDataContext
-  onError?: (message: string) => void
   onDataUpdated?: () => void
 }
 
@@ -56,89 +50,47 @@ export const useLiveBars = ({
   providerId,
   listing,
   interval,
+  normalizationMode,
   providerParams,
   auth,
   enabled = true,
-  candleType,
   mainSeriesRef,
   dataContext,
-  onError,
   onDataUpdated,
 }: UseLiveBarsArgs) => {
-  const socketRef = useRef<Socket | null>(null)
-  const candleTypeRef = useRef<DataChartCandleType | string | undefined>(candleType)
-  const intervalMsRef = useRef<number | null>(dataContext.intervalMs)
-  const subscriptionRef = useRef<{
-    subscriptionId?: string
-    listing?: ListingIdentity | null
-    provider?: MarketLiveProvider
-    interval?: string
-    cleanup?: () => void
-  } | null>(null)
-  const lastTradeTimestampMsRef = useRef<number>(Number.NEGATIVE_INFINITY)
-
-  useEffect(() => {
-    socketRef.current = socket ?? null
-  }, [socket])
-
-  useEffect(() => {
-    candleTypeRef.current = candleType
-  }, [candleType])
-
-  useEffect(() => {
-    intervalMsRef.current = dataContext.intervalMs
-  }, [dataContext.intervalMs])
+  const cleanupRef = useRef<(() => void) | null>(null)
+  const [liveError, setLiveError] = useState<string | null>(null)
 
   const stopLiveSubscription = useCallback(() => {
-    const socketInstance = socketRef.current
-    const current = subscriptionRef.current
-    if (!current) return
-    current.cleanup?.()
-    current.cleanup = undefined
-
-    if (socketInstance) {
-      if (current.subscriptionId) {
-        socketInstance.emit('market-unsubscribe', { subscriptionId: current.subscriptionId })
-      } else if (current.listing && current.provider) {
-        socketInstance.emit('market-unsubscribe', {
-          listing: current.listing,
-          provider: current.provider,
-        })
-      }
-    }
-
-    subscriptionRef.current = null
-    lastTradeTimestampMsRef.current = Number.NEGATIVE_INFINITY
+    cleanupRef.current?.()
+    cleanupRef.current = null
+    setLiveError(null)
   }, [])
 
   const startLiveSubscription = useCallback(() => {
-    const liveProvider = providerId?.split('/')[0] as MarketLiveProvider | undefined
-    if (!enabled || !liveProvider || !listing) return
-    if (liveProvider !== 'alpaca' && liveProvider !== 'finnhub') return
-    const socketInstance = socketRef.current
-    if (!socketInstance) return
-
     stopLiveSubscription()
-    lastTradeTimestampMsRef.current = Number.NEGATIVE_INFINITY
+    if (!enabled || !providerId || !listing || !socket) return
+    const channels = getMarketLiveCapabilities(providerId)?.channels
+    const subscribeChannel = channels?.includes('trades')
+      ? 'trades'
+      : channels?.includes('bars')
+        ? 'bars'
+        : null
+    if (!subscribeChannel) return
+    const clientSubscriptionId = crypto.randomUUID()
+    const event = subscribeChannel === 'trades' ? 'market-trade' : 'market-bar'
+    let lastTradeTimestampMs = Number.NEGATIVE_INFINITY
 
-    const resolvedIntervalMs = intervalToMs(interval ?? undefined) ?? intervalMsRef.current
-    const subscribeChannel = 'trades'
+    const resolvedIntervalMs = intervalToMs(interval) ?? dataContext.intervalMs
 
-    const aggregateLiveData = (data: NonNullable<ReturnType<typeof mapMarketBarToBarMs>>) => {
-      if (!data || !resolvedIntervalMs) return data
+    const aggregateLiveData = (data: BarMs) => {
+      if (!resolvedIntervalMs) return data
       const bars = dataContext.barsMsRef.current
       const latest = bars[bars.length - 1]
-      const anchorOpenTime =
-        typeof latest?.openTime === 'number' && Number.isFinite(latest.openTime)
-          ? latest.openTime
-          : null
-      const bucketStartMs =
-        anchorOpenTime === null
-          ? Math.floor(data.openTime / resolvedIntervalMs) * resolvedIntervalMs
-          : data.openTime <= anchorOpenTime
-            ? anchorOpenTime
-            : anchorOpenTime +
-              Math.floor((data.openTime - anchorOpenTime) / resolvedIntervalMs) * resolvedIntervalMs
+      const bucketStartMs = latest
+        ? latest.openTime +
+          Math.floor((data.openTime - latest.openTime) / resolvedIntervalMs) * resolvedIntervalMs
+        : Math.floor(data.openTime / resolvedIntervalMs) * resolvedIntervalMs
 
       const normalized = {
         ...data,
@@ -150,27 +102,15 @@ export const useLiveBars = ({
         return normalized
       }
 
-      const nextHigh = normalized.high ?? normalized.close
-      const nextLow = normalized.low ?? normalized.close
       return {
         ...latest,
-        high:
-          typeof nextHigh === 'number' && Number.isFinite(nextHigh)
-            ? Math.max(latest.high, nextHigh)
-            : latest.high,
-        low:
-          typeof nextLow === 'number' && Number.isFinite(nextLow)
-            ? Math.min(latest.low, nextLow)
-            : latest.low,
+        high: Math.max(latest.high, normalized.high),
+        low: Math.min(latest.low, normalized.low),
         close: normalized.close,
         volume:
-          typeof normalized.volume === 'number' && Number.isFinite(normalized.volume)
+          normalized.volume !== undefined
             ? (latest.volume ?? 0) + normalized.volume
             : latest.volume,
-        turnover:
-          typeof normalized.turnover === 'number' && Number.isFinite(normalized.turnover)
-            ? (latest.turnover ?? 0) + normalized.turnover
-            : latest.turnover,
         openTime: bucketStartMs,
         closeTime: bucketStartMs + resolvedIntervalMs,
       }
@@ -179,8 +119,7 @@ export const useLiveBars = ({
     const applyLiveBar = (bar?: MarketBar) => {
       const mapped = mapMarketBarToBarMs(bar, resolvedIntervalMs)
       if (!mapped) return
-      const aggregated = aggregateLiveData(mapped)
-      if (!aggregated) return
+      const aggregated = subscribeChannel === 'trades' ? aggregateLiveData(mapped) : mapped
 
       const previousBars = dataContext.barsMsRef.current
       const previousLastOpenTime = previousBars[previousBars.length - 1]?.openTime
@@ -192,66 +131,22 @@ export const useLiveBars = ({
 
       const series = mainSeriesRef.current
       if (series) {
-        const seriesType = series.seriesType()
-        const isLineSeries = seriesType === 'Area'
-        const shouldUpdateLatest =
-          typeof previousLastOpenTime === 'number' && aggregated.openTime >= previousLastOpenTime
-        if (shouldUpdateLatest) {
-          const nextDatum = mapBarMsToSeriesDatum(aggregated, isLineSeries ? 'area' : null)
-          const validUpdate =
-            sanitizeSeriesData([nextDatum], isLineSeries ? 'area' : null).length === 1
-          if (validUpdate) {
-            try {
-              series.update(nextDatum as never)
-            } catch (error) {
-              console.error('[data_chart] Failed to update live series', { error })
-              const fallbackData = sanitizeSeriesData(
-                mapBarsMsToSeriesData(nextBars, isLineSeries ? 'area' : null),
-                isLineSeries ? 'area' : null
-              )
-              series.setData(fallbackData as never)
-            }
-          } else {
-            const fallbackData = sanitizeSeriesData(
-              mapBarsMsToSeriesData(nextBars, isLineSeries ? 'area' : null),
-              isLineSeries ? 'area' : null
-            )
-            series.setData(fallbackData as never)
-          }
+        const candleType = series.seriesType() === 'Area' ? 'area' : null
+        if (previousLastOpenTime !== undefined && aggregated.openTime >= previousLastOpenTime) {
+          series.update(mapBarMsToSeriesDatum(aggregated, candleType) as never)
         } else {
-          const seriesData = sanitizeSeriesData(
-            mapBarsMsToSeriesData(nextBars, isLineSeries ? 'area' : null),
-            isLineSeries ? 'area' : null
-          )
-          try {
-            series.setData(seriesData as never)
-          } catch (error) {
-            console.error('[data_chart] Failed to set live series data', { error })
-            series.setData([] as never)
-          }
+          series.setData(mapBarsMsToSeriesData(nextBars, candleType) as never)
         }
       }
 
+      setLiveError(null)
       onDataUpdated?.()
     }
 
-    const handleMarketTrade = (payload: MarketTradeEvent) => {
-      const current = subscriptionRef.current
-      if (!current) return
-      if (payload?.channel && payload.channel !== 'trades') return
-      if (payload.provider && payload.provider !== current.provider) return
-      if (
-        current.subscriptionId &&
-        payload.subscriptionId &&
-        payload.subscriptionId !== current.subscriptionId
-      ) {
-        return
-      }
-      if (
-        current.listing &&
-        payload.listing &&
-        !areListingIdentitiesEqual(payload.listing, current.listing)
-      ) {
+    const handleMarketData = (payload: MarketLiveEvent) => {
+      if (payload.clientSubscriptionId !== clientSubscriptionId) return
+      if (subscribeChannel === 'bars') {
+        applyLiveBar(payload.bar)
         return
       }
 
@@ -262,13 +157,9 @@ export const useLiveBars = ({
       if (!Number.isFinite(tradeTimestampMs)) return
       const latestOpenTime =
         dataContext.barsMsRef.current[dataContext.barsMsRef.current.length - 1]?.openTime
-      if (typeof latestOpenTime === 'number' && Number.isFinite(latestOpenTime)) {
-        if (tradeTimestampMs < latestOpenTime) return
-      }
-      if (tradeTimestampMs < lastTradeTimestampMsRef.current) return
-      lastTradeTimestampMsRef.current = tradeTimestampMs
-      const volume =
-        typeof trade.size === 'number' && Number.isFinite(trade.size) ? trade.size : undefined
+      if (latestOpenTime !== undefined && tradeTimestampMs < latestOpenTime) return
+      if (tradeTimestampMs < lastTradeTimestampMs) return
+      lastTradeTimestampMs = tradeTimestampMs
 
       applyLiveBar({
         timeStamp: trade.timeStamp,
@@ -276,67 +167,47 @@ export const useLiveBars = ({
         high: trade.price,
         low: trade.price,
         close: trade.price,
-        volume,
+        volume: trade.size,
       })
     }
 
-    const handleSubscribed = (payload: {
-      subscriptionId?: string
-      listing?: ListingIdentity
-      provider?: MarketLiveProvider
-      interval?: string
+    const handleError = (payload: {
+      clientSubscriptionId?: string
+      error?: string
+      message?: string
     }) => {
-      const current = subscriptionRef.current
-      if (!current) return
-      if (payload.provider && payload.provider !== current.provider) return
-      if (
-        current.listing &&
-        payload.listing &&
-        !areListingIdentitiesEqual(payload.listing, current.listing)
-      ) {
-        return
-      }
-      if (current.interval && payload.interval && payload.interval !== current.interval) return
-      if (payload.subscriptionId) {
-        current.subscriptionId = payload.subscriptionId
-      }
-    }
-
-    const handleSubscribeError = (payload: { error?: string }) => {
-      const message = payload?.error
+      if (payload.clientSubscriptionId !== clientSubscriptionId) return
+      const message = payload.error ?? payload.message
       if (typeof message === 'string' && message.trim()) {
-        onError?.(message)
+        setLiveError(message)
       }
     }
 
     const handleConnect = () => {
-      socketInstance.emit('market-subscribe', {
-        provider: liveProvider,
+      socket.emit('market-subscribe', {
+        clientSubscriptionId,
+        provider: providerId,
         workspaceId: workspaceId ?? undefined,
         listing,
         channel: subscribeChannel,
         interval,
+        normalizationMode,
         providerParams,
         auth,
       })
     }
 
-    socketInstance.on('market-trade', handleMarketTrade)
-    socketInstance.on('market-subscribed', handleSubscribed)
-    socketInstance.on('market-subscribe-error', handleSubscribeError)
-    socketInstance.on('connect', handleConnect)
+    socket.on(event, handleMarketData)
+    socket.on('market-subscribe-error', handleError)
+    socket.on('market-error', handleError)
+    socket.on('connect', handleConnect)
 
-    subscriptionRef.current = {
-      subscriptionId: undefined,
-      listing,
-      provider: liveProvider,
-      interval: interval ?? undefined,
-      cleanup: () => {
-        socketInstance.off('market-trade', handleMarketTrade)
-        socketInstance.off('market-subscribed', handleSubscribed)
-        socketInstance.off('market-subscribe-error', handleSubscribeError)
-        socketInstance.off('connect', handleConnect)
-      },
+    cleanupRef.current = () => {
+      socket.off(event, handleMarketData)
+      socket.off('market-subscribe-error', handleError)
+      socket.off('market-error', handleError)
+      socket.off('connect', handleConnect)
+      socket.emit('market-unsubscribe', { clientSubscriptionId })
     }
 
     handleConnect()
@@ -345,10 +216,11 @@ export const useLiveBars = ({
     enabled,
     interval,
     listing,
+    normalizationMode,
     onDataUpdated,
-    onError,
     providerId,
     providerParams,
+    socket,
     stopLiveSubscription,
     dataContext,
     mainSeriesRef,
@@ -357,5 +229,5 @@ export const useLiveBars = ({
 
   useEffect(() => stopLiveSubscription, [stopLiveSubscription])
 
-  return { startLiveSubscription, stopLiveSubscription }
+  return { startLiveSubscription, stopLiveSubscription, liveError }
 }

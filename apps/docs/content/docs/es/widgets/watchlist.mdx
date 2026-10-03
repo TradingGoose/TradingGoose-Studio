@@ -1,0 +1,67 @@
+---
+title: Lista de seguimiento
+description: Gestiona listas de seguimiento de símbolos con columnas de mercado
+  en tiempo real.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Descripción general
+
+| Propiedad | Valor |
+|----------|-------|
+| **Clave** | `watchlist` |
+| **Categoría** | Trading |
+
+El widget Lista de seguimiento te permite crear, organizar y supervisar listas de símbolos de negociación con datos de cotización en tiempo real. Muestra las columnas de último precio, cambio y cambio porcentual, y admite reordenar con arrastrar y soltar, secciones plegables y edición de símbolos en línea.
+
+## Funciones
+
+- **Varias listas de seguimiento** -- Crea, cambia el nombre y elimina listas de seguimiento dentro de un espacio de trabajo. El selector de listas del encabezado te permite cambiar entre ellas. No se puede eliminar la última lista de seguimiento restante.
+- **Columnas de cotización en tiempo real** -- Cada fila muestra **Último**, **Cambio** y **Cambio %**, con código de color verde para valores positivos y rojo para valores negativos. Las cotizaciones se actualizan automáticamente y se pueden actualizar de forma manual con el botón del encabezado.
+- **Secciones** -- Agrupa símbolos bajo encabezados de sección plegables. Las secciones se pueden renombrar en línea y expandir o contraer de forma independiente.
+- **Reordenar con arrastrar y soltar** -- Reordena símbolos y secciones con el ratón, el tacto o el teclado (teclas de flecha con el sensor de teclado sortable). Los elementos se pueden mover entre secciones.
+- **Edición de símbolos en línea** -- Usa la acción de lápiz de una fila para abrir un selector de listados en línea y cambiar el símbolo sin quitar y volver a añadir la fila.
+- **Búsqueda y adición de símbolos** -- El control central del encabezado ofrece un campo de búsqueda de listados. Selecciona un símbolo y haz clic en el botón de verificación para añadirlo a la lista de seguimiento activa.
+- **Importar / exportar** -- Exporta la lista de seguimiento actual o añade una lista de seguimiento exportada desde el menú de acciones de la lista usando el formato JSON de exportación compartido de TradingGoose. Se conservan las secciones y el orden de los símbolos, y los listados duplicados en la misma sección se omiten al importar.
+- **Selección de proveedor** -- Elige un proveedor de datos de mercado desde el control izquierdo del encabezado. Los parámetros específicos del proveedor y las credenciales de API se pueden configurar en el popover de ajustes.
+- **Vinculación por color de par** -- Cuando el widget tiene asignado un color de par, al hacer clic en una fila se emite el listado seleccionado a otros widgets que comparten el mismo color (p. ej., un [Gráfico de datos](/widgets/data-chart)), y se resalta el símbolo vinculado actualmente.
+
+## Uso
+
+Agregue la lista de seguimiento a un panel del espacio de trabajo. El encabezado está organizado en tres grupos:
+
+- **Izquierda** -- Botón de configuración del proveedor y menú desplegable de selección de proveedor.
+- **Centro** -- Campo de búsqueda de listados y un botón para agregar el símbolo seleccionado.
+- **Derecha** -- Selector de lista de seguimiento con acciones de renombrar y eliminar por lista, un menú para crear una lista de seguimiento o una sección e importar o exportar, y el botón de actualización manual.
+
+Haga clic en una fila para seleccionarla. Cuando el widget comparte un color de par con un Gráfico de datos, ese clic también carga el símbolo en el gráfico. Pase el cursor o enfoque una fila para mostrar sus acciones de editar y quitar. Los encabezados de sección muestran de forma similar las acciones de renombrar y eliminar.
+
+<Callout type="info">
+Asigne el mismo color de par a una lista de seguimiento y a un Gráfico de datos para que, al hacer clic en un símbolo de la lista, se cargue de inmediato su gráfico.
+</Callout>
+
+## Configuración
+
+| Parameter | Description |
+|-----------|-------------|
+| `watchlistId` | ID de la lista de seguimiento seleccionada. |
+| `listing` | Identidad del listado compartida con los widgets que usan el mismo color de par. |
+| `provider` | Proveedor de datos de mercado usado para obtener cotizaciones. |
+| `providerParams` | Parámetros específicos del proveedor (p. ej., exchange, tipo de mercado). |
+| `auth` | Clave / secreto de API opcional para el proveedor seleccionado. |
+| `runtime.refreshAt` | Marca de tiempo epoch que dispara una actualización de cotizaciones al actualizarse. |
+
+Una lista de seguimiento puede contener hasta 1,000 símbolos.
+
+## Relacionado
+
+<Cards>
+  <Card title="Gráfico de datos" href="/widgets/data-chart">
+    Empárela con la lista de seguimiento para que los clics en un símbolo carguen el gráfico automáticamente.
+  </Card>
+  <Card title="Descripción general de las herramientas" href="/tools">
+    Consulte todas las herramientas de flujo de trabajo disponibles.
+  </Card>
+</Cards>

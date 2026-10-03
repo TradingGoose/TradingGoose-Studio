@@ -8,6 +8,8 @@ import {
   isPendingExecutionLimitError,
 } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
+import { createScheduleCron } from '@/lib/schedules/utils'
+import { resolveTimezoneState } from '@/lib/timezone/timezone-resolver'
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { generateRequestId } from '@/lib/utils'
 
@@ -73,16 +75,23 @@ export async function GET(request: NextRequest) {
             return null
           }
 
-          const pendingExecutionId = `schedule_execution:${schedule.id}:${schedule.nextRunAt?.toISOString() ?? now.toISOString()}`
+          if (!schedule.cronExpression) throw new Error('Schedule cron expression is required')
+          const oneTime = schedule.cronExpression.includes(':')
+          const utcOffset = oneTime
+            ? 0
+            : (await resolveTimezoneState(schedule.timezone)).utcOffsetMinutes
+          // The persisted UTC occurrence is already accepted; only validate expression syntax.
+          createScheduleCron(schedule.cronExpression, utcOffset)
+
+          const pendingExecutionId = `schedule_execution:${schedule.id}:${schedule.nextRunAt!.toISOString()}`
           const payload = {
             executionId: pendingExecutionId,
             scheduleId: schedule.id,
             workflowId: schedule.workflowId,
             blockId: schedule.blockId,
-            cronExpression: schedule.cronExpression || undefined,
-            lastRanAt: schedule.lastRanAt?.toISOString(),
-            failedCount: schedule.failedCount || 0,
-            timezone: schedule.timezone,
+            cronExpression: oneTime ? schedule.nextRunAt!.toISOString() : schedule.cronExpression,
+            failedCount: schedule.failedCount,
+            utcOffset,
             now: now.toISOString(),
           }
 

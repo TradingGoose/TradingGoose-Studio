@@ -107,19 +107,18 @@ const buildRow = ({
   endedAt: new Date('2026-04-23T00:05:00.000Z'),
   totalDurationMs: 300000,
   executionData: {
-    blockExecutions: [
+    traceSpans: [
       {
         id: 'block-execution-1',
         blockId: 'block-1',
-        blockName: 'Fetch Bars',
-        blockType: 'http',
-        startedAt: '2026-04-23T00:00:00.000Z',
-        endedAt: '2026-04-23T00:05:00.000Z',
-        durationMs: 300000,
+        name: 'Fetch Bars',
+        type: 'http',
+        startTime: '2026-04-23T00:00:00.000Z',
+        endTime: '2026-04-23T00:05:00.000Z',
+        duration: 300000,
         status: 'success',
-        inputData: { symbol: 'AAPL' },
-        outputData: { rows: 42 },
-        metadata: {},
+        input: { symbol: 'AAPL' },
+        output: { rows: 42 },
       },
     ],
   },

@@ -164,6 +164,8 @@ describe('logsWebhookDelivery task', () => {
       buildLogRow({
         finalOutput: { orderId: 'order-1' },
         traceSpans: [{ id: 'span-1' }],
+        checkpoint: { encryptedSnapshot: 'private-checkpoint-ciphertext', revision: 2 },
+        pause: { url: '/review/execution-1', revision: 2 },
       }),
     ])
     mockSelectQueue.push([{ status: 'in_progress' }])
@@ -199,6 +201,9 @@ describe('logsWebhookDelivery task', () => {
       })
     )
     expect(body.data.traceSpans).toBeUndefined()
+    expect(body.data).not.toHaveProperty('checkpoint')
+    expect(body.data).not.toHaveProperty('pause')
+    expect(String(request.body)).not.toContain('private-checkpoint-ciphertext')
     expect(mockTaskTrigger).not.toHaveBeenCalled()
   })
 
@@ -219,6 +224,37 @@ describe('logsWebhookDelivery task', () => {
     const body = JSON.parse(String(request.body))
     expect(body.data).toHaveProperty('finalOutput', finalOutput)
   })
+
+  it.each([
+    [false, false],
+    [true, false],
+    [false, true],
+  ])(
+    'includes canonical failure details only with output=%s or traces=%s',
+    async (includeFinalOutput, includeTraceSpans) => {
+      const [delivery] = await mockUpdateReturning()
+      Object.assign(delivery.subscriptionSnapshot, { includeFinalOutput, includeTraceSpans })
+      mockSelectQueue[0] = [
+        {
+          ...buildLogRow({
+            finalOutput: {},
+            traceSpans: [],
+            errorMessage: 'Private cancellation reason',
+          }),
+          level: 'error',
+        },
+      ]
+      const { logsWebhookDelivery } = await import('./logs-webhook-delivery')
+      await (logsWebhookDelivery as any).run({ deliveryId: 'delivery-1' })
+      const body = JSON.parse(String(mockFetch.mock.calls[0][1].body))
+      expect(body.data.status).toBe('error')
+      expect(body.data.errorMessage).toBe(
+        includeFinalOutput || includeTraceSpans ? 'Private cancellation reason' : undefined
+      )
+      expect(body.data.finalOutput).toEqual(includeFinalOutput ? {} : undefined)
+      expect(body.data.traceSpans).toEqual(includeTraceSpans ? [] : undefined)
+    }
+  )
 
   it('fails delivery without fetching when the stored subscription snapshot is missing', async () => {
     mockUpdateReturning.mockResolvedValueOnce([

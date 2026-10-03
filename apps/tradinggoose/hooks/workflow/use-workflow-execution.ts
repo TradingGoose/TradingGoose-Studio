@@ -126,6 +126,7 @@ export function useWorkflowExecution() {
 
       if (
         event.type === 'execution:completed' ||
+        event.type === 'execution:paused' ||
         event.type === 'execution:error' ||
         event.type === 'execution:cancelled'
       ) {

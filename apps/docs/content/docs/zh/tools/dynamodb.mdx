@@ -1,0 +1,798 @@
+---
+title: Amazon DynamoDB
+description: 连接 Amazon DynamoDB
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="dynamodb"
+  color="#527FFF"
+/>
+
+## 配置
+
+### 获取项目
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon DynamoDB"
+    type="dynamodb"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get",
+            "options": [
+                {
+                    "id": "get",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "put",
+                    "label": "放置项目"
+                },
+                {
+                    "id": "query",
+                    "label": "查询"
+                },
+                {
+                    "id": "scan",
+                    "label": "扫描"
+                },
+                {
+                    "id": "update",
+                    "label": "更新项目"
+                },
+                {
+                    "id": "delete",
+                    "label": "删除项目"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "AWS 区域",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "AWS 访问密钥 ID",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "AWS 秘密访问密钥",
+            "placeholder": "您的秘密访问密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "表名称",
+            "placeholder": "my-table",
+            "required": true
+        },
+        {
+            "id": "key",
+            "type": "code",
+            "title": "键 (JSON)",
+            "placeholder": "{\n  \"pk\": \"user#123\"\n}",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "consistentRead",
+            "type": "dropdown",
+            "title": "一致性读取",
+            "defaultValue": "false",
+            "options": [
+                {
+                    "id": "false",
+                    "label": "最终一致性"
+                },
+                {
+                    "id": "true",
+                    "label": "强一致性"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取项目 (<code>dynamodb_get</code>)</div>
+
+通过主键从 DynamoDB 表获取项目
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必需 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | 是 | AWS 区域 \(例如 us-east-1\) |
+| `accessKeyId` | string | 是 | AWS 访问密钥 ID |
+| `secretAccessKey` | string | 是 | AWS 秘密访问密钥 |
+| `tableName` | string | 是 | DynamoDB 表名称 |
+| `key` | object | 是 | 要获取的项目的主键 |
+| `consistentRead` | boolean | 否 | 使用强一致性读取 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | 字符串 | 操作状态消息 |
+| `item` | 对象 | 获取的项目 |
+
+</div>
+
+---
+
+### 写入项目
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon DynamoDB"
+    type="dynamodb"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "put",
+            "options": [
+                {
+                    "id": "get",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "put",
+                    "label": "写入项目"
+                },
+                {
+                    "id": "query",
+                    "label": "查询"
+                },
+                {
+                    "id": "scan",
+                    "label": "扫描"
+                },
+                {
+                    "id": "update",
+                    "label": "更新项目"
+                },
+                {
+                    "id": "delete",
+                    "label": "删除项目"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "AWS 区域",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "AWS 访问密钥 ID",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "AWS 秘密访问密钥",
+            "placeholder": "您的秘密访问密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "表名称",
+            "placeholder": "my-table",
+            "required": true
+        },
+        {
+            "id": "item",
+            "type": "code",
+            "title": "项目 (JSON)",
+            "placeholder": "{\n  \"pk\": \"user#123\",\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\"\n}",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">写入项目 (<code>dynamodb_put</code>)</div>
+
+将项目写入 DynamoDB 表
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `region` | 字符串 | 是 | AWS 区域 \(例如 us-east-1\) |
+| `accessKeyId` | 字符串 | 是 | AWS 访问密钥 ID |
+| `secretAccessKey` | 字符串 | 是 | AWS 秘密访问密钥 |
+| `tableName` | 字符串 | 是 | DynamoDB 表名称 |
+| `item` | 对象 | 是 | 要写入表中的项目 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | string | 操作状态消息 |
+| `item` | object | 创建的项目 |
+
+</div>
+
+---
+
+### 查询
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon DynamoDB"
+    type="dynamodb"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "query",
+            "options": [
+                {
+                    "id": "get",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "put",
+                    "label": "写入项目"
+                },
+                {
+                    "id": "query",
+                    "label": "查询"
+                },
+                {
+                    "id": "scan",
+                    "label": "扫描"
+                },
+                {
+                    "id": "update",
+                    "label": "更新项目"
+                },
+                {
+                    "id": "delete",
+                    "label": "删除项目"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "AWS 区域",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "AWS 访问密钥 ID",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "AWS 私有访问密钥",
+            "placeholder": "您的私有访问密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "表名称",
+            "placeholder": "my-table",
+            "required": true
+        },
+        {
+            "id": "keyConditionExpression",
+            "type": "short-input",
+            "title": "键条件表达式",
+            "placeholder": "pk = :pk",
+            "required": true
+        },
+        {
+            "id": "filterExpression",
+            "type": "short-input",
+            "title": "筛选表达式",
+            "placeholder": "attribute_exists(email)"
+        },
+        {
+            "id": "expressionAttributeNames",
+            "type": "code",
+            "title": "表达式属性名称 (JSON)",
+            "placeholder": "{\n  \"#name\": \"name\"\n}",
+            "language": "json"
+        },
+        {
+            "id": "expressionAttributeValues",
+            "type": "code",
+            "title": "表达式属性值 (JSON)",
+            "placeholder": "{\n  \":pk\": \"user#123\",\n  \":name\": \"Jane\"\n}",
+            "language": "json"
+        },
+        {
+            "id": "indexName",
+            "type": "short-input",
+            "title": "索引名称",
+            "placeholder": "GSI1"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "100"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">查询（<code>dynamodb_query</code>）</div>
+
+使用键条件从 DynamoDB 表中查询项目
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | 是 | AWS 区域（例如 us-east-1） |
+| `accessKeyId` | string | 是 | AWS 访问密钥 ID |
+| `secretAccessKey` | string | 是 | AWS 秘密访问密钥 |
+| `tableName` | string | 是 | DynamoDB 表名 |
+| `keyConditionExpression` | string | 是 | 键条件表达式（例如 "pk = :pk"） |
+| `filterExpression` | string | 否 | 用于筛选结果的表达式 |
+| `expressionAttributeNames` | object | 否 | 保留字的属性名称映射 |
+| `expressionAttributeValues` | object | 否 | 表达式属性值 |
+| `indexName` | string | 否 | 要查询的二级索引名称 |
+| `limit` | number | 否 | 返回的项目数量上限 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `message` | string | 操作状态消息 |
+| `items` | array | 返回的项目数组 |
+| `count` | number | 返回的项目数量 |
+
+</div>
+
+---
+
+### 扫描
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon DynamoDB"
+    type="dynamodb"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "scan",
+            "options": [
+                {
+                    "id": "get",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "put",
+                    "label": "写入项目"
+                },
+                {
+                    "id": "query",
+                    "label": "查询"
+                },
+                {
+                    "id": "scan",
+                    "label": "扫描"
+                },
+                {
+                    "id": "update",
+                    "label": "更新项目"
+                },
+                {
+                    "id": "delete",
+                    "label": "删除项目"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "AWS 区域",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "AWS 访问密钥 ID",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "AWS 秘密访问密钥",
+            "placeholder": "您的秘密访问密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "表名",
+            "placeholder": "my-table",
+            "required": true
+        },
+        {
+            "id": "filterExpression",
+            "type": "short-input",
+            "title": "筛选表达式",
+            "placeholder": "attribute_exists(email)"
+        },
+        {
+            "id": "projectionExpression",
+            "type": "short-input",
+            "title": "投影表达式",
+            "placeholder": "pk, #name, email"
+        },
+        {
+            "id": "expressionAttributeNames",
+            "type": "code",
+            "title": "表达式属性名称（JSON）",
+            "placeholder": "{\n  \"#name\": \"name\"\n}",
+            "language": "json"
+        },
+        {
+            "id": "expressionAttributeValues",
+            "type": "code",
+            "title": "表达式属性值（JSON）",
+            "placeholder": "{\n  \":status\": \"active\"\n}",
+            "language": "json"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "100"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">扫描 (<code>dynamodb_scan</code>)</div>
+
+扫描 DynamoDB 表中的所有项目
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | 是 | AWS 区域 \(例如，us-east-1\) |
+| `accessKeyId` | string | 是 | AWS 访问密钥 ID |
+| `secretAccessKey` | string | 是 | AWS 秘密访问密钥 |
+| `tableName` | string | 是 | DynamoDB 表名 |
+| `filterExpression` | string | 否 | 结果的筛选表达式 |
+| `projectionExpression` | string | 否 | 要检索的属性 |
+| `expressionAttributeNames` | object | 否 | 保留字的属性名称映射 |
+| `expressionAttributeValues` | object | 否 | 表达式属性值 |
+| `limit` | number | 否 | 返回的最大项目数 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `message` | string | 操作状态消息 |
+| `items` | array | 返回的项目数组 |
+| `count` | number | 返回的项目数量 |
+
+</div>
+
+---
+
+### 更新项目
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon DynamoDB"
+    type="dynamodb"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "update",
+            "options": [
+                {
+                    "id": "get",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "put",
+                    "label": "写入项目"
+                },
+                {
+                    "id": "query",
+                    "label": "查询"
+                },
+                {
+                    "id": "scan",
+                    "label": "扫描"
+                },
+                {
+                    "id": "update",
+                    "label": "更新项目"
+                },
+                {
+                    "id": "delete",
+                    "label": "删除项目"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "AWS 区域",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "AWS 访问密钥 ID",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "AWS 秘密访问密钥",
+            "placeholder": "您的秘密访问密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "表名",
+            "placeholder": "my-table",
+            "required": true
+        },
+        {
+            "id": "key",
+            "type": "code",
+            "title": "键 (JSON)",
+            "placeholder": "{\n  \"pk\": \"user#123\"\n}",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "updateExpression",
+            "type": "short-input",
+            "title": "更新表达式",
+            "placeholder": "SET #name = :name",
+            "required": true
+        },
+        {
+            "id": "expressionAttributeNames",
+            "type": "code",
+            "title": "表达式属性名称 (JSON)",
+            "placeholder": "{\n  \"#name\": \"name\"\n}",
+            "language": "json"
+        },
+        {
+            "id": "expressionAttributeValues",
+            "type": "code",
+            "title": "表达式属性值 (JSON)",
+            "placeholder": "{\n  \":name\": \"Jane Doe\"\n}",
+            "language": "json"
+        },
+        {
+            "id": "conditionExpression",
+            "type": "short-input",
+            "title": "条件表达式",
+            "placeholder": "attribute_exists(pk)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新项目 (<code>dynamodb_update</code>)</div>
+
+更新 DynamoDB 表中的项目
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | 是 | AWS 区域 \(例如，us-east-1\) |
+| `accessKeyId` | string | 是 | AWS 访问密钥 ID |
+| `secretAccessKey` | string | 是 | AWS 秘密访问密钥 |
+| `tableName` | string | 是 | DynamoDB 表名称 |
+| `key` | object | 是 | 要更新的项目的主键 |
+| `updateExpression` | string | 是 | 更新表达式 \(例如，"SET #name = :name"\) |
+| `expressionAttributeNames` | object | 否 | 保留字的属性名称映射 |
+| `expressionAttributeValues` | object | 否 | 表达式属性值 |
+| `conditionExpression` | string | 否 | 更新成功必须满足的条件 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `message` | string | 操作状态消息 |
+| `item` | object | 更新后的项目 |
+
+</div>
+
+---
+
+### 删除项目
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon DynamoDB"
+    type="dynamodb"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "delete",
+            "options": [
+                {
+                    "id": "get",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "put",
+                    "label": "放置项目"
+                },
+                {
+                    "id": "query",
+                    "label": "查询"
+                },
+                {
+                    "id": "scan",
+                    "label": "扫描"
+                },
+                {
+                    "id": "update",
+                    "label": "更新项目"
+                },
+                {
+                    "id": "delete",
+                    "label": "删除项目"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "AWS 区域",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "AWS 访问密钥 ID",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "AWS 秘密访问密钥",
+            "placeholder": "您的秘密访问密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "表名称",
+            "placeholder": "my-table",
+            "required": true
+        },
+        {
+            "id": "key",
+            "type": "code",
+            "title": "键 (JSON)",
+            "placeholder": "{\n  \"pk\": \"user#123\"\n}",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "conditionExpression",
+            "type": "short-input",
+            "title": "条件表达式",
+            "placeholder": "attribute_exists(pk)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除项目（<code>dynamodb_delete</code>）</div>
+
+从 DynamoDB 表中删除项目
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `region` | 字符串 | 是 | AWS 区域（例如 us-east-1） |
+| `accessKeyId` | 字符串 | 是 | AWS 访问密钥 ID |
+| `secretAccessKey` | 字符串 | 是 | AWS 私有访问密钥 |
+| `tableName` | 字符串 | 是 | DynamoDB 表名称 |
+| `key` | 对象 | 是 | 要删除的项目的主键 |
+| `conditionExpression` | 字符串 | 否 | 删除成功必须满足的条件 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | 字符串 | 操作状态消息 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Amazon DynamoDB 集成到工作流中。支持对 DynamoDB 表执行 Get、Put、Query、Scan、Update 和 Delete 操作。
+
+## 注意事项
+
+- 类别：`tools`
+- 类型：`dynamodb`

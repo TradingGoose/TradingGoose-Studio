@@ -13,9 +13,9 @@ TradingGoose offers two complementary logging interfaces to match different work
 
 ### Real-Time Console
 
-During manual or chat workflow execution, logs appear in real-time in the Console panel on the right side of the workflow editor:
+During manual or workspace-chat execution, logs appear in a [Workflow Console](/widgets/workflow-console) widget configured for the same workflow. You can place and resize that widget anywhere in a dashboard layout.
 
-The Console panel appears on the right side of the workflow editor and shows:
+The console shows:
 - Block execution progress with active block highlighting
 - Real-time outputs as blocks complete
 - Execution timing for each block
@@ -29,7 +29,7 @@ The Logs page provides:
 - Comprehensive filtering by time range, status, trigger type, folder, and workflow
 - Search functionality across all logs
 - Live mode for real-time updates
-- 7-day log retention (upgradeable for longer retention)
+- Log retention based on the effective tier of the workspace's configured user or organization billing owner
 
 ## Log Details Sidebar
 
@@ -52,7 +52,7 @@ View the complete data flow for each block with tabs to switch between:
     - Resolved variable values
     - Referenced outputs from other blocks
     - Environment variables used
-    - API keys are automatically redacted for security
+    - Credential-shaped values are redacted in the frozen workflow snapshot; other logged tool arguments and outputs should still be treated as potentially sensitive
   </Tab>
 </Tabs>
 
@@ -73,15 +73,12 @@ For any logged execution, click "View Snapshot" to see the exact workflow state 
 - Useful for debugging workflows that have since been modified
 
 <Callout type="info">
-  Workflow snapshots are only available for executions after the enhanced logging system was introduced. Older migrated logs show a "Logged State Not Found" message.
+  If a stored workflow snapshot is unavailable, the snapshot view shows a "Logged State Not Found" message.
 </Callout>
 
 ## Log Retention
 
-- **Free Plan**: 7 days of log retention
-- **Pro Plan**: 30 days of log retention
-- **Team Plan**: 90 days of log retention
-- **Enterprise Plan**: Custom retention periods available
+Log retention is configured by the effective tier of the workspace's billing owner. A finite `logRetentionDays` value determines when old logs are removed; a tier with no retention limit keeps logs indefinitely. Check the current Subscription settings rather than relying on fixed plan names or durations.
 
 ## Best Practices
 

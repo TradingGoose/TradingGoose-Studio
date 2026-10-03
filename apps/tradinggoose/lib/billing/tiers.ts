@@ -318,8 +318,10 @@ export async function requireBillingTierById(id: string): Promise<BillingTierRec
   return tier
 }
 
-export async function getDefaultBillingTier(): Promise<BillingTierRecord | null> {
-  const rows = await db
+export async function getDefaultBillingTier(
+  store: Pick<typeof db, 'select'> = db
+): Promise<BillingTierRecord | null> {
+  const rows = await store
     .select()
     .from(systemBillingTier)
     .where(
@@ -340,8 +342,10 @@ export async function getDefaultBillingTier(): Promise<BillingTierRecord | null>
   return rows[0] ?? null
 }
 
-export async function requireDefaultBillingTier(): Promise<BillingTierRecord> {
-  const tier = await getDefaultBillingTier()
+export async function requireDefaultBillingTier(
+  store: Pick<typeof db, 'select'> = db
+): Promise<BillingTierRecord> {
+  const tier = await getDefaultBillingTier(store)
   if (!tier) {
     throw new Error('No active default billing tier configured')
   }
@@ -416,7 +420,8 @@ export async function getHiddenEnterprisePlaceholderTier(): Promise<BillingTierR
 }
 
 export async function hydrateSubscriptionsWithTiers(
-  subscriptions: SubscriptionRecord[]
+  subscriptions: SubscriptionRecord[],
+  store: Pick<typeof db, 'select'> = db
 ): Promise<SubscriptionWithTier[]> {
   const tierIds = [
     ...new Set(
@@ -430,7 +435,7 @@ export async function hydrateSubscriptionsWithTiers(
     return []
   }
 
-  const tiers = await db
+  const tiers = await store
     .select()
     .from(systemBillingTier)
     .where(inArray(systemBillingTier.id, tierIds))

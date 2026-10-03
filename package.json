@@ -16,7 +16,9 @@
     "dev:sockets": "cd apps/tradinggoose && bun run dev:sockets",
     "dev:full": "cd apps/tradinggoose && bun run dev:full",
     "dev:trigger": "cd apps/tradinggoose && npx trigger.dev@latest dev",
-    "test": "turbo run test",
+    "test": "turbo run test && bun run test:doc-gen && bun run test:docs",
+    "test:doc-gen": "bun test scripts/doc-gen",
+    "test:docs": "bun test scripts/docs",
     "format": "bunx biome format --write .",
     "format:check": "bunx biome format .",
     "lint": "bunx biome check --write --unsafe .",
@@ -33,6 +35,7 @@
     "docs:audit": "bun run scripts/audit-docs.ts",
     "docs:audit:json": "bun run scripts/audit-docs.ts --json",
     "docs:generate": "bun run scripts/doc-gen/index.ts",
+    "docs:generate:blocks": "bun run scripts/doc-gen/index.ts blocks",
     "docs:generate:tools": "bun run scripts/doc-gen/index.ts tools",
     "docs:generate:triggers": "bun run scripts/doc-gen/index.ts triggers",
     "script:indicator": "bun run scripts/indicators/index.ts"

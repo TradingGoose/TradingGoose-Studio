@@ -30,21 +30,21 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "arxiv_search",
             "options": [
                 {
-                    "label": "Search Papers",
-                    "id": "arxiv_search"
+                    "id": "arxiv_search",
+                    "label": "Search Papers"
                 },
                 {
-                    "label": "Get Paper Details",
-                    "id": "arxiv_get_paper"
+                    "id": "arxiv_get_paper",
+                    "label": "Get Paper Details"
                 },
                 {
-                    "label": "Get Author Papers",
-                    "id": "arxiv_get_author_papers"
+                    "id": "arxiv_get_author_papers",
+                    "label": "Get Author Papers"
                 }
-            ],
-            "defaultValue": "arxiv_search"
+            ]
         },
         {
             "id": "searchQuery",
@@ -59,38 +59,39 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Search Field",
             "layout": "full",
+            "defaultValue": "all",
             "options": [
                 {
-                    "label": "All Fields",
-                    "id": "all"
+                    "id": "all",
+                    "label": "All Fields"
                 },
                 {
-                    "label": "Title",
-                    "id": "ti"
+                    "id": "ti",
+                    "label": "Title"
                 },
                 {
-                    "label": "Author",
-                    "id": "au"
+                    "id": "au",
+                    "label": "Author"
                 },
                 {
-                    "label": "Abstract",
-                    "id": "abs"
+                    "id": "abs",
+                    "label": "Abstract"
                 },
                 {
-                    "label": "Comment",
-                    "id": "co"
+                    "id": "co",
+                    "label": "Comment"
                 },
                 {
-                    "label": "Journal Reference",
-                    "id": "jr"
+                    "id": "jr",
+                    "label": "Journal Reference"
                 },
                 {
-                    "label": "Category",
-                    "id": "cat"
+                    "id": "cat",
+                    "label": "Category"
                 },
                 {
-                    "label": "Report Number",
-                    "id": "rn"
+                    "id": "rn",
+                    "label": "Report Number"
                 }
             ]
         },
@@ -106,18 +107,19 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Sort By",
             "layout": "full",
+            "defaultValue": "relevance",
             "options": [
                 {
-                    "label": "Relevance",
-                    "id": "relevance"
+                    "id": "relevance",
+                    "label": "Relevance"
                 },
                 {
-                    "label": "Last Updated Date",
-                    "id": "lastUpdatedDate"
+                    "id": "lastUpdatedDate",
+                    "label": "Last Updated Date"
                 },
                 {
-                    "label": "Submitted Date",
-                    "id": "submittedDate"
+                    "id": "submittedDate",
+                    "label": "Submitted Date"
                 }
             ]
         },
@@ -126,14 +128,15 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Sort Order",
             "layout": "full",
+            "defaultValue": "descending",
             "options": [
                 {
-                    "label": "Descending",
-                    "id": "descending"
+                    "id": "descending",
+                    "label": "Descending"
                 },
                 {
-                    "label": "Ascending",
-                    "id": "ascending"
+                    "id": "ascending",
+                    "label": "Ascending"
                 }
             ]
         }
@@ -160,18 +163,8 @@ Search for academic papers on ArXiv by keywords, authors, titles, or other field
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | id output |
-| `title` | string | title output |
-| `summary` | string | summary output |
-| `authors` | string | authors output |
-| `published` | string | published output |
-| `updated` | string | updated output |
-| `link` | string | link output |
-| `pdfLink` | string | pdfLink output |
-| `categories` | string | categories output |
-| `primaryCategory` | string | primaryCategory output |
-| `comment` | string | comment output |
-| `journalRef` | string | journalRef output |
+| `papers` | json | Array of papers matching the search query |
+| `totalResults` | number | Total number of results found for the search query |
 
 </div>
 
@@ -193,21 +186,21 @@ Search for academic papers on ArXiv by keywords, authors, titles, or other field
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "arxiv_get_paper",
             "options": [
                 {
-                    "label": "Search Papers",
-                    "id": "arxiv_search"
+                    "id": "arxiv_search",
+                    "label": "Search Papers"
                 },
                 {
-                    "label": "Get Paper Details",
-                    "id": "arxiv_get_paper"
+                    "id": "arxiv_get_paper",
+                    "label": "Get Paper Details"
                 },
                 {
-                    "label": "Get Author Papers",
-                    "id": "arxiv_get_author_papers"
+                    "id": "arxiv_get_author_papers",
+                    "label": "Get Author Papers"
                 }
-            ],
-            "defaultValue": "arxiv_get_paper"
+            ]
         },
         {
             "id": "paperId",
@@ -236,18 +229,7 @@ Get detailed information about a specific ArXiv paper by its ID.
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | id output |
-| `title` | string | title output |
-| `summary` | string | summary output |
-| `authors` | string | authors output |
-| `published` | string | published output |
-| `updated` | string | updated output |
-| `link` | string | link output |
-| `pdfLink` | string | pdfLink output |
-| `categories` | string | categories output |
-| `primaryCategory` | string | primaryCategory output |
-| `comment` | string | comment output |
-| `journalRef` | string | journalRef output |
+| `paper` | json | Detailed information about the requested ArXiv paper |
 
 </div>
 
@@ -269,21 +251,21 @@ Get detailed information about a specific ArXiv paper by its ID.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "arxiv_get_author_papers",
             "options": [
                 {
-                    "label": "Search Papers",
-                    "id": "arxiv_search"
+                    "id": "arxiv_search",
+                    "label": "Search Papers"
                 },
                 {
-                    "label": "Get Paper Details",
-                    "id": "arxiv_get_paper"
+                    "id": "arxiv_get_paper",
+                    "label": "Get Paper Details"
                 },
                 {
-                    "label": "Get Author Papers",
-                    "id": "arxiv_get_author_papers"
+                    "id": "arxiv_get_author_papers",
+                    "label": "Get Author Papers"
                 }
-            ],
-            "defaultValue": "arxiv_get_author_papers"
+            ]
         },
         {
             "id": "authorName",
@@ -320,18 +302,8 @@ Search for papers by a specific author on ArXiv.
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | id output |
-| `title` | string | title output |
-| `summary` | string | summary output |
-| `authors` | string | authors output |
-| `published` | string | published output |
-| `updated` | string | updated output |
-| `link` | string | link output |
-| `pdfLink` | string | pdfLink output |
-| `categories` | string | categories output |
-| `primaryCategory` | string | primaryCategory output |
-| `comment` | string | comment output |
-| `journalRef` | string | journalRef output |
+| `authorPapers` | json | Array of papers authored by the specified author |
+| `totalResults` | number | Total number of papers found for the author |
 
 </div>
 

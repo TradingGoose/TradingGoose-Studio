@@ -1,0 +1,2654 @@
+---
+title: Kalshi
+description: 访问预测市场，在 Kalshi 上交易
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="kalshi"
+  color="#09C285"
+/>
+
+## 配置
+
+### 获取市场
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_markets",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "获取市场"
+                },
+                {
+                    "id": "get_market",
+                    "label": "获取单个市场"
+                },
+                {
+                    "id": "get_events",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "get_event",
+                    "label": "获取单个事件"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "获取余额"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "获取持仓"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "获取订单"
+                },
+                {
+                    "id": "get_order",
+                    "label": "获取单个订单"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "获取订单簿"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "获取成交"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "获取K线"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "获取成交记录"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "按代码获取系列"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "获取交易所状态"
+                },
+                {
+                    "id": "create_order",
+                    "label": "创建订单"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "取消订单"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "修改订单"
+                }
+            ]
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "状态",
+            "options": [
+                {
+                    "id": "",
+                    "label": "全部"
+                },
+                {
+                    "id": "unopened",
+                    "label": "未开放"
+                },
+                {
+                    "id": "open",
+                    "label": "开放"
+                },
+                {
+                    "id": "closed",
+                    "label": "已关闭"
+                },
+                {
+                    "id": "settled",
+                    "label": "已结算"
+                }
+            ]
+        },
+        {
+            "id": "seriesTicker",
+            "type": "short-input",
+            "title": "系列代码",
+            "placeholder": "按系列代码筛选"
+        },
+        {
+            "id": "eventTicker",
+            "type": "short-input",
+            "title": "事件代码",
+            "placeholder": "事件代码"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "条数",
+            "placeholder": "结果数量（1-1000，默认：100）"
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "游标",
+            "placeholder": "分页游标"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取市场列表（<code>kalshi_get_markets</code>）</div>
+
+从 Kalshi 检索预测市场列表，支持可选筛选
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `status` | string | 否 | 按状态筛选 \(unopened、open、closed、settled\) |
+| `seriesTicker` | string | 否 | 按系列代码筛选 |
+| `eventTicker` | string | 否 | 按事件代码筛选 |
+| `limit` | string | 否 | 结果数量 \(1-1000，默认：100\) |
+| `cursor` | string | 否 | 下一页的分页游标 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `markets` | array | 市场对象数组 |
+| `paging` | object | 用于获取更多结果的分页游标 |
+
+</div>
+
+---
+
+### 获取市场
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_market",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "获取市场列表"
+                },
+                {
+                    "id": "get_market",
+                    "label": "获取市场"
+                },
+                {
+                    "id": "get_events",
+                    "label": "获取事件列表"
+                },
+                {
+                    "id": "get_event",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "获取余额"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "获取持仓"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "获取订单列表"
+                },
+                {
+                    "id": "get_order",
+                    "label": "获取订单"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "获取订单簿"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "获取成交"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "获取K线"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "获取成交记录"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "按代码获取系列"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "获取交易所状态"
+                },
+                {
+                    "id": "create_order",
+                    "label": "创建订单"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "取消订单"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "修改订单"
+                }
+            ]
+        },
+        {
+            "id": "ticker",
+            "type": "short-input",
+            "title": "市场代码",
+            "placeholder": "市场代码（例如 KXBTC-24DEC31）",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取市场 (<code>kalshi_get_market</code>)</div>
+
+按代码获取指定预测市场的详细信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `ticker` | string | 是 | 市场代码（例如 "KXBTC-24DEC31"） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `market` | object | 包含详细信息的市场对象 |
+
+</div>
+
+---
+
+### 获取事件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_events",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "获取市场列表"
+                },
+                {
+                    "id": "get_market",
+                    "label": "获取市场"
+                },
+                {
+                    "id": "get_events",
+                    "label": "获取事件列表"
+                },
+                {
+                    "id": "get_event",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "获取余额"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "获取持仓"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "获取订单列表"
+                },
+                {
+                    "id": "get_order",
+                    "label": "获取订单"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "获取订单簿"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "获取成交"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "获取K线"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "获取成交记录"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "按代码获取系列"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "获取交易所状态"
+                },
+                {
+                    "id": "create_order",
+                    "label": "创建订单"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "取消订单"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "修改订单"
+                }
+            ]
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "状态",
+            "options": [
+                {
+                    "id": "",
+                    "label": "全部"
+                },
+                {
+                    "id": "unopened",
+                    "label": "未开放"
+                },
+                {
+                    "id": "open",
+                    "label": "开放"
+                },
+                {
+                    "id": "closed",
+                    "label": "已关闭"
+                },
+                {
+                    "id": "settled",
+                    "label": "已结算"
+                }
+            ]
+        },
+        {
+            "id": "seriesTicker",
+            "type": "short-input",
+            "title": "系列代码",
+            "placeholder": "按系列代码筛选"
+        },
+        {
+            "id": "withNestedMarkets",
+            "type": "dropdown",
+            "title": "包含市场",
+            "options": [
+                {
+                    "id": "",
+                    "label": "否"
+                },
+                {
+                    "id": "true",
+                    "label": "是"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "结果数量（1-1000，默认：100）"
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "游标",
+            "placeholder": "分页游标"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取事件（<code>kalshi_get_events</code>）</div>
+
+从 Kalshi 获取事件列表，可选用筛选条件
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `status` | string | 否 | 按状态筛选（open、closed、settled） |
+| `seriesTicker` | string | 否 | 按系列代码筛选 |
+| `withNestedMarkets` | string | 否 | 在响应中包含嵌套市场（true/false） |
+| `limit` | string | 否 | 结果数量（1-200，默认：200） |
+| `cursor` | string | 否 | 下一页的分页游标 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `events` | array | 事件对象数组 |
+| `paging` | object | 用于获取更多结果的分页游标 |
+
+</div>
+
+---
+
+### 获取单个事件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_event",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "获取市场"
+                },
+                {
+                    "id": "get_market",
+                    "label": "获取单个市场"
+                },
+                {
+                    "id": "get_events",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "get_event",
+                    "label": "获取单个事件"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "获取余额"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "获取持仓"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "获取订单"
+                },
+                {
+                    "id": "get_order",
+                    "label": "获取单个订单"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "获取订单簿"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "获取成交"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "获取K线"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "获取成交记录"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "按代码获取系列"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "获取交易所状态"
+                },
+                {
+                    "id": "create_order",
+                    "label": "创建订单"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "取消订单"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "修改订单"
+                }
+            ]
+        },
+        {
+            "id": "eventTicker",
+            "type": "short-input",
+            "title": "事件代码",
+            "placeholder": "事件代码",
+            "required": true
+        },
+        {
+            "id": "withNestedMarkets",
+            "type": "dropdown",
+            "title": "包含市场",
+            "options": [
+                {
+                    "id": "",
+                    "label": "否"
+                },
+                {
+                    "id": "true",
+                    "label": "是"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取事件（<code>kalshi_get_event</code>）</div>
+
+按 ticker 获取特定事件的详细信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `eventTicker` | string | 是 | 事件 ticker |
+| `withNestedMarkets` | string | 否 | 是否在响应中包含嵌套市场 \(true/false\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `event` | object | 包含详细信息的事件对象 |
+
+</div>
+
+---
+
+### 获取余额
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_balance",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "获取市场列表"
+                },
+                {
+                    "id": "get_market",
+                    "label": "获取市场"
+                },
+                {
+                    "id": "get_events",
+                    "label": "获取事件列表"
+                },
+                {
+                    "id": "get_event",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "获取余额"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "获取持仓"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "获取订单列表"
+                },
+                {
+                    "id": "get_order",
+                    "label": "获取订单"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "获取订单簿"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "获取成交"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "获取K线"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "获取成交明细"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "按 Ticker 获取系列"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "获取交易所状态"
+                },
+                {
+                    "id": "create_order",
+                    "label": "创建订单"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "取消订单"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "修改订单"
+                }
+            ]
+        },
+        {
+            "id": "keyId",
+            "type": "short-input",
+            "title": "API 密钥 ID",
+            "placeholder": "您的 Kalshi API 密钥 ID",
+            "required": true
+        },
+        {
+            "id": "privateKey",
+            "type": "long-input",
+            "title": "私钥",
+            "placeholder": "您的 RSA 私钥（PEM格式）",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取余额 (<code>kalshi_get_balance</code>)</div>
+
+从 Kalshi 获取账户余额和投资组合价值
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `keyId` | string | 是 | 你的 Kalshi API Key ID |
+| `privateKey` | string | 是 | 你的 RSA 私钥（PEM 格式） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `balance` | number | 账户余额（单位：美分） |
+| `portfolioValue` | number | 投资组合价值（单位：美分） |
+
+</div>
+
+---
+
+### 获取持仓
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_positions",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "获取市场"
+                },
+                {
+                    "id": "get_market",
+                    "label": "获取单个市场"
+                },
+                {
+                    "id": "get_events",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "get_event",
+                    "label": "获取单个事件"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "获取余额"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "获取持仓"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "获取订单"
+                },
+                {
+                    "id": "get_order",
+                    "label": "获取单个订单"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "获取订单簿"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "获取成交"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "获取 K 线"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "获取成交明细"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "按代码获取系列"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "获取交易所状态"
+                },
+                {
+                    "id": "create_order",
+                    "label": "创建订单"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "取消订单"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "修改订单"
+                }
+            ]
+        },
+        {
+            "id": "keyId",
+            "type": "short-input",
+            "title": "API Key ID",
+            "placeholder": "你的 Kalshi API Key ID",
+            "required": true
+        },
+        {
+            "id": "privateKey",
+            "type": "long-input",
+            "title": "私钥",
+            "placeholder": "你的 RSA 私钥（PEM 格式）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "eventTicker",
+            "type": "short-input",
+            "title": "事件代码",
+            "placeholder": "事件代码"
+        },
+        {
+            "id": "tickerFilter",
+            "type": "short-input",
+            "title": "市场代码",
+            "placeholder": "按市场代码筛选（可选）"
+        },
+        {
+            "id": "settlementStatus",
+            "type": "dropdown",
+            "title": "结算状态",
+            "options": [
+                {
+                    "id": "",
+                    "label": "全部"
+                },
+                {
+                    "id": "unsettled",
+                    "label": "未结算"
+                },
+                {
+                    "id": "settled",
+                    "label": "已结算"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "结果数量（1-1000，默认：100）"
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "游标",
+            "placeholder": "分页游标"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取持仓 (<code>kalshi_get_positions</code>)</div>
+
+从 Kalshi 检索你的未平仓持仓
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `keyId` | string | 是 | 你的 Kalshi API Key ID |
+| `privateKey` | string | 是 | 你的 RSA 私钥（PEM 格式） |
+| `ticker` | string | 否 | 按市场代码筛选 |
+| `eventTicker` | string | 否 | 按事件代码筛选（最多 10 个，逗号分隔） |
+| `settlementStatus` | string | 否 | 按结算状态筛选（all、unsettled、settled）。默认：unsettled |
+| `limit` | string | 否 | 结果数量（1-1000，默认：100） |
+| `cursor` | string | 否 | 下一页的分页游标 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `positions` | array | 持仓对象数组 |
+| `paging` | object | 用于获取更多结果的分页游标 |
+
+</div>
+
+---
+
+### 获取订单
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_orders",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "获取市场"
+                },
+                {
+                    "id": "get_market",
+                    "label": "获取市场详情"
+                },
+                {
+                    "id": "get_events",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "get_event",
+                    "label": "获取事件详情"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "获取余额"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "获取持仓"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "获取订单"
+                },
+                {
+                    "id": "get_order",
+                    "label": "获取订单详情"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "获取订单簿"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "获取成交"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "获取K线"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "获取成交明细"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "按代码获取序列"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "获取交易所状态"
+                },
+                {
+                    "id": "create_order",
+                    "label": "创建订单"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "取消订单"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "修改订单"
+                }
+            ]
+        },
+        {
+            "id": "keyId",
+            "type": "short-input",
+            "title": "API Key ID",
+            "placeholder": "你的 Kalshi API Key ID",
+            "required": true
+        },
+        {
+            "id": "privateKey",
+            "type": "long-input",
+            "title": "私钥",
+            "placeholder": "你的 RSA 私钥（PEM 格式）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "eventTicker",
+            "type": "short-input",
+            "title": "事件代码",
+            "placeholder": "事件代码"
+        },
+        {
+            "id": "tickerFilter",
+            "type": "short-input",
+            "title": "市场代码",
+            "placeholder": "按市场代码筛选（可选）"
+        },
+        {
+            "id": "orderStatus",
+            "type": "dropdown",
+            "title": "订单状态",
+            "options": [
+                {
+                    "id": "",
+                    "label": "全部"
+                },
+                {
+                    "id": "resting",
+                    "label": "挂单中"
+                },
+                {
+                    "id": "canceled",
+                    "label": "已取消"
+                },
+                {
+                    "id": "executed",
+                    "label": "已成交"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "结果数量（1-1000，默认：100）"
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "游标",
+            "placeholder": "分页游标"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取订单列表 (<code>kalshi_get_orders</code>)</div>
+
+从 Kalshi 获取你的订单，支持可选筛选
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `keyId` | string | 是 | 你的 Kalshi API 密钥 ID |
+| `privateKey` | string | 是 | 你的 RSA 私钥 \(PEM 格式\) |
+| `ticker` | string | 否 | 按市场代码筛选 |
+| `eventTicker` | string | 否 | 按事件代码筛选 \(最多 10 个，逗号分隔\) |
+| `status` | string | 否 | 按状态筛选 \(resting、canceled、executed\) |
+| `limit` | string | 否 | 结果数量 \(1-200，默认：100\) |
+| `cursor` | string | 否 | 下一页的分页游标 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `orders` | array | 订单对象数组 |
+| `paging` | object | 用于获取更多结果的分页游标 |
+
+</div>
+
+---
+
+### 获取订单
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_order",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "获取市场列表"
+                },
+                {
+                    "id": "get_market",
+                    "label": "获取市场"
+                },
+                {
+                    "id": "get_events",
+                    "label": "获取事件列表"
+                },
+                {
+                    "id": "get_event",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "获取余额"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "获取持仓"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "获取订单列表"
+                },
+                {
+                    "id": "get_order",
+                    "label": "获取订单"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "获取订单簿"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "获取成交"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "获取K线"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "获取成交明细"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "按代码获取系列"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "获取交易所状态"
+                },
+                {
+                    "id": "create_order",
+                    "label": "创建订单"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "取消订单"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "修改订单"
+                }
+            ]
+        },
+        {
+            "id": "keyId",
+            "type": "short-input",
+            "title": "API 密钥 ID",
+            "placeholder": "你的 Kalshi API 密钥 ID",
+            "required": true
+        },
+        {
+            "id": "privateKey",
+            "type": "long-input",
+            "title": "私钥",
+            "placeholder": "你的 RSA 私钥（PEM 格式）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "orderIdParam",
+            "type": "short-input",
+            "title": "订单 ID",
+            "placeholder": "订单 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取订单 (<code>kalshi_get_order</code>)</div>
+
+从 Kalshi 按 ID 获取指定订单的详细信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `keyId` | string | 是 | 您的 Kalshi API 密钥 ID |
+| `privateKey` | string | 是 | 您的 RSA 私钥（PEM 格式） |
+| `orderId` | string | 是 | 要获取的订单 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `order` | object | 包含详细信息的订单对象 |
+
+</div>
+
+---
+
+### 获取订单簿
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_orderbook",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "获取市场列表"
+                },
+                {
+                    "id": "get_market",
+                    "label": "获取市场"
+                },
+                {
+                    "id": "get_events",
+                    "label": "获取事件列表"
+                },
+                {
+                    "id": "get_event",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "获取余额"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "获取持仓"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "获取订单列表"
+                },
+                {
+                    "id": "get_order",
+                    "label": "获取订单"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "获取订单簿"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "获取成交"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "获取K线"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "获取成交明细"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "按代码获取系列"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "获取交易所状态"
+                },
+                {
+                    "id": "create_order",
+                    "label": "创建订单"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "取消订单"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "修改订单"
+                }
+            ]
+        },
+        {
+            "id": "ticker",
+            "type": "short-input",
+            "title": "市场代码",
+            "placeholder": "市场代码（例如 KXBTC-24DEC31）",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取订单簿（<code>kalshi_get_orderbook</code>）</div>
+
+获取指定市场的订单簿（是/否买盘）
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `ticker` | string | 是 | 市场代码（例如：KXBTC-24DEC31） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `orderbook` | object | 含是/否买盘与卖盘的订单簿 |
+
+</div>
+
+---
+
+### 获取成交
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_trades",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "获取市场列表"
+                },
+                {
+                    "id": "get_market",
+                    "label": "获取市场"
+                },
+                {
+                    "id": "get_events",
+                    "label": "获取事件列表"
+                },
+                {
+                    "id": "get_event",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "获取余额"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "获取持仓"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "获取订单列表"
+                },
+                {
+                    "id": "get_order",
+                    "label": "获取订单"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "获取订单簿"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "获取成交"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "获取K线"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "获取成交明细"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "按代码获取系列"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "获取交易所状态"
+                },
+                {
+                    "id": "create_order",
+                    "label": "创建订单"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "取消订单"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "修改订单"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "条数",
+            "placeholder": "结果数量（1-1000，默认：100）"
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "游标",
+            "placeholder": "分页游标"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取成交（<code>kalshi_get_trades</code>）</div>
+
+获取所有市场的近期成交
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `limit` | string | 否 | 返回结果数量 \(1-1000，默认：100\) |
+| `cursor` | string | 否 | 下一页的分页游标 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `trades` | array | 成交对象数组 |
+| `paging` | object | 用于获取更多结果的分页游标 |
+
+</div>
+
+---
+
+### 获取K线
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_candlesticks",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "获取市场"
+                },
+                {
+                    "id": "get_market",
+                    "label": "获取单个市场"
+                },
+                {
+                    "id": "get_events",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "get_event",
+                    "label": "获取单个事件"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "获取余额"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "获取持仓"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "获取订单"
+                },
+                {
+                    "id": "get_order",
+                    "label": "获取单个订单"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "获取订单簿"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "获取成交"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "获取K线"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "获取成交明细"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "按代码获取系列"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "获取交易所状态"
+                },
+                {
+                    "id": "create_order",
+                    "label": "创建订单"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "取消订单"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "修改订单"
+                }
+            ]
+        },
+        {
+            "id": "seriesTickerCandlesticks",
+            "type": "short-input",
+            "title": "系列代码",
+            "placeholder": "系列代码",
+            "required": true
+        },
+        {
+            "id": "tickerCandlesticks",
+            "type": "short-input",
+            "title": "市场代码",
+            "placeholder": "市场代码（例如：KXBTC-24DEC31）",
+            "required": true
+        },
+        {
+            "id": "startTs",
+            "type": "short-input",
+            "title": "开始时间戳",
+            "placeholder": "开始时间戳（Unix 秒）",
+            "required": true
+        },
+        {
+            "id": "endTs",
+            "type": "short-input",
+            "title": "结束时间戳",
+            "placeholder": "结束时间戳（Unix 秒）",
+            "required": true
+        },
+        {
+            "id": "periodInterval",
+            "type": "dropdown",
+            "title": "周期",
+            "required": true,
+            "options": [
+                {
+                    "id": "1",
+                    "label": "1分钟"
+                },
+                {
+                    "id": "60",
+                    "label": "1小时"
+                },
+                {
+                    "id": "1440",
+                    "label": "1天"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取K线 (<code>kalshi_get_candlesticks</code>)</div>
+
+获取指定市场的 OHLC K线数据
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `seriesTicker` | string | 是 | 系列代码 |
+| `ticker` | string | 是 | 市场代码 \(例如：KXBTC-24DEC31\) |
+| `startTs` | number | 是 | 开始时间戳 \(Unix 秒\) |
+| `endTs` | number | 是 | 结束时间戳 \(Unix 秒\) |
+| `periodInterval` | number | 是 | 周期间隔：1 \(1分钟\)、60 \(1小时\) 或 1440 \(1天\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `candlesticks` | array | OHLC K线数据数组 |
+
+</div>
+
+---
+
+### 获取成交记录
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_fills",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "获取市场"
+                },
+                {
+                    "id": "get_market",
+                    "label": "获取指定市场"
+                },
+                {
+                    "id": "get_events",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "get_event",
+                    "label": "获取指定事件"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "获取余额"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "获取持仓"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "获取订单"
+                },
+                {
+                    "id": "get_order",
+                    "label": "获取指定订单"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "获取订单簿"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "获取成交"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "获取K线"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "获取成交记录"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "按代码获取系列"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "获取交易所状态"
+                },
+                {
+                    "id": "create_order",
+                    "label": "创建订单"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "取消订单"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "修改订单"
+                }
+            ]
+        },
+        {
+            "id": "keyId",
+            "type": "short-input",
+            "title": "API 密钥 ID",
+            "placeholder": "你的 Kalshi API 密钥 ID",
+            "required": true
+        },
+        {
+            "id": "privateKey",
+            "type": "long-input",
+            "title": "私钥",
+            "placeholder": "你的 RSA 私钥（PEM 格式）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "minTs",
+            "type": "short-input",
+            "title": "最小时间戳",
+            "placeholder": "最小时间戳（Unix 毫秒）"
+        },
+        {
+            "id": "maxTs",
+            "type": "short-input",
+            "title": "最大时间戳",
+            "placeholder": "最大时间戳（Unix 毫秒）"
+        },
+        {
+            "id": "tickerFills",
+            "type": "short-input",
+            "title": "市场代码",
+            "placeholder": "按市场代码筛选（可选）"
+        },
+        {
+            "id": "orderId",
+            "type": "short-input",
+            "title": "订单 ID",
+            "placeholder": "按订单 ID 筛选（可选）"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "条数",
+            "placeholder": "结果数量（1-1000，默认：100）"
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "游标",
+            "placeholder": "分页游标"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取成交（<code>kalshi_get_fills</code>）</div>
+
+从 Kalshi 获取你投资组合的成交/交易记录
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `keyId` | string | 是 | 你的 Kalshi API Key ID |
+| `privateKey` | string | 是 | 你的 RSA 私钥（PEM 格式） |
+| `ticker` | string | 否 | 按市场代码筛选 |
+| `orderId` | string | 否 | 按订单 ID 筛选 |
+| `minTs` | number | 否 | 最小时间戳（Unix 毫秒） |
+| `maxTs` | number | 否 | 最大时间戳（Unix 毫秒） |
+| `limit` | string | 否 | 结果数量（1-1000，默认：100） |
+| `cursor` | string | 否 | 下一页的分页游标 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `fills` | array | 成交/交易对象数组 |
+| `paging` | object | 用于获取更多结果的分页游标 |
+
+</div>
+
+---
+
+### 按代码获取系列
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_series_by_ticker",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "获取市场列表"
+                },
+                {
+                    "id": "get_market",
+                    "label": "获取市场"
+                },
+                {
+                    "id": "get_events",
+                    "label": "获取事件列表"
+                },
+                {
+                    "id": "get_event",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "获取余额"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "获取持仓"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "获取订单列表"
+                },
+                {
+                    "id": "get_order",
+                    "label": "获取订单"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "获取订单簿"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "获取交易"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "获取K线"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "获取成交"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "按代码获取系列"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "获取交易所状态"
+                },
+                {
+                    "id": "create_order",
+                    "label": "创建订单"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "取消订单"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "修改订单"
+                }
+            ]
+        },
+        {
+            "id": "seriesTickerGet",
+            "type": "short-input",
+            "title": "系列代码",
+            "placeholder": "系列代码",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">按代码获取系列 (<code>kalshi_get_series_by_ticker</code>)</div>
+
+按代码获取指定市场系列的详情
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `seriesTicker` | string | 是 | 系列代码 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `series` | object | 包含详情的系列对象 |
+
+</div>
+
+---
+
+### 获取交易所状态
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_exchange_status",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "获取市场列表"
+                },
+                {
+                    "id": "get_market",
+                    "label": "获取市场"
+                },
+                {
+                    "id": "get_events",
+                    "label": "获取事件列表"
+                },
+                {
+                    "id": "get_event",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "获取余额"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "获取持仓"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "获取订单列表"
+                },
+                {
+                    "id": "get_order",
+                    "label": "获取订单"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "获取订单簿"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "获取成交"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "获取K线"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "获取成交记录"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "按代码获取系列"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "获取交易所状态"
+                },
+                {
+                    "id": "create_order",
+                    "label": "创建订单"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "取消订单"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "修改订单"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取交易所状态 (<code>kalshi_get_exchange_status</code>)</div>
+
+获取 Kalshi 交易所的当前状态（交易与交易所活动）
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+此操作没有直接参数。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `status` | object | 带有 trading_active 和 exchange_active 标志的交易所状态 |
+
+</div>
+
+---
+
+### 创建订单
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "create_order",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "获取市场"
+                },
+                {
+                    "id": "get_market",
+                    "label": "获取单个市场"
+                },
+                {
+                    "id": "get_events",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "get_event",
+                    "label": "获取单个事件"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "获取余额"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "获取持仓"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "获取订单"
+                },
+                {
+                    "id": "get_order",
+                    "label": "获取单个订单"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "获取订单簿"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "获取成交"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "获取K线"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "获取成交记录"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "按代码获取系列"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "获取交易所状态"
+                },
+                {
+                    "id": "create_order",
+                    "label": "创建订单"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "取消订单"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "修改订单"
+                }
+            ]
+        },
+        {
+            "id": "keyId",
+            "type": "short-input",
+            "title": "API密钥ID",
+            "placeholder": "您的 Kalshi API密钥ID",
+            "required": true
+        },
+        {
+            "id": "privateKey",
+            "type": "long-input",
+            "title": "私钥",
+            "placeholder": "您的RSA私钥（PEM格式）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tickerOrder",
+            "type": "short-input",
+            "title": "市场代码",
+            "placeholder": "市场代码（例如 KXBTC-24DEC31）",
+            "required": true
+        },
+        {
+            "id": "side",
+            "type": "dropdown",
+            "title": "方向",
+            "required": true,
+            "options": [
+                {
+                    "id": "yes",
+                    "label": "是"
+                },
+                {
+                    "id": "no",
+                    "label": "否"
+                }
+            ]
+        },
+        {
+            "id": "action",
+            "type": "dropdown",
+            "title": "动作",
+            "required": true,
+            "options": [
+                {
+                    "id": "buy",
+                    "label": "买入"
+                },
+                {
+                    "id": "sell",
+                    "label": "卖出"
+                }
+            ]
+        },
+        {
+            "id": "count",
+            "type": "short-input",
+            "title": "合约数量",
+            "placeholder": "合约数量",
+            "required": true
+        },
+        {
+            "id": "orderType",
+            "type": "dropdown",
+            "title": "订单类型",
+            "options": [
+                {
+                    "id": "limit",
+                    "label": "限价"
+                },
+                {
+                    "id": "market",
+                    "label": "市价"
+                }
+            ]
+        },
+        {
+            "id": "yesPrice",
+            "type": "short-input",
+            "title": "是价格（美分）",
+            "placeholder": "是价格，单位为美分（1-99）"
+        },
+        {
+            "id": "noPrice",
+            "type": "short-input",
+            "title": "否价格（美分）",
+            "placeholder": "否价格，单位为美分（1-99）"
+        },
+        {
+            "id": "clientOrderId",
+            "type": "short-input",
+            "title": "客户订单ID",
+            "placeholder": "自定义订单标识（可选）"
+        },
+        {
+            "id": "timeInForce",
+            "type": "dropdown",
+            "title": "有效期",
+            "options": [
+                {
+                    "id": "good_till_canceled",
+                    "label": "撤销前有效"
+                },
+                {
+                    "id": "fill_or_kill",
+                    "label": "全部成交或取消"
+                },
+                {
+                    "id": "immediate_or_cancel",
+                    "label": "立即成交剩余撤销"
+                }
+            ]
+        },
+        {
+            "id": "expirationTs",
+            "type": "short-input",
+            "title": "到期时间",
+            "placeholder": "订单到期的Unix时间戳"
+        },
+        {
+            "id": "postOnly",
+            "type": "dropdown",
+            "title": "只挂单",
+            "options": [
+                {
+                    "id": "",
+                    "label": "否"
+                },
+                {
+                    "id": "true",
+                    "label": "是"
+                }
+            ]
+        },
+        {
+            "id": "reduceOnly",
+            "type": "dropdown",
+            "title": "只减仓",
+            "options": [
+                {
+                    "id": "",
+                    "label": "否"
+                },
+                {
+                    "id": "true",
+                    "label": "是"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建订单（<code>kalshi_create_order</code>）</div>
+
+在 Kalshi 预测市场上创建新订单
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `keyId` | string | 是 | 你的 Kalshi API Key ID |
+| `privateKey` | string | 是 | 你的 RSA 私钥（PEM 格式） |
+| `ticker` | string | 是 | 市场代码（例如 KXBTC-24DEC31） |
+| `side` | string | 是 | 订单方向：'yes' 或 'no' |
+| `action` | string | 是 | 操作类型：'buy' 或 'sell' |
+| `count` | string | 是 | 合约数量（最少 1） |
+| `type` | string | 否 | 订单类型：'limit' 或 'market'（默认：limit） |
+| `yesPrice` | string | 否 | Yes 价格，单位为美分（1–99） |
+| `noPrice` | string | 否 | No 价格，单位为美分（1–99） |
+| `yesPriceDollars` | string | 否 | Yes 价格，单位为美元（例如 "0.56"） |
+| `noPriceDollars` | string | 否 | No 价格，单位为美元（例如 "0.56"） |
+| `clientOrderId` | string | 否 | 自定义订单标识 |
+| `expirationTs` | string | 否 | 订单过期的 Unix 时间戳 |
+| `timeInForce` | string | 否 | 时效：'fill_or_kill'、'good_till_canceled'、'immediate_or_cancel' |
+| `buyMaxCost` | string | 否 | 最大成本，单位为美分（会自动启用 fill_or_kill） |
+| `postOnly` | string | 否 | 设为 'true' 表示仅 maker 订单 |
+| `reduceOnly` | string | 否 | 设为 'true' 表示仅减仓 |
+| `selfTradePreventionType` | string | 否 | 防自成交：'taker_at_cross' 或 'maker' |
+| `orderGroupId` | string | 否 | 关联订单组 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `order` | object | 已创建的订单对象 |
+
+</div>
+
+---
+
+### 取消订单
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "cancel_order",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "获取市场"
+                },
+                {
+                    "id": "get_market",
+                    "label": "获取单个市场"
+                },
+                {
+                    "id": "get_events",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "get_event",
+                    "label": "获取单个事件"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "获取余额"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "获取持仓"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "获取订单"
+                },
+                {
+                    "id": "get_order",
+                    "label": "获取单个订单"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "获取订单簿"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "获取成交"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "获取K线"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "获取成交记录"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "按代码获取系列"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "获取交易所状态"
+                },
+                {
+                    "id": "create_order",
+                    "label": "创建订单"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "取消订单"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "修改订单"
+                }
+            ]
+        },
+        {
+            "id": "keyId",
+            "type": "short-input",
+            "title": "API 密钥 ID",
+            "placeholder": "你的 Kalshi API 密钥 ID",
+            "required": true
+        },
+        {
+            "id": "privateKey",
+            "type": "long-input",
+            "title": "私钥",
+            "placeholder": "你的 RSA 私钥（PEM 格式）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "orderIdParam",
+            "type": "short-input",
+            "title": "订单 ID",
+            "placeholder": "订单 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">取消订单 (<code>kalshi_cancel_order</code>)</div>
+
+取消 Kalshi 上的现有订单
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `keyId` | string | 是 | 你的 Kalshi API Key ID |
+| `privateKey` | string | 是 | 你的 RSA 私钥（PEM 格式） |
+| `orderId` | string | 是 | 要取消的订单 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `order` | object | 已取消的订单对象 |
+| `reducedBy` | number | 已取消的合约数量 |
+
+</div>
+
+---
+
+### 修改订单
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "amend_order",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "获取市场"
+                },
+                {
+                    "id": "get_market",
+                    "label": "获取市场详情"
+                },
+                {
+                    "id": "get_events",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "get_event",
+                    "label": "获取事件详情"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "获取余额"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "获取持仓"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "获取订单"
+                },
+                {
+                    "id": "get_order",
+                    "label": "获取订单详情"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "获取订单簿"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "获取成交"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "获取 K 线"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "获取成交明细"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "按代码获取系列"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "获取交易所状态"
+                },
+                {
+                    "id": "create_order",
+                    "label": "创建订单"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "取消订单"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "修改订单"
+                }
+            ]
+        },
+        {
+            "id": "keyId",
+            "type": "short-input",
+            "title": "API Key ID",
+            "placeholder": "你的 Kalshi API Key ID",
+            "required": true
+        },
+        {
+            "id": "privateKey",
+            "type": "long-input",
+            "title": "私钥",
+            "placeholder": "你的 RSA 私钥（PEM 格式）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "orderIdParam",
+            "type": "short-input",
+            "title": "订单 ID",
+            "placeholder": "订单 ID",
+            "required": true
+        },
+        {
+            "id": "tickerOrder",
+            "type": "short-input",
+            "title": "市场代码",
+            "placeholder": "市场代码（例如 KXBTC-24DEC31）",
+            "required": true
+        },
+        {
+            "id": "side",
+            "type": "dropdown",
+            "title": "方向",
+            "required": true,
+            "options": [
+                {
+                    "id": "yes",
+                    "label": "是"
+                },
+                {
+                    "id": "no",
+                    "label": "否"
+                }
+            ]
+        },
+        {
+            "id": "action",
+            "type": "dropdown",
+            "title": "动作",
+            "required": true,
+            "options": [
+                {
+                    "id": "buy",
+                    "label": "买入"
+                },
+                {
+                    "id": "sell",
+                    "label": "卖出"
+                }
+            ]
+        },
+        {
+            "id": "countAmend",
+            "type": "short-input",
+            "title": "合约数量",
+            "placeholder": "更新后的合约数量（可选）"
+        },
+        {
+            "id": "yesPrice",
+            "type": "short-input",
+            "title": "是价格（美分）",
+            "placeholder": "是价格，单位为美分（1-99）"
+        },
+        {
+            "id": "noPrice",
+            "type": "short-input",
+            "title": "否价格（美分）",
+            "placeholder": "否价格，单位为美分（1-99）"
+        },
+        {
+            "id": "clientOrderIdAmend",
+            "type": "short-input",
+            "title": "客户订单 ID",
+            "placeholder": "原始客户订单 ID",
+            "required": true
+        },
+        {
+            "id": "updatedClientOrderId",
+            "type": "short-input",
+            "title": "新客户订单 ID",
+            "placeholder": "修改后的新客户订单 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">修改订单 (<code>kalshi_amend_order</code>)</div>
+
+修改 Kalshi 上现有订单的价格或数量
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `keyId` | string | 是 | 你的 Kalshi API 密钥 ID |
+| `privateKey` | string | 是 | 你的 RSA 私钥（PEM 格式） |
+| `orderId` | string | 是 | 要修改的订单 ID |
+| `ticker` | string | 是 | 市场代码 |
+| `side` | string | 是 | 订单方向：'yes' 或 'no' |
+| `action` | string | 是 | 操作类型：'buy' 或 'sell' |
+| `clientOrderId` | string | 是 | 原始的客户端指定订单 ID |
+| `updatedClientOrderId` | string | 是 | 修改后的新客户端指定订单 ID |
+| `count` | string | 否 | 更新后的订单数量 |
+| `yesPrice` | string | 否 | 更新后的 yes 价格（美分，1-99） |
+| `noPrice` | string | 否 | 更新后的 no 价格（美分，1-99） |
+| `yesPriceDollars` | string | 否 | 更新后的 yes 价格（美元，例如 "0.56"） |
+| `noPriceDollars` | string | 否 | 更新后的 no 价格（美元，例如 "0.56"） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `order` | object | 修改后的订单对象 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Kalshi 预测市场集成到工作流中。可获取市场列表、单个市场、事件列表、单个事件、余额、持仓、订单、订单簿、成交、K线、成交记录、系列、交易所状态，以及下单/取消/修改交易。
+
+## 备注
+
+- 类别: `tools`
+- 类型: `kalshi`

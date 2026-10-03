@@ -123,8 +123,8 @@ describe('readWorkflowLogsServerTool', () => {
 
   it('returns bounded, redacted details only for the exact selected execution log', async () => {
     mocks.rows[0].executionData = {
-      errorDetails: { error: 'selected failure', apiKey: 'raw-secret' },
-      finalOutput: { result: 'selected output' },
+      errorMessage: 'selected failure',
+      finalOutput: { result: 'selected output', apiKey: 'raw-secret' },
     }
     mocks.rows.push({ ...mocks.rows[0], id: 'log-2', executionId: 'execution-2' })
 
@@ -139,8 +139,8 @@ describe('readWorkflowLogsServerTool', () => {
       expect.objectContaining({
         id: 'log-1',
         executionData: {
-          errorDetails: { apiKey: '[redacted]', error: 'selected failure' },
-          finalOutput: { result: 'selected output' },
+          errorMessage: 'selected failure',
+          finalOutput: { result: 'selected output', apiKey: '[redacted]' },
         },
       }),
     ])
@@ -159,39 +159,46 @@ describe('readWorkflowLogsServerTool', () => {
     expect(mocks.select).not.toHaveBeenCalled()
   })
 
-  it('defaults to bounded summaries without raw inputs, outputs, or error text', async () => {
-    mocks.rows[0].executionData = {
-      traceSpans: [
-        {
-          id: 'span-1',
-          blockId: 'block-1',
-          name: 'Request',
-          type: 'api',
-          status: 'error',
-          input: { apiKey: 'raw-input-secret' },
-          output: { customerPayload: 'raw-output-payload' },
-        },
-      ],
-      errorDetails: {
-        blockId: 'block-1',
-        blockName: 'Request',
-        error: 'raw-free-form-error',
-      },
+  it.each([false, true])(
+    'keeps implicit error summaries private (has trace spans: %s)',
+    async (hasSpans) => {
+      mocks.rows[0].level = 'error'
+      mocks.rows[0].executionData = {
+        errorMessage: 'raw-free-form-error',
+        traceSpans: hasSpans
+          ? [
+              {
+                id: 'span-1',
+                blockId: 'block-1',
+                name: 'Request',
+                type: 'api',
+                status: 'error',
+                input: { apiKey: 'raw-input-secret' },
+                output: { customerPayload: 'raw-output-payload' },
+              },
+            ]
+          : [],
+      }
+
+      const { readWorkflowLogsServerTool } = await import('./read-workflow-logs')
+      const result = await readWorkflowLogsServerTool.execute(
+        { entityId: 'workflow-1' },
+        { userId: 'user-1' }
+      )
+
+      expect(result.entries[0].level).toBe('error')
+      if (hasSpans) {
+        expect(result.entries[0].executionData.traceSummary).toMatchObject({
+          includedSpanCount: 1,
+          errorSpanCount: 1,
+        })
+        expect(result.entries[0].executionData).not.toHaveProperty('traceSpans')
+      } else {
+        expect(result.entries[0]).not.toHaveProperty('executionData')
+      }
+      expect(JSON.stringify(result)).not.toMatch(
+        /raw-(?:input-secret|output-payload|free-form-error)/
+      )
     }
-
-    const { readWorkflowLogsServerTool } = await import('./read-workflow-logs')
-    const result = await readWorkflowLogsServerTool.execute(
-      { entityId: 'workflow-1' },
-      { userId: 'user-1' }
-    )
-
-    expect(result.entries[0].executionData.traceSummary).toMatchObject({
-      includedSpanCount: 1,
-      errorSpanCount: 1,
-    })
-    expect(result.entries[0].executionData).not.toHaveProperty('traceSpans')
-    expect(JSON.stringify(result)).not.toMatch(
-      /raw-(?:input-secret|output-payload|free-form-error)/
-    )
-  })
+  )
 })

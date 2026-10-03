@@ -7,7 +7,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 
 ## Core Triggers
 
-Pick one trigger per workflow to define how it starts:
+A workflow can have multiple trigger entry points. API, Chat, Input Form, and Manual are limited to one block of each type per workflow; this is not a one-trigger-total restriction. Choose the entry point for editor runs.
 
 <Cards>
   <Card title="API" href="/triggers/api">
@@ -43,10 +43,8 @@ Pick one trigger per workflow to define how it starts:
 
 ## Using Triggers
 
-1. Drop the trigger block in the start slot.
+1. Add the trigger block to the canvas.
 2. Configure any required schema or auth.
 3. Connect the block to the rest of the workflow.
 
-> Deployments power every trigger. Update the workflow, redeploy, and all trigger entry points pick up the new snapshot. Learn more in [Execution → Deployment Snapshots](/execution).
-
-Legacy Starter blocks remain for existing flows but no longer appear in new builds.
+> Editor runs execute the current saved workflow. External API, published Chat, schedule, and webhook runs use the deployed snapshot. A child workflow inherits its parent's live/deployed target. Redeploy after changes that should reach external entry points. See [Execution → Deployment Snapshots](/execution).

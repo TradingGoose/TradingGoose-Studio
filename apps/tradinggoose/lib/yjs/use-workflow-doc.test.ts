@@ -31,8 +31,8 @@ afterEach(async () => {
   container?.remove()
   container = null
   vi.resetModules()
-  vi.unmock('@/lib/yjs/workflow-session-host')
-  vi.unmock('@/blocks')
+  vi.doUnmock('@/lib/yjs/workflow-session-host')
+  vi.doUnmock('@/blocks')
 })
 
 afterAll(() => {

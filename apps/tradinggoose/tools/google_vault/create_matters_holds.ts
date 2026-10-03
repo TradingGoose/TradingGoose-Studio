@@ -16,9 +16,24 @@ export const createMattersHoldsTool: ToolConfig<GoogleVaultCreateMattersHoldsPar
   },
 
   params: {
-    accessToken: { type: 'string', required: true, visibility: 'hidden' },
-    matterId: { type: 'string', required: true, visibility: 'user-only' },
-    holdName: { type: 'string', required: true, visibility: 'user-only' },
+    accessToken: {
+      type: 'string',
+      required: true,
+      visibility: 'hidden',
+      description: 'OAuth access token for Google Vault',
+    },
+    matterId: {
+      type: 'string',
+      required: true,
+      visibility: 'user-only',
+      description: 'ID of the Vault matter that will contain the hold',
+    },
+    holdName: {
+      type: 'string',
+      required: true,
+      visibility: 'user-only',
+      description: 'Name for the new Vault hold',
+    },
     corpus: {
       type: 'string',
       required: true,

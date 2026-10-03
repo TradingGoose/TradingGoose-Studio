@@ -48,8 +48,25 @@ function processOutputField(key: string, field: unknown, depth = 0, maxDepth = 1
     return null
   }
 
-  if (field && typeof field === 'object' && 'type' in field) {
-    const typedField = field as { type: string; description?: string }
+  if (field && typeof field === 'object' && 'type' in field && typeof field.type === 'string') {
+    const typedField = field as {
+      type: string
+      description?: string
+      properties?: Record<string, unknown>
+    }
+    if (
+      typedField.type === 'object' &&
+      typedField.properties &&
+      typeof typedField.properties === 'object' &&
+      !Array.isArray(typedField.properties)
+    ) {
+      return Object.fromEntries(
+        Object.entries(typedField.properties).map(([nestedKey, nestedField]) => [
+          nestedKey,
+          processOutputField(nestedKey, nestedField, depth + 1, maxDepth),
+        ])
+      )
+    }
     return generateMockValue(typedField.type, typedField.description, key)
   }
 

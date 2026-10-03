@@ -13,8 +13,11 @@ import {
   resolveSeriesBoundsMs,
 } from '@/providers/market/market-hours'
 import type { MarketProviderRequest, MarketProviderResponse } from '@/providers/market/providers'
+import { getMarketProviderDefinition } from '@/providers/market/providers'
+import { robinhoodProvider } from '@/providers/market/robinhood'
 import { applySeriesWindow, planMarketSeriesRequest } from '@/providers/market/series-planner'
 import type {
+  MarketProviderRequestContext,
   MarketSeries,
   MarketSeriesRequest,
   MarketSessionWindow,
@@ -24,6 +27,7 @@ import { YahooFinanceProvider } from '@/providers/market/yahoo-finance'
 const logger = createLogger('MarketProviders')
 
 const providers = {
+  robinhood: robinhoodProvider,
   'alpha-vantage': alphaVantageProvider,
   alpaca: alpacaProvider,
   finnhub: finnhubProvider,
@@ -49,7 +53,8 @@ export function getProvider(providerId: string) {
 
 export async function executeProviderRequest(
   providerId: string,
-  request: MarketProviderRequest
+  request: MarketProviderRequest,
+  context?: MarketProviderRequestContext
 ): Promise<MarketProviderResponse> {
   const provider = getProvider(providerId)
   if (!provider) {
@@ -62,7 +67,10 @@ export async function executeProviderRequest(
   }
 
   const availability = provider.config.availability
-  const supportsKind = availability[request.kind] ?? false
+  const supportsKind =
+    request.kind === 'quote'
+      ? Boolean(provider.fetchMarketQuote)
+      : (availability[request.kind] ?? false)
 
   if (!supportsKind) {
     throw new MarketProviderError({
@@ -73,7 +81,34 @@ export async function executeProviderRequest(
     })
   }
 
+  const oauth = getMarketProviderDefinition(provider.id)?.oauth
+  if (oauth) {
+    const { refreshAccessTokenIfNeeded } = await import('@/lib/oauth/tokens')
+    const credentialId = request.providerParams?.credentialId
+    const hasConnection = typeof credentialId === 'string' && credentialId.trim().length > 0
+    const accessToken =
+      context?.userId && hasConnection
+        ? await refreshAccessTokenIfNeeded(
+            credentialId.trim(),
+            context.userId,
+            context.requestId ?? crypto.randomUUID(),
+            oauth.provider
+          )
+        : null
+    if (!accessToken) {
+      throw new MarketProviderError({
+        code: 'INVALID REQUEST',
+        message: 'Select or reconnect your market provider connection',
+        status: !context?.userId || hasConnection ? 401 : 400,
+        provider: provider.id,
+      })
+    }
+    request = { ...request, auth: { accessToken } }
+  }
+
   switch (request.kind) {
+    case 'quote':
+      return provider.fetchMarketQuote!(request)
     case 'series': {
       if (!provider.fetchMarketSeries) {
         throw new MarketProviderError({
@@ -144,7 +179,12 @@ export async function executeProviderRequest(
           }
         }
       }
-      const adjustedRequest = await clampToMarketSession(sessionAdjustedRequest)
+      const sessionInterval =
+        sessionAdjustedRequest.interval ||
+        (sessionAdjustedRequest.providerParams?.interval as string | undefined)
+      const adjustedRequest = isIntradayInterval(sessionInterval)
+        ? await clampToMarketSession(sessionAdjustedRequest)
+        : sessionAdjustedRequest
       const response = await provider.fetchMarketSeries(adjustedRequest)
       let marketSessions: MarketSessionWindow[] | null = null
       if (
@@ -162,8 +202,6 @@ export async function executeProviderRequest(
           )
         }
       }
-      const sessionInterval =
-        adjustedRequest.interval || (adjustedRequest.providerParams?.interval as string | undefined)
       const sessionMode =
         sessionPref === 'regular' || sessionPref === 'extended' ? sessionPref : null
       const shouldFilterSessions = Boolean(

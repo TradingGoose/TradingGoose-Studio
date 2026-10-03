@@ -9,8 +9,6 @@ export interface LoadingAgentProps {
 }
 
 export function LoadingAgent({ size = 'md' }: LoadingAgentProps) {
-  const pathLength = 120
-
   const sizes = {
     sm: { width: 16, height: 18 },
     md: { width: 21, height: 24 },
@@ -27,7 +25,7 @@ export function LoadingAgent({ size = 'md' }: LoadingAgentProps) {
       fill='none'
       xmlns='http://www.w3.org/2000/svg'
     >
-      <g stroke='var(--primary)' strokeWidth='1'>
+      <g stroke='hsl(var(--primary))' strokeWidth='1'>
         <circle cx='12' cy='12' r='9.5' fill='none' strokeLinecap='round' strokeWidth='3'>
           <animate
             attributeName='stroke-dasharray'
@@ -56,21 +54,6 @@ export function LoadingAgent({ size = 'md' }: LoadingAgentProps) {
           values='0 12 12;360 12 12'
         />
       </g>
-      <style>
-        {`
-          @keyframes dashLoop {
-            0% {
-              stroke-dashoffset: ${pathLength};
-            }
-            50% {
-              stroke-dashoffset: 0;
-            }
-            100% {
-              stroke-dashoffset: ${pathLength};
-            }
-          }
-        `}
-      </style>
     </svg>
   )
 }

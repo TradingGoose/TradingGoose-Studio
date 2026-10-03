@@ -18,7 +18,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 Trigger workflow from Airtable record changes like create, update, and delete events (requires Airtable credentials)
 
 <Callout type="info">
-  This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
+  This is a **webhook-based** trigger. Configure the external service to send events to the workflow webhook URL.
 </Callout>
 
 <Cards>
@@ -27,6 +27,10 @@ Trigger workflow from Airtable record changes like create, update, and delete ev
   </Card>
 </Cards>
 
+
+## Setup Instructions
+
+<div class="mb-3"><strong>1.</strong> Connect your Airtable account using the "Select Airtable credential" button above.</div><div class="mb-3"><strong>2.</strong> Ensure you have provided the correct Base ID and Table ID above.</div><div class="mb-3"><strong>3.</strong> You can find your Base ID in the Airtable URL: https://airtable.com/[baseId]/...</div><div class="mb-3"><strong>4.</strong> You can find your Table ID by clicking on the table name and looking in the URL.</div><div class="mb-3"><strong>5.</strong> The webhook will trigger whenever records are created, updated, or deleted in the specified table.</div><div class="mb-3"><strong>6.</strong> Make sure your Airtable account has appropriate permissions for the specified base.</div>
 
 ## Configuration
 
@@ -41,6 +45,7 @@ Trigger workflow from Airtable record changes like create, update, and delete ev
             "type": "oauth-input",
             "title": "Credentials",
             "description": "This trigger requires airtable credentials to access your account.",
+            "provider": "airtable",
             "required": true
         },
         {
@@ -63,13 +68,14 @@ Trigger workflow from Airtable record changes like create, update, and delete ev
             "id": "includeCellValues",
             "type": "switch",
             "title": "Include Full Record Data",
-            "description": "Enable to receive the complete record data in the payload, not just changes."
+            "description": "Enable to receive the complete record data in the payload, not just changes.",
+            "defaultValue": false
         }
     ]}
   />
 </ShowcaseCard>
 
-#### Output Schema
+## Output Schema
 
 <SchemaTree
   title="Event Payload"
@@ -82,7 +88,6 @@ Trigger workflow from Airtable record changes like create, update, and delete ev
       {
           "name": "latestPayload",
           "type": "object",
-          "description": "latestPayload",
           "children": [
               {
                   "name": "timestamp",
@@ -97,7 +102,6 @@ Trigger workflow from Airtable record changes like create, update, and delete ev
               {
                   "name": "actionMetadata",
                   "type": "object",
-                  "description": "actionMetadata",
                   "children": [
                       {
                           "name": "source",
@@ -107,7 +111,6 @@ Trigger workflow from Airtable record changes like create, update, and delete ev
                       {
                           "name": "sourceMetadata",
                           "type": "object",
-                          "description": "sourceMetadata",
                           "children": [
                               {
                                   "name": "pageId",
@@ -137,5 +140,3 @@ Trigger workflow from Airtable record changes like create, update, and delete ev
       }
   ]}
 />
-
-

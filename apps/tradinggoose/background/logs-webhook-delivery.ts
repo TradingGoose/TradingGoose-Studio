@@ -41,6 +41,7 @@ interface WebhookPayload {
     cost?: any
     files?: any
     finalOutput?: any
+    errorMessage?: string
     traceSpans?: any[]
     rateLimits?: {
       sync: {
@@ -234,6 +235,10 @@ export const logsWebhookDelivery = task({
           totalDurationMs: log.totalDurationMs,
           cost: log.cost,
           files: (log as any).files,
+          ...((subscriptionSnapshot.includeFinalOutput || subscriptionSnapshot.includeTraceSpans) &&
+          typeof executionData.errorMessage === 'string'
+            ? { errorMessage: executionData.errorMessage }
+            : {}),
           ...(webhookExecutionData.finalOutput !== undefined
             ? { finalOutput: webhookExecutionData.finalOutput }
             : {}),

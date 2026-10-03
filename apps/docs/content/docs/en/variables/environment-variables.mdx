@@ -19,15 +19,15 @@ Workspace environment variables take precedence over personal ones when there's 
 
 ## Setting up Environment Variables
 
-Navigate to **Settings** to configure your environment variables. From your workspace settings, you can create and manage both personal and workspace-level environment variables. Personal variables are private to your account, while workspace variables are shared with all team members.
+Open **Environment** from the workspace navigation. Choose the **Workspace** or **Personal** view in the header, then use its create button to add a variable in that scope.
 
-### Making Variables Workspace-Scoped
+### Choosing a Scope
 
-Use the workspace scope toggle to make variables available to your entire team. When you enable workspace scope, the variable becomes available to all workspace members and can be used in any workflow within that workspace.
+Create shared secrets in the **Workspace** view and account-specific secrets in **Personal**. The selected view determines the scope of new variables; there is no per-variable workspace-scope toggle.
 
 ### Workspace Variables View
 
-Once you have workspace-scoped variables, they appear in your environment variables list alongside your personal variables, clearly labeled with their scope.
+Workspace and personal variables appear in separate views, not a mixed list. Switch views to manage the other scope. Both scopes can be resolved during workflow execution, with workspace values taking precedence for duplicate names.
 
 ## Using Variables in Workflows
 

@@ -1,0 +1,122 @@
+---
+title: 循环
+description: 通过迭代控制多次重复执行块
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+
+<BlockInfoCard
+  type="loop"
+  color=""
+/>
+
+循环块是一个容器，会重复执行其中的块。它并非拥有自身源文件的常规块 —— 它是由执行器的 `LoopBlockHandler` 管理的特殊包装节点。将块拖入循环容器后，它们会在每次迭代中运行一次。
+
+<Callout type="info">
+  循环块是容器节点。在画布上将子块拖入循环内部。传入边从 Loop Start 进入，子块输出重新连接到 Loop End，之后工作流才继续在循环外部执行。
+</Callout>
+
+## 循环类型
+
+<Tabs items={['For', 'ForEach', 'While', 'Do-While']}>
+  <Tab>
+    **For 循环** -- 运行固定次数。若未指定，默认迭代次数为 **5**。
+
+    ```
+    Example: Run 3 times
+    - Iteration 1 (index 0)
+    - Iteration 2 (index 1)
+    - Iteration 3 (index 2)
+    ```
+
+  </Tab>
+  <Tab>
+    **ForEach 循环** -- 遍历数组或对象中的每一项。集合必须非空；空集合会抛出错误。
+
+    ```
+    Example: Process ["apple", "banana", "orange"]
+    - Iteration 1: currentItem = "apple"
+    - Iteration 2: currentItem = "banana"
+    - Iteration 3: currentItem = "orange"
+    ```
+
+    对于对象，每次迭代接收一个 `[key, value]` 键值对。
+  </Tab>
+  <Tab>
+    **While 循环** -- 在每次迭代**之前**评估条件。如果首次检查时条件为假，循环体不会执行。
+
+    While 和 Do-While 没有单独的循环迭代上限，但仍受工作流超时和执行器最多 500 次调度轮次的限制。一次调度不等于一次循环迭代；可完成的迭代数取决于工作流结构。
+  </Tab>
+  <Tab>
+    **Do-While 循环** -- 至少执行一次循环体，然后在每次迭代**之后**评估条件。当你需要在检查前至少执行一遍时很有用。
+  </Tab>
+</Tabs>
+
+## 工作原理
+
+执行器的 `LoopBlockHandler` 负责迭代控制：
+
+1. **初始化** —— 循环计数器从 1 开始。对于 `forEach` 循环，会解析集合（JSON、变量引用或表达式）。
+2. **检查是否继续** —— `for`/`forEach` 将计数器与集合长度或迭代次数进行比较。`while`/`doWhile` 使用与 Condition 块相同的引擎计算条件表达式。
+3. **激活子节点** —— 连接到循环内部起始句柄的块会被放入活动执行路径。
+4. **收集结果** —— For 和 For Each 每次迭代的输出会汇总到容器的 `results` 输出中。
+5. **递增并重复** —— 计数器递增，然后重新执行第 2 步。循环结束时，连接到循环出口句柄的块会被激活。
+
+## 迭代变量
+
+在循环体内，可以使用以下变量：
+
+| 变量 | 类型 | 说明 |
+|---|---|---|
+| `loop.index` | number | 当前迭代的从零开始的索引 |
+| `loop.currentItem` | any | 当前项（ForEach 循环）或循环上下文（While 循环） |
+| `loop.items` | array/object | 正在迭代的完整集合（仅限 ForEach） |
+
+For 或 For Each 循环完成后，下游块可以访问 `results`。在引用下拉菜单中选择容器的输出，并将 `loop-id` 替换为该容器的实际 ID。While 和 Do While 的完成输出不包含 `results`。
+
+| 变量 | 类型 | 说明 |
+|---|---|---|
+| `<loop-id.results>` | array | 按迭代顺序分组的子块输出 |
+
+## 配置
+
+| 参数 | 适用范围 | 说明 |
+|---|---|---|
+| **循环类型** | 全部 | `for`、`forEach`、`while` 或 `doWhile` |
+| **迭代次数** | For | 重复次数（默认：5） |
+| **集合** | ForEach | 要迭代的数组或对象。支持 JSON 字面量、`<block.output>` 引用和表达式。 |
+| **条件** | While / Do-While | 每次迭代都会计算的布尔表达式（例如 `<variable.i> < 10`） |
+
+## 示例用例
+
+### 处理 API 结果
+
+1. 一个 API 块获取客户记录列表。
+2. 一个 ForEach 循环遍历每个客户。
+3. 循环内，一个 Agent 分析客户数据，一个 Function 存储结果。
+4. 循环结束后，一个 Response 块通过 `<loop-id.results>` 返回聚合结果。
+
+### 迭代优化
+
+1. 一个 For 循环设置为 5 次迭代，生成内容变体。
+2. 循环内，一个 Agent 生成草稿，一个 Evaluator 为其评分。
+3. 循环结束后，一个 Function 从 `<loop-id.results>` 中选择得分最高的变体。
+
+## 限制
+
+<Callout type="warning">
+  容器块（循环和并行）**不能相互嵌套**。你不能在一个循环内放置另一个循环，也不能在一个循环内放置并行块。如果需要多维迭代，请重新组织工作流，改用顺序循环，或分阶段处理数据。
+</Callout>
+
+<Callout type="info">
+  循环**按顺序**执行迭代。如需并发执行独立任务，请改用并行块。
+</Callout>
+
+## 最佳实践
+
+- **为 For 循环设置合理的迭代次数**，避免工作流长时间运行。默认值为 5。
+- **集合使用 ForEach** —— 它会自动按集合长度调整，并为你提供 `currentItem`。
+- **始终更新 While/Do-While 循环中的条件变量**。忘记修改条件所依赖的变量会导致无限循环（受执行器调度上限及工作流超时限制）。

@@ -14,13 +14,21 @@ const mocks = vi.hoisted(() => ({
   settlePendingExecutionOwner: vi.fn(),
   logLimit: vi.fn(),
   loggerError: vi.fn(),
-  loggingCompleteWithError: vi.fn(),
+  loggingComplete: vi.fn(),
+  completeWorkflowExecution: vi.fn(),
+  settleWorkflowExecutionUsage: vi.fn(),
   loggingStart: vi.fn(),
   cancelPendingExecutionTriggerRun: vi.fn(),
   triggerAndWait: vi.fn(),
   waitFor: vi.fn(),
   wakePendingExecution: vi.fn(),
   task: vi.fn((config) => ({ ...config, triggerAndWait: mocks.triggerAndWait })),
+  completeWorkflowCheckpointChild: vi.fn(),
+  readWorkflowCheckpointChildren: vi.fn(),
+  readWorkflowCheckpointSnapshot: vi.fn(),
+  readWorkflowExecutionEventState: vi.fn(),
+  recoverWorkflowCheckpointSegment: vi.fn(),
+  settleScheduleOccurrence: vi.fn(),
 }))
 
 vi.mock('@trigger.dev/sdk', () => ({
@@ -75,14 +83,30 @@ vi.mock('@/lib/logs/execution/logging-session', () => ({
   LoggingSession: vi.fn().mockImplementation(function () {
     void new.target
     return {
-      completeWithError: mocks.loggingCompleteWithError,
+      complete: mocks.loggingComplete,
       start: mocks.loggingStart,
     }
   }),
 }))
+vi.mock('@/lib/logs/execution/logger', () => ({
+  executionLogger: {
+    completeWorkflowExecution: mocks.completeWorkflowExecution,
+    settleWorkflowExecutionUsage: mocks.settleWorkflowExecutionUsage,
+  },
+}))
+vi.mock('@/lib/telemetry/tracer', () => ({ trackPlatformEvent: vi.fn() }))
 
 vi.mock('@/lib/workflows/queued-execution-cancellation', () => ({
   cancelPendingWorkflowExecution: mocks.cancelPendingWorkflowExecution,
+}))
+vi.mock('@/lib/workflows/human-in-the-loop/service', () => ({
+  completeWorkflowCheckpointChild: mocks.completeWorkflowCheckpointChild,
+  readWorkflowCheckpointChildren: mocks.readWorkflowCheckpointChildren,
+  readWorkflowCheckpointSnapshot: mocks.readWorkflowCheckpointSnapshot,
+  recoverWorkflowCheckpointSegment: mocks.recoverWorkflowCheckpointSegment,
+}))
+vi.mock('@/lib/execution/workflow-execution-events', () => ({
+  readWorkflowExecutionEventState: mocks.readWorkflowExecutionEventState,
 }))
 
 vi.mock('./knowledge-processing', () => ({
@@ -92,11 +116,17 @@ vi.mock('./knowledge-processing', () => ({
 vi.mock('./pending-execution-job', () => ({
   executePendingExecutionJob: mocks.executePendingExecutionJob,
 }))
+vi.mock('./schedule-execution', () => ({
+  isScheduleExecutionPayload: () => true,
+  settleScheduleOccurrence: mocks.settleScheduleOccurrence,
+}))
 
 import {
+  cancelPendingExecutionDescendants,
   finalizePendingExecutionFailure,
   pendingExecutionRunTask,
   pendingExecutionTask,
+  terminalizeWorkflowExecution,
 } from './pending-execution-worker'
 
 const processingRow = (overrides: Partial<PendingExecutionClaim> = {}): PendingExecutionClaim => ({
@@ -116,6 +146,30 @@ const processingRow = (overrides: Partial<PendingExecutionClaim> = {}): PendingE
   updatedAt: new Date('2026-08-13T16:00:00.000Z'),
   ...overrides,
 })
+
+function queuedChildScenario(resumed = false) {
+  const parent = processingRow()
+  const childExecutionId = 'child-1'
+  const child = processingRow({
+    id: resumed ? `${childExecutionId}:resume:1` : childExecutionId,
+    source: resumed ? 'human_in_the_loop' : 'workflow_block',
+    payload: resumed ? { resumeExecutionId: childExecutionId } : {},
+  })
+  mocks.listChildPendingWorkflowExecutions.mockImplementation(async ({ executionId: id }) =>
+    id === parent.id && !resumed ? [child] : []
+  )
+  mocks.readWorkflowCheckpointChildren.mockImplementation(async (id) =>
+    id === parent.id ? [{ id: childExecutionId, userId: child.userId }] : []
+  )
+  mocks.cancelPendingWorkflowExecution.mockResolvedValue({
+    status: 'cancelling',
+    pendingExecutionId: child.id,
+  })
+  mocks.getProcessingPendingExecution.mockImplementation(async (id) =>
+    id === child.id ? child : null
+  )
+  return { parent, child, childExecutionId }
+}
 
 const runExecution = (pendingExecutionId: string) =>
   (
@@ -154,7 +208,8 @@ describe('pending execution worker', () => {
     mocks.listChildPendingWorkflowExecutions.mockResolvedValue([])
     mocks.settlePendingExecutionOwner.mockResolvedValue(undefined)
     mocks.logLimit.mockResolvedValue([])
-    mocks.loggingCompleteWithError.mockResolvedValue(undefined)
+    mocks.loggingComplete.mockResolvedValue(undefined)
+    mocks.settleWorkflowExecutionUsage.mockResolvedValue(undefined)
     mocks.loggingStart.mockResolvedValue('workflow-log-1')
     mocks.triggerAndWait.mockResolvedValue({
       ok: true,
@@ -164,6 +219,10 @@ describe('pending execution worker', () => {
     })
     mocks.waitFor.mockResolvedValue(undefined)
     mocks.wakePendingExecution.mockResolvedValue({ status: 'empty' })
+    mocks.readWorkflowCheckpointChildren.mockResolvedValue([])
+    mocks.readWorkflowCheckpointSnapshot.mockResolvedValue(null)
+    mocks.readWorkflowExecutionEventState.mockResolvedValue(null)
+    mocks.recoverWorkflowCheckpointSegment.mockResolvedValue(false)
   })
 
   it('executes exactly the claimed row and releases capacity', async () => {
@@ -272,15 +331,16 @@ describe('pending execution worker', () => {
       'Workflow execution time limit exceeded'
     )
 
-    expect(mocks.loggingCompleteWithError).toHaveBeenCalledWith(
+    expect(mocks.loggingComplete).toHaveBeenCalledWith(
       expect.objectContaining({
         totalDurationMs: 45_000,
-        error: { message: 'Workflow execution time limit exceeded' },
+        success: false,
+        failureReason: 'Workflow execution time limit exceeded',
       })
     )
     expect(mocks.settlePendingExecutionOwner).toHaveBeenCalledWith(row, { wake: false })
     expect(mocks.wakePendingExecution).toHaveBeenCalledOnce()
-    expect(mocks.loggingCompleteWithError.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(mocks.loggingComplete.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.settlePendingExecutionOwner.mock.invocationCallOrder[0]
     )
   })
@@ -294,7 +354,7 @@ describe('pending execution worker', () => {
 
     await expect(runExecution(row.id)).rejects.toThrow('Execution infrastructure failed')
 
-    expect(mocks.loggingCompleteWithError).not.toHaveBeenCalled()
+    expect(mocks.loggingComplete).not.toHaveBeenCalled()
     expect(mocks.settlePendingExecutionOwner).not.toHaveBeenCalled()
   })
 
@@ -341,76 +401,395 @@ describe('pending execution worker', () => {
     expect(mocks.settlePendingExecutionOwner).toHaveBeenCalledWith(row, { wake: false })
   })
 
-  it('settles a child and its parent after Trigger confirms cancellation', async () => {
-    const parent = processingRow()
-    const child = processingRow({ id: 'child-1', source: 'workflow_block' })
-    mocks.listChildPendingWorkflowExecutions.mockImplementation((id) =>
-      Promise.resolve(id === child.id ? [] : [child])
-    )
-    mocks.getProcessingPendingExecution.mockImplementation((id) =>
-      Promise.resolve(id === child.id ? child : null)
-    )
-    mocks.cancelPendingExecutionTriggerRun.mockResolvedValueOnce({
-      type: 'run',
-      run: { status: 'CANCELED', durationMs: 1_000 },
-    })
-
-    await finalizePendingExecutionFailure(parent, 'Parent failed', 1_000)
-
-    expect(mocks.cancelPendingWorkflowExecution).toHaveBeenCalledWith({
-      pendingExecutionId: child.id,
-      userId: child.userId,
-      wake: false,
-    })
-    expect(mocks.loggingCompleteWithError).toHaveBeenCalledWith(
-      expect.objectContaining({
-        totalDurationMs: 1_000,
-        error: { message: 'Workflow execution was cancelled' },
+  it.each(['workflow', 'webhook', 'monitor'] as const)(
+    'preserves a newer %s checkpoint when old-segment maintenance fails',
+    async (executionType) => {
+      const row = processingRow({
+        executionType,
+        id: 'original:resume:1',
+        payload: { resumeExecutionId: 'original', checkpointRevision: 1 },
       })
+      mocks.recoverWorkflowCheckpointSegment.mockResolvedValueOnce(true)
+      expect(await finalizePendingExecutionFailure(row, 'Wake failed', 500)).toBe(true)
+      expect(mocks.recoverWorkflowCheckpointSegment).toHaveBeenCalledWith({
+        executionId: 'original',
+        userId: 'user-1',
+        workflowId: 'workflow-1',
+        checkpointRevision: 1,
+      })
+      expect(mocks.loggingComplete).not.toHaveBeenCalled()
+      expect(mocks.cancelPendingWorkflowExecution).not.toHaveBeenCalled()
+      expect(mocks.settlePendingExecutionOwner).toHaveBeenCalledWith(row, { wake: false })
+    }
+  )
+
+  it('retries schedule advancement after checkpoint recovery before releasing the occurrence', async () => {
+    const row = processingRow({
+      executionType: 'schedule',
+      payload: {
+        scheduleId: 'schedule-1',
+        workflowId: 'workflow-1',
+        executionId: 'pending-workflow-1',
+        blockId: 'trigger-1',
+        cronExpression: '*/2 * * * *',
+        utcOffset: 0,
+        now: '2026-09-16T12:00:00Z',
+      },
+    })
+    mocks.getProcessingPendingExecution.mockResolvedValue(row)
+    mocks.triggerAndWait.mockImplementation(async () => {
+      try {
+        return { ok: true, output: await runExecution(row.id) }
+      } catch (error) {
+        return { ok: false, error }
+      }
+    })
+    mocks.recoverWorkflowCheckpointSegment.mockResolvedValue(true)
+    mocks.settleScheduleOccurrence
+      .mockRejectedValueOnce(new Error('Schedule write failed'))
+      .mockRejectedValueOnce(new Error('Schedule still unavailable'))
+      .mockResolvedValueOnce(undefined)
+
+    await expect(runSupervisor(row.id)).rejects.toThrow('Schedule still unavailable')
+    expect(mocks.settlePendingExecutionOwner).not.toHaveBeenCalled()
+    expect(mocks.wakePendingExecution).not.toHaveBeenCalled()
+
+    await expect(runSupervisor(row.id)).resolves.toMatchObject({ success: true })
+    expect(mocks.settleScheduleOccurrence).toHaveBeenCalledTimes(3)
+    expect(mocks.settleScheduleOccurrence).toHaveBeenLastCalledWith(row.payload, 'success')
+    expect(mocks.settleScheduleOccurrence.mock.invocationCallOrder[2]).toBeLessThan(
+      mocks.settlePendingExecutionOwner.mock.invocationCallOrder[0]
     )
-    expect(mocks.settlePendingExecutionOwner).toHaveBeenNthCalledWith(1, child, {
-      wake: false,
-    })
-    expect(mocks.settlePendingExecutionOwner).toHaveBeenNthCalledWith(2, parent, {
-      wake: false,
-    })
+    expect(mocks.executePendingExecutionJob).not.toHaveBeenCalled()
+    expect(mocks.loggingComplete).not.toHaveBeenCalled()
+    expect(mocks.cancelPendingWorkflowExecution).not.toHaveBeenCalled()
+  })
+
+  it('retains the owner for supervisor retry while checkpoint reconciliation remains unavailable', async () => {
+    mocks.recoverWorkflowCheckpointSegment.mockRejectedValueOnce(new Error('Database unavailable'))
+    await expect(
+      finalizePendingExecutionFailure(processingRow(), 'Wake failed', 500)
+    ).rejects.toThrow('Database unavailable')
+    expect(mocks.settlePendingExecutionOwner).not.toHaveBeenCalled()
+    expect(mocks.loggingComplete).not.toHaveBeenCalled()
   })
 
   it.each([
-    ['a local child', { type: 'local' }],
-    ['a missing Trigger run', { type: 'missing' }],
-    ['a non-cancelled terminal run', { type: 'run', run: { status: 'FAILED', durationMs: 1_000 } }],
-  ])('keeps parent capacity for %s', async (_scenario, cancellation) => {
-    const parent = processingRow()
-    const child = processingRow({ id: 'child-1', source: 'workflow_block' })
-    mocks.listChildPendingWorkflowExecutions.mockImplementation((id) =>
-      Promise.resolve(id === child.id ? [] : [child])
+    ['Permission revoked', 500],
+    ['Workflow execution was cancelled', 500],
+    ['Workflow execution was cancelled', 0],
+  ] as const)(
+    'restores active duration and costs once after multiple pauses: %s (%sms current attempt)',
+    async (message, durationMs) => {
+      const row = processingRow({
+        id: 'original:resume:2',
+        source: 'human_in_the_loop',
+        payload: { resumeExecutionId: 'original' },
+      })
+      const { LoggingSession } = await vi.importActual<
+        typeof import('@/lib/logs/execution/logging-session')
+      >('@/lib/logs/execution/logging-session')
+      mocks.loggingComplete.mockImplementationOnce((params) =>
+        new LoggingSession('workflow-1', 'original', 'manual', undefined, 'original-log').complete(
+          params
+        )
+      )
+      mocks.logLimit.mockResolvedValueOnce([{ id: 'original-log', endedAt: null }])
+      mocks.readWorkflowCheckpointSnapshot.mockResolvedValueOnce({
+        triggerType: 'manual',
+        executor: {
+          context: {
+            blockLogs: [
+              {
+                blockId: 'before-pause',
+                blockType: 'agent',
+                startedAt: '2026-09-01T00:00:00Z',
+                endedAt: '2026-09-01T00:00:01Z',
+                durationMs: 1000,
+                success: true,
+                output: {
+                  model: 'test-model',
+                  cost: { total: 2 },
+                  tokens: { prompt: 100, completion: 50, total: 150 },
+                },
+              },
+              {
+                blockId: 'between-pauses',
+                blockType: 'function',
+                startedAt: '2026-09-01T06:00:00Z',
+                endedAt: '2026-09-01T06:00:04Z',
+                durationMs: 4000,
+                success: true,
+                output: {},
+              },
+            ],
+            metadata: { duration: 5000 },
+          },
+        },
+      })
+      await finalizePendingExecutionFailure(row, message, durationMs)
+      expect(mocks.loggingStart).not.toHaveBeenCalled()
+      expect(mocks.loggingComplete).toHaveBeenCalledWith(
+        expect.objectContaining({
+          totalDurationMs: 5000 + durationMs,
+          billable: true,
+          traceSpans: [
+            expect.objectContaining({
+              startTime: '2026-09-01T00:00:00.000Z',
+              endTime: '2026-09-01T06:00:04.000Z',
+              duration: 21_604_000,
+              children: [
+                expect.objectContaining({ blockId: 'before-pause', cost: { total: 2 } }),
+                expect.objectContaining({ blockId: 'between-pauses', duration: 4000 }),
+              ],
+            }),
+          ],
+        })
+      )
+      expect(mocks.completeWorkflowCheckpointChild).toHaveBeenCalledWith(
+        expect.objectContaining({
+          childExecutionId: 'original',
+          input: expect.objectContaining({ success: false, error: message }),
+        })
+      )
+      expect(mocks.listChildPendingWorkflowExecutions).toHaveBeenCalledWith({
+        executionId: 'original',
+      })
+      expect(mocks.settlePendingExecutionOwner).toHaveBeenCalledWith(row, { wake: false })
+      expect(mocks.completeWorkflowExecution).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          executionId: 'original',
+          workflowLogId: 'original-log',
+          totalDurationMs: 5000 + durationMs,
+          traceSpans: [
+            expect.objectContaining({
+              children: expect.arrayContaining([
+                expect.objectContaining({
+                  cost: { total: 2 },
+                  tokens: { input: 100, output: 50, total: 150 },
+                }),
+              ]),
+            }),
+          ],
+        })
+      )
+      mocks.logLimit.mockResolvedValueOnce([{ id: 'original-log', endedAt: new Date() }])
+      await terminalizeWorkflowExecution(row, durationMs, message)
+      expect(mocks.loggingComplete).toHaveBeenCalledOnce()
+      expect(mocks.completeWorkflowExecution).toHaveBeenCalledOnce()
+    }
+  )
+
+  it('records pre-start cancellation without billing through the same log finalizer', async () => {
+    const row = processingRow({
+      payload: {
+        triggerType: 'api-endpoint',
+        executionTarget: 'live',
+        workflowData: { blocks: {}, edges: [], loops: {}, parallels: {} },
+        metadata: { parentExecutionId: 'parent', source: 'workflow_block' },
+      },
+    })
+    await terminalizeWorkflowExecution(row, 0, 'Workflow execution was cancelled', false)
+    expect(mocks.loggingStart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: row.userId,
+        workspaceId: row.workspaceId,
+        workflowState: row.payload.workflowData,
+        triggerData: { queuedExecution: row.payload.metadata },
+      })
     )
-    mocks.cancelPendingExecutionTriggerRun.mockResolvedValueOnce(cancellation)
-
-    await finalizePendingExecutionFailure(parent, 'Parent failed', 1_000)
-
-    expect(mocks.settlePendingExecutionOwner).toHaveBeenCalledWith(parent, { wake: false })
-    expect(mocks.settlePendingExecutionOwner).not.toHaveBeenCalledWith(child, { wake: false })
+    expect(mocks.loggingComplete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        billable: false,
+        success: false,
+        failureReason: 'Workflow execution was cancelled',
+      })
+    )
+    expect(mocks.completeWorkflowCheckpointChild).toHaveBeenCalledWith(
+      expect.objectContaining({ childExecutionId: row.id })
+    )
   })
 
-  it('retains parent capacity when a child Trigger run cannot be cancelled', async () => {
-    const parent = processingRow()
-    const child = processingRow({ id: 'child-1', source: 'workflow_block' })
-    mocks.listChildPendingWorkflowExecutions.mockImplementation((id) =>
-      Promise.resolve(id === child.id ? [] : [child])
+  it.each(['completed', 'failed'])(
+    'retries accounting before notifying parents of a %s execution without rerunning actions',
+    async (status) => {
+      const row = processingRow({
+        id: 'original:resume:1',
+        payload: { resumeExecutionId: 'original' },
+      })
+      mocks.logLimit.mockResolvedValue([{ id: 'original-log', endedAt: new Date() }])
+      const result = { success: status === 'completed', output: { result: 42 } }
+      mocks.readWorkflowExecutionEventState.mockResolvedValue({ status, result })
+      mocks.settleWorkflowExecutionUsage.mockRejectedValueOnce(new Error('Ledger unavailable'))
+      await expect(finalizePendingExecutionFailure(row, 'Late failure', 50)).rejects.toThrow(
+        'Ledger unavailable'
+      )
+      expect(mocks.settlePendingExecutionOwner).not.toHaveBeenCalled()
+      expect(mocks.completeWorkflowCheckpointChild).not.toHaveBeenCalled()
+
+      await finalizePendingExecutionFailure(row, 'Late failure', 50)
+      expect(mocks.settleWorkflowExecutionUsage).toHaveBeenCalledTimes(2)
+      expect(mocks.settleWorkflowExecutionUsage).toHaveBeenLastCalledWith('original')
+      expect(mocks.loggingComplete).not.toHaveBeenCalled()
+      expect(mocks.executePendingExecutionJob).not.toHaveBeenCalled()
+      expect(mocks.completeWorkflowCheckpointChild).toHaveBeenCalledExactlyOnceWith({
+        childExecutionId: 'original',
+        input: result,
+      })
+      expect(mocks.settlePendingExecutionOwner).toHaveBeenCalledExactlyOnceWith(row, {
+        wake: false,
+      })
+    }
+  )
+
+  it('cancels stored paused children that have no pending queue row', async () => {
+    const row = processingRow()
+    mocks.readWorkflowCheckpointChildren.mockImplementation(async (id) =>
+      id === row.id ? [{ id: 'paused-child', userId: 'user-1', workspaceId: 'workspace-1' }] : []
     )
-    mocks.cancelPendingExecutionTriggerRun.mockRejectedValueOnce(new Error('Trigger unavailable'))
-
-    await finalizePendingExecutionFailure(parent, 'Parent failed', 1_000)
-
-    expect(mocks.settlePendingExecutionOwner).toHaveBeenCalledWith(parent, { wake: false })
-    expect(mocks.settlePendingExecutionOwner).not.toHaveBeenCalledWith(child, {
+    await finalizePendingExecutionFailure(row, 'Parent failed', 50)
+    expect(mocks.cancelPendingWorkflowExecution).toHaveBeenCalledWith({
+      pendingExecutionId: 'paused-child',
+      userId: 'user-1',
       wake: false,
+      descendantCancellation: true,
     })
-    expect(mocks.loggerError).toHaveBeenCalledWith(
-      'Failed to cancel Trigger run for pending execution',
-      expect.objectContaining({ pendingExecutionId: child.id })
-    )
+  })
+
+  it.each(['queued', 'paused', 'resumed'] as const)(
+    'freezes a %s child before cancelling descendants that can notify it',
+    async (kind) => {
+      const parent = processingRow()
+      const child = processingRow({ id: 'child', source: 'workflow_block' })
+      const resumedChild = processingRow({
+        id: 'child:resume:1',
+        source: 'human_in_the_loop',
+        payload: { resumeExecutionId: child.id },
+      })
+      const grandchild = { id: 'grandchild', userId: 'user-1' }
+      const cancelled: string[] = []
+      mocks.listChildPendingWorkflowExecutions.mockImplementation(async ({ executionId: id }) =>
+        kind === 'queued' && id === parent.id ? [child] : []
+      )
+      mocks.readWorkflowCheckpointChildren.mockImplementation(async (id) => {
+        if (id === parent.id) return kind !== 'queued' ? [child] : []
+        if (id === child.id) return [grandchild]
+        return [{ id: parent.id, userId: 'user-1' }]
+      })
+      mocks.cancelPendingWorkflowExecution.mockImplementation(
+        async ({ pendingExecutionId, descendantCancellation }) => {
+          expect(descendantCancellation).toBe(true)
+          if (pendingExecutionId === grandchild.id) expect(cancelled).toContain(child.id)
+          cancelled.push(pendingExecutionId)
+          return {
+            status: 'cancelling',
+            pendingExecutionId:
+              kind === 'resumed' && pendingExecutionId === child.id ? resumedChild.id : undefined,
+          }
+        }
+      )
+      mocks.getProcessingPendingExecution.mockResolvedValue(resumedChild)
+      mocks.cancelPendingExecutionTriggerRun.mockResolvedValue({ type: 'local' })
+      await finalizePendingExecutionFailure(parent, 'Parent failed', 50)
+      expect(cancelled).toEqual([child.id, grandchild.id])
+    }
+  )
+
+  describe.each([false, true])('child cancellation (resumed: %s)', (resumed) => {
+    it('settles a child and its parent after Trigger confirms cancellation', async () => {
+      const { parent, child, childExecutionId } = queuedChildScenario(resumed)
+      mocks.cancelPendingExecutionTriggerRun.mockResolvedValueOnce({
+        type: 'run',
+        run: { status: 'CANCELED', durationMs: 1_000 },
+      })
+
+      await finalizePendingExecutionFailure(parent, 'Parent failed', 1_000)
+
+      expect(mocks.cancelPendingWorkflowExecution).toHaveBeenCalledExactlyOnceWith({
+        pendingExecutionId: childExecutionId,
+        userId: child.userId,
+        wake: false,
+        descendantCancellation: true,
+      })
+      expect(mocks.cancelPendingExecutionTriggerRun).toHaveBeenCalledExactlyOnceWith(child)
+      expect(mocks.completeWorkflowCheckpointChild).toHaveBeenCalledWith({
+        childExecutionId,
+        input: { success: false, output: {}, error: 'Workflow execution was cancelled' },
+      })
+      expect(mocks.loggingComplete).toHaveBeenCalledWith(
+        expect.objectContaining({
+          totalDurationMs: 1_000,
+          success: false,
+          failureReason: 'Workflow execution was cancelled',
+        })
+      )
+      expect(mocks.settlePendingExecutionOwner).toHaveBeenNthCalledWith(1, child, {
+        wake: false,
+      })
+      expect(mocks.settlePendingExecutionOwner).toHaveBeenNthCalledWith(2, parent, {
+        wake: false,
+      })
+    })
+
+    it.each([
+      ['a local child', { type: 'local' }],
+      ['a missing Trigger run', { type: 'missing' }],
+      [
+        'a non-cancelled terminal run',
+        { type: 'run', run: { status: 'FAILED', durationMs: 1_000 } },
+      ],
+    ])('keeps parent capacity for %s', async (_scenario, cancellation) => {
+      const { parent, child } = queuedChildScenario(resumed)
+      mocks.cancelPendingExecutionTriggerRun.mockResolvedValueOnce(cancellation)
+
+      await finalizePendingExecutionFailure(parent, 'Parent failed', 1_000)
+
+      expect(mocks.cancelPendingExecutionTriggerRun).toHaveBeenCalledExactlyOnceWith(child)
+      expect(mocks.settlePendingExecutionOwner).toHaveBeenCalledWith(parent, { wake: false })
+      expect(mocks.settlePendingExecutionOwner).not.toHaveBeenCalledWith(child, { wake: false })
+    })
+
+    it('retains parent capacity when a child Trigger run cannot be cancelled', async () => {
+      const { parent, child } = queuedChildScenario(resumed)
+      mocks.cancelPendingExecutionTriggerRun.mockRejectedValueOnce(new Error('Trigger unavailable'))
+
+      await finalizePendingExecutionFailure(parent, 'Parent failed', 1_000)
+
+      expect(mocks.settlePendingExecutionOwner).toHaveBeenCalledWith(parent, { wake: false })
+      expect(mocks.settlePendingExecutionOwner).not.toHaveBeenCalledWith(child, {
+        wake: false,
+      })
+      expect(mocks.loggerError).toHaveBeenCalledWith(
+        'Failed to cancel Trigger run for pending execution',
+        expect.objectContaining({ pendingExecutionId: child.id })
+      )
+    })
+
+    it('settles an already-finished child owner without replacing its durable outcome', async () => {
+      const { parent, child, childExecutionId } = queuedChildScenario(resumed)
+      mocks.cancelPendingWorkflowExecution.mockResolvedValue({
+        status: 'finished',
+        pendingExecutionId: child.id,
+      })
+      mocks.cancelPendingExecutionTriggerRun.mockResolvedValue({
+        type: 'run',
+        run: { status: 'CANCELED', durationMs: 1_000 },
+      })
+      mocks.logLimit.mockResolvedValue([{ id: 'child-log', endedAt: new Date() }])
+      const result = { success: true, output: { result: 42 } }
+      mocks.readWorkflowExecutionEventState.mockResolvedValue({ status: 'completed', result })
+
+      await cancelPendingExecutionDescendants(parent.id)
+
+      expect(mocks.settleWorkflowExecutionUsage).toHaveBeenCalledExactlyOnceWith(childExecutionId)
+      expect(mocks.loggingComplete).not.toHaveBeenCalled()
+      expect(mocks.completeWorkflowCheckpointChild).toHaveBeenCalledExactlyOnceWith({
+        childExecutionId,
+        input: result,
+      })
+      expect(mocks.settlePendingExecutionOwner).toHaveBeenCalledExactlyOnceWith(child, {
+        wake: false,
+      })
+    })
   })
 })

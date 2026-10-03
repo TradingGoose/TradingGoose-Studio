@@ -1,0 +1,99 @@
+---
+title: WhatsApp
+description: 发送 WhatsApp 消息
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="whatsapp"
+  color="#25D366"
+/>
+
+<Cards>
+  <Card title="用作触发器" href="/triggers/whatsapp">
+    查看 WhatsApp 的触发事件、设置和事件载荷。
+  </Card>
+</Cards>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WhatsApp"
+    type="whatsapp"
+    color="#25D366"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "phoneNumber",
+            "type": "short-input",
+            "title": "收件人电话号码",
+            "layout": "full",
+            "placeholder": "输入带国家/地区代码的电话号码（例如 +1234567890）",
+            "required": true
+        },
+        {
+            "id": "message",
+            "type": "long-input",
+            "title": "消息",
+            "layout": "full",
+            "placeholder": "输入你的消息",
+            "required": true
+        },
+        {
+            "id": "phoneNumberId",
+            "type": "short-input",
+            "title": "WhatsApp 电话号码 ID",
+            "layout": "full",
+            "placeholder": "你的 WhatsApp Business 电话号码 ID",
+            "required": true
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "访问令牌",
+            "layout": "full",
+            "placeholder": "你的 WhatsApp Business API 访问令牌",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+### `whatsapp_send_message`
+
+发送 WhatsApp 消息
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `phoneNumber` | string | 是 | 带国家/地区代码的收件人电话号码 |
+| `message` | string | 是 | 要发送的消息内容 |
+| `phoneNumberId` | string | 是 | WhatsApp Business 电话号码 ID |
+
+#### 输出
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | WhatsApp 消息发送成功状态 |
+| `messageId` | string | WhatsApp 消息唯一标识符 |
+| `phoneNumber` | string | 收件人电话号码 |
+| `status` | string | 消息送达状态 |
+| `timestamp` | string | 消息发送时间戳 |
+
+## 使用说明
+
+将 WhatsApp 集成到工作流。可发送消息。
+
+## 备注
+
+- 分类：`tools`
+- 类型：`whatsapp`

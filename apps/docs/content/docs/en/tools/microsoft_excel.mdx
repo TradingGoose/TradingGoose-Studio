@@ -10,7 +10,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <BlockInfoCard
   type="microsoft_excel"
-  color=""
+  color="#33C481"
 />
 
 
@@ -22,7 +22,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="Microsoft Excel"
     type="microsoft_excel"
-    color=""
+    color="#33C481"
     hideHeader
     subBlocks={[
         {
@@ -30,21 +30,21 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "read",
             "options": [
                 {
-                    "label": "Read Data",
-                    "id": "read"
+                    "id": "read",
+                    "label": "Read Data"
                 },
                 {
-                    "label": "Write/Update Data",
-                    "id": "write"
+                    "id": "write",
+                    "label": "Write/Update Data"
                 },
                 {
-                    "label": "Add to Table",
-                    "id": "table_add"
+                    "id": "table_add",
+                    "label": "Add to Table"
                 }
-            ],
-            "defaultValue": "read"
+            ]
         },
         {
             "id": "credential",
@@ -97,7 +97,8 @@ Read data from a Microsoft Excel spreadsheet
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `range` | string | The range that was read |
+| `data` | object | Range data from the spreadsheet |
+| `metadata` | object | Spreadsheet metadata |
 
 </div>
 
@@ -111,7 +112,7 @@ Read data from a Microsoft Excel spreadsheet
   <BlockConfigPreview
     name="Microsoft Excel"
     type="microsoft_excel"
-    color=""
+    color="#33C481"
     hideHeader
     subBlocks={[
         {
@@ -119,21 +120,21 @@ Read data from a Microsoft Excel spreadsheet
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "write",
             "options": [
                 {
-                    "label": "Read Data",
-                    "id": "read"
+                    "id": "read",
+                    "label": "Read Data"
                 },
                 {
-                    "label": "Write/Update Data",
-                    "id": "write"
+                    "id": "write",
+                    "label": "Write/Update Data"
                 },
                 {
-                    "label": "Add to Table",
-                    "id": "table_add"
+                    "id": "table_add",
+                    "label": "Add to Table"
                 }
-            ],
-            "defaultValue": "write"
+            ]
         },
         {
             "id": "credential",
@@ -181,12 +182,12 @@ Read data from a Microsoft Excel spreadsheet
             "layout": "full",
             "options": [
                 {
-                    "label": "User Entered (Parse formulas)",
-                    "id": "USER_ENTERED"
+                    "id": "USER_ENTERED",
+                    "label": "User Entered (Parse formulas)"
                 },
                 {
-                    "label": "Raw (Don",
-                    "id": "RAW"
+                    "id": "RAW",
+                    "label": "Raw (Don't parse formulas)"
                 }
             ]
         }
@@ -207,7 +208,6 @@ Write data to a Microsoft Excel spreadsheet
 | `range` | string | No | The range of cells to write to |
 | `values` | array | Yes | The data to write to the spreadsheet |
 | `valueInputOption` | string | No | The format of the data to write |
-| `includeValuesInResponse` | boolean | No | Whether to include the written values in the response |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
@@ -217,7 +217,7 @@ Write data to a Microsoft Excel spreadsheet
 | `updatedRows` | number | Number of rows that were updated |
 | `updatedColumns` | number | Number of columns that were updated |
 | `updatedCells` | number | Number of cells that were updated |
-| `spreadsheetId` | string | The ID of the spreadsheet |
+| `metadata` | object | Spreadsheet metadata |
 
 </div>
 
@@ -231,7 +231,7 @@ Write data to a Microsoft Excel spreadsheet
   <BlockConfigPreview
     name="Microsoft Excel"
     type="microsoft_excel"
-    color=""
+    color="#33C481"
     hideHeader
     subBlocks={[
         {
@@ -239,21 +239,21 @@ Write data to a Microsoft Excel spreadsheet
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "table_add",
             "options": [
                 {
-                    "label": "Read Data",
-                    "id": "read"
+                    "id": "read",
+                    "label": "Read Data"
                 },
                 {
-                    "label": "Write/Update Data",
-                    "id": "write"
+                    "id": "write",
+                    "label": "Write/Update Data"
                 },
                 {
-                    "label": "Add to Table",
-                    "id": "table_add"
+                    "id": "table_add",
+                    "label": "Add to Table"
                 }
-            ],
-            "defaultValue": "table_add"
+            ]
         },
         {
             "id": "credential",
@@ -318,7 +318,7 @@ Add new rows to a Microsoft Excel table
 | --------- | ---- | ----------- |
 | `index` | number | Index of the first row that was added |
 | `values` | array | Array of rows that were added to the table |
-| `spreadsheetId` | string | The ID of the spreadsheet |
+| `metadata` | object | Spreadsheet metadata |
 
 </div>
 

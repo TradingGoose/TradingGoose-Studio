@@ -1,0 +1,870 @@
+---
+title: Google Slides
+description: Leer, escribir y crear presentaciones
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="google_slides"
+  color="#E0E0E0"
+/>
+
+## Configuración
+
+### Leer presentación
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Slides"
+    type="google_slides"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "read",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "Leer presentación"
+                },
+                {
+                    "id": "write",
+                    "label": "Escribir en presentación"
+                },
+                {
+                    "id": "create",
+                    "label": "Crear presentación"
+                },
+                {
+                    "id": "replace_all_text",
+                    "label": "Reemplazar todo el texto"
+                },
+                {
+                    "id": "add_slide",
+                    "label": "Agregar diapositiva"
+                },
+                {
+                    "id": "add_image",
+                    "label": "Agregar imagen"
+                },
+                {
+                    "id": "get_thumbnail",
+                    "label": "Obtener miniatura"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google",
+            "placeholder": "Seleccionar cuenta de Google",
+            "provider": "google-drive",
+            "required": true
+        },
+        {
+            "id": "presentationId",
+            "type": "file-selector",
+            "title": "Seleccionar presentación",
+            "placeholder": "Seleccionar una presentación"
+        },
+        {
+            "id": "manualPresentationId",
+            "type": "short-input",
+            "title": "ID de presentación",
+            "placeholder": "Ingresar ID de presentación"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Leer presentación (<code>google_slides_read</code>)</div>
+
+Leer contenido de una presentación de Google Slides
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `presentationId` | string | Sí | El ID de la presentación a leer |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `slides` | json | Arreglo de diapositivas con su contenido |
+| `metadata` | json | Metadatos de la presentación incluyendo ID, título y URL |
+
+</div>
+
+---
+
+### Escribir en presentación
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Slides"
+    type="google_slides"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "write",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "Leer presentación"
+                },
+                {
+                    "id": "write",
+                    "label": "Escribir en presentación"
+                },
+                {
+                    "id": "create",
+                    "label": "Crear presentación"
+                },
+                {
+                    "id": "replace_all_text",
+                    "label": "Reemplazar todo el texto"
+                },
+                {
+                    "id": "add_slide",
+                    "label": "Añadir diapositiva"
+                },
+                {
+                    "id": "add_image",
+                    "label": "Añadir imagen"
+                },
+                {
+                    "id": "get_thumbnail",
+                    "label": "Obtener miniatura"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google",
+            "placeholder": "Seleccionar cuenta de Google",
+            "provider": "google-drive",
+            "required": true
+        },
+        {
+            "id": "presentationId",
+            "type": "file-selector",
+            "title": "Seleccionar presentación",
+            "placeholder": "Seleccionar una presentación"
+        },
+        {
+            "id": "manualPresentationId",
+            "type": "short-input",
+            "title": "ID de presentación",
+            "placeholder": "Introducir ID de presentación"
+        },
+        {
+            "id": "slideIndex",
+            "type": "short-input",
+            "title": "Índice de diapositiva",
+            "placeholder": "Introducir índice de diapositiva (0 para la primera)"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Contenido",
+            "placeholder": "Introducir contenido de la diapositiva",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Escribir en presentación (<code>google_slides_write</code>)</div>
+
+Escribir o actualizar contenido en una presentación de Google Slides
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `presentationId` | string | Sí | El ID de la presentación en la que escribir |
+| `content` | string | Sí | El contenido que se escribirá en la diapositiva |
+| `slideIndex` | number | No | El índice de la diapositiva en la que escribir \(el valor predeterminado es la primera diapositiva\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `updatedContent` | boolean | Indica si el contenido de la presentación se actualizó correctamente |
+| `metadata` | json | Metadatos de la presentación actualizados, incluidos ID, título y URL |
+
+</div>
+
+---
+
+### Crear presentación
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Slides"
+    type="google_slides"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "create",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "Leer presentación"
+                },
+                {
+                    "id": "write",
+                    "label": "Escribir en presentación"
+                },
+                {
+                    "id": "create",
+                    "label": "Crear presentación"
+                },
+                {
+                    "id": "replace_all_text",
+                    "label": "Reemplazar todo el texto"
+                },
+                {
+                    "id": "add_slide",
+                    "label": "Añadir diapositiva"
+                },
+                {
+                    "id": "add_image",
+                    "label": "Añadir imagen"
+                },
+                {
+                    "id": "get_thumbnail",
+                    "label": "Obtener miniatura"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google",
+            "placeholder": "Seleccionar cuenta de Google",
+            "provider": "google-drive",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Título de la presentación",
+            "placeholder": "Introduce el título para la nueva presentación",
+            "required": true
+        },
+        {
+            "id": "folderSelector",
+            "type": "file-selector",
+            "title": "Seleccionar carpeta principal",
+            "placeholder": "Selecciona una carpeta principal"
+        },
+        {
+            "id": "folderId",
+            "type": "short-input",
+            "title": "ID de la carpeta principal",
+            "placeholder": "Introduce el ID de la carpeta principal (déjalo vacío para la carpeta raíz)"
+        },
+        {
+            "id": "createContent",
+            "type": "long-input",
+            "title": "Contenido inicial",
+            "placeholder": "Introduce el contenido inicial de la diapositiva (opcional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear presentación (<code>google_slides_create</code>)</div>
+
+Crear una nueva presentación de Google Slides
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `title` | string | Sí | El título de la presentación a crear |
+| `content` | string | No | El contenido que se añadirá a la primera diapositiva |
+| `folderId` | string | No | El ID de la carpeta en la que se creará la presentación |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `metadata` | json | Metadatos de la presentación creada, incluidos ID, título y URL |
+
+</div>
+
+---
+
+### Reemplazar todo el texto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Slides"
+    type="google_slides"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "replace_all_text",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "Read Presentation"
+                },
+                {
+                    "id": "write",
+                    "label": "Write to Presentation"
+                },
+                {
+                    "id": "create",
+                    "label": "Create Presentation"
+                },
+                {
+                    "id": "replace_all_text",
+                    "label": "Replace All Text"
+                },
+                {
+                    "id": "add_slide",
+                    "label": "Add Slide"
+                },
+                {
+                    "id": "add_image",
+                    "label": "Add Image"
+                },
+                {
+                    "id": "get_thumbnail",
+                    "label": "Get Thumbnail"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google",
+            "placeholder": "Select Google account",
+            "provider": "google-drive",
+            "required": true
+        },
+        {
+            "id": "presentationId",
+            "type": "file-selector",
+            "title": "Seleccionar presentación",
+            "placeholder": "Select a presentation"
+        },
+        {
+            "id": "manualPresentationId",
+            "type": "short-input",
+            "title": "ID de la presentación",
+            "placeholder": "Enter presentation ID"
+        },
+        {
+            "id": "findText",
+            "type": "short-input",
+            "title": "Buscar texto",
+            "placeholder": "Text to find (e.g., {{placeholder}})",
+            "required": true
+        },
+        {
+            "id": "replaceText",
+            "type": "short-input",
+            "title": "Reemplazar por",
+            "placeholder": "Text to replace with",
+            "required": true
+        },
+        {
+            "id": "matchCase",
+            "type": "switch",
+            "title": "Coincidir mayúsculas y minúsculas"
+        },
+        {
+            "id": "pageObjectIds",
+            "type": "short-input",
+            "title": "Limitar a diapositivas (IDs)",
+            "placeholder": "Comma-separated slide IDs (leave empty for all)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Reemplazar todo el texto (<code>google_slides_replace_all_text</code>)</div>
+
+Buscar y reemplazar todas las apariciones de texto en una presentación de Google Slides
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `presentationId` | string | Sí | El ID de la presentación |
+| `findText` | string | Sí | El texto a buscar \(p. ej., \{\{placeholder\}\}\) |
+| `replaceText` | string | Sí | El texto de reemplazo |
+| `matchCase` | boolean | No | Indica si la búsqueda distingue entre mayúsculas y minúsculas \(predeterminado: true\) |
+| `pageObjectIds` | string | No | Lista de IDs de objetos de diapositiva separados por comas para limitar los reemplazos a diapositivas específicas \(dejar vacío para todas las diapositivas\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `occurrencesChanged` | number | Número de ocurrencias de texto que fueron reemplazadas |
+| `metadata` | json | Metadatos de la operación, incluidos el ID de presentación y la URL |
+
+</div>
+
+---
+
+### Agregar diapositiva
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Slides"
+    type="google_slides"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "add_slide",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "Leer presentación"
+                },
+                {
+                    "id": "write",
+                    "label": "Escribir en presentación"
+                },
+                {
+                    "id": "create",
+                    "label": "Crear presentación"
+                },
+                {
+                    "id": "replace_all_text",
+                    "label": "Reemplazar todo el texto"
+                },
+                {
+                    "id": "add_slide",
+                    "label": "Agregar diapositiva"
+                },
+                {
+                    "id": "add_image",
+                    "label": "Agregar imagen"
+                },
+                {
+                    "id": "get_thumbnail",
+                    "label": "Obtener miniatura"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google",
+            "placeholder": "Seleccionar cuenta de Google",
+            "provider": "google-drive",
+            "required": true
+        },
+        {
+            "id": "presentationId",
+            "type": "file-selector",
+            "title": "Seleccionar presentación",
+            "placeholder": "Seleccionar una presentación"
+        },
+        {
+            "id": "manualPresentationId",
+            "type": "short-input",
+            "title": "ID de presentación",
+            "placeholder": "Ingrese el ID de presentación"
+        },
+        {
+            "id": "layout",
+            "type": "dropdown",
+            "title": "Diseño de diapositiva",
+            "defaultValue": "BLANK",
+            "options": [
+                {
+                    "id": "BLANK",
+                    "label": "En blanco"
+                },
+                {
+                    "id": "TITLE",
+                    "label": "Título"
+                },
+                {
+                    "id": "TITLE_AND_BODY",
+                    "label": "Título y cuerpo"
+                },
+                {
+                    "id": "TITLE_ONLY",
+                    "label": "Solo título"
+                },
+                {
+                    "id": "TITLE_AND_TWO_COLUMNS",
+                    "label": "Título y dos columnas"
+                },
+                {
+                    "id": "SECTION_HEADER",
+                    "label": "Encabezado de sección"
+                },
+                {
+                    "id": "CAPTION_ONLY",
+                    "label": "Solo leyenda"
+                },
+                {
+                    "id": "MAIN_POINT",
+                    "label": "Punto principal"
+                },
+                {
+                    "id": "BIG_NUMBER",
+                    "label": "Número grande"
+                }
+            ]
+        },
+        {
+            "id": "insertionIndex",
+            "type": "short-input",
+            "title": "Posición de inserción",
+            "placeholder": "Posición para insertar diapositiva (dejar vacío para el final)"
+        },
+        {
+            "id": "placeholderIdMappings",
+            "type": "long-input",
+            "title": "Asignaciones de ID de marcador de posición",
+            "placeholder": "Arreglo JSON: [{\"layoutPlaceholder\":{\"type\":\"TITLE\"},\"objectId\":\"my_title\"}]"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Agregar diapositiva (<code>google_slides_add_slide</code>)</div>
+
+Agregar una nueva diapositiva a una presentación de Google Slides con un diseño especificado
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `presentationId` | string | Sí | El ID de la presentación |
+| `layout` | string | No | El diseño predefinido para la diapositiva \(BLANK, TITLE, TITLE_AND_BODY, TITLE_ONLY, SECTION_HEADER, etc.\). Por defecto es BLANK. |
+| `insertionIndex` | number | No | El índice opcional basado en cero que indica dónde insertar la diapositiva. Si no se especifica, la diapositiva se agrega al final. |
+| `placeholderIdMappings` | string | No | Matriz JSON de asignaciones de marcadores de posición para asignar ID de objeto personalizados a los marcadores de posición. Formato: \[\{"layoutPlaceholder":\{"type":"TITLE"\},"objectId":"custom_title_id"\}\] |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `slideId` | string | El ID de objeto de la diapositiva recién creada |
+| `metadata` | json | Metadatos de la operación, incluidos el ID de la presentación, el diseño y la URL |
+
+</div>
+
+---
+
+### Agregar imagen
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Slides"
+    type="google_slides"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "add_image",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "Leer presentación"
+                },
+                {
+                    "id": "write",
+                    "label": "Escribir en presentación"
+                },
+                {
+                    "id": "create",
+                    "label": "Crear presentación"
+                },
+                {
+                    "id": "replace_all_text",
+                    "label": "Reemplazar todo el texto"
+                },
+                {
+                    "id": "add_slide",
+                    "label": "Agregar diapositiva"
+                },
+                {
+                    "id": "add_image",
+                    "label": "Agregar imagen"
+                },
+                {
+                    "id": "get_thumbnail",
+                    "label": "Obtener miniatura"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google",
+            "placeholder": "Seleccionar cuenta de Google",
+            "provider": "google-drive",
+            "required": true
+        },
+        {
+            "id": "presentationId",
+            "type": "file-selector",
+            "title": "Seleccionar presentación",
+            "placeholder": "Seleccionar una presentación"
+        },
+        {
+            "id": "manualPresentationId",
+            "type": "short-input",
+            "title": "ID de presentación",
+            "placeholder": "Ingresar ID de presentación"
+        },
+        {
+            "id": "pageObjectId",
+            "type": "short-input",
+            "title": "ID de diapositiva",
+            "placeholder": "ID de objeto de la diapositiva a la que agregar la imagen",
+            "required": true
+        },
+        {
+            "id": "imageUrl",
+            "type": "short-input",
+            "title": "URL de imagen",
+            "placeholder": "URL pública de la imagen (PNG, JPEG o GIF)",
+            "required": true
+        },
+        {
+            "id": "imageWidth",
+            "type": "short-input",
+            "title": "Ancho (puntos)",
+            "placeholder": "Ancho de la imagen en puntos (predeterminado: 300)"
+        },
+        {
+            "id": "imageHeight",
+            "type": "short-input",
+            "title": "Alto (puntos)",
+            "placeholder": "Alto de la imagen en puntos (predeterminado: 200)"
+        },
+        {
+            "id": "positionX",
+            "type": "short-input",
+            "title": "Posición X (puntos)",
+            "placeholder": "Posición X desde la izquierda (predeterminado: 100)"
+        },
+        {
+            "id": "positionY",
+            "type": "short-input",
+            "title": "Posición Y (puntos)",
+            "placeholder": "Posición Y desde arriba (predeterminado: 100)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Añadir imagen (<code>google_slides_add_image</code>)</div>
+
+Insertar una imagen en una diapositiva específica de una presentación de Google Slides
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `presentationId` | string | Sí | El ID de la presentación |
+| `pageObjectId` | string | Sí | El ID de objeto de la diapositiva/página a la que agregar la imagen |
+| `imageUrl` | string | Sí | La URL de acceso público de la imagen \(debe ser PNG, JPEG o GIF, máximo 50MB\) |
+| `width` | number | No | Ancho de la imagen en puntos \(predeterminado: 300\) |
+| `height` | number | No | Alto de la imagen en puntos \(predeterminado: 200\) |
+| `positionX` | number | No | Posición X desde el borde izquierdo en puntos \(predeterminado: 100\) |
+| `positionY` | number | No | Posición Y desde el borde superior en puntos \(predeterminado: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `imageId` | string | El ID de objeto de la imagen recién creada |
+| `metadata` | json | Metadatos de la operación, incluidos el ID de la presentación y la URL de la imagen |
+
+</div>
+
+---
+
+### Obtener miniatura
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Slides"
+    type="google_slides"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_thumbnail",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "Leer presentación"
+                },
+                {
+                    "id": "write",
+                    "label": "Escribir en presentación"
+                },
+                {
+                    "id": "create",
+                    "label": "Crear presentación"
+                },
+                {
+                    "id": "replace_all_text",
+                    "label": "Reemplazar todo el texto"
+                },
+                {
+                    "id": "add_slide",
+                    "label": "Añadir diapositiva"
+                },
+                {
+                    "id": "add_image",
+                    "label": "Añadir imagen"
+                },
+                {
+                    "id": "get_thumbnail",
+                    "label": "Obtener miniatura"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google",
+            "placeholder": "Seleccionar cuenta de Google",
+            "provider": "google-drive",
+            "required": true
+        },
+        {
+            "id": "presentationId",
+            "type": "file-selector",
+            "title": "Seleccionar presentación",
+            "placeholder": "Seleccionar una presentación"
+        },
+        {
+            "id": "manualPresentationId",
+            "type": "short-input",
+            "title": "ID de la presentación",
+            "placeholder": "Ingresar ID de la presentación"
+        },
+        {
+            "id": "thumbnailPageId",
+            "type": "short-input",
+            "title": "ID de la diapositiva",
+            "placeholder": "ID de objeto de la diapositiva para obtener la miniatura",
+            "required": true
+        },
+        {
+            "id": "thumbnailSize",
+            "type": "dropdown",
+            "title": "Tamaño de miniatura",
+            "defaultValue": "MEDIUM",
+            "options": [
+                {
+                    "id": "SMALL",
+                    "label": "Pequeño (200px)"
+                },
+                {
+                    "id": "MEDIUM",
+                    "label": "Mediano (800px)"
+                },
+                {
+                    "id": "LARGE",
+                    "label": "Grande (1600px)"
+                }
+            ]
+        },
+        {
+            "id": "mimeType",
+            "type": "dropdown",
+            "title": "Formato de imagen",
+            "defaultValue": "PNG",
+            "options": [
+                {
+                    "id": "PNG",
+                    "label": "PNG"
+                },
+                {
+                    "id": "GIF",
+                    "label": "GIF"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener miniatura (<code>google_slides_get_thumbnail</code>)</div>
+
+Genera una imagen de miniatura de una diapositiva específica de una presentación de Google Slides
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `presentationId` | string | Sí | El ID de la presentación |
+| `pageObjectId` | string | Sí | El ID de objeto de la diapositiva/página de la que obtener una miniatura |
+| `thumbnailSize` | string | No | El tamaño de la miniatura: SMALL \(200px\), MEDIUM \(800px\) o LARGE \(1600px\). El valor predeterminado es MEDIUM. |
+| `mimeType` | string | No | El tipo MIME de la imagen de miniatura: PNG o GIF. El valor predeterminado es PNG. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `contentUrl` | string | URL de la imagen de miniatura \(válida durante 30 minutos\) |
+| `width` | number | Ancho de la miniatura en píxeles |
+| `height` | number | Alto de la miniatura en píxeles |
+| `metadata` | json | Metadatos de la operación, incluido el ID de la presentación y el ID de objeto de la página |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Google Slides en el flujo de trabajo. Permite leer, escribir, crear presentaciones, reemplazar texto, añadir diapositivas, añadir imágenes y obtener miniaturas.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `google_slides`

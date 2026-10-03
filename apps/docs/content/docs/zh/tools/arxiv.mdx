@@ -1,0 +1,313 @@
+---
+title: ArXiv
+description: 从 ArXiv 搜索并获取学术论文
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="arxiv"
+  color=""
+/>
+
+## 配置
+
+### 搜索论文
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ArXiv"
+    type="arxiv"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "arxiv_search",
+            "options": [
+                {
+                    "id": "arxiv_search",
+                    "label": "搜索论文"
+                },
+                {
+                    "id": "arxiv_get_paper",
+                    "label": "获取论文详情"
+                },
+                {
+                    "id": "arxiv_get_author_papers",
+                    "label": "获取作者论文"
+                }
+            ]
+        },
+        {
+            "id": "searchQuery",
+            "type": "long-input",
+            "title": "搜索查询",
+            "layout": "full",
+            "placeholder": "输入搜索词（例如：\"machine learning\"、\"quantum physics\"）...",
+            "required": true
+        },
+        {
+            "id": "searchField",
+            "type": "dropdown",
+            "title": "搜索字段",
+            "layout": "full",
+            "defaultValue": "all",
+            "options": [
+                {
+                    "id": "all",
+                    "label": "所有字段"
+                },
+                {
+                    "id": "ti",
+                    "label": "标题"
+                },
+                {
+                    "id": "au",
+                    "label": "作者"
+                },
+                {
+                    "id": "abs",
+                    "label": "摘要"
+                },
+                {
+                    "id": "co",
+                    "label": "评论"
+                },
+                {
+                    "id": "jr",
+                    "label": "期刊参考"
+                },
+                {
+                    "id": "cat",
+                    "label": "分类"
+                },
+                {
+                    "id": "rn",
+                    "label": "报告编号"
+                }
+            ]
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "最大结果数",
+            "layout": "full",
+            "placeholder": "10"
+        },
+        {
+            "id": "sortBy",
+            "type": "dropdown",
+            "title": "排序方式",
+            "layout": "full",
+            "defaultValue": "relevance",
+            "options": [
+                {
+                    "id": "relevance",
+                    "label": "相关性"
+                },
+                {
+                    "id": "lastUpdatedDate",
+                    "label": "最后更新日期"
+                },
+                {
+                    "id": "submittedDate",
+                    "label": "提交日期"
+                }
+            ]
+        },
+        {
+            "id": "sortOrder",
+            "type": "dropdown",
+            "title": "排序顺序",
+            "layout": "full",
+            "defaultValue": "descending",
+            "options": [
+                {
+                    "id": "descending",
+                    "label": "降序"
+                },
+                {
+                    "id": "ascending",
+                    "label": "升序"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索论文（<code>arxiv_search</code>）</div>
+
+通过关键词、作者、标题或其他字段在 ArXiv 上搜索学术论文。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `searchQuery` | string | 是 | 要执行的搜索查询 |
+| `searchField` | string | 否 | 搜索字段：all, ti \(标题\), au \(作者\), abs \(摘要\), co \(评论\), jr \(期刊\), cat \(分类\), rn \(报告编号\) |
+| `maxResults` | number | 否 | 返回的最大结果数 \(默认：10，最大：2000\) |
+| `sortBy` | string | 否 | 排序依据：relevance, lastUpdatedDate, submittedDate \(默认：relevance\) |
+| `sortOrder` | string | 否 | 排序顺序：ascending, descending \(默认：descending\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `papers` | json | 与搜索查询匹配的论文数组 |
+| `totalResults` | number | 搜索查询找到的结果总数 |
+
+</div>
+
+---
+
+### 获取论文详情
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ArXiv"
+    type="arxiv"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "arxiv_get_paper",
+            "options": [
+                {
+                    "id": "arxiv_search",
+                    "label": "搜索论文"
+                },
+                {
+                    "id": "arxiv_get_paper",
+                    "label": "获取论文详情"
+                },
+                {
+                    "id": "arxiv_get_author_papers",
+                    "label": "获取作者论文"
+                }
+            ]
+        },
+        {
+            "id": "paperId",
+            "type": "short-input",
+            "title": "论文 ID",
+            "layout": "full",
+            "placeholder": "输入 ArXiv 论文 ID（例如：1706.03762, cs.AI/0001001）",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取论文详情（<code>arxiv_get_paper</code>）</div>
+
+通过 ID 获取指定 ArXiv 论文的详细信息。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `paperId` | string | 是 | ArXiv 论文 ID \(例如 "1706.03762"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `paper` | json | 所请求的 ArXiv 论文的详细信息 |
+
+</div>
+
+---
+
+### 获取作者论文
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ArXiv"
+    type="arxiv"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "arxiv_get_author_papers",
+            "options": [
+                {
+                    "id": "arxiv_search",
+                    "label": "搜索论文"
+                },
+                {
+                    "id": "arxiv_get_paper",
+                    "label": "获取论文详情"
+                },
+                {
+                    "id": "arxiv_get_author_papers",
+                    "label": "获取作者论文"
+                }
+            ]
+        },
+        {
+            "id": "authorName",
+            "type": "short-input",
+            "title": "作者姓名",
+            "layout": "full",
+            "placeholder": "输入作者姓名（例如 \"John Smith\"）...",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "最大结果数",
+            "layout": "full",
+            "placeholder": "10"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取作者论文 (<code>arxiv_get_author_papers</code>)</div>
+
+在 ArXiv 上搜索指定作者的论文。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `authorName` | string | 是 | 要搜索的作者姓名 |
+| `maxResults` | number | 否 | 返回的最大结果数量 \(默认值：10，最大值：2000\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `authorPapers` | json | 指定作者撰写的论文数组 |
+| `totalResults` | number | 为该作者找到的论文总数 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 ArXiv 集成到工作流中。可搜索论文、获取论文详情，以及获取作者的论文。无需 OAuth 或 API 密钥。
+
+## 说明
+
+- 类别：`tools`
+- 类型：`arxiv`

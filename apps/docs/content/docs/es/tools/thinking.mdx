@@ -1,0 +1,40 @@
+---
+title: Pensamiento
+description: Obliga al modelo a exponer su proceso de pensamiento.
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="thinking"
+  color="#909090"
+/>
+
+## Herramientas
+
+### `thinking_tool`
+
+Procesa un pensamiento/instrucción proporcionado y lo deja disponible para los pasos siguientes.
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `thought` | string | Sí | Tu razonamiento interno, análisis o proceso de pensamiento. Úsalo para analizar el problema paso a paso antes de responder. |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `acknowledgedThought` | string | El pensamiento que se procesó y se reconoció |
+
+## Instrucciones de uso
+
+Añade un paso en el que el modelo describe explícitamente su proceso de pensamiento antes de continuar. Esto puede mejorar la calidad del razonamiento al fomentar un análisis paso a paso.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `thinking`

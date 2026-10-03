@@ -1,0 +1,313 @@
+---
+title: ArXiv
+description: Busca y recupera artículos académicos de ArXiv
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="arxiv"
+  color=""
+/>
+
+## Configuración
+
+### Buscar artículos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ArXiv"
+    type="arxiv"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "arxiv_search",
+            "options": [
+                {
+                    "id": "arxiv_search",
+                    "label": "Buscar artículos"
+                },
+                {
+                    "id": "arxiv_get_paper",
+                    "label": "Obtener detalles del artículo"
+                },
+                {
+                    "id": "arxiv_get_author_papers",
+                    "label": "Obtener artículos del autor"
+                }
+            ]
+        },
+        {
+            "id": "searchQuery",
+            "type": "long-input",
+            "title": "Consulta de búsqueda",
+            "layout": "full",
+            "placeholder": "Introduce términos de búsqueda (p. ej., \"machine learning\", \"quantum physics\")...",
+            "required": true
+        },
+        {
+            "id": "searchField",
+            "type": "dropdown",
+            "title": "Campo de búsqueda",
+            "layout": "full",
+            "defaultValue": "all",
+            "options": [
+                {
+                    "id": "all",
+                    "label": "Todos los campos"
+                },
+                {
+                    "id": "ti",
+                    "label": "Título"
+                },
+                {
+                    "id": "au",
+                    "label": "Autor"
+                },
+                {
+                    "id": "abs",
+                    "label": "Resumen"
+                },
+                {
+                    "id": "co",
+                    "label": "Comentario"
+                },
+                {
+                    "id": "jr",
+                    "label": "Referencia de revista"
+                },
+                {
+                    "id": "cat",
+                    "label": "Categoría"
+                },
+                {
+                    "id": "rn",
+                    "label": "Número de informe"
+                }
+            ]
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Máximo de resultados",
+            "layout": "full",
+            "placeholder": "10"
+        },
+        {
+            "id": "sortBy",
+            "type": "dropdown",
+            "title": "Ordenar por",
+            "layout": "full",
+            "defaultValue": "relevance",
+            "options": [
+                {
+                    "id": "relevance",
+                    "label": "Relevancia"
+                },
+                {
+                    "id": "lastUpdatedDate",
+                    "label": "Fecha de última actualización"
+                },
+                {
+                    "id": "submittedDate",
+                    "label": "Fecha de envío"
+                }
+            ]
+        },
+        {
+            "id": "sortOrder",
+            "type": "dropdown",
+            "title": "Orden de clasificación",
+            "layout": "full",
+            "defaultValue": "descending",
+            "options": [
+                {
+                    "id": "descending",
+                    "label": "Descendente"
+                },
+                {
+                    "id": "ascending",
+                    "label": "Ascendente"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar artículos (<code>arxiv_search</code>)</div>
+
+Busca artículos académicos en ArXiv por palabras clave, autores, títulos u otros campos.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `searchQuery` | string | Sí | La consulta de búsqueda que se va a ejecutar |
+| `searchField` | string | No | Campo en el que buscar: all, ti \(título\), au \(autor\), abs \(resumen\), co \(comentario\), jr \(revista\), cat \(categoría\), rn \(número de informe\) |
+| `maxResults` | number | No | Número máximo de resultados a devolver \(predeterminado: 10, máx.: 2000\) |
+| `sortBy` | string | No | Ordenar por: relevance, lastUpdatedDate, submittedDate \(predeterminado: relevance\) |
+| `sortOrder` | string | No | Orden de clasificación: ascending, descending \(predeterminado: descending\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `papers` | json | Arreglo de artículos que coinciden con la consulta de búsqueda |
+| `totalResults` | number | Número total de resultados encontrados para la consulta de búsqueda |
+
+</div>
+
+---
+
+### Obtener detalles del artículo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ArXiv"
+    type="arxiv"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "arxiv_get_paper",
+            "options": [
+                {
+                    "id": "arxiv_search",
+                    "label": "Buscar artículos"
+                },
+                {
+                    "id": "arxiv_get_paper",
+                    "label": "Obtener detalles del artículo"
+                },
+                {
+                    "id": "arxiv_get_author_papers",
+                    "label": "Obtener artículos del autor"
+                }
+            ]
+        },
+        {
+            "id": "paperId",
+            "type": "short-input",
+            "title": "ID del artículo",
+            "layout": "full",
+            "placeholder": "Introduce el ID del artículo de ArXiv (p. ej., 1706.03762, cs.AI/0001001)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener detalles del artículo (<code>arxiv_get_paper</code>)</div>
+
+Obtener información detallada sobre un artículo específico de ArXiv por su ID.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `paperId` | string | Sí | ID del artículo de ArXiv \(p. ej., "1706.03762"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `paper` | json | Información detallada sobre el artículo de ArXiv solicitado |
+
+</div>
+
+---
+
+### Obtener artículos del autor
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ArXiv"
+    type="arxiv"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "arxiv_get_author_papers",
+            "options": [
+                {
+                    "id": "arxiv_search",
+                    "label": "Buscar artículos"
+                },
+                {
+                    "id": "arxiv_get_paper",
+                    "label": "Obtener detalles del artículo"
+                },
+                {
+                    "id": "arxiv_get_author_papers",
+                    "label": "Obtener artículos del autor"
+                }
+            ]
+        },
+        {
+            "id": "authorName",
+            "type": "short-input",
+            "title": "Nombre del autor",
+            "layout": "full",
+            "placeholder": "Ingrese el nombre del autor (p. ej., \"John Smith\")...",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Máximo de resultados",
+            "layout": "full",
+            "placeholder": "10"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener artículos del autor (<code>arxiv_get_author_papers</code>)</div>
+
+Buscar artículos de un autor específico en ArXiv.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `authorName` | string | Sí | Nombre del autor a buscar |
+| `maxResults` | number | No | Número máximo de resultados a devolver \(predeterminado: 10, máx.: 2000\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `authorPapers` | json | Matriz de artículos escritos por el autor especificado |
+| `totalResults` | number | Número total de artículos encontrados para el autor |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra ArXiv en el flujo de trabajo. Permite buscar artículos, obtener detalles de los artículos y obtener los artículos de un autor. No requiere OAuth ni una clave de API.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `arxiv`

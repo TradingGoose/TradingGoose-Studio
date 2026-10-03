@@ -6,7 +6,7 @@ export const MemoryBlock: BlockConfig = {
   name: 'Memory',
   description: 'Add memory store',
   longDescription:
-    'Integrate Memory into the workflow. Can add, get a memory, get all memories, and delete memories.',
+    'Persist conversation messages across runs of the same workflow. Add Memory appends a user, assistant, or system message under an ID; Get Memory returns that conversation. Get All Memories returns up to 50 records, each with key, type, and data. All operations require access to the workflow workspace; writes require write permission.',
   bgColor: '#F64F9E',
   bestPractices: `
   - Do not use this block unless the user explicitly asks for it.
@@ -15,7 +15,7 @@ export const MemoryBlock: BlockConfig = {
   `,
   icon: BrainIcon,
   category: 'blocks',
-  docsLink: 'https://docs.tradinggoose.ai/tools/memory',
+  docsLink: 'https://docs.tradinggoose.ai/blocks/memory',
   subBlocks: [
     {
       id: 'operation',
@@ -191,7 +191,11 @@ export const MemoryBlock: BlockConfig = {
     content: { type: 'string', description: 'Memory content' },
   },
   outputs: {
-    memories: { type: 'json', description: 'Memory data' },
-    id: { type: 'string', description: 'Memory identifier' },
+    memories: {
+      type: 'array',
+      description:
+        'Conversation messages for Add/Get, or key/type/data records for Get All (up to 50)',
+    },
+    message: { type: 'string', description: 'Operation confirmation for Get, Get All, or Delete' },
   },
 }

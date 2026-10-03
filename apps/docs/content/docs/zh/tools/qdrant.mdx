@@ -1,0 +1,372 @@
+---
+title: Qdrant
+description: 使用 Qdrant 向量数据库
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="qdrant"
+  color="#DC244C"
+/>
+
+## 配置
+
+### 插入或更新
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Qdrant"
+    type="qdrant"
+    color="#DC244C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "upsert",
+            "options": [
+                {
+                    "id": "upsert",
+                    "label": "插入或更新"
+                },
+                {
+                    "id": "search",
+                    "label": "搜索"
+                },
+                {
+                    "id": "fetch",
+                    "label": "获取"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "你的 Qdrant API 密钥（可选）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "url",
+            "type": "short-input",
+            "title": "Qdrant URL",
+            "layout": "full",
+            "placeholder": "http://localhost:6333",
+            "required": true
+        },
+        {
+            "id": "collection",
+            "type": "short-input",
+            "title": "集合",
+            "layout": "full",
+            "placeholder": "my-collection",
+            "required": true
+        },
+        {
+            "id": "points",
+            "type": "long-input",
+            "title": "点",
+            "layout": "full",
+            "placeholder": "[{\"id\": 1, \"vector\": [0.1, 0.2], \"payload\": {\"category\": \"a\"}}]",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">插入或更新 (<code>qdrant_upsert_points</code>)</div>
+
+在 Qdrant 集合中插入或更新点
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `url` | string | 是 | Qdrant 基础 URL |
+| `apiKey` | string | 否 | Qdrant API 密钥（可选） |
+| `collection` | string | 是 | 集合名称 |
+| `points` | array | 是 | 要插入或更新的点数组 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `status` | string | 插入或更新操作的状态 |
+| `data` | object | 插入或更新操作返回的结果数据 |
+
+</div>
+
+---
+
+### 搜索
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Qdrant"
+    type="qdrant"
+    color="#DC244C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "search",
+            "options": [
+                {
+                    "id": "upsert",
+                    "label": "插入/更新"
+                },
+                {
+                    "id": "search",
+                    "label": "搜索"
+                },
+                {
+                    "id": "fetch",
+                    "label": "获取"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "你的 Qdrant API 密钥（可选）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "url",
+            "type": "short-input",
+            "title": "Qdrant URL",
+            "layout": "full",
+            "placeholder": "http://localhost:6333",
+            "required": true
+        },
+        {
+            "id": "collection",
+            "type": "short-input",
+            "title": "集合",
+            "layout": "full",
+            "placeholder": "my-collection",
+            "required": true
+        },
+        {
+            "id": "vector",
+            "type": "long-input",
+            "title": "查询向量",
+            "layout": "full",
+            "placeholder": "[0.1, 0.2]",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "layout": "full",
+            "placeholder": "10"
+        },
+        {
+            "id": "filter",
+            "type": "long-input",
+            "title": "过滤器",
+            "layout": "full",
+            "placeholder": "{\"must\":[{\"key\":\"city\",\"match\":{\"value\":\"London\"}}]}"
+        },
+        {
+            "id": "search_return_data",
+            "type": "dropdown",
+            "title": "返回数据",
+            "layout": "full",
+            "defaultValue": "payload_only",
+            "options": [
+                {
+                    "id": "payload_only",
+                    "label": "仅载荷"
+                },
+                {
+                    "id": "vector_only",
+                    "label": "仅向量"
+                },
+                {
+                    "id": "both",
+                    "label": "载荷和向量"
+                },
+                {
+                    "id": "none",
+                    "label": "无（仅 ID 和分数）"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索 (<code>qdrant_search_vector</code>)</div>
+
+在 Qdrant 集合中搜索相似向量
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `url` | string | 是 | Qdrant 基础 URL |
+| `apiKey` | string | 否 | Qdrant API 密钥（可选） |
+| `collection` | string | 是 | 集合名称 |
+| `vector` | array | 是 | 要搜索的向量 |
+| `limit` | number | 否 | 返回结果数量 |
+| `filter` | object | 否 | 应用于搜索的过滤器 |
+| `search_return_data` | string | 否 | 搜索返回的数据 |
+| `with_payload` | boolean | 否 | 在响应中包含载荷 |
+| `with_vector` | boolean | 否 | 在响应中包含向量 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `data` | array | 包含 ID、分数、载荷及可选向量数据的向量搜索结果 |
+| `status` | string | 搜索操作的状态 |
+
+</div>
+
+---
+
+### 获取
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Qdrant"
+    type="qdrant"
+    color="#DC244C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "fetch",
+            "options": [
+                {
+                    "id": "upsert",
+                    "label": "插入或更新"
+                },
+                {
+                    "id": "search",
+                    "label": "搜索"
+                },
+                {
+                    "id": "fetch",
+                    "label": "获取"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "你的 Qdrant API 密钥（可选）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "url",
+            "type": "short-input",
+            "title": "Qdrant URL",
+            "layout": "full",
+            "placeholder": "http://localhost:6333",
+            "required": true
+        },
+        {
+            "id": "collection",
+            "type": "short-input",
+            "title": "集合",
+            "layout": "full",
+            "placeholder": "my-collection",
+            "required": true
+        },
+        {
+            "id": "ids",
+            "type": "long-input",
+            "title": "ID",
+            "layout": "full",
+            "placeholder": "[\"370446a3-310f-58db-8ce7-31db947c6c1e\"]",
+            "required": true
+        },
+        {
+            "id": "fetch_return_data",
+            "type": "dropdown",
+            "title": "返回数据",
+            "layout": "full",
+            "defaultValue": "payload_only",
+            "options": [
+                {
+                    "id": "payload_only",
+                    "label": "仅载荷"
+                },
+                {
+                    "id": "vector_only",
+                    "label": "仅向量"
+                },
+                {
+                    "id": "both",
+                    "label": "载荷和向量"
+                },
+                {
+                    "id": "none",
+                    "label": "无（仅 ID）"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取 (<code>qdrant_fetch_points</code>)</div>
+
+按 ID 从 Qdrant 集合获取点
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `url` | string | 是 | Qdrant 基础 URL |
+| `apiKey` | string | 否 | Qdrant API 密钥 \(可选\) |
+| `collection` | string | 是 | 集合名称 |
+| `ids` | array | 是 | 要获取的点 ID 数组 |
+| `fetch_return_data` | string | 否 | 获取时返回的数据 |
+| `with_payload` | boolean | 否 | 在响应中包含载荷 |
+| `with_vector` | boolean | 否 | 在响应中包含向量 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `data` | array | 获取到的点，包含 ID、payload 和可选向量数据 |
+| `status` | string | 获取操作的状态 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Qdrant 集成到工作流。可对点执行 upsert、搜索和获取。
+
+## 说明
+
+- 分类: `tools`
+- 类型: `qdrant`

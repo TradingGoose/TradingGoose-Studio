@@ -57,8 +57,8 @@ const e = array.new_string(2, '');
 | `array.lastindexof(arr, value)` | Last index of value |
 | `array.includes(arr, value)` | Check if contains value |
 | `array.binary_search(arr, value)` | Binary search (sorted array) |
-| `array.every(arr, fn)` | True if all match predicate |
-| `array.some(arr, fn)` | True if any match predicate |
+| `array.every(arr)` | True if every element is truthy and not `na`; does not accept a predicate |
+| `array.some(arr)` | True if any element is truthy and not `na`; does not accept a predicate |
 
 ### Statistics
 
@@ -74,7 +74,7 @@ const e = array.new_string(2, '');
 | `array.variance(arr)` | Variance |
 | `array.covariance(arr1, arr2)` | Covariance |
 | `array.range(arr)` | Range (max - min) |
-| `array.percentrank(arr, value)` | Percentile rank |
+| `array.percentrank(arr, index)` | Percentile rank of the element at a zero-based index |
 
 ---
 
@@ -108,7 +108,7 @@ const allKeys = map.keys(m);               // ['ema', 'sma']
 
 ---
 
-## Matrix (50 methods)
+## Matrix
 
 2D data structures for advanced mathematical operations:
 
@@ -126,10 +126,10 @@ matrix.set(m, 2, 2, 1);         // Identity matrix
 | **Access** | `get`, `set`, `row`, `col` |
 | **Size** | `rows`, `columns`, `elements_count` |
 | **Modify** | `add_row`, `add_col`, `remove_row`, `remove_col`, `swap_rows`, `swap_columns`, `fill`, `reverse` |
-| **Transform** | `transpose`, `reshape`, `slice`, `submatrix`, `concat`, `copy` |
+| **Transform** | `transpose`, `reshape`, `submatrix`, `concat`, `copy` |
 | **Arithmetic** | `mult`, `pow`, `diff` |
 | **Linear Algebra** | `det`, `inv`, `pinv`, `eigenvalues`, `eigenvectors`, `rank`, `trace` |
-| **Statistics** | `sum`, `avg`, `min`, `max`, `median`, `mode`, `stdev`, `variance` |
+| **Statistics** | `sum`, `avg`, `min`, `max`, `median`, `mode` |
 | **Boolean Tests** | `is_square`, `is_identity`, `is_diagonal`, `is_symmetric`, `is_triangular`, `is_zero`, `is_binary`, `is_stochastic` |
 
 ---

@@ -371,7 +371,6 @@ describe('block-editor i18n helpers', () => {
       'memory',
       'note',
       'router',
-      'webhook_request',
       'indicator_trigger',
       'imap',
       'rss',

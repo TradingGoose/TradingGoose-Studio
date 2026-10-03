@@ -29,85 +29,85 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grafana_list_dashboards",
             "options": [
                 {
-                    "label": "List Dashboards",
-                    "id": "grafana_list_dashboards"
+                    "id": "grafana_list_dashboards",
+                    "label": "List Dashboards"
                 },
                 {
-                    "label": "Get Dashboard",
-                    "id": "grafana_get_dashboard"
+                    "id": "grafana_get_dashboard",
+                    "label": "Get Dashboard"
                 },
                 {
-                    "label": "Create Dashboard",
-                    "id": "grafana_create_dashboard"
+                    "id": "grafana_create_dashboard",
+                    "label": "Create Dashboard"
                 },
                 {
-                    "label": "Update Dashboard",
-                    "id": "grafana_update_dashboard"
+                    "id": "grafana_update_dashboard",
+                    "label": "Update Dashboard"
                 },
                 {
-                    "label": "Delete Dashboard",
-                    "id": "grafana_delete_dashboard"
+                    "id": "grafana_delete_dashboard",
+                    "label": "Delete Dashboard"
                 },
                 {
-                    "label": "List Alert Rules",
-                    "id": "grafana_list_alert_rules"
+                    "id": "grafana_list_alert_rules",
+                    "label": "List Alert Rules"
                 },
                 {
-                    "label": "Get Alert Rule",
-                    "id": "grafana_get_alert_rule"
+                    "id": "grafana_get_alert_rule",
+                    "label": "Get Alert Rule"
                 },
                 {
-                    "label": "Create Alert Rule",
-                    "id": "grafana_create_alert_rule"
+                    "id": "grafana_create_alert_rule",
+                    "label": "Create Alert Rule"
                 },
                 {
-                    "label": "Update Alert Rule",
-                    "id": "grafana_update_alert_rule"
+                    "id": "grafana_update_alert_rule",
+                    "label": "Update Alert Rule"
                 },
                 {
-                    "label": "Delete Alert Rule",
-                    "id": "grafana_delete_alert_rule"
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Delete Alert Rule"
                 },
                 {
-                    "label": "List Contact Points",
-                    "id": "grafana_list_contact_points"
+                    "id": "grafana_list_contact_points",
+                    "label": "List Contact Points"
                 },
                 {
-                    "label": "Create Annotation",
-                    "id": "grafana_create_annotation"
+                    "id": "grafana_create_annotation",
+                    "label": "Create Annotation"
                 },
                 {
-                    "label": "List Annotations",
-                    "id": "grafana_list_annotations"
+                    "id": "grafana_list_annotations",
+                    "label": "List Annotations"
                 },
                 {
-                    "label": "Update Annotation",
-                    "id": "grafana_update_annotation"
+                    "id": "grafana_update_annotation",
+                    "label": "Update Annotation"
                 },
                 {
-                    "label": "Delete Annotation",
-                    "id": "grafana_delete_annotation"
+                    "id": "grafana_delete_annotation",
+                    "label": "Delete Annotation"
                 },
                 {
-                    "label": "List Data Sources",
-                    "id": "grafana_list_data_sources"
+                    "id": "grafana_list_data_sources",
+                    "label": "List Data Sources"
                 },
                 {
-                    "label": "Get Data Source",
-                    "id": "grafana_get_data_source"
+                    "id": "grafana_get_data_source",
+                    "label": "Get Data Source"
                 },
                 {
-                    "label": "List Folders",
-                    "id": "grafana_list_folders"
+                    "id": "grafana_list_folders",
+                    "label": "List Folders"
                 },
                 {
-                    "label": "Create Folder",
-                    "id": "grafana_create_folder"
+                    "id": "grafana_create_folder",
+                    "label": "Create Folder"
                 }
-            ],
-            "defaultValue": "grafana_list_dashboards"
+            ]
         },
         {
             "id": "baseUrl",
@@ -168,11 +168,7 @@ Search and list all dashboards
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | number | Dashboard ID |
-| `uid` | string | Dashboard UID |
-| `title` | string | Dashboard title |
-| `url` | string | Dashboard URL path |
-| `tags` | array | Dashboard tags |
+| `dashboards` | array | List of dashboard search results |
 
 </div>
 
@@ -193,85 +189,85 @@ Search and list all dashboards
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grafana_get_dashboard",
             "options": [
                 {
-                    "label": "List Dashboards",
-                    "id": "grafana_list_dashboards"
+                    "id": "grafana_list_dashboards",
+                    "label": "List Dashboards"
                 },
                 {
-                    "label": "Get Dashboard",
-                    "id": "grafana_get_dashboard"
+                    "id": "grafana_get_dashboard",
+                    "label": "Get Dashboard"
                 },
                 {
-                    "label": "Create Dashboard",
-                    "id": "grafana_create_dashboard"
+                    "id": "grafana_create_dashboard",
+                    "label": "Create Dashboard"
                 },
                 {
-                    "label": "Update Dashboard",
-                    "id": "grafana_update_dashboard"
+                    "id": "grafana_update_dashboard",
+                    "label": "Update Dashboard"
                 },
                 {
-                    "label": "Delete Dashboard",
-                    "id": "grafana_delete_dashboard"
+                    "id": "grafana_delete_dashboard",
+                    "label": "Delete Dashboard"
                 },
                 {
-                    "label": "List Alert Rules",
-                    "id": "grafana_list_alert_rules"
+                    "id": "grafana_list_alert_rules",
+                    "label": "List Alert Rules"
                 },
                 {
-                    "label": "Get Alert Rule",
-                    "id": "grafana_get_alert_rule"
+                    "id": "grafana_get_alert_rule",
+                    "label": "Get Alert Rule"
                 },
                 {
-                    "label": "Create Alert Rule",
-                    "id": "grafana_create_alert_rule"
+                    "id": "grafana_create_alert_rule",
+                    "label": "Create Alert Rule"
                 },
                 {
-                    "label": "Update Alert Rule",
-                    "id": "grafana_update_alert_rule"
+                    "id": "grafana_update_alert_rule",
+                    "label": "Update Alert Rule"
                 },
                 {
-                    "label": "Delete Alert Rule",
-                    "id": "grafana_delete_alert_rule"
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Delete Alert Rule"
                 },
                 {
-                    "label": "List Contact Points",
-                    "id": "grafana_list_contact_points"
+                    "id": "grafana_list_contact_points",
+                    "label": "List Contact Points"
                 },
                 {
-                    "label": "Create Annotation",
-                    "id": "grafana_create_annotation"
+                    "id": "grafana_create_annotation",
+                    "label": "Create Annotation"
                 },
                 {
-                    "label": "List Annotations",
-                    "id": "grafana_list_annotations"
+                    "id": "grafana_list_annotations",
+                    "label": "List Annotations"
                 },
                 {
-                    "label": "Update Annotation",
-                    "id": "grafana_update_annotation"
+                    "id": "grafana_update_annotation",
+                    "label": "Update Annotation"
                 },
                 {
-                    "label": "Delete Annotation",
-                    "id": "grafana_delete_annotation"
+                    "id": "grafana_delete_annotation",
+                    "label": "Delete Annotation"
                 },
                 {
-                    "label": "List Data Sources",
-                    "id": "grafana_list_data_sources"
+                    "id": "grafana_list_data_sources",
+                    "label": "List Data Sources"
                 },
                 {
-                    "label": "Get Data Source",
-                    "id": "grafana_get_data_source"
+                    "id": "grafana_get_data_source",
+                    "label": "Get Data Source"
                 },
                 {
-                    "label": "List Folders",
-                    "id": "grafana_list_folders"
+                    "id": "grafana_list_folders",
+                    "label": "List Folders"
                 },
                 {
-                    "label": "Create Folder",
-                    "id": "grafana_create_folder"
+                    "id": "grafana_create_folder",
+                    "label": "Create Folder"
                 }
-            ],
-            "defaultValue": "grafana_get_dashboard"
+            ]
         },
         {
             "id": "baseUrl",
@@ -324,6 +320,7 @@ Get a dashboard by its UID
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `dashboard` | json | The full dashboard JSON object |
+| `meta` | json | Dashboard metadata \(version, permissions, etc.\) |
 
 </div>
 
@@ -344,85 +341,85 @@ Get a dashboard by its UID
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grafana_create_dashboard",
             "options": [
                 {
-                    "label": "List Dashboards",
-                    "id": "grafana_list_dashboards"
+                    "id": "grafana_list_dashboards",
+                    "label": "List Dashboards"
                 },
                 {
-                    "label": "Get Dashboard",
-                    "id": "grafana_get_dashboard"
+                    "id": "grafana_get_dashboard",
+                    "label": "Get Dashboard"
                 },
                 {
-                    "label": "Create Dashboard",
-                    "id": "grafana_create_dashboard"
+                    "id": "grafana_create_dashboard",
+                    "label": "Create Dashboard"
                 },
                 {
-                    "label": "Update Dashboard",
-                    "id": "grafana_update_dashboard"
+                    "id": "grafana_update_dashboard",
+                    "label": "Update Dashboard"
                 },
                 {
-                    "label": "Delete Dashboard",
-                    "id": "grafana_delete_dashboard"
+                    "id": "grafana_delete_dashboard",
+                    "label": "Delete Dashboard"
                 },
                 {
-                    "label": "List Alert Rules",
-                    "id": "grafana_list_alert_rules"
+                    "id": "grafana_list_alert_rules",
+                    "label": "List Alert Rules"
                 },
                 {
-                    "label": "Get Alert Rule",
-                    "id": "grafana_get_alert_rule"
+                    "id": "grafana_get_alert_rule",
+                    "label": "Get Alert Rule"
                 },
                 {
-                    "label": "Create Alert Rule",
-                    "id": "grafana_create_alert_rule"
+                    "id": "grafana_create_alert_rule",
+                    "label": "Create Alert Rule"
                 },
                 {
-                    "label": "Update Alert Rule",
-                    "id": "grafana_update_alert_rule"
+                    "id": "grafana_update_alert_rule",
+                    "label": "Update Alert Rule"
                 },
                 {
-                    "label": "Delete Alert Rule",
-                    "id": "grafana_delete_alert_rule"
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Delete Alert Rule"
                 },
                 {
-                    "label": "List Contact Points",
-                    "id": "grafana_list_contact_points"
+                    "id": "grafana_list_contact_points",
+                    "label": "List Contact Points"
                 },
                 {
-                    "label": "Create Annotation",
-                    "id": "grafana_create_annotation"
+                    "id": "grafana_create_annotation",
+                    "label": "Create Annotation"
                 },
                 {
-                    "label": "List Annotations",
-                    "id": "grafana_list_annotations"
+                    "id": "grafana_list_annotations",
+                    "label": "List Annotations"
                 },
                 {
-                    "label": "Update Annotation",
-                    "id": "grafana_update_annotation"
+                    "id": "grafana_update_annotation",
+                    "label": "Update Annotation"
                 },
                 {
-                    "label": "Delete Annotation",
-                    "id": "grafana_delete_annotation"
+                    "id": "grafana_delete_annotation",
+                    "label": "Delete Annotation"
                 },
                 {
-                    "label": "List Data Sources",
-                    "id": "grafana_list_data_sources"
+                    "id": "grafana_list_data_sources",
+                    "label": "List Data Sources"
                 },
                 {
-                    "label": "Get Data Source",
-                    "id": "grafana_get_data_source"
+                    "id": "grafana_get_data_source",
+                    "label": "Get Data Source"
                 },
                 {
-                    "label": "List Folders",
-                    "id": "grafana_list_folders"
+                    "id": "grafana_list_folders",
+                    "label": "List Folders"
                 },
                 {
-                    "label": "Create Folder",
-                    "id": "grafana_create_folder"
+                    "id": "grafana_create_folder",
+                    "label": "Create Folder"
                 }
-            ],
-            "defaultValue": "grafana_create_dashboard"
+            ]
         },
         {
             "id": "baseUrl",
@@ -510,6 +507,7 @@ Create a new dashboard
 | `url` | string | The URL path to the dashboard |
 | `status` | string | Status of the operation \(success\) |
 | `version` | number | The version number of the dashboard |
+| `slug` | string | URL-friendly slug of the dashboard |
 
 </div>
 
@@ -530,85 +528,85 @@ Create a new dashboard
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grafana_update_dashboard",
             "options": [
                 {
-                    "label": "List Dashboards",
-                    "id": "grafana_list_dashboards"
+                    "id": "grafana_list_dashboards",
+                    "label": "List Dashboards"
                 },
                 {
-                    "label": "Get Dashboard",
-                    "id": "grafana_get_dashboard"
+                    "id": "grafana_get_dashboard",
+                    "label": "Get Dashboard"
                 },
                 {
-                    "label": "Create Dashboard",
-                    "id": "grafana_create_dashboard"
+                    "id": "grafana_create_dashboard",
+                    "label": "Create Dashboard"
                 },
                 {
-                    "label": "Update Dashboard",
-                    "id": "grafana_update_dashboard"
+                    "id": "grafana_update_dashboard",
+                    "label": "Update Dashboard"
                 },
                 {
-                    "label": "Delete Dashboard",
-                    "id": "grafana_delete_dashboard"
+                    "id": "grafana_delete_dashboard",
+                    "label": "Delete Dashboard"
                 },
                 {
-                    "label": "List Alert Rules",
-                    "id": "grafana_list_alert_rules"
+                    "id": "grafana_list_alert_rules",
+                    "label": "List Alert Rules"
                 },
                 {
-                    "label": "Get Alert Rule",
-                    "id": "grafana_get_alert_rule"
+                    "id": "grafana_get_alert_rule",
+                    "label": "Get Alert Rule"
                 },
                 {
-                    "label": "Create Alert Rule",
-                    "id": "grafana_create_alert_rule"
+                    "id": "grafana_create_alert_rule",
+                    "label": "Create Alert Rule"
                 },
                 {
-                    "label": "Update Alert Rule",
-                    "id": "grafana_update_alert_rule"
+                    "id": "grafana_update_alert_rule",
+                    "label": "Update Alert Rule"
                 },
                 {
-                    "label": "Delete Alert Rule",
-                    "id": "grafana_delete_alert_rule"
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Delete Alert Rule"
                 },
                 {
-                    "label": "List Contact Points",
-                    "id": "grafana_list_contact_points"
+                    "id": "grafana_list_contact_points",
+                    "label": "List Contact Points"
                 },
                 {
-                    "label": "Create Annotation",
-                    "id": "grafana_create_annotation"
+                    "id": "grafana_create_annotation",
+                    "label": "Create Annotation"
                 },
                 {
-                    "label": "List Annotations",
-                    "id": "grafana_list_annotations"
+                    "id": "grafana_list_annotations",
+                    "label": "List Annotations"
                 },
                 {
-                    "label": "Update Annotation",
-                    "id": "grafana_update_annotation"
+                    "id": "grafana_update_annotation",
+                    "label": "Update Annotation"
                 },
                 {
-                    "label": "Delete Annotation",
-                    "id": "grafana_delete_annotation"
+                    "id": "grafana_delete_annotation",
+                    "label": "Delete Annotation"
                 },
                 {
-                    "label": "List Data Sources",
-                    "id": "grafana_list_data_sources"
+                    "id": "grafana_list_data_sources",
+                    "label": "List Data Sources"
                 },
                 {
-                    "label": "Get Data Source",
-                    "id": "grafana_get_data_source"
+                    "id": "grafana_get_data_source",
+                    "label": "Get Data Source"
                 },
                 {
-                    "label": "List Folders",
-                    "id": "grafana_list_folders"
+                    "id": "grafana_list_folders",
+                    "label": "List Folders"
                 },
                 {
-                    "label": "Create Folder",
-                    "id": "grafana_create_folder"
+                    "id": "grafana_create_folder",
+                    "label": "Create Folder"
                 }
-            ],
-            "defaultValue": "grafana_update_dashboard"
+            ]
         },
         {
             "id": "baseUrl",
@@ -697,6 +695,7 @@ Update an existing dashboard. Fetches the current dashboard and merges your chan
 | `url` | string | The URL path to the dashboard |
 | `status` | string | Status of the operation \(success\) |
 | `version` | number | The new version number of the dashboard |
+| `slug` | string | URL-friendly slug of the dashboard |
 
 </div>
 
@@ -717,85 +716,85 @@ Update an existing dashboard. Fetches the current dashboard and merges your chan
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grafana_delete_dashboard",
             "options": [
                 {
-                    "label": "List Dashboards",
-                    "id": "grafana_list_dashboards"
+                    "id": "grafana_list_dashboards",
+                    "label": "List Dashboards"
                 },
                 {
-                    "label": "Get Dashboard",
-                    "id": "grafana_get_dashboard"
+                    "id": "grafana_get_dashboard",
+                    "label": "Get Dashboard"
                 },
                 {
-                    "label": "Create Dashboard",
-                    "id": "grafana_create_dashboard"
+                    "id": "grafana_create_dashboard",
+                    "label": "Create Dashboard"
                 },
                 {
-                    "label": "Update Dashboard",
-                    "id": "grafana_update_dashboard"
+                    "id": "grafana_update_dashboard",
+                    "label": "Update Dashboard"
                 },
                 {
-                    "label": "Delete Dashboard",
-                    "id": "grafana_delete_dashboard"
+                    "id": "grafana_delete_dashboard",
+                    "label": "Delete Dashboard"
                 },
                 {
-                    "label": "List Alert Rules",
-                    "id": "grafana_list_alert_rules"
+                    "id": "grafana_list_alert_rules",
+                    "label": "List Alert Rules"
                 },
                 {
-                    "label": "Get Alert Rule",
-                    "id": "grafana_get_alert_rule"
+                    "id": "grafana_get_alert_rule",
+                    "label": "Get Alert Rule"
                 },
                 {
-                    "label": "Create Alert Rule",
-                    "id": "grafana_create_alert_rule"
+                    "id": "grafana_create_alert_rule",
+                    "label": "Create Alert Rule"
                 },
                 {
-                    "label": "Update Alert Rule",
-                    "id": "grafana_update_alert_rule"
+                    "id": "grafana_update_alert_rule",
+                    "label": "Update Alert Rule"
                 },
                 {
-                    "label": "Delete Alert Rule",
-                    "id": "grafana_delete_alert_rule"
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Delete Alert Rule"
                 },
                 {
-                    "label": "List Contact Points",
-                    "id": "grafana_list_contact_points"
+                    "id": "grafana_list_contact_points",
+                    "label": "List Contact Points"
                 },
                 {
-                    "label": "Create Annotation",
-                    "id": "grafana_create_annotation"
+                    "id": "grafana_create_annotation",
+                    "label": "Create Annotation"
                 },
                 {
-                    "label": "List Annotations",
-                    "id": "grafana_list_annotations"
+                    "id": "grafana_list_annotations",
+                    "label": "List Annotations"
                 },
                 {
-                    "label": "Update Annotation",
-                    "id": "grafana_update_annotation"
+                    "id": "grafana_update_annotation",
+                    "label": "Update Annotation"
                 },
                 {
-                    "label": "Delete Annotation",
-                    "id": "grafana_delete_annotation"
+                    "id": "grafana_delete_annotation",
+                    "label": "Delete Annotation"
                 },
                 {
-                    "label": "List Data Sources",
-                    "id": "grafana_list_data_sources"
+                    "id": "grafana_list_data_sources",
+                    "label": "List Data Sources"
                 },
                 {
-                    "label": "Get Data Source",
-                    "id": "grafana_get_data_source"
+                    "id": "grafana_get_data_source",
+                    "label": "Get Data Source"
                 },
                 {
-                    "label": "List Folders",
-                    "id": "grafana_list_folders"
+                    "id": "grafana_list_folders",
+                    "label": "List Folders"
                 },
                 {
-                    "label": "Create Folder",
-                    "id": "grafana_create_folder"
+                    "id": "grafana_create_folder",
+                    "label": "Create Folder"
                 }
-            ],
-            "defaultValue": "grafana_delete_dashboard"
+            ]
         },
         {
             "id": "baseUrl",
@@ -849,6 +848,7 @@ Delete a dashboard by its UID
 | --------- | ---- | ----------- |
 | `title` | string | The title of the deleted dashboard |
 | `message` | string | Confirmation message |
+| `id` | number | The ID of the deleted dashboard |
 
 </div>
 
@@ -869,85 +869,85 @@ Delete a dashboard by its UID
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grafana_list_alert_rules",
             "options": [
                 {
-                    "label": "List Dashboards",
-                    "id": "grafana_list_dashboards"
+                    "id": "grafana_list_dashboards",
+                    "label": "List Dashboards"
                 },
                 {
-                    "label": "Get Dashboard",
-                    "id": "grafana_get_dashboard"
+                    "id": "grafana_get_dashboard",
+                    "label": "Get Dashboard"
                 },
                 {
-                    "label": "Create Dashboard",
-                    "id": "grafana_create_dashboard"
+                    "id": "grafana_create_dashboard",
+                    "label": "Create Dashboard"
                 },
                 {
-                    "label": "Update Dashboard",
-                    "id": "grafana_update_dashboard"
+                    "id": "grafana_update_dashboard",
+                    "label": "Update Dashboard"
                 },
                 {
-                    "label": "Delete Dashboard",
-                    "id": "grafana_delete_dashboard"
+                    "id": "grafana_delete_dashboard",
+                    "label": "Delete Dashboard"
                 },
                 {
-                    "label": "List Alert Rules",
-                    "id": "grafana_list_alert_rules"
+                    "id": "grafana_list_alert_rules",
+                    "label": "List Alert Rules"
                 },
                 {
-                    "label": "Get Alert Rule",
-                    "id": "grafana_get_alert_rule"
+                    "id": "grafana_get_alert_rule",
+                    "label": "Get Alert Rule"
                 },
                 {
-                    "label": "Create Alert Rule",
-                    "id": "grafana_create_alert_rule"
+                    "id": "grafana_create_alert_rule",
+                    "label": "Create Alert Rule"
                 },
                 {
-                    "label": "Update Alert Rule",
-                    "id": "grafana_update_alert_rule"
+                    "id": "grafana_update_alert_rule",
+                    "label": "Update Alert Rule"
                 },
                 {
-                    "label": "Delete Alert Rule",
-                    "id": "grafana_delete_alert_rule"
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Delete Alert Rule"
                 },
                 {
-                    "label": "List Contact Points",
-                    "id": "grafana_list_contact_points"
+                    "id": "grafana_list_contact_points",
+                    "label": "List Contact Points"
                 },
                 {
-                    "label": "Create Annotation",
-                    "id": "grafana_create_annotation"
+                    "id": "grafana_create_annotation",
+                    "label": "Create Annotation"
                 },
                 {
-                    "label": "List Annotations",
-                    "id": "grafana_list_annotations"
+                    "id": "grafana_list_annotations",
+                    "label": "List Annotations"
                 },
                 {
-                    "label": "Update Annotation",
-                    "id": "grafana_update_annotation"
+                    "id": "grafana_update_annotation",
+                    "label": "Update Annotation"
                 },
                 {
-                    "label": "Delete Annotation",
-                    "id": "grafana_delete_annotation"
+                    "id": "grafana_delete_annotation",
+                    "label": "Delete Annotation"
                 },
                 {
-                    "label": "List Data Sources",
-                    "id": "grafana_list_data_sources"
+                    "id": "grafana_list_data_sources",
+                    "label": "List Data Sources"
                 },
                 {
-                    "label": "Get Data Source",
-                    "id": "grafana_get_data_source"
+                    "id": "grafana_get_data_source",
+                    "label": "Get Data Source"
                 },
                 {
-                    "label": "List Folders",
-                    "id": "grafana_list_folders"
+                    "id": "grafana_list_folders",
+                    "label": "List Folders"
                 },
                 {
-                    "label": "Create Folder",
-                    "id": "grafana_create_folder"
+                    "id": "grafana_create_folder",
+                    "label": "Create Folder"
                 }
-            ],
-            "defaultValue": "grafana_list_alert_rules"
+            ]
         },
         {
             "id": "baseUrl",
@@ -991,12 +991,7 @@ List all alert rules in the Grafana instance
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `uid` | string | Alert rule UID |
-| `title` | string | Alert rule title |
-| `condition` | string | Alert condition |
-| `folderUID` | string | Parent folder UID |
-| `ruleGroup` | string | Rule group name |
-| `noDataState` | string | State when no data is returned |
+| `rules` | array | List of alert rules |
 
 </div>
 
@@ -1017,85 +1012,85 @@ List all alert rules in the Grafana instance
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grafana_get_alert_rule",
             "options": [
                 {
-                    "label": "List Dashboards",
-                    "id": "grafana_list_dashboards"
+                    "id": "grafana_list_dashboards",
+                    "label": "List Dashboards"
                 },
                 {
-                    "label": "Get Dashboard",
-                    "id": "grafana_get_dashboard"
+                    "id": "grafana_get_dashboard",
+                    "label": "Get Dashboard"
                 },
                 {
-                    "label": "Create Dashboard",
-                    "id": "grafana_create_dashboard"
+                    "id": "grafana_create_dashboard",
+                    "label": "Create Dashboard"
                 },
                 {
-                    "label": "Update Dashboard",
-                    "id": "grafana_update_dashboard"
+                    "id": "grafana_update_dashboard",
+                    "label": "Update Dashboard"
                 },
                 {
-                    "label": "Delete Dashboard",
-                    "id": "grafana_delete_dashboard"
+                    "id": "grafana_delete_dashboard",
+                    "label": "Delete Dashboard"
                 },
                 {
-                    "label": "List Alert Rules",
-                    "id": "grafana_list_alert_rules"
+                    "id": "grafana_list_alert_rules",
+                    "label": "List Alert Rules"
                 },
                 {
-                    "label": "Get Alert Rule",
-                    "id": "grafana_get_alert_rule"
+                    "id": "grafana_get_alert_rule",
+                    "label": "Get Alert Rule"
                 },
                 {
-                    "label": "Create Alert Rule",
-                    "id": "grafana_create_alert_rule"
+                    "id": "grafana_create_alert_rule",
+                    "label": "Create Alert Rule"
                 },
                 {
-                    "label": "Update Alert Rule",
-                    "id": "grafana_update_alert_rule"
+                    "id": "grafana_update_alert_rule",
+                    "label": "Update Alert Rule"
                 },
                 {
-                    "label": "Delete Alert Rule",
-                    "id": "grafana_delete_alert_rule"
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Delete Alert Rule"
                 },
                 {
-                    "label": "List Contact Points",
-                    "id": "grafana_list_contact_points"
+                    "id": "grafana_list_contact_points",
+                    "label": "List Contact Points"
                 },
                 {
-                    "label": "Create Annotation",
-                    "id": "grafana_create_annotation"
+                    "id": "grafana_create_annotation",
+                    "label": "Create Annotation"
                 },
                 {
-                    "label": "List Annotations",
-                    "id": "grafana_list_annotations"
+                    "id": "grafana_list_annotations",
+                    "label": "List Annotations"
                 },
                 {
-                    "label": "Update Annotation",
-                    "id": "grafana_update_annotation"
+                    "id": "grafana_update_annotation",
+                    "label": "Update Annotation"
                 },
                 {
-                    "label": "Delete Annotation",
-                    "id": "grafana_delete_annotation"
+                    "id": "grafana_delete_annotation",
+                    "label": "Delete Annotation"
                 },
                 {
-                    "label": "List Data Sources",
-                    "id": "grafana_list_data_sources"
+                    "id": "grafana_list_data_sources",
+                    "label": "List Data Sources"
                 },
                 {
-                    "label": "Get Data Source",
-                    "id": "grafana_get_data_source"
+                    "id": "grafana_get_data_source",
+                    "label": "Get Data Source"
                 },
                 {
-                    "label": "List Folders",
-                    "id": "grafana_list_folders"
+                    "id": "grafana_list_folders",
+                    "label": "List Folders"
                 },
                 {
-                    "label": "Create Folder",
-                    "id": "grafana_create_folder"
+                    "id": "grafana_create_folder",
+                    "label": "Create Folder"
                 }
-            ],
-            "defaultValue": "grafana_get_alert_rule"
+            ]
         },
         {
             "id": "baseUrl",
@@ -1156,6 +1151,7 @@ Get a specific alert rule by its UID
 | `noDataState` | string | State when no data is returned |
 | `execErrState` | string | State on execution error |
 | `annotations` | json | Alert annotations |
+| `labels` | json | Alert labels |
 
 </div>
 
@@ -1176,85 +1172,85 @@ Get a specific alert rule by its UID
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grafana_create_alert_rule",
             "options": [
                 {
-                    "label": "List Dashboards",
-                    "id": "grafana_list_dashboards"
+                    "id": "grafana_list_dashboards",
+                    "label": "List Dashboards"
                 },
                 {
-                    "label": "Get Dashboard",
-                    "id": "grafana_get_dashboard"
+                    "id": "grafana_get_dashboard",
+                    "label": "Get Dashboard"
                 },
                 {
-                    "label": "Create Dashboard",
-                    "id": "grafana_create_dashboard"
+                    "id": "grafana_create_dashboard",
+                    "label": "Create Dashboard"
                 },
                 {
-                    "label": "Update Dashboard",
-                    "id": "grafana_update_dashboard"
+                    "id": "grafana_update_dashboard",
+                    "label": "Update Dashboard"
                 },
                 {
-                    "label": "Delete Dashboard",
-                    "id": "grafana_delete_dashboard"
+                    "id": "grafana_delete_dashboard",
+                    "label": "Delete Dashboard"
                 },
                 {
-                    "label": "List Alert Rules",
-                    "id": "grafana_list_alert_rules"
+                    "id": "grafana_list_alert_rules",
+                    "label": "List Alert Rules"
                 },
                 {
-                    "label": "Get Alert Rule",
-                    "id": "grafana_get_alert_rule"
+                    "id": "grafana_get_alert_rule",
+                    "label": "Get Alert Rule"
                 },
                 {
-                    "label": "Create Alert Rule",
-                    "id": "grafana_create_alert_rule"
+                    "id": "grafana_create_alert_rule",
+                    "label": "Create Alert Rule"
                 },
                 {
-                    "label": "Update Alert Rule",
-                    "id": "grafana_update_alert_rule"
+                    "id": "grafana_update_alert_rule",
+                    "label": "Update Alert Rule"
                 },
                 {
-                    "label": "Delete Alert Rule",
-                    "id": "grafana_delete_alert_rule"
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Delete Alert Rule"
                 },
                 {
-                    "label": "List Contact Points",
-                    "id": "grafana_list_contact_points"
+                    "id": "grafana_list_contact_points",
+                    "label": "List Contact Points"
                 },
                 {
-                    "label": "Create Annotation",
-                    "id": "grafana_create_annotation"
+                    "id": "grafana_create_annotation",
+                    "label": "Create Annotation"
                 },
                 {
-                    "label": "List Annotations",
-                    "id": "grafana_list_annotations"
+                    "id": "grafana_list_annotations",
+                    "label": "List Annotations"
                 },
                 {
-                    "label": "Update Annotation",
-                    "id": "grafana_update_annotation"
+                    "id": "grafana_update_annotation",
+                    "label": "Update Annotation"
                 },
                 {
-                    "label": "Delete Annotation",
-                    "id": "grafana_delete_annotation"
+                    "id": "grafana_delete_annotation",
+                    "label": "Delete Annotation"
                 },
                 {
-                    "label": "List Data Sources",
-                    "id": "grafana_list_data_sources"
+                    "id": "grafana_list_data_sources",
+                    "label": "List Data Sources"
                 },
                 {
-                    "label": "Get Data Source",
-                    "id": "grafana_get_data_source"
+                    "id": "grafana_get_data_source",
+                    "label": "Get Data Source"
                 },
                 {
-                    "label": "List Folders",
-                    "id": "grafana_list_folders"
+                    "id": "grafana_list_folders",
+                    "label": "List Folders"
                 },
                 {
-                    "label": "Create Folder",
-                    "id": "grafana_create_folder"
+                    "id": "grafana_create_folder",
+                    "label": "Create Folder"
                 }
-            ],
-            "defaultValue": "grafana_create_alert_rule"
+            ]
         },
         {
             "id": "baseUrl",
@@ -1323,18 +1319,19 @@ Get a specific alert rule by its UID
             "id": "noDataState",
             "type": "dropdown",
             "title": "No Data State",
+            "defaultValue": "NoData",
             "options": [
                 {
-                    "label": "No Data",
-                    "id": "NoData"
+                    "id": "NoData",
+                    "label": "No Data"
                 },
                 {
-                    "label": "Alerting",
-                    "id": "Alerting"
+                    "id": "Alerting",
+                    "label": "Alerting"
                 },
                 {
-                    "label": "OK",
-                    "id": "OK"
+                    "id": "OK",
+                    "label": "OK"
                 }
             ]
         },
@@ -1342,14 +1339,15 @@ Get a specific alert rule by its UID
             "id": "execErrState",
             "type": "dropdown",
             "title": "Error State",
+            "defaultValue": "Alerting",
             "options": [
                 {
-                    "label": "Alerting",
-                    "id": "Alerting"
+                    "id": "Alerting",
+                    "label": "Alerting"
                 },
                 {
-                    "label": "OK",
-                    "id": "OK"
+                    "id": "OK",
+                    "label": "OK"
                 }
             ]
         }
@@ -1387,6 +1385,7 @@ Create a new alert rule
 | `uid` | string | The UID of the created alert rule |
 | `title` | string | Alert rule title |
 | `folderUID` | string | Parent folder UID |
+| `ruleGroup` | string | Rule group name |
 
 </div>
 
@@ -1407,85 +1406,85 @@ Create a new alert rule
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grafana_update_alert_rule",
             "options": [
                 {
-                    "label": "List Dashboards",
-                    "id": "grafana_list_dashboards"
+                    "id": "grafana_list_dashboards",
+                    "label": "List Dashboards"
                 },
                 {
-                    "label": "Get Dashboard",
-                    "id": "grafana_get_dashboard"
+                    "id": "grafana_get_dashboard",
+                    "label": "Get Dashboard"
                 },
                 {
-                    "label": "Create Dashboard",
-                    "id": "grafana_create_dashboard"
+                    "id": "grafana_create_dashboard",
+                    "label": "Create Dashboard"
                 },
                 {
-                    "label": "Update Dashboard",
-                    "id": "grafana_update_dashboard"
+                    "id": "grafana_update_dashboard",
+                    "label": "Update Dashboard"
                 },
                 {
-                    "label": "Delete Dashboard",
-                    "id": "grafana_delete_dashboard"
+                    "id": "grafana_delete_dashboard",
+                    "label": "Delete Dashboard"
                 },
                 {
-                    "label": "List Alert Rules",
-                    "id": "grafana_list_alert_rules"
+                    "id": "grafana_list_alert_rules",
+                    "label": "List Alert Rules"
                 },
                 {
-                    "label": "Get Alert Rule",
-                    "id": "grafana_get_alert_rule"
+                    "id": "grafana_get_alert_rule",
+                    "label": "Get Alert Rule"
                 },
                 {
-                    "label": "Create Alert Rule",
-                    "id": "grafana_create_alert_rule"
+                    "id": "grafana_create_alert_rule",
+                    "label": "Create Alert Rule"
                 },
                 {
-                    "label": "Update Alert Rule",
-                    "id": "grafana_update_alert_rule"
+                    "id": "grafana_update_alert_rule",
+                    "label": "Update Alert Rule"
                 },
                 {
-                    "label": "Delete Alert Rule",
-                    "id": "grafana_delete_alert_rule"
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Delete Alert Rule"
                 },
                 {
-                    "label": "List Contact Points",
-                    "id": "grafana_list_contact_points"
+                    "id": "grafana_list_contact_points",
+                    "label": "List Contact Points"
                 },
                 {
-                    "label": "Create Annotation",
-                    "id": "grafana_create_annotation"
+                    "id": "grafana_create_annotation",
+                    "label": "Create Annotation"
                 },
                 {
-                    "label": "List Annotations",
-                    "id": "grafana_list_annotations"
+                    "id": "grafana_list_annotations",
+                    "label": "List Annotations"
                 },
                 {
-                    "label": "Update Annotation",
-                    "id": "grafana_update_annotation"
+                    "id": "grafana_update_annotation",
+                    "label": "Update Annotation"
                 },
                 {
-                    "label": "Delete Annotation",
-                    "id": "grafana_delete_annotation"
+                    "id": "grafana_delete_annotation",
+                    "label": "Delete Annotation"
                 },
                 {
-                    "label": "List Data Sources",
-                    "id": "grafana_list_data_sources"
+                    "id": "grafana_list_data_sources",
+                    "label": "List Data Sources"
                 },
                 {
-                    "label": "Get Data Source",
-                    "id": "grafana_get_data_source"
+                    "id": "grafana_get_data_source",
+                    "label": "Get Data Source"
                 },
                 {
-                    "label": "List Folders",
-                    "id": "grafana_list_folders"
+                    "id": "grafana_list_folders",
+                    "label": "List Folders"
                 },
                 {
-                    "label": "Create Folder",
-                    "id": "grafana_create_folder"
+                    "id": "grafana_create_folder",
+                    "label": "Create Folder"
                 }
-            ],
-            "defaultValue": "grafana_update_alert_rule"
+            ]
         },
         {
             "id": "baseUrl",
@@ -1555,18 +1554,19 @@ Create a new alert rule
             "id": "noDataState",
             "type": "dropdown",
             "title": "No Data State",
+            "defaultValue": "NoData",
             "options": [
                 {
-                    "label": "No Data",
-                    "id": "NoData"
+                    "id": "NoData",
+                    "label": "No Data"
                 },
                 {
-                    "label": "Alerting",
-                    "id": "Alerting"
+                    "id": "Alerting",
+                    "label": "Alerting"
                 },
                 {
-                    "label": "OK",
-                    "id": "OK"
+                    "id": "OK",
+                    "label": "OK"
                 }
             ]
         },
@@ -1574,14 +1574,15 @@ Create a new alert rule
             "id": "execErrState",
             "type": "dropdown",
             "title": "Error State",
+            "defaultValue": "Alerting",
             "options": [
                 {
-                    "label": "Alerting",
-                    "id": "Alerting"
+                    "id": "Alerting",
+                    "label": "Alerting"
                 },
                 {
-                    "label": "OK",
-                    "id": "OK"
+                    "id": "OK",
+                    "label": "OK"
                 }
             ]
         }
@@ -1620,6 +1621,7 @@ Update an existing alert rule. Fetches the current rule and merges your changes.
 | `uid` | string | The UID of the updated alert rule |
 | `title` | string | Alert rule title |
 | `folderUID` | string | Parent folder UID |
+| `ruleGroup` | string | Rule group name |
 
 </div>
 
@@ -1640,85 +1642,85 @@ Update an existing alert rule. Fetches the current rule and merges your changes.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grafana_delete_alert_rule",
             "options": [
                 {
-                    "label": "List Dashboards",
-                    "id": "grafana_list_dashboards"
+                    "id": "grafana_list_dashboards",
+                    "label": "List Dashboards"
                 },
                 {
-                    "label": "Get Dashboard",
-                    "id": "grafana_get_dashboard"
+                    "id": "grafana_get_dashboard",
+                    "label": "Get Dashboard"
                 },
                 {
-                    "label": "Create Dashboard",
-                    "id": "grafana_create_dashboard"
+                    "id": "grafana_create_dashboard",
+                    "label": "Create Dashboard"
                 },
                 {
-                    "label": "Update Dashboard",
-                    "id": "grafana_update_dashboard"
+                    "id": "grafana_update_dashboard",
+                    "label": "Update Dashboard"
                 },
                 {
-                    "label": "Delete Dashboard",
-                    "id": "grafana_delete_dashboard"
+                    "id": "grafana_delete_dashboard",
+                    "label": "Delete Dashboard"
                 },
                 {
-                    "label": "List Alert Rules",
-                    "id": "grafana_list_alert_rules"
+                    "id": "grafana_list_alert_rules",
+                    "label": "List Alert Rules"
                 },
                 {
-                    "label": "Get Alert Rule",
-                    "id": "grafana_get_alert_rule"
+                    "id": "grafana_get_alert_rule",
+                    "label": "Get Alert Rule"
                 },
                 {
-                    "label": "Create Alert Rule",
-                    "id": "grafana_create_alert_rule"
+                    "id": "grafana_create_alert_rule",
+                    "label": "Create Alert Rule"
                 },
                 {
-                    "label": "Update Alert Rule",
-                    "id": "grafana_update_alert_rule"
+                    "id": "grafana_update_alert_rule",
+                    "label": "Update Alert Rule"
                 },
                 {
-                    "label": "Delete Alert Rule",
-                    "id": "grafana_delete_alert_rule"
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Delete Alert Rule"
                 },
                 {
-                    "label": "List Contact Points",
-                    "id": "grafana_list_contact_points"
+                    "id": "grafana_list_contact_points",
+                    "label": "List Contact Points"
                 },
                 {
-                    "label": "Create Annotation",
-                    "id": "grafana_create_annotation"
+                    "id": "grafana_create_annotation",
+                    "label": "Create Annotation"
                 },
                 {
-                    "label": "List Annotations",
-                    "id": "grafana_list_annotations"
+                    "id": "grafana_list_annotations",
+                    "label": "List Annotations"
                 },
                 {
-                    "label": "Update Annotation",
-                    "id": "grafana_update_annotation"
+                    "id": "grafana_update_annotation",
+                    "label": "Update Annotation"
                 },
                 {
-                    "label": "Delete Annotation",
-                    "id": "grafana_delete_annotation"
+                    "id": "grafana_delete_annotation",
+                    "label": "Delete Annotation"
                 },
                 {
-                    "label": "List Data Sources",
-                    "id": "grafana_list_data_sources"
+                    "id": "grafana_list_data_sources",
+                    "label": "List Data Sources"
                 },
                 {
-                    "label": "Get Data Source",
-                    "id": "grafana_get_data_source"
+                    "id": "grafana_get_data_source",
+                    "label": "Get Data Source"
                 },
                 {
-                    "label": "List Folders",
-                    "id": "grafana_list_folders"
+                    "id": "grafana_list_folders",
+                    "label": "List Folders"
                 },
                 {
-                    "label": "Create Folder",
-                    "id": "grafana_create_folder"
+                    "id": "grafana_create_folder",
+                    "label": "Create Folder"
                 }
-            ],
-            "defaultValue": "grafana_delete_alert_rule"
+            ]
         },
         {
             "id": "baseUrl",
@@ -1768,7 +1770,9 @@ Delete an alert rule by its UID
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `message` | string | Confirmation message |
 
 </div>
 
@@ -1789,85 +1793,85 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grafana_list_contact_points",
             "options": [
                 {
-                    "label": "List Dashboards",
-                    "id": "grafana_list_dashboards"
+                    "id": "grafana_list_dashboards",
+                    "label": "List Dashboards"
                 },
                 {
-                    "label": "Get Dashboard",
-                    "id": "grafana_get_dashboard"
+                    "id": "grafana_get_dashboard",
+                    "label": "Get Dashboard"
                 },
                 {
-                    "label": "Create Dashboard",
-                    "id": "grafana_create_dashboard"
+                    "id": "grafana_create_dashboard",
+                    "label": "Create Dashboard"
                 },
                 {
-                    "label": "Update Dashboard",
-                    "id": "grafana_update_dashboard"
+                    "id": "grafana_update_dashboard",
+                    "label": "Update Dashboard"
                 },
                 {
-                    "label": "Delete Dashboard",
-                    "id": "grafana_delete_dashboard"
+                    "id": "grafana_delete_dashboard",
+                    "label": "Delete Dashboard"
                 },
                 {
-                    "label": "List Alert Rules",
-                    "id": "grafana_list_alert_rules"
+                    "id": "grafana_list_alert_rules",
+                    "label": "List Alert Rules"
                 },
                 {
-                    "label": "Get Alert Rule",
-                    "id": "grafana_get_alert_rule"
+                    "id": "grafana_get_alert_rule",
+                    "label": "Get Alert Rule"
                 },
                 {
-                    "label": "Create Alert Rule",
-                    "id": "grafana_create_alert_rule"
+                    "id": "grafana_create_alert_rule",
+                    "label": "Create Alert Rule"
                 },
                 {
-                    "label": "Update Alert Rule",
-                    "id": "grafana_update_alert_rule"
+                    "id": "grafana_update_alert_rule",
+                    "label": "Update Alert Rule"
                 },
                 {
-                    "label": "Delete Alert Rule",
-                    "id": "grafana_delete_alert_rule"
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Delete Alert Rule"
                 },
                 {
-                    "label": "List Contact Points",
-                    "id": "grafana_list_contact_points"
+                    "id": "grafana_list_contact_points",
+                    "label": "List Contact Points"
                 },
                 {
-                    "label": "Create Annotation",
-                    "id": "grafana_create_annotation"
+                    "id": "grafana_create_annotation",
+                    "label": "Create Annotation"
                 },
                 {
-                    "label": "List Annotations",
-                    "id": "grafana_list_annotations"
+                    "id": "grafana_list_annotations",
+                    "label": "List Annotations"
                 },
                 {
-                    "label": "Update Annotation",
-                    "id": "grafana_update_annotation"
+                    "id": "grafana_update_annotation",
+                    "label": "Update Annotation"
                 },
                 {
-                    "label": "Delete Annotation",
-                    "id": "grafana_delete_annotation"
+                    "id": "grafana_delete_annotation",
+                    "label": "Delete Annotation"
                 },
                 {
-                    "label": "List Data Sources",
-                    "id": "grafana_list_data_sources"
+                    "id": "grafana_list_data_sources",
+                    "label": "List Data Sources"
                 },
                 {
-                    "label": "Get Data Source",
-                    "id": "grafana_get_data_source"
+                    "id": "grafana_get_data_source",
+                    "label": "Get Data Source"
                 },
                 {
-                    "label": "List Folders",
-                    "id": "grafana_list_folders"
+                    "id": "grafana_list_folders",
+                    "label": "List Folders"
                 },
                 {
-                    "label": "Create Folder",
-                    "id": "grafana_create_folder"
+                    "id": "grafana_create_folder",
+                    "label": "Create Folder"
                 }
-            ],
-            "defaultValue": "grafana_list_contact_points"
+            ]
         },
         {
             "id": "baseUrl",
@@ -1911,9 +1915,7 @@ List all alert notification contact points
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `uid` | string | Contact point UID |
-| `name` | string | Contact point name |
-| `type` | string | Notification type \(email, slack, etc.\) |
+| `contactPoints` | array | List of contact points |
 
 </div>
 
@@ -1934,85 +1936,85 @@ List all alert notification contact points
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grafana_create_annotation",
             "options": [
                 {
-                    "label": "List Dashboards",
-                    "id": "grafana_list_dashboards"
+                    "id": "grafana_list_dashboards",
+                    "label": "List Dashboards"
                 },
                 {
-                    "label": "Get Dashboard",
-                    "id": "grafana_get_dashboard"
+                    "id": "grafana_get_dashboard",
+                    "label": "Get Dashboard"
                 },
                 {
-                    "label": "Create Dashboard",
-                    "id": "grafana_create_dashboard"
+                    "id": "grafana_create_dashboard",
+                    "label": "Create Dashboard"
                 },
                 {
-                    "label": "Update Dashboard",
-                    "id": "grafana_update_dashboard"
+                    "id": "grafana_update_dashboard",
+                    "label": "Update Dashboard"
                 },
                 {
-                    "label": "Delete Dashboard",
-                    "id": "grafana_delete_dashboard"
+                    "id": "grafana_delete_dashboard",
+                    "label": "Delete Dashboard"
                 },
                 {
-                    "label": "List Alert Rules",
-                    "id": "grafana_list_alert_rules"
+                    "id": "grafana_list_alert_rules",
+                    "label": "List Alert Rules"
                 },
                 {
-                    "label": "Get Alert Rule",
-                    "id": "grafana_get_alert_rule"
+                    "id": "grafana_get_alert_rule",
+                    "label": "Get Alert Rule"
                 },
                 {
-                    "label": "Create Alert Rule",
-                    "id": "grafana_create_alert_rule"
+                    "id": "grafana_create_alert_rule",
+                    "label": "Create Alert Rule"
                 },
                 {
-                    "label": "Update Alert Rule",
-                    "id": "grafana_update_alert_rule"
+                    "id": "grafana_update_alert_rule",
+                    "label": "Update Alert Rule"
                 },
                 {
-                    "label": "Delete Alert Rule",
-                    "id": "grafana_delete_alert_rule"
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Delete Alert Rule"
                 },
                 {
-                    "label": "List Contact Points",
-                    "id": "grafana_list_contact_points"
+                    "id": "grafana_list_contact_points",
+                    "label": "List Contact Points"
                 },
                 {
-                    "label": "Create Annotation",
-                    "id": "grafana_create_annotation"
+                    "id": "grafana_create_annotation",
+                    "label": "Create Annotation"
                 },
                 {
-                    "label": "List Annotations",
-                    "id": "grafana_list_annotations"
+                    "id": "grafana_list_annotations",
+                    "label": "List Annotations"
                 },
                 {
-                    "label": "Update Annotation",
-                    "id": "grafana_update_annotation"
+                    "id": "grafana_update_annotation",
+                    "label": "Update Annotation"
                 },
                 {
-                    "label": "Delete Annotation",
-                    "id": "grafana_delete_annotation"
+                    "id": "grafana_delete_annotation",
+                    "label": "Delete Annotation"
                 },
                 {
-                    "label": "List Data Sources",
-                    "id": "grafana_list_data_sources"
+                    "id": "grafana_list_data_sources",
+                    "label": "List Data Sources"
                 },
                 {
-                    "label": "Get Data Source",
-                    "id": "grafana_get_data_source"
+                    "id": "grafana_get_data_source",
+                    "label": "Get Data Source"
                 },
                 {
-                    "label": "List Folders",
-                    "id": "grafana_list_folders"
+                    "id": "grafana_list_folders",
+                    "label": "List Folders"
                 },
                 {
-                    "label": "Create Folder",
-                    "id": "grafana_create_folder"
+                    "id": "grafana_create_folder",
+                    "label": "Create Folder"
                 }
-            ],
-            "defaultValue": "grafana_create_annotation"
+            ]
         },
         {
             "id": "baseUrl",
@@ -2101,6 +2103,7 @@ Create an annotation on a dashboard or as a global annotation
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `id` | number | The ID of the created annotation |
+| `message` | string | Confirmation message |
 
 </div>
 
@@ -2121,85 +2124,85 @@ Create an annotation on a dashboard or as a global annotation
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grafana_list_annotations",
             "options": [
                 {
-                    "label": "List Dashboards",
-                    "id": "grafana_list_dashboards"
+                    "id": "grafana_list_dashboards",
+                    "label": "List Dashboards"
                 },
                 {
-                    "label": "Get Dashboard",
-                    "id": "grafana_get_dashboard"
+                    "id": "grafana_get_dashboard",
+                    "label": "Get Dashboard"
                 },
                 {
-                    "label": "Create Dashboard",
-                    "id": "grafana_create_dashboard"
+                    "id": "grafana_create_dashboard",
+                    "label": "Create Dashboard"
                 },
                 {
-                    "label": "Update Dashboard",
-                    "id": "grafana_update_dashboard"
+                    "id": "grafana_update_dashboard",
+                    "label": "Update Dashboard"
                 },
                 {
-                    "label": "Delete Dashboard",
-                    "id": "grafana_delete_dashboard"
+                    "id": "grafana_delete_dashboard",
+                    "label": "Delete Dashboard"
                 },
                 {
-                    "label": "List Alert Rules",
-                    "id": "grafana_list_alert_rules"
+                    "id": "grafana_list_alert_rules",
+                    "label": "List Alert Rules"
                 },
                 {
-                    "label": "Get Alert Rule",
-                    "id": "grafana_get_alert_rule"
+                    "id": "grafana_get_alert_rule",
+                    "label": "Get Alert Rule"
                 },
                 {
-                    "label": "Create Alert Rule",
-                    "id": "grafana_create_alert_rule"
+                    "id": "grafana_create_alert_rule",
+                    "label": "Create Alert Rule"
                 },
                 {
-                    "label": "Update Alert Rule",
-                    "id": "grafana_update_alert_rule"
+                    "id": "grafana_update_alert_rule",
+                    "label": "Update Alert Rule"
                 },
                 {
-                    "label": "Delete Alert Rule",
-                    "id": "grafana_delete_alert_rule"
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Delete Alert Rule"
                 },
                 {
-                    "label": "List Contact Points",
-                    "id": "grafana_list_contact_points"
+                    "id": "grafana_list_contact_points",
+                    "label": "List Contact Points"
                 },
                 {
-                    "label": "Create Annotation",
-                    "id": "grafana_create_annotation"
+                    "id": "grafana_create_annotation",
+                    "label": "Create Annotation"
                 },
                 {
-                    "label": "List Annotations",
-                    "id": "grafana_list_annotations"
+                    "id": "grafana_list_annotations",
+                    "label": "List Annotations"
                 },
                 {
-                    "label": "Update Annotation",
-                    "id": "grafana_update_annotation"
+                    "id": "grafana_update_annotation",
+                    "label": "Update Annotation"
                 },
                 {
-                    "label": "Delete Annotation",
-                    "id": "grafana_delete_annotation"
+                    "id": "grafana_delete_annotation",
+                    "label": "Delete Annotation"
                 },
                 {
-                    "label": "List Data Sources",
-                    "id": "grafana_list_data_sources"
+                    "id": "grafana_list_data_sources",
+                    "label": "List Data Sources"
                 },
                 {
-                    "label": "Get Data Source",
-                    "id": "grafana_get_data_source"
+                    "id": "grafana_get_data_source",
+                    "label": "Get Data Source"
                 },
                 {
-                    "label": "List Folders",
-                    "id": "grafana_list_folders"
+                    "id": "grafana_list_folders",
+                    "label": "List Folders"
                 },
                 {
-                    "label": "Create Folder",
-                    "id": "grafana_create_folder"
+                    "id": "grafana_create_folder",
+                    "label": "Create Folder"
                 }
-            ],
-            "defaultValue": "grafana_list_annotations"
+            ]
         },
         {
             "id": "baseUrl",
@@ -2281,19 +2284,7 @@ Query annotations by time range, dashboard, or tags
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | number | Annotation ID |
-| `dashboardId` | number | Dashboard ID |
-| `dashboardUID` | string | Dashboard UID |
-| `created` | number | Creation timestamp in epoch ms |
-| `updated` | number | Last update timestamp in epoch ms |
-| `time` | number | Start time in epoch ms |
-| `timeEnd` | number | End time in epoch ms |
-| `text` | string | Annotation text |
-| `tags` | array | Annotation tags |
-| `items` | string | items output |
-| `login` | string | Login of the user who created the annotation |
-| `email` | string | Email of the user who created the annotation |
-| `avatarUrl` | string | Avatar URL of the user |
+| `annotations` | array | List of annotations |
 
 </div>
 
@@ -2314,85 +2305,85 @@ Query annotations by time range, dashboard, or tags
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grafana_update_annotation",
             "options": [
                 {
-                    "label": "List Dashboards",
-                    "id": "grafana_list_dashboards"
+                    "id": "grafana_list_dashboards",
+                    "label": "List Dashboards"
                 },
                 {
-                    "label": "Get Dashboard",
-                    "id": "grafana_get_dashboard"
+                    "id": "grafana_get_dashboard",
+                    "label": "Get Dashboard"
                 },
                 {
-                    "label": "Create Dashboard",
-                    "id": "grafana_create_dashboard"
+                    "id": "grafana_create_dashboard",
+                    "label": "Create Dashboard"
                 },
                 {
-                    "label": "Update Dashboard",
-                    "id": "grafana_update_dashboard"
+                    "id": "grafana_update_dashboard",
+                    "label": "Update Dashboard"
                 },
                 {
-                    "label": "Delete Dashboard",
-                    "id": "grafana_delete_dashboard"
+                    "id": "grafana_delete_dashboard",
+                    "label": "Delete Dashboard"
                 },
                 {
-                    "label": "List Alert Rules",
-                    "id": "grafana_list_alert_rules"
+                    "id": "grafana_list_alert_rules",
+                    "label": "List Alert Rules"
                 },
                 {
-                    "label": "Get Alert Rule",
-                    "id": "grafana_get_alert_rule"
+                    "id": "grafana_get_alert_rule",
+                    "label": "Get Alert Rule"
                 },
                 {
-                    "label": "Create Alert Rule",
-                    "id": "grafana_create_alert_rule"
+                    "id": "grafana_create_alert_rule",
+                    "label": "Create Alert Rule"
                 },
                 {
-                    "label": "Update Alert Rule",
-                    "id": "grafana_update_alert_rule"
+                    "id": "grafana_update_alert_rule",
+                    "label": "Update Alert Rule"
                 },
                 {
-                    "label": "Delete Alert Rule",
-                    "id": "grafana_delete_alert_rule"
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Delete Alert Rule"
                 },
                 {
-                    "label": "List Contact Points",
-                    "id": "grafana_list_contact_points"
+                    "id": "grafana_list_contact_points",
+                    "label": "List Contact Points"
                 },
                 {
-                    "label": "Create Annotation",
-                    "id": "grafana_create_annotation"
+                    "id": "grafana_create_annotation",
+                    "label": "Create Annotation"
                 },
                 {
-                    "label": "List Annotations",
-                    "id": "grafana_list_annotations"
+                    "id": "grafana_list_annotations",
+                    "label": "List Annotations"
                 },
                 {
-                    "label": "Update Annotation",
-                    "id": "grafana_update_annotation"
+                    "id": "grafana_update_annotation",
+                    "label": "Update Annotation"
                 },
                 {
-                    "label": "Delete Annotation",
-                    "id": "grafana_delete_annotation"
+                    "id": "grafana_delete_annotation",
+                    "label": "Delete Annotation"
                 },
                 {
-                    "label": "List Data Sources",
-                    "id": "grafana_list_data_sources"
+                    "id": "grafana_list_data_sources",
+                    "label": "List Data Sources"
                 },
                 {
-                    "label": "Get Data Source",
-                    "id": "grafana_get_data_source"
+                    "id": "grafana_get_data_source",
+                    "label": "Get Data Source"
                 },
                 {
-                    "label": "List Folders",
-                    "id": "grafana_list_folders"
+                    "id": "grafana_list_folders",
+                    "label": "List Folders"
                 },
                 {
-                    "label": "Create Folder",
-                    "id": "grafana_create_folder"
+                    "id": "grafana_create_folder",
+                    "label": "Create Folder"
                 }
-            ],
-            "defaultValue": "grafana_update_annotation"
+            ]
         },
         {
             "id": "baseUrl",
@@ -2474,6 +2465,7 @@ Update an existing annotation
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `id` | number | The ID of the updated annotation |
+| `message` | string | Confirmation message |
 
 </div>
 
@@ -2494,85 +2486,85 @@ Update an existing annotation
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grafana_delete_annotation",
             "options": [
                 {
-                    "label": "List Dashboards",
-                    "id": "grafana_list_dashboards"
+                    "id": "grafana_list_dashboards",
+                    "label": "List Dashboards"
                 },
                 {
-                    "label": "Get Dashboard",
-                    "id": "grafana_get_dashboard"
+                    "id": "grafana_get_dashboard",
+                    "label": "Get Dashboard"
                 },
                 {
-                    "label": "Create Dashboard",
-                    "id": "grafana_create_dashboard"
+                    "id": "grafana_create_dashboard",
+                    "label": "Create Dashboard"
                 },
                 {
-                    "label": "Update Dashboard",
-                    "id": "grafana_update_dashboard"
+                    "id": "grafana_update_dashboard",
+                    "label": "Update Dashboard"
                 },
                 {
-                    "label": "Delete Dashboard",
-                    "id": "grafana_delete_dashboard"
+                    "id": "grafana_delete_dashboard",
+                    "label": "Delete Dashboard"
                 },
                 {
-                    "label": "List Alert Rules",
-                    "id": "grafana_list_alert_rules"
+                    "id": "grafana_list_alert_rules",
+                    "label": "List Alert Rules"
                 },
                 {
-                    "label": "Get Alert Rule",
-                    "id": "grafana_get_alert_rule"
+                    "id": "grafana_get_alert_rule",
+                    "label": "Get Alert Rule"
                 },
                 {
-                    "label": "Create Alert Rule",
-                    "id": "grafana_create_alert_rule"
+                    "id": "grafana_create_alert_rule",
+                    "label": "Create Alert Rule"
                 },
                 {
-                    "label": "Update Alert Rule",
-                    "id": "grafana_update_alert_rule"
+                    "id": "grafana_update_alert_rule",
+                    "label": "Update Alert Rule"
                 },
                 {
-                    "label": "Delete Alert Rule",
-                    "id": "grafana_delete_alert_rule"
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Delete Alert Rule"
                 },
                 {
-                    "label": "List Contact Points",
-                    "id": "grafana_list_contact_points"
+                    "id": "grafana_list_contact_points",
+                    "label": "List Contact Points"
                 },
                 {
-                    "label": "Create Annotation",
-                    "id": "grafana_create_annotation"
+                    "id": "grafana_create_annotation",
+                    "label": "Create Annotation"
                 },
                 {
-                    "label": "List Annotations",
-                    "id": "grafana_list_annotations"
+                    "id": "grafana_list_annotations",
+                    "label": "List Annotations"
                 },
                 {
-                    "label": "Update Annotation",
-                    "id": "grafana_update_annotation"
+                    "id": "grafana_update_annotation",
+                    "label": "Update Annotation"
                 },
                 {
-                    "label": "Delete Annotation",
-                    "id": "grafana_delete_annotation"
+                    "id": "grafana_delete_annotation",
+                    "label": "Delete Annotation"
                 },
                 {
-                    "label": "List Data Sources",
-                    "id": "grafana_list_data_sources"
+                    "id": "grafana_list_data_sources",
+                    "label": "List Data Sources"
                 },
                 {
-                    "label": "Get Data Source",
-                    "id": "grafana_get_data_source"
+                    "id": "grafana_get_data_source",
+                    "label": "Get Data Source"
                 },
                 {
-                    "label": "List Folders",
-                    "id": "grafana_list_folders"
+                    "id": "grafana_list_folders",
+                    "label": "List Folders"
                 },
                 {
-                    "label": "Create Folder",
-                    "id": "grafana_create_folder"
+                    "id": "grafana_create_folder",
+                    "label": "Create Folder"
                 }
-            ],
-            "defaultValue": "grafana_delete_annotation"
+            ]
         },
         {
             "id": "baseUrl",
@@ -2622,7 +2614,9 @@ Delete an annotation by its ID
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `message` | string | Confirmation message |
 
 </div>
 
@@ -2643,85 +2637,85 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grafana_list_data_sources",
             "options": [
                 {
-                    "label": "List Dashboards",
-                    "id": "grafana_list_dashboards"
+                    "id": "grafana_list_dashboards",
+                    "label": "List Dashboards"
                 },
                 {
-                    "label": "Get Dashboard",
-                    "id": "grafana_get_dashboard"
+                    "id": "grafana_get_dashboard",
+                    "label": "Get Dashboard"
                 },
                 {
-                    "label": "Create Dashboard",
-                    "id": "grafana_create_dashboard"
+                    "id": "grafana_create_dashboard",
+                    "label": "Create Dashboard"
                 },
                 {
-                    "label": "Update Dashboard",
-                    "id": "grafana_update_dashboard"
+                    "id": "grafana_update_dashboard",
+                    "label": "Update Dashboard"
                 },
                 {
-                    "label": "Delete Dashboard",
-                    "id": "grafana_delete_dashboard"
+                    "id": "grafana_delete_dashboard",
+                    "label": "Delete Dashboard"
                 },
                 {
-                    "label": "List Alert Rules",
-                    "id": "grafana_list_alert_rules"
+                    "id": "grafana_list_alert_rules",
+                    "label": "List Alert Rules"
                 },
                 {
-                    "label": "Get Alert Rule",
-                    "id": "grafana_get_alert_rule"
+                    "id": "grafana_get_alert_rule",
+                    "label": "Get Alert Rule"
                 },
                 {
-                    "label": "Create Alert Rule",
-                    "id": "grafana_create_alert_rule"
+                    "id": "grafana_create_alert_rule",
+                    "label": "Create Alert Rule"
                 },
                 {
-                    "label": "Update Alert Rule",
-                    "id": "grafana_update_alert_rule"
+                    "id": "grafana_update_alert_rule",
+                    "label": "Update Alert Rule"
                 },
                 {
-                    "label": "Delete Alert Rule",
-                    "id": "grafana_delete_alert_rule"
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Delete Alert Rule"
                 },
                 {
-                    "label": "List Contact Points",
-                    "id": "grafana_list_contact_points"
+                    "id": "grafana_list_contact_points",
+                    "label": "List Contact Points"
                 },
                 {
-                    "label": "Create Annotation",
-                    "id": "grafana_create_annotation"
+                    "id": "grafana_create_annotation",
+                    "label": "Create Annotation"
                 },
                 {
-                    "label": "List Annotations",
-                    "id": "grafana_list_annotations"
+                    "id": "grafana_list_annotations",
+                    "label": "List Annotations"
                 },
                 {
-                    "label": "Update Annotation",
-                    "id": "grafana_update_annotation"
+                    "id": "grafana_update_annotation",
+                    "label": "Update Annotation"
                 },
                 {
-                    "label": "Delete Annotation",
-                    "id": "grafana_delete_annotation"
+                    "id": "grafana_delete_annotation",
+                    "label": "Delete Annotation"
                 },
                 {
-                    "label": "List Data Sources",
-                    "id": "grafana_list_data_sources"
+                    "id": "grafana_list_data_sources",
+                    "label": "List Data Sources"
                 },
                 {
-                    "label": "Get Data Source",
-                    "id": "grafana_get_data_source"
+                    "id": "grafana_get_data_source",
+                    "label": "Get Data Source"
                 },
                 {
-                    "label": "List Folders",
-                    "id": "grafana_list_folders"
+                    "id": "grafana_list_folders",
+                    "label": "List Folders"
                 },
                 {
-                    "label": "Create Folder",
-                    "id": "grafana_create_folder"
+                    "id": "grafana_create_folder",
+                    "label": "Create Folder"
                 }
-            ],
-            "defaultValue": "grafana_list_data_sources"
+            ]
         },
         {
             "id": "baseUrl",
@@ -2765,11 +2759,7 @@ List all data sources configured in Grafana
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | number | Data source ID |
-| `uid` | string | Data source UID |
-| `name` | string | Data source name |
-| `type` | string | Data source type \(prometheus, mysql, etc.\) |
-| `url` | string | Data source URL |
+| `dataSources` | array | List of data sources |
 
 </div>
 
@@ -2790,85 +2780,85 @@ List all data sources configured in Grafana
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grafana_get_data_source",
             "options": [
                 {
-                    "label": "List Dashboards",
-                    "id": "grafana_list_dashboards"
+                    "id": "grafana_list_dashboards",
+                    "label": "List Dashboards"
                 },
                 {
-                    "label": "Get Dashboard",
-                    "id": "grafana_get_dashboard"
+                    "id": "grafana_get_dashboard",
+                    "label": "Get Dashboard"
                 },
                 {
-                    "label": "Create Dashboard",
-                    "id": "grafana_create_dashboard"
+                    "id": "grafana_create_dashboard",
+                    "label": "Create Dashboard"
                 },
                 {
-                    "label": "Update Dashboard",
-                    "id": "grafana_update_dashboard"
+                    "id": "grafana_update_dashboard",
+                    "label": "Update Dashboard"
                 },
                 {
-                    "label": "Delete Dashboard",
-                    "id": "grafana_delete_dashboard"
+                    "id": "grafana_delete_dashboard",
+                    "label": "Delete Dashboard"
                 },
                 {
-                    "label": "List Alert Rules",
-                    "id": "grafana_list_alert_rules"
+                    "id": "grafana_list_alert_rules",
+                    "label": "List Alert Rules"
                 },
                 {
-                    "label": "Get Alert Rule",
-                    "id": "grafana_get_alert_rule"
+                    "id": "grafana_get_alert_rule",
+                    "label": "Get Alert Rule"
                 },
                 {
-                    "label": "Create Alert Rule",
-                    "id": "grafana_create_alert_rule"
+                    "id": "grafana_create_alert_rule",
+                    "label": "Create Alert Rule"
                 },
                 {
-                    "label": "Update Alert Rule",
-                    "id": "grafana_update_alert_rule"
+                    "id": "grafana_update_alert_rule",
+                    "label": "Update Alert Rule"
                 },
                 {
-                    "label": "Delete Alert Rule",
-                    "id": "grafana_delete_alert_rule"
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Delete Alert Rule"
                 },
                 {
-                    "label": "List Contact Points",
-                    "id": "grafana_list_contact_points"
+                    "id": "grafana_list_contact_points",
+                    "label": "List Contact Points"
                 },
                 {
-                    "label": "Create Annotation",
-                    "id": "grafana_create_annotation"
+                    "id": "grafana_create_annotation",
+                    "label": "Create Annotation"
                 },
                 {
-                    "label": "List Annotations",
-                    "id": "grafana_list_annotations"
+                    "id": "grafana_list_annotations",
+                    "label": "List Annotations"
                 },
                 {
-                    "label": "Update Annotation",
-                    "id": "grafana_update_annotation"
+                    "id": "grafana_update_annotation",
+                    "label": "Update Annotation"
                 },
                 {
-                    "label": "Delete Annotation",
-                    "id": "grafana_delete_annotation"
+                    "id": "grafana_delete_annotation",
+                    "label": "Delete Annotation"
                 },
                 {
-                    "label": "List Data Sources",
-                    "id": "grafana_list_data_sources"
+                    "id": "grafana_list_data_sources",
+                    "label": "List Data Sources"
                 },
                 {
-                    "label": "Get Data Source",
-                    "id": "grafana_get_data_source"
+                    "id": "grafana_get_data_source",
+                    "label": "Get Data Source"
                 },
                 {
-                    "label": "List Folders",
-                    "id": "grafana_list_folders"
+                    "id": "grafana_list_folders",
+                    "label": "List Folders"
                 },
                 {
-                    "label": "Create Folder",
-                    "id": "grafana_create_folder"
+                    "id": "grafana_create_folder",
+                    "label": "Create Folder"
                 }
-            ],
-            "defaultValue": "grafana_get_data_source"
+            ]
         },
         {
             "id": "baseUrl",
@@ -2927,6 +2917,7 @@ Get a data source by its ID or UID
 | `url` | string | Data source connection URL |
 | `database` | string | Database name \(if applicable\) |
 | `isDefault` | boolean | Whether this is the default data source |
+| `jsonData` | json | Additional data source configuration |
 
 </div>
 
@@ -2947,85 +2938,85 @@ Get a data source by its ID or UID
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grafana_list_folders",
             "options": [
                 {
-                    "label": "List Dashboards",
-                    "id": "grafana_list_dashboards"
+                    "id": "grafana_list_dashboards",
+                    "label": "List Dashboards"
                 },
                 {
-                    "label": "Get Dashboard",
-                    "id": "grafana_get_dashboard"
+                    "id": "grafana_get_dashboard",
+                    "label": "Get Dashboard"
                 },
                 {
-                    "label": "Create Dashboard",
-                    "id": "grafana_create_dashboard"
+                    "id": "grafana_create_dashboard",
+                    "label": "Create Dashboard"
                 },
                 {
-                    "label": "Update Dashboard",
-                    "id": "grafana_update_dashboard"
+                    "id": "grafana_update_dashboard",
+                    "label": "Update Dashboard"
                 },
                 {
-                    "label": "Delete Dashboard",
-                    "id": "grafana_delete_dashboard"
+                    "id": "grafana_delete_dashboard",
+                    "label": "Delete Dashboard"
                 },
                 {
-                    "label": "List Alert Rules",
-                    "id": "grafana_list_alert_rules"
+                    "id": "grafana_list_alert_rules",
+                    "label": "List Alert Rules"
                 },
                 {
-                    "label": "Get Alert Rule",
-                    "id": "grafana_get_alert_rule"
+                    "id": "grafana_get_alert_rule",
+                    "label": "Get Alert Rule"
                 },
                 {
-                    "label": "Create Alert Rule",
-                    "id": "grafana_create_alert_rule"
+                    "id": "grafana_create_alert_rule",
+                    "label": "Create Alert Rule"
                 },
                 {
-                    "label": "Update Alert Rule",
-                    "id": "grafana_update_alert_rule"
+                    "id": "grafana_update_alert_rule",
+                    "label": "Update Alert Rule"
                 },
                 {
-                    "label": "Delete Alert Rule",
-                    "id": "grafana_delete_alert_rule"
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Delete Alert Rule"
                 },
                 {
-                    "label": "List Contact Points",
-                    "id": "grafana_list_contact_points"
+                    "id": "grafana_list_contact_points",
+                    "label": "List Contact Points"
                 },
                 {
-                    "label": "Create Annotation",
-                    "id": "grafana_create_annotation"
+                    "id": "grafana_create_annotation",
+                    "label": "Create Annotation"
                 },
                 {
-                    "label": "List Annotations",
-                    "id": "grafana_list_annotations"
+                    "id": "grafana_list_annotations",
+                    "label": "List Annotations"
                 },
                 {
-                    "label": "Update Annotation",
-                    "id": "grafana_update_annotation"
+                    "id": "grafana_update_annotation",
+                    "label": "Update Annotation"
                 },
                 {
-                    "label": "Delete Annotation",
-                    "id": "grafana_delete_annotation"
+                    "id": "grafana_delete_annotation",
+                    "label": "Delete Annotation"
                 },
                 {
-                    "label": "List Data Sources",
-                    "id": "grafana_list_data_sources"
+                    "id": "grafana_list_data_sources",
+                    "label": "List Data Sources"
                 },
                 {
-                    "label": "Get Data Source",
-                    "id": "grafana_get_data_source"
+                    "id": "grafana_get_data_source",
+                    "label": "Get Data Source"
                 },
                 {
-                    "label": "List Folders",
-                    "id": "grafana_list_folders"
+                    "id": "grafana_list_folders",
+                    "label": "List Folders"
                 },
                 {
-                    "label": "Create Folder",
-                    "id": "grafana_create_folder"
+                    "id": "grafana_create_folder",
+                    "label": "Create Folder"
                 }
-            ],
-            "defaultValue": "grafana_list_folders"
+            ]
         },
         {
             "id": "baseUrl",
@@ -3071,18 +3062,7 @@ List all folders in Grafana
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | number | Folder ID |
-| `uid` | string | Folder UID |
-| `title` | string | Folder title |
-| `hasAcl` | boolean | Whether the folder has custom ACL permissions |
-| `canSave` | boolean | Whether the current user can save the folder |
-| `canEdit` | boolean | Whether the current user can edit the folder |
-| `canAdmin` | boolean | Whether the current user has admin rights |
-| `canDelete` | boolean | Whether the current user can delete the folder |
-| `createdBy` | string | Username of who created the folder |
-| `created` | string | Timestamp when the folder was created |
-| `updatedBy` | string | Username of who last updated the folder |
-| `updated` | string | Timestamp when the folder was last updated |
+| `folders` | array | List of folders |
 
 </div>
 
@@ -3103,85 +3083,85 @@ List all folders in Grafana
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grafana_create_folder",
             "options": [
                 {
-                    "label": "List Dashboards",
-                    "id": "grafana_list_dashboards"
+                    "id": "grafana_list_dashboards",
+                    "label": "List Dashboards"
                 },
                 {
-                    "label": "Get Dashboard",
-                    "id": "grafana_get_dashboard"
+                    "id": "grafana_get_dashboard",
+                    "label": "Get Dashboard"
                 },
                 {
-                    "label": "Create Dashboard",
-                    "id": "grafana_create_dashboard"
+                    "id": "grafana_create_dashboard",
+                    "label": "Create Dashboard"
                 },
                 {
-                    "label": "Update Dashboard",
-                    "id": "grafana_update_dashboard"
+                    "id": "grafana_update_dashboard",
+                    "label": "Update Dashboard"
                 },
                 {
-                    "label": "Delete Dashboard",
-                    "id": "grafana_delete_dashboard"
+                    "id": "grafana_delete_dashboard",
+                    "label": "Delete Dashboard"
                 },
                 {
-                    "label": "List Alert Rules",
-                    "id": "grafana_list_alert_rules"
+                    "id": "grafana_list_alert_rules",
+                    "label": "List Alert Rules"
                 },
                 {
-                    "label": "Get Alert Rule",
-                    "id": "grafana_get_alert_rule"
+                    "id": "grafana_get_alert_rule",
+                    "label": "Get Alert Rule"
                 },
                 {
-                    "label": "Create Alert Rule",
-                    "id": "grafana_create_alert_rule"
+                    "id": "grafana_create_alert_rule",
+                    "label": "Create Alert Rule"
                 },
                 {
-                    "label": "Update Alert Rule",
-                    "id": "grafana_update_alert_rule"
+                    "id": "grafana_update_alert_rule",
+                    "label": "Update Alert Rule"
                 },
                 {
-                    "label": "Delete Alert Rule",
-                    "id": "grafana_delete_alert_rule"
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Delete Alert Rule"
                 },
                 {
-                    "label": "List Contact Points",
-                    "id": "grafana_list_contact_points"
+                    "id": "grafana_list_contact_points",
+                    "label": "List Contact Points"
                 },
                 {
-                    "label": "Create Annotation",
-                    "id": "grafana_create_annotation"
+                    "id": "grafana_create_annotation",
+                    "label": "Create Annotation"
                 },
                 {
-                    "label": "List Annotations",
-                    "id": "grafana_list_annotations"
+                    "id": "grafana_list_annotations",
+                    "label": "List Annotations"
                 },
                 {
-                    "label": "Update Annotation",
-                    "id": "grafana_update_annotation"
+                    "id": "grafana_update_annotation",
+                    "label": "Update Annotation"
                 },
                 {
-                    "label": "Delete Annotation",
-                    "id": "grafana_delete_annotation"
+                    "id": "grafana_delete_annotation",
+                    "label": "Delete Annotation"
                 },
                 {
-                    "label": "List Data Sources",
-                    "id": "grafana_list_data_sources"
+                    "id": "grafana_list_data_sources",
+                    "label": "List Data Sources"
                 },
                 {
-                    "label": "Get Data Source",
-                    "id": "grafana_get_data_source"
+                    "id": "grafana_get_data_source",
+                    "label": "Get Data Source"
                 },
                 {
-                    "label": "List Folders",
-                    "id": "grafana_list_folders"
+                    "id": "grafana_list_folders",
+                    "label": "List Folders"
                 },
                 {
-                    "label": "Create Folder",
-                    "id": "grafana_create_folder"
+                    "id": "grafana_create_folder",
+                    "label": "Create Folder"
                 }
-            ],
-            "defaultValue": "grafana_create_folder"
+            ]
         },
         {
             "id": "baseUrl",
@@ -3253,6 +3233,7 @@ Create a new folder in Grafana
 | `created` | string | Timestamp when the folder was created |
 | `updatedBy` | string | Username of who last updated the folder |
 | `updated` | string | Timestamp when the folder was last updated |
+| `version` | number | Version number of the folder |
 
 </div>
 

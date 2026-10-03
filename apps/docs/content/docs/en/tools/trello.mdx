@@ -29,33 +29,33 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "trello_list_lists",
             "options": [
                 {
-                    "label": "Get Lists",
-                    "id": "trello_list_lists"
+                    "id": "trello_list_lists",
+                    "label": "Get Lists"
                 },
                 {
-                    "label": "List Cards",
-                    "id": "trello_list_cards"
+                    "id": "trello_list_cards",
+                    "label": "List Cards"
                 },
                 {
-                    "label": "Create Card",
-                    "id": "trello_create_card"
+                    "id": "trello_create_card",
+                    "label": "Create Card"
                 },
                 {
-                    "label": "Update Card",
-                    "id": "trello_update_card"
+                    "id": "trello_update_card",
+                    "label": "Update Card"
                 },
                 {
-                    "label": "Get Actions",
-                    "id": "trello_get_actions"
+                    "id": "trello_get_actions",
+                    "label": "Get Actions"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "trello_add_comment"
+                    "id": "trello_add_comment",
+                    "label": "Add Comment"
                 }
-            ],
-            "defaultValue": "trello_list_lists"
+            ]
         },
         {
             "id": "credential",
@@ -92,6 +92,7 @@ List all lists on a Trello board
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `lists` | array | Array of list objects with id, name, closed, pos, and idBoard |
+| `count` | number | Number of lists returned |
 
 </div>
 
@@ -112,33 +113,33 @@ List all lists on a Trello board
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "trello_list_cards",
             "options": [
                 {
-                    "label": "Get Lists",
-                    "id": "trello_list_lists"
+                    "id": "trello_list_lists",
+                    "label": "Get Lists"
                 },
                 {
-                    "label": "List Cards",
-                    "id": "trello_list_cards"
+                    "id": "trello_list_cards",
+                    "label": "List Cards"
                 },
                 {
-                    "label": "Create Card",
-                    "id": "trello_create_card"
+                    "id": "trello_create_card",
+                    "label": "Create Card"
                 },
                 {
-                    "label": "Update Card",
-                    "id": "trello_update_card"
+                    "id": "trello_update_card",
+                    "label": "Update Card"
                 },
                 {
-                    "label": "Get Actions",
-                    "id": "trello_get_actions"
+                    "id": "trello_get_actions",
+                    "label": "Get Actions"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "trello_add_comment"
+                    "id": "trello_add_comment",
+                    "label": "Add Comment"
                 }
-            ],
-            "defaultValue": "trello_list_cards"
+            ]
         },
         {
             "id": "credential",
@@ -182,6 +183,7 @@ List all cards on a Trello board
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `cards` | array | Array of card objects with id, name, desc, url, board/list IDs, labels, and due date |
+| `count` | number | Number of cards returned |
 
 </div>
 
@@ -202,33 +204,33 @@ List all cards on a Trello board
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "trello_create_card",
             "options": [
                 {
-                    "label": "Get Lists",
-                    "id": "trello_list_lists"
+                    "id": "trello_list_lists",
+                    "label": "Get Lists"
                 },
                 {
-                    "label": "List Cards",
-                    "id": "trello_list_cards"
+                    "id": "trello_list_cards",
+                    "label": "List Cards"
                 },
                 {
-                    "label": "Create Card",
-                    "id": "trello_create_card"
+                    "id": "trello_create_card",
+                    "label": "Create Card"
                 },
                 {
-                    "label": "Update Card",
-                    "id": "trello_update_card"
+                    "id": "trello_update_card",
+                    "label": "Update Card"
                 },
                 {
-                    "label": "Get Actions",
-                    "id": "trello_get_actions"
+                    "id": "trello_get_actions",
+                    "label": "Get Actions"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "trello_add_comment"
+                    "id": "trello_add_comment",
+                    "label": "Add Comment"
                 }
-            ],
-            "defaultValue": "trello_create_card"
+            ]
         },
         {
             "id": "credential",
@@ -271,12 +273,12 @@ List all cards on a Trello board
             "title": "Position",
             "options": [
                 {
-                    "label": "Top",
-                    "id": "top"
+                    "id": "top",
+                    "label": "Top"
                 },
                 {
-                    "label": "Bottom",
-                    "id": "bottom"
+                    "id": "bottom",
+                    "label": "Bottom"
                 }
             ]
         },
@@ -315,7 +317,9 @@ Create a new card on a Trello board
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `card` | object | The created card object with id, name, desc, url, and other properties |
 
 </div>
 
@@ -336,33 +340,33 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "trello_update_card",
             "options": [
                 {
-                    "label": "Get Lists",
-                    "id": "trello_list_lists"
+                    "id": "trello_list_lists",
+                    "label": "Get Lists"
                 },
                 {
-                    "label": "List Cards",
-                    "id": "trello_list_cards"
+                    "id": "trello_list_cards",
+                    "label": "List Cards"
                 },
                 {
-                    "label": "Create Card",
-                    "id": "trello_create_card"
+                    "id": "trello_create_card",
+                    "label": "Create Card"
                 },
                 {
-                    "label": "Update Card",
-                    "id": "trello_update_card"
+                    "id": "trello_update_card",
+                    "label": "Update Card"
                 },
                 {
-                    "label": "Get Actions",
-                    "id": "trello_get_actions"
+                    "id": "trello_get_actions",
+                    "label": "Get Actions"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "trello_add_comment"
+                    "id": "trello_add_comment",
+                    "label": "Add Comment"
                 }
-            ],
-            "defaultValue": "trello_update_card"
+            ]
         },
         {
             "id": "credential",
@@ -436,7 +440,9 @@ Update an existing card on Trello
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `card` | object | The updated card object with id, name, desc, url, and other properties |
 
 </div>
 
@@ -457,33 +463,33 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "trello_get_actions",
             "options": [
                 {
-                    "label": "Get Lists",
-                    "id": "trello_list_lists"
+                    "id": "trello_list_lists",
+                    "label": "Get Lists"
                 },
                 {
-                    "label": "List Cards",
-                    "id": "trello_list_cards"
+                    "id": "trello_list_cards",
+                    "label": "List Cards"
                 },
                 {
-                    "label": "Create Card",
-                    "id": "trello_create_card"
+                    "id": "trello_create_card",
+                    "label": "Create Card"
                 },
                 {
-                    "label": "Update Card",
-                    "id": "trello_update_card"
+                    "id": "trello_update_card",
+                    "label": "Update Card"
                 },
                 {
-                    "label": "Get Actions",
-                    "id": "trello_get_actions"
+                    "id": "trello_get_actions",
+                    "label": "Get Actions"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "trello_add_comment"
+                    "id": "trello_add_comment",
+                    "label": "Add Comment"
                 }
-            ],
-            "defaultValue": "trello_get_actions"
+            ]
         },
         {
             "id": "credential",
@@ -540,6 +546,7 @@ Get activity/actions from a board or card
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `actions` | array | Array of action objects with type, date, member, and data |
+| `count` | number | Number of actions returned |
 
 </div>
 
@@ -560,33 +567,33 @@ Get activity/actions from a board or card
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "trello_add_comment",
             "options": [
                 {
-                    "label": "Get Lists",
-                    "id": "trello_list_lists"
+                    "id": "trello_list_lists",
+                    "label": "Get Lists"
                 },
                 {
-                    "label": "List Cards",
-                    "id": "trello_list_cards"
+                    "id": "trello_list_cards",
+                    "label": "List Cards"
                 },
                 {
-                    "label": "Create Card",
-                    "id": "trello_create_card"
+                    "id": "trello_create_card",
+                    "label": "Create Card"
                 },
                 {
-                    "label": "Update Card",
-                    "id": "trello_update_card"
+                    "id": "trello_update_card",
+                    "label": "Update Card"
                 },
                 {
-                    "label": "Get Actions",
-                    "id": "trello_get_actions"
+                    "id": "trello_get_actions",
+                    "label": "Get Actions"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "trello_add_comment"
+                    "id": "trello_add_comment",
+                    "label": "Add Comment"
                 }
-            ],
-            "defaultValue": "trello_add_comment"
+            ]
         },
         {
             "id": "credential",
@@ -628,7 +635,9 @@ Add a comment to a Trello card
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `comment` | object | The created comment object with id, text, date, and member creator |
 
 </div>
 

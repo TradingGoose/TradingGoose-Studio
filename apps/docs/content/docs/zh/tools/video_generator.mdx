@@ -1,0 +1,964 @@
+---
+title: 视频生成器
+description: 使用 AI 根据文本生成视频
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="video_generator"
+  color="#888888"
+/>
+
+## 配置
+
+### Runway Gen-4
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="视频生成器"
+    type="video_generator"
+    color="#888888"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "提供商",
+            "required": true,
+            "defaultValue": "runway",
+            "options": [
+                {
+                    "id": "runway",
+                    "label": "Runway Gen-4"
+                },
+                {
+                    "id": "veo",
+                    "label": "Google Veo 3"
+                },
+                {
+                    "id": "luma",
+                    "label": "Luma Dream Machine"
+                },
+                {
+                    "id": "minimax",
+                    "label": "MiniMax Hailuo"
+                },
+                {
+                    "id": "falai",
+                    "label": "Fal.ai (Multi-Model)"
+                }
+            ]
+        },
+        {
+            "id": "prompt",
+            "type": "long-input",
+            "title": "提示词",
+            "placeholder": "描述你想生成的视频...",
+            "required": true
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "时长（秒）",
+            "defaultValue": "5",
+            "options": [
+                {
+                    "id": "5",
+                    "label": "5"
+                },
+                {
+                    "id": "8",
+                    "label": "8"
+                },
+                {
+                    "id": "10",
+                    "label": "10"
+                }
+            ],
+            "description": "当模型为 'kling-2.5-turbo-pro'、'kling-2.1-pro'、'minimax-hailuo-2.3-pro'、'minimax-hailuo-2.3-standard' 之一时显示。"
+        },
+        {
+            "id": "aspectRatio",
+            "type": "dropdown",
+            "title": "宽高比",
+            "defaultValue": "16:9",
+            "options": [
+                {
+                    "id": "16:9",
+                    "label": "16:9"
+                },
+                {
+                    "id": "9:16",
+                    "label": "9:16"
+                }
+            ],
+            "description": "当模型为 'kling-2.5-turbo-pro'、'kling-2.1-pro'、'minimax-hailuo-2.3-pro'、'minimax-hailuo-2.3-standard' 之一时显示。"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入提供商 API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "时长（秒）",
+            "required": false,
+            "defaultValue": "5",
+            "options": [
+                {
+                    "id": "5",
+                    "label": "5"
+                },
+                {
+                    "id": "10",
+                    "label": "10"
+                }
+            ]
+        },
+        {
+            "id": "aspectRatio",
+            "type": "dropdown",
+            "title": "宽高比",
+            "required": false,
+            "defaultValue": "16:9",
+            "options": [
+                {
+                    "id": "16:9",
+                    "label": "16:9"
+                },
+                {
+                    "id": "9:16",
+                    "label": "9:16"
+                },
+                {
+                    "id": "1:1",
+                    "label": "1:1"
+                }
+            ]
+        },
+        {
+            "id": "visualReference",
+            "type": "file-upload",
+            "title": "参考图",
+            "placeholder": "上传参考图",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Runway Gen-4（<code>video_runway</code>）</div>
+
+使用 Runway Gen-4 生成视频，具备世界一致性与视觉参考
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | 是 | 视频提供商 \(runway\) |
+| `apiKey` | string | 是 | Runway API 密钥 |
+| `model` | string | 否 | Runway 模型：gen-4 \(默认，画质更高\) 或 gen-4-turbo \(更快\) |
+| `prompt` | string | 是 | 描述要生成视频的文本提示词 |
+| `duration` | number | 否 | 视频时长（秒）\(5 或 10，默认：5\) |
+| `aspectRatio` | string | 否 | 画面比例：16:9 \(横屏\)、9:16 \(竖屏\) 或 1:1 \(方形\) |
+| `resolution` | string | 否 | 视频分辨率 \(输出 720p\)。注意：Gen-4 Turbo 原生输出 720p |
+| `visualReference` | json | 是 | Gen-4 必须提供参考图 \(UserFile 对象\)。Gen-4 仅支持图生视频，不支持纯文本生成 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `videoUrl` | string | 生成的视频 URL |
+| `videoFile` | json | 包含元数据的视频文件对象 |
+| `duration` | number | 视频时长（秒） |
+| `width` | number | 视频宽度（像素） |
+| `height` | number | 视频高度（像素） |
+| `provider` | string | 所用提供商 \(runway\) |
+| `model` | string | 所用模型 |
+| `jobId` | string | Runway 任务 ID |
+
+</div>
+
+---
+
+### Google Veo 3
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="视频生成器"
+    type="video_generator"
+    color="#888888"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "提供商",
+            "required": true,
+            "defaultValue": "veo",
+            "options": [
+                {
+                    "id": "runway",
+                    "label": "Runway Gen-4"
+                },
+                {
+                    "id": "veo",
+                    "label": "Google Veo 3"
+                },
+                {
+                    "id": "luma",
+                    "label": "Luma Dream Machine"
+                },
+                {
+                    "id": "minimax",
+                    "label": "MiniMax Hailuo"
+                },
+                {
+                    "id": "falai",
+                    "label": "Fal.ai（多模型）"
+                }
+            ]
+        },
+        {
+            "id": "prompt",
+            "type": "long-input",
+            "title": "提示词",
+            "placeholder": "描述你想生成的视频...",
+            "required": true
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "时长（秒）",
+            "defaultValue": "5",
+            "options": [
+                {
+                    "id": "5",
+                    "label": "5"
+                },
+                {
+                    "id": "8",
+                    "label": "8"
+                },
+                {
+                    "id": "10",
+                    "label": "10"
+                }
+            ],
+            "description": "当模型为 'kling-2.5-turbo-pro'、'kling-2.1-pro'、'minimax-hailuo-2.3-pro'、'minimax-hailuo-2.3-standard' 之一时显示。"
+        },
+        {
+            "id": "aspectRatio",
+            "type": "dropdown",
+            "title": "宽高比",
+            "defaultValue": "16:9",
+            "options": [
+                {
+                    "id": "16:9",
+                    "label": "16:9"
+                },
+                {
+                    "id": "9:16",
+                    "label": "9:16"
+                }
+            ],
+            "description": "当模型为 'kling-2.5-turbo-pro'、'kling-2.1-pro'、'minimax-hailuo-2.3-pro'、'minimax-hailuo-2.3-standard' 之一时显示。"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入提供商 API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "模型",
+            "required": false,
+            "defaultValue": "veo-3",
+            "options": [
+                {
+                    "id": "veo-3",
+                    "label": "Veo 3"
+                },
+                {
+                    "id": "veo-3-fast",
+                    "label": "Veo 3 Fast"
+                },
+                {
+                    "id": "veo-3.1",
+                    "label": "Veo 3.1"
+                }
+            ]
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "时长（秒）",
+            "required": false,
+            "defaultValue": "8",
+            "options": [
+                {
+                    "id": "4",
+                    "label": "4"
+                },
+                {
+                    "id": "6",
+                    "label": "6"
+                },
+                {
+                    "id": "8",
+                    "label": "8"
+                }
+            ]
+        },
+        {
+            "id": "aspectRatio",
+            "type": "dropdown",
+            "title": "宽高比",
+            "required": false,
+            "defaultValue": "16:9",
+            "options": [
+                {
+                    "id": "16:9",
+                    "label": "16:9"
+                },
+                {
+                    "id": "9:16",
+                    "label": "9:16"
+                }
+            ]
+        },
+        {
+            "id": "resolution",
+            "type": "dropdown",
+            "title": "分辨率",
+            "required": false,
+            "defaultValue": "1080p",
+            "options": [
+                {
+                    "id": "720p",
+                    "label": "720p"
+                },
+                {
+                    "id": "1080p",
+                    "label": "1080p"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Google Veo 3 (<code>video_veo</code>)</div>
+
+使用 Google Veo 3/3.1 生成视频，支持原生音频生成
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | 是 | 视频提供商 \(veo\) |
+| `apiKey` | string | 是 | Google Gemini API 密钥 |
+| `model` | string | 否 | Veo 模型：veo-3 \(默认，最高质量\)、veo-3-fast \(更快\) 或 veo-3.1 \(最新\) |
+| `prompt` | string | 是 | 描述待生成视频的文本提示 |
+| `duration` | number | 否 | 视频时长（秒） \(4、6 或 8，默认：8\) |
+| `aspectRatio` | string | 否 | 宽高比：16:9 \(横屏\) 或 9:16 \(竖屏\) |
+| `resolution` | string | 否 | 视频分辨率：720p 或 1080p \(默认：1080p\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `videoUrl` | string | 生成的视频 URL |
+| `videoFile` | json | 包含元数据的视频文件对象 |
+| `duration` | number | 视频时长（秒） |
+| `width` | number | 视频宽度（像素） |
+| `height` | number | 视频高度（像素） |
+| `provider` | string | 所用提供商 \(veo\) |
+| `model` | string | 所用模型 |
+| `jobId` | string | Veo 任务 ID |
+
+</div>
+
+---
+
+### Luma Dream Machine
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="视频生成器"
+    type="video_generator"
+    color="#888888"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "提供商",
+            "required": true,
+            "defaultValue": "luma",
+            "options": [
+                {
+                    "id": "runway",
+                    "label": "Runway Gen-4"
+                },
+                {
+                    "id": "veo",
+                    "label": "Google Veo 3"
+                },
+                {
+                    "id": "luma",
+                    "label": "Luma Dream Machine"
+                },
+                {
+                    "id": "minimax",
+                    "label": "MiniMax Hailuo"
+                },
+                {
+                    "id": "falai",
+                    "label": "Fal.ai（多模型）"
+                }
+            ]
+        },
+        {
+            "id": "prompt",
+            "type": "long-input",
+            "title": "提示词",
+            "placeholder": "描述你想生成的视频...",
+            "required": true
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "时长（秒）",
+            "defaultValue": "5",
+            "options": [
+                {
+                    "id": "5",
+                    "label": "5"
+                },
+                {
+                    "id": "8",
+                    "label": "8"
+                },
+                {
+                    "id": "10",
+                    "label": "10"
+                }
+            ],
+            "description": "当模型为 'kling-2.5-turbo-pro'、'kling-2.1-pro'、'minimax-hailuo-2.3-pro'、'minimax-hailuo-2.3-standard' 之一时显示。"
+        },
+        {
+            "id": "aspectRatio",
+            "type": "dropdown",
+            "title": "宽高比",
+            "defaultValue": "16:9",
+            "options": [
+                {
+                    "id": "16:9",
+                    "label": "16:9"
+                },
+                {
+                    "id": "9:16",
+                    "label": "9:16"
+                }
+            ],
+            "description": "当模型为 'kling-2.5-turbo-pro'、'kling-2.1-pro'、'minimax-hailuo-2.3-pro'、'minimax-hailuo-2.3-standard' 之一时显示。"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入提供商 API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "模型",
+            "required": false,
+            "defaultValue": "ray-2",
+            "options": [
+                {
+                    "id": "ray-2",
+                    "label": "Ray 2"
+                }
+            ]
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "时长（秒）",
+            "required": false,
+            "defaultValue": "5",
+            "options": [
+                {
+                    "id": "5",
+                    "label": "5"
+                },
+                {
+                    "id": "9",
+                    "label": "9"
+                }
+            ]
+        },
+        {
+            "id": "aspectRatio",
+            "type": "dropdown",
+            "title": "宽高比",
+            "required": false,
+            "defaultValue": "16:9",
+            "options": [
+                {
+                    "id": "16:9",
+                    "label": "16:9"
+                },
+                {
+                    "id": "9:16",
+                    "label": "9:16"
+                },
+                {
+                    "id": "1:1",
+                    "label": "1:1"
+                }
+            ]
+        },
+        {
+            "id": "resolution",
+            "type": "dropdown",
+            "title": "分辨率",
+            "required": false,
+            "defaultValue": "1080p",
+            "options": [
+                {
+                    "id": "540p",
+                    "label": "540p"
+                },
+                {
+                    "id": "720p",
+                    "label": "720p"
+                },
+                {
+                    "id": "1080p",
+                    "label": "1080p"
+                }
+            ]
+        },
+        {
+            "id": "cameraControl",
+            "type": "long-input",
+            "title": "镜头控制",
+            "placeholder": "JSON: [{ \"key\": \"pan_right\" }, { \"key\": \"zoom_in\" }]",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Luma Dream Machine（<code>video_luma</code>）</div>
+
+使用 Luma Dream Machine 生成视频，支持高级摄像机控制
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | 是 | 视频提供商 \(luma\) |
+| `apiKey` | string | 是 | Luma AI API 密钥 |
+| `model` | string | 否 | Luma 模型：ray-2 \(默认\) |
+| `prompt` | string | 是 | 描述待生成视频的文本提示 |
+| `duration` | number | 否 | 视频时长（秒）\(5 或 9，默认：5\) |
+| `aspectRatio` | string | 否 | 宽高比：16:9 \(横屏\)、9:16 \(竖屏\) 或 1:1 \(方形\) |
+| `resolution` | string | 否 | 视频分辨率：540p、720p 或 1080p \(默认：1080p\) |
+| `cameraControl` | json | 否 | 摄像机控制，概念对象数组。格式：\[\{ "key": "concept_name" \}\]。有效键：truck_left、truck_right、pan_left、pan_right、tilt_up、tilt_down、zoom_in、zoom_out、push_in、pull_out、orbit_left、orbit_right、crane_up、crane_down、static、handheld，以及 20 余种预定义选项 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `videoUrl` | string | 生成的视频 URL |
+| `videoFile` | json | 包含元数据的视频文件对象 |
+| `duration` | number | 视频时长（秒） |
+| `width` | number | 视频宽度（像素） |
+| `height` | number | 视频高度（像素） |
+| `provider` | string | 所用提供商 \(luma\) |
+| `model` | string | 所用模型 |
+| `jobId` | string | Luma 任务 ID |
+
+</div>
+
+---
+
+### MiniMax Hailuo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="视频生成器"
+    type="video_generator"
+    color="#888888"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "提供商",
+            "required": true,
+            "defaultValue": "minimax",
+            "options": [
+                {
+                    "id": "runway",
+                    "label": "Runway Gen-4"
+                },
+                {
+                    "id": "veo",
+                    "label": "Google Veo 3"
+                },
+                {
+                    "id": "luma",
+                    "label": "Luma Dream Machine"
+                },
+                {
+                    "id": "minimax",
+                    "label": "MiniMax Hailuo"
+                },
+                {
+                    "id": "falai",
+                    "label": "Fal.ai（多模型）"
+                }
+            ]
+        },
+        {
+            "id": "prompt",
+            "type": "long-input",
+            "title": "提示词",
+            "placeholder": "描述你想生成的视频...",
+            "required": true
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "时长（秒）",
+            "defaultValue": "5",
+            "options": [
+                {
+                    "id": "5",
+                    "label": "5"
+                },
+                {
+                    "id": "8",
+                    "label": "8"
+                },
+                {
+                    "id": "10",
+                    "label": "10"
+                }
+            ],
+            "description": "当模型为 'kling-2.5-turbo-pro'、'kling-2.1-pro'、'minimax-hailuo-2.3-pro'、'minimax-hailuo-2.3-standard' 之一时显示。"
+        },
+        {
+            "id": "aspectRatio",
+            "type": "dropdown",
+            "title": "宽高比",
+            "defaultValue": "16:9",
+            "options": [
+                {
+                    "id": "16:9",
+                    "label": "16:9"
+                },
+                {
+                    "id": "9:16",
+                    "label": "9:16"
+                }
+            ],
+            "description": "当模型为 'kling-2.5-turbo-pro'、'kling-2.1-pro'、'minimax-hailuo-2.3-pro'、'minimax-hailuo-2.3-standard' 之一时显示。"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的提供商 API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "模型",
+            "required": false,
+            "defaultValue": "hailuo-02",
+            "options": [
+                {
+                    "id": "hailuo-02",
+                    "label": "Hailuo 2.3"
+                }
+            ]
+        },
+        {
+            "id": "endpoint",
+            "type": "dropdown",
+            "title": "质量端点",
+            "required": false,
+            "defaultValue": "standard",
+            "options": [
+                {
+                    "id": "pro",
+                    "label": "专业版"
+                },
+                {
+                    "id": "standard",
+                    "label": "标准版"
+                }
+            ]
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "时长（秒）",
+            "required": false,
+            "defaultValue": "6",
+            "options": [
+                {
+                    "id": "6",
+                    "label": "6"
+                },
+                {
+                    "id": "10",
+                    "label": "10"
+                }
+            ]
+        },
+        {
+            "id": "promptOptimizer",
+            "type": "switch",
+            "title": "提示词优化器"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">MiniMax Hailuo (<code>video_minimax</code>)</div>
+
+通过 MiniMax Platform API 使用 MiniMax Hailuo 生成视频，具备高度真实感和提示词优化
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | 是 | 视频提供商 \(minimax\) |
+| `apiKey` | string | 是 | 来自 platform.minimax.io 的 MiniMax API 密钥 |
+| `model` | string | 否 | MiniMax 模型：hailuo-02 \(默认\) |
+| `prompt` | string | 是 | 描述要生成视频的文本提示词 |
+| `duration` | number | 否 | 视频时长（秒）\(6 或 10，默认：6\) |
+| `promptOptimizer` | boolean | 否 | 启用提示词优化以获得更好效果 \(默认：true\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `videoUrl` | string | 生成的视频 URL |
+| `videoFile` | json | 含元数据的视频文件对象 |
+| `duration` | number | 视频时长（秒） |
+| `width` | number | 视频宽度（像素） |
+| `height` | number | 视频高度（像素） |
+| `provider` | string | 所用提供商 \(minimax\) |
+| `model` | string | 所用模型 |
+| `jobId` | string | MiniMax 任务 ID |
+
+</div>
+
+---
+
+### Fal.ai（多模型）
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="视频生成器"
+    type="video_generator"
+    color="#888888"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "提供商",
+            "required": true,
+            "defaultValue": "falai",
+            "options": [
+                {
+                    "id": "runway",
+                    "label": "Runway Gen-4"
+                },
+                {
+                    "id": "veo",
+                    "label": "Google Veo 3"
+                },
+                {
+                    "id": "luma",
+                    "label": "Luma Dream Machine"
+                },
+                {
+                    "id": "minimax",
+                    "label": "MiniMax Hailuo"
+                },
+                {
+                    "id": "falai",
+                    "label": "Fal.ai（多模型）"
+                }
+            ]
+        },
+        {
+            "id": "prompt",
+            "type": "long-input",
+            "title": "提示词",
+            "placeholder": "描述要生成的视频...",
+            "required": true
+        },
+        {
+            "id": "duration",
+            "type": "dropdown",
+            "title": "时长（秒）",
+            "defaultValue": "5",
+            "options": [
+                {
+                    "id": "5",
+                    "label": "5"
+                },
+                {
+                    "id": "8",
+                    "label": "8"
+                },
+                {
+                    "id": "10",
+                    "label": "10"
+                }
+            ],
+            "description": "当模型为 'kling-2.5-turbo-pro'、'kling-2.1-pro'、'minimax-hailuo-2.3-pro'、'minimax-hailuo-2.3-standard' 之一时显示。"
+        },
+        {
+            "id": "aspectRatio",
+            "type": "dropdown",
+            "title": "宽高比",
+            "defaultValue": "16:9",
+            "options": [
+                {
+                    "id": "16:9",
+                    "label": "16:9"
+                },
+                {
+                    "id": "9:16",
+                    "label": "9:16"
+                }
+            ],
+            "description": "当模型为 'kling-2.5-turbo-pro'、'kling-2.1-pro'、'minimax-hailuo-2.3-pro'、'minimax-hailuo-2.3-standard' 之一时显示。"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入提供商 API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "模型",
+            "required": true,
+            "defaultValue": "veo-3.1",
+            "options": [
+                {
+                    "id": "veo-3.1",
+                    "label": "Google Veo 3.1"
+                },
+                {
+                    "id": "sora-2",
+                    "label": "OpenAI Sora 2"
+                },
+                {
+                    "id": "kling-2.5-turbo-pro",
+                    "label": "Kling 2.5 Turbo Pro"
+                },
+                {
+                    "id": "kling-2.1-pro",
+                    "label": "Kling 2.1 Pro"
+                },
+                {
+                    "id": "minimax-hailuo-2.3-pro",
+                    "label": "MiniMax Hailuo 2.3 Pro"
+                },
+                {
+                    "id": "minimax-hailuo-2.3-standard",
+                    "label": "MiniMax Hailuo 2.3 Standard"
+                },
+                {
+                    "id": "wan-2.1",
+                    "label": "WAN 2.1"
+                },
+                {
+                    "id": "ltxv-0.9.8",
+                    "label": "LTXV 0.9.8"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Fal.ai（多模型）(<code>video_falai</code>)</div>
+
+使用 Fal.ai 平台生成视频，可调用多种模型，包括 Veo 3.1、Sora 2、Kling 2.5、MiniMax Hailuo 等
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | 是 | 视频提供方 \(falai\) |
+| `apiKey` | string | 是 | Fal.ai API 密钥 |
+| `model` | string | 是 | Fal.ai 模型：veo-3.1 \(Google Veo 3.1\)、sora-2 \(OpenAI Sora 2\)、kling-2.5-turbo-pro \(Kling 2.5 Turbo Pro\)、kling-2.1-pro \(Kling 2.1 Master\)、minimax-hailuo-2.3-pro \(MiniMax Hailuo Pro\)、minimax-hailuo-2.3-standard \(MiniMax Hailuo Standard\)、wan-2.1 \(WAN T2V\)、ltxv-0.9.8 \(LTXV 13B\) |
+| `prompt` | string | 是 | 描述要生成视频的文本提示 |
+| `duration` | number | 否 | 视频时长（秒）\(因模型而异\) |
+| `aspectRatio` | string | 否 | 宽高比 \(因模型而异\)：16:9、9:16、1:1 |
+| `resolution` | string | 否 | 视频分辨率 \(因模型而异\)：540p、720p、1080p |
+| `promptOptimizer` | boolean | 否 | 为 MiniMax 模型启用提示词优化 \(默认：true\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `videoUrl` | string | 生成的视频 URL |
+| `videoFile` | json | 包含元数据的视频文件对象 |
+| `duration` | number | 视频时长（秒） |
+| `width` | number | 视频宽度（像素） |
+| `height` | number | 视频高度（像素） |
+| `provider` | string | 所用提供方 \(falai\) |
+| `model` | string | 所用模型 |
+| `jobId` | string | 任务 ID |
+
+</div>
+
+---
+
+## 使用说明
+
+使用领先的 AI 提供商，根据文本提示生成高质量视频。支持多种模型、宽高比、分辨率，以及世界一致性、镜头控制和音频生成等提供商特定功能。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`video_generator`

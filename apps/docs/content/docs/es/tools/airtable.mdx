@@ -1,0 +1,452 @@
+---
+title: Airtable
+description: Leer, crear y actualizar Airtable
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="airtable"
+  color=""
+/>
+
+<Cards>
+  <Card title="Usar como desencadenador" href="/triggers/airtable">
+    Ver eventos del desencadenador, configuración y payloads de eventos para Airtable.
+  </Card>
+</Cards>
+
+## Configuración
+
+### Listar registros
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Airtable"
+    type="airtable"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "list",
+            "options": [
+                {
+                    "id": "list",
+                    "label": "Listar registros"
+                },
+                {
+                    "id": "get",
+                    "label": "Obtener registro"
+                },
+                {
+                    "id": "create",
+                    "label": "Crear registros"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar registro"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Airtable",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Airtable",
+            "provider": "airtable",
+            "required": true
+        },
+        {
+            "id": "baseId",
+            "type": "short-input",
+            "title": "ID de base",
+            "layout": "full",
+            "placeholder": "Ingresa tu ID de base (p. ej., appXXXXXXXXXXXXXX)",
+            "required": true
+        },
+        {
+            "id": "tableId",
+            "type": "short-input",
+            "title": "ID de tabla",
+            "layout": "full",
+            "placeholder": "Ingresa el ID de tabla (p. ej., tblXXXXXXXXXXXXXX)",
+            "required": true
+        },
+        {
+            "id": "maxRecords",
+            "type": "short-input",
+            "title": "Máximo de registros",
+            "layout": "half",
+            "placeholder": "Máximo de registros a devolver (opcional)"
+        },
+        {
+            "id": "filterFormula",
+            "type": "long-input",
+            "title": "Fórmula de filtro",
+            "layout": "full",
+            "placeholder": "Fórmula de Airtable para filtrar registros (opcional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar registros (<code>airtable_list_records</code>)</div>
+
+Lee registros de una tabla de Airtable
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `baseId` | string | Sí | ID de la base de Airtable |
+| `tableId` | string | Sí | ID de la tabla |
+| `maxRecords` | number | No | Número máximo de registros a devolver |
+| `filterFormula` | string | No | Fórmula para filtrar registros \(p. ej., "\(\{Nombre del campo\} = 'Valor'\)"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `records` | json | Matriz de registros recuperados de Airtable |
+| `metadata` | json | Metadatos de la operación, incluidos el desplazamiento de paginación y el recuento total de registros |
+
+</div>
+
+---
+
+### Obtener registro
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Airtable"
+    type="airtable"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "get",
+            "options": [
+                {
+                    "id": "list",
+                    "label": "Listar registros"
+                },
+                {
+                    "id": "get",
+                    "label": "Obtener registro"
+                },
+                {
+                    "id": "create",
+                    "label": "Crear registros"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar registro"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Airtable",
+            "layout": "full",
+            "placeholder": "Selecciona una cuenta de Airtable",
+            "provider": "airtable",
+            "required": true
+        },
+        {
+            "id": "baseId",
+            "type": "short-input",
+            "title": "ID de base",
+            "layout": "full",
+            "placeholder": "Introduce tu ID de base (p. ej., appXXXXXXXXXXXXXX)",
+            "required": true
+        },
+        {
+            "id": "tableId",
+            "type": "short-input",
+            "title": "ID de tabla",
+            "layout": "full",
+            "placeholder": "Introduce el ID de tabla (p. ej., tblXXXXXXXXXXXXXX)",
+            "required": true
+        },
+        {
+            "id": "recordId",
+            "type": "short-input",
+            "title": "ID de registro",
+            "layout": "full",
+            "placeholder": "ID del registro (p. ej., recXXXXXXXXXXXXXX)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener registro (<code>airtable_get_record</code>)</div>
+
+Recupera un solo registro de una tabla de Airtable por su ID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `baseId` | string | Sí | ID de la base de Airtable |
+| `tableId` | string | Sí | ID o nombre de la tabla |
+| `recordId` | string | Sí | ID del registro que se va a recuperar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `record` | json | Registro de Airtable recuperado con id, createdTime y campos |
+| `metadata` | json | Metadatos de la operación, incluido el recuento de registros |
+
+</div>
+
+---
+
+### Crear registros
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Airtable"
+    type="airtable"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "create",
+            "options": [
+                {
+                    "id": "list",
+                    "label": "Listar registros"
+                },
+                {
+                    "id": "get",
+                    "label": "Obtener registro"
+                },
+                {
+                    "id": "create",
+                    "label": "Crear registros"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar registro"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Airtable",
+            "layout": "full",
+            "placeholder": "Selecciona una cuenta de Airtable",
+            "provider": "airtable",
+            "required": true
+        },
+        {
+            "id": "baseId",
+            "type": "short-input",
+            "title": "ID de la base",
+            "layout": "full",
+            "placeholder": "Introduce el ID de tu base (p. ej., appXXXXXXXXXXXXXX)",
+            "required": true
+        },
+        {
+            "id": "tableId",
+            "type": "short-input",
+            "title": "ID de la tabla",
+            "layout": "full",
+            "placeholder": "Introduce el ID de la tabla (p. ej., tblXXXXXXXXXXXXXX)",
+            "required": true
+        },
+        {
+            "id": "records",
+            "type": "code",
+            "title": "Registros (matriz JSON)",
+            "layout": "full",
+            "placeholder": "Para crear: `[{ \"fields\": { ... } }]`\n",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear registros (<code>airtable_create_records</code>)</div>
+
+Escribe nuevos registros en una tabla de Airtable
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `baseId` | string | Sí | ID de la base de Airtable |
+| `tableId` | string | Sí | ID o nombre de la tabla |
+| `records` | json | Sí | Matriz de registros que se van a crear, cada uno con un objeto `fields` |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `records` | json | Array de registros de Airtable creados |
+| `metadata` | json | Metadatos de la operación |
+
+</div>
+
+---
+
+### Actualizar registro
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Airtable"
+    type="airtable"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "update",
+            "options": [
+                {
+                    "id": "list",
+                    "label": "Listar registros"
+                },
+                {
+                    "id": "get",
+                    "label": "Obtener registro"
+                },
+                {
+                    "id": "create",
+                    "label": "Crear registros"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar registro"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Airtable",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Airtable",
+            "provider": "airtable",
+            "required": true
+        },
+        {
+            "id": "baseId",
+            "type": "short-input",
+            "title": "ID de base",
+            "layout": "full",
+            "placeholder": "Ingresa tu ID de base (p. ej., appXXXXXXXXXXXXXX)",
+            "required": true
+        },
+        {
+            "id": "tableId",
+            "type": "short-input",
+            "title": "ID de tabla",
+            "layout": "full",
+            "placeholder": "Ingresa el ID de tabla (p. ej., tblXXXXXXXXXXXXXX)",
+            "required": true
+        },
+        {
+            "id": "recordId",
+            "type": "short-input",
+            "title": "ID de registro",
+            "layout": "full",
+            "placeholder": "ID del registro (p. ej., recXXXXXXXXXXXXXX)",
+            "required": true
+        },
+        {
+            "id": "fields",
+            "type": "code",
+            "title": "Campos (objeto JSON)",
+            "layout": "full",
+            "placeholder": "Campos a actualizar: `{ \"Field Name\": \"New Value\" }`",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar registro (<code>airtable_update_record</code>)</div>
+
+Actualiza un registro existente en una tabla de Airtable por ID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `baseId` | string | Sí | ID de la base de Airtable |
+| `tableId` | string | Sí | ID o nombre de la tabla |
+| `recordId` | string | Sí | ID del registro a actualizar |
+| `fields` | json | Sí | Un objeto que contiene los nombres de los campos y sus nuevos valores |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `record` | json | Registro de Airtable actualizado con id, createdTime y campos |
+| `metadata` | json | Metadatos de la operación que incluyen el recuento de registros y los nombres de los campos actualizados |
+
+</div>
+
+---
+
+## Herramientas adicionales
+
+Herramientas adicionales declaradas por este bloque, incluidas las variantes dependientes de la entrada de las operaciones anteriores.
+
+### `airtable_update_multiple_records`
+
+Actualizar varios registros existentes en una tabla de Airtable
+
+#### Entrada
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `baseId` | string | Sí | ID de la base de Airtable |
+| `tableId` | string | Sí | ID o nombre de la tabla |
+| `records` | json | Sí | Arreglo de registros para actualizar, cada uno con un `id` y un objeto `fields` |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `records` | json | Arreglo de registros de Airtable actualizados |
+| `metadata` | json | Metadatos de la operación, que incluyen el recuento de registros y los ID de registros actualizados |
+
+## Instrucciones de uso
+
+Integra Airtable en el flujo de trabajo. Puede crear, obtener, listar o actualizar registros de Airtable. Se puede utilizar en modo de activación para activar un flujo de trabajo cuando se realiza una actualización en una tabla de Airtable.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `airtable`

@@ -10,7 +10,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <BlockInfoCard
   type="qdrant"
-  color=""
+  color="#DC244C"
 />
 
 
@@ -22,7 +22,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="Qdrant"
     type="qdrant"
-    color=""
+    color="#DC244C"
     hideHeader
     subBlocks={[
         {
@@ -30,21 +30,21 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "upsert",
             "options": [
                 {
-                    "label": "Upsert",
-                    "id": "upsert"
+                    "id": "upsert",
+                    "label": "Upsert"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Fetch",
-                    "id": "fetch"
+                    "id": "fetch",
+                    "label": "Fetch"
                 }
-            ],
-            "defaultValue": "upsert"
+            ]
         },
         {
             "id": "apiKey",
@@ -84,14 +84,25 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Upsert (<code>qdrant_upsert_points</code>)</div>
+
+Insert or update points in a Qdrant collection
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `url` | string | Yes | Qdrant base URL |
+| `apiKey` | string | No | Qdrant API key \(optional\) |
+| `collection` | string | Yes | Collection name |
+| `points` | array | Yes | Array of points to upsert |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `matches` | json | Search matches |
-| `upsertedCount` | number | Upserted count |
-| `data` | json | Response data |
-| `status` | string | Operation status |
+| `status` | string | Status of the upsert operation |
+| `data` | object | Result data from the upsert operation |
 
 </div>
 
@@ -105,7 +116,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="Qdrant"
     type="qdrant"
-    color=""
+    color="#DC244C"
     hideHeader
     subBlocks={[
         {
@@ -113,21 +124,21 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "search",
             "options": [
                 {
-                    "label": "Upsert",
-                    "id": "upsert"
+                    "id": "upsert",
+                    "label": "Upsert"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Fetch",
-                    "id": "fetch"
+                    "id": "fetch",
+                    "label": "Fetch"
                 }
-            ],
-            "defaultValue": "search"
+            ]
         },
         {
             "id": "apiKey",
@@ -181,22 +192,23 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Return Data",
             "layout": "full",
+            "defaultValue": "payload_only",
             "options": [
                 {
-                    "label": "Payload Only",
-                    "id": "payload_only"
+                    "id": "payload_only",
+                    "label": "Payload Only"
                 },
                 {
-                    "label": "Vector Only",
-                    "id": "vector_only"
+                    "id": "vector_only",
+                    "label": "Vector Only"
                 },
                 {
-                    "label": "Both Payload and Vector",
-                    "id": "both"
+                    "id": "both",
+                    "label": "Both Payload and Vector"
                 },
                 {
-                    "label": "None (IDs and scores only)",
-                    "id": "none"
+                    "id": "none",
+                    "label": "None (IDs and scores only)"
                 }
             ]
         }
@@ -205,14 +217,30 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Search (<code>qdrant_search_vector</code>)</div>
+
+Search for similar vectors in a Qdrant collection
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `url` | string | Yes | Qdrant base URL |
+| `apiKey` | string | No | Qdrant API key \(optional\) |
+| `collection` | string | Yes | Collection name |
+| `vector` | array | Yes | Vector to search for |
+| `limit` | number | No | Number of results to return |
+| `filter` | object | No | Filter to apply to the search |
+| `search_return_data` | string | No | Data to return from search |
+| `with_payload` | boolean | No | Include payload in response |
+| `with_vector` | boolean | No | Include vector in response |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `matches` | json | Search matches |
-| `upsertedCount` | number | Upserted count |
-| `data` | json | Response data |
-| `status` | string | Operation status |
+| `data` | array | Vector search results with ID, score, payload, and optional vector data |
+| `status` | string | Status of the search operation |
 
 </div>
 
@@ -226,7 +254,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="Qdrant"
     type="qdrant"
-    color=""
+    color="#DC244C"
     hideHeader
     subBlocks={[
         {
@@ -234,21 +262,21 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "fetch",
             "options": [
                 {
-                    "label": "Upsert",
-                    "id": "upsert"
+                    "id": "upsert",
+                    "label": "Upsert"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Fetch",
-                    "id": "fetch"
+                    "id": "fetch",
+                    "label": "Fetch"
                 }
-            ],
-            "defaultValue": "fetch"
+            ]
         },
         {
             "id": "apiKey",
@@ -288,22 +316,23 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Return Data",
             "layout": "full",
+            "defaultValue": "payload_only",
             "options": [
                 {
-                    "label": "Payload Only",
-                    "id": "payload_only"
+                    "id": "payload_only",
+                    "label": "Payload Only"
                 },
                 {
-                    "label": "Vector Only",
-                    "id": "vector_only"
+                    "id": "vector_only",
+                    "label": "Vector Only"
                 },
                 {
-                    "label": "Both Payload and Vector",
-                    "id": "both"
+                    "id": "both",
+                    "label": "Both Payload and Vector"
                 },
                 {
-                    "label": "None (IDs only)",
-                    "id": "none"
+                    "id": "none",
+                    "label": "None (IDs only)"
                 }
             ]
         }
@@ -312,14 +341,28 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Fetch (<code>qdrant_fetch_points</code>)</div>
+
+Fetch points by ID from a Qdrant collection
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `url` | string | Yes | Qdrant base URL |
+| `apiKey` | string | No | Qdrant API key \(optional\) |
+| `collection` | string | Yes | Collection name |
+| `ids` | array | Yes | Array of point IDs to fetch |
+| `fetch_return_data` | string | No | Data to return from fetch |
+| `with_payload` | boolean | No | Include payload in response |
+| `with_vector` | boolean | No | Include vector in response |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `matches` | json | Search matches |
-| `upsertedCount` | number | Upserted count |
-| `data` | json | Response data |
-| `status` | string | Operation status |
+| `data` | array | Fetched points with ID, payload, and optional vector data |
+| `status` | string | Status of the fetch operation |
 
 </div>
 

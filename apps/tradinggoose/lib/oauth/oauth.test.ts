@@ -10,6 +10,8 @@ const mockCredentials: Record<string, MockOAuthCredentials | undefined> = {}
 const mockEnvValues: Record<string, string | undefined> = {}
 
 vi.mock('@/lib/oauth/system-managed-config', () => ({
+  getSystemOAuthClientCredentialsForRequest: (providerId: string) =>
+    mockCredentials[providerId] ?? { clientId: '', clientSecret: '', fields: {} },
   loadSystemOAuthClientCredentials: vi.fn(async (providerIds: string[]) =>
     Object.fromEntries(
       providerIds.flatMap((providerId) =>
@@ -19,9 +21,6 @@ vi.mock('@/lib/oauth/system-managed-config', () => ({
           : []
       )
     )
-  ),
-  loadSystemOAuthClientCredentialsForProvider: vi.fn(
-    async (providerId: string) => mockCredentials[providerId] ?? null
   ),
 }))
 
@@ -278,6 +277,27 @@ describe('OAuth Token Refresh', () => {
 
   afterEach(() => {
     vi.clearAllMocks()
+  })
+
+  it('refreshes Robinhood as a public client with the MCP resource and rotated refresh token', async () => {
+    setIntegration(['robinhood'], 'registered-robinhood-client', '')
+
+    await expect(refreshOAuthToken('robinhood', 'old-refresh-token')).resolves.toEqual({
+      accessToken: 'new_access_token',
+      expiresIn: 3600,
+      refreshToken: 'new_refresh_token',
+    })
+
+    const [url, requestOptions] = mockFetch.mock.calls[0]
+    expect(url).toBe('https://api.robinhood.com/oauth2/token/')
+    expect(requestOptions.headers.Authorization).toBeUndefined()
+    expect(requestOptions.signal).toBeInstanceOf(AbortSignal)
+    expect(Object.fromEntries(new URLSearchParams(requestOptions.body))).toEqual({
+      grant_type: 'refresh_token',
+      refresh_token: 'old-refresh-token',
+      client_id: 'registered-robinhood-client',
+      resource: 'https://agent.robinhood.com/mcp/trading',
+    })
   })
 
   describe('Basic Auth Providers', () => {

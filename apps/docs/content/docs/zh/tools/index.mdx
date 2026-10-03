@@ -1,0 +1,62 @@
+---
+title: 概览
+description: 用于增强智能体工作流的强大工具
+---
+
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Step, Steps } from "fumadocs-ui/components/steps";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+
+工具是 TradingGoose 中的强大组件，可让工作流与外部服务交互、处理数据并执行专项任务。它们通过接入各类 API 和服务，扩展智能体和工作流的能力。
+
+## 什么是工具？
+
+工具是提供特定功能或对接外部服务的专用组件。可用于搜索网页、操作数据库、处理图像、生成文本或图像、通过消息平台通信等。
+
+## 在工作流中使用工具
+
+在 TradingGoose 工作流中使用工具主要有两种方式：
+
+<Steps>
+  <Step>
+    <strong>作为独立块</strong>：需要确定、直接地调用工具功能时，可将工具作为独立块添加到画布。这样可以精确控制工具的调用时机与方式。
+  </Step>
+  <Step>
+    <strong>作为智能体工具</strong>：点击「添加工具」并配置所需参数，即可将工具添加到 Agent 块。智能体可根据任务上下文与需求动态选择要使用的工具。
+  </Step>
+</Steps>
+
+## 工具配置
+
+每个工具都需要完成特定配置才能正常工作。常见配置项包括：
+
+- **API 密钥**：许多工具需要通过 API 密钥进行身份验证
+- **连接参数**：端点、数据库标识符等
+- **输入格式**：应如何为工具组织数据
+- **输出处理**：应如何处理工具返回的结果
+
+## 可用工具
+
+TradingGoose 提供面向多种用途的工具，包括：
+
+- **AI 与语言处理**：OpenAI、ElevenLabs、翻译服务
+- **搜索与研究**：Google Search、Tavily、Exa、Perplexity
+- **文档处理**：Google Docs、Google Sheets、Notion、Confluence
+- **媒体处理**：Vision、Image Generator
+- **通信**：Slack、WhatsApp、Twilio SMS、Gmail
+- **数据存储**：Pinecone、Supabase、Airtable
+- **开发**：GitHub
+
+每种工具都有独立的文档页面，提供详细的配置与使用说明。
+
+## 工具输出
+
+工具通常返回结构化数据，可供工作流中的后续模块处理。数据格式因工具和操作而异，但一般包括：
+
+- 主要内容或结果
+- 操作相关的元数据
+- 状态信息
+
+请参阅各工具的专项文档，了解其确切的输出格式。
+
+有关具体工具参数和配置选项，请参阅各工具的独立文档页面。

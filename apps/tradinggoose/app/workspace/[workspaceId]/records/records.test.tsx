@@ -55,6 +55,7 @@ vi.mock('@/components/ui/resizable', () => ({
 }))
 
 vi.mock('@/components/ui/tooltip', () => ({
+  TooltipProvider: ({ children }: any) => <>{children}</>,
   Tooltip: ({ children }: any) => <>{children}</>,
   TooltipContent: ({ children }: any) => <>{children}</>,
   TooltipTrigger: ({ children, render }: any) => <>{render ?? children}</>,
@@ -179,6 +180,10 @@ vi.mock('@/stores/logs/filters/store', () => ({
     workflowIds: mocks.workflowIds,
   }),
 }))
+
+const { LogDetails } = await vi.importActual<typeof import('./components/log-details/log-details')>(
+  './components/log-details/log-details'
+)
 
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
@@ -402,6 +407,50 @@ describe('Records', () => {
     await renderWorkflowDetails({ details, failureMode: 'more', onRetry })
     expect(alert()).toHaveTextContent('More execution records could not be loaded.')
     expect(container.querySelector('[data-testid="workflow-line-chart"]')).toBeTruthy()
+  })
+
+  it.each([
+    [undefined, '—'],
+    [null, '—'],
+    [false, 'false'],
+    [0, '0'],
+    ['', ''],
+    [{}, '{}'],
+    [{ result: 'done' }, '{"result":"done"}'],
+  ])(
+    'shows canonical output %j without falling back to span output',
+    async (finalOutput, expected) => {
+      const log = {
+        id: 'log-1',
+        level: 'info',
+        executionData: { finalOutput, traceSpans: [{ output: { stale: true } }] },
+      }
+      await renderWorkflowDetails({
+        details: { logs: [log], allLogs: [log], errorRates: [], executionCounts: [] },
+        formatCost: String,
+      })
+      expect(container.querySelector('.whitespace-nowrap.pr-2')?.textContent).toBe(expected)
+    }
+  )
+
+  it('shows canonical terminal failures without fabricated outputs or spans', async () => {
+    const log = {
+      id: 'log-1',
+      executionId: 'execution-1',
+      workflowId: 'workflow-1',
+      level: 'error',
+      trigger: 'manual',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      startedAt: '2026-01-01T00:00:00.000Z',
+      executionData: { finalOutput: {}, traceSpans: [], errorMessage: 'Workflow cancelled' },
+    }
+    await renderWorkflowDetails({
+      details: { logs: [log], allLogs: [log], errorRates: [], executionCounts: [] },
+      formatCost: String,
+    })
+    expect(container).toHaveTextContent('Workflow cancelled')
+    await act(async () => root.render(<LogDetails log={log} isOpen onClose={() => {}} />))
+    expect(container.querySelector('[role="alert"]')).toHaveTextContent('Workflow cancelled')
   })
 
   it('defaults to the Orders tab when the URL has no tab parameter', async () => {

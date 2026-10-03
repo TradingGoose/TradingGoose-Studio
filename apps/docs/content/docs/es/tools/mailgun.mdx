@@ -1,0 +1,955 @@
+---
+title: Mailgun
+description: Envía correos y gestiona listas de correo con Mailgun
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="mailgun"
+  color="#E0E0E0"
+/>
+
+## Configuración
+
+### Enviar mensaje
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailgun"
+    type="mailgun"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "send_message",
+            "options": [
+                {
+                    "id": "send_message",
+                    "label": "Enviar mensaje"
+                },
+                {
+                    "id": "get_message",
+                    "label": "Obtener mensaje"
+                },
+                {
+                    "id": "list_messages",
+                    "label": "Listar mensajes"
+                },
+                {
+                    "id": "create_mailing_list",
+                    "label": "Crear lista de correo"
+                },
+                {
+                    "id": "get_mailing_list",
+                    "label": "Obtener lista de correo"
+                },
+                {
+                    "id": "add_list_member",
+                    "label": "Añadir miembro a la lista"
+                },
+                {
+                    "id": "list_domains",
+                    "label": "Listar dominios"
+                },
+                {
+                    "id": "get_domain",
+                    "label": "Obtener dominio"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Mailgun",
+            "placeholder": "Introduce tu clave de API de Mailgun",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Dominio",
+            "placeholder": "mg.example.com",
+            "required": true
+        },
+        {
+            "id": "from",
+            "type": "short-input",
+            "title": "Correo de origen",
+            "placeholder": "sender@example.com",
+            "required": true
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "Correo de destino",
+            "placeholder": "recipient@example.com",
+            "required": true
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "Asunto",
+            "placeholder": "Asunto del correo",
+            "required": true
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Cuerpo de texto",
+            "placeholder": "Cuerpo del correo en texto plano"
+        },
+        {
+            "id": "html",
+            "type": "code",
+            "title": "Cuerpo HTML",
+            "placeholder": "<html><body>Cuerpo HTML del correo</body></html>",
+            "language": "html"
+        },
+        {
+            "id": "cc",
+            "type": "short-input",
+            "title": "CC",
+            "placeholder": "cc@example.com"
+        },
+        {
+            "id": "bcc",
+            "type": "short-input",
+            "title": "CCO",
+            "placeholder": "bcc@example.com"
+        },
+        {
+            "id": "tags",
+            "type": "short-input",
+            "title": "Etiquetas",
+            "placeholder": "tag1, tag2"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Enviar mensaje (<code>mailgun_send_message</code>)</div>
+
+Enviar un correo electrónico con la API de Mailgun
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave API de Mailgun |
+| `domain` | string | Sí | Dominio de Mailgun \(p. ej., mg.example.com\) |
+| `from` | string | Sí | Dirección de correo del remitente |
+| `to` | string | Sí | Dirección de correo del destinatario \(separar con comas si hay varias\) |
+| `subject` | string | Sí | Asunto del correo |
+| `text` | string | No | Cuerpo del correo en texto sin formato |
+| `html` | string | No | Cuerpo HTML del correo |
+| `cc` | string | No | Dirección de correo en CC \(separar con comas si hay varias\) |
+| `bcc` | string | No | Dirección de correo en CCO \(separar con comas si hay varias\) |
+| `tags` | string | No | Etiquetas del correo \(separadas por comas\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Si el mensaje se envió correctamente |
+| `id` | string | ID del mensaje |
+| `message` | string | Mensaje de respuesta de Mailgun |
+
+</div>
+
+---
+
+### Obtener mensaje
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailgun"
+    type="mailgun"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_message",
+            "options": [
+                {
+                    "id": "send_message",
+                    "label": "Enviar mensaje"
+                },
+                {
+                    "id": "get_message",
+                    "label": "Obtener mensaje"
+                },
+                {
+                    "id": "list_messages",
+                    "label": "Listar mensajes"
+                },
+                {
+                    "id": "create_mailing_list",
+                    "label": "Crear lista de correo"
+                },
+                {
+                    "id": "get_mailing_list",
+                    "label": "Obtener lista de correo"
+                },
+                {
+                    "id": "add_list_member",
+                    "label": "Añadir miembro a la lista"
+                },
+                {
+                    "id": "list_domains",
+                    "label": "Listar dominios"
+                },
+                {
+                    "id": "get_domain",
+                    "label": "Obtener dominio"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API de Mailgun",
+            "placeholder": "Introduce tu clave API de Mailgun",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Dominio",
+            "placeholder": "mg.example.com",
+            "required": true
+        },
+        {
+            "id": "messageKey",
+            "type": "short-input",
+            "title": "Clave del mensaje",
+            "placeholder": "Clave de almacenamiento del mensaje",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener mensaje (<code>mailgun_get_message</code>)</div>
+
+Recupera un mensaje almacenado por su clave
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Mailgun |
+| `domain` | string | Sí | Dominio de Mailgun |
+| `messageKey` | string | Sí | Clave de almacenamiento del mensaje |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Si la solicitud se realizó correctamente |
+| `recipients` | string | Destinatarios del mensaje |
+| `from` | string | Correo del remitente |
+| `subject` | string | Asunto del mensaje |
+| `bodyPlain` | string | Cuerpo en texto plano |
+| `strippedText` | string | Texto recortado |
+| `strippedSignature` | string | Firma recortada |
+| `bodyHtml` | string | Cuerpo HTML |
+| `strippedHtml` | string | HTML recortado |
+| `attachmentCount` | number | Número de archivos adjuntos |
+| `timestamp` | number | Marca de tiempo del mensaje |
+| `messageHeaders` | json | Encabezados del mensaje |
+| `contentIdMap` | json | Mapa de ID de contenido |
+
+</div>
+
+---
+
+### Listar mensajes
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailgun"
+    type="mailgun"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "list_messages",
+            "options": [
+                {
+                    "id": "send_message",
+                    "label": "Enviar mensaje"
+                },
+                {
+                    "id": "get_message",
+                    "label": "Obtener mensaje"
+                },
+                {
+                    "id": "list_messages",
+                    "label": "Listar mensajes"
+                },
+                {
+                    "id": "create_mailing_list",
+                    "label": "Crear lista de correo"
+                },
+                {
+                    "id": "get_mailing_list",
+                    "label": "Obtener lista de correo"
+                },
+                {
+                    "id": "add_list_member",
+                    "label": "Añadir miembro a la lista"
+                },
+                {
+                    "id": "list_domains",
+                    "label": "Listar dominios"
+                },
+                {
+                    "id": "get_domain",
+                    "label": "Obtener dominio"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Mailgun",
+            "placeholder": "Introduce tu clave de API de Mailgun",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Dominio",
+            "placeholder": "mg.example.com",
+            "required": true
+        },
+        {
+            "id": "event",
+            "type": "dropdown",
+            "title": "Tipo de evento",
+            "defaultValue": "",
+            "options": [
+                {
+                    "id": "",
+                    "label": "Todos los eventos"
+                },
+                {
+                    "id": "accepted",
+                    "label": "Aceptado"
+                },
+                {
+                    "id": "delivered",
+                    "label": "Entregado"
+                },
+                {
+                    "id": "failed",
+                    "label": "Fallido"
+                },
+                {
+                    "id": "opened",
+                    "label": "Abierto"
+                },
+                {
+                    "id": "clicked",
+                    "label": "Clic"
+                },
+                {
+                    "id": "unsubscribed",
+                    "label": "Dado de baja"
+                },
+                {
+                    "id": "complained",
+                    "label": "Queja"
+                },
+                {
+                    "id": "stored",
+                    "label": "Almacenado"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "100"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar mensajes (<code>mailgun_list_messages</code>)</div>
+
+Lista los eventos (registros) de los mensajes enviados a través de Mailgun
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave API de Mailgun |
+| `domain` | string | Sí | Dominio de Mailgun |
+| `event` | string | No | Filtrar por tipo de evento \(accepted, delivered, failed, opened, clicked, etc.\) |
+| `limit` | number | No | Número máximo de eventos a devolver \(predeterminado: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Indica si la solicitud se realizó correctamente |
+| `items` | json | Array de elementos de evento |
+| `paging` | json | Información de paginación |
+
+</div>
+
+---
+
+### Crear lista de correo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailgun"
+    type="mailgun"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "create_mailing_list",
+            "options": [
+                {
+                    "id": "send_message",
+                    "label": "Enviar mensaje"
+                },
+                {
+                    "id": "get_message",
+                    "label": "Obtener mensaje"
+                },
+                {
+                    "id": "list_messages",
+                    "label": "Listar mensajes"
+                },
+                {
+                    "id": "create_mailing_list",
+                    "label": "Crear lista de correo"
+                },
+                {
+                    "id": "get_mailing_list",
+                    "label": "Obtener lista de correo"
+                },
+                {
+                    "id": "add_list_member",
+                    "label": "Añadir miembro a la lista"
+                },
+                {
+                    "id": "list_domains",
+                    "label": "Listar dominios"
+                },
+                {
+                    "id": "get_domain",
+                    "label": "Obtener dominio"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API de Mailgun",
+            "placeholder": "Introduce tu clave API de Mailgun",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "address",
+            "type": "short-input",
+            "title": "Dirección de la lista",
+            "placeholder": "list@example.com",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "Nombre de la lista",
+            "placeholder": "Mi lista de correo"
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "Descripción",
+            "placeholder": "Descripción de la lista de correo"
+        },
+        {
+            "id": "accessLevel",
+            "type": "dropdown",
+            "title": "Nivel de acceso",
+            "defaultValue": "readonly",
+            "options": [
+                {
+                    "id": "readonly",
+                    "label": "Solo lectura"
+                },
+                {
+                    "id": "members",
+                    "label": "Miembros"
+                },
+                {
+                    "id": "everyone",
+                    "label": "Todos"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear lista de correo (<code>mailgun_create_mailing_list</code>)</div>
+
+Crear una nueva lista de correo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Mailgun |
+| `address` | string | Sí | Dirección de la lista de correo \(p. ej., list@example.com\) |
+| `name` | string | No | Nombre de la lista de correo |
+| `description` | string | No | Descripción de la lista de correo |
+| `accessLevel` | string | No | Nivel de acceso: readonly, members o everyone |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Indica si la lista se creó correctamente |
+| `message` | string | Mensaje de respuesta |
+| `list` | json | Detalles de la lista de correo creada |
+
+</div>
+
+---
+
+### Obtener lista de correo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailgun"
+    type="mailgun"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_mailing_list",
+            "options": [
+                {
+                    "id": "send_message",
+                    "label": "Enviar mensaje"
+                },
+                {
+                    "id": "get_message",
+                    "label": "Obtener mensaje"
+                },
+                {
+                    "id": "list_messages",
+                    "label": "Listar mensajes"
+                },
+                {
+                    "id": "create_mailing_list",
+                    "label": "Crear lista de correo"
+                },
+                {
+                    "id": "get_mailing_list",
+                    "label": "Obtener lista de correo"
+                },
+                {
+                    "id": "add_list_member",
+                    "label": "Añadir miembro a la lista"
+                },
+                {
+                    "id": "list_domains",
+                    "label": "Listar dominios"
+                },
+                {
+                    "id": "get_domain",
+                    "label": "Obtener dominio"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Mailgun",
+            "placeholder": "Introduce tu clave de API de Mailgun",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "address",
+            "type": "short-input",
+            "title": "Dirección de la lista",
+            "placeholder": "list@example.com",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener lista de correo (<code>mailgun_get_mailing_list</code>)</div>
+
+Obtener los detalles de una lista de correo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Mailgun |
+| `address` | string | Sí | Dirección de la lista de correo |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Si la solicitud se realizó correctamente |
+| `list` | json | Detalles de la lista de correo |
+
+</div>
+
+---
+
+### Añadir miembro a la lista
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailgun"
+    type="mailgun"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "add_list_member",
+            "options": [
+                {
+                    "id": "send_message",
+                    "label": "Enviar mensaje"
+                },
+                {
+                    "id": "get_message",
+                    "label": "Obtener mensaje"
+                },
+                {
+                    "id": "list_messages",
+                    "label": "Listar mensajes"
+                },
+                {
+                    "id": "create_mailing_list",
+                    "label": "Crear lista de correo"
+                },
+                {
+                    "id": "get_mailing_list",
+                    "label": "Obtener lista de correo"
+                },
+                {
+                    "id": "add_list_member",
+                    "label": "Añadir miembro a la lista"
+                },
+                {
+                    "id": "list_domains",
+                    "label": "Listar dominios"
+                },
+                {
+                    "id": "get_domain",
+                    "label": "Obtener dominio"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Mailgun",
+            "placeholder": "Introduzca su clave de API de Mailgun",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "address",
+            "type": "short-input",
+            "title": "Dirección de la lista",
+            "placeholder": "list@example.com",
+            "required": true
+        },
+        {
+            "id": "memberAddress",
+            "type": "short-input",
+            "title": "Correo del miembro",
+            "placeholder": "member@example.com",
+            "required": true
+        },
+        {
+            "id": "memberName",
+            "type": "short-input",
+            "title": "Nombre del miembro",
+            "placeholder": "Juan Pérez"
+        },
+        {
+            "id": "vars",
+            "type": "code",
+            "title": "Variables personalizadas",
+            "placeholder": "{\"key\": \"value\"}",
+            "language": "json"
+        },
+        {
+            "id": "subscribed",
+            "type": "dropdown",
+            "title": "Suscrito",
+            "defaultValue": "true",
+            "options": [
+                {
+                    "id": "true",
+                    "label": "Sí"
+                },
+                {
+                    "id": "false",
+                    "label": "No"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Añadir miembro de lista (<code>mailgun_add_list_member</code>)</div>
+
+Añadir un miembro a una lista de correo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Mailgun |
+| `listAddress` | string | Sí | Dirección de la lista de correo |
+| `address` | string | Sí | Dirección de correo del miembro |
+| `name` | string | No | Nombre del miembro |
+| `vars` | string | No | Cadena JSON de variables personalizadas |
+| `subscribed` | boolean | No | Si el miembro está suscrito |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Si el miembro se añadió correctamente |
+| `message` | string | Mensaje de respuesta |
+| `member` | json | Detalles del miembro añadido |
+
+</div>
+
+---
+
+### Listar dominios
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailgun"
+    type="mailgun"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "list_domains",
+            "options": [
+                {
+                    "id": "send_message",
+                    "label": "Enviar mensaje"
+                },
+                {
+                    "id": "get_message",
+                    "label": "Obtener mensaje"
+                },
+                {
+                    "id": "list_messages",
+                    "label": "Listar mensajes"
+                },
+                {
+                    "id": "create_mailing_list",
+                    "label": "Crear lista de correo"
+                },
+                {
+                    "id": "get_mailing_list",
+                    "label": "Obtener lista de correo"
+                },
+                {
+                    "id": "add_list_member",
+                    "label": "Añadir miembro de lista"
+                },
+                {
+                    "id": "list_domains",
+                    "label": "Listar dominios"
+                },
+                {
+                    "id": "get_domain",
+                    "label": "Obtener dominio"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Mailgun",
+            "placeholder": "Introduce tu clave de API de Mailgun",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar dominios (<code>mailgun_list_domains</code>)</div>
+
+Lista todos los dominios de tu cuenta de Mailgun
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Mailgun |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Si la solicitud se realizó correctamente |
+| `totalCount` | number | Número total de dominios |
+| `items` | json | Array de objetos de dominio |
+
+</div>
+
+---
+
+### Obtener dominio
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailgun"
+    type="mailgun"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_domain",
+            "options": [
+                {
+                    "id": "send_message",
+                    "label": "Enviar mensaje"
+                },
+                {
+                    "id": "get_message",
+                    "label": "Obtener mensaje"
+                },
+                {
+                    "id": "list_messages",
+                    "label": "Listar mensajes"
+                },
+                {
+                    "id": "create_mailing_list",
+                    "label": "Crear lista de correo"
+                },
+                {
+                    "id": "get_mailing_list",
+                    "label": "Obtener lista de correo"
+                },
+                {
+                    "id": "add_list_member",
+                    "label": "Añadir miembro a la lista"
+                },
+                {
+                    "id": "list_domains",
+                    "label": "Listar dominios"
+                },
+                {
+                    "id": "get_domain",
+                    "label": "Obtener dominio"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Mailgun",
+            "placeholder": "Introduce tu clave de API de Mailgun",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Dominio",
+            "placeholder": "mg.example.com",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener dominio (<code>mailgun_get_domain</code>)</div>
+
+Obtiene los detalles de un dominio específico
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Mailgun |
+| `domain` | string | Sí | Nombre de dominio |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Si la solicitud se realizó correctamente |
+| `domain` | json | Detalles del dominio |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Mailgun en tu flujo de trabajo. Envía correos transaccionales, gestiona listas de correo y miembros, consulta información de dominios y realiza el seguimiento de eventos de correo. Admite correos de texto y HTML, etiquetas para el seguimiento y una gestión completa de listas.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `mailgun`

@@ -1,0 +1,105 @@
+---
+title: 投资组合触发器
+description: 根据投资组合监控的状态变化触发工作流
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="portfolio"
+  color=""
+/>
+
+根据投资组合监控的状态变化触发工作流
+
+<Callout type="info">
+  这是**基于轮询**的触发器。TradingGoose 会按固定间隔检查数据源是否出现匹配的变化。
+</Callout>
+
+## 设置说明
+
+- 打开 `/workspace/[workspaceId]/monitor` 并创建投资组合监控。
+- 选择券商账户、投资组合条件和目标工作流。
+- 选择 `edge`，仅在条件从 false 变为 true 时运行；或选择 `while_true`，在条件保持为 true 期间反复运行，并受冷却时间限制。
+- 轮询间隔默认为 60 秒，可设为 15–3600 秒。冷却时间默认为 300 秒，可设为 0–86400 秒。
+
+## 输出结构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "input",
+          "type": "string",
+          "description": "可读摘要，标明条件已匹配的投资组合。"
+      },
+      {
+          "name": "event",
+          "type": "string",
+          "description": "始终为 `portfolio_state_condition_matched`。"
+      },
+      {
+          "name": "portfolio",
+          "type": "object",
+          "description": "被监控投资组合的身份信息，以及匹配时的详情快照。",
+          "children": [
+              {
+                  "name": "identity",
+                  "type": "object",
+                  "description": "交易投资组合身份。"
+              },
+              {
+                  "name": "detail",
+                  "type": "object",
+                  "description": "投资组合详情快照。"
+              }
+          ]
+      },
+      {
+          "name": "monitor",
+          "type": "object",
+          "description": "监控、目标工作流、提供商、服务和账户的标识符。",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "投资组合监控 ID。"
+              },
+              {
+                  "name": "workflowId",
+                  "type": "string",
+                  "description": "目标工作流 ID。"
+              },
+              {
+                  "name": "blockId",
+                  "type": "string",
+                  "description": "目标触发器块 ID。"
+              },
+              {
+                  "name": "providerId",
+                  "type": "string",
+                  "description": "交易提供商 ID。"
+              },
+              {
+                  "name": "serviceId",
+                  "type": "string",
+                  "description": "已连接的交易服务 ID。"
+              },
+              {
+                  "name": "accountId",
+                  "type": "string",
+                  "description": "被监控的券商账户 ID。"
+              }
+          ]
+      },
+      {
+          "name": "condition",
+          "type": "json",
+          "description": "已匹配的投资组合触发条件。"
+      }
+  ]}
+/>

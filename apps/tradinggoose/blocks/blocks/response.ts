@@ -1,13 +1,12 @@
 import { ResponseIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
-import type { ResponseBlockOutput } from '@/tools/response/types'
 
-export const ResponseBlock: BlockConfig<ResponseBlockOutput> = {
+export const ResponseBlock: BlockConfig = {
   type: 'response',
   name: 'Response',
   description: 'Send structured API response',
   longDescription:
-    'Integrate Response into the workflow. Can send build or edit structured responses into a final workflow response.',
+    'Define a structured workflow response using Builder fields or a JSON object in Editor mode. The block returns a response object containing data, status, and headers; downstream tags therefore use response.data beneath this block. API-triggered executions can expose this as their HTTP response. A webhook trigger acknowledges delivery before background execution, so a Response block cannot customize that earlier acknowledgment. Invalid response data is returned as a response with status 500. The block does not stop other connected workflow paths by itself.',
   docsLink: 'https://docs.tradinggoose.ai/blocks/response',
   bestPractices: `
   - Only use this if the trigger block is the API Trigger.
@@ -117,8 +116,14 @@ Example:
     },
   },
   outputs: {
-    data: { type: 'json', description: 'Response data' },
-    status: { type: 'number', description: 'HTTP status code' },
-    headers: { type: 'json', description: 'Response headers' },
+    response: {
+      type: 'object',
+      description: 'Structured response prepared for the caller.',
+      properties: {
+        data: { type: 'json', description: 'Response body.' },
+        status: { type: 'number', description: 'HTTP status code, defaulting to 200.' },
+        headers: { type: 'json', description: 'HTTP response headers.' },
+      },
+    },
   },
 }

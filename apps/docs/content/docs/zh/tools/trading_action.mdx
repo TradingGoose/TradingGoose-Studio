@@ -1,0 +1,188 @@
+---
+title: 交易操作
+description: 通过 Alpaca 或 Tradier 下达买入/卖出订单。
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="trading_action"
+  color="#ff766e"
+/>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="交易操作"
+    type="trading_action"
+    color="#ff766e"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "trading-provider-selector",
+            "title": "券商",
+            "layout": "full",
+            "placeholder": "选择券商",
+            "required": true
+        },
+        {
+            "id": "portfolioIdentity",
+            "type": "trading-account-selector",
+            "title": "券商账户",
+            "layout": "full",
+            "placeholder": "选择券商账户",
+            "description": "用于提交此订单的券商账户。",
+            "required": true
+        },
+        {
+            "id": "side",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "half",
+            "required": true,
+            "options": [
+                {
+                    "id": "buy",
+                    "label": "买入"
+                },
+                {
+                    "id": "sell",
+                    "label": "卖出"
+                }
+            ]
+        },
+        {
+            "id": "listing",
+            "type": "market-selector",
+            "title": "标的",
+            "layout": "full",
+            "required": true
+        },
+        {
+            "id": "orderSizingMode",
+            "type": "dropdown",
+            "title": "订单规模",
+            "layout": "half",
+            "description": "当提供商为 'alpaca' 时显示。"
+        },
+        {
+            "id": "quantity",
+            "type": "short-input",
+            "title": "数量",
+            "layout": "half",
+            "placeholder": "交易数量",
+            "description": "当 orderSizingMode 不是 'notional' 且提供商为 'alpaca' 或 'tradier' 时显示。"
+        },
+        {
+            "id": "notional",
+            "type": "short-input",
+            "title": "名义金额",
+            "layout": "half",
+            "placeholder": "美元金额",
+            "description": "当 orderSizingMode 为 'notional' 且提供商为 'alpaca' 时显示。"
+        },
+        {
+            "id": "orderType",
+            "type": "dropdown",
+            "title": "订单类型",
+            "layout": "half",
+            "required": true,
+            "defaultValue": "market"
+        },
+        {
+            "id": "preview",
+            "type": "switch",
+            "title": "预览订单",
+            "layout": "half",
+            "description": "当提供商为 'tradier' 时显示。"
+        },
+        {
+            "id": "limitPrice",
+            "type": "short-input",
+            "title": "限价",
+            "layout": "half",
+            "placeholder": "限价单和限价止损单必填",
+            "description": "当 orderType 为 'limit' 或 'stop_limit' 且提供商为 'alpaca' 或 'tradier' 时显示。"
+        },
+        {
+            "id": "stopPrice",
+            "type": "short-input",
+            "title": "止损价",
+            "layout": "half",
+            "placeholder": "止损单/限价止损单必填",
+            "description": "当 orderType 为 'stop' 或 'stop_limit' 且提供商为 'alpaca' 或 'tradier' 时显示。"
+        },
+        {
+            "id": "trailPrice",
+            "type": "short-input",
+            "title": "跟踪价格",
+            "layout": "half",
+            "placeholder": "跟踪止损价格偏移（使用价格或百分比）",
+            "description": "当 orderType 为 'trailing_stop' 且提供商为 'alpaca' 时显示。"
+        },
+        {
+            "id": "trailPercent",
+            "type": "short-input",
+            "title": "跟踪百分比",
+            "layout": "half",
+            "placeholder": "跟踪止损百分比偏移（使用百分比或价格）",
+            "description": "当 orderType 为 'trailing_stop' 且提供商为 'alpaca' 时显示。"
+        },
+        {
+            "id": "timeInForce",
+            "type": "dropdown",
+            "title": "有效期",
+            "layout": "half",
+            "placeholder": "默认值因提供商而异"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+### `trading_place_order`
+
+通过 Alpaca 或 Tradier 下达买入或卖出订单。
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | 是 | 所选经纪商提供方，用于账户与标的可用性。 |
+| `portfolioIdentity` | json | 是 | 此订单所选的规范经纪账户标识。 |
+| `listing` | listingIdentity | 是 | 待交易资产的结构化标的载荷。 |
+| `side` | string | 是 | 订单方向：buy 或 sell。 |
+| `quantity` | number | 否 | 当所选提供方的规模模式为 quantity 时要交易的数量。 |
+| `notional` | number | 否 | 在所选提供方支持时要交易的美元金额。 |
+| `orderSizingMode` | string | 否 | 从交易提供方能力中选择的订单规模模式。 |
+| `orderType` | string | 否 | 从交易提供方能力中选择的订单类型。 |
+| `timeInForce` | string | 否 | 有效期 \(day、gtc、gfd 等\)。 |
+| `limitPrice` | number | 否 | 限价 \(限价单必填\)。 |
+| `stopPrice` | number | 否 | 所选订单类型需要时的止损价。 |
+| `trailPrice` | number | 否 | 所选订单类型支持时的跟踪价格偏移。 |
+| `trailPercent` | number | 否 | 所选订单类型支持时的跟踪百分比偏移。 |
+| `preview` | boolean | 否 | 在支持时预览提供方订单而不提交。 |
+
+#### 输出
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `summary` | string | 订单提交的状态消息。 |
+| `provider` | string | 该订单使用的券商/服务商。 |
+| `appOrderId` | string | Trading Goose 订单 ID。 |
+| `clientOrderId` | string | 用于重试的券商客户订单标识。 |
+| `order` | json | 标准化订单详情及原始响应。 |
+
+## 使用说明
+
+统一交易操作块，用于从所选券商账户提交订单。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`trading_action`

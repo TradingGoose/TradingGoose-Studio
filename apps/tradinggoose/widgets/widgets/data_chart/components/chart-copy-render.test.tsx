@@ -8,12 +8,15 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { seedDashboardWidgetSession } from '@/lib/yjs/dashboard-layout-session'
+import {
+  readDashboardWidgetDocument,
+  seedDashboardWidgetSession,
+} from '@/lib/yjs/dashboard-layout-session'
 import { getPublicCopy } from '@/i18n/public-copy'
 import type { LocaleCode } from '@/i18n/utils'
 import { LocalWidgetConfigRuntimeProvider } from '@/widgets/widget-config-runtime'
 import { IndicatorDropdown } from '@/widgets/widgets/components/pine-indicator-dropdown'
-import { DataChartCandleTypeDropdown } from './chart-controls'
+import { DataChartCandleTypeDropdown, DataChartIntervalDropdown } from './chart-controls'
 import { DataChartFooter } from './footer'
 import { IndicatorControl } from './indicator-control'
 
@@ -99,6 +102,53 @@ describe('data chart localized component copy', () => {
     expect(container.getAttribute('aria-label')).toBeNull()
     expect(container.querySelector('[aria-label="Pie del widget"]')).toBeTruthy()
   })
+
+  it.each(['interval', 'range'])(
+    'clears the previous viewport when selecting a new %s',
+    async (control) => {
+      const params = {
+        view: {
+          interval: '1d',
+          rangePresetId: '1y',
+          start: 1,
+          end: 2,
+          candleType: 'area' as const,
+        },
+      }
+      seedDashboardWidgetSession(doc, { pairColor: 'gray', params })
+      await act(async () => {
+        renderWithLocale(
+          control === 'interval' ? (
+            <DataChartIntervalDropdown interval='1d' allowedIntervals={['1h']} supportsInterval />
+          ) : (
+            <DataChartFooter params={params} allowedIntervals={['1m', '1d']} />
+          ),
+          'en'
+        )
+      })
+      if (control === 'interval') {
+        await dispatchMouse(
+          container.querySelector('button[aria-expanded]')!,
+          'mousedown',
+          'mouseup',
+          'click'
+        )
+        await dispatchMouse(document.querySelector('[role="menuitem"]')!, 'click')
+      } else {
+        await dispatchMouse(
+          container.querySelector('[role="tab"]')!,
+          'mousedown',
+          'mouseup',
+          'click'
+        )
+      }
+      expect(readDashboardWidgetDocument(doc, 'data_chart').params?.view).toEqual({
+        interval: control === 'interval' ? '1h' : '1m',
+        ...(control === 'range' ? { rangePresetId: '1d' } : {}),
+        candleType: 'area',
+      })
+    }
+  )
 
   it('renders indicator control labels in the active locale', async () => {
     await act(async () => {

@@ -1,0 +1,91 @@
+---
+title: Stagehand Extract
+description: Extrae datos de sitios web
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="stagehand"
+  color="#ffbb33"
+/>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Stagehand Extract"
+    type="stagehand"
+    color="#ffbb33"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "url",
+            "type": "short-input",
+            "title": "URL",
+            "layout": "full",
+            "placeholder": "Introduce la URL del sitio web del que extraer datos",
+            "required": true
+        },
+        {
+            "id": "instruction",
+            "type": "long-input",
+            "title": "Instrucciones",
+            "layout": "full",
+            "placeholder": "Introduce instrucciones detalladas sobre qué datos extraer de la página...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de OpenAI",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de OpenAI",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "schema",
+            "type": "code",
+            "title": "Esquema",
+            "layout": "full",
+            "placeholder": "Introduce el esquema JSON...",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `stagehand_extract`
+
+Extrae datos estructurados de una página web con Stagehand
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `url` | string | Sí | URL de la página web de la que extraer datos |
+| `instruction` | string | Sí | Instrucciones para la extracción |
+| `provider` | string | No | Proveedor de IA a usar: openai o anthropic |
+| `apiKey` | string | Sí | Clave de API del proveedor seleccionado |
+| `schema` | json | Sí | Esquema JSON que define la estructura de los datos a extraer |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `data` | object | Datos estructurados extraídos que coinciden con el esquema proporcionado |
+
+## Instrucciones de uso
+
+Integra Stagehand en el workflow. Puede extraer datos estructurados de páginas web.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `stagehand`

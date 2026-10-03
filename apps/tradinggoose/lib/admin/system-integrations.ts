@@ -3,6 +3,7 @@ import { systemIntegrationDefinition, systemIntegrationSecret } from '@tradinggo
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import {
+  getSystemIntegrationCatalogCredentialFields,
   getSystemIntegrationCatalogDefinitionIds,
   getSystemIntegrationCatalogSeedSnapshot,
 } from '@/lib/system-integrations/catalog'
@@ -46,13 +47,6 @@ export interface SystemIntegrationState {
 }
 
 export class SystemIntegrationValidationError extends Error {}
-
-type PersistedSystemIntegrationSecret = {
-  id: string
-  definitionId: string
-  key: string
-  value: string
-}
 
 export async function listSystemIntegrations(): Promise<SystemIntegrationState> {
   const catalog = getSystemIntegrationCatalogSeedSnapshot()
@@ -134,47 +128,44 @@ export async function updateSystemIntegrationBundle(input: UpdateSystemIntegrati
   const definitions = sortDefinitionsForInsert(
     normalizeDefinitionsForCredentialState([input.definition, ...input.services], input.secrets)
   )
-  const existingSecrets = await db
-    .select()
-    .from(systemIntegrationSecret)
-    .where(eq(systemIntegrationSecret.definitionId, input.definition.id))
-  const existingSecretsByKey = new Map(
-    existingSecrets.map((secret) => [`${secret.definitionId}:${secret.key}`, secret])
+  const systemManagedKeys = new Set(
+    getSystemIntegrationCatalogCredentialFields(input.definition.id)
+      .filter((field) => field.systemManaged)
+      .map((field) => field.key)
   )
-  const nextSecrets = (
-    await Promise.all(
-      input.secrets.map(async (secret) => {
-        const nextValue = secret.value.trim()
-        if (!secret.key.trim()) {
-          return null
-        }
-
-        if (nextValue) {
-          const { encrypted } = await encryptSecret(nextValue)
-          return {
-            id: secret.id,
-            definitionId: secret.definitionId,
-            key: secret.key,
-            value: encrypted,
-          }
-        }
-
-        const existingSecret = existingSecretsByKey.get(`${secret.definitionId}:${secret.key}`)
-        if (secret.hasValue && existingSecret?.value?.trim()) {
-          return {
-            id: secret.id,
-            definitionId: secret.definitionId,
-            key: secret.key,
-            value: existingSecret.value,
-          }
-        }
-
-        return null
-      })
-    )
-  ).filter((secret): secret is PersistedSystemIntegrationSecret => secret !== null)
 
   await db.transaction(async (tx) => {
+    await tx.insert(systemIntegrationDefinition).values(input.definition).onConflictDoNothing()
+    await tx
+      .select({ id: systemIntegrationDefinition.id })
+      .from(systemIntegrationDefinition)
+      .where(eq(systemIntegrationDefinition.id, input.definition.id))
+      .for('update')
+
+    const existingSecrets = await tx
+      .select()
+      .from(systemIntegrationSecret)
+      .where(eq(systemIntegrationSecret.definitionId, input.definition.id))
+    const existingSecretsByKey = new Map(existingSecrets.map((secret) => [secret.key, secret]))
+    const nextSecrets = (
+      await Promise.all(
+        input.secrets.map(async (secret) => {
+          let value = existingSecretsByKey.get(secret.key)?.value.trim() ?? ''
+          const nextValue = secret.value.trim()
+          if (!systemManagedKeys.has(secret.key)) {
+            value = nextValue
+              ? (await encryptSecret(nextValue)).encrypted
+              : secret.hasValue
+                ? value
+                : ''
+          }
+          return value
+            ? { id: secret.id, definitionId: secret.definitionId, key: secret.key, value }
+            : null
+        })
+      )
+    ).filter((secret) => secret !== null)
+
     await tx
       .delete(systemIntegrationDefinition)
       .where(eq(systemIntegrationDefinition.id, input.definition.id))

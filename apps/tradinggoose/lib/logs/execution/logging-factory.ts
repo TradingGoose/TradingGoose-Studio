@@ -2,6 +2,7 @@ import { db } from '@tradinggoose/db'
 import { workflow, workflowFolder } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import type { ExecutionEnvironment, ExecutionTrigger } from '@/lib/logs/types'
+import { isWorkflowBlockType } from '@/executor/consts'
 
 export function createTriggerObject(
   type: ExecutionTrigger['type'],
@@ -115,11 +116,13 @@ export function calculateCostSummary(
     }
   }
 
-  // Recursively collect all spans with cost information from the trace span tree
+  // Child workflow traces are visible here but billed by their own execution.
   const collectCostSpans = (spans: any[]): any[] => {
     const costSpans: any[] = []
 
     for (const span of spans) {
+      if (span.blockId && isWorkflowBlockType(span.type)) continue
+
       if (span.cost) {
         costSpans.push(span)
       }

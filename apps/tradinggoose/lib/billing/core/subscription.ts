@@ -18,9 +18,6 @@ import { getBaseUrl } from '@/lib/urls/utils'
 
 const logger = createLogger('SubscriptionCore')
 
-type SubscriptionRecord = typeof subscription.$inferSelect
-const DEFAULT_USER_SUBSCRIPTION_ID_PREFIX = 'sub_default_'
-
 export class MissingBillingSubscriptionError extends Error {
   constructor(message: string) {
     super(message)
@@ -80,11 +77,6 @@ export function getConfiguredPersonalUsageLimit(
 }
 
 /**
- * Core subscription management - single source of truth
- * Consolidates logic from both lib/subscription.ts and lib/subscription/subscription.ts
- */
-
-/**
  * Give a billed user back the default tier when they hold no entitled subscription.
  *
  * Personal Stripe subscriptions reuse the user's default subscription row, so a cancellation
@@ -96,16 +88,19 @@ export function getConfiguredPersonalUsageLimit(
  * Never throws - callers use it behind a normal read, so a repair failure must surface as
  * the original billing error rather than a new one.
  */
-async function restorePersonalEntitlement(userId: string): Promise<SubscriptionWithTier | null> {
+async function restorePersonalEntitlement(
+  userId: string,
+  dbClient: Pick<typeof db, 'insert' | 'select'> = db
+): Promise<SubscriptionWithTier | null> {
   try {
     // With billing disabled there is no default tier to grant, and callers already treat a
     // missing subscription as unlimited.
-    const { billingEnabled } = await getResolvedBillingSettings()
+    const { billingEnabled } = await getResolvedBillingSettings(dbClient)
     if (!billingEnabled) {
       return null
     }
 
-    const restoredSubscription = await ensureDefaultUserSubscription(userId)
+    const restoredSubscription = await ensureDefaultUserSubscription(userId, dbClient)
 
     logger.warn('Restored default personal subscription for a user left without one', {
       userId,
@@ -123,9 +118,10 @@ async function restorePersonalEntitlement(userId: string): Promise<SubscriptionW
  * Get the active subscription that currently governs a billing reference.
  */
 export async function getActiveSubscriptionForReference(
-  reference: BillingReference
+  reference: BillingReference,
+  dbClient: Pick<typeof db, 'insert' | 'select'> = db
 ): Promise<SubscriptionWithTier | null> {
-  const rows = await db
+  const rows = await dbClient
     .select()
     .from(subscription)
     .where(
@@ -136,14 +132,14 @@ export async function getActiveSubscriptionForReference(
       )
     )
 
-  const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(rows)
+  const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(rows, dbClient)
   const effectiveSubscription = selectEffectiveSubscription(hydratedSubscriptions)
 
   if (effectiveSubscription || reference.referenceType !== 'user') {
     return effectiveSubscription
   }
 
-  return restorePersonalEntitlement(reference.referenceId)
+  return restorePersonalEntitlement(reference.referenceId, dbClient)
 }
 
 export async function requireActiveSubscriptionForReference(
@@ -180,11 +176,11 @@ export async function getEffectiveSubscription(
   return personalSubscription ?? restorePersonalEntitlement(userId)
 }
 
-async function getActivePersonalSubscriptions(
+export async function getPersonalEffectiveSubscription(
   userId: string,
   dbClient: Pick<typeof db, 'select'> = db
-): Promise<SubscriptionRecord[]> {
-  return dbClient
+): Promise<SubscriptionWithTier | null> {
+  const personalSubs = await dbClient
     .select()
     .from(subscription)
     .where(
@@ -194,19 +190,8 @@ async function getActivePersonalSubscriptions(
         inArray(subscription.status, [...BILLING_ENTITLED_SUBSCRIPTION_STATUSES])
       )
     )
-}
-
-export async function getPersonalEffectiveSubscription(
-  userId: string,
-  dbClient: Pick<typeof db, 'select'> = db
-): Promise<SubscriptionWithTier | null> {
-  const personalSubs = await getActivePersonalSubscriptions(userId, dbClient)
-  const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(personalSubs)
+  const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(personalSubs, dbClient)
   return selectEffectiveSubscription(hydratedSubscriptions)
-}
-
-function getDefaultUserSubscriptionId(userId: string) {
-  return `${DEFAULT_USER_SUBSCRIPTION_ID_PREFIX}${userId}`
 }
 
 export async function ensureDefaultUserSubscription(
@@ -218,49 +203,33 @@ export async function ensureDefaultUserSubscription(
     return existingSubscription
   }
 
-  const defaultTier = await requireDefaultBillingTier()
-  const subscriptionId = getDefaultUserSubscriptionId(userId)
+  const defaultTier = await requireDefaultBillingTier(dbClient)
+  const defaultValues = {
+    plan: defaultTier.id,
+    billingTierId: defaultTier.id,
+    referenceType: 'user' as const,
+    referenceId: userId,
+    stripeSubscriptionId: null,
+    status: 'active',
+    periodStart: null,
+    periodEnd: null,
+    cancelAtPeriodEnd: false,
+    seats: null,
+    trialStart: null,
+    trialEnd: null,
+    metadata: { source: 'default-tier' },
+  }
 
   await dbClient
     .insert(subscription)
     .values({
-      id: subscriptionId,
-      plan: defaultTier.id,
-      billingTierId: defaultTier.id,
-      referenceType: 'user',
-      referenceId: userId,
+      ...defaultValues,
+      id: `sub_default_${userId}`,
       stripeCustomerId: null,
-      stripeSubscriptionId: null,
-      status: 'active',
-      periodStart: null,
-      periodEnd: null,
-      cancelAtPeriodEnd: false,
-      seats: null,
-      trialStart: null,
-      trialEnd: null,
-      metadata: {
-        source: 'default-tier',
-      },
     })
     .onConflictDoUpdate({
       target: subscription.id,
-      set: {
-        plan: defaultTier.id,
-        billingTierId: defaultTier.id,
-        referenceType: 'user',
-        referenceId: userId,
-        stripeSubscriptionId: null,
-        status: 'active',
-        periodStart: null,
-        periodEnd: null,
-        cancelAtPeriodEnd: false,
-        seats: null,
-        trialStart: null,
-        trialEnd: null,
-        metadata: {
-          source: 'default-tier',
-        },
-      },
+      set: defaultValues,
     })
 
   const defaultSubscription = await getPersonalEffectiveSubscription(userId, dbClient)

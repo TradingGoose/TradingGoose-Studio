@@ -1,0 +1,167 @@
+---
+title: Hugging Face
+description: Usar Hugging Face Inference API
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="huggingface"
+  color="#FFD21E"
+/>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Hugging Face"
+    type="huggingface"
+    color="#FFD21E"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "systemPrompt",
+            "type": "long-input",
+            "title": "Prompt del sistema",
+            "layout": "full",
+            "placeholder": "Introduce el prompt del sistema para guiar el comportamiento del modelo..."
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Prompt del usuario",
+            "layout": "full",
+            "placeholder": "Escribe tu mensaje aquí...",
+            "required": true
+        },
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Proveedor",
+            "layout": "half",
+            "required": true,
+            "defaultValue": "novita",
+            "options": [
+                {
+                    "id": "novita",
+                    "label": "Novita"
+                },
+                {
+                    "id": "cerebras",
+                    "label": "Cerebras"
+                },
+                {
+                    "id": "cohere",
+                    "label": "Cohere"
+                },
+                {
+                    "id": "fal",
+                    "label": "Fal AI"
+                },
+                {
+                    "id": "fireworks",
+                    "label": "Fireworks"
+                },
+                {
+                    "id": "hyperbolic",
+                    "label": "Hyperbolic"
+                },
+                {
+                    "id": "hf-inference",
+                    "label": "HF Inference"
+                },
+                {
+                    "id": "nebius",
+                    "label": "Nebius"
+                },
+                {
+                    "id": "nscale",
+                    "label": "Nscale"
+                },
+                {
+                    "id": "replicate",
+                    "label": "Replicate"
+                },
+                {
+                    "id": "sambanova",
+                    "label": "SambaNova"
+                },
+                {
+                    "id": "together",
+                    "label": "Together"
+                }
+            ]
+        },
+        {
+            "id": "model",
+            "type": "short-input",
+            "title": "Modelo",
+            "layout": "full",
+            "placeholder": "p. ej., Qwen/Qwen2.5-7B-Instruct, llama3.1-8b, meta-llama/Llama-3.2-3B-Instruct-Turbo",
+            "description": "El modelo debe estar disponible para el proveedor seleccionado.",
+            "required": true
+        },
+        {
+            "id": "temperature",
+            "type": "slider",
+            "title": "Temperatura",
+            "layout": "half",
+            "min": 0,
+            "max": 2,
+            "defaultValue": "0.7"
+        },
+        {
+            "id": "maxTokens",
+            "type": "short-input",
+            "title": "Tokens máximos",
+            "layout": "half",
+            "placeholder": "p. ej., 1000"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de API",
+            "layout": "full",
+            "placeholder": "Introduce tu token de API de Hugging Face",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `huggingface_chat`
+
+Generar completaciones con Hugging Face Inference API
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `systemPrompt` | string | No | Prompt del sistema para orientar el comportamiento del modelo |
+| `content` | string | Sí | Contenido del mensaje del usuario que se envía al modelo |
+| `provider` | string | Sí | Proveedor que se usará para la solicitud a la API \(p. ej., novita, cerebras, etc.\) |
+| `model` | string | Sí | Modelo que se usará para las completaciones de chat \(p. ej., Qwen/Qwen2.5-7B-Instruct\) |
+| `maxTokens` | number | No | Número máximo de tokens a generar |
+| `temperature` | number | No | Temperatura de muestreo \(0-2\). Valores más altos hacen la salida más aleatoria |
+| `apiKey` | string | Sí | Token de API de Hugging Face |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `output` | object | Resultados de la completación de chat |
+
+## Instrucciones de uso
+
+Integra Hugging Face en el flujo de trabajo. Puede generar completaciones con Hugging Face Inference API.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `huggingface`

@@ -1,0 +1,667 @@
+---
+title: Amazon RDS
+description: 通过 Data API 连接 Amazon RDS
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="rds"
+  color="#527FFF"
+/>
+
+## 配置
+
+### 查询（SELECT）
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon RDS"
+    type="rds"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "query",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "查询（SELECT）"
+                },
+                {
+                    "id": "insert",
+                    "label": "插入数据"
+                },
+                {
+                    "id": "update",
+                    "label": "更新数据"
+                },
+                {
+                    "id": "delete",
+                    "label": "删除数据"
+                },
+                {
+                    "id": "execute",
+                    "label": "执行原始 SQL"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "AWS 区域",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "AWS 访问密钥 ID",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "AWS 秘密访问密钥",
+            "placeholder": "你的秘密访问密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "resourceArn",
+            "type": "short-input",
+            "title": "资源 ARN",
+            "placeholder": "arn:aws:rds:us-east-1:123456789:cluster:my-cluster",
+            "required": true
+        },
+        {
+            "id": "secretArn",
+            "type": "short-input",
+            "title": "密钥 ARN",
+            "placeholder": "arn:aws:secretsmanager:us-east-1:123456789:secret:my-secret",
+            "required": true
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "数据库名称",
+            "placeholder": "your_database",
+            "required": false
+        },
+        {
+            "id": "query",
+            "type": "code",
+            "title": "SQL 查询",
+            "placeholder": "SELECT * FROM users WHERE active = true",
+            "language": "sql",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">查询（SELECT） (<code>rds_query</code>)</div>
+
+使用 Data API 在 Amazon RDS 上执行 SELECT 查询
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | 是 | AWS 区域 \(例如 us-east-1\) |
+| `accessKeyId` | string | 是 | AWS 访问密钥 ID |
+| `secretAccessKey` | string | 是 | AWS 秘密访问密钥 |
+| `resourceArn` | string | 是 | Aurora 数据库集群的 ARN |
+| `secretArn` | string | 是 | 包含数据库凭据的 Secrets Manager 密钥的 ARN |
+| `database` | string | 否 | 数据库名称 \(可选\) |
+| `query` | string | 是 | 要执行的 SQL SELECT 查询 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `message` | string | 操作状态消息 |
+| `rows` | array | 查询返回的行数组 |
+| `rowCount` | number | 返回的行数 |
+
+</div>
+
+---
+
+### 插入数据
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon RDS"
+    type="rds"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "insert",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "查询（SELECT）"
+                },
+                {
+                    "id": "insert",
+                    "label": "插入数据"
+                },
+                {
+                    "id": "update",
+                    "label": "更新数据"
+                },
+                {
+                    "id": "delete",
+                    "label": "删除数据"
+                },
+                {
+                    "id": "execute",
+                    "label": "执行原始 SQL"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "AWS 区域",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "AWS 访问密钥 ID",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "AWS 秘密访问密钥",
+            "placeholder": "你的秘密访问密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "resourceArn",
+            "type": "short-input",
+            "title": "资源 ARN",
+            "placeholder": "arn:aws:rds:us-east-1:123456789:cluster:my-cluster",
+            "required": true
+        },
+        {
+            "id": "secretArn",
+            "type": "short-input",
+            "title": "密钥 ARN",
+            "placeholder": "arn:aws:secretsmanager:us-east-1:123456789:secret:my-secret",
+            "required": true
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "数据库名称",
+            "placeholder": "your_database",
+            "required": false
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "表名",
+            "placeholder": "users",
+            "required": true
+        },
+        {
+            "id": "data",
+            "type": "code",
+            "title": "数据（JSON）",
+            "placeholder": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"active\": true\n}",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">插入数据 (<code>rds_insert</code>)</div>
+
+使用 Data API 将数据插入 Amazon RDS 表
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | 是 | AWS 区域 \(例如 us-east-1\) |
+| `accessKeyId` | string | 是 | AWS 访问密钥 ID |
+| `secretAccessKey` | string | 是 | AWS 秘密访问密钥 |
+| `resourceArn` | string | 是 | Aurora 数据库集群的 ARN |
+| `secretArn` | string | 是 | 包含数据库凭据的 Secrets Manager 密钥的 ARN |
+| `database` | string | 否 | 数据库名称 \(可选\) |
+| `table` | string | 是 | 要插入的表名称 |
+| `data` | object | 是 | 以键值对形式插入的数据 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `message` | string | 操作状态消息 |
+| `rows` | array | 已插入行的数组 |
+| `rowCount` | number | 已插入的行数 |
+
+</div>
+
+---
+
+### 更新数据
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon RDS"
+    type="rds"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "update",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "查询（SELECT）"
+                },
+                {
+                    "id": "insert",
+                    "label": "插入数据"
+                },
+                {
+                    "id": "update",
+                    "label": "更新数据"
+                },
+                {
+                    "id": "delete",
+                    "label": "删除数据"
+                },
+                {
+                    "id": "execute",
+                    "label": "执行原始 SQL"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "AWS 区域",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "AWS 访问密钥 ID",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "AWS 秘密访问密钥",
+            "placeholder": "你的秘密访问密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "resourceArn",
+            "type": "short-input",
+            "title": "资源 ARN",
+            "placeholder": "arn:aws:rds:us-east-1:123456789:cluster:my-cluster",
+            "required": true
+        },
+        {
+            "id": "secretArn",
+            "type": "short-input",
+            "title": "密钥 ARN",
+            "placeholder": "arn:aws:secretsmanager:us-east-1:123456789:secret:my-secret",
+            "required": true
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "数据库名称",
+            "placeholder": "your_database",
+            "required": false
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "表名称",
+            "placeholder": "users",
+            "required": true
+        },
+        {
+            "id": "data",
+            "type": "code",
+            "title": "更新数据（JSON）",
+            "placeholder": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\"\n}",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "conditions",
+            "type": "code",
+            "title": "条件（JSON）",
+            "placeholder": "{\n  \"id\": 1\n}",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新数据 (<code>rds_update</code>)</div>
+
+使用 Data API 更新 Amazon RDS 表中的数据
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `region` | string | 是 | AWS 区域 \(例如, us-east-1\) |
+| `accessKeyId` | string | 是 | AWS 访问密钥 ID |
+| `secretAccessKey` | string | 是 | AWS 秘密访问密钥 |
+| `resourceArn` | string | 是 | Aurora DB 集群的 ARN |
+| `secretArn` | string | 是 | 包含数据库凭证的 Secrets Manager 密钥的 ARN |
+| `database` | string | 否 | 数据库名称 \(可选\) |
+| `table` | string | 是 | 要更新的表名 |
+| `data` | object | 是 | 以键值对形式更新的数据 |
+| `conditions` | object | 是 | 更新条件 \(例如, \{\"id\": 1\}\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `message` | string | 操作状态消息 |
+| `rows` | array | 更新行的数组 |
+| `rowCount` | number | 更新的行数 |
+
+</div>
+
+---
+
+### 删除数据
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon RDS"
+    type="rds"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "delete",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "查询 (SELECT)"
+                },
+                {
+                    "id": "insert",
+                    "label": "插入数据"
+                },
+                {
+                    "id": "update",
+                    "label": "更新数据"
+                },
+                {
+                    "id": "delete",
+                    "label": "删除数据"
+                },
+                {
+                    "id": "execute",
+                    "label": "执行原始 SQL"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "AWS 区域",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "AWS 访问密钥 ID",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "AWS 秘密访问密钥",
+            "placeholder": "您的秘密访问密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "resourceArn",
+            "type": "short-input",
+            "title": "资源 ARN",
+            "placeholder": "arn:aws:rds:us-east-1:123456789:cluster:my-cluster",
+            "required": true
+        },
+        {
+            "id": "secretArn",
+            "type": "short-input",
+            "title": "密钥 ARN",
+            "placeholder": "arn:aws:secretsmanager:us-east-1:123456789:secret:my-secret",
+            "required": true
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "数据库名称",
+            "placeholder": "您的数据库",
+            "required": false
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "表名",
+            "placeholder": "users",
+            "required": true
+        },
+        {
+            "id": "conditions",
+            "type": "code",
+            "title": "条件 (JSON)",
+            "placeholder": "{\n  \"id\": 1\n}",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除数据 (<code>rds_delete</code>)</div>
+
+使用 Data API 从 Amazon RDS 表中删除数据
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `region` | 字符串 | 是 | AWS 区域 \(例如 us-east-1\) |
+| `accessKeyId` | 字符串 | 是 | AWS 访问密钥 ID |
+| `secretAccessKey` | 字符串 | 是 | AWS 秘密访问密钥 |
+| `resourceArn` | 字符串 | 是 | Aurora DB 集群的 ARN |
+| `secretArn` | 字符串 | 是 | 包含数据库凭据的 Secrets Manager 密钥的 ARN |
+| `database` | 字符串 | 否 | 数据库名称 \(可选\) |
+| `table` | 字符串 | 是 | 要删除数据的表名称 |
+| `conditions` | 对象 | 是 | 删除条件 \(例如 \{"id": 1\}\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `message` | 字符串 | 操作状态消息 |
+| `rows` | 数组 | 已删除行的数组 |
+| `rowCount` | 数字 | 已删除的行数 |
+
+</div>
+
+---
+
+### 执行原始 SQL
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Amazon RDS"
+    type="rds"
+    color="#527FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "execute",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "查询 (SELECT)"
+                },
+                {
+                    "id": "insert",
+                    "label": "插入数据"
+                },
+                {
+                    "id": "update",
+                    "label": "更新数据"
+                },
+                {
+                    "id": "delete",
+                    "label": "删除数据"
+                },
+                {
+                    "id": "execute",
+                    "label": "执行原始 SQL"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "AWS 区域",
+            "placeholder": "us-east-1",
+            "required": true
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "AWS 访问密钥 ID",
+            "placeholder": "AKIA...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "AWS 秘密访问密钥",
+            "placeholder": "Your secret access key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "resourceArn",
+            "type": "short-input",
+            "title": "资源 ARN",
+            "placeholder": "arn:aws:rds:us-east-1:123456789:cluster:my-cluster",
+            "required": true
+        },
+        {
+            "id": "secretArn",
+            "type": "short-input",
+            "title": "密钥 ARN",
+            "placeholder": "arn:aws:secretsmanager:us-east-1:123456789:secret:my-secret",
+            "required": true
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "数据库名称",
+            "placeholder": "your_database",
+            "required": false
+        },
+        {
+            "id": "query",
+            "type": "code",
+            "title": "SQL 查询",
+            "placeholder": "SELECT * FROM table_name",
+            "language": "sql",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">执行原始 SQL (<code>rds_execute</code>)</div>
+
+使用 Data API 在 Amazon RDS 上执行原始 SQL
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必需 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `region` | 字符串 | 是 | AWS 区域 \(例如 us-east-1\) |
+| `accessKeyId` | 字符串 | 是 | AWS 访问密钥 ID |
+| `secretAccessKey` | 字符串 | 是 | AWS 秘密访问密钥 |
+| `resourceArn` | 字符串 | 是 | Aurora DB 集群的 ARN |
+| `secretArn` | 字符串 | 是 | 包含数据库凭证的 Secrets Manager 密钥的 ARN |
+| `database` | 字符串 | 否 | 数据库名称 \(可选\) |
+| `query` | 字符串 | 是 | 要执行的原始 SQL 查询 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `message` | 字符串 | 操作状态消息 |
+| `rows` | 数组 | 返回或受影响的行数组 |
+| `rowCount` | 数字 | 受影响的行数 |
+
+</div>
+
+---
+
+## 使用说明
+
+使用 Data API 将 Amazon RDS Aurora Serverless 集成到工作流中。无需管理数据库连接即可查询、插入、更新、删除和执行原始 SQL。
+
+## 备注
+
+- 类别: `tools`
+- 类型: `rds`

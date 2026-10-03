@@ -126,8 +126,13 @@ export function SidebarContent(props: ComponentProps<'aside'>) {
   useEffect(() => {
     const currentWidth = collapsed ? COLLAPSED_WIDTH : width
     const px = `${currentWidth}px`
-    document.documentElement.style.setProperty('--fd-sidebar-width', px)
-    document.documentElement.style.setProperty('--sidebar-offset', px)
+    const style = document.documentElement.style
+    style.setProperty('--fd-sidebar-width', px)
+    style.setProperty('--sidebar-offset', px)
+    return () => {
+      style.removeProperty('--fd-sidebar-width')
+      style.removeProperty('--sidebar-offset')
+    }
   }, [collapsed, width, COLLAPSED_WIDTH])
 
   const { dragRef, handleMouseDown } = useSidebarResize({

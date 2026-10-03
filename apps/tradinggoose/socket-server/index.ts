@@ -176,12 +176,11 @@ const shutdown = async () => {
     }
   })
 
-  await new Promise<void>((resolve) => {
-    io.close((error) => {
-      if (error) logger.error('Failed to close Socket.IO server cleanly', { error })
-      resolve()
-    })
-  })
+  yjsWss.clients.forEach((client) => client.terminate())
+  yjsWss.close()
+  // Bun must close connections before io.close() releases the HTTP server handle.
+  httpServer.closeAllConnections()
+  await io.close()
   await closeRedisConnection().catch((error) => {
     logger.error('Failed to close Redis connection cleanly', { error })
   })

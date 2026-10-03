@@ -17,17 +17,17 @@ The Workflow Chat widget provides a conversational interface for interacting wit
 
 ## Features
 
-- **Live socket connection** -- each chat instance opens its own socket to the workflow, so messages and responses stream in real time
+- **Live responses** -- workflow responses stream into the conversation in real time
 - **Output selector** -- a multi-select dropdown in the header lets you choose which workflow block outputs are included in the chat response; selections are deduplicated and persisted per workflow
 - **Clear chat** -- a header button wipes the current conversation history for the active workflow; the button is disabled when there are no messages
-- **Workflow selector** -- a dropdown in the header center lets you switch between workflows in the workspace; when the widget is paired (non-gray pair color) the dropdown reflects the shared selection and manual changes are ignored
-- **Automatic workflow resolution** -- the widget resolves the active workflow from widget params, pair-color channel, or the workflow registry, and persists the selection across sessions
+- **Workflow selector** -- a dropdown in the header center lets you switch between workflows in the workspace; when the widget is paired (non-gray pair color), choosing a workflow also updates the linked widgets
+- **Explicit workflow selection** -- select a workflow in this widget or a linked widget; the selection persists across sessions, with no automatic fallback to the first workflow
 
 ## Usage
 
 ### Adding the widget
 
-Open the widget picker and select **Workflow Chat**. The widget requires an active workspace; if none is selected it displays a prompt to choose one. Once a workspace is loaded, it automatically connects to the first available workflow.
+Open the widget picker and select **Workflow Chat**. The widget requires an active workspace; if none is selected it displays a prompt to choose one. Once a workspace is loaded, select a workflow from the header or a linked widget. Until then, the chat shows a prompt to select a workflow.
 
 ### Header layout
 

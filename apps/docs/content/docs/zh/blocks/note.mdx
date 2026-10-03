@@ -1,0 +1,56 @@
+---
+title: 注释
+description: 为工作流画布添加视觉注释，而不影响执行
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="note"
+  color="#F59E0B"
+  icon={true}
+/>
+
+注释块是工作流画布上的纯视觉注释。它不执行，没有输入或输出，并且被执行器完全忽略。用它来记录决策、为协作者留下说明，或解释工作流的复杂部分。
+
+## 概述
+
+注释块仅用于组织信息：
+
+- **记录设计决策** —— 解释为何选择某种分支策略或模型。
+- **留下说明** —— 告知协作者如何配置环境变量，或工作流某部分的作用。
+- **嵌入引用** —— 粘贴 YouTube 链接，它们会直接在画布上渲染为嵌入式视频。
+
+<Callout type="info">
+  注释块不影响工作流执行。它们不产生输出，也无法连接到其他块。工作流运行时，它们会被完全移除。
+</Callout>
+
+## 配置
+
+唯一的字段是一个 Markdown 文本区域。可以编写纯文本，使用 Markdown 格式（标题、列表、加粗、代码块），或粘贴 YouTube 链接以嵌入视频。
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="注释"
+    type="note"
+    color="#F59E0B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "content",
+            "type": "long-input",
+            "placeholder": "为协作者添加上下文或说明...",
+            "description": "使用 Markdown 编写注释。YouTube 链接将显示为嵌入式视频。"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 最佳实践
+
+- **将注释放在所描述块附近**，以便上下文立即可见。
+- **使用 Markdown 标题和列表**，使较长的注释易于浏览。
+- **优先使用注释块而非代码块中的注释** —— 注释块在画布层级可见，无需打开块的配置。

@@ -500,6 +500,7 @@ function DocsNavbar({
     <Navbar>
       <div className='flex h-14 items-center gap-3 border-b px-4 '>
         <div className='flex items-center gap-2'>
+          <NavbarSidebarTrigger className='md:hidden' aria-label='Open Sidebar' />
           {sidebarCollapsible && (
             <SidebarCollapseTrigger className='hidden h-7 w-7 items-center justify-center rounded-full text-fd-muted-foreground transition-colors hover:text-fd-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring md:inline-flex'>
               <SidebarIcon className='size-4' />

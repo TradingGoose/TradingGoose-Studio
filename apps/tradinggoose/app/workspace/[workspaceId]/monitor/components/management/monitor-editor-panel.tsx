@@ -15,6 +15,7 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { getPortfolioAccountLabel } from '@/providers/trading/portfolio-identity'
 import type { MonitorRecord, MonitorReferenceData } from '../shared/types'
 import { IndicatorInputSummary } from './indicator-input-fields'
 import { MonitorEditorForm } from './monitor-editor-form'
@@ -33,7 +34,7 @@ function getMonitorTitle(
 ): string {
   const monitorConfig = monitor.providerConfig.monitor
   if (monitor.source === PORTFOLIO_MONITOR_PROVIDER) {
-    return monitorConfig.accountId || portfolioFallback
+    return getPortfolioAccountLabel(monitorConfig) || portfolioFallback
   }
   if (!monitorConfig.indicatorId) {
     return monitor.monitorId
@@ -107,7 +108,7 @@ function MonitorDetails({
             <>
               <div className='rounded-md border p-2'>
                 <div className='text-muted-foreground text-xs'>Account</div>
-                <div className='truncate'>{monitorConfig.accountId}</div>
+                <div className='truncate'>{getPortfolioAccountLabel(monitorConfig)}</div>
               </div>
               <div className='rounded-md border p-2'>
                 <div className='text-muted-foreground text-xs'>Cooldown</div>

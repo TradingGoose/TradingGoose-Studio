@@ -92,6 +92,7 @@ describe('tradingPortfolioDetailTool', () => {
       environment: 'live',
       accessToken: 'access-token',
       accountId: 'ACC-2',
+      portfolioIdentity,
     })
   })
 

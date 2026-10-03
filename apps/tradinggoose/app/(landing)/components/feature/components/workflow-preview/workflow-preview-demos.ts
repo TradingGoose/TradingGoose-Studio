@@ -328,7 +328,7 @@ const createNotionBlock = ({
     },
   })
 
-const createWebhookBlock = ({
+const createApiPostBlock = ({
   id,
   name,
   position,
@@ -343,12 +343,13 @@ const createWebhookBlock = ({
 }): BlockState =>
   createBlock({
     id,
-    type: 'webhook_request',
+    type: 'api',
     name,
     position,
     height: 188,
     subBlocks: {
       url: createSubBlock('url', 'short-input', url),
+      method: createSubBlock('method', 'dropdown', 'POST'),
       body: createSubBlock('body', 'code', JSON.stringify(body, null, 2)),
     },
   })
@@ -801,9 +802,9 @@ function buildRiskRoutingState(
         side: 'buy',
         listing: 'NVDA',
       }),
-      webhook: createWebhookBlock({
+      webhook: createApiPostBlock({
         id: 'webhook',
-        name: localizeDefaultName(locale, 'webhook_request'),
+        name: localizeDefaultName(locale, 'api'),
         position: { x: 3183.5, y: 343 },
         url: 'https://ops.example.com/risk-routing',
         body: {

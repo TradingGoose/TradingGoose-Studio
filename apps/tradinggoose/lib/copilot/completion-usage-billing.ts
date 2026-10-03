@@ -139,7 +139,7 @@ export async function recordCopilotCompletionUsage(params: {
     extraUpdates.totalCopilotTokens = sql`total_copilot_tokens + ${totalTokens}`
   }
 
-  const didAccrue = await accrueUserUsageCost({
+  const accrual = await accrueUserUsageCost({
     userId: params.userId,
     workflowId: params.workflowId,
     cost: costToAdd,
@@ -147,7 +147,7 @@ export async function recordCopilotCompletionUsage(params: {
     reason: 'copilot_completion_usage',
   })
 
-  if (!didAccrue) {
+  if (!accrual) {
     logger.warn('Copilot billing skipped - ledger record not found', {
       userId: params.userId,
       workflowId: params.workflowId,

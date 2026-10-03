@@ -1,0 +1,152 @@
+---
+title: Datos históricos
+description: Obtiene series históricas de mercado de proveedores registrados.
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="historical_data"
+  color="#0EA5E9"
+/>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Datos históricos"
+    type="historical_data"
+    color="#0EA5E9"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "market-provider-selector",
+            "title": "Proveedor de datos",
+            "layout": "full",
+            "required": true
+        },
+        {
+            "id": "listing",
+            "type": "market-selector",
+            "title": "Listado",
+            "layout": "full",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "layout": "full",
+            "placeholder": "ALPHAVANTAGE_API_KEY",
+            "password": true,
+            "description": "Se muestra cuando el proveedor es uno de 'alpha-vantage', 'alpaca', 'finnhub'."
+        },
+        {
+            "id": "apiSecret",
+            "type": "short-input",
+            "title": "Secreto API",
+            "layout": "full",
+            "placeholder": "APCA-API-SECRET-KEY",
+            "password": true,
+            "description": "Se muestra cuando el proveedor es 'alpaca'."
+        },
+        {
+            "id": "feed",
+            "type": "dropdown",
+            "title": "Feed",
+            "layout": "full",
+            "placeholder": "Seleccionar feed",
+            "password": false,
+            "options": [
+                {
+                    "id": "sip",
+                    "label": "SIP"
+                },
+                {
+                    "id": "iex",
+                    "label": "IEX"
+                }
+            ],
+            "description": "Se muestra cuando el proveedor es 'alpaca'."
+        },
+        {
+            "id": "interval",
+            "type": "dropdown",
+            "title": "Intervalo",
+            "layout": "full",
+            "placeholder": "Seleccionar intervalo",
+            "description": "Se muestra cuando el proveedor es uno de 'alpha-vantage', 'alpaca', 'yahoo-finance', 'finnhub'."
+        },
+        {
+            "id": "normalizationMode",
+            "type": "dropdown",
+            "title": "Normalización",
+            "layout": "full",
+            "placeholder": "Modo de normalización opcional",
+            "description": "Se muestra cuando el proveedor es uno de 'alpha-vantage', 'alpaca', 'yahoo-finance'."
+        },
+        {
+            "id": "start",
+            "type": "datetime-input",
+            "title": "Inicio",
+            "layout": "full",
+            "placeholder": "Hora de inicio",
+            "required": true
+        },
+        {
+            "id": "end",
+            "type": "datetime-input",
+            "title": "Fin",
+            "layout": "full",
+            "placeholder": "Hora de fin",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `historical_data_fetch`
+
+Obtiene y normaliza series de mercado de proveedores de mercado registrados.
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | Sí | Id del proveedor de datos de mercado \(p. ej., alpaca, finnhub, yahoo-finance\). |
+| `listing` | listingIdentity | Sí | Carga útil estructurada del listado de TradingGoose Market. |
+| `apiKey` | string | Sí | Clave API de Alpha Vantage. |
+| `apiSecret` | string | Sí | Clave secreta de API de Alpaca. |
+| `feed` | string | Sí | Feed de datos de Alpaca \(obligatorio para barras de acciones\). |
+| `interval` | string | No | Intervalo/periodo de la serie admitido por el proveedor. |
+| `normalizationMode` | string | No | Modo de normalización admitido por el proveedor \(opcional\). |
+| `window` | json | Sí | Ventana de serie principal \(rango, barras o absoluta\). |
+| `fallbackWindow` | json | No | Ventana de serie de respaldo si la principal no es compatible o no es válida. |
+| `providerParams` | json | No | Parámetros opcionales específicos del proveedor. |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `listingBase` | string | Símbolo base del listado |
+| `listingQuote` | string | Moneda de cotización del listado |
+| `listing` | listingIdentity | Payload estructurado del identificador del listado |
+| `bars` | array | Barras OHLCV con marcas de tiempo |
+| `start` | string | Inicio de la serie devuelta |
+| `end` | string | Fin de la serie devuelta |
+| `timezone` | string | Zona horaria del exchange para la serie |
+| `normalizationMode` | string | Modo de normalización utilizado |
+
+## Instrucciones de uso
+
+Elige un proveedor de datos de mercado, selecciona un listado canónico y recupera barras de series que incluyan apertura, máximo, mínimo, cierre, volumen y marcas de tiempo. El inicio y el fin pueden ser cadenas ISO o timestamps UNIX.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `historical_data`

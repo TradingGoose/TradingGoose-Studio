@@ -1,0 +1,355 @@
+---
+title: Greptile
+description: Búsqueda y preguntas y respuestas de base de código con IA
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="greptile"
+  color="#44A775"
+/>
+
+## Configuración
+
+### Consulta
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Greptile"
+    type="greptile"
+    color="#44A775"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "greptile_query",
+            "options": [
+                {
+                    "id": "greptile_query",
+                    "label": "Consulta"
+                },
+                {
+                    "id": "greptile_index_repo",
+                    "label": "Indexar repositorio"
+                },
+                {
+                    "id": "greptile_status",
+                    "label": "Verificar estado"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API de Greptile",
+            "placeholder": "Ingresa tu clave API de Greptile",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "githubToken",
+            "type": "short-input",
+            "title": "Token de GitHub",
+            "placeholder": "Ingresa tu token de acceso personal de GitHub",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Consulta",
+            "placeholder": "Haz una pregunta sobre la base de código...",
+            "required": true
+        },
+        {
+            "id": "repositories",
+            "type": "long-input",
+            "title": "Repositorios",
+            "placeholder": "owner/repo, github:main:owner/repo (separados por comas)",
+            "required": true
+        },
+        {
+            "id": "sessionId",
+            "type": "short-input",
+            "title": "ID de sesión",
+            "placeholder": "ID de sesión opcional para continuidad de la conversación"
+        },
+        {
+            "id": "genius",
+            "type": "switch",
+            "title": "Modo genio"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Consulta (<code>greptile_query</code>)</div>
+
+Consulta repositorios en lenguaje natural y obtén respuestas con referencias de código relevantes. Greptile usa IA para comprender tu base de código y responder preguntas.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | Sí | Pregunta en lenguaje natural sobre la base de código |
+| `repositories` | string | Sí | Lista de repositorios separados por comas. Formato: "github:branch:owner/repo" o simplemente "owner/repo" \(predeterminado: github:main\) |
+| `sessionId` | string | No | ID de sesión para continuidad de la conversación |
+| `genius` | boolean | No | Habilitar modo genio para un análisis más exhaustivo \(más lento pero más preciso\) |
+| `apiKey` | string | Sí | Clave API de Greptile |
+| `githubToken` | string | Sí | Token de acceso personal de GitHub con acceso de lectura al repositorio |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Respuesta generada por IA a la consulta |
+| `sources` | array | Referencias de código relevantes que respaldan la respuesta |
+
+</div>
+
+---
+
+### Indexar repositorio
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Greptile"
+    type="greptile"
+    color="#44A775"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "greptile_index_repo",
+            "options": [
+                {
+                    "id": "greptile_query",
+                    "label": "Consulta"
+                },
+                {
+                    "id": "greptile_index_repo",
+                    "label": "Indexar repositorio"
+                },
+                {
+                    "id": "greptile_status",
+                    "label": "Comprobar estado"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Greptile",
+            "placeholder": "Introduce tu clave de API de Greptile",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "githubToken",
+            "type": "short-input",
+            "title": "Token de GitHub",
+            "placeholder": "Introduce tu token de acceso personal de GitHub",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "remote",
+            "type": "dropdown",
+            "title": "Remoto de Git",
+            "defaultValue": "github",
+            "options": [
+                {
+                    "id": "github",
+                    "label": "GitHub"
+                },
+                {
+                    "id": "gitlab",
+                    "label": "GitLab"
+                }
+            ]
+        },
+        {
+            "id": "repository",
+            "type": "short-input",
+            "title": "Repositorio",
+            "placeholder": "owner/repo",
+            "required": true
+        },
+        {
+            "id": "branch",
+            "type": "short-input",
+            "title": "Rama",
+            "placeholder": "main",
+            "required": true
+        },
+        {
+            "id": "reload",
+            "type": "switch",
+            "title": "Forzar reindexación"
+        },
+        {
+            "id": "notify",
+            "type": "switch",
+            "title": "Notificación por correo electrónico"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Indexar repositorio (<code>greptile_index_repo</code>)</div>
+
+Envía un repositorio para que Greptile lo indexe. La indexación debe completarse antes de poder consultar el repositorio. Los repositorios pequeños tardan de 3 a 5 minutos, los más grandes pueden tardar más de una hora.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `remote` | string | Sí | Tipo de remoto de Git: github o gitlab |
+| `repository` | string | Sí | Repositorio en formato owner/repo \(p. ej., \"facebook/react\"\) |
+| `branch` | string | Sí | Rama a indexar \(p. ej., \"main\" o \"master\"\) |
+| `reload` | boolean | No | Forzar reindexación incluso si ya está indexado |
+| `notify` | boolean | No | Enviar notificación por correo electrónico cuando finalice la indexación |
+| `apiKey` | string | Sí | Clave de API de Greptile |
+| `githubToken` | string | Sí | Token de acceso personal de GitHub con acceso de lectura al repositorio |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `repositoryId` | string | Identificador único para el repositorio indexado \(formato: remote:branch:owner/repo\) |
+| `statusEndpoint` | string | Endpoint URL para verificar el estado de indexación |
+| `message` | string | Mensaje de estado sobre la operación de indexación |
+
+</div>
+
+---
+
+### Verificar estado
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Greptile"
+    type="greptile"
+    color="#44A775"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "greptile_status",
+            "options": [
+                {
+                    "id": "greptile_query",
+                    "label": "Consulta"
+                },
+                {
+                    "id": "greptile_index_repo",
+                    "label": "Indexar repositorio"
+                },
+                {
+                    "id": "greptile_status",
+                    "label": "Verificar estado"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Greptile",
+            "placeholder": "Introduce tu clave de API de Greptile",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "githubToken",
+            "type": "short-input",
+            "title": "Token de GitHub",
+            "placeholder": "Introduce tu token de acceso personal de GitHub",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "remote",
+            "type": "dropdown",
+            "title": "Remoto de Git",
+            "defaultValue": "github",
+            "options": [
+                {
+                    "id": "github",
+                    "label": "GitHub"
+                },
+                {
+                    "id": "gitlab",
+                    "label": "GitLab"
+                }
+            ]
+        },
+        {
+            "id": "repository",
+            "type": "short-input",
+            "title": "Repositorio",
+            "placeholder": "owner/repo",
+            "required": true
+        },
+        {
+            "id": "branch",
+            "type": "short-input",
+            "title": "Rama",
+            "placeholder": "main",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Verificar estado (<code>greptile_status</code>)</div>
+
+Verifica el estado de indexación de un repositorio. Usa esto para comprobar si un repositorio está listo para ser consultado o para monitorear el progreso de la indexación.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `remote` | string | Sí | Tipo de remoto de Git: github o gitlab |
+| `repository` | string | Sí | Repositorio en formato owner/repo \(p. ej., "facebook/react"\) |
+| `branch` | string | Sí | Nombre de la rama \(p. ej., "main" o "master"\) |
+| `apiKey` | string | Sí | Clave de API de Greptile |
+| `githubToken` | string | Sí | Token de acceso personal de GitHub con acceso de lectura al repositorio |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `repository` | string | Nombre del repositorio \(owner/repo\) |
+| `remote` | string | Remoto de Git \(github/gitlab\) |
+| `branch` | string | Nombre de la rama |
+| `private` | boolean | Indica si el repositorio es privado |
+| `status` | string | Estado de indexación: submitted, cloning, processing, completed o failed |
+| `filesProcessed` | number | Número de archivos procesados hasta ahora |
+| `numFiles` | number | Número total de archivos en el repositorio |
+| `sampleQuestions` | array | Preguntas de ejemplo para el repositorio indexado |
+| `sha` | string | SHA del commit de Git de la versión indexada |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Consulta y busca bases de código usando lenguaje natural con Greptile. Obtén respuestas generadas por IA sobre tu código, encuentra archivos relevantes y comprende bases de código complejas.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `greptile`

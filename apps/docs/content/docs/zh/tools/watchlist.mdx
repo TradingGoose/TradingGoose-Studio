@@ -1,0 +1,136 @@
+---
+title: 观察列表
+description: 读取工作区观察列表及其列表项。
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="watchlist"
+  color="#0f766e"
+/>
+
+## 配置
+
+### 读取列表
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="观察列表"
+    type="watchlist"
+    color="#0f766e"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "required": true,
+            "defaultValue": "readLists",
+            "options": [
+                {
+                    "id": "readLists",
+                    "label": "读取列表"
+                },
+                {
+                    "id": "readListItems",
+                    "label": "读取列表项"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">读取列表 (<code>watchlist_read_lists</code>)</div>
+
+读取当前工作区中可用的根观察列表。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+此操作没有直接参数。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `watchlists` | array | 观察列表记录，包含列表项、设置和元数据。 |
+
+</div>
+
+---
+
+### 读取列表项
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="观察列表"
+    type="watchlist"
+    color="#0f766e"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "required": true,
+            "defaultValue": "readListItems",
+            "options": [
+                {
+                    "id": "readLists",
+                    "label": "读取列表"
+                },
+                {
+                    "id": "readListItems",
+                    "label": "读取列表项"
+                }
+            ]
+        },
+        {
+            "id": "watchlistId",
+            "type": "dropdown",
+            "title": "观察列表",
+            "layout": "full",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">读取列表项 (<code>watchlist_read_list_items</code>)</div>
+
+读取一个观察列表，包含有序列表项以及分区/分类项。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `watchlistId` | string | 是 | 要读取的根观察列表 ID。 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `watchlist` | json | 自选列表记录。 |
+| `items` | array | 按显示顺序排列的自选列表项，包括标的和分组。 |
+| `listings` | array | 自选列表中的标的项。 |
+| `sections` | array | 自选列表中的分组/分类项。 |
+
+</div>
+
+---
+
+## 使用说明
+
+读取根工作区的自选列表，查看按顺序排列的标的项，以及分组/分类项。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`watchlist`

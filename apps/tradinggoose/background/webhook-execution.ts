@@ -114,6 +114,7 @@ async function completeSkippedWebhookExecution(params: {
   })
 
   await loggingSession.complete({
+    workspaceId: params.workspaceId,
     endedAt: new Date().toISOString(),
     totalDurationMs: 0,
     finalOutput: { message: params.message },
@@ -154,13 +155,12 @@ async function logWebhookFailure(params: {
     triggerData: params.triggerData,
   })
 
-  await loggingSession.completeWithError({
+  await loggingSession.complete({
+    workspaceId: params.workspaceId,
     endedAt: new Date().toISOString(),
     totalDurationMs: 0,
-    error: {
-      message: params.error.message || 'Webhook execution failed',
-      stackTrace: params.error.stack,
-    },
+    success: false,
+    failureReason: params.error.message || 'Webhook execution failed',
     traceSpans: [],
   })
 }
@@ -366,6 +366,7 @@ export async function executeWebhookJob(
       requestId,
       executionId,
       triggerType: 'webhook',
+      contextExtensions: { pendingExecutionId: executionId },
       workflowInput: input || {},
       triggerTarget: {
         kind: 'block',
@@ -373,7 +374,7 @@ export async function executeWebhookJob(
       },
       triggerData,
     })
-    logger.info(`[${requestId}] Webhook execution completed`, {
+    logger.info(`[${requestId}] Webhook execution ${result.status ?? 'completed'}`, {
       success: result.success,
       workflowId: payload.workflowId,
       provider: payload.provider,
@@ -385,6 +386,7 @@ export async function executeWebhookJob(
 
     return {
       success: result.success,
+      status: result.status,
       workflowId: payload.workflowId,
       executionId,
       output: result.output,

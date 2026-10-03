@@ -1,0 +1,275 @@
+---
+title: Generador de imágenes
+description: Generar imágenes
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="image_generator"
+  color="#4D5FFF"
+/>
+
+## Configuración
+
+### DALL-E 3
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Generador de imágenes"
+    type="image_generator"
+    color="#4D5FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Modelo",
+            "layout": "half",
+            "defaultValue": "dall-e-3",
+            "options": [
+                {
+                    "id": "dall-e-3",
+                    "label": "DALL-E 3"
+                },
+                {
+                    "id": "gpt-image-1",
+                    "label": "GPT Image"
+                }
+            ]
+        },
+        {
+            "id": "prompt",
+            "type": "long-input",
+            "title": "Indicación",
+            "layout": "full",
+            "placeholder": "Describe la imagen que deseas generar...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Ingresa tu clave de API de OpenAI",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "size",
+            "type": "dropdown",
+            "title": "Tamaño",
+            "layout": "half",
+            "defaultValue": "1024x1024",
+            "options": [
+                {
+                    "id": "1024x1024",
+                    "label": "1024x1024"
+                },
+                {
+                    "id": "1024x1792",
+                    "label": "1024x1792"
+                },
+                {
+                    "id": "1792x1024",
+                    "label": "1792x1024"
+                }
+            ]
+        },
+        {
+            "id": "quality",
+            "type": "dropdown",
+            "title": "Calidad",
+            "layout": "half",
+            "defaultValue": "standard",
+            "options": [
+                {
+                    "id": "standard",
+                    "label": "Estándar"
+                },
+                {
+                    "id": "hd",
+                    "label": "HD"
+                }
+            ]
+        },
+        {
+            "id": "style",
+            "type": "dropdown",
+            "title": "Estilo",
+            "layout": "half",
+            "defaultValue": "vivid",
+            "options": [
+                {
+                    "id": "vivid",
+                    "label": "Vívido"
+                },
+                {
+                    "id": "natural",
+                    "label": "Natural"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">DALL-E 3 (<code>openai_image</code>)</div>
+
+Genera imágenes usando los modelos de imagen de OpenAI
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `model` | string | Sí | El modelo a usar \(gpt-image-1 o dall-e-3\) |
+| `prompt` | string | Sí | Una descripción textual de la imagen deseada |
+| `size` | string | Sí | El tamaño de las imágenes generadas \(1024x1024, 1024x1792 o 1792x1024\) |
+| `quality` | string | No | La calidad de la imagen \(estándar o hd\) |
+| `style` | string | No | El estilo de la imagen \(vívido o natural\) |
+| `background` | string | No | El color de fondo, solo para gpt-image-1 |
+| `apiKey` | string | Sí | Tu clave de API de OpenAI |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `output` | object | Datos de imagen generada |
+
+</div>
+
+---
+
+### GPT Image
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Generador de imágenes"
+    type="image_generator"
+    color="#4D5FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Modelo",
+            "layout": "half",
+            "defaultValue": "gpt-image-1",
+            "options": [
+                {
+                    "id": "dall-e-3",
+                    "label": "DALL-E 3"
+                },
+                {
+                    "id": "gpt-image-1",
+                    "label": "GPT Image"
+                }
+            ]
+        },
+        {
+            "id": "prompt",
+            "type": "long-input",
+            "title": "Prompt",
+            "layout": "full",
+            "placeholder": "Describe la imagen que deseas generar...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "layout": "full",
+            "placeholder": "Ingresa tu clave API de OpenAI",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "size",
+            "type": "dropdown",
+            "title": "Tamaño",
+            "layout": "half",
+            "defaultValue": "auto",
+            "options": [
+                {
+                    "id": "auto",
+                    "label": "Auto"
+                },
+                {
+                    "id": "1024x1024",
+                    "label": "1024x1024"
+                },
+                {
+                    "id": "1536x1024",
+                    "label": "1536x1024"
+                },
+                {
+                    "id": "1024x1536",
+                    "label": "1024x1536"
+                }
+            ]
+        },
+        {
+            "id": "background",
+            "type": "dropdown",
+            "title": "Fondo",
+            "layout": "half",
+            "defaultValue": "auto",
+            "options": [
+                {
+                    "id": "auto",
+                    "label": "Auto"
+                },
+                {
+                    "id": "transparent",
+                    "label": "Transparente"
+                },
+                {
+                    "id": "opaque",
+                    "label": "Opaco"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">GPT Image (<code>openai_image</code>)</div>
+
+Genera imágenes usando los modelos de imagen de OpenAI
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `model` | string | Sí | El modelo a usar \(gpt-image-1 o dall-e-3\) |
+| `prompt` | string | Sí | Una descripción de texto de la imagen deseada |
+| `size` | string | Sí | El tamaño de las imágenes generadas \(1024x1024, 1024x1792, o 1792x1024\) |
+| `quality` | string | No | La calidad de la imagen \(standard o hd\) |
+| `style` | string | No | El estilo de la imagen \(vivid o natural\) |
+| `background` | string | No | El color de fondo, solo para gpt-image-1 |
+| `apiKey` | string | Sí | Tu clave API de OpenAI |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `output` | object | Datos de imagen generados |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Image Generator en el flujo de trabajo. Puede generar imágenes usando DALL-E 3 o GPT Image.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `image_generator`

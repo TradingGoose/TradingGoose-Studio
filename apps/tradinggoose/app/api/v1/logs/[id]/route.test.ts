@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => {
   chain.leftJoin = vi.fn(() => chain)
   chain.innerJoin = vi.fn(() => chain)
   chain.where = vi.fn(() => chain)
+  chain.orderBy = vi.fn(() => chain)
   chain.limit = vi.fn(() => Promise.resolve(selectRows()))
 
   return {
@@ -71,6 +72,7 @@ vi.mock('@tradinggoose/db/schema', () => ({
 }))
 
 vi.mock('drizzle-orm', () => ({
+  sql: vi.fn(),
   and: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' })),
   eq: mocks.eq,
   or: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'or' })),
@@ -83,6 +85,11 @@ vi.mock('@/lib/logs/console/logger', () => ({
 vi.mock('@/app/api/v1/logs/meta', () => ({
   createApiResponse: vi.fn((body) => ({ body, headers: {} })),
   getUserLimits: (...args: unknown[]) => mocks.getUserLimits(...args),
+}))
+
+vi.mock('@/app/api/v1/logs/filters', () => ({
+  buildLogFilters: vi.fn(),
+  getOrderBy: () => [],
 }))
 
 vi.mock('@/app/api/v1/middleware', () => ({
@@ -106,7 +113,18 @@ describe('v1 log detail route', () => {
         startedAt: new Date('2026-04-23T00:00:00.000Z'),
         endedAt: null,
         totalDurationMs: null,
-        executionData: {},
+        executionData: {
+          checkpoint: {
+            revision: 2,
+            encryptedSnapshot: 'secret-checkpoint-ciphertext',
+            pausePoints: [{ id: 'internal-pause-point' }],
+            activeJobId: null,
+          },
+          pause: { url: '/review/execution-1', revision: 2 },
+          environment: { userId: 'user-1', variables: { TOKEN: 'internal-variable' } },
+          finalOutput: { visible: 'output' },
+          traceSpans: [],
+        },
         cost: null,
         files: null,
         createdAt: new Date('2026-04-23T00:00:00.000Z'),
@@ -164,4 +182,62 @@ describe('v1 log detail route', () => {
       },
     })
   })
+
+  it('never returns stored checkpoint secrets or private execution state', async () => {
+    const { GET } = await import('./route')
+    const response = await GET(new NextRequest('http://localhost/api/v1/logs/log-1'), {
+      params: Promise.resolve({ id: 'log-1' }),
+    })
+
+    expect(response.status).toBe(200)
+    const body = await response.json()
+    expect(body.data.executionData).toEqual({
+      finalOutput: { visible: 'output' },
+      traceSpans: [],
+    })
+    expect(JSON.stringify(body)).not.toMatch(
+      /secret-checkpoint-ciphertext|internal-variable|internal-pause-point/
+    )
+    expect(body.data.executionData).not.toHaveProperty('checkpoint')
+    expect(body.data.executionData).not.toHaveProperty('environment')
+  })
+
+  it.each([
+    ['full', '', false],
+    ['full', 'includeFinalOutput=false&includeTraceSpans=false', false],
+    ['full', 'includeFinalOutput=true', true],
+    ['full', 'includeTraceSpans=true', true],
+    ['basic', 'includeFinalOutput=true&includeTraceSpans=true', false],
+  ])('keeps list error details gated for %s/%s', async (details, flags, visible) => {
+    const rows = mocks.selectRows()
+    rows[0].level = 'error'
+    rows[0].executionData.errorMessage = 'Private failure details'
+    const { GET } = await import('../route')
+    const response = await GET(
+      new NextRequest(
+        `http://localhost/api/v1/logs?workspaceId=workspace-1&details=${details}&${flags}`
+      )
+    )
+    expect(response.status).toBe(200)
+    const body = await response.json()
+    expect(body.data[0].level).toBe('error')
+    expect(body.data[0].errorMessage).toBe(visible ? 'Private failure details' : undefined)
+    if (!visible) {
+      expect(body.data[0]).not.toHaveProperty('finalOutput')
+      expect(body.data[0]).not.toHaveProperty('traceSpans')
+    }
+    expect(JSON.stringify(body)).not.toMatch(/secret-checkpoint-ciphertext|internal-variable/)
+  })
+
+  it.each(['includeFinalOutput', 'includeTraceSpans'])(
+    'rejects noncanonical boolean %s',
+    async (flag) => {
+      const { GET } = await import('../route')
+      const response = await GET(
+        new NextRequest(`http://localhost/api/v1/logs?workspaceId=workspace-1&${flag}=yes`)
+      )
+      expect(response.status).toBe(400)
+      expect(mocks.select).not.toHaveBeenCalled()
+    }
+  )
 })

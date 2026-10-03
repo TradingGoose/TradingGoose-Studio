@@ -1,0 +1,404 @@
+---
+title: X
+description: Interactuar con X
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="x"
+  color=""
+/>
+
+## Configuración
+
+### Publicar un nuevo tweet
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="X"
+    type="x"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "x_write",
+            "options": [
+                {
+                    "id": "x_write",
+                    "label": "Publicar un nuevo tweet"
+                },
+                {
+                    "id": "x_read",
+                    "label": "Obtener detalles del tweet"
+                },
+                {
+                    "id": "x_search",
+                    "label": "Buscar tweets"
+                },
+                {
+                    "id": "x_user",
+                    "label": "Obtener perfil de usuario"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de X",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de X",
+            "provider": "x"
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Texto del tweet",
+            "layout": "full",
+            "placeholder": "¿Qué está pasando?",
+            "required": true
+        },
+        {
+            "id": "replyTo",
+            "type": "short-input",
+            "title": "Responder a (ID del tweet)",
+            "layout": "full",
+            "placeholder": "Introducir el ID del tweet al que responder"
+        },
+        {
+            "id": "mediaIds",
+            "type": "short-input",
+            "title": "IDs de medios",
+            "layout": "full",
+            "placeholder": "Introducir IDs de medios separados por comas"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Publicar un nuevo tweet (<code>x_write</code>)</div>
+
+Publica tweets nuevos, responde a tweets o crea encuestas en X (Twitter)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `text` | string | Sí | El contenido de texto de tu tweet |
+| `replyTo` | string | No | ID del tweet al que responder |
+| `mediaIds` | array | No | Array de IDs de medios para adjuntar al tweet |
+| `poll` | object | No | Configuración de encuesta para el tweet |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `tweet` | object | Datos del tuit recién creado |
+
+</div>
+
+---
+
+### Obtener detalles del tuit
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="X"
+    type="x"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "x_read",
+            "options": [
+                {
+                    "id": "x_write",
+                    "label": "Publicar un tuit nuevo"
+                },
+                {
+                    "id": "x_read",
+                    "label": "Obtener detalles del tuit"
+                },
+                {
+                    "id": "x_search",
+                    "label": "Buscar tuits"
+                },
+                {
+                    "id": "x_user",
+                    "label": "Obtener perfil de usuario"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de X",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de X",
+            "provider": "x"
+        },
+        {
+            "id": "tweetId",
+            "type": "short-input",
+            "title": "ID del tuit",
+            "layout": "full",
+            "placeholder": "Introduce el ID del tuit",
+            "required": true
+        },
+        {
+            "id": "includeReplies",
+            "type": "dropdown",
+            "title": "Incluir respuestas",
+            "layout": "full",
+            "defaultValue": "false",
+            "options": [
+                {
+                    "id": "true",
+                    "label": "true"
+                },
+                {
+                    "id": "false",
+                    "label": "false"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener detalles del tuit (<code>x_read</code>)</div>
+
+Leer los detalles del tuit, incluidas las respuestas y el contexto de la conversación
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `tweetId` | string | Sí | ID del tuit que se va a leer |
+| `includeReplies` | boolean | No | Si se incluyen las respuestas al tuit |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `tweet` | object | Datos del tuit principal |
+| `context` | object | Contexto de la conversación, incluidos los tuits padre y raíz |
+
+</div>
+
+---
+
+### Buscar tweets
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="X"
+    type="x"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "x_search",
+            "options": [
+                {
+                    "id": "x_write",
+                    "label": "Publicar un tweet nuevo"
+                },
+                {
+                    "id": "x_read",
+                    "label": "Obtener detalles del tweet"
+                },
+                {
+                    "id": "x_search",
+                    "label": "Buscar tweets"
+                },
+                {
+                    "id": "x_user",
+                    "label": "Obtener perfil de usuario"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de X",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de X",
+            "provider": "x"
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Consulta de búsqueda",
+            "layout": "full",
+            "placeholder": "Introducir términos de búsqueda (admite operadores de búsqueda de X)",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Máximo de resultados",
+            "layout": "full",
+            "placeholder": "10"
+        },
+        {
+            "id": "sortOrder",
+            "type": "dropdown",
+            "title": "Orden",
+            "layout": "full",
+            "defaultValue": "recency",
+            "options": [
+                {
+                    "id": "recency",
+                    "label": "recency"
+                },
+                {
+                    "id": "relevancy",
+                    "label": "relevancy"
+                }
+            ]
+        },
+        {
+            "id": "startTime",
+            "type": "datetime-input",
+            "title": "Hora de inicio",
+            "layout": "full",
+            "placeholder": "YYYY-MM-DDTHH:mm:ssZ"
+        },
+        {
+            "id": "endTime",
+            "type": "datetime-input",
+            "title": "Hora de fin",
+            "layout": "full",
+            "placeholder": "YYYY-MM-DDTHH:mm:ssZ"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar tweets (<code>x_search</code>)</div>
+
+Buscar tweets con palabras clave, hashtags o consultas avanzadas
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | Sí | Consulta de búsqueda \(admite operadores de búsqueda de X\) |
+| `maxResults` | number | No | Número máximo de resultados a devolver \(predeterminado: 10, máx.: 100\) |
+| `startTime` | string | No | Hora de inicio de la búsqueda \(formato ISO 8601\) |
+| `endTime` | string | No | Hora de fin de la búsqueda \(formato ISO 8601\) |
+| `sortOrder` | string | No | Orden de los resultados \(recency o relevancy\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `tweets` | array | Array de tweets que coinciden con la consulta de búsqueda |
+| `includes` | object | Datos adicionales, incluidos perfiles de usuario y contenido multimedia |
+| `meta` | object | Metadatos de búsqueda, incluido el recuento de resultados y los tokens de paginación |
+
+</div>
+
+---
+
+### Obtener perfil de usuario
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="X"
+    type="x"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "x_user",
+            "options": [
+                {
+                    "id": "x_write",
+                    "label": "Publicar un tweet nuevo"
+                },
+                {
+                    "id": "x_read",
+                    "label": "Obtener detalles del tweet"
+                },
+                {
+                    "id": "x_search",
+                    "label": "Buscar tweets"
+                },
+                {
+                    "id": "x_user",
+                    "label": "Obtener perfil de usuario"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de X",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de X",
+            "provider": "x"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Nombre de usuario",
+            "layout": "full",
+            "placeholder": "Introducir nombre de usuario (sin @)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener perfil de usuario (<code>x_user</code>)</div>
+
+Obtener información del perfil de usuario
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `username` | string | Sí | Nombre de usuario a consultar \(sin el símbolo @\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `user` | object | Información del perfil de usuario de X |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra X en el flujo de trabajo. Permite publicar un tweet nuevo, obtener detalles del tweet, buscar tweets y obtener el perfil de usuario.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `x`
