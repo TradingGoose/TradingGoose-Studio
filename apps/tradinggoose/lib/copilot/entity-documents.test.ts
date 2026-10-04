@@ -71,25 +71,24 @@ describe('copilot entity documents', () => {
     expect(serialized.widgets['widget-chart'].params.listing.base).toBeUndefined()
   })
 
-  it('rejects non-canonical dashboard widget keys', () => {
-    expect(() =>
-      parseEntityDocument(
-        'dashboard_layout',
-        JSON.stringify({
-          layout: {
-            id: 'panel-chart',
-            type: 'panel',
-            identityId: 'widget-chart',
-            widgetKey: 'unknown_widget',
-          },
-          widgets: {
-            'widget-chart': {
-              params: null,
-            },
-          },
-        })
-      )
-    ).toThrow(/widgetKey/)
+  it('normalizes unavailable dashboard widget keys to empty panels', () => {
+    const document = {
+      layout: {
+        id: 'panel-chart',
+        type: 'panel',
+        identityId: 'widget-chart',
+        widgetKey: 'unknown_widget',
+      },
+      widgets: {
+        'widget-chart': { params: { legacy: true } },
+      },
+    }
+
+    expect(parseEntityDocument('dashboard_layout', JSON.stringify(document))).toEqual({
+      ...document,
+      layout: { ...document.layout, widgetKey: null },
+      widgets: { 'widget-chart': { params: null } },
+    })
   })
 
   it('round-trips canonical null-key panels with their real widget child', () => {
@@ -111,7 +110,7 @@ describe('copilot entity documents', () => {
     expect(JSON.parse(serializeEntityDocument('dashboard_layout', document))).toEqual(document)
   })
 
-  it('rejects a null-key panel whose real child is missing or non-null', () => {
+  it('requires a null-key panel child and normalizes it to empty', () => {
     const layout = {
       id: 'panel-empty',
       type: 'panel',
@@ -122,7 +121,7 @@ describe('copilot entity documents', () => {
     expect(() =>
       parseEntityDocument('dashboard_layout', JSON.stringify({ layout, widgets: {} }))
     ).toThrow(/widget widget-empty is missing/i)
-    expect(() =>
+    expect(
       parseEntityDocument(
         'dashboard_layout',
         JSON.stringify({
@@ -132,7 +131,7 @@ describe('copilot entity documents', () => {
           },
         })
       )
-    ).toThrow(/null-key dashboard widget/i)
+    ).toEqual({ layout, widgets: { 'widget-empty': { params: null } } })
   })
 
   it.each([

@@ -88,7 +88,10 @@ export const DashboardLayoutPanelNodeSchema = z
     id: z.string().trim().min(1),
     type: z.literal('panel'),
     identityId: z.string().trim().min(1),
-    widgetKey: WidgetKeySchema.nullable(),
+    widgetKey: z
+      .string()
+      .nullable()
+      .transform((widgetKey) => (isWidgetKey(widgetKey) ? widgetKey : null)),
   })
   .strict()
 
@@ -372,16 +375,8 @@ export function normalizeDashboardWidgetDocument(
   widgetKey: DashboardPanelTopologyNode['widgetKey'],
   value: unknown
 ): DashboardWidgetDocument {
+  if (widgetKey === null) return { pairColor: 'gray', params: null }
   const parsed = normalizeDashboardWidgetStorageDocument(value)
-  if (widgetKey === null) {
-    if (parsed.pairColor !== 'gray' || parsed.params !== null) {
-      failDashboardLayout(
-        'widget',
-        'A null-key dashboard widget must equal { pairColor: "gray", params: null }'
-      )
-    }
-    return { pairColor: 'gray', params: null }
-  }
   let sanitized
   try {
     sanitized = sanitizeWidgetInstance({ key: widgetKey, ...parsed }, { strict: true })

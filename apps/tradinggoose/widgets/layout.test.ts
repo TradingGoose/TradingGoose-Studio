@@ -122,28 +122,17 @@ describe('dashboard layout tree operations', () => {
     ).toEqual(nullPanel.widgets)
   })
 
-  it('accepts only the exact canonical child state for a null widget key', () => {
-    const document = createDefaultDashboardLayoutProjection()
-    const panel = panels(document.layout)[0]!
+  it.each([null, 'copilot'])('normalizes %s widget keys to the empty widget', (widgetKey) => {
+    const normalized = normalizeDashboardLayoutProjection({
+      layout: { id: 'panel-empty', type: 'panel', identityId: 'widget-empty', widgetKey },
+      widgets: {
+        'widget-empty': { pairColor: 'blue', params: { legacy: true } },
+      },
+      colorPairs: { pairs: [] },
+    })
 
-    expect(() =>
-      normalizeDashboardLayoutProjection({
-        ...document,
-        widgets: {
-          ...document.widgets,
-          [panel.identityId]: { pairColor: 'blue', params: null },
-        },
-      })
-    ).toThrow(/null-key dashboard widget/i)
-    expect(() =>
-      normalizeDashboardLayoutProjection({
-        ...document,
-        widgets: {
-          ...document.widgets,
-          [panel.identityId]: { pairColor: 'gray', params: {} },
-        },
-      })
-    ).toThrow(/null-key dashboard widget/i)
+    expect(normalized.layout).toMatchObject({ widgetKey: null })
+    expect(normalized.widgets['widget-empty']).toEqual({ pairColor: 'gray', params: null })
   })
 
   it('reports document validation through a writable domain error', () => {
