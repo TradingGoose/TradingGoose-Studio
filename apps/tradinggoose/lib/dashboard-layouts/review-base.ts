@@ -6,7 +6,7 @@ import type {
   DashboardLayoutProjectionContent,
 } from '@/widgets/layout-document'
 import { findDashboardTopologyPanel } from '@/widgets/layout-document'
-import { projectWidgetParamsForCopilot } from '@/widgets/widget-contracts'
+import { isWidgetKey, projectWidgetParamsForCopilot } from '@/widgets/widget-contracts'
 import type {
   WidgetConfigMutationPatch,
   WidgetConfigMutationReviewBase,
@@ -21,7 +21,7 @@ export function requireDashboardWidgetPanel(
   panelId: string
 ) {
   const panel = findDashboardTopologyPanel(layout, panelId)
-  if (panel?.widgetKey) return { ...panel, widgetKey: panel.widgetKey }
+  if (panel && isWidgetKey(panel.widgetKey)) return { ...panel, widgetKey: panel.widgetKey }
 
   const message = panel
     ? `Dashboard panel ${panelId} has no widget; use edit_layout`

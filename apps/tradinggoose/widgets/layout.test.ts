@@ -122,17 +122,28 @@ describe('dashboard layout tree operations', () => {
     ).toEqual(nullPanel.widgets)
   })
 
-  it.each([null, 'copilot'])('normalizes %s widget keys to the empty widget', (widgetKey) => {
-    const normalized = normalizeDashboardLayoutProjection({
-      layout: { id: 'panel-empty', type: 'panel', identityId: 'widget-empty', widgetKey },
-      widgets: {
-        'widget-empty': { pairColor: 'blue', params: { legacy: true } },
-      },
-      colorPairs: { pairs: [] },
-    })
+  it('preserves an unavailable widget binding through structure edits', () => {
+    const current = content()
+    if (current.layout.type !== 'group') throw new Error('Expected group')
+    const panel = current.layout.children[0]!
+    if (panel.type !== 'panel') throw new Error('Expected child panel')
+    panel.widgetKey = 'copilot'
+    current.widgets[panel.identityId] = { pairColor: 'blue', params: { preserved: true } }
 
-    expect(normalized.layout).toMatchObject({ widgetKey: null })
-    expect(normalized.widgets['widget-empty']).toEqual({ pairColor: 'gray', params: null })
+    const resized = applyDashboardLayoutStructureMutation(current.layout, {
+      type: 'resize',
+      groupId: 'root',
+      sizes: [30, 70],
+    })
+    const normalized = normalizeDashboardLayoutProjection({ ...current, layout: resized.layout })
+
+    expect(normalized.layout.type).toBe('group')
+    if (normalized.layout.type !== 'group') throw new Error('Expected group')
+    expect(normalized.layout.children[0]).toMatchObject({ widgetKey: 'copilot' })
+    expect(normalized.widgets[panel.identityId]).toEqual(current.widgets[panel.identityId])
+    expect(() => replaceDashboardPanelWidget(normalized.layout, panel.id, 'copilot')).toThrow(
+      /Unknown widget key/
+    )
   })
 
   it('reports document validation through a writable domain error', () => {

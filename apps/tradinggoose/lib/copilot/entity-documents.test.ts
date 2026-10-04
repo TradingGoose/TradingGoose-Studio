@@ -71,7 +71,7 @@ describe('copilot entity documents', () => {
     expect(serialized.widgets['widget-chart'].params.listing.base).toBeUndefined()
   })
 
-  it('normalizes unavailable dashboard widget keys to empty panels', () => {
+  it('preserves unavailable dashboard widget bindings', () => {
     const document = {
       layout: {
         id: 'panel-chart',
@@ -80,15 +80,12 @@ describe('copilot entity documents', () => {
         widgetKey: 'unknown_widget',
       },
       widgets: {
-        'widget-chart': { params: { legacy: true } },
+        'widget-chart': { params: { preserved: true } },
       },
     }
 
-    expect(parseEntityDocument('dashboard_layout', JSON.stringify(document))).toEqual({
-      ...document,
-      layout: { ...document.layout, widgetKey: null },
-      widgets: { 'widget-chart': { params: null } },
-    })
+    expect(parseEntityDocument('dashboard_layout', JSON.stringify(document))).toEqual(document)
+    expect(JSON.parse(serializeEntityDocument('dashboard_layout', document))).toEqual(document)
   })
 
   it('round-trips canonical null-key panels with their real widget child', () => {

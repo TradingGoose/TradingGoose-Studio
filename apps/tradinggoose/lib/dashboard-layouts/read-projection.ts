@@ -5,6 +5,7 @@ import {
   normalizeDashboardLayoutProjection,
 } from '@/widgets/layout-document'
 import {
+  isWidgetKey,
   projectWidgetParamsForCopilot,
   resolveEffectiveWidgetParams,
 } from '@/widgets/widget-contracts'
@@ -123,7 +124,7 @@ function projectDashboardLayoutForCopilot(content: DashboardLayoutProjectionCont
     [...collectDashboardTopologyReferences(normalized.layout)].map(([identityId, widgetKey]) => {
       const widget = normalized.widgets[identityId]
       if (!widget) throw new Error(`Dashboard widget ${identityId} is missing`)
-      if (!widgetKey) return [identityId, { params: null }]
+      if (!isWidgetKey(widgetKey)) return [identityId, { params: null }]
 
       const params = resolveEffectiveWidgetParams(
         { key: widgetKey, ...widget },

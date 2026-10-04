@@ -36,7 +36,7 @@ export type DashboardLayoutTopologyNode =
       id: string
       type: 'panel'
       identityId: string
-      widgetKey: (typeof WIDGET_KEYS)[number] | null
+      widgetKey: string | null
     }
   | {
       id: string
@@ -88,10 +88,7 @@ export const DashboardLayoutPanelNodeSchema = z
     id: z.string().trim().min(1),
     type: z.literal('panel'),
     identityId: z.string().trim().min(1),
-    widgetKey: z
-      .string()
-      .nullable()
-      .transform((widgetKey) => (isWidgetKey(widgetKey) ? widgetKey : null)),
+    widgetKey: z.string().min(1).nullable(),
   })
   .strict()
 
@@ -321,7 +318,9 @@ export function createDefaultDashboardLayoutProjection(): DashboardLayoutProject
 function createDefaultDashboardWidgetDocument(
   widgetKey: DashboardPanelTopologyNode['widgetKey']
 ): DashboardWidgetDocument {
-  if (!widgetKey) return { pairColor: 'gray', params: null }
+  if (widgetKey === null) return { pairColor: 'gray', params: null }
+  if (!isWidgetKey(widgetKey))
+    failDashboardLayout('widget.key', `Unknown widget key "${widgetKey}"`)
   const widget = getDefaultWidgetInstance(widgetKey)
   return { pairColor: widget.pairColor ?? 'gray', params: widget.params ?? null }
 }
@@ -377,6 +376,7 @@ export function normalizeDashboardWidgetDocument(
 ): DashboardWidgetDocument {
   if (widgetKey === null) return { pairColor: 'gray', params: null }
   const parsed = normalizeDashboardWidgetStorageDocument(value)
+  if (!isWidgetKey(widgetKey)) return parsed
   let sanitized
   try {
     sanitized = sanitizeWidgetInstance({ key: widgetKey, ...parsed }, { strict: true })
@@ -466,7 +466,7 @@ export function resolveDashboardLayout(
       return {
         id: node.id,
         type: 'panel',
-        widget: node.widgetKey ? { key: node.widgetKey, ...widget } : null,
+        widget: isWidgetKey(node.widgetKey) ? { key: node.widgetKey, ...widget } : null,
       }
     }
     return { ...node, children: node.children.map(resolve) }
