@@ -13,7 +13,7 @@ import {
   normalizeDashboardWidgetDocument,
   normalizeDashboardWidgetStorageDocument,
 } from '@/widgets/layout-document'
-import { getWidgetContract } from '@/widgets/widget-contracts'
+import { getWidgetContract, type WidgetKey } from '@/widgets/widget-contracts'
 
 const TOPOLOGY_KEY = 'topology'
 const UNSAFE_WIDGET_PARAM_PATH_SEGMENTS = new Set(['__proto__', 'constructor', 'prototype'])
@@ -76,7 +76,7 @@ export function seedDashboardWidgetSession(
 
 export function applyDashboardWidgetDocumentDelta(
   doc: Y.Doc,
-  widgetKey: Extract<DashboardLayoutTopologyNode, { type: 'panel' }>['widgetKey'],
+  widgetKey: WidgetKey,
   baseline: DashboardWidgetDocument,
   target: DashboardWidgetDocument,
   origin?: unknown
@@ -134,7 +134,7 @@ function clearMap(map: Y.Map<unknown>): void {
 
 function applyDashboardWidgetDelta(
   map: Y.Map<unknown>,
-  widgetKey: Extract<DashboardLayoutTopologyNode, { type: 'panel' }>['widgetKey'],
+  widgetKey: WidgetKey,
   before: DashboardWidgetDocument,
   after: DashboardWidgetDocument
 ): void {
@@ -147,7 +147,7 @@ function applyDashboardWidgetDelta(
     flattenWidgetParams(before.params),
     flattenWidgetParams(after.params)
   )
-  if (map.get('pairColor') !== 'gray' && widgetKey) {
+  if (map.get('pairColor') !== 'gray') {
     const linkedFields = new Set<string>(getWidgetContract(widgetKey).linkedParamFields)
     for (const key of params.keys()) {
       if (linkedFields.has(decodeWidgetParamPath(key)[0] ?? '')) params.delete(key)

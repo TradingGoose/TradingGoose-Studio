@@ -25,16 +25,19 @@ vi.mock('@/widgets/widgets/components/widget-action-menu', () => ({
 }))
 
 vi.mock('@/widgets/registry', () => ({
-  getWidgetDefinition: (key: string) => ({
-    component: (props: Record<string, unknown>) => {
-      registryState.componentProps = props
-      return <div data-testid={`widget-${key}`} />
-    },
-    renderHeader: (args: Record<string, unknown>) => {
-      registryState.headerArgs = args
-      return { left: <span>registry-header</span> }
-    },
-  }),
+  getWidgetDefinition: (key: string) =>
+    key === 'copilot'
+      ? undefined
+      : {
+          component: (props: Record<string, unknown>) => {
+            registryState.componentProps = props
+            return <div data-testid={`widget-${key}`} />
+          },
+          renderHeader: (args: Record<string, unknown>) => {
+            registryState.headerArgs = args
+            return { left: <span>registry-header</span> }
+          },
+        },
 }))
 
 const reactActEnvironment = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -106,22 +109,24 @@ describe('WidgetSurface', () => {
     })
   })
 
-  it('keeps the empty-widget render fallback and layout selection callback', async () => {
+  it.each([null, 'copilot'])('renders %s through the empty-widget fallback', async (widgetKey) => {
     const onWidgetChange = vi.fn()
     seedDashboardWidgetSession(doc, { pairColor: 'gray', params: null })
 
     await act(async () => {
       root.render(
-        <LocalWidgetConfigRuntimeProvider doc={doc} widgetKey={null}>
+        <LocalWidgetConfigRuntimeProvider doc={doc} widgetKey={widgetKey}>
           <WidgetSurface panelId='panel-1' onWidgetChange={onWidgetChange} />
         </LocalWidgetConfigRuntimeProvider>
       )
     })
 
     expect(container.querySelector('[data-testid="widget-empty"]')).toBeTruthy()
-    expect(registryState.headerArgs).toMatchObject({ channelId: 'empty-panel-1' })
+    expect(registryState.headerArgs).toMatchObject({
+      channelId: `${widgetKey ?? 'empty'}-panel-1`,
+    })
     expect(registryState.componentProps).toMatchObject({
-      channelId: 'empty-panel-1',
+      channelId: `${widgetKey ?? 'empty'}-panel-1`,
       onWidgetChange,
     })
   })

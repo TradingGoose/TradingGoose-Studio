@@ -122,28 +122,28 @@ describe('dashboard layout tree operations', () => {
     ).toEqual(nullPanel.widgets)
   })
 
-  it('accepts only the exact canonical child state for a null widget key', () => {
-    const document = createDefaultDashboardLayoutProjection()
-    const panel = panels(document.layout)[0]!
+  it('preserves an unavailable widget binding through structure edits', () => {
+    const current = content()
+    if (current.layout.type !== 'group') throw new Error('Expected group')
+    const panel = current.layout.children[0]!
+    if (panel.type !== 'panel') throw new Error('Expected child panel')
+    panel.widgetKey = 'copilot'
+    current.widgets[panel.identityId] = { pairColor: 'blue', params: { preserved: true } }
 
-    expect(() =>
-      normalizeDashboardLayoutProjection({
-        ...document,
-        widgets: {
-          ...document.widgets,
-          [panel.identityId]: { pairColor: 'blue', params: null },
-        },
-      })
-    ).toThrow(/null-key dashboard widget/i)
-    expect(() =>
-      normalizeDashboardLayoutProjection({
-        ...document,
-        widgets: {
-          ...document.widgets,
-          [panel.identityId]: { pairColor: 'gray', params: {} },
-        },
-      })
-    ).toThrow(/null-key dashboard widget/i)
+    const resized = applyDashboardLayoutStructureMutation(current.layout, {
+      type: 'resize',
+      groupId: 'root',
+      sizes: [30, 70],
+    })
+    const normalized = normalizeDashboardLayoutProjection({ ...current, layout: resized.layout })
+
+    expect(normalized.layout.type).toBe('group')
+    if (normalized.layout.type !== 'group') throw new Error('Expected group')
+    expect(normalized.layout.children[0]).toMatchObject({ widgetKey: 'copilot' })
+    expect(normalized.widgets[panel.identityId]).toEqual(current.widgets[panel.identityId])
+    expect(() => replaceDashboardPanelWidget(normalized.layout, panel.id, 'copilot')).toThrow(
+      /Unknown widget key/
+    )
   })
 
   it('reports document validation through a writable domain error', () => {
