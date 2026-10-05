@@ -102,6 +102,3 @@ export const sumTradierPositionMarketValues = (positions: UnifiedTradingPosition
 
 export const sumTradierPositionCostBasis = (positions: UnifiedTradingPosition[]) =>
   sumFiniteNumbers(positions.map((position) => position.costBasis))
-
-export const sumTradierPositionUnrealizedPnl = (positions: UnifiedTradingPosition[]) =>
-  sumFiniteNumbers(positions.map((position) => position.unrealizedPnl))

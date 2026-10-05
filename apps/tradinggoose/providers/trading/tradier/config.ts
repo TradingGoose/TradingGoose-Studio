@@ -46,6 +46,19 @@ export const tradierTradingProviderConfig: TradingProviderConfig = {
     },
     portfolioDetail: {
       performanceWindows: ['1W', '1M', 'YTD', '1Y', 'MAX'],
+      monitorMetrics: [
+        'summary.totalPortfolioValue',
+        'summary.totalCashValue',
+        'summary.totalHoldingsValue',
+        'summary.totalUnrealizedPnl',
+        'summary.buyingPower',
+        'summary.equity',
+        'positions.count',
+        'positions.totalMarketValue',
+        'position.quantity',
+        'position.marketValue',
+        'position.exists',
+      ],
     },
   },
   rulePrecedence: {

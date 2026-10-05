@@ -11,7 +11,6 @@ import {
   normalizeTradierPositions,
   sumTradierPositionCostBasis,
   sumTradierPositionMarketValues,
-  sumTradierPositionUnrealizedPnl,
   TRADIER_DEFAULT_BASE_CURRENCY,
 } from '@/providers/trading/tradier/positions'
 import type { TradingPortfolioAccountContext } from '@/providers/trading/types'
@@ -75,8 +74,7 @@ export async function getTradierTradingAccountSnapshot(
   const totalPortfolioValue =
     toFiniteNumber(balances?.total_equity) ?? totalHoldingsValue + totalCashValue
   const equity = toFiniteNumber(balances?.equity) ?? totalPortfolioValue
-  const totalUnrealizedPnl =
-    toFiniteNumber(balances?.open_pl) ?? sumTradierPositionUnrealizedPnl(positions)
+  const totalUnrealizedPnl = toFiniteNumber(balances?.open_pl)
   const identity = normalizeTradierTradingAccount(
     {
       account_number:

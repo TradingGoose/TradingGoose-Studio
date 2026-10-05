@@ -16,6 +16,7 @@ import type {
   TradingOrderHistoryRecord,
   TradingOrderInput,
   TradingOrderSizingMode,
+  TradingPortfolioMonitorMetric,
   TradingPortfolioPerformanceWindow,
   TradingProviderId,
   TradingProviderOAuthConfig,
@@ -41,7 +42,8 @@ export interface TradingOrderInputCapabilities {
 }
 
 export interface TradingPortfolioDetailInputCapabilities {
-  performanceWindows?: TradingPortfolioPerformanceWindow[]
+  performanceWindows: TradingPortfolioPerformanceWindow[]
+  monitorMetrics: readonly TradingPortfolioMonitorMetric[]
 }
 
 export interface TradingProviderCapabilities {
@@ -197,6 +199,12 @@ export function getTradingPortfolioDetailCapabilities(
   providerId: TradingProviderId
 ): TradingPortfolioDetailInputCapabilities | null {
   return TRADING_PROVIDER_DEFINITIONS[providerId]?.config.capabilities?.portfolioDetail || null
+}
+
+export function getTradingPortfolioMonitorMetrics(
+  providerId: TradingProviderId
+): readonly TradingPortfolioMonitorMetric[] {
+  return getTradingPortfolioDetailCapabilities(providerId)?.monitorMetrics ?? []
 }
 
 export function getTradingOrderCapabilities(
