@@ -1,0 +1,1 @@
+ALTER TABLE "account" ADD COLUMN "oauth_client_id" text;
