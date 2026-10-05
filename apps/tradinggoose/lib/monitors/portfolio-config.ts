@@ -34,10 +34,8 @@ const PortfolioConditionRuleSchema: z.ZodType<any> = z
     { message: 'Invalid portfolio condition rule' }
   )
   .transform((rule) => ({
-    id: rule.id,
-    metric: rule.metric,
-    operator: rule.operator,
-    value: isPortfolioConditionValuelessOperator(rule.operator) ? null : rule.value,
+    ...rule,
+    ...(isPortfolioConditionValuelessOperator(rule.operator) ? { value: null } : {}),
     listing: portfolioConditionRequiresListing(rule.metric) ? rule.listing : null,
   }))
 

@@ -45,3 +45,22 @@ it('rejects monitor metrics outside the trading provider contract', () => {
     })
   ).toThrow('Invalid portfolio monitor condition for robinhood')
 })
+
+it('keeps monitor conditions stable through JSON persistence', () => {
+  const config = normalizePortfolioMonitorConfig({
+    triggerBlockId: 'block-1',
+    providerId: 'robinhood',
+    serviceId: 'robinhood',
+    credentialId: 'credential-1',
+    connectionOwnerUserId: 'user-1',
+    accountId: 'account-1',
+    condition: {
+      root: {
+        combinator: 'and',
+        rules: [{ metric: 'summary.totalPortfolioValue', operator: 'gt', value: 0 }],
+      },
+    },
+  })
+
+  expect(JSON.parse(JSON.stringify(config))).toStrictEqual(config)
+})
