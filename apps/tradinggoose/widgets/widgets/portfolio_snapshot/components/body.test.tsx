@@ -364,6 +364,41 @@ describe('PortfolioSnapshotWidgetBody', () => {
     )
   })
 
+  it('hides performance history when the selected provider does not support it', async () => {
+    const robinhoodPortfolioIdentity = {
+      ...selectedPortfolioIdentity,
+      providerId: 'robinhood',
+      serviceId: 'robinhood',
+    }
+    mockUseOAuthProviderAvailability.mockReturnValue(
+      createQueryResult({ data: { robinhood: true } })
+    )
+    mockUseOAuthConnections.mockReturnValue(
+      createQueryResult({ data: [{ providerId: 'robinhood', isConnected: true }] })
+    )
+    mockUsePortfolioIdentities.mockReturnValue(
+      createQueryResult({ data: [robinhoodPortfolioIdentity] })
+    )
+
+    await act(async () => {
+      root.render(
+        <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
+          widget={{ key: 'portfolio_snapshot' } as any}
+          panelId='panel-1'
+          onWidgetParamsPatch={mockOnWidgetParamsPatch}
+          params={{ provider: 'robinhood', portfolioIdentity: robinhoodPortfolioIdentity }}
+        />
+      )
+    })
+
+    const performanceSection = Array.from(container.querySelectorAll('section')).find((section) =>
+      section.textContent?.includes('Performance')
+    )
+    expect(performanceSection?.hidden).toBe(true)
+    expect(container.textContent).toContain('Current Summary')
+  })
+
   it('preserves a saved account when the accounts query errors', async () => {
     mockUsePortfolioIdentities.mockReturnValue(
       createQueryResult({
