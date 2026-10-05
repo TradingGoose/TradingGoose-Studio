@@ -219,6 +219,9 @@ describe('OAuth Tokens', () => {
         userId: 'test-user-id',
       }
       mockDb.limit.mockReturnValueOnce([mockTokenAccount]).mockReturnValueOnce([mockTokenAccount])
+      mockLoadSystemOAuthClientCredentials.mockResolvedValueOnce({
+        robinhood: { clientId: '', clientSecret: '', fields: {} },
+      })
       mockRefreshOAuthToken.mockResolvedValueOnce({
         accessToken: 'new-token',
         expiresIn: 3600,
@@ -230,7 +233,7 @@ describe('OAuth Tokens', () => {
       await expect(
         refreshAccessTokenIfNeeded('account-id', 'test-user-id', 'request-id', 'robinhood')
       ).resolves.toBe('new-token')
-      expect(mockLoadSystemOAuthClientCredentials).not.toHaveBeenCalled()
+      expect(mockLoadSystemOAuthClientCredentials).toHaveBeenCalledWith(['robinhood'])
       expect(mockRunWithSystemOAuthClientCredentials).toHaveBeenCalledWith(expect.any(Function), {
         robinhood: {
           clientId: 'registered-client',
@@ -238,6 +241,30 @@ describe('OAuth Tokens', () => {
           fields: {},
         },
       })
+    })
+
+    it('does not refresh Robinhood when its system integration is disabled', async () => {
+      mockDb.limit.mockReturnValueOnce([
+        {
+          id: 'account-id',
+          accessToken: 'expired-token',
+          refreshToken: 'refresh-token',
+          oauthClientId: 'registered-client',
+          accessTokenExpiresAt: new Date(Date.now() - 3600 * 1000),
+          providerId: 'robinhood',
+          userId: 'test-user-id',
+        },
+      ])
+
+      const { refreshAccessTokenIfNeeded } = await import('@/lib/oauth/tokens')
+
+      await expect(
+        refreshAccessTokenIfNeeded('account-id', 'test-user-id', 'request-id', 'robinhood')
+      ).resolves.toBeNull()
+      expect(mockLoadSystemOAuthClientCredentials).toHaveBeenCalledWith(['robinhood'])
+      expect(mockRunWithSystemOAuthClientCredentials).not.toHaveBeenCalled()
+      expect(mockRefreshOAuthToken).not.toHaveBeenCalled()
+      expect(mockDb.transaction).not.toHaveBeenCalled()
     })
 
     it.each([3600, -3600])(
