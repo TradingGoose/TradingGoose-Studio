@@ -1,11 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const registerClient = vi.hoisted(() => vi.fn())
+const { limit, registerClient } = vi.hoisted(() => ({ limit: vi.fn(), registerClient: vi.fn() }))
 
 vi.mock('@modelcontextprotocol/sdk/client/auth.js', () => ({ registerClient }))
-vi.mock('@tradinggoose/db', () => ({ db: {}, verification: {} }))
+vi.mock('@tradinggoose/db', () => ({
+  db: { select: () => ({ from: () => ({ where: () => ({ limit }) }) }) },
+  verification: { identifier: 'identifier', value: 'value' },
+}))
+vi.mock('drizzle-orm', () => ({ eq: vi.fn() }))
 
-import { addRobinhoodOAuthClientToState, registerRobinhoodOAuthClient } from './robinhood'
+import {
+  addRobinhoodOAuthClientToState,
+  getRobinhoodOAuthClientIdFromState,
+  registerRobinhoodOAuthClient,
+} from './robinhood'
 
 describe('Robinhood OAuth registration', () => {
   beforeEach(() => {
@@ -14,6 +22,7 @@ describe('Robinhood OAuth registration', () => {
       ...clientMetadata,
       client_id: 'registered-client',
     }))
+    limit.mockResolvedValue([])
   })
 
   it.each([
@@ -34,9 +43,30 @@ describe('Robinhood OAuth registration', () => {
     )
   })
 
-  it('stores the registration in the existing OAuth state payload', () => {
+  it('binds the registration to an authenticated link state', () => {
     expect(
-      JSON.parse(addRobinhoodOAuthClientToState('{"oauthState":"state"}', 'registered-client'))
-    ).toEqual({ oauthState: 'state', robinhoodClientId: 'registered-client' })
+      JSON.parse(
+        addRobinhoodOAuthClientToState('{"link":{"userId":"user-1"}}', 'registered-client')
+      )
+    ).toEqual({ link: { userId: 'user-1' }, robinhoodClientId: 'registered-client' })
+  })
+
+  it('rejects registering a client without an authenticated link state', () => {
+    expect(() =>
+      addRobinhoodOAuthClientToState('{"oauthState":"state"}', 'registered-client')
+    ).toThrow('requires an authenticated link')
+  })
+
+  it('loads registrations only from authenticated link states', async () => {
+    limit
+      .mockResolvedValueOnce([
+        { value: '{"link":{"userId":"user-1"},"robinhoodClientId":"registered-client"}' },
+      ])
+      .mockResolvedValueOnce([{ value: '{"robinhoodClientId":"forged-client"}' }])
+
+    await expect(getRobinhoodOAuthClientIdFromState('linked-state')).resolves.toBe(
+      'registered-client'
+    )
+    await expect(getRobinhoodOAuthClientIdFromState('unlinked-state')).resolves.toBe('')
   })
 })

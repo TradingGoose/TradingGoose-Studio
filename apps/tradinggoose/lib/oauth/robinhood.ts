@@ -53,8 +53,9 @@ export async function registerRobinhoodOAuthClient(redirectUri: string) {
 
 export function addRobinhoodOAuthClientToState(value: string, clientId: string) {
   const state = JSON.parse(value)
-  if (!state || typeof state !== 'object' || Array.isArray(state)) {
-    throw new Error('Invalid OAuth state')
+  const linkUserId = state?.link?.userId
+  if (typeof linkUserId !== 'string' || !linkUserId.trim()) {
+    throw new Error('Robinhood OAuth requires an authenticated link')
   }
   return JSON.stringify({ ...state, [ROBINHOOD_CLIENT_ID_STATE_KEY]: clientId })
 }
@@ -69,7 +70,10 @@ export async function getRobinhoodOAuthClientIdFromState(state: string) {
   if (!record) return ''
 
   try {
-    const value = JSON.parse(record.value)?.[ROBINHOOD_CLIENT_ID_STATE_KEY]
+    const oauthState = JSON.parse(record.value)
+    const linkUserId = oauthState?.link?.userId
+    if (typeof linkUserId !== 'string' || !linkUserId.trim()) return ''
+    const value = oauthState[ROBINHOOD_CLIENT_ID_STATE_KEY]
     return typeof value === 'string' ? value.trim() : ''
   } catch {
     return ''

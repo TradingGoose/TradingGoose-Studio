@@ -4,7 +4,7 @@ import { db } from '@tradinggoose/db'
 import * as schema from '@tradinggoose/db/schema'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { APIError, createAuthMiddleware } from 'better-auth/api'
+import { APIError, createAuthMiddleware, getOAuthState } from 'better-auth/api'
 import { nextCookies } from 'better-auth/next-js'
 import {
   customSession,
@@ -200,6 +200,10 @@ function createRobinhoodOAuthConfig(): SystemManagedGenericOAuthConfig {
     redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/${providerId}`,
     disableSignUp: true,
     getUserInfo: async (tokens) => {
+      const linkUserId = (await getOAuthState())?.link?.userId
+      if (typeof linkUserId !== 'string' || !linkUserId.trim()) {
+        throw new Error('Robinhood OAuth requires an authenticated link')
+      }
       if (!tokens.accessToken?.trim()) throw new Error('Robinhood access token is required')
       const userUuid = typeof tokens.raw?.user_uuid === 'string' ? tokens.raw.user_uuid.trim() : ''
       if (!userUuid) throw new Error('Robinhood token response is missing the user identity')
