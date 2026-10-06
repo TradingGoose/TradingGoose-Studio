@@ -9,8 +9,6 @@ import {
   getTradierCurrencySymbol,
   mapTradierAccountType,
   normalizeTradierPositions,
-  sumTradierPositionCostBasis,
-  sumTradierPositionMarketValues,
   TRADIER_DEFAULT_BASE_CURRENCY,
 } from '@/providers/trading/tradier/positions'
 import type { TradingPortfolioAccountContext } from '@/providers/trading/types'
@@ -54,25 +52,13 @@ export async function getTradierTradingAccountSnapshot(
   ])
 
   const rawPositions = extractTradierPositions(positionsResponse)
-  const balancePayload = extractTradierBalances(balancesResponse)
-  const balances = balancePayload?.balances
-  const margin = balancePayload?.margin
-  const cash = balancePayload?.cash
+  const balances = extractTradierBalances(balancesResponse)
   const positions = normalizeTradierPositions(rawPositions)
 
-  const positionMarketValues = sumTradierPositionMarketValues(positions)
-  const positionCostBasis = sumTradierPositionCostBasis(positions)
-  const totalHoldingsValue =
-    toFiniteNumber(balances?.market_value) ??
-    toFiniteNumber(balances?.long_market_value) ??
-    (positions.some((position) => typeof position.marketValue === 'number')
-      ? positionMarketValues
-      : positionCostBasis)
-
-  const totalCashValue =
-    toFiniteNumber(balances?.total_cash) ?? toFiniteNumber(cash?.cash_available) ?? 0
+  const totalHoldingsValue = toFiniteNumber(balances?.market_value)
+  const totalCashValue = toFiniteNumber(balances?.total_cash) ?? 0
   const totalPortfolioValue =
-    toFiniteNumber(balances?.total_equity) ?? totalHoldingsValue + totalCashValue
+    toFiniteNumber(balances?.total_equity) ?? (totalHoldingsValue ?? 0) + totalCashValue
   const equity = toFiniteNumber(balances?.equity) ?? totalPortfolioValue
   const totalUnrealizedPnl = toFiniteNumber(balances?.open_pl)
   const identity = normalizeTradierTradingAccount(
@@ -112,7 +98,9 @@ export async function getTradierTradingAccountSnapshot(
       totalPortfolioValue,
       equity,
       buyingPower:
-        toFiniteNumber(margin?.stock_buying_power) ?? toFiniteNumber(balances?.stock_buying_power),
+        toFiniteNumber(balances?.margin?.stock_buying_power) ??
+        toFiniteNumber(balances?.pdt?.stock_buying_power) ??
+        toFiniteNumber(balances?.cash?.cash_available),
       marginUsed: toFiniteNumber(balances?.current_requirement),
       totalRealizedPnl: toFiniteNumber(balances?.close_pl),
       totalUnrealizedPnl,

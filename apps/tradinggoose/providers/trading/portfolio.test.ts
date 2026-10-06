@@ -32,7 +32,17 @@ describe('Trading portfolio window contract', () => {
 
   it('declares monitor metrics from each provider snapshot contract', () => {
     expect(getTradingPortfolioMonitorMetrics('alpaca')).toEqual(TRADING_PORTFOLIO_MONITOR_METRICS)
-    expect(getTradingPortfolioMonitorMetrics('tradier')).not.toContain('position.unrealizedPnl')
+    expect(getTradingPortfolioMonitorMetrics('tradier')).toEqual([
+      'summary.totalPortfolioValue',
+      'summary.totalCashValue',
+      'summary.totalHoldingsValue',
+      'summary.totalUnrealizedPnl',
+      'summary.buyingPower',
+      'summary.equity',
+      'positions.count',
+      'position.quantity',
+      'position.exists',
+    ])
     expect(getTradingPortfolioMonitorMetrics('robinhood')).toEqual([
       'summary.totalPortfolioValue',
       'summary.totalCashValue',

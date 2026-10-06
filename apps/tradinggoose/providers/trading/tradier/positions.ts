@@ -1,4 +1,4 @@
-import { sumFiniteNumbers, toFiniteNumber } from '@/providers/trading/portfolio-utils'
+import { toFiniteNumber } from '@/providers/trading/portfolio-utils'
 import { tradierTradingProviderConfig } from '@/providers/trading/tradier/config'
 import type { UnifiedTradingAccountType, UnifiedTradingPosition } from '@/providers/trading/types'
 import { tradingSymbolToListingIdentity } from '@/providers/trading/utils'
@@ -23,46 +23,21 @@ export const getTradierCurrencySymbol = (currency?: string) => {
 export const mapTradierAccountType = (value: unknown): UnifiedTradingAccountType => {
   if (typeof value !== 'string') return 'unknown'
   const normalized = value.toLowerCase()
-  if (normalized === 'margin') return 'margin'
+  if (normalized === 'margin' || normalized === 'pdt') return 'margin'
   if (normalized === 'cash') return 'cash'
   return 'unknown'
 }
 
 export const extractTradierPositions = (data: any) => {
-  const positions = data?.positions?.position || data?.positions || data?.position || []
+  const positions = data?.positions?.position
   if (Array.isArray(positions)) return positions
   if (!positions) return []
   return [positions]
 }
 
 export const extractTradierBalances = (data: any) => {
-  if (!data || typeof data !== 'object') return undefined
-  if (data.balance && typeof data.balance === 'object') {
-    return {
-      balances: data.balance.balances || data.balance,
-      margin: data.balance.margin,
-      cash: data.balance.cash,
-      pdt: data.balance.pdt,
-    }
-  }
-  if (data.balances && typeof data.balances === 'object') {
-    const balances = data.balances
-    if (
-      balances.account_number ||
-      balances.total_equity ||
-      balances.total_cash ||
-      data.margin ||
-      data.cash
-    ) {
-      return {
-        balances,
-        margin: data.margin,
-        cash: data.cash,
-        pdt: data.pdt,
-      }
-    }
-  }
-  return undefined
+  const balances = data?.balances
+  return balances && typeof balances === 'object' ? balances : undefined
 }
 
 export const normalizeTradierPositions = (positions: unknown): UnifiedTradingPosition[] => {
@@ -75,7 +50,6 @@ export const normalizeTradierPositions = (positions: unknown): UnifiedTradingPos
       defaultQuote: TRADIER_DEFAULT_BASE_CURRENCY,
     })
     const quantity = toFiniteNumber(position?.quantity) ?? 0
-    const marketValue = toFiniteNumber(position?.market_value)
     const costBasis = toFiniteNumber(position?.cost_basis)
     const averagePrice =
       typeof costBasis === 'number' && quantity !== 0 ? Math.abs(costBasis / quantity) : undefined
@@ -88,7 +62,6 @@ export const normalizeTradierPositions = (positions: unknown): UnifiedTradingPos
       quantity,
       side,
       averagePrice,
-      marketValue,
       currencySymbol: getTradierCurrencySymbol(TRADIER_DEFAULT_BASE_CURRENCY),
       conversionRate: 1,
       costBasis,
@@ -96,9 +69,3 @@ export const normalizeTradierPositions = (positions: unknown): UnifiedTradingPos
     }
   })
 }
-
-export const sumTradierPositionMarketValues = (positions: UnifiedTradingPosition[]) =>
-  sumFiniteNumbers(positions.map((position) => position.marketValue))
-
-export const sumTradierPositionCostBasis = (positions: UnifiedTradingPosition[]) =>
-  sumFiniteNumbers(positions.map((position) => position.costBasis))
