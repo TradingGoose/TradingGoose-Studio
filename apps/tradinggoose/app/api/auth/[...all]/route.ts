@@ -9,21 +9,15 @@ import { ensurePlanChangePortalConfiguration } from '@/lib/billing/stripe-portal
 import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import { getBillingTierById } from '@/lib/billing/tiers'
 import { getOccupiedSeatCount } from '@/lib/billing/validation/seat-management'
-import { createLogger } from '@/lib/logs/console/logger'
 import { isSignInOAuthProviderId } from '@/lib/oauth'
-import {
-  getRobinhoodOAuthClientIdFromState,
-  registerRobinhoodOAuthClient,
-} from '@/lib/oauth/robinhood'
+import { getRobinhoodOAuthClientIdFromState } from '@/lib/oauth/robinhood'
 import {
   loadSystemOAuthClientCredentials,
   runWithSystemOAuthClientCredentials,
 } from '@/lib/oauth/system-managed-config'
-import { getBaseUrl } from '@/lib/urls/utils'
 
 export const dynamic = 'force-dynamic'
 
-const logger = createLogger('AuthRoute')
 const SYSTEM_OAUTH_CALLBACK_PATH_PREFIXES = ['/api/auth/callback/', '/api/auth/oauth2/callback/']
 const SUBSCRIPTION_UPGRADE_PATH = '/api/auth/subscription/upgrade'
 const ROBINHOOD_OAUTH_CALLBACK_PATH = '/api/auth/oauth2/callback/robinhood'
@@ -82,31 +76,15 @@ async function handleRobinhoodOAuthRequest(request: Request, pathname: string) {
     return Response.json({ error: 'OAuth provider is not configured' }, { status: 400 })
   }
 
-  let clientId = ''
   if (isLinkRequest) {
-    const session = await getSession(request.headers)
-    if (!session?.user?.id) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    try {
-      clientId = await registerRobinhoodOAuthClient(
-        `${getBaseUrl()}${ROBINHOOD_OAUTH_CALLBACK_PATH}`
-      )
-    } catch (error) {
-      logger.error('Robinhood OAuth client registration failed', {
-        error: error instanceof Error ? error.message : String(error),
-      })
-      return Response.json(
-        { error: 'Could not register the Robinhood connection' },
-        { status: 502 }
-      )
-    }
-  } else {
-    clientId = await getRobinhoodOAuthClientIdFromState(
-      new URL(request.url).searchParams.get('state')?.trim() ?? ''
-    )
+    return runWithSystemOAuthClientCredentials(() => auth.handler(request), {
+      robinhood: { clientId: '', clientSecret: '', fields: {} },
+    })
   }
+
+  const clientId = await getRobinhoodOAuthClientIdFromState(
+    new URL(request.url).searchParams.get('state')?.trim() ?? ''
+  )
 
   if (!clientId) {
     return Response.json({ error: 'Robinhood OAuth connection expired' }, { status: 400 })

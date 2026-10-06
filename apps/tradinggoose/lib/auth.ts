@@ -62,8 +62,11 @@ import {
   MICROSOFT_PROVIDERS,
   OAUTH_PROVIDERS,
 } from '@/lib/oauth'
-import { addRobinhoodOAuthClientToState } from '@/lib/oauth/robinhood'
-import { getSystemOAuthClientCredentialsForRequest } from '@/lib/oauth/system-managed-config'
+import { addRobinhoodOAuthClientToState, registerRobinhoodOAuthClient } from '@/lib/oauth/robinhood'
+import {
+  getSystemOAuthClientCredentialsForRequest,
+  setSystemOAuthClientIdForRequest,
+} from '@/lib/oauth/system-managed-config'
 import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getRegistrationEligibility, markWaitlistEntrySignedUp } from '@/lib/registration/service'
 import {
@@ -216,6 +219,32 @@ function createRobinhoodOAuthConfig(): SystemManagedGenericOAuthConfig {
       }
     },
   }
+}
+
+function createGenericOAuthPlugin(options: Parameters<typeof genericOAuth>[0]) {
+  const plugin = genericOAuth(options)
+  plugin.endpoints.oAuth2LinkAccount.options.use.push(
+    createAuthMiddleware(async (ctx) => {
+      if (ctx.body?.providerId === 'robinhood') {
+        try {
+          const clientId = await registerRobinhoodOAuthClient(
+            `${getBaseUrl()}/api/auth/oauth2/callback/robinhood`
+          )
+          setSystemOAuthClientIdForRequest('robinhood', clientId)
+        } catch (error) {
+          logger.error('Robinhood OAuth client registration failed', {
+            error: error instanceof Error ? error.message : String(error),
+          })
+          throw new APIError('BAD_GATEWAY', {
+            message: 'Could not register the Robinhood connection',
+          })
+        }
+      }
+
+      return { session: ctx.context.session! }
+    })
+  )
+  return plugin
 }
 
 function createAlpacaOAuthConfig(
@@ -594,6 +623,7 @@ export const auth = betterAuth({
       },
       update: {
         before: async (account) => {
+          if (typeof account.refreshToken !== 'string' || !account.refreshToken.trim()) return
           const oauthClientId = getSystemOAuthClientCredentialsForRequest('robinhood').clientId
           return oauthClientId ? { data: { ...account, oauthClientId } } : undefined
         },
@@ -800,7 +830,7 @@ export const auth = betterAuth({
       otpLength: 6, // Explicitly set the OTP length
       expiresIn: 15 * 60, // 15 minutes in seconds
     }),
-    genericOAuth({
+    createGenericOAuthPlugin({
       config: toSystemManagedGenericOAuthConfigs([
         createRobinhoodOAuthConfig(),
         createAlpacaOAuthConfig('alpaca-live', 'live'),

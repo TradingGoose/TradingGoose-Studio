@@ -122,3 +122,13 @@ export function getSystemOAuthClientCredentialsForRequest(
 
   return store.get(providerId.trim()) ?? EMPTY_CREDENTIALS
 }
+
+export function setSystemOAuthClientIdForRequest(providerId: string, clientId: string) {
+  const credentials = oauthCredentialStorage.getStore()?.get(providerId.trim())
+  const normalizedClientId = clientId.trim()
+  if (!credentials || !normalizedClientId) {
+    throw new Error('OAuth client registration context is missing')
+  }
+
+  credentials.clientId = normalizedClientId
+}
