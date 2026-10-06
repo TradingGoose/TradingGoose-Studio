@@ -67,35 +67,33 @@ describe('Tradier portfolio helpers', () => {
   })
 
   it.each([
-    ['margin', { margin: { stock_buying_power: '6000' } }, 'margin', 6000],
-    ['cash', { cash: { cash_available: '1200' } }, 'cash', 1200],
-    ['pdt', { pdt: { stock_buying_power: '8000' } }, 'margin', 8000],
+    ['margin', 'guide', { margin: { stock_buying_power: '6000' } }, 'margin', 6000],
+    ['cash', 'guide', { cash: { cash_available: '1200' } }, 'cash', 1200],
+    ['pdt', 'guide', { pdt: { stock_buying_power: '8000' } }, 'margin', 8000],
+    ['margin', 'reference', { margin: { stock_buying_power: '6000' } }, 'margin', 6000],
   ] as const)(
-    'builds %s snapshot totals from documented balance fields',
-    async (accountType, buyingPower, expectedAccountType, expectedBuyingPower) => {
+    'builds %s snapshot totals from the %s balance shape',
+    async (accountType, shape, buyingPower, expectedAccountType, expectedBuyingPower) => {
       const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>
+      const balances = {
+        account_number: 'ACC-123',
+        account_type: accountType,
+        status: 'closed',
+        total_cash: '1200',
+        total_equity: '5400',
+        equity: '5400',
+        market_value: '4200',
+        open_pl: '250',
+        close_pl: '40',
+        current_requirement: '0',
+      }
+      const balancesResponse =
+        shape === 'reference'
+          ? { balance: { balances, ...buyingPower } }
+          : { balances: { ...balances, ...buyingPower } }
 
       fetchMock
-        .mockResolvedValueOnce(
-          new Response(
-            JSON.stringify({
-              balances: {
-                account_number: 'ACC-123',
-                account_type: accountType,
-                status: 'closed',
-                total_cash: '1200',
-                total_equity: '5400',
-                equity: '5400',
-                market_value: '4200',
-                open_pl: '250',
-                close_pl: '40',
-                current_requirement: '0',
-                ...buyingPower,
-              },
-            }),
-            { status: 200 }
-          )
-        )
+        .mockResolvedValueOnce(new Response(JSON.stringify(balancesResponse), { status: 200 }))
         .mockResolvedValueOnce(
           new Response(
             JSON.stringify({

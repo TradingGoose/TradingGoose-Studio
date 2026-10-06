@@ -36,8 +36,16 @@ export const extractTradierPositions = (data: any) => {
 }
 
 export const extractTradierBalances = (data: any) => {
-  const balances = data?.balances
-  return balances && typeof balances === 'object' ? balances : undefined
+  const envelope = data?.balance ?? data
+  const balances = envelope?.balances
+  if (!balances || typeof balances !== 'object') return undefined
+
+  return {
+    ...balances,
+    margin: balances.margin ?? envelope.margin,
+    cash: balances.cash ?? envelope.cash,
+    pdt: balances.pdt ?? envelope.pdt,
+  }
 }
 
 export const normalizeTradierPositions = (positions: unknown): UnifiedTradingPosition[] => {
