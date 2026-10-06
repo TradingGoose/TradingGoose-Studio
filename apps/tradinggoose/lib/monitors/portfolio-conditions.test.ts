@@ -1,6 +1,11 @@
 import { expect, it } from 'vitest'
 import { evaluatePortfolioFireCondition } from './portfolio-conditions'
-import { normalizePortfolioMonitorConfig } from './portfolio-config'
+import {
+  normalizePortfolioMonitorConfig,
+  PortfolioMonitorProviderConfigSchema,
+  SupportedPortfolioMonitorProviderConfigSchema,
+} from './portfolio-config'
+import { PORTFOLIO_MONITOR_TRIGGER_ID } from './sources'
 
 it.each(['positions.totalMarketValue', 'positions.totalUnrealizedPnl'] as const)(
   '%s remains unavailable when a position value is unavailable',
@@ -22,9 +27,11 @@ it.each(['positions.totalMarketValue', 'positions.totalUnrealizedPnl'] as const)
   }
 )
 
-it('rejects monitor metrics outside the trading provider contract', () => {
-  expect(() =>
-    normalizePortfolioMonitorConfig({
+it('keeps unsupported saved metrics readable but rejects them for execution', () => {
+  const config = PortfolioMonitorProviderConfigSchema.parse({
+    triggerId: PORTFOLIO_MONITOR_TRIGGER_ID,
+    version: 1,
+    monitor: {
       triggerBlockId: 'block-1',
       providerId: 'robinhood',
       serviceId: 'robinhood',
@@ -42,8 +49,15 @@ it('rejects monitor metrics outside the trading provider contract', () => {
           ],
         },
       },
-    })
-  ).toThrow('Invalid portfolio monitor condition for robinhood')
+      fireMode: 'edge',
+      cooldownSeconds: 300,
+      pollIntervalSeconds: 60,
+    },
+  })
+
+  expect(() => SupportedPortfolioMonitorProviderConfigSchema.parse(config)).toThrow(
+    'Invalid portfolio monitor condition for robinhood'
+  )
 })
 
 it('keeps monitor conditions stable through JSON persistence', () => {

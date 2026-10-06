@@ -118,7 +118,9 @@ export const PortfolioMonitorProviderConfigSchema = z
       .catch(undefined),
   })
   .strict()
-  .superRefine((config, context) => {
+
+export const SupportedPortfolioMonitorProviderConfigSchema =
+  PortfolioMonitorProviderConfigSchema.superRefine((config, context) => {
     if (
       !isPortfolioMonitorConditionSupported(config.monitor.providerId, config.monitor.condition)
     ) {
@@ -144,7 +146,7 @@ export const normalizePortfolioMonitorConfig = (input: {
   cooldownSeconds?: number
   pollIntervalSeconds?: number
 }): PortfolioMonitorProviderConfig =>
-  PortfolioMonitorProviderConfigSchema.parse({
+  SupportedPortfolioMonitorProviderConfigSchema.parse({
     triggerId: PORTFOLIO_MONITOR_TRIGGER_ID,
     version: 1,
     monitor: {
