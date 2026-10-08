@@ -69,7 +69,16 @@ describe('Tradier portfolio helpers', () => {
   it.each([
     ['margin', 'guide', { margin: { stock_buying_power: '6000' } }, 'margin', 6000],
     ['cash', 'guide', { cash: { cash_available: '1200' } }, 'cash', 1200],
-    ['pdt', 'guide', { pdt: { stock_buying_power: '8000' } }, 'margin', 8000],
+    [
+      'pdt',
+      'reference',
+      {
+        margin: { stock_buying_power: '6000' },
+        pdt: { stock_buying_power: '8000' },
+      },
+      'margin',
+      8000,
+    ],
     ['margin', 'reference', { margin: { stock_buying_power: '6000' } }, 'margin', 6000],
   ] as const)(
     'builds %s snapshot totals from the %s balance shape',

@@ -61,6 +61,14 @@ export async function getTradierTradingAccountSnapshot(
     toFiniteNumber(balances?.total_equity) ?? (totalHoldingsValue ?? 0) + totalCashValue
   const equity = toFiniteNumber(balances?.equity) ?? totalPortfolioValue
   const totalUnrealizedPnl = toFiniteNumber(balances?.open_pl)
+  const providerAccountType =
+    typeof balances?.account_type === 'string' ? balances.account_type.toLowerCase() : ''
+  const buyingPower =
+    providerAccountType === 'cash'
+      ? toFiniteNumber(balances?.cash?.cash_available)
+      : providerAccountType === 'margin' || providerAccountType === 'pdt'
+        ? toFiniteNumber(balances?.[providerAccountType]?.stock_buying_power)
+        : undefined
   const identity = normalizeTradierTradingAccount(
     {
       account_number:
@@ -97,10 +105,7 @@ export async function getTradierTradingAccountSnapshot(
       totalHoldingsValue,
       totalPortfolioValue,
       equity,
-      buyingPower:
-        toFiniteNumber(balances?.margin?.stock_buying_power) ??
-        toFiniteNumber(balances?.pdt?.stock_buying_power) ??
-        toFiniteNumber(balances?.cash?.cash_available),
+      buyingPower,
       marginUsed: toFiniteNumber(balances?.current_requirement),
       totalRealizedPnl: toFiniteNumber(balances?.close_pl),
       totalUnrealizedPnl,
