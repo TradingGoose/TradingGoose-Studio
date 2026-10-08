@@ -58,7 +58,7 @@ function getCredentialDisplayName(row: {
 }) {
   const identity =
     row.providerId === 'robinhood'
-      ? `••••${row.accountId.slice(-4)}`
+      ? `Connection ••••${row.accountId.slice(-4)}`
       : readIdTokenDisplayName(row.idToken) || row.accountId
   try {
     const serviceName = getServiceByProviderAndId(row.providerId as OAuthProvider).name
