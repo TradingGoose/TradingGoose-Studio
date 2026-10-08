@@ -53,30 +53,31 @@ export async function getTradierTradingAccountSnapshot(
 
   const rawPositions = extractTradierPositions(positionsResponse)
   const balances = extractTradierBalances(balancesResponse)
+  if (!balances) throw new Error('Tradier balance response missing balances')
   const positions = normalizeTradierPositions(rawPositions)
 
-  const totalHoldingsValue = toFiniteNumber(balances?.market_value)
-  const totalCashValue = toFiniteNumber(balances?.total_cash) ?? 0
+  const totalHoldingsValue = toFiniteNumber(balances.market_value)
+  const totalCashValue = toFiniteNumber(balances.total_cash) ?? 0
   const totalPortfolioValue =
-    toFiniteNumber(balances?.total_equity) ?? (totalHoldingsValue ?? 0) + totalCashValue
-  const equity = toFiniteNumber(balances?.equity) ?? totalPortfolioValue
-  const totalUnrealizedPnl = toFiniteNumber(balances?.open_pl)
+    toFiniteNumber(balances.total_equity) ?? (totalHoldingsValue ?? 0) + totalCashValue
+  const equity = toFiniteNumber(balances.equity) ?? totalPortfolioValue
+  const totalUnrealizedPnl = toFiniteNumber(balances.open_pl)
   const providerAccountType =
-    typeof balances?.account_type === 'string' ? balances.account_type.toLowerCase() : ''
+    typeof balances.account_type === 'string' ? balances.account_type.toLowerCase() : ''
   const buyingPower =
     providerAccountType === 'cash'
-      ? toFiniteNumber(balances?.cash?.cash_available)
+      ? toFiniteNumber(balances.cash?.cash_available)
       : providerAccountType === 'margin' || providerAccountType === 'pdt'
-        ? toFiniteNumber(balances?.[providerAccountType]?.stock_buying_power)
+        ? toFiniteNumber(balances[providerAccountType]?.stock_buying_power)
         : undefined
   const identity = normalizeTradierTradingAccount(
     {
       account_number:
-        (typeof balances?.account_number === 'string' && balances.account_number.trim()) ||
+        (typeof balances.account_number === 'string' && balances.account_number.trim()) ||
         context.accountId,
-      classification: balances?.account_type,
-      type: balances?.account_type,
-      status: balances?.status,
+      classification: balances.account_type,
+      type: balances.account_type,
+      status: balances.status,
     },
     context
   )
@@ -84,7 +85,7 @@ export async function getTradierTradingAccountSnapshot(
   return buildPortfolioDetail({
     identity: {
       ...identity,
-      accountType: mapTradierAccountType(balances?.account_type),
+      accountType: mapTradierAccountType(balances.account_type),
       baseCurrency: TRADIER_DEFAULT_BASE_CURRENCY,
       accountStatus: identity.accountStatus ?? 'unknown',
     },
@@ -106,8 +107,8 @@ export async function getTradierTradingAccountSnapshot(
       totalPortfolioValue,
       equity,
       buyingPower,
-      marginUsed: toFiniteNumber(balances?.current_requirement),
-      totalRealizedPnl: toFiniteNumber(balances?.close_pl),
+      marginUsed: toFiniteNumber(balances.current_requirement),
+      totalRealizedPnl: toFiniteNumber(balances.close_pl),
       totalUnrealizedPnl,
     },
   })
