@@ -117,4 +117,19 @@ describe('Robinhood OAuth linking', () => {
       { robinhood: { clientId: 'new-client', clientSecret: '', fields: {} } }
     )
   })
+
+  it('leaves unrelated verification records unchanged', async () => {
+    const createVerification = auth.options.databaseHooks!.verification!.create!.before!
+
+    await runWithSystemOAuthClientCredentials(
+      () =>
+        expect(
+          createVerification(
+            { value: 'not-json' } as never,
+            { path: '/request-password-reset' } as never
+          )
+        ).resolves.toBeUndefined(),
+      { robinhood: { clientId: 'registered-client', clientSecret: '', fields: {} } }
+    )
+  })
 })

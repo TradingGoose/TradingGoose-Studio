@@ -631,7 +631,8 @@ export const auth = betterAuth({
     },
     verification: {
       create: {
-        before: async (verification) => {
+        before: async (verification, context) => {
+          if (context?.path !== '/oauth2/link' || context.body?.providerId !== 'robinhood') return
           const clientId = getSystemOAuthClientCredentialsForRequest('robinhood').clientId
           if (!clientId) return
           return {
