@@ -53,7 +53,10 @@ export class OAuthRequestAccessClientTool extends BaseClientTool {
       [ClientToolCallState.pending]: { text: 'Requesting integration access', icon: Loader2 },
       [ClientToolCallState.executing]: { text: 'Connecting integration', icon: Loader2 },
       [ClientToolCallState.rejected]: { text: 'Skipped integration access', icon: MinusCircle },
-      [ClientToolCallState.success]: { text: 'Integration connected', icon: CheckCircle },
+      [ClientToolCallState.success]: {
+        text: 'Opened integration connection dialog',
+        icon: CheckCircle,
+      },
       [ClientToolCallState.error]: { text: 'Failed to request integration access', icon: X },
       [ClientToolCallState.aborted]: { text: 'Aborted integration access request', icon: XCircle },
     },
@@ -73,7 +76,7 @@ export class OAuthRequestAccessClientTool extends BaseClientTool {
           case ClientToolCallState.rejected:
             return `Skipped ${name} access`
           case ClientToolCallState.success:
-            return `${name} connected`
+            return `Opened ${name} connection dialog`
           case ClientToolCallState.error:
             return `Failed to connect ${name}`
           case ClientToolCallState.aborted:
