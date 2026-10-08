@@ -5,6 +5,7 @@ import {
   type McpInstallScriptOptions,
 } from '../../../lib/mcp/install-script'
 import { buildRobinhoodConnectScript } from '../../../lib/oauth/robinhood-connect-script'
+import { getBaseUrl } from '../../../lib/urls/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,7 +49,7 @@ export async function GET(
   const command = (await params).command
   const format = resolveScriptFormat(request)
   if (command?.length === 1 && command[0] === 'robinhood') {
-    return createScriptResponse(buildRobinhoodConnectScript(request.nextUrl.origin, format), format)
+    return createScriptResponse(buildRobinhoodConnectScript(getBaseUrl(), format), format)
   }
 
   const options = command?.[0] === 'mcp' ? parseMcpInstallOptions(command) : null
@@ -63,8 +64,5 @@ export async function GET(
     })
   }
 
-  return createScriptResponse(
-    buildMcpInstallScript(request.nextUrl.origin, { ...options, format }),
-    format
-  )
+  return createScriptResponse(buildMcpInstallScript(getBaseUrl(), { ...options, format }), format)
 }

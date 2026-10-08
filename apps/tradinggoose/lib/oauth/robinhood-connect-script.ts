@@ -25,7 +25,6 @@ function sendText(response, status, message) {
 if (Number(process.versions.node.split('.')[0]) < 18) {
   fail('Node.js 18 or newer is required.')
 } else {
-  let callbackReceived = false
   const server = http.createServer((request, response) => {
     const requestUrl = new URL(request.url || '/', loopbackUrl.origin)
     if (request.method !== 'GET' || requestUrl.pathname !== loopbackUrl.pathname) {
@@ -33,10 +32,6 @@ if (Number(process.versions.node.split('.')[0]) < 18) {
       return
     }
 
-    if (callbackReceived) {
-      sendText(response, 409, 'OAuth callback already received')
-      return
-    }
     const code = requestUrl.searchParams.get('code')
     const error = requestUrl.searchParams.get('error')
     const issuer = requestUrl.searchParams.get('iss')
@@ -46,8 +41,6 @@ if (Number(process.versions.node.split('.')[0]) < 18) {
       sendText(response, 400, 'Invalid OAuth callback')
       return
     }
-    callbackReceived = !!code
-
     const hostedCallback = new URL(loopbackUrl.pathname, hostedOrigin)
     for (const parameter of forwardedParameters) {
       const value = requestUrl.searchParams.get(parameter)
@@ -59,7 +52,7 @@ if (Number(process.versions.node.split('.')[0]) < 18) {
       location: hostedCallback.toString(),
       'x-content-type-options': 'nosniff',
     })
-    response.end(() => code && server.close())
+    response.end()
   })
 
   const timeout = setTimeout(() => {
@@ -74,7 +67,8 @@ if (Number(process.versions.node.split('.')[0]) < 18) {
   })
   server.listen(Number(loopbackUrl.port), '127.0.0.1', () => {
     console.log('Robinhood connection helper is ready.')
-    console.log('Keep this command running, then use the Robinhood Connect control at:')
+    console.log('Keep this command running until the browser confirms the connection, then press Ctrl+C.')
+    console.log('Use the Robinhood Connect control at:')
     console.log(hostedOrigin)
     console.log('Waiting for Robinhood to return to ' + loopbackUrl.toString())
   })
@@ -120,7 +114,7 @@ command -v node >/dev/null 2>&1 || {
   exit 1
 }
 
-node - "$HOSTED_ORIGIN" "$LOOPBACK_REDIRECT_URI" <<'NODE'
+exec node - "$HOSTED_ORIGIN" "$LOOPBACK_REDIRECT_URI" <<'NODE'
 ${ROBINHOOD_RELAY_SCRIPT}
 NODE
 `
