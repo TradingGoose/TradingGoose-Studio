@@ -43,12 +43,17 @@ describe('OAuthRequiredModal', () => {
 
   it('requires an explicit Alpaca live or paper connection when scopes match both services', async () => {
     const onClose = vi.fn()
+    const onConnectStart = vi.fn()
+    const onConnectError = vi.fn()
+    mockStartOAuthConnectFlow.mockRejectedValueOnce(new Error('link failed'))
 
     act(() => {
       root.render(
         <OAuthRequiredModal
           isOpen
           onClose={onClose}
+          onConnectStart={onConnectStart}
+          onConnectError={onConnectError}
           provider='alpaca'
           toolName='Trading'
           requiredScopes={['trading', 'data']}
@@ -70,6 +75,8 @@ describe('OAuthRequiredModal', () => {
     })
 
     expect(onClose).toHaveBeenCalledTimes(1)
+    expect(onConnectStart).toHaveBeenCalledTimes(1)
+    expect(onConnectError).toHaveBeenCalledTimes(1)
     expect(mockStartOAuthConnectFlow).toHaveBeenCalledWith({
       providerId: 'alpaca-paper',
       callbackURL: '/workspace/ws-1/integrations',

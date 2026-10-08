@@ -24,16 +24,16 @@ const integrationTranslate = vi.hoisted(() => {
     disconnect: 'Disconnect',
     'emptyState.noConnectible': 'No connectible integrations are configured.',
     'failures.load': 'Failed to load integrations. Please try again.',
+    'failures.oauth': 'Account connection failed. Please try again.',
     'failures.disconnectInUse':
       'Delete or reconfigure dependent webhooks before disconnecting this account.',
   }
   return (key: string) => copy[key] ?? key
 })
 const integrationRouter = vi.hoisted(() => ({ replace: vi.fn() }))
+const integrationModal = vi.hoisted(() => ({ props: null as Record<string, any> | null }))
 const integrationMocks = vi.hoisted(() => ({
-  connect: vi.fn(),
   disconnect: vi.fn(),
-  refetch: vi.fn(),
   services: [
     {
       id: 'drive',
@@ -41,6 +41,16 @@ const integrationMocks = vi.hoisted(() => ({
       name: 'Drive',
       description: 'Cloud files',
       scopes: [],
+      isConnected: false,
+      accounts: [] as { id: string; name: string }[],
+      icon: () => null,
+    },
+    {
+      id: 'robinhood',
+      providerId: 'robinhood',
+      name: 'Robinhood',
+      description: 'Brokerage',
+      scopes: ['internal'],
       isConnected: false,
       accounts: [] as { id: string; name: string }[],
       icon: () => null,
@@ -63,7 +73,6 @@ vi.mock('next-intl', async (importOriginal) => ({
 }))
 
 vi.mock('next/navigation', () => ({
-  useParams: () => ({ workspaceId: 'workspace-1' }),
   useSearchParams: () => testState.adapter,
 }))
 
@@ -88,6 +97,13 @@ vi.mock('@/global-navbar', () => ({
   GlobalNavbarHeader: ({ left }: { left?: React.ReactNode }) => <header>{left}</header>,
 }))
 
+vi.mock('@/components/oauth/oauth-required-modal', () => ({
+  OAuthRequiredModal: (props: Record<string, any>) => {
+    integrationModal.props = props
+    return props.isOpen ? <div data-testid='oauth-required-modal' /> : null
+  },
+}))
+
 vi.mock('@/lib/oauth/oauth', () => ({
   OAUTH_PROVIDERS: {
     google: {
@@ -105,10 +121,6 @@ vi.mock('@/lib/oauth/oauth', () => ({
   },
 }))
 
-vi.mock('@/lib/oauth/connect', () => ({
-  startOAuthConnectFlow: (...args: unknown[]) => integrationMocks.connect(...args),
-}))
-
 vi.mock('@/hooks/queries/oauth-connections', () => ({
   oauthConnectionsKeys: { connections: () => ['oauthConnections', 'connections'] },
   disconnectOAuthService: (...args: unknown[]) => integrationMocks.disconnect(...args),
@@ -116,7 +128,6 @@ vi.mock('@/hooks/queries/oauth-connections', () => ({
     data: integrationMocks.services,
     isError: false,
     isPending: false,
-    refetch: integrationMocks.refetch,
   }),
 }))
 
@@ -285,13 +296,6 @@ describe('auth provider callback routing', () => {
 
 const integrationCopy = getPublicCopy('en').workspace.integrations
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
-const deferred = () => {
-  let resolve!: () => void
-  const promise = new Promise<void>((settle) => {
-    resolve = settle
-  })
-  return { promise, resolve }
-}
 
 describe('integration provider feedback', () => {
   let container: HTMLDivElement
@@ -303,10 +307,10 @@ describe('integration provider feedback', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    integrationModal.props = null
     testState.searchParams = new URLSearchParams()
     integrationMocks.services[0].accounts = []
-    integrationMocks.refetch.mockResolvedValue(undefined)
-    integrationMocks.connect.mockResolvedValue(undefined)
+    integrationMocks.services[1].accounts = []
     integrationMocks.disconnect.mockResolvedValue(undefined)
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ 'google-drive': true })))
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
@@ -350,11 +354,7 @@ describe('integration provider feedback', () => {
     })
 
   it.each([
-    [
-      { code: 'authorization-code', state: 'oauth-state' },
-      'status',
-      integrationCopy.successMessage,
-    ],
+    [{ oauth_connected: 'drive' }, 'status', integrationCopy.successMessage],
     [
       { error: 'access_denied', error_description: 'The provider rejected access' },
       'alert',
@@ -390,26 +390,54 @@ describe('integration provider feedback', () => {
     )
   })
 
-  it('serializes connection actions and exposes active progress', async () => {
-    const connect = deferred()
-    integrationMocks.connect.mockReturnValueOnce(connect.promise)
+  it('opens the canonical OAuth modal for connection actions', async () => {
     await renderPage()
     const connectButton = action(integrationCopy.connect)
-    await act(async () => {
-      connectButton.click()
-      connectButton.click()
-      await flush()
-    })
-    expect(integrationMocks.connect).toHaveBeenCalledOnce()
-    await vi.waitFor(() => {
-      expect(connectButton).toHaveTextContent(integrationCopy.connecting)
-      expect(connectButton).toHaveAttribute('aria-busy', 'true')
-    })
+    await click(integrationCopy.connect)
 
-    await act(async () => {
-      connect.resolve()
-      await flush()
+    expect(container.querySelector('[data-testid="oauth-required-modal"]')).toBeTruthy()
+    expect(integrationModal.props).toMatchObject({
+      provider: 'google-drive',
+      serviceId: 'drive',
+      requiredScopes: [],
+      toolName: 'Drive',
+      callbackURL: '/workspace/workspace-1/integrations?oauth_connected=drive',
     })
+    expect(connectButton).toHaveTextContent(integrationCopy.connecting)
+
+    const onConnectStart = integrationModal.props?.onConnectStart
+    expect(onConnectStart).toBeTypeOf('function')
+    act(() => onConnectStart())
+
+    act(() => integrationModal.props?.onClose())
+    expect(connectButton).toHaveTextContent(integrationCopy.connecting)
+
+    act(() => integrationModal.props?.onConnectError())
+    expect(container.querySelector('[role="alert"]')).toHaveTextContent(
+      'Account connection failed. Please try again.'
+    )
     expect(connectButton).toHaveTextContent(integrationCopy.connect)
+  })
+
+  it('opens the canonical OAuth modal only for an available requested service', async () => {
+    vi.mocked(fetch).mockResolvedValue(Response.json({ 'google-drive': true, robinhood: true }))
+    await renderPage({ connect: 'robinhood' })
+
+    expect(integrationModal.props).toMatchObject({
+      provider: 'robinhood',
+      serviceId: 'robinhood',
+      requiredScopes: ['internal'],
+      toolName: 'Robinhood',
+    })
+    expect(integrationRouter.replace).toHaveBeenCalledWith('/workspace/workspace-1/integrations')
+
+    act(() => root.unmount())
+    root = createRoot(container)
+    integrationModal.props = null
+    await renderPage({ connect: 'missing' })
+    expect(integrationModal.props).toBeNull()
+    expect(container.querySelector('[role="alert"]')).toHaveTextContent(
+      'Account connection failed. Please try again.'
+    )
   })
 })

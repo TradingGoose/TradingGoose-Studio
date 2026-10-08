@@ -5,8 +5,7 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
-import { startOAuthConnectFlow } from '@/lib/oauth/connect'
-import { OAUTH_PROVIDERS, type OAuthServiceConfig } from '@/lib/oauth/oauth'
+import { OAUTH_PROVIDERS } from '@/lib/oauth/oauth'
 
 const logger = createLogger('OAuthRequestAccessClientTool')
 
@@ -14,19 +13,13 @@ interface OAuthRequestAccessArgs {
   providerName?: string
 }
 
-interface ResolvedServiceInfo {
-  serviceId: string
-  providerId: string
-  service: OAuthServiceConfig
-}
-
-function findServiceByName(providerName: string): ResolvedServiceInfo | null {
+function findServiceByName(providerName: string): string | null {
   const normalizedName = providerName.toLowerCase().trim()
 
   for (const [, providerConfig] of Object.entries(OAUTH_PROVIDERS)) {
     for (const [serviceId, service] of Object.entries(providerConfig.services)) {
       if (service.name.toLowerCase() === normalizedName) {
-        return { serviceId, providerId: service.providerId, service }
+        return serviceId
       }
     }
   }
@@ -37,7 +30,7 @@ function findServiceByName(providerName: string): ResolvedServiceInfo | null {
         service.name.toLowerCase().includes(normalizedName) ||
         normalizedName.includes(service.name.toLowerCase())
       ) {
-        return { serviceId, providerId: service.providerId, service }
+        return serviceId
       }
     }
   }
@@ -104,8 +97,8 @@ export class OAuthRequestAccessClientTool extends BaseClientTool {
         return
       }
 
-      const serviceInfo = findServiceByName(this.providerName)
-      if (!serviceInfo) {
+      const serviceId = findServiceByName(this.providerName)
+      if (!serviceId) {
         logger.error('Could not find OAuth service for provider', {
           providerName: this.providerName,
         })
@@ -114,11 +107,9 @@ export class OAuthRequestAccessClientTool extends BaseClientTool {
         return
       }
 
-      const { serviceId, providerId, service } = serviceInfo
       logger.info('Opening OAuth connect flow', {
         providerName: this.providerName,
         serviceId,
-        providerId,
       })
 
       this.setState(ClientToolCallState.executing)
@@ -131,20 +122,9 @@ export class OAuthRequestAccessClientTool extends BaseClientTool {
         }
         const callbackURL = `/workspace/${workspaceId}/integrations`
 
-        try {
-          localStorage.setItem(
-            'pending_oauth_state',
-            JSON.stringify({ serviceId, scopes: service.scopes })
-          )
-        } catch {}
-
         this.setState(ClientToolCallState.success)
         await this.markToolComplete(200, `Opened ${this.providerName} connection dialog`)
-
-        await startOAuthConnectFlow({
-          providerId,
-          callbackURL,
-        })
+        window.location.assign(`${callbackURL}?connect=${encodeURIComponent(serviceId)}`)
         return
       }
 

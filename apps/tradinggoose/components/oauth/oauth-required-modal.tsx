@@ -30,8 +30,11 @@ const logger = createLogger('OAuthRequiredModal')
 export interface OAuthRequiredModalProps {
   isOpen: boolean
   onClose: () => void
+  onConnectStart?: () => void
+  onConnectError?: () => void
   provider: OAuthProvider
   toolName: string
+  callbackURL?: string
   requiredScopes?: string[]
   serviceId?: string
   serviceIds?: string[]
@@ -137,8 +140,11 @@ function getScopeDescription(scope: string): string {
 export function OAuthRequiredModal({
   isOpen,
   onClose,
+  onConnectStart,
+  onConnectError,
   provider,
   toolName,
+  callbackURL,
   requiredScopes = [],
   serviceId,
   serviceIds,
@@ -211,7 +217,7 @@ export function OAuthRequiredModal({
       // Determine the appropriate serviceId and providerId
       const providerId = getProviderIdFromServiceId(connectServiceId)
 
-      // Close the modal
+      onConnectStart?.()
       onClose()
 
       logger.info('Linking OAuth2:', {
@@ -221,9 +227,10 @@ export function OAuthRequiredModal({
 
       await startOAuthConnectFlow({
         providerId,
-        callbackURL: `${pathname}${window.location.search}${window.location.hash}`,
+        callbackURL: callbackURL ?? `${pathname}${window.location.search}${window.location.hash}`,
       })
     } catch (error) {
+      onConnectError?.()
       logger.error('Error initiating OAuth flow:', { error })
     }
   }
