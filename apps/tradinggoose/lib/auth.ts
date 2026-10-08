@@ -2,7 +2,7 @@ import { sso } from '@better-auth/sso'
 import { stripe } from '@better-auth/stripe'
 import { db } from '@tradinggoose/db'
 import * as schema from '@tradinggoose/db/schema'
-import { betterAuth } from 'better-auth'
+import { betterAuth, parseState } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { APIError, createAuthMiddleware, getOAuthState } from 'better-auth/api'
 import { nextCookies } from 'better-auth/next-js'
@@ -740,6 +740,19 @@ export const auth = betterAuth({
   },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
+      if (
+        ctx.path === '/oauth2/callback/:providerId' &&
+        ctx.params?.providerId === 'robinhood' &&
+        typeof ctx.query?.error === 'string'
+      ) {
+        const { errorURL = '/error' } = await parseState(ctx)
+        const params = new URLSearchParams({ error: ctx.query.error })
+        if (typeof ctx.query.error_description === 'string') {
+          params.set('error_description', ctx.query.error_description)
+        }
+        throw ctx.redirect(`${errorURL}${errorURL.includes('?') ? '&' : '?'}${params}`)
+      }
+
       if (
         (ctx.path.startsWith('/sign-in') || ctx.path.startsWith('/sign-up')) &&
         (env.ALLOWED_LOGIN_EMAILS || env.ALLOWED_LOGIN_DOMAINS)

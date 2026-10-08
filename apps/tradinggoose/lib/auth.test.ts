@@ -7,6 +7,10 @@ const { registerClient } = vi.hoisted(() => ({ registerClient: vi.fn() }))
 vi.mock('@modelcontextprotocol/sdk/client/auth.js', () => ({ registerClient }))
 vi.mock('@tradinggoose/db', () => ({ db: {} }))
 vi.mock('@/lib/billing/plans', () => ({ getBetterAuthPlansConfig: () => [] }))
+vi.mock('better-auth', async (original) => {
+  const actual = await original<typeof import('better-auth')>()
+  return { ...actual, parseState: vi.fn(actual.parseState) }
+})
 vi.mock('better-auth/api', async (original) => {
   const actual = await original<typeof import('better-auth/api')>()
   return { ...actual, getOAuthState: vi.fn() }
@@ -16,6 +20,7 @@ vi.mock('better-auth/plugins', async (original) => {
   return { ...actual, genericOAuth: vi.fn(actual.genericOAuth) }
 })
 
+import { parseState } from 'better-auth'
 import { auth } from './auth'
 import { isHosted } from './environment'
 import { getRobinhoodOAuthRedirectUri } from './oauth/robinhood-constants'
@@ -64,6 +69,7 @@ describe('Robinhood OAuth identity', () => {
 
 describe('Robinhood OAuth linking', () => {
   beforeEach(() => {
+    vi.mocked(parseState).mockReset()
     registerClient.mockReset()
     registerClient.mockImplementation(async (_resource, { clientMetadata }) => ({
       ...clientMetadata,
@@ -73,6 +79,41 @@ describe('Robinhood OAuth linking', () => {
 
   it('uses the environment callback for authorization and token exchange', () => {
     expect(config.redirectURI).toBe(getRobinhoodOAuthRedirectUri(getBaseUrl(), isHosted))
+  })
+
+  it('returns Robinhood consent errors to the saved integration callback', async () => {
+    vi.mocked(parseState).mockResolvedValue({
+      callbackURL: '/workspace/workspace-1/integrations?oauth_connected=robinhood',
+      codeVerifier: 'verifier',
+      errorURL: '/workspace/workspace-1/integrations?oauth_connected=robinhood',
+      expiresAt: Date.now() + 60_000,
+    })
+
+    const response = await auth.handler(
+      new Request(
+        'http://localhost:3000/api/auth/oauth2/callback/robinhood?error=access_denied&error_description=User+denied+access&state=state'
+      )
+    )
+
+    expect(response.status).toBe(302)
+    expect(response.headers.get('location')).toBe(
+      '/workspace/workspace-1/integrations?oauth_connected=robinhood&error=access_denied&error_description=User+denied+access'
+    )
+  })
+
+  it('keeps invalid Robinhood callback state on the auth error path', async () => {
+    vi.mocked(parseState).mockImplementationOnce(async (ctx) => {
+      throw ctx.redirect('/error?error=state_mismatch')
+    })
+
+    const response = await auth.handler(
+      new Request(
+        'http://localhost:3000/api/auth/oauth2/callback/robinhood?error=access_denied&state=invalid'
+      )
+    )
+
+    expect(response.status).toBe(302)
+    expect(response.headers.get('location')).toBe('/error?error=state_mismatch')
   })
 
   it('validates link requests before registering a client', async () => {

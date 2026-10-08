@@ -156,7 +156,7 @@ export function Integrations() {
     }
 
     const connectedServiceId = searchParams.get('oauth_connected')
-    if (!connectedServiceId || servicesPending) return
+    if (!connectedServiceId || servicesPending || connectionsFailed) return
 
     router.replace(pathname)
     const service = services.find((candidate) => candidate.id === connectedServiceId)
@@ -168,7 +168,7 @@ export function Integrations() {
     setPendingService(service.id)
     setShowActionRequired(true)
     setActionFeedback({ kind: 'success', message: t('successMessage') })
-  }, [pathname, router, searchParams, services, servicesPending, t])
+  }, [connectionsFailed, pathname, router, searchParams, services, servicesPending, t])
 
   // Handle connect button click
   const openConnectModal = useCallback((service: ServiceInfo) => {
@@ -219,7 +219,7 @@ export function Integrations() {
 
   const requestedServiceId = searchParams.get('connect')
   useEffect(() => {
-    if (!requestedServiceId || !availabilityLoaded || servicesPending) return
+    if (!requestedServiceId || !availabilityLoaded || servicesPending || hasLoadFailure) return
 
     router.replace(pathname)
     const service = connectibleServices.find((candidate) => candidate.id === requestedServiceId)
@@ -228,6 +228,7 @@ export function Integrations() {
   }, [
     availabilityLoaded,
     connectibleServices,
+    hasLoadFailure,
     openConnectModal,
     pathname,
     requestedServiceId,

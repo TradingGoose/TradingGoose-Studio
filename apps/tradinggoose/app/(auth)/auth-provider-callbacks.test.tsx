@@ -34,6 +34,7 @@ const integrationRouter = vi.hoisted(() => ({ replace: vi.fn() }))
 const integrationModal = vi.hoisted(() => ({ props: null as Record<string, any> | null }))
 const integrationMocks = vi.hoisted(() => ({
   disconnect: vi.fn(),
+  connectionsFailed: false,
   services: [
     {
       id: 'drive',
@@ -126,7 +127,7 @@ vi.mock('@/hooks/queries/oauth-connections', () => ({
   disconnectOAuthService: (...args: unknown[]) => integrationMocks.disconnect(...args),
   useOAuthConnections: () => ({
     data: integrationMocks.services,
-    isError: false,
+    isError: integrationMocks.connectionsFailed,
     isPending: false,
   }),
 }))
@@ -309,6 +310,7 @@ describe('integration provider feedback', () => {
     vi.clearAllMocks()
     integrationModal.props = null
     testState.searchParams = new URLSearchParams()
+    integrationMocks.connectionsFailed = false
     integrationMocks.services[0].accounts = []
     integrationMocks.services[1].accounts = []
     integrationMocks.disconnect.mockResolvedValue(undefined)
@@ -367,6 +369,16 @@ describe('integration provider feedback', () => {
     expect(feedback[0]).toHaveTextContent(message)
   })
 
+  it('preserves a successful OAuth callback marker when connections fail to load', async () => {
+    integrationMocks.connectionsFailed = true
+    await renderPage({ oauth_connected: 'drive' })
+
+    expect(integrationRouter.replace).not.toHaveBeenCalled()
+    expect(container.querySelector('[role="alert"]')).toHaveTextContent(
+      integrationCopy.failures.load
+    )
+  })
+
   it('distinguishes load and mutation failures in one alert channel', async () => {
     vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 503 }))
     await renderPage()
@@ -423,7 +435,9 @@ describe('integration provider feedback', () => {
   })
 
   it('opens the canonical OAuth modal only for an available requested service', async () => {
-    vi.mocked(fetch).mockResolvedValue(Response.json({ 'google-drive': true, robinhood: true }))
+    vi.mocked(fetch).mockImplementation(async () =>
+      Response.json({ 'google-drive': true, robinhood: true })
+    )
     await renderPage({ connect: 'robinhood' })
 
     expect(integrationModal.props).toMatchObject({
@@ -443,4 +457,17 @@ describe('integration provider feedback', () => {
       'Account connection failed. Please try again.'
     )
   })
+
+  it.each(['connections', 'availability'])(
+    'preserves a requested connection when %s fail to load',
+    async (failure) => {
+      if (failure === 'connections') integrationMocks.connectionsFailed = true
+      else vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 503 }))
+
+      await renderPage({ connect: 'drive' })
+
+      expect(integrationModal.props).toBeNull()
+      expect(integrationRouter.replace).not.toHaveBeenCalled()
+    }
+  )
 })
