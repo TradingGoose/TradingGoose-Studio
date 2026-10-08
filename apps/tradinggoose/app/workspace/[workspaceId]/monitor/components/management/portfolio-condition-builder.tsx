@@ -312,6 +312,14 @@ function ConditionRuleEditor({
   const availableMetrics = tradingProviderId
     ? getTradingPortfolioMonitorMetrics(tradingProviderId)
     : []
+  const unsupportedMetric =
+    tradingProviderId && !availableMetrics.includes(rule.metric) ? rule.metric : null
+  const metricOptions = [
+    ...(unsupportedMetric
+      ? [{ value: unsupportedMetric, label: `${METRIC_LABELS[unsupportedMetric]} (Unsupported)` }]
+      : []),
+    ...availableMetrics.map((metric) => ({ value: metric, label: METRIC_LABELS[metric] })),
+  ]
   const operators = getPortfolioConditionOperatorsForMetric(rule.metric)
   const showListing = portfolioConditionRequiresListing(rule.metric)
   const showValue = !isPortfolioConditionValuelessOperator(rule.operator)
@@ -344,10 +352,7 @@ function ConditionRuleEditor({
     >
       <Select
         value={rule.metric}
-        items={availableMetrics.map((metric) => ({
-          value: metric,
-          label: METRIC_LABELS[metric],
-        }))}
+        items={metricOptions}
         disabled={disabled}
         onValueChange={(metric) => {
           if (metric !== null) {
@@ -359,9 +364,9 @@ function ConditionRuleEditor({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {availableMetrics.map((metric) => (
-            <SelectItem key={metric} value={metric}>
-              {METRIC_LABELS[metric]}
+          {metricOptions.map(({ value, label }) => (
+            <SelectItem key={value} value={value} disabled={value === unsupportedMetric}>
+              {label}
             </SelectItem>
           ))}
         </SelectContent>
