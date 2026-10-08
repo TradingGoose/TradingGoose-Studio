@@ -45,6 +45,7 @@ describe('OAuthRequiredModal', () => {
     const onClose = vi.fn()
     const onConnectStart = vi.fn()
     const onConnectError = vi.fn()
+    const onConnectSettled = vi.fn()
     mockStartOAuthConnectFlow.mockRejectedValueOnce(new Error('link failed'))
 
     act(() => {
@@ -54,6 +55,7 @@ describe('OAuthRequiredModal', () => {
           onClose={onClose}
           onConnectStart={onConnectStart}
           onConnectError={onConnectError}
+          onConnectSettled={onConnectSettled}
           provider='alpaca'
           toolName='Trading'
           requiredScopes={['trading', 'data']}
@@ -77,6 +79,7 @@ describe('OAuthRequiredModal', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
     expect(onConnectStart).toHaveBeenCalledTimes(1)
     expect(onConnectError).toHaveBeenCalledTimes(1)
+    expect(onConnectSettled).toHaveBeenCalledTimes(1)
     expect(mockStartOAuthConnectFlow).toHaveBeenCalledWith({
       providerId: 'alpaca-paper',
       callbackURL: '/workspace/ws-1/integrations',
@@ -84,9 +87,18 @@ describe('OAuthRequiredModal', () => {
   })
 
   it('shows the hosted Robinhood helper before starting the canonical OAuth flow', async () => {
+    const onConnectSettled = vi.fn()
+    mockStartOAuthConnectFlow.mockResolvedValueOnce(undefined)
+
     act(() => {
       root.render(
-        <OAuthRequiredModal isOpen onClose={vi.fn()} provider='robinhood' toolName='Trading' />
+        <OAuthRequiredModal
+          isOpen
+          onClose={vi.fn()}
+          onConnectSettled={onConnectSettled}
+          provider='robinhood'
+          toolName='Trading'
+        />
       )
     })
 
@@ -111,5 +123,6 @@ describe('OAuthRequiredModal', () => {
       providerId: 'robinhood',
       callbackURL: '/workspace/ws-1/integrations',
     })
+    expect(onConnectSettled).toHaveBeenCalledTimes(1)
   })
 })

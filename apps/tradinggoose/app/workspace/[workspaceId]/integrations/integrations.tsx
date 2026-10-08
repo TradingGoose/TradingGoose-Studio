@@ -507,11 +507,13 @@ export function Integrations() {
             oauthConnectStartedRef.current = true
           }}
           onConnectError={() => {
+            setConnectService(null)
+            setActionFeedback({ kind: 'error', message: t('failures.oauth') })
+          }}
+          onConnectSettled={() => {
             oauthConnectStartedRef.current = false
             integrationActionLockRef.current = false
             setIsConnecting(null)
-            setConnectService(null)
-            setActionFeedback({ kind: 'error', message: t('failures.oauth') })
           }}
           provider={connectService.providerId}
           toolName={connectService.name}

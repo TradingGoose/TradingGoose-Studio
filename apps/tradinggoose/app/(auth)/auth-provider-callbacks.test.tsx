@@ -416,6 +416,9 @@ describe('integration provider feedback', () => {
     expect(container.querySelector('[role="alert"]')).toHaveTextContent(
       'Account connection failed. Please try again.'
     )
+    expect(connectButton).toHaveTextContent(integrationCopy.connecting)
+
+    act(() => integrationModal.props?.onConnectSettled())
     expect(connectButton).toHaveTextContent(integrationCopy.connect)
   })
 

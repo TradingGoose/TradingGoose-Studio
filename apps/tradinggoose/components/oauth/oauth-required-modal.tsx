@@ -32,6 +32,7 @@ export interface OAuthRequiredModalProps {
   onClose: () => void
   onConnectStart?: () => void
   onConnectError?: () => void
+  onConnectSettled?: () => void
   provider: OAuthProvider
   toolName: string
   callbackURL?: string
@@ -142,6 +143,7 @@ export function OAuthRequiredModal({
   onClose,
   onConnectStart,
   onConnectError,
+  onConnectSettled,
   provider,
   toolName,
   callbackURL,
@@ -232,6 +234,8 @@ export function OAuthRequiredModal({
     } catch (error) {
       onConnectError?.()
       logger.error('Error initiating OAuth flow:', { error })
+    } finally {
+      onConnectSettled?.()
     }
   }
 
