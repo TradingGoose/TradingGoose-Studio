@@ -352,31 +352,45 @@ describe('Robinhood connection helper route', () => {
   })
 
   it('keeps listening after forwarded callbacks', async () => {
-    const relay = spawn(
-      'sh',
-      ['-c', buildRobinhoodConnectScript('https://preview.example.test', 'sh')],
-      { stdio: ['ignore', 'pipe', 'pipe'] }
-    )
+    const relayScript = buildRobinhoodConnectScript('https://preview.example.test', 'sh')
+      .replace(
+        "server.listen(Number(loopbackUrl.port), '127.0.0.1'",
+        "server.listen(0, '127.0.0.1'"
+      )
+      .replace(
+        "console.log('Robinhood connection helper is ready.')",
+        'console.log(server.address().port)'
+      )
+    const relay = spawn('sh', ['-c', relayScript], { stdio: ['ignore', 'pipe', 'pipe'] })
     const relayExited = once(relay, 'exit')
 
     try {
-      await new Promise<void>((resolve, reject) => {
-        relay.stdout.once('data', () => resolve())
+      const relayPort = await new Promise<number>((resolve, reject) => {
+        relay.stdout.once('data', (output) => {
+          const port = Number.parseInt(output.toString(), 10)
+          if (!Number.isInteger(port) || port <= 0 || port > 65_535) {
+            reject(new Error(`Invalid relay port: ${output.toString().trim()}`))
+            return
+          }
+          resolve(port)
+        })
         relay.once('error', reject)
         relay.once('exit', (code) => reject(new Error(`Relay exited with code ${code}`)))
       })
+      const loopbackUrl = new URL(ROBINHOOD_LOOPBACK_REDIRECT_URI)
+      loopbackUrl.port = String(relayPort)
 
-      await expect(
-        getLocalStatus(`${ROBINHOOD_LOOPBACK_REDIRECT_URI}?error=access_denied&state=bogus`)
-      ).resolves.toBe(302)
+      await expect(getLocalStatus(`${loopbackUrl}?error=access_denied&state=bogus`)).resolves.toBe(
+        302
+      )
       await expect(
         getLocalStatus(
-          `${ROBINHOOD_LOOPBACK_REDIRECT_URI}?code=stale-code&state=stale-state&iss=${encodeURIComponent('https://agent.robinhood.com/mcp/trading')}`
+          `${loopbackUrl}?code=stale-code&state=stale-state&iss=${encodeURIComponent('https://agent.robinhood.com/mcp/trading')}`
         )
       ).resolves.toBe(302)
       await expect(
         getLocalStatus(
-          `${ROBINHOOD_LOOPBACK_REDIRECT_URI}?code=current-code&state=current-state&iss=${encodeURIComponent('https://agent.robinhood.com/mcp/trading')}`
+          `${loopbackUrl}?code=current-code&state=current-state&iss=${encodeURIComponent('https://agent.robinhood.com/mcp/trading')}`
         )
       ).resolves.toBe(302)
       expect(relay.exitCode).toBeNull()
