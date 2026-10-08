@@ -363,10 +363,24 @@ describe('proxy auth routing', () => {
   it('keeps the MCP script route canonical for curl clients', async () => {
     const { proxy } = await import('./proxy')
     const response = await proxy(
-      new NextRequest('http://localhost:3000/mcp', {
+      new NextRequest('http://localhost:3000/connect/mcp', {
         headers: {
           'user-agent': 'curl/8.0',
         },
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('location')).toBeNull()
+    expect(response.headers.get('x-middleware-rewrite')).toBeNull()
+    expect(response.cookies.get('NEXT_LOCALE')).toBeUndefined()
+  })
+
+  it('keeps the Robinhood connection script route canonical for curl clients', async () => {
+    const { proxy } = await import('./proxy')
+    const response = await proxy(
+      new NextRequest('http://localhost:3000/connect/robinhood', {
+        headers: { 'user-agent': 'curl/8.0' },
       })
     )
 
@@ -381,7 +395,7 @@ describe('proxy auth routing', () => {
     async (target) => {
       const { proxy } = await import('./proxy')
       const response = await proxy(
-        new NextRequest(`http://localhost:3000/mcp/setup/${target}`, {
+        new NextRequest(`http://localhost:3000/connect/mcp/setup/${target}`, {
           headers: {
             'user-agent': 'curl/8.0',
           },
@@ -398,7 +412,7 @@ describe('proxy auth routing', () => {
   it('localizes the MCP browser authorization page instead of treating it as a script route', async () => {
     const { proxy } = await import('./proxy')
     const response = await proxy(
-      new NextRequest('http://localhost:3000/mcp/authorize?code=login-code', {
+      new NextRequest('http://localhost:3000/connect/mcp/authorize?code=login-code', {
         headers: {
           'user-agent': 'vitest',
         },
@@ -407,7 +421,7 @@ describe('proxy auth routing', () => {
 
     expect(response.status).toBe(307)
     expect(response.headers.get('location')).toBe(
-      'http://localhost:3000/en/mcp/authorize?code=login-code'
+      'http://localhost:3000/en/connect/mcp/authorize?code=login-code'
     )
     expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('en')
   })

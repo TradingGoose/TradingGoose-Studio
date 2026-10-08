@@ -18397,7 +18397,8 @@
           "permissionsRequested": "Permissions requested",
           "cancel": "Cancel",
           "connectService": "Connect {serviceName}",
-          "connectNow": "Connect Now"
+          "connectNow": "Connect Now",
+          "robinhoodHostedHelper": "Run the command for your operating system on the same computer as your browser and leave it running. Then select Connect Now."
         },
         "dropdown": {
           "placeholder": "Select an option...",

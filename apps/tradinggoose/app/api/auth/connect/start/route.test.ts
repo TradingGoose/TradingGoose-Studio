@@ -3,16 +3,16 @@
  */
 
 import { NextRequest } from 'next/server'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   mockCheckPublicApiEndpointRateLimit,
   mockIsApiKeyStorageAvailable,
-  mockStartMcpDeviceLogin,
+  mockStartConnectionLogin,
 } = vi.hoisted(() => ({
   mockCheckPublicApiEndpointRateLimit: vi.fn(),
   mockIsApiKeyStorageAvailable: vi.fn(),
-  mockStartMcpDeviceLogin: vi.fn(),
+  mockStartConnectionLogin: vi.fn(),
 }))
 
 vi.mock('@/lib/api/rate-limit', () => ({
@@ -24,14 +24,13 @@ vi.mock('@/lib/api-key/service', () => ({
   isApiKeyStorageAvailable: (...args: unknown[]) => mockIsApiKeyStorageAvailable(...args),
 }))
 
-vi.mock('@/lib/mcp/auth', () => ({
-  startMcpDeviceLogin: (...args: unknown[]) => mockStartMcpDeviceLogin(...args),
+vi.mock('@/lib/connect/auth', () => ({
+  startConnectionLogin: (...args: unknown[]) => mockStartConnectionLogin(...args),
 }))
 
-describe('MCP login start route', () => {
+describe('connection login start route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://studio.example.test')
     mockCheckPublicApiEndpointRateLimit.mockResolvedValue({
       allowed: true,
       remaining: 19,
@@ -39,7 +38,7 @@ describe('MCP login start route', () => {
       limit: 20,
     })
     mockIsApiKeyStorageAvailable.mockReturnValue(true)
-    mockStartMcpDeviceLogin.mockResolvedValue({
+    mockStartConnectionLogin.mockResolvedValue({
       code: 'login-code',
       verificationKey: 'verification-key',
       expiresAt: '2026-06-19T12:00:00.000Z',
@@ -47,13 +46,9 @@ describe('MCP login start route', () => {
     })
   })
 
-  afterEach(() => {
-    vi.unstubAllEnvs()
-  })
-
-  it('starts a browser approval login and returns an absolute approval URL', async () => {
+  it('starts a browser approval login', async () => {
     const { POST } = await import('./route')
-    const request = new NextRequest('https://preview.example.test/api/auth/mcp/start', {
+    const request = new NextRequest('https://preview.example.test/api/auth/connect/start', {
       method: 'POST',
     })
 
@@ -65,10 +60,9 @@ describe('MCP login start route', () => {
       verificationKey: 'verification-key',
       expiresAt: '2026-06-19T12:00:00.000Z',
       intervalSeconds: 2,
-      authorizeUrl: 'https://studio.example.test/mcp/authorize?code=login-code',
     })
-    expect(mockCheckPublicApiEndpointRateLimit).toHaveBeenCalledWith(request, 'mcp-auth-start')
-    expect(mockStartMcpDeviceLogin).toHaveBeenCalledWith()
+    expect(mockCheckPublicApiEndpointRateLimit).toHaveBeenCalledWith(request, 'connect-auth-start')
+    expect(mockStartConnectionLogin).toHaveBeenCalledWith()
   })
 
   it('rejects login starts when the public endpoint rate limit is exhausted', async () => {
@@ -81,10 +75,10 @@ describe('MCP login start route', () => {
     const { POST } = await import('./route')
 
     const response = await POST(
-      new NextRequest('https://studio.example.test/api/auth/mcp/start', { method: 'POST' })
+      new NextRequest('https://studio.example.test/api/auth/connect/start', { method: 'POST' })
     )
 
     expect(response.status).toBe(429)
-    expect(mockStartMcpDeviceLogin).not.toHaveBeenCalled()
+    expect(mockStartConnectionLogin).not.toHaveBeenCalled()
   })
 })

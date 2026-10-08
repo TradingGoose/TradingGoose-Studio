@@ -17,10 +17,13 @@ vi.mock('better-auth/plugins', async (original) => {
 })
 
 import { auth } from './auth'
+import { isHosted } from './environment'
+import { getRobinhoodOAuthRedirectUri } from './oauth/robinhood-constants'
 import {
   getSystemOAuthClientCredentialsForRequest,
   runWithSystemOAuthClientCredentials,
 } from './oauth/system-managed-config'
+import { getBaseUrl } from './urls/utils'
 
 const genericOAuthPlugin = vi.mocked(genericOAuth).mock.results[0].value!
 const config = vi
@@ -68,6 +71,10 @@ describe('Robinhood OAuth linking', () => {
     }))
   })
 
+  it('uses the environment callback for authorization and token exchange', () => {
+    expect(config.redirectURI).toBe(getRobinhoodOAuthRedirectUri(getBaseUrl(), isHosted))
+  })
+
   it('validates link requests before registering a client', async () => {
     const response = await auth.handler(
       new Request('http://localhost:3000/api/auth/oauth2/link', {
@@ -92,6 +99,12 @@ describe('Robinhood OAuth linking', () => {
         } as never)
         expect(getSystemOAuthClientCredentialsForRequest('robinhood').clientId).toBe(
           'registered-client'
+        )
+        expect(registerClient).toHaveBeenCalledWith(
+          'https://agent.robinhood.com/mcp/trading',
+          expect.objectContaining({
+            clientMetadata: expect.objectContaining({ redirect_uris: [config.redirectURI] }),
+          })
         )
       },
       { robinhood: { clientId: '', clientSecret: '', fields: {} } }

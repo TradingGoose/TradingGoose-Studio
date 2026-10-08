@@ -58,7 +58,7 @@ function mockInsertValues() {
   return values
 }
 
-function mockUpdateReturning(result: unknown[] = [{ id: 'device-login-row' }]) {
+function mockUpdateReturning(result: unknown[] = [{ id: 'connection-login-row' }]) {
   const returning = vi.fn().mockResolvedValue(result)
   const where = vi.fn(() => ({ returning }))
   const set = vi.fn(() => ({ where }))
@@ -75,7 +75,7 @@ function readCodeFields(code: string) {
   }
 }
 
-describe('MCP device login auth', () => {
+describe('local connection login auth', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-06-19T12:00:00.000Z'))
@@ -91,8 +91,8 @@ describe('MCP device login auth', () => {
   })
 
   it('materializes pending state with the signed expiry from the approval flow', async () => {
-    const { createMcpDeviceLoginApprovalChallenge, startMcpDeviceLogin } = await import('./auth')
-    const login = await startMcpDeviceLogin()
+    const { createConnectionLoginApprovalChallenge, startConnectionLogin } = await import('./auth')
+    const login = await startConnectionLogin()
     expect(login.code).toBeTruthy()
     expect(login.verificationKey).toBeTruthy()
     expect(login.expiresAt).toBe('2026-06-19T12:10:00.000Z')
@@ -103,7 +103,7 @@ describe('MCP device login auth', () => {
       [],
       [
         {
-          id: 'device-login-row',
+          id: 'connection-login-row',
           value: JSON.stringify({
             status: 'pending',
             createdAt: fields.createdAt,
@@ -115,7 +115,7 @@ describe('MCP device login auth', () => {
     )
     const insertValues = mockInsertValues()
 
-    const challenge = await createMcpDeviceLoginApprovalChallenge({
+    const challenge = await createConnectionLoginApprovalChallenge({
       code: login.code,
       userId: 'user-1',
     })
@@ -129,21 +129,21 @@ describe('MCP device login auth', () => {
   })
 
   it('deletes the row for a signed code revisited after expiry', async () => {
-    const { pollMcpDeviceLogin, startMcpDeviceLogin } = await import('./auth')
-    const login = await startMcpDeviceLogin()
+    const { pollConnectionLogin, startConnectionLogin } = await import('./auth')
+    const login = await startConnectionLogin()
     vi.setSystemTime(new Date('2026-06-19T12:11:00.000Z'))
 
-    await expect(pollMcpDeviceLogin(login.code, login.verificationKey)).resolves.toEqual({
+    await expect(pollConnectionLogin(login.code, login.verificationKey)).resolves.toEqual({
       status: 'expired',
     })
     expect(db.delete).toHaveBeenCalled()
   })
 
   it('returns the same approved API key across repeated polls and acknowledges delivered retries', async () => {
-    const { acknowledgeMcpDeviceLogin, pollMcpDeviceLogin, startMcpDeviceLogin } = await import(
+    const { acknowledgeConnectionLogin, pollConnectionLogin, startConnectionLogin } = await import(
       './auth'
     )
-    const login = await startMcpDeviceLogin()
+    const login = await startConnectionLogin()
     const fields = readCodeFields(login.code)
     const approvedState = {
       status: 'approved',
@@ -153,23 +153,23 @@ describe('MCP device login auth', () => {
       userId: 'user-1',
     }
     const approvedRow = {
-      id: 'device-login-row',
+      id: 'connection-login-row',
       value: JSON.stringify(approvedState),
       expiresAt: fields.expiresAt,
     }
     selectRows([approvedRow], [approvedRow])
     mockUpdateReturning()
 
-    const firstPoll = await pollMcpDeviceLogin(login.code, login.verificationKey)
-    const secondPoll = await pollMcpDeviceLogin(login.code, login.verificationKey)
+    const firstPoll = await pollConnectionLogin(login.code, login.verificationKey)
+    const secondPoll = await pollConnectionLogin(login.code, login.verificationKey)
 
     expect(firstPoll).toEqual(secondPoll)
     expect(firstPoll.status).toBe('approved')
-    if (firstPoll.status !== 'approved') throw new Error('Expected approved device login')
+    if (firstPoll.status !== 'approved') throw new Error('Expected approved connection login')
 
     selectRows([
       {
-        id: 'device-login-row',
+        id: 'connection-login-row',
         value: JSON.stringify({
           ...approvedState,
           deliveredAt: '2026-06-19T12:02:00.000Z',
@@ -179,7 +179,7 @@ describe('MCP device login auth', () => {
     ])
 
     await expect(
-      acknowledgeMcpDeviceLogin({
+      acknowledgeConnectionLogin({
         apiKey: firstPoll.apiKey,
         code: login.code,
         verificationKey: login.verificationKey,

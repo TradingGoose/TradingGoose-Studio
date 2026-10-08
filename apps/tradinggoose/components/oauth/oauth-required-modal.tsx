@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   getProviderIdFromServiceId,
@@ -19,6 +20,7 @@ import {
   parseProvider,
 } from '@/lib/oauth'
 import { startOAuthConnectFlow } from '@/lib/oauth/connect'
+import { getBaseUrl } from '@/lib/urls/utils'
 import { usePathname } from '@/i18n/navigation'
 import { formatTemplate } from '@/i18n/utils'
 import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
@@ -144,6 +146,7 @@ export function OAuthRequiredModal({
   const copy = useWorkflowBlockEditorCopy().oauthRequiredModal
   const pathname = usePathname()
   const { baseProvider } = parseProvider(provider)
+  const showRobinhoodHelper = isHosted && baseProvider === 'robinhood'
   const baseProviderConfig = OAUTH_PROVIDERS[baseProvider]
   const resolveExplicitServiceId = (candidate?: string) => {
     const normalized = candidate?.trim()
@@ -266,6 +269,23 @@ export function OAuthRequiredModal({
               </ul>
             </div>
           )}
+
+          {showRobinhoodHelper ? (
+            <div className='space-y-2 rounded-md border bg-muted/50 p-3'>
+              <p className='text-muted-foreground text-sm'>{copy.robinhoodHostedHelper}</p>
+              {[
+                ['macOS / Linux', `curl -fsSL ${getBaseUrl()}/connect/robinhood | sh`],
+                ['Windows PowerShell', `irm ${getBaseUrl()}/connect/robinhood | iex`],
+              ].map(([platform, command]) => (
+                <div key={platform} className='space-y-1'>
+                  <p className='font-medium text-xs'>{platform}</p>
+                  <pre className='overflow-x-auto rounded bg-background p-2 text-xs'>
+                    <code>{command}</code>
+                  </pre>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
         <DialogFooter className='flex flex-col gap-2 sm:flex-row'>
           <Button variant='outline' onClick={onClose} className='sm:order-1'>

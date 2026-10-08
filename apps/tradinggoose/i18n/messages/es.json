@@ -18397,7 +18397,8 @@
           "permissionsRequested": "Permisos solicitados",
           "cancel": "Cancelar",
           "connectService": "Conectar {serviceName}",
-          "connectNow": "Conectar ahora"
+          "connectNow": "Conectar ahora",
+          "robinhoodHostedHelper": "Ejecuta el comando correspondiente a tu sistema operativo en el mismo equipo que tu navegador y déjalo en ejecución. Después, selecciona Conectar ahora."
         },
         "dropdown": {
           "placeholder": "Selecciona una opción...",

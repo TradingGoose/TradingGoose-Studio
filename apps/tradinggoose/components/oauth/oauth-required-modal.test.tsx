@@ -9,6 +9,8 @@ import { OAuthRequiredModal } from './oauth-required-modal'
 
 const mockStartOAuthConnectFlow = vi.fn()
 
+vi.mock('@/lib/environment', () => ({ isHosted: true }))
+vi.mock('@/lib/urls/utils', () => ({ getBaseUrl: () => 'https://www.tradinggoose.ai' }))
 vi.mock('@/lib/oauth/connect', () => ({
   startOAuthConnectFlow: (...args: unknown[]) => mockStartOAuthConnectFlow(...args),
 }))
@@ -70,6 +72,36 @@ describe('OAuthRequiredModal', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
     expect(mockStartOAuthConnectFlow).toHaveBeenCalledWith({
       providerId: 'alpaca-paper',
+      callbackURL: '/workspace/ws-1/integrations',
+    })
+  })
+
+  it('shows the hosted Robinhood helper before starting the canonical OAuth flow', async () => {
+    act(() => {
+      root.render(
+        <OAuthRequiredModal isOpen onClose={vi.fn()} provider='robinhood' toolName='Trading' />
+      )
+    })
+
+    expect(document.body.textContent).toContain(
+      'curl -fsSL https://www.tradinggoose.ai/connect/robinhood | sh'
+    )
+    expect(document.body.textContent).toContain(
+      'irm https://www.tradinggoose.ai/connect/robinhood | iex'
+    )
+
+    const connectButton = Array.from(document.body.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Connect Now')
+    )
+    expect(connectButton).toBeTruthy()
+
+    await act(async () => {
+      connectButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      await Promise.resolve()
+    })
+
+    expect(mockStartOAuthConnectFlow).toHaveBeenCalledWith({
+      providerId: 'robinhood',
       callbackURL: '/workspace/ws-1/integrations',
     })
   })

@@ -14,6 +14,10 @@ import {
   getRobinhoodOAuthClientIdFromState,
   registerRobinhoodOAuthClient,
 } from './robinhood'
+import {
+  getRobinhoodOAuthRedirectUri,
+  ROBINHOOD_LOOPBACK_REDIRECT_URI,
+} from './robinhood-constants'
 
 describe('Robinhood OAuth registration', () => {
   beforeEach(() => {
@@ -25,22 +29,28 @@ describe('Robinhood OAuth registration', () => {
     limit.mockResolvedValue([])
   })
 
-  it.each([
-    ['http://localhost:3000/api/auth/oauth2/callback/robinhood', 'native'],
-    ['https://www.tradinggoose.ai/api/auth/oauth2/callback/robinhood', 'web'],
-  ] as const)('registers %s as a %s public client', async (redirectUri, applicationType) => {
-    await expect(registerRobinhoodOAuthClient(redirectUri)).resolves.toBe('registered-client')
+  it('registers the loopback callback as a native public client', async () => {
+    await expect(registerRobinhoodOAuthClient(ROBINHOOD_LOOPBACK_REDIRECT_URI)).resolves.toBe(
+      'registered-client'
+    )
 
     expect(registerClient).toHaveBeenCalledWith(
       'https://agent.robinhood.com/mcp/trading',
       expect.objectContaining({
         clientMetadata: expect.objectContaining({
-          application_type: applicationType,
-          redirect_uris: [redirectUri],
+          application_type: 'native',
+          redirect_uris: [ROBINHOOD_LOOPBACK_REDIRECT_URI],
           token_endpoint_auth_method: 'none',
         }),
       })
     )
+  })
+
+  it.each([
+    [false, 'http://localhost:3000/api/auth/oauth2/callback/robinhood'],
+    [true, ROBINHOOD_LOOPBACK_REDIRECT_URI],
+  ])('selects the canonical callback when hosted is %s', (hosted, expected) => {
+    expect(getRobinhoodOAuthRedirectUri('http://localhost:3000', hosted)).toBe(expected)
   })
 
   it('binds the registration to an authenticated link state', () => {
