@@ -41,13 +41,12 @@ if (Number(process.versions.node.split('.')[0]) < 18) {
     const error = requestUrl.searchParams.get('error')
     const issuer = requestUrl.searchParams.get('iss')
     const state = requestUrl.searchParams.get('state')
-    const validResponse =
-      (!!code && !error && issuer === robinhoodIssuer) || (!!error && !code)
+    const validResponse = (!!code && !error && issuer === robinhoodIssuer) || (!!error && !code)
     if (!state || !validResponse) {
       sendText(response, 400, 'Invalid OAuth callback')
       return
     }
-    callbackReceived = true
+    callbackReceived = !!code
 
     const hostedCallback = new URL(loopbackUrl.pathname, hostedOrigin)
     for (const parameter of forwardedParameters) {
@@ -60,7 +59,7 @@ if (Number(process.versions.node.split('.')[0]) < 18) {
       location: hostedCallback.toString(),
       'x-content-type-options': 'nosniff',
     })
-    response.end(() => server.close())
+    response.end(() => code && server.close())
   })
 
   const timeout = setTimeout(() => {

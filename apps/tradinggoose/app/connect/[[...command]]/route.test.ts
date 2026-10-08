@@ -2,7 +2,9 @@
  * @vitest-environment node
  */
 
-import { spawnSync } from 'child_process'
+import { spawn, spawnSync } from 'child_process'
+import { once } from 'events'
+import { get } from 'http'
 import { NextRequest } from 'next/server'
 import { describe, expect, it } from 'vitest'
 import { buildMcpInstallScript } from '../../../lib/mcp/install-script'
@@ -35,6 +37,15 @@ function expectShellScript(script: string) {
   })
   expect(shellCheck.status).toBe(0)
   expect(shellCheck.stderr).toBe('')
+}
+
+function getLocalStatus(url: string | URL) {
+  return new Promise<number | undefined>((resolve, reject) => {
+    get(url, (response) => {
+      response.resume()
+      resolve(response.statusCode)
+    }).once('error', reject)
+  })
 }
 
 describe('MCP install route', () => {
@@ -334,6 +345,36 @@ describe('Robinhood connection helper route', () => {
     expect(script).not.toContain('/api/auth/connect/')
     expect(script).not.toContain('access_token')
     expect(script).not.toContain('refresh_token')
+  })
+
+  it('does not consume the relay for an error callback', async () => {
+    const relay = spawn(
+      'sh',
+      ['-c', buildRobinhoodConnectScript('https://preview.example.test', 'sh')],
+      { stdio: ['ignore', 'pipe', 'pipe'] }
+    )
+    const relayExited = once(relay, 'exit')
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        relay.stdout.once('data', () => resolve())
+        relay.once('error', reject)
+        relay.once('exit', (code) => reject(new Error(`Relay exited with code ${code}`)))
+      })
+
+      await expect(
+        getLocalStatus(`${ROBINHOOD_LOOPBACK_REDIRECT_URI}?error=access_denied&state=bogus`)
+      ).resolves.toBe(302)
+      await expect(
+        getLocalStatus(
+          `${ROBINHOOD_LOOPBACK_REDIRECT_URI}?code=authorization-code&state=oauth-state&iss=${encodeURIComponent('https://agent.robinhood.com/mcp/trading')}`
+        )
+      ).resolves.toBe(302)
+      if (relay.exitCode === null) await relayExited
+      expect(relay.exitCode).toBe(0)
+    } finally {
+      if (relay.exitCode === null) relay.kill()
+    }
   })
 
   it('shell-quotes the embedded hosted origin', () => {
