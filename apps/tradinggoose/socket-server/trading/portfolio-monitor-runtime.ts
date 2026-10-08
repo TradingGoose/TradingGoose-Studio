@@ -14,7 +14,7 @@ import {
 } from '@/lib/monitors/portfolio-conditions'
 import {
   type PortfolioMonitorProviderConfig,
-  PortfolioMonitorProviderConfigSchema,
+  SupportedPortfolioMonitorProviderConfigSchema,
 } from '@/lib/monitors/portfolio-config'
 import { PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import type { PortfolioMonitorExecutionPayload } from '@/background/portfolio-monitor-execution'
@@ -89,7 +89,7 @@ const toConfig = (
   }
 ): PortfolioMonitorRuntimeConfig | null => {
   if (!workflowRow.workspaceId) return null
-  const providerConfig = PortfolioMonitorProviderConfigSchema.safeParse(row.providerConfig)
+  const providerConfig = SupportedPortfolioMonitorProviderConfigSchema.safeParse(row.providerConfig)
   if (!providerConfig.success) return null
 
   const monitor = providerConfig.data.monitor

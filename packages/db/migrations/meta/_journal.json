@@ -288,6 +288,13 @@
       "when": 1786662767610,
       "tag": "0040_lean_chat",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1791169461631,
+      "tag": "0041_outstanding_violations",
+      "breakpoints": true
     }
   ]
 }

@@ -66,86 +66,98 @@ describe('Tradier portfolio helpers', () => {
     })
   })
 
-  it('builds snapshot totals while keeping current balance metadata', async () => {
-    const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>
-
-    fetchMock
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            balances: {
-              account_number: 'ACC-123',
-              account_type: 'margin',
-              status: 'closed',
-              total_cash: '1200',
-              total_equity: '5400',
-              equity: '5400',
-              market_value: '4200',
-              open_pl: '250',
-              close_pl: '40',
-              current_requirement: '0',
-            },
-            margin: {
-              stock_buying_power: '6000',
-            },
-          }),
-          { status: 200 }
-        )
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            positions: {
-              position: [
-                {
-                  symbol: 'MSFT',
-                  quantity: '20',
-                  market_value: '4200',
-                  cost_basis: '3950',
-                  date_acquired: '2026-01-10',
-                },
-              ],
-            },
-          }),
-          { status: 200 }
-        )
-      )
-
-    const snapshot = await getPortfolioDetail({
-      ...tradierConnection,
-      tokenAccountId: 'oauth-account-1',
-      environment: 'live',
-      accessToken: 'token',
-      accountId: 'ACC-123',
-      portfolioIdentity: {
-        ...tradierConnection,
-        accountId: 'ACC-123',
-        accountName: 'Individual (ACC-123)',
-        accountType: 'cash',
-        accountStatus: 'active',
+  it.each([
+    ['margin', 'guide', { margin: { stock_buying_power: '6000' } }, 'margin', 6000],
+    ['cash', 'guide', { cash: { cash_available: '1200' } }, 'cash', 1200],
+    [
+      'pdt',
+      'reference',
+      {
+        margin: { stock_buying_power: '6000' },
+        pdt: { stock_buying_power: '8000' },
       },
-    })
+      'margin',
+      8000,
+    ],
+    ['margin', 'reference', { margin: { stock_buying_power: '6000' } }, 'margin', 6000],
+  ] as const)(
+    'builds %s snapshot totals from the %s balance shape',
+    async (accountType, shape, buyingPower, expectedAccountType, expectedBuyingPower) => {
+      const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>
+      const balances = {
+        account_number: 'ACC-123',
+        account_type: accountType,
+        status: 'closed',
+        total_cash: '1200',
+        total_equity: '5400',
+        equity: '5400',
+        market_value: '4200',
+        open_pl: '250',
+        close_pl: '40',
+        current_requirement: '0',
+      }
+      const balancesResponse =
+        shape === 'reference'
+          ? { balance: { balances, ...buyingPower } }
+          : { balances: { ...balances, ...buyingPower } }
 
-    expect(snapshot.accountName).toBe('Individual (ACC-123)')
-    expect(snapshot.accountType).toBe('margin')
-    expect(snapshot.accountStatus).toBe('closed')
-    expect(snapshot.summary).toMatchObject({
-      totalCashValue: 1200,
-      totalHoldingsValue: 4200,
-      totalPortfolioValue: 5400,
-      equity: 5400,
-      buyingPower: 6000,
-      totalRealizedPnl: 40,
-      totalUnrealizedPnl: 250,
-    })
-    expect(snapshot.positions).toHaveLength(1)
-    expect(snapshot.positions[0]?.listingIdentity).toEqual({
-      listing_id: 'MSFT',
-      base_id: '',
-      quote_id: '',
-      listing_type: 'default',
-    })
-  })
+      fetchMock
+        .mockResolvedValueOnce(new Response(JSON.stringify(balancesResponse), { status: 200 }))
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              positions: {
+                position: [
+                  {
+                    symbol: 'MSFT',
+                    quantity: '20',
+                    cost_basis: '3950',
+                    date_acquired: '2026-01-10',
+                  },
+                ],
+              },
+            }),
+            { status: 200 }
+          )
+        )
+
+      const snapshot = await getPortfolioDetail({
+        ...tradierConnection,
+        tokenAccountId: 'oauth-account-1',
+        environment: 'live',
+        accessToken: 'token',
+        accountId: 'ACC-123',
+        portfolioIdentity: {
+          ...tradierConnection,
+          accountId: 'ACC-123',
+          accountName: 'Individual (ACC-123)',
+          accountType: 'cash',
+          accountStatus: 'active',
+        },
+      })
+
+      expect(snapshot.accountName).toBe('Individual (ACC-123)')
+      expect(snapshot.accountType).toBe(expectedAccountType)
+      expect(snapshot.accountStatus).toBe('closed')
+      expect(snapshot.summary).toMatchObject({
+        totalCashValue: 1200,
+        totalHoldingsValue: 4200,
+        totalPortfolioValue: 5400,
+        equity: 5400,
+        buyingPower: expectedBuyingPower,
+        totalRealizedPnl: 40,
+        totalUnrealizedPnl: 250,
+      })
+      expect(snapshot.positions).toHaveLength(1)
+      expect(snapshot.positions[0]?.listingIdentity).toEqual({
+        listing_id: 'MSFT',
+        base_id: '',
+        quote_id: '',
+        listing_type: 'default',
+      })
+      expect(snapshot.positions[0]?.marketValue).toBeUndefined()
+    }
+  )
 
   it('maps supported windows and normalizes Tradier history rows', () => {
     expect(mapTradierPerformanceWindow('MAX')).toBe('ALL')

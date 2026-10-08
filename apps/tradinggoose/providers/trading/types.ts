@@ -237,6 +237,25 @@ export interface UnifiedTradingAccountSummary {
   freePortfolioValue?: number
 }
 
+export const TRADING_PORTFOLIO_MONITOR_METRICS = [
+  'summary.totalPortfolioValue',
+  'summary.totalCashValue',
+  'summary.totalHoldingsValue',
+  'summary.totalUnrealizedPnl',
+  'summary.buyingPower',
+  'summary.equity',
+  'positions.count',
+  'positions.totalMarketValue',
+  'positions.totalUnrealizedPnl',
+  'position.quantity',
+  'position.marketValue',
+  'position.unrealizedPnl',
+  'position.unrealizedPnlPercent',
+  'position.exists',
+] as const
+
+export type TradingPortfolioMonitorMetric = (typeof TRADING_PORTFOLIO_MONITOR_METRICS)[number]
+
 export type TradingPortfolioPerformanceWindow = '1D' | '1W' | '1M' | '3M' | 'YTD' | '1Y' | 'MAX'
 
 export interface UnifiedTradingPortfolioPerformancePoint {

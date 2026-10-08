@@ -7,7 +7,11 @@ import {
   getTradingPortfolioSupportedWindows,
   isTradingPortfolioWindowSupported,
 } from '@/providers/trading/portfolio'
-import { getTradingPortfolioDetailCapabilities } from '@/providers/trading/providers'
+import {
+  getTradingPortfolioDetailCapabilities,
+  getTradingPortfolioMonitorMetrics,
+} from '@/providers/trading/providers'
+import { TRADING_PORTFOLIO_MONITOR_METRICS } from '@/providers/trading/types'
 
 describe('Trading portfolio window contract', () => {
   it('reuses the provider definition supported window lists', () => {
@@ -24,5 +28,30 @@ describe('Trading portfolio window contract', () => {
     expect(isTradingPortfolioWindowSupported('alpaca', 'MAX')).toBe(false)
     expect(isTradingPortfolioWindowSupported('tradier', 'MAX')).toBe(true)
     expect(isTradingPortfolioWindowSupported('tradier', '3M')).toBe(false)
+  })
+
+  it('declares monitor metrics from each provider snapshot contract', () => {
+    expect(getTradingPortfolioMonitorMetrics('alpaca')).toEqual(TRADING_PORTFOLIO_MONITOR_METRICS)
+    expect(getTradingPortfolioMonitorMetrics('tradier')).toEqual([
+      'summary.totalPortfolioValue',
+      'summary.totalCashValue',
+      'summary.totalHoldingsValue',
+      'summary.totalUnrealizedPnl',
+      'summary.buyingPower',
+      'summary.equity',
+      'positions.count',
+      'position.quantity',
+      'position.exists',
+    ])
+    expect(getTradingPortfolioMonitorMetrics('robinhood')).toEqual([
+      'summary.totalPortfolioValue',
+      'summary.totalCashValue',
+      'summary.totalHoldingsValue',
+      'summary.buyingPower',
+      'summary.equity',
+      'positions.count',
+      'position.quantity',
+      'position.exists',
+    ])
   })
 })
