@@ -29,17 +29,19 @@ describe('Robinhood OAuth registration', () => {
     limit.mockResolvedValue([])
   })
 
-  it('registers the loopback callback as a native public client', async () => {
-    await expect(registerRobinhoodOAuthClient(ROBINHOOD_LOOPBACK_REDIRECT_URI)).resolves.toBe(
-      'registered-client'
-    )
+  it.each([
+    [ROBINHOOD_LOOPBACK_REDIRECT_URI, 'native'],
+    ['http://localhost:3000/api/auth/oauth2/callback/robinhood', 'native'],
+    ['https://studio.example.com/api/auth/oauth2/callback/robinhood', 'web'],
+  ] as const)('registers %s as a %s public client', async (redirectUri, applicationType) => {
+    await expect(registerRobinhoodOAuthClient(redirectUri)).resolves.toBe('registered-client')
 
     expect(registerClient).toHaveBeenCalledWith(
       'https://agent.robinhood.com/mcp/trading',
       expect.objectContaining({
         clientMetadata: expect.objectContaining({
-          application_type: 'native',
-          redirect_uris: [ROBINHOOD_LOOPBACK_REDIRECT_URI],
+          application_type: applicationType,
+          redirect_uris: [redirectUri],
           token_endpoint_auth_method: 'none',
         }),
       })

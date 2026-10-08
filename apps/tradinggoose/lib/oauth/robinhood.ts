@@ -7,15 +7,19 @@ import { ROBINHOOD_OAUTH_RESOURCE } from './robinhood-constants'
 const ROBINHOOD_CLIENT_ID_STATE_KEY = 'robinhoodClientId'
 
 export async function registerRobinhoodOAuthClient(redirectUri: string) {
+  const { hostname } = new URL(redirectUri)
   const clientMetadata = {
-    application_type: 'native',
+    application_type:
+      hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
+        ? 'native'
+        : 'web',
     client_name: 'TradingGoose Studio',
     redirect_uris: [redirectUri],
     grant_types: ['authorization_code', 'refresh_token'],
     response_types: ['code'],
     token_endpoint_auth_method: 'none',
   } satisfies Parameters<typeof registerClient>[1]['clientMetadata'] & {
-    application_type: 'native'
+    application_type: 'native' | 'web'
   }
   const registered = await registerClient(ROBINHOOD_OAUTH_RESOURCE, {
     metadata: {
