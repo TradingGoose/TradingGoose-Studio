@@ -55,14 +55,7 @@ if (Number(process.versions.node.split('.')[0]) < 18) {
     response.end()
   })
 
-  const timeout = setTimeout(() => {
-    server.close()
-    fail('Timed out waiting for Robinhood. Run the command again to retry.')
-  }, 10 * 60 * 1000)
-
-  server.on('close', () => clearTimeout(timeout))
   server.on('error', (error) => {
-    clearTimeout(timeout)
     fail(error.message)
   })
   server.listen(Number(loopbackUrl.port), '127.0.0.1', () => {

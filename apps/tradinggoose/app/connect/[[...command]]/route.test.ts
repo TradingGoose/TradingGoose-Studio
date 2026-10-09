@@ -346,6 +346,7 @@ describe('Robinhood connection helper route', () => {
     expect(script).toContain('issuer === robinhoodIssuer')
     expect(script).toContain('const hostedCallback = new URL(loopbackUrl.pathname, hostedOrigin)')
     expect(script).toContain('Use the Robinhood Connect control')
+    expect(script).not.toContain('setTimeout')
     expect(script).not.toContain('/api/auth/connect/')
     expect(script).not.toContain('access_token')
     expect(script).not.toContain('refresh_token')
