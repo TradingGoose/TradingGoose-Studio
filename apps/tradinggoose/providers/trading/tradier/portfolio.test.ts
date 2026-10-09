@@ -159,10 +159,10 @@ describe('Tradier portfolio helpers', () => {
     }
   )
 
-  it('rejects a snapshot response without balances', async () => {
+  it.each([{}, { balances: {} }])('rejects malformed balance response %#', async (response) => {
     const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>
     fetchMock
-      .mockResolvedValueOnce(new Response(JSON.stringify({}), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(response), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ positions: null }), { status: 200 }))
 
     await expect(
@@ -178,7 +178,7 @@ describe('Tradier portfolio helpers', () => {
           accountName: 'Individual (ACC-123)',
         },
       })
-    ).rejects.toThrow('Tradier balance response missing balances')
+    ).rejects.toThrow('Tradier balance response missing required totals')
   })
 
   it('maps supported windows and normalizes Tradier history rows', () => {

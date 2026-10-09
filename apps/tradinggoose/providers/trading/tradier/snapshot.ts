@@ -43,6 +43,12 @@ async function fetchTradierPositions(context: TradingPortfolioAccountContext) {
   })
 }
 
+const parseRequiredBalanceValue = (value: unknown) => {
+  if (typeof value === 'string' && !value.trim()) return undefined
+  if (typeof value !== 'string' && typeof value !== 'number') return undefined
+  return toFiniteNumber(value)
+}
+
 export async function getTradierTradingAccountSnapshot(
   context: TradingPortfolioAccountContext
 ): Promise<PortfolioDetail> {
@@ -53,13 +59,14 @@ export async function getTradierTradingAccountSnapshot(
 
   const rawPositions = extractTradierPositions(positionsResponse)
   const balances = extractTradierBalances(balancesResponse)
-  if (!balances) throw new Error('Tradier balance response missing balances')
+  const totalCashValue = parseRequiredBalanceValue(balances?.total_cash)
+  const totalPortfolioValue = parseRequiredBalanceValue(balances?.total_equity)
+  if (!balances || totalCashValue === undefined || totalPortfolioValue === undefined) {
+    throw new Error('Tradier balance response missing required totals')
+  }
   const positions = normalizeTradierPositions(rawPositions)
 
   const totalHoldingsValue = toFiniteNumber(balances.market_value)
-  const totalCashValue = toFiniteNumber(balances.total_cash) ?? 0
-  const totalPortfolioValue =
-    toFiniteNumber(balances.total_equity) ?? (totalHoldingsValue ?? 0) + totalCashValue
   const equity = toFiniteNumber(balances.equity) ?? totalPortfolioValue
   const totalUnrealizedPnl = toFiniteNumber(balances.open_pl)
   const providerAccountType =
