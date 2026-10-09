@@ -746,11 +746,12 @@ export const auth = betterAuth({
         typeof ctx.query?.error === 'string'
       ) {
         const { errorURL = '/error' } = await parseState(ctx)
-        const params = new URLSearchParams({ error: ctx.query.error })
+        const redirectURL = new URL(errorURL, getBaseUrl())
+        redirectURL.searchParams.set('error', ctx.query.error)
         if (typeof ctx.query.error_description === 'string') {
-          params.set('error_description', ctx.query.error_description)
+          redirectURL.searchParams.set('error_description', ctx.query.error_description)
         }
-        throw ctx.redirect(`${errorURL}${errorURL.includes('?') ? '&' : '?'}${params}`)
+        throw ctx.redirect(`${redirectURL.pathname}${redirectURL.search}${redirectURL.hash}`)
       }
 
       if (

@@ -81,11 +81,11 @@ describe('Robinhood OAuth linking', () => {
     expect(config.redirectURI).toBe(getRobinhoodOAuthRedirectUri(getBaseUrl(), isHosted))
   })
 
-  it('returns Robinhood consent errors to the saved integration callback', async () => {
+  it('returns Robinhood consent errors before the saved callback fragment', async () => {
     vi.mocked(parseState).mockResolvedValue({
       callbackURL: '/workspace/workspace-1/integrations?oauth_connected=robinhood',
       codeVerifier: 'verifier',
-      errorURL: '/workspace/workspace-1/integrations?oauth_connected=robinhood',
+      errorURL: '/workspace/workspace-1/integrations?oauth_connected=robinhood#node=2',
       expiresAt: Date.now() + 60_000,
     })
 
@@ -97,7 +97,7 @@ describe('Robinhood OAuth linking', () => {
 
     expect(response.status).toBe(302)
     expect(response.headers.get('location')).toBe(
-      '/workspace/workspace-1/integrations?oauth_connected=robinhood&error=access_denied&error_description=User+denied+access'
+      '/workspace/workspace-1/integrations?oauth_connected=robinhood&error=access_denied&error_description=User+denied+access#node=2'
     )
   })
 
