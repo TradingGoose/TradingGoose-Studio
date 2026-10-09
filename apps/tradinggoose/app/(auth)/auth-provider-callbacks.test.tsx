@@ -312,7 +312,9 @@ describe('integration provider feedback', () => {
     testState.searchParams = new URLSearchParams()
     integrationMocks.connectionsFailed = false
     integrationMocks.services[0].accounts = []
+    integrationMocks.services[0].isConnected = false
     integrationMocks.services[1].accounts = []
+    integrationMocks.services[1].isConnected = false
     integrationMocks.disconnect.mockResolvedValue(undefined)
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ 'google-drive': true })))
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
@@ -355,18 +357,31 @@ describe('integration provider feedback', () => {
       await flush()
     })
 
-  it.each([
-    [{ oauth_connected: 'drive' }, 'status', integrationCopy.successMessage],
-    [
-      { error: 'access_denied', error_description: 'The provider rejected access' },
-      'alert',
-      'The provider rejected access',
-    ],
-  ])('announces OAuth callback feedback', async (search, role, message) => {
-    await renderPage(search)
-    const feedback = container.querySelectorAll(`[role="${role}"]`)
-    expect(feedback).toHaveLength(1)
-    expect(feedback[0]).toHaveTextContent(message)
+  it('announces a confirmed OAuth connection', async () => {
+    integrationMocks.services[0].isConnected = true
+    integrationMocks.services[0].accounts = [{ id: 'account-1', name: 'Trading' }]
+
+    await renderPage({ oauth_connected: 'drive' })
+    expect(container.querySelector('[role="status"]')).toHaveTextContent(
+      integrationCopy.successMessage
+    )
+  })
+
+  it('announces an OAuth callback error', async () => {
+    await renderPage({
+      error: 'access_denied',
+      error_description: 'The provider rejected access',
+    })
+    expect(container.querySelector('[role="alert"]')).toHaveTextContent(
+      'The provider rejected access'
+    )
+  })
+
+  it('rejects a successful callback marker for a disconnected service', async () => {
+    await renderPage({ oauth_connected: 'drive' })
+    expect(container.querySelector('[role="alert"]')).toHaveTextContent(
+      integrationCopy.failures.oauth
+    )
   })
 
   it('preserves a successful OAuth callback marker when connections fail to load', async () => {

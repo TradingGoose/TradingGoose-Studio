@@ -160,7 +160,7 @@ export function Integrations() {
 
     router.replace(pathname)
     const service = services.find((candidate) => candidate.id === connectedServiceId)
-    if (!service) {
+    if (!service?.isConnected) {
       setActionFeedback({ kind: 'error', message: t('failures.oauth') })
       return
     }
