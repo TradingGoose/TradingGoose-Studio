@@ -1,17 +1,17 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { AlertCircle, Check, ChevronDown, ExternalLink, Search, Waypoints } from 'lucide-react'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { createLogger } from '@/lib/logs/console/logger'
-import { startOAuthConnectFlow } from '@/lib/oauth/connect'
 import { OAUTH_PROVIDERS } from '@/lib/oauth/oauth'
 import { cn } from '@/lib/utils'
 import { GlobalNavbarHeader } from '@/global-navbar'
@@ -35,27 +35,16 @@ export function Integrations() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const params = useParams()
-  const workspaceId = params.workspaceId as string
   const pendingServiceRef = useRef<HTMLDivElement>(null)
   const integrationActionLockRef = useRef(false)
+  const oauthConnectStartedRef = useRef(false)
   const queryClient = useQueryClient()
 
   const {
     data: services = [],
     isError: connectionsFailed,
     isPending: servicesPending,
-    refetch,
   } = useOAuthConnections()
-  const connectService = useMutation({
-    mutationFn: startOAuthConnectFlow,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: oauthConnectionsKeys.connections() })
-    },
-    onError: (error) => {
-      logger.error('OAuth connection error:', error)
-    },
-  })
   const disconnectService = useMutation({
     mutationFn: disconnectOAuthService,
     onMutate: async ({ accountId }) => {
@@ -90,6 +79,7 @@ export function Integrations() {
   })
   const [searchTerm, setSearchTerm] = useState('')
   const [isConnecting, setIsConnecting] = useState<string | null>(null)
+  const [connectService, setConnectService] = useState<ServiceInfo | null>(null)
   const [pendingService, setPendingService] = useState<string | null>(null)
   const [actionFeedback, setActionFeedback] = useState<IntegrationsFeedback | null>(null)
   const [showActionRequired, setShowActionRequired] = useState(false)
@@ -98,7 +88,7 @@ export function Integrations() {
   const [availabilityFailed, setAvailabilityFailed] = useState(false)
   const isLoading = (servicesPending && services.length === 0) || !availabilityLoaded
   const hasLoadFailure = connectionsFailed || availabilityFailed
-  const isPending = Boolean(isConnecting) || connectService.isPending || disconnectService.isPending
+  const isPending = Boolean(isConnecting) || disconnectService.isPending
   const visibleFeedback =
     actionFeedback?.kind === 'error'
       ? actionFeedback
@@ -155,85 +145,42 @@ export function Integrations() {
 
   // Check for OAuth callback
   useEffect(() => {
-    const code = searchParams.get('code')
-    const state = searchParams.get('state')
     const error = searchParams.get('error')
     const errorDescription = searchParams.get('error_description')
-    const trelloConnected = searchParams.get('trello_connected')
-
-    // Handle OAuth callback
-    if ((code && state) || trelloConnected === '1') {
-      setActionFeedback(null)
-      // This is an OAuth callback - try to restore state from localStorage
-      try {
-        const stored = localStorage.getItem('pending_oauth_state')
-        if (stored) {
-          const oauthState = JSON.parse(stored)
-          logger.info('OAuth callback with restored state:', oauthState)
-
-          // Mark as pending if we have context about what service was being connected
-          if (oauthState.serviceId) {
-            setPendingService(oauthState.serviceId)
-            setShowActionRequired(true)
-          }
-
-          // Clean up the state (one-time use)
-          localStorage.removeItem('pending_oauth_state')
-        } else {
-          logger.warn('OAuth callback but no state found in localStorage')
-        }
-      } catch (error) {
-        logger.error('Error loading OAuth state from localStorage:', error)
-        localStorage.removeItem('pending_oauth_state') // Clean up corrupted state
-      }
-
-      setActionFeedback({ kind: 'success', message: t('successMessage') })
-
-      // Refresh connections to show the new connection
-      refetch().catch((error) => logger.error('Failed to refresh services after OAuth', error))
-
-      // Clear the URL parameters
-      router.replace(`/workspace/${workspaceId}/integrations`)
-    } else if (error) {
+    if (error) {
       const message = errorDescription || t('failures.oauth')
       logger.error('OAuth error:', { error, errorDescription })
       setActionFeedback({ kind: 'error', message })
-      router.replace(`/workspace/${workspaceId}/integrations`)
+      router.replace(pathname)
+      return
     }
-  }, [refetch, router, searchParams, t, workspaceId])
+
+    const connectedServiceId = searchParams.get('oauth_connected')
+    if (!connectedServiceId || servicesPending || connectionsFailed) return
+
+    router.replace(pathname)
+    const service = services.find((candidate) => candidate.id === connectedServiceId)
+    if (!service?.isConnected) {
+      setActionFeedback({ kind: 'error', message: t('failures.oauth') })
+      return
+    }
+
+    setPendingService(service.id)
+    setShowActionRequired(true)
+    setActionFeedback({ kind: 'success', message: t('successMessage') })
+  }, [connectionsFailed, pathname, router, searchParams, services, servicesPending, t])
 
   // Handle connect button click
-  const handleConnect = async (service: ServiceInfo) => {
+  const openConnectModal = useCallback((service: ServiceInfo) => {
+    setIsConnecting(service.id)
+    setConnectService(service)
+  }, [])
+
+  const handleConnect = (service: ServiceInfo) => {
     if (integrationActionLockRef.current || isPending) return
     integrationActionLockRef.current = true
-
-    try {
-      setIsConnecting(service.id)
-      setActionFeedback(null)
-
-      logger.info('Connecting service:', {
-        serviceId: service.id,
-        providerId: service.providerId,
-        scopes: service.scopes,
-      })
-
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(
-          'pending_oauth_state',
-          JSON.stringify({ serviceId: service.id, scopes: service.scopes })
-        )
-      }
-
-      await connectService.mutateAsync({
-        providerId: service.providerId,
-        callbackURL: `${pathname}${window.location.search}${window.location.hash}`,
-      })
-    } catch {
-      setActionFeedback({ kind: 'error', message: t('failures.oauth') })
-    } finally {
-      integrationActionLockRef.current = false
-      setIsConnecting(null)
-    }
+    setActionFeedback(null)
+    openConnectModal(service)
   }
 
   // Handle disconnect button click
@@ -269,6 +216,26 @@ export function Integrations() {
     if (!availabilityLoaded) return []
     return services.filter((service) => Boolean(providerAvailability[service.providerId]))
   }, [services, providerAvailability, availabilityLoaded])
+
+  const requestedServiceId = searchParams.get('connect')
+  useEffect(() => {
+    if (!requestedServiceId || !availabilityLoaded || servicesPending || hasLoadFailure) return
+
+    router.replace(pathname)
+    const service = connectibleServices.find((candidate) => candidate.id === requestedServiceId)
+    if (service) openConnectModal(service)
+    else setActionFeedback({ kind: 'error', message: t('failures.oauth') })
+  }, [
+    availabilityLoaded,
+    connectibleServices,
+    hasLoadFailure,
+    openConnectModal,
+    pathname,
+    requestedServiceId,
+    router,
+    servicesPending,
+    t,
+  ])
 
   // Group services by provider
   const groupedServices = connectibleServices.reduce(
@@ -527,6 +494,35 @@ export function Integrations() {
           </div>
         </div>
       </div>
+      {connectService ? (
+        <OAuthRequiredModal
+          isOpen
+          onClose={() => {
+            setConnectService(null)
+            if (!oauthConnectStartedRef.current) {
+              integrationActionLockRef.current = false
+              setIsConnecting(null)
+            }
+          }}
+          onConnectStart={() => {
+            oauthConnectStartedRef.current = true
+          }}
+          onConnectError={() => {
+            setConnectService(null)
+            setActionFeedback({ kind: 'error', message: t('failures.oauth') })
+          }}
+          onConnectSettled={() => {
+            oauthConnectStartedRef.current = false
+            integrationActionLockRef.current = false
+            setIsConnecting(null)
+          }}
+          provider={connectService.providerId}
+          toolName={connectService.name}
+          callbackURL={`${pathname}?oauth_connected=${encodeURIComponent(connectService.id)}`}
+          requiredScopes={connectService.scopes}
+          serviceId={connectService.id}
+        />
+      ) : null}
     </>
   )
 }

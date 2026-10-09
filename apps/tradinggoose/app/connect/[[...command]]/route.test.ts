@@ -2,10 +2,18 @@
  * @vitest-environment node
  */
 
-import { spawnSync } from 'child_process'
+import { spawn, spawnSync } from 'child_process'
+import { once } from 'events'
+import { get } from 'http'
 import { NextRequest } from 'next/server'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { buildMcpInstallScript } from '../../../lib/mcp/install-script'
+import { buildRobinhoodConnectScript } from '../../../lib/oauth/robinhood-connect-script'
+import { ROBINHOOD_LOOPBACK_REDIRECT_URI } from '../../../lib/oauth/robinhood-constants'
+
+vi.mock('../../../lib/urls/utils', () => ({
+  getBaseUrl: () => 'https://studio.example.test',
+}))
 
 async function callInstaller(
   pathname: string,
@@ -15,6 +23,13 @@ async function callInstaller(
 ) {
   const { GET } = await import('./route')
   return GET(new NextRequest(`${origin}${pathname}`, { headers }), {
+    params: Promise.resolve({ command: command === undefined ? ['mcp'] : ['mcp', ...command] }),
+  })
+}
+
+async function callHelper(pathname: string, command?: string[], headers?: HeadersInit) {
+  const { GET } = await import('./route')
+  return GET(new NextRequest(`https://preview.example.test${pathname}`, { headers }), {
     params: Promise.resolve({ command }),
   })
 }
@@ -28,17 +43,23 @@ function expectShellScript(script: string) {
   expect(shellCheck.stderr).toBe('')
 }
 
+function getLocalStatus(url: string | URL) {
+  return new Promise<{ location: string | undefined; status: number | undefined }>(
+    (resolve, reject) => {
+      get(url, (response) => {
+        response.resume()
+        resolve({
+          location: response.headers.location,
+          status: response.statusCode,
+        })
+      }).once('error', reject)
+    }
+  )
+}
+
 describe('MCP install route', () => {
-  beforeEach(() => {
-    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://studio.example.test')
-  })
-
-  afterEach(() => {
-    vi.unstubAllEnvs()
-  })
-
-  it('serves the default setup script at /mcp', async () => {
-    const response = await callInstaller('/mcp')
+  it('serves the default setup script at /connect/mcp', async () => {
+    const response = await callInstaller('/connect/mcp')
     const script = await response.text()
 
     expectShellScript(script)
@@ -46,14 +67,14 @@ describe('MCP install route', () => {
     expect(script).toContain("BASE_URL='https://studio.example.test'")
     expect(script).toContain('COMMAND="setup"')
     expect(script).toContain('TARGETS=""')
-    expect(script).toContain('curl -fsSL <studio-url>/mcp/setup | sh')
-    expect(script).toContain('curl -fsSL <studio-url>/mcp/setup/codex | sh')
-    expect(script).toContain('curl -fsSL <studio-url>/mcp/login | sh')
-    expect(script).toContain('irm <studio-url>/mcp/setup | iex')
-    expect(script).toContain('irm <studio-url>/mcp/setup/codex | iex')
-    expect(script).toContain('irm <studio-url>/mcp/login | iex')
-    expect(script).toContain("baseUrl + '/api/auth/mcp/start'")
-    expect(script).toContain("baseUrl + '/api/auth/mcp/poll'")
+    expect(script).toContain('curl -fsSL <studio-url>/connect/mcp/setup | sh')
+    expect(script).toContain('curl -fsSL <studio-url>/connect/mcp/setup/codex | sh')
+    expect(script).toContain('curl -fsSL <studio-url>/connect/mcp/login | sh')
+    expect(script).toContain('irm <studio-url>/connect/mcp/setup | iex')
+    expect(script).toContain('irm <studio-url>/connect/mcp/setup/codex | iex')
+    expect(script).toContain('irm <studio-url>/connect/mcp/login | iex')
+    expect(script).toContain("baseUrl + '/api/auth/connect/start'")
+    expect(script).toContain("baseUrl + '/api/auth/connect/poll'")
     expect(script).toContain('const verificationKey = String(start?.verificationKey ||')
     expect(script).toContain('return { code, verificationKey, token }')
     expect(script).toContain('async function acknowledge(login)')
@@ -122,7 +143,7 @@ describe('MCP install route', () => {
   })
 
   it('reuses a valid saved key instead of minting a duplicate', async () => {
-    const response = await callInstaller('/mcp')
+    const response = await callInstaller('/connect/mcp')
     const script = await response.text()
 
     // Stored under our own config dir at 0600.
@@ -141,7 +162,7 @@ describe('MCP install route', () => {
   })
 
   it('never treats an unverifiable saved key as authenticated', async () => {
-    const response = await callInstaller('/mcp')
+    const response = await callInstaller('/connect/mcp')
     const script = await response.text()
 
     // The endpoint rate-limits before it authenticates, so 429/503/500 prove
@@ -166,7 +187,7 @@ describe('MCP install route', () => {
   })
 
   it('serves target-specific setup scripts from the URL path', async () => {
-    const response = await callInstaller('/mcp/setup/codex', ['setup', 'codex'])
+    const response = await callInstaller('/connect/mcp/setup/codex', ['setup', 'codex'])
     const script = await response.text()
 
     expectShellScript(script)
@@ -176,15 +197,15 @@ describe('MCP install route', () => {
 
   it('uses configured and quoted installer base URLs', async () => {
     const response = await callInstaller(
-      '/mcp',
+      '/connect/mcp',
       undefined,
       undefined,
-      'https://request.example.test'
+      'http://0.0.0.0:3000'
     )
     const script = await response.text()
 
     expect(script).toContain("BASE_URL='https://studio.example.test'")
-    expect(script).not.toContain("BASE_URL='https://request.example.test'")
+    expect(script).not.toContain('http://0.0.0.0:3000')
 
     const shellScript = buildMcpInstallScript(
       "https://studio.example.test/$(touch pwn)`bad`'quote",
@@ -211,7 +232,7 @@ describe('MCP install route', () => {
   })
 
   it('serves PowerShell scripts for PowerShell clients', async () => {
-    const response = await callInstaller('/mcp/setup/codex', ['setup', 'codex'], {
+    const response = await callInstaller('/connect/mcp/setup/codex', ['setup', 'codex'], {
       'user-agent': 'Mozilla/5.0 PowerShell/7.5',
     })
     const script = await response.text()
@@ -220,14 +241,14 @@ describe('MCP install route', () => {
     expect(script).toContain("$BaseUrl = 'https://studio.example.test'")
     expect(script).toContain("$Command = 'setup'")
     expect(script).toContain("$Targets = @('codex')")
-    expect(script).toContain('irm <studio-url>/mcp/setup | iex')
+    expect(script).toContain('irm <studio-url>/connect/mcp/setup | iex')
     // Same temp-file execution as the POSIX path, so the console stays on stdin.
     expect(script).toContain(
       'Set-Content -LiteralPath $ScriptPath -Value $NodeScript -Encoding UTF8'
     )
     expect(script).toContain("& node $ScriptPath $BaseUrl $Command ($Targets -join ' ')")
     expect(script).not.toContain('| & node -')
-    expect(script).toContain("baseUrl + '/api/auth/mcp/start'")
+    expect(script).toContain("baseUrl + '/api/auth/connect/start'")
     expect(script).toContain('ackApiKey: login.token')
     expect(script).not.toContain("runConfigWriter(['read-tokens'])")
     expect(script).not.toContain("method: 'ping'")
@@ -240,7 +261,7 @@ describe('MCP install route', () => {
   })
 
   it('serves login scripts from the URL path', async () => {
-    const response = await callInstaller('/mcp/login', ['login'])
+    const response = await callInstaller('/connect/mcp/login', ['login'])
     const script = await response.text()
 
     expectShellScript(script)
@@ -251,7 +272,7 @@ describe('MCP install route', () => {
   it.each(['claude', 'cursor', 'opencode', 'codex', 'antigravity', 'gemini'])(
     'serves a setup script for the %s target',
     async (target) => {
-      const response = await callInstaller(`/mcp/setup/${target}`, ['setup', target])
+      const response = await callInstaller(`/connect/mcp/setup/${target}`, ['setup', target])
       const script = await response.text()
 
       expectShellScript(script)
@@ -260,14 +281,14 @@ describe('MCP install route', () => {
   )
 
   it('expands the all target to every supported agent', async () => {
-    const response = await callInstaller('/mcp/setup/all', ['setup', 'all'])
+    const response = await callInstaller('/connect/mcp/setup/all', ['setup', 'all'])
     const script = await response.text()
 
     expect(script).toContain('TARGETS="claude cursor opencode codex antigravity gemini"')
   })
 
   it('renders the interactive target picker in the installer, not the shell', async () => {
-    const response = await callInstaller('/mcp')
+    const response = await callInstaller('/connect/mcp')
     const script = await response.text()
 
     // Target selection moved out of the shell into the node installer so it can
@@ -282,7 +303,7 @@ describe('MCP install route', () => {
   })
 
   it('uses the TradingGoose brand color rather than the Context7 green', async () => {
-    const response = await callInstaller('/mcp')
+    const response = await callInstaller('/connect/mcp')
     const script = await response.text()
 
     expect(script).toContain("'38;2;255;204;0'")
@@ -292,7 +313,7 @@ describe('MCP install route', () => {
   })
 
   it('reports configured versus reconfigured per agent', async () => {
-    const response = await callInstaller('/mcp')
+    const response = await callInstaller('/connect/mcp')
     const script = await response.text()
 
     expect(script).toContain(
@@ -302,9 +323,130 @@ describe('MCP install route', () => {
   })
 
   it('rejects unknown installer commands', async () => {
-    const response = await callInstaller('/mcp/authorize', ['authorize'])
+    const response = await callInstaller('/connect/mcp/authorize', ['authorize'])
 
     expect(response.status).toBe(404)
-    await expect(response.text()).resolves.toBe('Unknown MCP installer command\n')
+    await expect(response.text()).resolves.toBe('Unknown connection helper\n')
+  })
+})
+
+describe('Robinhood connection helper route', () => {
+  it('serves a loopback callback relay for the configured public origin', async () => {
+    const response = await callHelper('/connect/robinhood', ['robinhood'])
+    const script = await response.text()
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('Cache-Control')).toBe('no-store')
+    expect(response.headers.get('Content-Type')).toBe('text/x-shellscript; charset=utf-8')
+    expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff')
+    expectShellScript(script)
+    expect(script).toContain("HOSTED_ORIGIN='https://studio.example.test'")
+    expect(script).toContain(`LOOPBACK_REDIRECT_URI='${ROBINHOOD_LOOPBACK_REDIRECT_URI}'`)
+    expect(script).toContain("server.listen(Number(loopbackUrl.port), '127.0.0.1'")
+    expect(script).toContain(
+      "const forwardedParameters = ['code', 'state', 'iss', 'error', 'error_description']"
+    )
+    expect(script).toContain('response.writeHead(302')
+    expect(script).toContain('const robinhoodIssuer = "https://agent.robinhood.com/mcp/trading"')
+    expect(script).toContain('issuer === robinhoodIssuer')
+    expect(script).toContain('const hostedCallback = new URL(loopbackUrl.pathname, hostedOrigin)')
+    expect(script).toContain('Use the Robinhood Connect control')
+    expect(script).not.toContain('setTimeout')
+    expect(script).not.toContain('/api/auth/connect/')
+    expect(script).not.toContain('access_token')
+    expect(script).not.toContain('refresh_token')
+  })
+
+  it('keeps listening after forwarded callbacks', async () => {
+    const relayScript = buildRobinhoodConnectScript('https://preview.example.test', 'sh')
+      .replace(
+        "server.listen(Number(loopbackUrl.port), '127.0.0.1'",
+        "server.listen(0, '127.0.0.1'"
+      )
+      .replace(
+        "console.log('Robinhood connection helper is ready.')",
+        'console.log(server.address().port)'
+      )
+    const relay = spawn('sh', ['-c', relayScript], { stdio: ['ignore', 'pipe', 'pipe'] })
+    const relayExited = once(relay, 'exit')
+
+    try {
+      const relayPort = await new Promise<number>((resolve, reject) => {
+        relay.stdout.once('data', (output) => {
+          const port = Number.parseInt(output.toString(), 10)
+          if (!Number.isInteger(port) || port <= 0 || port > 65_535) {
+            reject(new Error(`Invalid relay port: ${output.toString().trim()}`))
+            return
+          }
+          resolve(port)
+        })
+        relay.once('error', reject)
+        relay.once('exit', (code) => reject(new Error(`Relay exited with code ${code}`)))
+      })
+      const loopbackUrl = new URL(ROBINHOOD_LOOPBACK_REDIRECT_URI)
+      loopbackUrl.port = String(relayPort)
+      const hostedCallback = 'https://preview.example.test/api/auth/oauth2/callback/robinhood'
+
+      await expect(
+        getLocalStatus(
+          `${loopbackUrl}?error=access_denied&error_description=User%20denied%20access&state=bogus`
+        )
+      ).resolves.toEqual({
+        location: `${hostedCallback}?state=bogus&error=access_denied&error_description=User+denied+access`,
+        status: 302,
+      })
+      await expect(
+        getLocalStatus(
+          `${loopbackUrl}?code=stale-code&state=stale-state&iss=${encodeURIComponent('https://agent.robinhood.com/mcp/trading')}`
+        )
+      ).resolves.toEqual({
+        location: `${hostedCallback}?code=stale-code&state=stale-state&iss=https%3A%2F%2Fagent.robinhood.com%2Fmcp%2Ftrading`,
+        status: 302,
+      })
+      await expect(
+        getLocalStatus(
+          `${loopbackUrl}?code=current-code&state=current-state&iss=${encodeURIComponent('https://agent.robinhood.com/mcp/trading')}`
+        )
+      ).resolves.toEqual({
+        location: `${hostedCallback}?code=current-code&state=current-state&iss=https%3A%2F%2Fagent.robinhood.com%2Fmcp%2Ftrading`,
+        status: 302,
+      })
+      expect(relay.exitCode).toBeNull()
+    } finally {
+      if (relay.exitCode === null) relay.kill()
+      await relayExited
+    }
+  })
+
+  it('shell-quotes the embedded hosted origin', () => {
+    const script = buildRobinhoodConnectScript("https://example.test/'$(touch unsafe)'", 'sh')
+
+    expectShellScript(script)
+    expect(script).toContain("HOSTED_ORIGIN='https://example.test/'\"'\"'$(touch unsafe)'\"'\"''")
+  })
+
+  it('serves a PowerShell relay to PowerShell clients', async () => {
+    const response = await callHelper('/connect/robinhood', ['robinhood'], {
+      'user-agent': 'PowerShell/7.5',
+    })
+    const script = await response.text()
+
+    expect(response.headers.get('Content-Type')).toBe('text/x-powershell; charset=utf-8')
+    expect(script).toContain("$HostedOrigin = 'https://studio.example.test'")
+    expect(script).toContain('$RelayScript | node - $HostedOrigin $LoopbackRedirectUri')
+    expect(script).not.toContain('#!/bin/sh')
+  })
+
+  it.each([
+    ['/connect', undefined],
+    ['/connect/alpaca', ['alpaca']],
+    ['/connect/robinhood/extra', ['robinhood', 'extra']],
+  ] as const)('returns 404 for unsupported path %s', async (pathname, command) => {
+    const response = await callHelper(pathname, command ? [...command] : undefined)
+
+    expect(response.status).toBe(404)
+    expect(response.headers.get('Cache-Control')).toBe('no-store')
+    expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff')
+    await expect(response.text()).resolves.toBe('Unknown connection helper\n')
   })
 })

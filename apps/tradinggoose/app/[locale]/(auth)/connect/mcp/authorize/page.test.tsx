@@ -6,10 +6,10 @@ const {
   mockGetSession,
   mockGetSessionCookie,
   mockHeaders,
-  mockCreateMcpDeviceLoginApprovalChallenge,
+  mockCreateConnectionLoginApprovalChallenge,
   mockRedirect,
 } = vi.hoisted(() => ({
-  mockCreateMcpDeviceLoginApprovalChallenge: vi.fn(),
+  mockCreateConnectionLoginApprovalChallenge: vi.fn(),
   mockGetSession: vi.fn(),
   mockGetSessionCookie: vi.fn(),
   mockHeaders: vi.fn(),
@@ -28,9 +28,9 @@ vi.mock('@/lib/auth', () => ({
   getSession: (...args: unknown[]) => mockGetSession(...args),
 }))
 
-vi.mock('@/lib/mcp/auth', () => ({
-  createMcpDeviceLoginApprovalChallenge: (...args: unknown[]) =>
-    mockCreateMcpDeviceLoginApprovalChallenge(...args),
+vi.mock('@/lib/connect/auth', () => ({
+  createConnectionLoginApprovalChallenge: (...args: unknown[]) =>
+    mockCreateConnectionLoginApprovalChallenge(...args),
 }))
 
 vi.mock('@/app/(auth)/components/auth-page-header', () => ({
@@ -72,7 +72,7 @@ describe('MCP authorize page', () => {
     mockHeaders.mockResolvedValue(new Headers())
     mockGetSessionCookie.mockReturnValue(null)
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
-    mockCreateMcpDeviceLoginApprovalChallenge.mockResolvedValue({
+    mockCreateConnectionLoginApprovalChallenge.mockResolvedValue({
       status: 'pending',
       approvalToken: 'approval-token',
       expiresAt: '2026-06-19T12:00:00.000Z',
@@ -88,13 +88,13 @@ describe('MCP authorize page', () => {
     })
     const markup = renderToStaticMarkup(result)
 
-    expect(mockCreateMcpDeviceLoginApprovalChallenge).toHaveBeenCalledWith({
+    expect(mockCreateConnectionLoginApprovalChallenge).toHaveBeenCalledWith({
       code: 'login-code',
       userId: 'user-1',
     })
     expect(markup).toContain('Aprobar clave API personal')
     expect(markup).toContain('method="post"')
-    expect(markup).toContain('action="/api/auth/mcp/authorize"')
+    expect(markup).toContain('action="/api/auth/connect/authorize"')
     expect(markup).toContain('name="approvalToken"')
     expect(markup).toContain('value="approval-token"')
   })

@@ -7,17 +7,17 @@ import { getStoredApiKey, isApiKeyFormat } from '@/lib/api-key/service'
 import { env } from '@/lib/env'
 import { getBaseUrl } from '@/lib/urls/utils'
 
-const DEVICE_LOGIN_TTL_MS = 10 * 60 * 1000
-const DEVICE_LOGIN_PREFIX = 'mcp:'
+const CONNECTION_LOGIN_TTL_MS = 10 * 60 * 1000
+const CONNECTION_LOGIN_PREFIX = 'connection:'
 const POLL_INTERVAL_SECONDS = 2
 
-type PendingDeviceLogin = {
+type PendingConnectionLogin = {
   status: 'pending'
   createdAt: string
   verificationKeyHash: string
 }
 
-type ApprovedDeviceLogin = {
+type ApprovedConnectionLogin = {
   status: 'approved'
   createdAt: string
   verificationKeyHash: string
@@ -27,40 +27,40 @@ type ApprovedDeviceLogin = {
   deliveredAt?: string
 }
 
-type DeviceLoginState =
-  | PendingDeviceLogin
-  | ApprovedDeviceLogin
+type ConnectionLoginState =
+  | PendingConnectionLogin
+  | ApprovedConnectionLogin
   | { status: 'cancelled'; verificationKeyHash: string }
-type DeviceLogin = {
+type ConnectionLogin = {
   id: string
-  state: DeviceLoginState
+  state: ConnectionLoginState
   expiresAt: Date
 }
-type PendingDeviceLoginRecord = DeviceLogin & { state: PendingDeviceLogin }
+type PendingConnectionLoginRecord = ConnectionLogin & { state: PendingConnectionLogin }
 
-export type McpDeviceLoginPollResult =
+export type ConnectionLoginPollResult =
   | { status: 'pending'; intervalSeconds: number; expiresAt: string }
   | { status: 'approved'; apiKey: string; expiresAt: string }
   | { status: 'invalid' }
   | { status: 'expired' }
 
-export type McpDeviceLoginAckResult =
+export type ConnectionLoginAckResult =
   | { status: 'acknowledged' }
   | { status: 'invalid' }
   | { status: 'expired' }
 
-export type McpDeviceLoginApprovalResult =
+export type ConnectionLoginApprovalResult =
   | { status: 'approved'; expiresAt: string }
   | { status: 'expired' }
   | { status: 'invalid' }
 
-export type McpDeviceLoginApprovalChallengeResult =
+export type ConnectionLoginApprovalChallengeResult =
   | { status: 'pending'; expiresAt: string; approvalToken: string }
   | { status: 'approved'; expiresAt: string }
   | { status: 'expired' }
   | { status: 'invalid' }
 
-export type McpDeviceLoginStartResult = {
+export type ConnectionLoginStartResult = {
   code: string
   verificationKey: string
   expiresAt: string
@@ -80,32 +80,32 @@ function hashValueMatches(value: string, expectedHash: string | undefined): bool
   )
 }
 
-function signDeviceLoginCode(unsignedCode: string): string {
+function signConnectionLoginCode(unsignedCode: string): string {
   return createHmac('sha256', env.INTERNAL_API_SECRET).update(unsignedCode).digest('base64url')
 }
 
-function getDeviceLoginDeploymentScope(): string {
+function getConnectionLoginDeploymentScope(): string {
   return hashValue(getBaseUrl())
 }
 
-function buildDeviceLoginId(code: string): string {
-  return `${DEVICE_LOGIN_PREFIX}${hashValue(`${getDeviceLoginDeploymentScope()}:${code}`)}`
+function buildConnectionLoginId(code: string): string {
+  return `${CONNECTION_LOGIN_PREFIX}${hashValue(`${getConnectionLoginDeploymentScope()}:${code}`)}`
 }
 
-function createDeviceLoginApprovalToken(code: string, userId: string): string {
-  return signDeviceLoginCode(`mcp-approval.${buildDeviceLoginId(code)}.${userId}`)
+function createConnectionLoginApprovalToken(code: string, userId: string): string {
+  return signConnectionLoginCode(`connection-approval.${buildConnectionLoginId(code)}.${userId}`)
 }
 
-function createDeviceLoginApiKey(code: string, verificationKey: string): string {
+function createConnectionLoginApiKey(code: string, verificationKey: string): string {
   const secret = createHmac('sha256', env.INTERNAL_API_SECRET)
-    .update(`mcp-api-key.${buildDeviceLoginId(code)}.${hashValue(verificationKey)}`)
+    .update(`connection-api-key.${buildConnectionLoginId(code)}.${hashValue(verificationKey)}`)
     .digest('base64url')
     .slice(0, 32)
   return `sk-tradinggoose-${secret}`
 }
 
 function approvalTokenMatches(code: string, userId: string, approvalToken: string): boolean {
-  const expectedToken = createDeviceLoginApprovalToken(code, userId)
+  const expectedToken = createConnectionLoginApprovalToken(code, userId)
   return (
     expectedToken.length === approvalToken.length &&
     timingSafeEqual(Buffer.from(expectedToken), Buffer.from(approvalToken))
@@ -113,14 +113,14 @@ function approvalTokenMatches(code: string, userId: string, approvalToken: strin
 }
 
 function signatureMatches(unsignedCode: string, signature: string): boolean {
-  const expectedSignature = signDeviceLoginCode(unsignedCode)
+  const expectedSignature = signConnectionLoginCode(unsignedCode)
   return (
     expectedSignature.length === signature.length &&
     timingSafeEqual(Buffer.from(expectedSignature), Buffer.from(signature))
   )
 }
 
-function createDeviceLogin({
+function createConnectionLogin({
   expiresAt,
   now,
   verificationKey,
@@ -134,23 +134,23 @@ function createDeviceLogin({
     randomBytes(32).toString('base64url'),
     String(now.getTime()),
     String(expiresAt.getTime()),
-    getDeviceLoginDeploymentScope(),
+    getConnectionLoginDeploymentScope(),
     verificationKeyHash,
   ].join('.')
-  const code = `${unsignedCode}.${signDeviceLoginCode(unsignedCode)}`
+  const code = `${unsignedCode}.${signConnectionLoginCode(unsignedCode)}`
   return {
     code,
-    id: buildDeviceLoginId(code),
+    id: buildConnectionLoginId(code),
     expiresAt,
     state: {
       status: 'pending',
       createdAt: now.toISOString(),
       verificationKeyHash,
-    } satisfies PendingDeviceLogin,
+    } satisfies PendingConnectionLogin,
   }
 }
 
-function parseDeviceLoginCode(code: string): DeviceLogin | null {
+function parseConnectionLoginCode(code: string): ConnectionLogin | null {
   const parts = code.split('.')
   if (parts.length !== 6) {
     return null
@@ -168,7 +168,7 @@ function parseDeviceLoginCode(code: string): DeviceLogin | null {
 
   const [, createdAtValue, expiresAtValue, deploymentScope, verificationKeyHash] = parts
   if (
-    deploymentScope !== getDeviceLoginDeploymentScope() ||
+    deploymentScope !== getConnectionLoginDeploymentScope() ||
     !verificationKeyHash ||
     !createdAtValue ||
     !expiresAtValue
@@ -184,7 +184,7 @@ function parseDeviceLoginCode(code: string): DeviceLogin | null {
   const expiresAt = new Date(expiresAtTime)
 
   return {
-    id: buildDeviceLoginId(code),
+    id: buildConnectionLoginId(code),
     state: {
       status: 'pending',
       createdAt: new Date(createdAtTime).toISOString(),
@@ -194,11 +194,11 @@ function parseDeviceLoginCode(code: string): DeviceLogin | null {
   }
 }
 
-function deviceLoginMatches(login: DeviceLogin, state = login.state) {
+function connectionLoginMatches(login: ConnectionLogin, state = login.state) {
   return and(eq(verification.id, login.id), eq(verification.value, JSON.stringify(state)))
 }
 
-function parseDeviceLoginState(value: string): DeviceLoginState | null {
+function parseConnectionLoginState(value: string): ConnectionLoginState | null {
   try {
     const parsed = JSON.parse(value) as Record<string, unknown>
     if (
@@ -206,7 +206,7 @@ function parseDeviceLoginState(value: string): DeviceLoginState | null {
       typeof parsed.createdAt === 'string' &&
       typeof parsed.verificationKeyHash === 'string'
     ) {
-      return parsed as PendingDeviceLogin
+      return parsed as PendingConnectionLogin
     }
     if (
       parsed.status === 'approved' &&
@@ -217,10 +217,10 @@ function parseDeviceLoginState(value: string): DeviceLoginState | null {
       (parsed.apiKeyHash === undefined || typeof parsed.apiKeyHash === 'string') &&
       (parsed.deliveredAt === undefined || typeof parsed.deliveredAt === 'string')
     ) {
-      return parsed as ApprovedDeviceLogin
+      return parsed as ApprovedConnectionLogin
     }
     if (parsed.status === 'cancelled' && typeof parsed.verificationKeyHash === 'string') {
-      return parsed as DeviceLoginState
+      return parsed as ConnectionLoginState
     }
     return null
   } catch {
@@ -228,11 +228,13 @@ function parseDeviceLoginState(value: string): DeviceLoginState | null {
   }
 }
 
-function isPendingDeviceLoginRecord(login: DeviceLogin): login is PendingDeviceLoginRecord {
+function isPendingConnectionLoginRecord(
+  login: ConnectionLogin
+): login is PendingConnectionLoginRecord {
   return login.state.status === 'pending'
 }
 
-async function readPersistedDeviceLogin(login: DeviceLogin, now: Date) {
+async function readPersistedConnectionLogin(login: ConnectionLogin, now: Date) {
   const [row] = await db
     .select({
       id: verification.id,
@@ -247,7 +249,7 @@ async function readPersistedDeviceLogin(login: DeviceLogin, now: Date) {
     return null
   }
 
-  const state = parseDeviceLoginState(row.value)
+  const state = parseConnectionLoginState(row.value)
   if (!state || row.expiresAt <= now) {
     await db.delete(verification).where(eq(verification.id, row.id))
     return null
@@ -260,8 +262,8 @@ async function readPersistedDeviceLogin(login: DeviceLogin, now: Date) {
   }
 }
 
-async function readDeviceLogin(code: string) {
-  const parsedLogin = parseDeviceLoginCode(code)
+async function readConnectionLogin(code: string) {
+  const parsedLogin = parseConnectionLoginCode(code)
   if (!parsedLogin) {
     return null
   }
@@ -272,12 +274,12 @@ async function readDeviceLogin(code: string) {
     return null
   }
 
-  return (await readPersistedDeviceLogin(parsedLogin, now)) ?? parsedLogin
+  return (await readPersistedConnectionLogin(parsedLogin, now)) ?? parsedLogin
 }
 
-async function updateDeviceLoginState(
-  login: DeviceLogin,
-  nextState: DeviceLoginState
+async function updateConnectionLoginState(
+  login: ConnectionLogin,
+  nextState: ConnectionLoginState
 ): Promise<boolean> {
   const [updated] = await db
     .update(verification)
@@ -285,25 +287,25 @@ async function updateDeviceLoginState(
       value: JSON.stringify(nextState),
       updatedAt: new Date(),
     })
-    .where(deviceLoginMatches(login))
+    .where(connectionLoginMatches(login))
     .returning({ id: verification.id })
 
   return Boolean(updated)
 }
 
-async function deleteExpiredDeviceLogins(now: Date) {
+async function deleteExpiredConnectionLogins(now: Date) {
   await db
     .delete(verification)
     .where(
       and(
-        like(verification.identifier, `${DEVICE_LOGIN_PREFIX}%`),
+        like(verification.identifier, `${CONNECTION_LOGIN_PREFIX}%`),
         lte(verification.expiresAt, now)
       )
     )
 }
 
-async function persistPendingDeviceLogin(login: PendingDeviceLoginRecord, now: Date) {
-  await deleteExpiredDeviceLogins(now)
+async function persistPendingConnectionLogin(login: PendingConnectionLoginRecord, now: Date) {
+  await deleteExpiredConnectionLogins(now)
   await db
     .insert(verification)
     .values({
@@ -316,14 +318,14 @@ async function persistPendingDeviceLogin(login: PendingDeviceLoginRecord, now: D
     })
     .onConflictDoNothing({ target: verification.id })
 
-  return readPersistedDeviceLogin(login, now)
+  return readPersistedConnectionLogin(login, now)
 }
 
-export async function startMcpDeviceLogin(): Promise<McpDeviceLoginStartResult> {
+export async function startConnectionLogin(): Promise<ConnectionLoginStartResult> {
   const verificationKey = randomBytes(32).toString('base64url')
   const now = new Date()
-  const expiresAt = new Date(now.getTime() + DEVICE_LOGIN_TTL_MS)
-  const login = createDeviceLogin({ expiresAt, now, verificationKey })
+  const expiresAt = new Date(now.getTime() + CONNECTION_LOGIN_TTL_MS)
+  const login = createConnectionLogin({ expiresAt, now, verificationKey })
 
   return {
     code: login.code,
@@ -333,19 +335,19 @@ export async function startMcpDeviceLogin(): Promise<McpDeviceLoginStartResult> 
   }
 }
 
-export async function createMcpDeviceLoginApprovalChallenge({
+export async function createConnectionLoginApprovalChallenge({
   code,
   userId,
 }: {
   code: string
   userId: string
-}): Promise<McpDeviceLoginApprovalChallengeResult> {
-  const parsedLogin = await readDeviceLogin(code)
+}): Promise<ConnectionLoginApprovalChallengeResult> {
+  const parsedLogin = await readConnectionLogin(code)
   if (!parsedLogin) {
     return { status: 'expired' }
   }
-  const login = isPendingDeviceLoginRecord(parsedLogin)
-    ? await persistPendingDeviceLogin(parsedLogin, new Date())
+  const login = isPendingConnectionLoginRecord(parsedLogin)
+    ? await persistPendingConnectionLogin(parsedLogin, new Date())
     : parsedLogin
   if (!login) return { status: 'expired' }
 
@@ -368,15 +370,15 @@ export async function createMcpDeviceLoginApprovalChallenge({
   return {
     status: 'pending',
     expiresAt: login.expiresAt.toISOString(),
-    approvalToken: createDeviceLoginApprovalToken(code, userId),
+    approvalToken: createConnectionLoginApprovalToken(code, userId),
   }
 }
 
-export async function pollMcpDeviceLogin(
+export async function pollConnectionLogin(
   code: string,
   verificationKey: string
-): Promise<McpDeviceLoginPollResult> {
-  const login = await readDeviceLogin(code)
+): Promise<ConnectionLoginPollResult> {
+  const login = await readConnectionLogin(code)
   if (!login) {
     return { status: 'expired' }
   }
@@ -400,7 +402,7 @@ export async function pollMcpDeviceLogin(
     return { status: 'expired' }
   }
 
-  const key = createDeviceLoginApiKey(code, verificationKey)
+  const key = createConnectionLoginApiKey(code, verificationKey)
   const apiKeyHash = hashValue(key)
   if (hashValueMatches(key, login.state.apiKeyHash)) {
     return {
@@ -413,8 +415,8 @@ export async function pollMcpDeviceLogin(
   const nextState = {
     ...login.state,
     apiKeyHash,
-  } satisfies ApprovedDeviceLogin
-  if (!(await updateDeviceLoginState(login, nextState))) {
+  } satisfies ApprovedConnectionLogin
+  if (!(await updateConnectionLoginState(login, nextState))) {
     return {
       status: 'pending',
       intervalSeconds: POLL_INTERVAL_SECONDS,
@@ -429,7 +431,7 @@ export async function pollMcpDeviceLogin(
   }
 }
 
-export async function acknowledgeMcpDeviceLogin({
+export async function acknowledgeConnectionLogin({
   apiKey: plainApiKey,
   code,
   verificationKey,
@@ -437,12 +439,12 @@ export async function acknowledgeMcpDeviceLogin({
   apiKey: string
   code: string
   verificationKey: string
-}): Promise<McpDeviceLoginAckResult> {
+}): Promise<ConnectionLoginAckResult> {
   if (!isApiKeyFormat(plainApiKey)) {
     return { status: 'invalid' }
   }
 
-  const login = await readDeviceLogin(code)
+  const login = await readConnectionLogin(code)
   if (!login) {
     return { status: 'expired' }
   }
@@ -452,7 +454,10 @@ export async function acknowledgeMcpDeviceLogin({
   }
 
   if (login.state.status === 'approved' && login.state.deliveredAt) {
-    return hashValueMatches(plainApiKey, hashValue(createDeviceLoginApiKey(code, verificationKey)))
+    return hashValueMatches(
+      plainApiKey,
+      hashValue(createConnectionLoginApiKey(code, verificationKey))
+    )
       ? { status: 'acknowledged' }
       : { status: 'invalid' }
   }
@@ -474,10 +479,10 @@ export async function acknowledgeMcpDeviceLogin({
         value: JSON.stringify({
           ...approvedState,
           deliveredAt: now.toISOString(),
-        } satisfies ApprovedDeviceLogin),
+        } satisfies ApprovedConnectionLogin),
         updatedAt: now,
       })
-      .where(deviceLoginMatches(login))
+      .where(connectionLoginMatches(login))
       .returning({ id: verification.id })
     if (!updated) {
       return false
@@ -486,7 +491,7 @@ export async function acknowledgeMcpDeviceLogin({
       id: nanoid(),
       userId: approvedState.userId,
       workspaceId: null,
-      name: `TradingGoose Personal API Key (MCP setup) ${now.toISOString()}`,
+      name: `TradingGoose Personal API Key (local connection) ${now.toISOString()}`,
       key: storedKey,
       type: 'personal',
       createdAt: now,
@@ -500,7 +505,7 @@ export async function acknowledgeMcpDeviceLogin({
 
   return { status: 'acknowledged' }
 }
-export async function approveMcpDeviceLogin({
+export async function approveConnectionLogin({
   approvalToken,
   code,
   userId,
@@ -508,8 +513,8 @@ export async function approveMcpDeviceLogin({
   approvalToken: string
   code: string
   userId: string
-}): Promise<McpDeviceLoginApprovalResult> {
-  const login = await readDeviceLogin(code)
+}): Promise<ConnectionLoginApprovalResult> {
+  const login = await readConnectionLogin(code)
   if (!login) {
     return { status: 'expired' }
   }
@@ -539,9 +544,9 @@ export async function approveMcpDeviceLogin({
     verificationKeyHash: login.state.verificationKeyHash,
     approvedAt,
     userId,
-  } satisfies ApprovedDeviceLogin
+  } satisfies ApprovedConnectionLogin
 
-  if (!(await updateDeviceLoginState(login, approvedState))) {
+  if (!(await updateConnectionLoginState(login, approvedState))) {
     return { status: 'invalid' }
   }
 
@@ -551,7 +556,7 @@ export async function approveMcpDeviceLogin({
   }
 }
 
-export async function cancelMcpDeviceLogin({
+export async function cancelConnectionLogin({
   approvalToken,
   code,
   userId,
@@ -560,7 +565,7 @@ export async function cancelMcpDeviceLogin({
   code: string
   userId: string
 }) {
-  const login = await readDeviceLogin(code)
+  const login = await readConnectionLogin(code)
   if (!login) {
     return { status: 'expired' }
   }
@@ -582,7 +587,7 @@ export async function cancelMcpDeviceLogin({
       }),
       updatedAt: new Date(),
     })
-    .where(deviceLoginMatches(login))
+    .where(connectionLoginMatches(login))
     .returning({ id: verification.id })
 
   if (!updated) {
