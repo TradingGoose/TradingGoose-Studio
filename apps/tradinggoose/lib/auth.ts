@@ -751,7 +751,8 @@ export const auth = betterAuth({
         if (typeof ctx.query.error_description === 'string') {
           redirectURL.searchParams.set('error_description', ctx.query.error_description)
         }
-        throw ctx.redirect(`${redirectURL.pathname}${redirectURL.search}${redirectURL.hash}`)
+        const redirectPath = `/${redirectURL.pathname.replace(/^\/+/, '')}`
+        throw ctx.redirect(`${redirectPath}${redirectURL.search}${redirectURL.hash}`)
       }
 
       if (

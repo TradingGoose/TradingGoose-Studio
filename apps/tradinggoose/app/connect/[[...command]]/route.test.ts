@@ -44,12 +44,17 @@ function expectShellScript(script: string) {
 }
 
 function getLocalStatus(url: string | URL) {
-  return new Promise<number | undefined>((resolve, reject) => {
-    get(url, (response) => {
-      response.resume()
-      resolve(response.statusCode)
-    }).once('error', reject)
-  })
+  return new Promise<{ location: string | undefined; status: number | undefined }>(
+    (resolve, reject) => {
+      get(url, (response) => {
+        response.resume()
+        resolve({
+          location: response.headers.location,
+          status: response.statusCode,
+        })
+      }).once('error', reject)
+    }
+  )
 }
 
 describe('MCP install route', () => {
@@ -380,20 +385,32 @@ describe('Robinhood connection helper route', () => {
       })
       const loopbackUrl = new URL(ROBINHOOD_LOOPBACK_REDIRECT_URI)
       loopbackUrl.port = String(relayPort)
+      const hostedCallback = 'https://preview.example.test/api/auth/oauth2/callback/robinhood'
 
-      await expect(getLocalStatus(`${loopbackUrl}?error=access_denied&state=bogus`)).resolves.toBe(
-        302
-      )
+      await expect(
+        getLocalStatus(
+          `${loopbackUrl}?error=access_denied&error_description=User%20denied%20access&state=bogus`
+        )
+      ).resolves.toEqual({
+        location: `${hostedCallback}?state=bogus&error=access_denied&error_description=User+denied+access`,
+        status: 302,
+      })
       await expect(
         getLocalStatus(
           `${loopbackUrl}?code=stale-code&state=stale-state&iss=${encodeURIComponent('https://agent.robinhood.com/mcp/trading')}`
         )
-      ).resolves.toBe(302)
+      ).resolves.toEqual({
+        location: `${hostedCallback}?code=stale-code&state=stale-state&iss=https%3A%2F%2Fagent.robinhood.com%2Fmcp%2Ftrading`,
+        status: 302,
+      })
       await expect(
         getLocalStatus(
           `${loopbackUrl}?code=current-code&state=current-state&iss=${encodeURIComponent('https://agent.robinhood.com/mcp/trading')}`
         )
-      ).resolves.toBe(302)
+      ).resolves.toEqual({
+        location: `${hostedCallback}?code=current-code&state=current-state&iss=https%3A%2F%2Fagent.robinhood.com%2Fmcp%2Ftrading`,
+        status: 302,
+      })
       expect(relay.exitCode).toBeNull()
     } finally {
       if (relay.exitCode === null) relay.kill()

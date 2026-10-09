@@ -81,11 +81,20 @@ describe('Robinhood OAuth linking', () => {
     expect(config.redirectURI).toBe(getRobinhoodOAuthRedirectUri(getBaseUrl(), isHosted))
   })
 
-  it('returns Robinhood consent errors before the saved callback fragment', async () => {
+  it.each([
+    {
+      name: 'relative callback',
+      errorURL: '/workspace/workspace-1/integrations?oauth_connected=robinhood#node=2',
+    },
+    {
+      name: 'same-origin callback with duplicate leading slashes',
+      errorURL: `${getBaseUrl()}//workspace/workspace-1/integrations?oauth_connected=robinhood#node=2`,
+    },
+  ])('returns Robinhood consent errors before the saved $name fragment', async ({ errorURL }) => {
     vi.mocked(parseState).mockResolvedValue({
       callbackURL: '/workspace/workspace-1/integrations?oauth_connected=robinhood',
       codeVerifier: 'verifier',
-      errorURL: '/workspace/workspace-1/integrations?oauth_connected=robinhood#node=2',
+      errorURL,
       expiresAt: Date.now() + 60_000,
     })
 
