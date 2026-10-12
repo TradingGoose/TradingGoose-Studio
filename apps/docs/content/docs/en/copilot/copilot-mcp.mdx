@@ -20,13 +20,13 @@ Install your preferred coding agent and make sure **Node.js 18 or newer** is ava
 ### macOS and Linux
 
 ```bash
-curl -fsSL https://www.tradinggoose.ai/mcp/setup | sh
+curl -fsSL https://www.tradinggoose.ai/connect/mcp/setup | sh
 ```
 
 ### Windows PowerShell
 
 ```powershell
-irm https://www.tradinggoose.ai/mcp/setup | iex
+irm https://www.tradinggoose.ai/connect/mcp/setup | iex
 ```
 
 ### Approve access and select clients
@@ -40,28 +40,28 @@ The installer creates a personal API key and saves it in `~/.tradinggoose/creden
 
 ### Install for a specific client
 
-Append a target to `/mcp/setup` to skip the client picker. For example, to configure Codex:
+Append a target to `/connect/mcp/setup` to skip the client picker. For example, to configure Codex:
 
 ```bash
-curl -fsSL https://www.tradinggoose.ai/mcp/setup/codex | sh
+curl -fsSL https://www.tradinggoose.ai/connect/mcp/setup/codex | sh
 ```
 
 ```powershell
-irm https://www.tradinggoose.ai/mcp/setup/codex | iex
+irm https://www.tradinggoose.ai/connect/mcp/setup/codex | iex
 ```
 
 The installer writes a user-level server entry named `TradingGoose`. These are the supported targets and default configuration locations; `~` means your home directory.
 
 | Client | Target path | Default configuration file |
 |--------|-------------|----------------------------|
-| Claude Code | `/mcp/setup/claude` | `~/.claude.json` |
-| Cursor | `/mcp/setup/cursor` | `~/.cursor/mcp.json` |
-| OpenCode | `/mcp/setup/opencode` | `~/.config/opencode/opencode.json` |
-| Codex | `/mcp/setup/codex` | `~/.codex/config.toml` |
-| Antigravity | `/mcp/setup/antigravity` | `~/.gemini/config/mcp_config.json` |
-| Gemini CLI | `/mcp/setup/gemini` | `~/.gemini/settings.json` |
+| Claude Code | `/connect/mcp/setup/claude` | `~/.claude.json` |
+| Cursor | `/connect/mcp/setup/cursor` | `~/.cursor/mcp.json` |
+| OpenCode | `/connect/mcp/setup/opencode` | `~/.config/opencode/opencode.json` |
+| Codex | `/connect/mcp/setup/codex` | `~/.codex/config.toml` |
+| Antigravity | `/connect/mcp/setup/antigravity` | `~/.gemini/config/mcp_config.json` |
+| Gemini CLI | `/connect/mcp/setup/gemini` | `~/.gemini/settings.json` |
 
-Use `/mcp/setup/all` to configure all six clients. A specific target or `all` also works without an interactive client picker; browser approval is still needed when no valid saved credential exists.
+Use `/connect/mcp/setup/all` to configure all six clients. A specific target or `all` also works without an interactive client picker; browser approval is still needed when no valid saved credential exists.
 
 For Claude Code, the installer also checks `CLAUDE_CONFIG_DIR` when set. For OpenCode, it updates an existing supported JSON or JSONC configuration if present. It preserves unrelated settings and replaces an existing `TradingGoose` entry when reconfiguring that client.
 
@@ -76,11 +76,11 @@ MCP authentication uses a **personal TradingGoose API key**. A workspace API key
 For a client without an installer target, use the login command to obtain the endpoint and authorization header:
 
 ```bash
-curl -fsSL https://www.tradinggoose.ai/mcp/login | sh
+curl -fsSL https://www.tradinggoose.ai/connect/mcp/login | sh
 ```
 
 ```powershell
-irm https://www.tradinggoose.ai/mcp/login | iex
+irm https://www.tradinggoose.ai/connect/mcp/login | iex
 ```
 
 Login authenticates when necessary and prints the connection details. It does not write a coding agent's MCP configuration.
@@ -144,7 +144,7 @@ To disconnect a single client, remove its `TradingGoose` MCP server entry. To re
 | Symptom | What to check |
 |---------|---------------|
 | Node is missing or too old | Install Node.js 18 or newer and ensure `node` is available in the terminal running setup. |
-| Setup requires an interactive terminal | Use a target URL such as `/mcp/setup/cursor`, or run the interactive command from a terminal. |
+| Setup requires an interactive terminal | Use a target URL such as `/connect/mcp/setup/cursor`, or run the interactive command from a terminal. |
 | Browser approval expires | Rerun setup or login and approve the new link within ten minutes. |
 | Saved credentials cannot be verified | Check Studio connectivity and retry. A rate limit or service error stops setup without replacing the saved key or client configurations. |
 | A client is not configured | Read that client's result in the installer output. Check the reported file and its permissions, then rerun its target command. |

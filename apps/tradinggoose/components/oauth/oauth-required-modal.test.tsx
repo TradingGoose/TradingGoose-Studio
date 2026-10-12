@@ -9,6 +9,8 @@ import { OAuthRequiredModal } from './oauth-required-modal'
 
 const mockStartOAuthConnectFlow = vi.fn()
 
+vi.mock('@/lib/environment', () => ({ isHosted: true }))
+vi.mock('@/lib/urls/utils', () => ({ getBaseUrl: () => 'https://www.tradinggoose.ai' }))
 vi.mock('@/lib/oauth/connect', () => ({
   startOAuthConnectFlow: (...args: unknown[]) => mockStartOAuthConnectFlow(...args),
 }))
@@ -41,12 +43,19 @@ describe('OAuthRequiredModal', () => {
 
   it('requires an explicit Alpaca live or paper connection when scopes match both services', async () => {
     const onClose = vi.fn()
+    const onConnectStart = vi.fn()
+    const onConnectError = vi.fn()
+    const onConnectSettled = vi.fn()
+    mockStartOAuthConnectFlow.mockRejectedValueOnce(new Error('link failed'))
 
     act(() => {
       root.render(
         <OAuthRequiredModal
           isOpen
           onClose={onClose}
+          onConnectStart={onConnectStart}
+          onConnectError={onConnectError}
+          onConnectSettled={onConnectSettled}
           provider='alpaca'
           toolName='Trading'
           requiredScopes={['trading', 'data']}
@@ -68,9 +77,52 @@ describe('OAuthRequiredModal', () => {
     })
 
     expect(onClose).toHaveBeenCalledTimes(1)
+    expect(onConnectStart).toHaveBeenCalledTimes(1)
+    expect(onConnectError).toHaveBeenCalledTimes(1)
+    expect(onConnectSettled).toHaveBeenCalledTimes(1)
     expect(mockStartOAuthConnectFlow).toHaveBeenCalledWith({
       providerId: 'alpaca-paper',
       callbackURL: '/workspace/ws-1/integrations',
     })
+  })
+
+  it('shows the hosted Robinhood helper before starting the canonical OAuth flow', async () => {
+    const onConnectSettled = vi.fn()
+    mockStartOAuthConnectFlow.mockResolvedValueOnce(undefined)
+
+    act(() => {
+      root.render(
+        <OAuthRequiredModal
+          isOpen
+          onClose={vi.fn()}
+          onConnectSettled={onConnectSettled}
+          provider='robinhood'
+          toolName='Trading'
+        />
+      )
+    })
+
+    expect(document.body.textContent).toContain(
+      'curl -fsSL https://www.tradinggoose.ai/connect/robinhood | sh'
+    )
+    expect(document.body.textContent).toContain(
+      'irm https://www.tradinggoose.ai/connect/robinhood | iex'
+    )
+
+    const connectButton = Array.from(document.body.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Connect Now')
+    )
+    expect(connectButton).toBeTruthy()
+
+    await act(async () => {
+      connectButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      await Promise.resolve()
+    })
+
+    expect(mockStartOAuthConnectFlow).toHaveBeenCalledWith({
+      providerId: 'robinhood',
+      callbackURL: '/workspace/ws-1/integrations',
+    })
+    expect(onConnectSettled).toHaveBeenCalledTimes(1)
   })
 })

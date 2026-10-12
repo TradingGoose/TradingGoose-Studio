@@ -2,7 +2,7 @@ import { sso } from '@better-auth/sso'
 import { stripe } from '@better-auth/stripe'
 import { db } from '@tradinggoose/db'
 import * as schema from '@tradinggoose/db/schema'
-import { betterAuth } from 'better-auth'
+import { betterAuth, parseState } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { APIError, createAuthMiddleware, getOAuthState } from 'better-auth/api'
 import { nextCookies } from 'better-auth/next-js'
@@ -52,7 +52,7 @@ import { resolveEmailLocale } from '@/lib/email/locale'
 import { addVerifiedUserEmailToAudience, sendEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { env, getEnv } from '@/lib/env'
-import { isEmailVerificationEnabled } from '@/lib/environment'
+import { isEmailVerificationEnabled, isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   getCanonicalScopesForProvider,
@@ -63,6 +63,10 @@ import {
   OAUTH_PROVIDERS,
 } from '@/lib/oauth'
 import { addRobinhoodOAuthClientToState, registerRobinhoodOAuthClient } from '@/lib/oauth/robinhood'
+import {
+  getRobinhoodOAuthRedirectUri,
+  ROBINHOOD_OAUTH_RESOURCE,
+} from '@/lib/oauth/robinhood-constants'
 import {
   getSystemOAuthClientCredentialsForRequest,
   setSystemOAuthClientIdForRequest,
@@ -190,17 +194,17 @@ function toSystemManagedGenericOAuthConfigs(configs: SystemManagedGenericOAuthCo
 
 function createRobinhoodOAuthConfig(): SystemManagedGenericOAuthConfig {
   const providerId = 'robinhood'
-  const resource = 'https://agent.robinhood.com/mcp/trading'
+  const redirectUri = getRobinhoodOAuthRedirectUri(getBaseUrl(), isHosted)
   return {
     providerId,
     authorizationUrl: 'https://robinhood.com/oauth',
     tokenUrl: 'https://api.robinhood.com/oauth2/token/',
-    authorizationUrlParams: { resource },
-    tokenUrlParams: { resource },
+    authorizationUrlParams: { resource: ROBINHOOD_OAUTH_RESOURCE },
+    tokenUrlParams: { resource: ROBINHOOD_OAUTH_RESOURCE },
     authentication: 'post',
     pkce: true,
     scopes: getCanonicalScopesForProvider(providerId),
-    redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/${providerId}`,
+    redirectURI: redirectUri,
     disableSignUp: true,
     getUserInfo: async (tokens) => {
       const linkUserId = (await getOAuthState())?.link?.userId
@@ -228,7 +232,7 @@ function createGenericOAuthPlugin(options: Parameters<typeof genericOAuth>[0]) {
       if (ctx.body?.providerId === 'robinhood') {
         try {
           const clientId = await registerRobinhoodOAuthClient(
-            `${getBaseUrl()}/api/auth/oauth2/callback/robinhood`
+            getRobinhoodOAuthRedirectUri(getBaseUrl(), isHosted)
           )
           setSystemOAuthClientIdForRequest('robinhood', clientId)
         } catch (error) {
@@ -736,6 +740,21 @@ export const auth = betterAuth({
   },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
+      if (
+        ctx.path === '/oauth2/callback/:providerId' &&
+        ctx.params?.providerId === 'robinhood' &&
+        typeof ctx.query?.error === 'string'
+      ) {
+        const { errorURL = '/error' } = await parseState(ctx)
+        const redirectURL = new URL(errorURL, getBaseUrl())
+        redirectURL.searchParams.set('error', ctx.query.error)
+        if (typeof ctx.query.error_description === 'string') {
+          redirectURL.searchParams.set('error_description', ctx.query.error_description)
+        }
+        const redirectPath = `/${redirectURL.pathname.replace(/^\/+/, '')}`
+        throw ctx.redirect(`${redirectPath}${redirectURL.search}${redirectURL.hash}`)
+      }
+
       if (
         (ctx.path.startsWith('/sign-in') || ctx.path.startsWith('/sign-up')) &&
         (env.ALLOWED_LOGIN_EMAILS || env.ALLOWED_LOGIN_DOMAINS)

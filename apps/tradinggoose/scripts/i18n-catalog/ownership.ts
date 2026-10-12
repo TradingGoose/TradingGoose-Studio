@@ -192,7 +192,7 @@ export const EXPLICIT_ROUTE_OWNERSHIP_RULES: readonly RouteOwnershipRule[] = [
     namespaces: ['auth.common', 'auth.error', 'auth.sso'],
   },
   {
-    pattern: '/mcp/authorize',
+    pattern: '/connect/mcp/authorize',
     defaultNamespace: 'auth.mcp',
     namespaces: ['auth.mcp'],
   },

@@ -14,6 +14,10 @@ import {
   getRobinhoodOAuthClientIdFromState,
   registerRobinhoodOAuthClient,
 } from './robinhood'
+import {
+  getRobinhoodOAuthRedirectUri,
+  ROBINHOOD_LOOPBACK_REDIRECT_URI,
+} from './robinhood-constants'
 
 describe('Robinhood OAuth registration', () => {
   beforeEach(() => {
@@ -26,8 +30,9 @@ describe('Robinhood OAuth registration', () => {
   })
 
   it.each([
+    [ROBINHOOD_LOOPBACK_REDIRECT_URI, 'native'],
     ['http://localhost:3000/api/auth/oauth2/callback/robinhood', 'native'],
-    ['https://www.tradinggoose.ai/api/auth/oauth2/callback/robinhood', 'web'],
+    ['https://studio.example.com/api/auth/oauth2/callback/robinhood', 'web'],
   ] as const)('registers %s as a %s public client', async (redirectUri, applicationType) => {
     await expect(registerRobinhoodOAuthClient(redirectUri)).resolves.toBe('registered-client')
 
@@ -41,6 +46,13 @@ describe('Robinhood OAuth registration', () => {
         }),
       })
     )
+  })
+
+  it.each([
+    [false, 'http://localhost:3000/api/auth/oauth2/callback/robinhood'],
+    [true, ROBINHOOD_LOOPBACK_REDIRECT_URI],
+  ])('selects the canonical callback when hosted is %s', (hosted, expected) => {
+    expect(getRobinhoodOAuthRedirectUri('http://localhost:3000', hosted)).toBe(expected)
   })
 
   it('binds the registration to an authenticated link state', () => {

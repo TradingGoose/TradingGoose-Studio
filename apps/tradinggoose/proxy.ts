@@ -78,33 +78,24 @@ function isCanonicalRouteHandlerPath(pathname: string) {
     pathname === '/llms.txt' ||
     pathname === '/llms-full.txt' ||
     pathname === '/manifest.webmanifest' ||
-    isMcpInstallScriptPath(pathname) ||
+    isConnectScriptPath(pathname) ||
     pathname === '/robots.txt' ||
     pathname === '/sitemap.xml'
   )
 }
 
-function isMcpInstallScriptPath(pathname: string) {
+function isConnectScriptPath(pathname: string) {
   const segments = pathname.split('/').filter(Boolean)
-  if (segments[0] !== 'mcp') {
-    return false
-  }
+  if (segments[0] !== 'connect') return false
+  if (segments[1] === 'robinhood') return segments.length === 2
+  if (segments[1] !== 'mcp') return false
+  if (segments.length === 2) return true
+  if (segments[2] === 'login') return segments.length === 3
+  if (segments[2] !== 'setup') return false
 
-  if (segments.length === 1) {
-    return true
-  }
-
-  if (segments[1] === 'login') {
-    return segments.length === 2
-  }
-
-  if (segments[1] !== 'setup') {
-    return false
-  }
-
-  const target = segments[2]
+  const target = segments[3]
   return (
-    segments.length === 2 || (segments.length === 3 && !!target && MCP_INSTALL_TARGETS.has(target))
+    segments.length === 3 || (segments.length === 4 && !!target && MCP_INSTALL_TARGETS.has(target))
   )
 }
 

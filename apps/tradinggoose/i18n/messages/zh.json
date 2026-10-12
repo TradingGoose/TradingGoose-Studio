@@ -18384,7 +18384,8 @@
           "permissionsRequested": "请求的权限",
           "cancel": "取消",
           "connectService": "连接 {serviceName}",
-          "connectNow": "立即连接"
+          "connectNow": "立即连接",
+          "robinhoodHostedHelper": "请在运行浏览器的同一台电脑上执行适用于你操作系统的命令并保持其运行，然后选择“立即连接”。"
         },
         "dropdown": {
           "placeholder": "选择一个选项...",

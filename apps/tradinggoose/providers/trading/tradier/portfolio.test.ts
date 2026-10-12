@@ -159,6 +159,28 @@ describe('Tradier portfolio helpers', () => {
     }
   )
 
+  it.each([{}, { balances: {} }])('rejects malformed balance response %#', async (response) => {
+    const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify(response), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ positions: null }), { status: 200 }))
+
+    await expect(
+      getPortfolioDetail({
+        ...tradierConnection,
+        tokenAccountId: 'oauth-account-1',
+        environment: 'live',
+        accessToken: 'token',
+        accountId: 'ACC-123',
+        portfolioIdentity: {
+          ...tradierConnection,
+          accountId: 'ACC-123',
+          accountName: 'Individual (ACC-123)',
+        },
+      })
+    ).rejects.toThrow('Tradier balance response missing required totals')
+  })
+
   it('maps supported windows and normalizes Tradier history rows', () => {
     expect(mapTradierPerformanceWindow('MAX')).toBe('ALL')
 
