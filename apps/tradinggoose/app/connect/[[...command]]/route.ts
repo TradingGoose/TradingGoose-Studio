@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
+import { normalizeCallbackUrl } from '../../../i18n/utils'
 import {
   buildMcpInstallScript,
   MCP_SETUP_AGENTS,
@@ -49,7 +50,12 @@ export async function GET(
   const command = (await params).command
   const format = resolveScriptFormat(request)
   if (command?.length === 1 && command[0] === 'robinhood') {
-    return createScriptResponse(buildRobinhoodConnectScript(getBaseUrl(), format), format)
+    const callbackURL = normalizeCallbackUrl(request.nextUrl.searchParams.get('callbackURL'))
+    if (!callbackURL) {
+      return new NextResponse('Invalid callback URL\n', { status: 400 })
+    }
+    const origin = getBaseUrl()
+    return createScriptResponse(buildRobinhoodConnectScript(origin, callbackURL, format), format)
   }
 
   const options = command?.[0] === 'mcp' ? parseMcpInstallOptions(command) : null

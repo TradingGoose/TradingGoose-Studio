@@ -18390,15 +18390,12 @@
           "delete": "Delete"
         },
         "oauthRequiredModal": {
-          "additionalAccessRequired": "Additional Access Required",
           "toolRequiresAccess": "The \"{toolName}\" tool requires access to your {providerName} account to function properly.",
           "connectProvider": "Connect {providerName}",
-          "connectProviderDescription": "You need to connect your {providerName} account to continue",
-          "permissionsRequested": "Permissions requested",
           "cancel": "Cancel",
           "connectService": "Connect {serviceName}",
           "connectNow": "Connect Now",
-          "robinhoodHostedHelper": "Run the command for your operating system on the same computer as your browser and leave it running. Then select Connect Now."
+          "robinhoodHostedHelper": "Run the command for your operating system. It will open Robinhood in your browser and keep the callback helper running."
         },
         "dropdown": {
           "placeholder": "Select an option...",

@@ -18377,15 +18377,12 @@
           "delete": "删除"
         },
         "oauthRequiredModal": {
-          "additionalAccessRequired": "需要额外访问权限",
           "toolRequiresAccess": "“{toolName}”工具需要访问你的 {providerName} 账户才能正常工作。",
           "connectProvider": "连接 {providerName}",
-          "connectProviderDescription": "你需要连接 {providerName} 账户才能继续",
-          "permissionsRequested": "请求的权限",
           "cancel": "取消",
           "connectService": "连接 {serviceName}",
           "connectNow": "立即连接",
-          "robinhoodHostedHelper": "请在运行浏览器的同一台电脑上执行适用于你操作系统的命令并保持其运行，然后选择“立即连接”。"
+          "robinhoodHostedHelper": "请执行适用于你操作系统的命令。该命令会在浏览器中打开 Robinhood，并保持回调助手运行。"
         },
         "dropdown": {
           "placeholder": "选择一个选项...",
