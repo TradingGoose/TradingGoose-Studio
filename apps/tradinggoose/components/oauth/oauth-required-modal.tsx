@@ -88,8 +88,11 @@ export function OAuthRequiredModal({
       ? explicitServiceIds
       : inferredServiceIds
   const effectiveServiceId = effectiveServiceIds[0] ?? provider
+  const resolvedCallbackURL =
+    callbackURL ??
+    `${pathname}${typeof window === 'undefined' ? '' : window.location.search + window.location.hash}`
   const robinhoodHelperUrl = new URL('/connect/robinhood', getBaseUrl())
-  robinhoodHelperUrl.searchParams.set('callbackURL', callbackURL ?? pathname)
+  robinhoodHelperUrl.searchParams.set('callbackURL', resolvedCallbackURL)
 
   // Default to base provider name and icon
   let providerName = baseProviderConfig?.name || provider
@@ -129,7 +132,7 @@ export function OAuthRequiredModal({
 
       await startOAuthConnectFlow({
         providerId,
-        callbackURL: callbackURL ?? `${pathname}${window.location.search}${window.location.hash}`,
+        callbackURL: resolvedCallbackURL,
       })
     } catch (error) {
       onConnectError?.()

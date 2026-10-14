@@ -101,6 +101,8 @@
       "privacyPolicy": "隐私政策",
       "and": "和",
       "returnHome": "返回首页",
+      "retry": "重试",
+      "goBack": "返回",
       "backToLogin": "返回登录",
       "backToSignup": "返回注册",
       "verifyEmail": "验证邮箱",

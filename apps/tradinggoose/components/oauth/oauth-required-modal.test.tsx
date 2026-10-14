@@ -31,6 +31,7 @@ describe('OAuthRequiredModal', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockEnvironment.isHosted = true
+    window.history.replaceState({}, '', '/workspace/ws-1/integrations')
     ;(
       globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
     ).IS_REACT_ACT_ENVIRONMENT = true
@@ -92,6 +93,7 @@ describe('OAuthRequiredModal', () => {
   })
 
   it('shows only the hosted Robinhood connection scripts', () => {
+    window.history.replaceState({}, '', '?tab=trading#accounts')
     act(() => {
       root.render(
         <OAuthRequiredModal isOpen onClose={vi.fn()} provider='robinhood' toolName='Trading' />
@@ -99,10 +101,10 @@ describe('OAuthRequiredModal', () => {
     })
 
     expect(document.body.textContent).toContain(
-      "curl -fsSL 'https://www.tradinggoose.ai/connect/robinhood?callbackURL=%2Fworkspace%2Fws-1%2Fintegrations' | sh"
+      "curl -fsSL 'https://www.tradinggoose.ai/connect/robinhood?callbackURL=%2Fworkspace%2Fws-1%2Fintegrations%3Ftab%3Dtrading%23accounts' | sh"
     )
     expect(document.body.textContent).toContain(
-      "irm 'https://www.tradinggoose.ai/connect/robinhood?callbackURL=%2Fworkspace%2Fws-1%2Fintegrations' | iex"
+      "irm 'https://www.tradinggoose.ai/connect/robinhood?callbackURL=%2Fworkspace%2Fws-1%2Fintegrations%3Ftab%3Dtrading%23accounts' | iex"
     )
 
     const buttons = Array.from(document.body.querySelectorAll('button'))
@@ -111,6 +113,7 @@ describe('OAuthRequiredModal', () => {
   })
 
   it('uses the normal OAuth action for Robinhood on a local instance', async () => {
+    window.history.replaceState({}, '', '?tab=trading#accounts')
     mockEnvironment.isHosted = false
     mockStartOAuthConnectFlow.mockResolvedValueOnce(undefined)
 
@@ -132,7 +135,7 @@ describe('OAuthRequiredModal', () => {
 
     expect(mockStartOAuthConnectFlow).toHaveBeenCalledWith({
       providerId: 'robinhood',
-      callbackURL: '/workspace/ws-1/integrations',
+      callbackURL: '/workspace/ws-1/integrations?tab=trading#accounts',
     })
   })
 })

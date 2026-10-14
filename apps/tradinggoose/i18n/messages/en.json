@@ -101,6 +101,8 @@
       "privacyPolicy": "Privacy Policy",
       "and": "and",
       "returnHome": "Return home",
+      "retry": "Try again",
+      "goBack": "Go back",
       "backToLogin": "Back to login",
       "backToSignup": "Back to signup",
       "verifyEmail": "Verify email",
