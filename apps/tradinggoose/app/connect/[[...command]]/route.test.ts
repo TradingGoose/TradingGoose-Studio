@@ -331,8 +331,12 @@ describe('MCP install route', () => {
 })
 
 describe('Robinhood connection helper route', () => {
-  it('serves a loopback callback relay for the configured public origin', async () => {
-    const response = await callHelper('/connect/robinhood', ['robinhood'])
+  it.each(['', 'https://studio.example.test'])('normalizes callback %s', async (origin) => {
+    const callbackURL = `${origin}/workspace/team/integrations?tab=trading#connections`
+    const response = await callHelper(
+      `/connect/robinhood?callbackURL=${encodeURIComponent(callbackURL)}`,
+      ['robinhood']
+    )
     const script = await response.text()
 
     expect(response.status).toBe(200)
@@ -340,25 +344,31 @@ describe('Robinhood connection helper route', () => {
     expect(response.headers.get('Content-Type')).toBe('text/x-shellscript; charset=utf-8')
     expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff')
     expectShellScript(script)
-    expect(script).toContain("HOSTED_ORIGIN='https://studio.example.test'")
-    expect(script).toContain(`LOOPBACK_REDIRECT_URI='${ROBINHOOD_LOOPBACK_REDIRECT_URI}'`)
-    expect(script).toContain("server.listen(Number(loopbackUrl.port), '127.0.0.1'")
     expect(script).toContain(
-      "const forwardedParameters = ['code', 'state', 'iss', 'error', 'error_description']"
+      "AUTHORIZE_URL='https://studio.example.test/connect/robinhood/authorize?callbackURL=%2Fworkspace%2Fteam%2Fintegrations%3Ftab%3Dtrading%23connections'"
     )
-    expect(script).toContain('response.writeHead(302')
-    expect(script).toContain('const robinhoodIssuer = "https://agent.robinhood.com/mcp/trading"')
-    expect(script).toContain('issuer === robinhoodIssuer')
-    expect(script).toContain('const hostedCallback = new URL(loopbackUrl.pathname, hostedOrigin)')
-    expect(script).toContain('Use the Robinhood Connect control')
-    expect(script).not.toContain('setTimeout')
-    expect(script).not.toContain('/api/auth/connect/')
+    expect(script).toContain('openBrowser(authorizeUrl)')
     expect(script).not.toContain('access_token')
     expect(script).not.toContain('refresh_token')
   })
 
+  it.each([
+    '/connect/robinhood',
+    `/connect/robinhood?callbackURL=${encodeURIComponent('https://attacker.example/workspace')}`,
+    `/connect/robinhood?callbackURL=${encodeURIComponent('https://preview.example.test/workspace')}`,
+  ])('rejects a missing or external callback URL', async (pathname) => {
+    const response = await callHelper(pathname, ['robinhood'])
+
+    expect(response.status).toBe(400)
+    await expect(response.text()).resolves.toBe('Invalid callback URL\n')
+  })
+
   it('keeps listening after forwarded callbacks', async () => {
-    const relayScript = buildRobinhoodConnectScript('https://preview.example.test', 'sh')
+    const relayScript = buildRobinhoodConnectScript(
+      'https://preview.example.test',
+      '/workspace',
+      'sh'
+    )
       .replace(
         "server.listen(Number(loopbackUrl.port), '127.0.0.1'",
         "server.listen(0, '127.0.0.1'"
@@ -367,6 +377,7 @@ describe('Robinhood connection helper route', () => {
         "console.log('Robinhood connection helper is ready.')",
         'console.log(server.address().port)'
       )
+      .replace('openBrowser(authorizeUrl)', '')
     const relay = spawn('sh', ['-c', relayScript], { stdio: ['ignore', 'pipe', 'pipe'] })
     const relayExited = once(relay, 'exit')
 
@@ -397,14 +408,6 @@ describe('Robinhood connection helper route', () => {
       })
       await expect(
         getLocalStatus(
-          `${loopbackUrl}?code=stale-code&state=stale-state&iss=${encodeURIComponent('https://agent.robinhood.com/mcp/trading')}`
-        )
-      ).resolves.toEqual({
-        location: `${hostedCallback}?code=stale-code&state=stale-state&iss=https%3A%2F%2Fagent.robinhood.com%2Fmcp%2Ftrading`,
-        status: 302,
-      })
-      await expect(
-        getLocalStatus(
           `${loopbackUrl}?code=current-code&state=current-state&iss=${encodeURIComponent('https://agent.robinhood.com/mcp/trading')}`
         )
       ).resolves.toEqual({
@@ -418,22 +421,19 @@ describe('Robinhood connection helper route', () => {
     }
   })
 
-  it('shell-quotes the embedded hosted origin', () => {
-    const script = buildRobinhoodConnectScript("https://example.test/'$(touch unsafe)'", 'sh')
-
-    expectShellScript(script)
-    expect(script).toContain("HOSTED_ORIGIN='https://example.test/'\"'\"'$(touch unsafe)'\"'\"''")
-  })
-
   it('serves a PowerShell relay to PowerShell clients', async () => {
-    const response = await callHelper('/connect/robinhood', ['robinhood'], {
-      'user-agent': 'PowerShell/7.5',
-    })
+    const response = await callHelper(
+      '/connect/robinhood?callbackURL=%2Fworkspace',
+      ['robinhood'],
+      { 'user-agent': 'PowerShell/7.5' }
+    )
     const script = await response.text()
 
     expect(response.headers.get('Content-Type')).toBe('text/x-powershell; charset=utf-8')
-    expect(script).toContain("$HostedOrigin = 'https://studio.example.test'")
-    expect(script).toContain('$RelayScript | node - $HostedOrigin $LoopbackRedirectUri')
+    expect(script).toContain(
+      "$AuthorizeUrl = 'https://studio.example.test/connect/robinhood/authorize?callbackURL=%2Fworkspace'"
+    )
+    expect(script).toContain('$RelayScript | node - $AuthorizeUrl')
     expect(script).not.toContain('#!/bin/sh')
   })
 

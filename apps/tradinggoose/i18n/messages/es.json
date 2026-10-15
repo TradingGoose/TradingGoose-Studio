@@ -101,6 +101,8 @@
       "privacyPolicy": "Política de privacidad",
       "and": "y",
       "returnHome": "Volver al inicio",
+      "retry": "Intentar de nuevo",
+      "goBack": "Volver",
       "backToLogin": "Volver a iniciar sesión",
       "backToSignup": "Volver a registrarse",
       "verifyEmail": "Verificar correo electrónico",
@@ -18390,15 +18392,12 @@
           "delete": "Eliminar"
         },
         "oauthRequiredModal": {
-          "additionalAccessRequired": "Se requiere acceso adicional",
           "toolRequiresAccess": "La herramienta \"{toolName}\" requiere acceso a tu cuenta de {providerName} para funcionar correctamente.",
           "connectProvider": "Conectar {providerName}",
-          "connectProviderDescription": "Necesitas conectar tu cuenta de {providerName} para continuar",
-          "permissionsRequested": "Permisos solicitados",
           "cancel": "Cancelar",
           "connectService": "Conectar {serviceName}",
           "connectNow": "Conectar ahora",
-          "robinhoodHostedHelper": "Ejecuta el comando correspondiente a tu sistema operativo en el mismo equipo que tu navegador y déjalo en ejecución. Después, selecciona Conectar ahora."
+          "robinhoodHostedHelper": "Ejecuta el comando en el mismo equipo que tu navegador. Abrirá Robinhood y mantendrá activo el asistente de retorno."
         },
         "dropdown": {
           "placeholder": "Selecciona una opción...",
