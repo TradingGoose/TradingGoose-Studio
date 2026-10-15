@@ -331,8 +331,8 @@ describe('MCP install route', () => {
 })
 
 describe('Robinhood connection helper route', () => {
-  it('serves a loopback callback relay for the configured public origin', async () => {
-    const callbackURL = '/workspace/team/integrations?tab=trading#connections'
+  it.each(['', 'https://studio.example.test'])('normalizes callback %s', async (origin) => {
+    const callbackURL = `${origin}/workspace/team/integrations?tab=trading#connections`
     const response = await callHelper(
       `/connect/robinhood?callbackURL=${encodeURIComponent(callbackURL)}`,
       ['robinhood']
@@ -355,6 +355,7 @@ describe('Robinhood connection helper route', () => {
   it.each([
     '/connect/robinhood',
     `/connect/robinhood?callbackURL=${encodeURIComponent('https://attacker.example/workspace')}`,
+    `/connect/robinhood?callbackURL=${encodeURIComponent('https://preview.example.test/workspace')}`,
   ])('rejects a missing or external callback URL', async (pathname) => {
     const response = await callHelper(pathname, ['robinhood'])
 

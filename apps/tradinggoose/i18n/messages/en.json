@@ -18397,7 +18397,7 @@
           "cancel": "Cancel",
           "connectService": "Connect {serviceName}",
           "connectNow": "Connect Now",
-          "robinhoodHostedHelper": "Run the command for your operating system. It will open Robinhood in your browser and keep the callback helper running."
+          "robinhoodHostedHelper": "Run the command on the same computer as your browser. It will open Robinhood and keep the callback helper running."
         },
         "dropdown": {
           "placeholder": "Select an option...",

@@ -35,7 +35,7 @@ function openBrowser(url) {
   const reportFailure = () => {
     if (reported) return
     reported = true
-    console.error('Could not open the browser automatically. Open this URL:\n' + url)
+    console.error('Could not open the browser automatically. Open this URL in a browser on the same computer running this helper:\n' + url)
   }
 
   const child = spawn(command, args, { detached: true, shell: false, stdio: 'ignore' })

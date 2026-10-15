@@ -50,11 +50,14 @@ export async function GET(
   const command = (await params).command
   const format = resolveScriptFormat(request)
   if (command?.length === 1 && command[0] === 'robinhood') {
-    const callbackURL = normalizeCallbackUrl(request.nextUrl.searchParams.get('callbackURL'))
+    const origin = getBaseUrl()
+    const callbackURL = normalizeCallbackUrl(
+      request.nextUrl.searchParams.get('callbackURL'),
+      origin
+    )
     if (!callbackURL) {
       return new NextResponse('Invalid callback URL\n', { status: 400 })
     }
-    const origin = getBaseUrl()
     return createScriptResponse(buildRobinhoodConnectScript(origin, callbackURL, format), format)
   }
 
