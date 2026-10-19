@@ -40,12 +40,12 @@ const stockListing = {
   listing_type: 'default' as const,
 }
 const now = '2026-10-19T12:00:00.000Z'
-const barsResponse = (symbol: string, time = now) =>
-  new Response(JSON.stringify({ bars: { [symbol]: [{ t: time, c: 100 }] } }))
+const barsResponse = (symbol: string, time = now, next_page_token: string | null = null) =>
+  new Response(JSON.stringify({ bars: { [symbol]: [{ t: time, c: 100 }] }, next_page_token }))
 
 describe('fetchAlpacaSeries bounds', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
     vi.stubGlobal('fetch', fetchMock)
     vi.spyOn(Date, 'now').mockReturnValue(Date.parse(now))
     mockResolveListingContext.mockResolvedValue({
@@ -58,7 +58,12 @@ describe('fetchAlpacaSeries bounds', () => {
     fetchMock.mockResolvedValue(barsResponse('BTC/USD'))
   })
 
-  it('requests the planned crypto month instead of the API default of today', async () => {
+  it('fetches the complete crypto month through short and empty continuation pages', async () => {
+    const first = '2026-09-20T12:00:00.000Z'
+    fetchMock
+      .mockResolvedValueOnce(barsResponse('BTC/USD', first, 'page-1'))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ bars: {}, next_page_token: 'page-2' })))
+      .mockResolvedValueOnce(barsResponse('BTC/USD'))
     const { request } = planMarketSeriesRequest('alpaca', {
       kind: 'series',
       listing: cryptoListing,
@@ -67,13 +72,19 @@ describe('fetchAlpacaSeries bounds', () => {
       providerParams: { range: '1d' },
     })
 
-    await fetchAlpacaSeries(request)
+    const result = await fetchAlpacaSeries(request)
 
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    const url = new URL(fetchMock.mock.calls[0][0])
-    expect(url.pathname).toBe('/v1beta3/crypto/us/bars')
-    expect(url.searchParams.get('start')).toBe('2026-09-19T12:00:00.000Z')
-    expect(url.searchParams.get('end')).toBe(now)
+    expect(result.bars.map((bar) => bar.timeStamp)).toEqual([first, now])
+    expect(result.end).toBe(now)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    for (const [index, token] of [null, 'page-1', 'page-2'].entries()) {
+      const url = new URL(fetchMock.mock.calls[index][0])
+      expect(url.pathname).toBe('/v1beta3/crypto/us/bars')
+      expect(url.searchParams.get('start')).toBe('2026-09-19T12:00:00.000Z')
+      expect(url.searchParams.get('end')).toBe(now)
+      expect(url.searchParams.get('limit')).toBe('1440')
+      expect(url.searchParams.get('page_token')).toBe(token)
+    }
   })
 
   it('keeps unbounded stock ranges anchored to the latest stock bar', async () => {
@@ -86,6 +97,7 @@ describe('fetchAlpacaSeries bounds', () => {
     mockResolveProviderSymbol.mockReturnValue('AAPL')
     fetchMock
       .mockResolvedValueOnce(new Response(JSON.stringify({ bars: { AAPL: { t: latest } } })))
+      .mockResolvedValueOnce(barsResponse('AAPL', '2026-10-12T19:59:00.000Z', 'stock-page-2'))
       .mockResolvedValueOnce(barsResponse('AAPL', latest))
     const { request } = planMarketSeriesRequest('alpaca', {
       kind: 'series',
@@ -95,16 +107,35 @@ describe('fetchAlpacaSeries bounds', () => {
       windows: [{ mode: 'range', range: { value: 5, unit: 'day' } }],
     })
 
-    await fetchAlpacaSeries(request)
+    const result = await fetchAlpacaSeries(request)
 
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(result.end).toBe(latest)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
     const latestUrl = new URL(fetchMock.mock.calls[0][0])
     expect(latestUrl.pathname).toBe('/v2/stocks/bars/latest')
     expect(latestUrl.searchParams.get('feed')).toBe('iex')
     const url = new URL(fetchMock.mock.calls[1][0])
     expect(url.searchParams.get('start')).toBe('2026-10-11T19:59:00.000Z')
     expect(url.searchParams.get('end')).toBe(latest)
+    expect(new URL(fetchMock.mock.calls[2][0]).searchParams.get('page_token')).toBe('stock-page-2')
   })
+
+  it.each(['failure', 'repeated token'] as const)(
+    'rejects pagination %s without partial success',
+    async (failure) => {
+      fetchMock
+        .mockResolvedValueOnce(barsResponse('BTC/USD', now, 'next'))
+        .mockResolvedValueOnce(
+          failure === 'failure'
+            ? new Response('Continuation failed', { status: 503 })
+            : barsResponse('BTC/USD', now, 'next')
+        )
+      await expect(
+        fetchAlpacaSeries({ kind: 'series', listing: cryptoListing, start: '2026-09-19', end: now })
+      ).rejects.toThrow(failure === 'failure' ? 'Continuation failed' : 'repeated pagination token')
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+    }
+  )
 
   it('preserves explicit bounds on a range window', async () => {
     const start = '2026-10-14T13:30:00.000Z'

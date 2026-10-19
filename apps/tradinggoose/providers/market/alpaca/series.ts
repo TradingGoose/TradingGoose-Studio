@@ -227,7 +227,7 @@ export async function fetchAlpacaSeries(request: MarketSeriesRequest): Promise<M
   if (start) url.searchParams.set('start', start)
   if (end) url.searchParams.set('end', end)
 
-  if (limit) url.searchParams.set('limit', String(limit))
+  if (limit) url.searchParams.set('limit', String(Math.min(Number(limit), 10_000)))
 
   const shouldDefaultSort = !sort && limit && !start && !end
   if (sort || shouldDefaultSort) {
@@ -248,11 +248,6 @@ export async function fetchAlpacaSeries(request: MarketSeriesRequest): Promise<M
       request.providerParams?.adjustment as string | undefined
     )
     if (adjustment) url.searchParams.set('adjustment', adjustment)
-
-    const pageToken =
-      (request.providerParams?.pageToken as string | undefined) ||
-      (request.providerParams?.page_token as string | undefined)
-    if (pageToken) url.searchParams.set('page_token', pageToken)
   }
 
   logger.info('Fetching Alpaca bars', {
@@ -267,37 +262,30 @@ export async function fetchAlpacaSeries(request: MarketSeriesRequest): Promise<M
     feed: market === 'stocks' ? url.searchParams.get('feed') : undefined,
   })
 
-  const response = await fetch(url.toString(), { headers })
-
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => '')
-    throw new Error(errorText || `Alpaca request failed with status ${response.status}`)
-  }
-
-  const payload = (await response.json()) as {
-    bars?: Record<string, any[]> | any[]
-    next_page_token?: string | null
-  }
-
-  const rawBars = resolveBars(payload, symbol)
-  if (!Array.isArray(rawBars) || !rawBars.length) {
-    const allowEmpty = request.providerParams?.allowEmpty === true
-    if (!allowEmpty) {
-      throw new Error('No bar data returned')
+  const rawBars: any[] = []
+  const pageTokens = new Set<string>()
+  while (true) {
+    const response = await fetch(url.toString(), { headers })
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '')
+      throw new Error(errorText || `Alpaca request failed with status ${response.status}`)
     }
-    const startTime = toIsoString(request.start)
-    const endTime = toIsoString(request.end)
-    return {
-      listing: context.listing,
-      listingBase: context.base,
-      listingQuote: context.quote,
-      marketCode: context.marketCode,
-      start: startTime,
-      end: endTime,
-      timezone: context.timeZoneName,
-      normalizationMode: request.normalizationMode,
-      bars: [],
+    const payload = (await response.json()) as {
+      bars?: Record<string, any[]> | any[]
+      next_page_token?: string | null
     }
+    const pageBars = resolveBars(payload, symbol)
+    if (Array.isArray(pageBars)) rawBars.push(...pageBars)
+    const token = payload.next_page_token
+    if (!token) break
+    if (pageTokens.has(token)) {
+      throw new Error('Alpaca returned a repeated pagination token')
+    }
+    pageTokens.add(token)
+    url.searchParams.set('page_token', token)
+  }
+  if (!rawBars.length && request.providerParams?.allowEmpty !== true) {
+    throw new Error('No bar data returned')
   }
 
   const bars: MarketBar[] = []
