@@ -1,6 +1,7 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
-import { intervalToMs, resolveCredentials, resolveMarket } from '@/providers/market/alpaca/series'
+import { resolveCredentials, resolveMarket } from '@/providers/market/alpaca/series'
+import { intervalToMs } from '@/providers/market/series-planner'
 import type { MarketBar, MarketLiveRequest, MarketLiveSnapshot } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 

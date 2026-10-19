@@ -3,6 +3,7 @@ import {
   getMarketProviderParamDefinitions,
   getMarketSeriesCapabilities,
 } from '@/providers/market/providers'
+import { intervalToMs } from '@/providers/market/series-planner'
 import {
   DEFAULT_RANGE_PRESETS,
   rangeToMs as resolveRangeMs,
@@ -17,7 +18,7 @@ import {
   type NormalizationMode,
 } from '@/providers/market/types'
 import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
-import { DEFAULT_BAR_COUNT, intervalToMs } from '@/widgets/widgets/data_chart/series-data'
+import { DEFAULT_BAR_COUNT } from '@/widgets/widgets/data_chart/series-data'
 
 export const rangeToMs = (range?: MarketSeriesRange) => resolveRangeMs(range)
 
@@ -168,7 +169,6 @@ export const resolveSeriesWindow = (params: DataChartWidgetParams, providerId?: 
     interval,
     requestInterval,
     window,
-    fallbackWindow: null,
     windows,
     windowKey,
     supportsInterval,

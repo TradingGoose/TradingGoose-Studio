@@ -9,9 +9,11 @@ vi.mock('@/lib/oauth/oauth.server', () => ({
 }))
 
 vi.mock('@/blocks/registry', async () => {
+  const { HistoricalDataBlock } = await import('@/blocks/blocks/historical_data')
   const { LoopBlock } = await import('@/blocks/blocks/loop')
   const { ParallelContainerBlock } = await import('@/blocks/blocks/parallel_container')
   const registry = {
+    historical_data: HistoricalDataBlock,
     loop: LoopBlock,
     parallel: ParallelContainerBlock,
     github: {
@@ -141,6 +143,23 @@ describe('getBlocksMetadataServerTool', () => {
     mockGetOAuthProviderAvailability.mockImplementation(async (providerIds: string[]) =>
       Object.fromEntries(providerIds.map((providerId) => [providerId, false]))
     )
+  })
+
+  it('serializes historical range choices and exact provider-specific accepted IDs', async () => {
+    const result = await getBlocksMetadataServerTool.execute({ blockTypes: ['historical_data'] })
+    const range = result.metadata.historical_data?.subBlocks?.find(
+      (subBlock) => subBlock.id === 'rangePresetId'
+    )
+
+    expect(range).toMatchObject({
+      title: 'Data Range',
+      required: true,
+      description: expect.stringContaining('Select "custom" for explicit start/end dates'),
+    })
+    expect(range?.options).toContainEqual({ id: 'custom', label: 'Custom dates' })
+    expect(range?.description).toContain('yahoo-finance: custom, 1d, 5d, 1m, 1y, 5y, all')
+    expect(range?.description).toContain('alpaca: custom, 1d, 5d, 1w, 1m, 3m, 1y, 5y, all')
+    expect(range?.options).toContainEqual({ id: '1m', label: 'Latest 1 month' })
   })
 
   it('returns Mermaid profiles and operation variants instead of schema-shaped metadata', async () => {

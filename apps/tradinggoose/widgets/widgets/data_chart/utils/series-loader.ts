@@ -1,5 +1,6 @@
+import { intervalToMs } from '@/providers/market/series-planner'
 import type { MarketSeries, MarketSeriesWindow } from '@/providers/market/types'
-import { DEFAULT_BAR_COUNT, intervalToMs } from '@/widgets/widgets/data_chart/series-data'
+import { DEFAULT_BAR_COUNT } from '@/widgets/widgets/data_chart/series-data'
 import { rangeToMs } from '@/widgets/widgets/data_chart/series-window'
 
 const toEpochMs = (value?: string | number | null): number | null => {

@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { HistoricalDataBlock } from '@/blocks/blocks/historical_data'
 import { planMarketSeriesRequest } from '@/providers/market/series-planner'
+import { DEFAULT_RANGE_PRESETS } from '@/providers/market/series-window'
 import type { MarketSeriesRequest } from '@/providers/market/types'
 import { historicalDataTool, type MarketSeriesParams } from '@/tools/market_data/series'
+import { getToolParametersConfig } from '@/tools/params'
 
 const listing = {
   listing_id: 'us-aapl',
@@ -64,7 +66,7 @@ describe('historical data range selection', () => {
     expect(options?.map((option) => option.id)).toContain('1w')
   })
 
-  it.each(['start', 'end', 'interval'])('shows %s only when custom dates are selected', (id) => {
+  it.each(['start', 'end'])('shows %s for custom dates and hides it for latest ranges', (id) => {
     const field = HistoricalDataBlock.subBlocks.find((subBlock) => subBlock.id === id)
     expect(field).toBeDefined()
     expect(
@@ -79,6 +81,26 @@ describe('historical data range selection', () => {
         rangePresetId: '1d',
       })
     ).toBe(false)
+  })
+
+  it('keeps the Agent interval visible while workflow presets select their interval', () => {
+    const params = getToolParametersConfig(
+      'historical_data_fetch',
+      HistoricalDataBlock
+    )?.userInputParameters
+    const condition = params?.find((param) => param.id === 'interval')?.uiComponent?.condition
+    const visible = (values: Record<string, unknown>) =>
+      evaluateSubBlockConditionValues(condition, { provider: 'alpaca', ...values })
+
+    expect(params?.map((param) => param.id)).toEqual(expect.arrayContaining(['window', 'interval']))
+    expect(params?.map((param) => param.id)).not.toContain('rangePresetId')
+    expect(condition).toBeDefined()
+    expect(visible({})).toBe(true)
+    expect(visible({ provider: 'unknown' })).toBe(false)
+    expect(visible({ rangePresetId: 'custom' })).toBe(true)
+    for (const preset of DEFAULT_RANGE_PRESETS) {
+      expect(visible({ rangePresetId: preset.id })).toBe(false)
+    }
   })
 
   it.each([
@@ -130,10 +152,24 @@ describe('historical data range selection', () => {
     const start = '2026-09-01T00:00:00.000Z'
     const end = '2026-09-02T00:00:00.000Z'
 
-    expect(requestBody({ rangePresetId: 'custom', interval: '1h', start, end })).toMatchObject({
+    const body = requestBody({
+      rangePresetId: 'custom',
+      interval: '1h',
+      start,
+      end,
+      apiKey: 'request-key',
+      apiSecret: 'request-secret',
+      feed: 'iex',
+      normalizationMode: 'invalid',
+    })
+    expect(body).toMatchObject({
       interval: '1h',
       windows: [{ mode: 'absolute', start, end }],
+      auth: { apiKey: 'request-key', apiSecret: 'request-secret' },
+      providerParams: { feed: 'iex' },
+      normalizationMode: undefined,
     })
+    expect(body.providerParams).not.toHaveProperty('apiKey')
   })
 
   it.each([

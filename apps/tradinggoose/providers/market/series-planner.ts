@@ -39,7 +39,7 @@ type PlannedSeriesWindow =
   | { mode: 'range'; rangeMs: number }
   | { mode: 'absolute'; startMs: number; endMs: number }
 
-export const intervalToMs = (interval?: string): number | null => {
+export const intervalToMs = (interval?: string | null): number | null => {
   if (!interval) return null
   if (interval in INTERVAL_MS) {
     return INTERVAL_MS[interval as MarketInterval]

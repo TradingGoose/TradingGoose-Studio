@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { GitHubBlock } from '@/blocks/blocks/github'
 import { GmailBlock } from '@/blocks/blocks/gmail'
+import { HistoricalDataBlock } from '@/blocks/blocks/historical_data'
 import { LoopBlock } from '@/blocks/blocks/loop'
 import { ParallelContainerBlock } from '@/blocks/blocks/parallel_container'
 import { InputTriggerBlock } from '@/triggers/blocks/input_trigger'
@@ -233,7 +234,7 @@ describe('block-editor i18n helpers', () => {
     )
   })
 
-  it('localizes titles and static options through block editor overrides', () => {
+  it('localizes titles and lazy options through block editor overrides', () => {
     const localizedConfig = localizeWorkflowSubBlockConfig(
       'es',
       {
@@ -241,7 +242,7 @@ describe('block-editor i18n helpers', () => {
         title: 'Validation Type',
         type: 'dropdown',
         placeholder: 'Type or select a model...',
-        options: [
+        options: () => [
           { id: 'json', label: 'Valid JSON' },
           {
             id: 'pii',
@@ -275,6 +276,43 @@ describe('block-editor i18n helpers', () => {
       },
     ])
   })
+
+  it.each(['en', 'es', 'zh'] as const)(
+    'localizes historical data range options and display values in %s',
+    async (locale) => {
+      const config = HistoricalDataBlock.subBlocks.find(
+        (subBlock) => subBlock.id === 'rangePresetId'
+      )!
+      const localizedConfig = localizeWorkflowSubBlockConfig(locale, config, 'historical_data')
+      const copy =
+        getPublicCopy(locale).workspace.widgets.blockEditor.subBlocks.historical_data.rangePresetId
+
+      expect(localizedConfig.title).toBe(copy.title)
+      expect(localizedConfig.placeholder).toBe(copy.placeholder)
+      expect(localizedConfig.options).toEqual(copy.options)
+      const context = {
+        channelId: 'test-channel',
+        workflowId: null,
+        contextValues: { provider: 'alpaca' },
+      }
+      const available = await config.fetchOptions!('block', config.id, context)
+      const localized = await localizedConfig.fetchOptions!('block', config.id, context)
+      expect(localized).toEqual(
+        available.map((option) => ({
+          ...option,
+          label: copy.options.find((entry: { id: string }) => entry.id === option.id)!.label,
+        }))
+      )
+      expect(
+        resolveWorkflowDisplayValue(
+          locale,
+          config,
+          localized.map((option) => option.id),
+          'historical_data'
+        )
+      ).toEqual(localized.map((option) => option.label))
+    }
+  )
 
   it('resolves localized display values for guardrails option ids', () => {
     const config = {

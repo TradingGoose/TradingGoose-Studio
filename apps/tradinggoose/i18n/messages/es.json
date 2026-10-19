@@ -7589,6 +7589,52 @@
               ],
               "title": "Data Provider"
             },
+            "rangePresetId": {
+              "options": [
+                {
+                  "id": "custom",
+                  "label": "Fechas personalizadas"
+                },
+                {
+                  "id": "1d",
+                  "label": "Último día"
+                },
+                {
+                  "id": "5d",
+                  "label": "Últimos 5 días"
+                },
+                {
+                  "id": "1w",
+                  "label": "Última semana"
+                },
+                {
+                  "id": "1m",
+                  "label": "Último mes"
+                },
+                {
+                  "id": "3m",
+                  "label": "Últimos 3 meses"
+                },
+                {
+                  "id": "6m",
+                  "label": "Últimos 6 meses"
+                },
+                {
+                  "id": "1y",
+                  "label": "Último año"
+                },
+                {
+                  "id": "5y",
+                  "label": "Últimos 5 años"
+                },
+                {
+                  "id": "all",
+                  "label": "Todo lo disponible"
+                }
+              ],
+              "placeholder": "Selecciona un rango de datos",
+              "title": "Rango de datos"
+            },
             "start": {
               "placeholder": "Iniciar hora"
             }

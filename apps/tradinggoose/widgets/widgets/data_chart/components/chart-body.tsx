@@ -8,6 +8,7 @@ import { DEFAULT_INDICATOR_MAP } from '@/lib/indicators/default'
 import type { InputMetaMap } from '@/lib/indicators/types'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useSocket } from '@/contexts/socket-context'
+import { intervalToMs } from '@/providers/market/series-planner'
 import type { MarketSessionWindow } from '@/providers/market/types'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { ChartPaneOverlays } from '@/widgets/widgets/data_chart/components/chart-pane-overlays'
@@ -36,7 +37,6 @@ import { useManualDrawToolsController } from '@/widgets/widgets/data_chart/hooks
 import { usePaneLayoutController } from '@/widgets/widgets/data_chart/hooks/use-pane-layout-controller'
 import { useThemeVersion } from '@/widgets/widgets/data_chart/hooks/use-theme-version'
 import type { BarMs } from '@/widgets/widgets/data_chart/series-data'
-import { intervalToMs } from '@/widgets/widgets/data_chart/series-data'
 import { resolveSeriesWindow } from '@/widgets/widgets/data_chart/series-window'
 import type {
   DataChartDataContext,
@@ -161,7 +161,7 @@ export const DataChartWidgetBody = ({ params, context, panelId, widget }: Widget
     [panelId, widgetKey, chartResetKey]
   )
 
-  const intervalMs = intervalToMs(seriesWindow.interval ?? seriesWindow.requestInterval ?? null)
+  const intervalMs = intervalToMs(seriesWindow.interval ?? seriesWindow.requestInterval)
   dataContext.intervalMs = intervalMs
   dataContext.dataVersion = dataVersion
 

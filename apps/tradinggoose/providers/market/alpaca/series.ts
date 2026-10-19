@@ -1,5 +1,6 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
+import { rangeToMs } from '@/providers/market/series-window'
 import type {
   MarketBar,
   MarketInterval,
@@ -35,8 +36,6 @@ const ALPACA_INTERVAL_MAP: Partial<Record<MarketInterval, string>> = {
 const ALPACA_TIMEFRAMES = new Set(Object.values(ALPACA_INTERVAL_MAP))
 const DEFAULT_TIMEFRAME = ALPACA_INTERVAL_MAP['1d'] ?? '1Day'
 
-const DAY_MS = 24 * 60 * 60 * 1000
-
 function toIsoString(value?: string | number): string | undefined {
   if (value === undefined || value === null) return undefined
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -48,41 +47,6 @@ function toIsoString(value?: string | number): string | undefined {
     return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
   }
   return undefined
-}
-
-function parseRangeMs(range?: string): number | null {
-  if (!range) return null
-  const match = String(range)
-    .trim()
-    .toLowerCase()
-    .match(/^(\d+)(d|w|mo|y)$/)
-  if (!match) return null
-  const value = Number(match[1])
-  if (!Number.isFinite(value) || value <= 0) return null
-  const unit = match[2]
-  if (unit === 'd') return value * DAY_MS
-  if (unit === 'w') return value * 7 * DAY_MS
-  if (unit === 'mo') return value * 30 * DAY_MS
-  if (unit === 'y') return value * 365 * DAY_MS
-  return null
-}
-
-export function intervalToMs(interval?: string): number | null {
-  if (!interval) return null
-  const match = String(interval)
-    .trim()
-    .toLowerCase()
-    .match(/^(\d+)(mo|m|h|d|w)$/)
-  if (!match) return null
-  const value = Number(match[1])
-  if (!Number.isFinite(value) || value <= 0) return null
-  const unit = match[2]
-  if (unit === 'm') return value * 60 * 1000
-  if (unit === 'h') return value * 60 * 60 * 1000
-  if (unit === 'd') return value * DAY_MS
-  if (unit === 'w') return value * 7 * DAY_MS
-  if (unit === 'mo') return value * 30 * DAY_MS
-  return null
 }
 
 function resolveTimeRange(request: MarketSeriesRequest): { start?: string; end?: string } {
@@ -239,23 +203,17 @@ export async function fetchAlpacaSeries(request: MarketSeriesRequest): Promise<M
   const { start: explicitStart, end: explicitEnd } = resolveTimeRange(request)
   let start = explicitStart
   let end = explicitEnd
+  const window = request.windows?.[0]
 
-  if (!start && !end && limit && market === 'stocks') {
-    const latestEnd = await fetchLatestBarTimestamp(symbol, feed, headers)
-    const rangeParam = request.providerParams?.range as string | undefined
-    const intervalMs = intervalToMs(
-      request.interval || (request.providerParams?.interval as string | undefined)
-    )
-    const rangeMs =
-      parseRangeMs(rangeParam) ||
-      (intervalMs && Number.isFinite(Number(limit)) ? Number(limit) * intervalMs : null)
-
-    if (latestEnd && rangeMs && Number.isFinite(rangeMs)) {
-      const endMs = Date.parse(latestEnd)
-      if (Number.isFinite(endMs)) {
-        end = new Date(endMs).toISOString()
-        start = new Date(endMs - rangeMs).toISOString()
-      }
+  if (!start && !end && window?.mode === 'range') {
+    const rangeMs = rangeToMs(window.range)
+    const endMs =
+      market === 'crypto'
+        ? Date.now()
+        : Date.parse((await fetchLatestBarTimestamp(symbol, feed, headers)) ?? '')
+    if (rangeMs && Number.isFinite(endMs)) {
+      end = new Date(endMs).toISOString()
+      start = new Date(endMs - rangeMs).toISOString()
     }
   }
 

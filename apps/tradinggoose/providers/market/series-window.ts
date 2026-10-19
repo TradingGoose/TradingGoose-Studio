@@ -4,7 +4,7 @@ import type {
   MarketSeriesWindow,
 } from '@/providers/market/types'
 
-export type RangePreset = {
+type RangePreset = {
   id: string
   range: MarketSeriesRange
   interval?: MarketInterval

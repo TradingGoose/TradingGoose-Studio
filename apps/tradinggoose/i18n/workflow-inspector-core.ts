@@ -427,24 +427,17 @@ export function localizeWorkflowOptionsWithCopy(
     return options
   }
 
-  const blockOverride =
-    blockType && subBlockId ? getSubBlockOverride(inspectorCopy, blockType, subBlockId) : undefined
-  const triggerOverride = getTriggerSubBlockCopyFromInspector(
-    inspectorCopy,
-    triggerId,
-    subBlockId ?? ''
-  )
-  const optionOverrides = mergeOptionOverrides(blockOverride?.options, triggerOverride?.options)
-
   if (typeof options === 'function') {
     return () =>
-      options().map((option) =>
-        localizeWorkflowOption(inspectorCopy, option, optionOverrides, subBlockId)
-      )
+      getLocalizedWorkflowOptionsWithCopy(inspectorCopy, options, blockType, subBlockId, triggerId)
   }
 
-  return options.map((option) =>
-    localizeWorkflowOption(inspectorCopy, option, optionOverrides, subBlockId)
+  return getLocalizedWorkflowOptionsWithCopy(
+    inspectorCopy,
+    options,
+    blockType,
+    subBlockId,
+    triggerId
   )
 }
 
@@ -696,6 +689,7 @@ export function localizeWorkflowSubBlockConfigWithCopy(
         ? formatTriggerInstructionSteps(triggerOverride.steps)
         : (override?.defaultValue ?? config.defaultValue)
       : config.defaultValue
+  const fetchOptions = config.fetchOptions
 
   return {
     ...config,
@@ -713,6 +707,16 @@ export function localizeWorkflowSubBlockConfigWithCopy(
       config.id,
       triggerId
     ),
+    fetchOptions: fetchOptions
+      ? async (...args) =>
+          getLocalizedWorkflowOptionsWithCopy(
+            inspectorCopy,
+            await fetchOptions(...args),
+            blockType,
+            config.id,
+            triggerId
+          )
+      : undefined,
   }
 }
 

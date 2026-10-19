@@ -3,7 +3,6 @@ import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import {
-  coerceMarketProviderParamValue,
   getMarketProviderDefinition,
   getMarketProviderParamCatalog,
   getMarketProvidersByKind,
@@ -12,12 +11,11 @@ import {
 } from '@/providers/market/providers'
 import { intervalToMs } from '@/providers/market/series-planner'
 import { DEFAULT_RANGE_PRESETS, rangeToMs } from '@/providers/market/series-window'
-import type { MarketSeriesWindow, NormalizationMode } from '@/providers/market/types'
-import type { MarketSeriesOutput } from '@/tools/market_data'
+import type { MarketSeries, MarketSeriesWindow } from '@/providers/market/types'
 import type { ToolResponse } from '@/tools/types'
 
 interface HistoricalDataResponse extends ToolResponse {
-  output: MarketSeriesOutput
+  output: MarketSeries
 }
 
 const resolveContextValue = (
@@ -109,33 +107,6 @@ const formatIntervalLabel = (interval: string): string => {
   return `${value} ${unit}${value === 1 ? '' : 's'}`
 }
 
-const sanitizeInterval = (provider: string | undefined, interval?: string): string | undefined => {
-  if (!interval) return undefined
-  if (!provider) return interval
-  const capabilities = getMarketSeriesCapabilities(provider)
-  if (!capabilities) return interval
-  if (capabilities.supportsInterval === false) return undefined
-  const intervals = capabilities.intervals ?? []
-  if (intervals.length > 0 && !(intervals as ReadonlyArray<string>).includes(interval)) {
-    return undefined
-  }
-  return interval
-}
-
-const sanitizeNormalizationMode = (
-  provider: string | undefined,
-  mode?: string
-): NormalizationMode | undefined => {
-  if (!mode) return undefined
-  if (!provider) return mode as NormalizationMode
-  const capabilities = getMarketSeriesCapabilities(provider)
-  if (!capabilities || !('normalizationModes' in capabilities)) return mode as NormalizationMode
-  const modes = capabilities.normalizationModes ?? []
-  if (modes.length === 0) return undefined
-  if (!modes.includes(mode as NormalizationMode)) return undefined
-  return mode as NormalizationMode
-}
-
 const getRangePresets = (provider: string) => {
   const capabilities = getMarketSeriesCapabilities(provider)
   if (!capabilities || !capabilities.windowModes?.includes('range')) return []
@@ -150,6 +121,25 @@ const getRangePresets = (provider: string) => {
     const intervalMs = intervalToMs(preset.interval)
     return !(retention?.maxBars && intervalMs && rangeMs > retention.maxBars * intervalMs)
   })
+}
+
+const rangeOptions = [
+  { id: 'custom', label: 'Custom dates' },
+  ...DEFAULT_RANGE_PRESETS.map((preset) => ({
+    id: preset.id,
+    label:
+      preset.id === 'all'
+        ? 'All available'
+        : `Latest ${preset.range.value} ${preset.range.unit}${preset.range.value === 1 ? '' : 's'}`,
+  })),
+]
+
+const getRangeOptions = (provider: string) => {
+  const presetIds = new Set(getRangePresets(provider).map((preset) => preset.id))
+  const supportsCustom = getMarketSeriesCapabilities(provider)?.windowModes?.includes('absolute')
+  return rangeOptions.filter((option) =>
+    option.id === 'custom' ? supportsCustom : presetIds.has(option.id)
+  )
 }
 
 const resolveParamInputType = (paramId: string): SubBlockConfig['type'] => {
@@ -219,6 +209,18 @@ const providerParamSubBlocks = buildProviderParamSubBlocks()
 
 const seriesProviders = getMarketProvidersByKind('series')
 
+const rangeDescription = [
+  'Select "custom" for explicit start/end dates and an optional interval. Other IDs request the latest available range using its matching interval.',
+  `Allowed IDs by provider: ${seriesProviders
+    .map(
+      (provider) =>
+        `${provider.id}: ${getRangeOptions(provider.id)
+          .map((option) => option.id)
+          .join(', ')}`
+    )
+    .join('; ')}.`,
+].join(' ')
+
 const providersWithIntervals = seriesProviders
   .filter((provider) => {
     const capabilities = getMarketSeriesCapabilities(provider.id)
@@ -271,23 +273,13 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
       layout: 'full',
       placeholder: 'Select data range',
       required: true,
+      description: rangeDescription,
+      options: rangeOptions,
       dependsOn: ['provider'],
       fetchOptions: async (_blockId, _subBlockId, context) => {
         const provider = resolveContextValue(context.contextValues, 'provider')
         if (!provider) return []
-        const capabilities = getMarketSeriesCapabilities(provider)
-        return [
-          ...(capabilities?.windowModes?.includes('absolute')
-            ? [{ id: 'custom', label: 'Custom dates' }]
-            : []),
-          ...getRangePresets(provider).map((preset) => ({
-            id: preset.id,
-            label:
-              preset.id === 'all'
-                ? 'All available'
-                : `Latest ${preset.range.value} ${preset.range.unit}${preset.range.value === 1 ? '' : 's'}`,
-          })),
-        ]
+        return getRangeOptions(provider)
       },
     },
     {
@@ -301,7 +293,11 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
         ? {
             field: 'provider',
             value: providersWithIntervals,
-            and: { field: 'rangePresetId', value: 'custom' },
+            and: {
+              field: 'rangePresetId',
+              value: DEFAULT_RANGE_PRESETS.map((preset) => preset.id),
+              not: true,
+            },
           }
         : undefined,
       dependsOn: ['provider'],
@@ -363,25 +359,6 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
     config: {
       tool: () => 'historical_data_fetch',
       params: (params) => {
-        const resolvedProviderParams: Record<string, any> = {}
-        const auth: { apiKey?: string; apiSecret?: string } = {}
-        providerParamIds.forEach((paramId) => {
-          const entry = providerParamRegistry[paramId]
-          if (!entry) return
-          const value = coerceMarketProviderParamValue(entry.definition, params[paramId])
-          if (value !== undefined) {
-            if (paramId === 'apiKey') {
-              auth.apiKey = value as string
-              return
-            }
-            if (paramId === 'apiSecret') {
-              auth.apiSecret = value as string
-              return
-            }
-            resolvedProviderParams[paramId] = value
-          }
-        })
-
         const rangePreset = getRangePresets(params.provider).find(
           (preset) => preset.id === params.rangePresetId
         )
@@ -392,27 +369,13 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
             : rangePreset
               ? { mode: 'range', range: rangePreset.range }
               : undefined
-        const interval = rangePreset?.interval ?? sanitizeInterval(params.provider, params.interval)
-        const normalizationMode = sanitizeNormalizationMode(
-          params.provider,
-          params.normalizationMode
-        )
-
-        const providerParams: Record<string, any> | undefined = Object.keys(resolvedProviderParams)
-          .length
-          ? resolvedProviderParams
-          : undefined
-
         return {
           provider: params.provider,
           listing: params.listing,
-          interval,
+          interval: rangePreset?.interval ?? params.interval,
           window,
-          normalizationMode,
-          providerParams,
-          apiKey: auth.apiKey,
-          apiSecret: auth.apiSecret,
-          ...resolvedProviderParams,
+          normalizationMode: params.normalizationMode,
+          ...Object.fromEntries(providerParamIds.map((id) => [id, params[id]])),
         }
       },
     },
@@ -423,7 +386,7 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
     interval: { type: 'string', description: 'Series interval/timeframe for custom dates' },
     rangePresetId: {
       type: 'string',
-      description: 'Provider-supported latest data range preset, or custom for explicit dates',
+      description: rangeDescription,
     },
     start: {
       type: 'string',

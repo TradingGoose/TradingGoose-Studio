@@ -6,6 +6,7 @@ import type { Socket } from 'socket.io-client'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { getListingIdentityKey, type ListingIdentity } from '@/lib/listing/identity'
 import { getMarketSeriesCapabilities } from '@/providers/market/providers'
+import { intervalToMs } from '@/providers/market/series-planner'
 import type {
   MarketInterval,
   MarketSeries,
@@ -20,7 +21,6 @@ import {
   buildIndexMaps,
   DEFAULT_BAR_COUNT,
   findFirstInvalidSeriesDatum,
-  intervalToMs,
   mapBarsMsToSeriesData,
   mapMarketSeriesToBarsMs,
   mergeBarsMs,
@@ -230,7 +230,7 @@ export const useChartDataLoader = ({
         Number.isFinite(end) &&
         start < end
       ) {
-        const intervalMs = intervalToMs(seriesWindow.interval ?? requestInterval ?? null)
+        const intervalMs = intervalToMs(seriesWindow.interval ?? requestInterval)
         pendingRangeRef.current = clampPendingRange(start, end, intervalMs)
       } else {
         pendingRangeRef.current = null
@@ -376,7 +376,7 @@ export const useChartDataLoader = ({
     }
 
     const resolveIntervalMs = () =>
-      dataContext.intervalMs ?? intervalToMs(seriesWindow.interval ?? requestInterval ?? null)
+      dataContext.intervalMs ?? intervalToMs(seriesWindow.interval ?? requestInterval)
 
     const primaryWindow = seriesWindow.windows?.[0]
 

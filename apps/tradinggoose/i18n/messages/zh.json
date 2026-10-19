@@ -7576,6 +7576,52 @@
               ],
               "title": "数据提供商"
             },
+            "rangePresetId": {
+              "options": [
+                {
+                  "id": "custom",
+                  "label": "自定义日期"
+                },
+                {
+                  "id": "1d",
+                  "label": "最近 1 天"
+                },
+                {
+                  "id": "5d",
+                  "label": "最近 5 天"
+                },
+                {
+                  "id": "1w",
+                  "label": "最近 1 周"
+                },
+                {
+                  "id": "1m",
+                  "label": "最近 1 个月"
+                },
+                {
+                  "id": "3m",
+                  "label": "最近 3 个月"
+                },
+                {
+                  "id": "6m",
+                  "label": "最近 6 个月"
+                },
+                {
+                  "id": "1y",
+                  "label": "最近 1 年"
+                },
+                {
+                  "id": "5y",
+                  "label": "最近 5 年"
+                },
+                {
+                  "id": "all",
+                  "label": "全部可用数据"
+                }
+              ],
+              "placeholder": "选择数据范围",
+              "title": "数据范围"
+            },
             "start": {
               "placeholder": "开始时间"
             }
