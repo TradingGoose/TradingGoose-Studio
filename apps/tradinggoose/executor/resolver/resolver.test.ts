@@ -8,6 +8,7 @@ import { McpBlock } from '@/blocks/blocks/mcp'
 import { TradingActionBlock } from '@/blocks/blocks/trading_action'
 import { getBlock } from '@/blocks/index'
 import { BlockType } from '@/executor/consts'
+import { ResponseBlockHandler } from '@/executor/handlers/response/response-handler'
 import { InputResolver } from '@/executor/resolver/resolver'
 import type { ExecutionContext } from '@/executor/types'
 import { planMarketSeriesRequest } from '@/providers/market/series-planner'
@@ -428,6 +429,50 @@ describe('InputResolver', () => {
       expect(result.startRef).toBe('Hello World')
       expect(result.startType).toBe('text')
     })
+
+    it.each(['start', 'trigger-block'])(
+      'omits missing properties and array items through <%s.*> in nested inputs',
+      (source) => {
+        mockContext.blockStates.get('trigger-block').output.items = [{ value: 2 }]
+        const consumer = { ...sampleWorkflow.blocks[1], metadata: { id: 'generic' } }
+        for (const path of ['missing', 'missing[0].value', 'items[0].missing', 'items[99][0]']) {
+          const reference = `<${source}.${path}>`
+          consumer.config = { tool: 'generic', params: { payload: [{ value: reference }] } }
+          expect(resolver.resolveInputs(consumer, mockContext)).toEqual({
+            payload: [{ value: '' }],
+          })
+          expect(
+            resolver.resolveBlockReferences(`Value: ${reference}`, mockContext, consumer)
+          ).toBe('Value: ')
+        }
+      }
+    )
+
+    it.each(['start', 'trigger-block'])(
+      'preserves Function and Condition expressions for missing <%s.*> values',
+      (source) => {
+        const reference = `<${source}.missing[0].value>`
+        for (const blockType of ['function', 'condition']) {
+          const consumer = { ...sampleWorkflow.blocks[1], metadata: { id: blockType } }
+          expect(
+            resolver.resolveBlockReferences(`${reference} === undefined`, mockContext, consumer)
+          ).toBe('undefined === undefined')
+        }
+      }
+    )
+
+    it.each(['start', 'trigger-block'])(
+      'uses the shared missing-reference formatting without state through <%s.*>',
+      (source) => {
+        mockContext.blockStates.clear()
+        for (const blockType of ['generic', 'function', 'condition']) {
+          const consumer = { ...sampleWorkflow.blocks[1], metadata: { id: blockType } }
+          expect(resolver.resolveBlockReferences(`<${source}.input>`, mockContext, consumer)).toBe(
+            blockType === 'generic' ? '' : 'undefined'
+          )
+        }
+      }
+    )
 
     it('should throw an error for references to inactive blocks', () => {
       const block: SerializedBlock = {
@@ -1529,10 +1574,10 @@ describe('InputResolver', () => {
         workflow.blocks.find((block) => block.id === 'function-1')!
       )
 
-      expect(result).toBe('return AAPL')
+      expect(result).toBe('return "AAPL"')
     })
 
-    it('should format start.input properly for different block types', () => {
+    it('should format start.input properly for different block types', async () => {
       // Test function block - should quote strings
       const functionBlock: SerializedBlock = {
         id: 'test-function',
@@ -1567,7 +1612,7 @@ describe('InputResolver', () => {
         enabled: true,
       }
 
-      // Test response block - should use raw string
+      // Runtime trigger strings interpolate directly into Response fields.
       const responseBlock: SerializedBlock = {
         id: 'test-response',
         metadata: { id: BlockType.RESPONSE, name: 'Test Response' },
@@ -1575,7 +1620,11 @@ describe('InputResolver', () => {
         config: {
           tool: BlockType.RESPONSE,
           params: {
-            content: '<start.input>',
+            dataMode: 'structured',
+            builderData: [
+              { id: 'message', name: 'message', type: 'string', value: '<start.input>' },
+              { id: 'greeting', name: 'greeting', type: 'string', value: 'Hello <start.input>!' },
+            ],
           },
         },
         inputs: {},
@@ -1595,7 +1644,16 @@ describe('InputResolver', () => {
       )
 
       const responseResult = connectionResolver.resolveInputs(responseBlock, contextWithConnections)
-      expect(responseResult.content).toBe('Hello World') // Raw string for response
+      expect(responseResult.builderData[0].value).toBe('Hello World')
+      expect(
+        (await new ResponseBlockHandler().execute(responseBlock, responseResult)).response.data
+      ).toEqual({ message: 'Hello World', greeting: 'Hello Hello World!' })
+
+      responseBlock.config.params = { dataMode: 'json', data: '{"message":"<start.input>"}' }
+      const jsonInputs = connectionResolver.resolveInputs(responseBlock, contextWithConnections)
+      expect(
+        (await new ResponseBlockHandler().execute(responseBlock, jsonInputs)).response.data
+      ).toEqual({ message: 'Hello World' })
     })
 
     it('should properly format start.input when resolved directly via resolveBlockReferences', () => {
@@ -2899,7 +2957,7 @@ describe('InputResolver', () => {
       expect(result.value4).toBe('row2col2')
     })
 
-    it.concurrent('should throw error for out of bounds 2D array access', () => {
+    it.concurrent('omits missing values for out of bounds 2D array access', () => {
       const block: SerializedBlock = {
         id: 'test-block',
         metadata: { id: 'generic', name: 'Test Block' },
@@ -2917,12 +2975,10 @@ describe('InputResolver', () => {
         enabled: true,
       }
 
-      expect(() => arrayResolver.resolveInputs(block, arrayContext)).toThrow(
-        /Array index 5 is out of bounds/
-      )
+      expect(arrayResolver.resolveInputs(block, arrayContext)).toEqual({ value: '' })
     })
 
-    it.concurrent('should throw error for out of bounds second dimension access', () => {
+    it.concurrent('omits missing values for out of bounds second dimension access', () => {
       const block: SerializedBlock = {
         id: 'test-block',
         metadata: { id: 'generic', name: 'Test Block' },
@@ -2940,9 +2996,7 @@ describe('InputResolver', () => {
         enabled: true,
       }
 
-      expect(() => arrayResolver.resolveInputs(block, arrayContext)).toThrow(
-        /Array index 5 is out of bounds/
-      )
+      expect(arrayResolver.resolveInputs(block, arrayContext)).toEqual({ value: '' })
     })
 
     it.concurrent('should throw error when accessing non-array as array', () => {
@@ -2984,9 +3038,7 @@ describe('InputResolver', () => {
         enabled: true,
       }
 
-      expect(() => arrayResolver.resolveInputs(block, arrayContext)).toThrow(
-        /No value found at path/
-      )
+      expect(() => arrayResolver.resolveInputs(block, arrayContext)).toThrow(/Invalid path/)
     })
 
     it.concurrent('should support single array indexing', () => {

@@ -297,7 +297,7 @@ export class InputResolver {
     let resolvedValue = value
 
     for (const match of blockMatches) {
-      const { raw, prefix } = match
+      const { raw } = match
       if (raw.startsWith('<variable.')) {
         continue
       }
@@ -318,148 +318,9 @@ export class InputResolver {
         value.includes('}') &&
         value.includes('`')
 
-      // System references (start, loop, parallel, variable) and regular block references are both processed
-      // Accessibility validation happens later in validateBlockReference
-
-      // Special case for the runtime trigger reference.
       const blockRefLower = blockRef.toLowerCase()
-      if (blockRefLower === 'start') {
-        const triggerBlock = context.triggerBlockId
-          ? this.blockById.get(context.triggerBlockId)
-          : undefined
-        if (!triggerBlock) {
-          throw new Error('Runtime trigger block is not available for <start> reference.')
-        }
-        const blockState = context.blockStates.get(triggerBlock.id)
-        if (blockState) {
-          // Runtime trigger outputs are exposed through <start.*>.
-          let replacementValue: any = blockState.output
-
-          for (const part of pathParts) {
-            if (!replacementValue || typeof replacementValue !== 'object') {
-              logger.warn(
-                `[resolveBlockReferences] Invalid path "${part}" - replacementValue is not an object:`,
-                replacementValue
-              )
-              throw new Error(`Invalid path "${part}" in "${path}" for trigger block.`)
-            }
-
-            // Handle array indexing syntax like "files[0]" or "items[1]"
-            const arrayMatch = part.match(/^([^[]+)\[(\d+)\]$/)
-            if (arrayMatch) {
-              const [, arrayName, indexStr] = arrayMatch
-              const index = Number.parseInt(indexStr, 10)
-
-              // First access the array property
-              const arrayValue = replacementValue[arrayName]
-              if (!Array.isArray(arrayValue)) {
-                throw new Error(
-                  `Property "${arrayName}" is not an array in path "${path}" for trigger block.`
-                )
-              }
-
-              // Then access the array element
-              if (index < 0 || index >= arrayValue.length) {
-                throw new Error(
-                  `Array index ${index} is out of bounds for "${arrayName}" (length: ${arrayValue.length}) in path "${path}" for trigger block.`
-                )
-              }
-
-              replacementValue = arrayValue[index]
-            } else if (/^(?:[^[]+(?:\[\d+\])+|(?:\[\d+\])+)$/.test(part)) {
-              // Enhanced: support multiple indices like "values[0][0]"
-              replacementValue = this.resolvePartWithIndices(
-                replacementValue,
-                part,
-                path,
-                'trigger block'
-              )
-            } else {
-              if (Array.isArray(replacementValue)) {
-                throw new Error(`Array path "${path}" in trigger block must use an explicit index.`)
-              }
-              replacementValue = replacementValue[part]
-            }
-
-            if (replacementValue === undefined) {
-              logger.warn(
-                `[resolveBlockReferences] No value found at path "${part}" in trigger block.`
-              )
-              throw new Error(`No value found at path "${path}" in trigger block.`)
-            }
-          }
-
-          // Format the value based on block type and path
-          let formattedValue: string
-
-          const isTriggerInputRef = pathParts.join('.').includes('input')
-          if (isTriggerInputRef) {
-            const blockType = currentBlock.metadata?.id
-
-            // Format based on which block is consuming this value
-            if (typeof replacementValue === 'object' && replacementValue !== null) {
-              // For function blocks, preserve the object structure for code usage
-              if (blockType === 'function') {
-                formattedValue = JSON.stringify(replacementValue)
-              }
-              // For API blocks, handle body special case
-              else if (blockType === 'api') {
-                formattedValue = JSON.stringify(replacementValue)
-              }
-              // For condition blocks, ensure proper formatting
-              else if (blockType === 'condition') {
-                formattedValue = this.stringifyForCondition(replacementValue)
-              }
-              // For response blocks, preserve object structure as-is for proper JSON response
-              else if (blockType === 'response') {
-                formattedValue = replacementValue
-              }
-              // For all other blocks, stringify objects
-              else {
-                // Preserve full JSON structure for objects
-                formattedValue = JSON.stringify(replacementValue)
-              }
-            } else {
-              // For primitive values, format based on target block type
-              if (blockType === 'function') {
-                formattedValue = this.formatValueForCodeContext(
-                  replacementValue,
-                  currentBlock,
-                  isInTemplateLiteral
-                )
-              } else if (blockType === 'condition') {
-                formattedValue = this.stringifyForCondition(replacementValue)
-              } else {
-                formattedValue = String(replacementValue)
-              }
-            }
-          } else {
-            // Standard handling for non-input references
-            const blockType = currentBlock.metadata?.id
-
-            if (blockType === 'response') {
-              // For response blocks, properly quote string values for JSON context
-              if (typeof replacementValue === 'string') {
-                // Properly escape and quote the string for JSON
-                formattedValue = JSON.stringify(replacementValue)
-              } else {
-                formattedValue = replacementValue
-              }
-            } else {
-              formattedValue =
-                typeof replacementValue === 'object'
-                  ? JSON.stringify(replacementValue)
-                  : String(replacementValue)
-            }
-          }
-
-          resolvedValue = resolvedValue.replace(raw, formattedValue)
-          continue
-        }
-      }
-
       // Special case for "loop" references - allows accessing loop properties
-      if (blockRef.toLowerCase() === 'loop') {
+      if (blockRefLower === 'loop') {
         const formattedValue = this.resolveLoopReference(
           pathParts,
           context,
@@ -474,7 +335,7 @@ export class InputResolver {
       }
 
       // Special case for "parallel" references - allows accessing parallel properties
-      if (blockRef.toLowerCase() === 'parallel') {
+      if (blockRefLower === 'parallel') {
         // Find which parallel this block belongs to using efficient lookup
         const containingParallelId = this.parallelsByBlockId.get(currentBlock.id)
 
@@ -494,53 +355,42 @@ export class InputResolver {
         }
       }
 
-      // Standard block reference resolution with connection validation
-      const validation = this.validateBlockReference(blockRef, currentBlock.id)
+      const isStartReference = blockRefLower === 'start'
+      const sourceBlock = isStartReference
+        ? context.triggerBlockId
+          ? this.blockById.get(context.triggerBlockId)
+          : undefined
+        : this.validateBlockReference(blockRef, currentBlock.id)
 
-      if (!validation.isValid) {
+      if (!sourceBlock) {
+        if (isStartReference) {
+          throw new Error('Runtime trigger block is not available for <start> reference.')
+        }
         continue
       }
 
-      const sourceBlock = this.blockById.get(validation.resolvedBlockId!)!
-
-      if (sourceBlock.enabled === false) {
+      if (!isStartReference && sourceBlock.enabled === false) {
         throw new Error(`Block "${sourceBlock.metadata?.name || sourceBlock.id}" is disabled`)
       }
 
-      // For parallel execution, check if we need to use the virtual block ID
       let blockState = context.blockStates.get(sourceBlock.id)
-      const usesIndexedPath = pathParts.some((part) => part.includes('[') || part.includes(']'))
-      let attemptedVirtualSourceState = false
-      let virtualSourceBlockId: string | null = null
-
-      // If we're in parallel execution and the source block is also in the same parallel,
-      // try to get the virtual block state for the same iteration
-      if (context.currentVirtualBlockId) {
+      if (!isStartReference && context.currentVirtualBlockId) {
         const currentParallelInfo = context.parallelBlockMapping?.get(context.currentVirtualBlockId)
         if (!currentParallelInfo) {
           throw new Error(`No parallel mapping found for block "${context.currentVirtualBlockId}"`)
         }
 
-        // Check if the source block is in the same parallel
         const parallel = context.workflow?.parallels?.[currentParallelInfo.parallelId]
         if (parallel?.nodes.includes(sourceBlock.id)) {
-          // Try to get the virtual block state for the same iteration
-          virtualSourceBlockId = `${sourceBlock.id}_parallel_${currentParallelInfo.parallelId}_iteration_${currentParallelInfo.iterationIndex}`
-          attemptedVirtualSourceState = true
+          const virtualSourceBlockId = `${sourceBlock.id}_parallel_${currentParallelInfo.parallelId}_iteration_${currentParallelInfo.iterationIndex}`
           blockState = context.blockStates.get(virtualSourceBlockId)
+          if (!blockState) {
+            throw new Error(`No state found for block "${virtualSourceBlockId}"`)
+          }
         }
       }
 
-      if (attemptedVirtualSourceState && !blockState) {
-        throw new Error(`No state found for block "${virtualSourceBlockId}"`)
-      }
-
-      if (!blockState) {
-        resolvedValue = resolvedValue.replace(raw, '')
-        continue
-      }
-
-      let replacementValue: any = blockState.output
+      let replacementValue: any = blockState?.output
 
       for (const part of pathParts) {
         if (!replacementValue || typeof replacementValue !== 'object') {
@@ -548,93 +398,35 @@ export class InputResolver {
           break
         }
 
-        // Handle array indexing syntax like "files[0]" or "items[1]"
-        const arrayMatch = part.match(/^([^[]+)\[(\d+)\]$/)
-        if (arrayMatch) {
-          const [, arrayName, indexStr] = arrayMatch
-          const index = Number.parseInt(indexStr, 10)
-
-          // First access the array property
-          const arrayValue = replacementValue[arrayName]
-          if (!Array.isArray(arrayValue)) {
-            throw new Error(
-              `Invalid path "${part}" in "${path}" for block "${sourceBlock.metadata?.name || sourceBlock.id}".`
-            )
-          }
-
-          // Then access the array element
-          if (index < 0 || index >= arrayValue.length) {
-            throw new Error(
-              `Array index ${index} is out of bounds in path "${path}" for block "${sourceBlock.metadata?.name || sourceBlock.id}".`
-            )
-          }
-
-          replacementValue = arrayValue[index]
-        } else if (/^(?:[^[]+(?:\[\d+\])+|(?:\[\d+\])+)$/.test(part)) {
-          // Enhanced: support multiple indices like "values[0][0]"
-          replacementValue = this.resolvePartWithIndices(
-            replacementValue,
-            part,
-            path,
-            sourceBlock.metadata?.name || sourceBlock.id
-          )
-        } else {
-          if (Array.isArray(replacementValue)) {
-            throw new Error(
-              `Array path "${path}" in block "${sourceBlock.metadata?.name || sourceBlock.id}" must use an explicit index.`
-            )
-          }
-          replacementValue = replacementValue[part]
-        }
+        replacementValue = this.resolvePartWithIndices(
+          replacementValue,
+          part,
+          path,
+          sourceBlock.metadata?.name || sourceBlock.id
+        )
 
         if (replacementValue === undefined) {
           break
         }
       }
 
-      if (replacementValue === undefined) {
-        if (usesIndexedPath) {
-          throw new Error(
-            `No value found at path "${path}" in block "${sourceBlock.metadata?.name || sourceBlock.id}".`
-          )
-        }
-        resolvedValue = resolvedValue.replace(raw, '')
-        continue
-      }
-
-      const blockType = currentBlock.metadata?.id
-
       let formattedValue: string
 
       if (currentBlock.metadata?.id === 'condition') {
         formattedValue = this.stringifyForCondition(replacementValue)
+      } else if (replacementValue === undefined) {
+        formattedValue =
+          currentBlock.metadata?.id === 'function'
+            ? this.formatValueForCodeContext(replacementValue, currentBlock, isInTemplateLiteral)
+            : ''
       } else if (
         typeof replacementValue === 'string' &&
         this.needsCodeStringLiteral(currentBlock, value)
       ) {
-        // Check if we're in a template literal
-        const isInTemplateLiteral =
-          currentBlock.metadata?.id === 'function' &&
-          value.includes('${') &&
-          value.includes('}') &&
-          value.includes('`')
-
-        // For response blocks, properly quote string values for JSON context
-        if (currentBlock.metadata?.id === 'response') {
-          if (typeof replacementValue === 'string') {
-            // Properly escape and quote the string for JSON
-            formattedValue = JSON.stringify(replacementValue)
-          } else {
-            formattedValue = replacementValue
-          }
-        } else {
-          // For code blocks, use our formatter
-          formattedValue = this.formatValueForCodeContext(
-            replacementValue,
-            currentBlock,
-            isInTemplateLiteral
-          )
-        }
+        formattedValue =
+          currentBlock.metadata?.id === 'response' && !isStartReference
+            ? JSON.stringify(replacementValue)
+            : this.formatValueForCodeContext(replacementValue, currentBlock, isInTemplateLiteral)
       } else {
         // The function execution API will handle variable resolution within code strings
         formattedValue =
@@ -771,7 +563,7 @@ export class InputResolver {
   }
 
   /**
-   * Applies a path part that may include multiple array indices, e.g. "values[0][0]".
+   * Applies a property path part with optional array indices, e.g. "values[0][0]".
    */
   private resolvePartWithIndices(
     base: any,
@@ -779,17 +571,24 @@ export class InputResolver {
     fullPath: string,
     sourceName: string
   ): any {
+    if (!part) return undefined
+    if (Array.isArray(base) && !part.startsWith('[')) {
+      throw new Error(
+        `Array path "${fullPath}" in block "${sourceName}" must use an explicit index.`
+      )
+    }
+
     let value = base
 
     // Extract leading property name if present
-    const propMatch = part.match(/^([^[]+)/)
+    const propMatch = part.match(/^([^[\]]+)/)
     let rest = part
     if (propMatch) {
       const prop = propMatch[1]
-      value = value[prop]
+      value = Object.hasOwn(value, prop) ? value[prop] : undefined
       rest = part.slice(prop.length)
       if (value === undefined) {
-        throw new Error(`No value found at path "${fullPath}" in block "${sourceName}".`)
+        return undefined
       }
     }
 
@@ -801,13 +600,9 @@ export class InputResolver {
         throw new Error(`Invalid path "${part}" in "${fullPath}" for block "${sourceName}".`)
       }
       const idx = Number.parseInt(m[1], 10)
+      if (value === undefined) return undefined
       if (!Array.isArray(value)) {
         throw new Error(`Invalid path "${part}" in "${fullPath}" for block "${sourceName}".`)
-      }
-      if (idx < 0 || idx >= value.length) {
-        throw new Error(
-          `Array index ${idx} is out of bounds in path "${fullPath}" for block "${sourceName}".`
-        )
       }
       value = value[idx]
       rest = rest.slice(m[0].length)
@@ -840,46 +635,20 @@ export class InputResolver {
   }
 
   /**
-   * Gets user-friendly block names for error messages.
-   * Only returns the actual block names that users see in the UI.
-   */
-  private getAccessibleBlockNamesForError(currentBlockId: string): string[] {
-    const names: string[] = []
-
-    for (const block of this.workflow.blocks) {
-      if (block.metadata?.name) {
-        names.push(block.metadata.name)
-      } else {
-        names.push(block.id)
-      }
-    }
-
-    return [...new Set(names)] // Remove duplicates
-  }
-
-  /**
    * Validates if a block reference is accessible from the current block.
    * Checks existence and connection-based access rules.
    *
    * @param blockRef - Name or ID of the referenced block
    * @param currentBlockId - ID of the block making the reference
-   * @returns Validation result with success status and resolved block ID or error message
+   * @returns The accessible source block, or undefined
    */
   private validateBlockReference(
     blockRef: string,
     currentBlockId: string
-  ): { isValid: boolean; resolvedBlockId?: string; errorMessage?: string } {
-    // Check if block exists
+  ): SerializedBlock | undefined {
     const sourceBlock =
-      this.blockById.get(blockRef) ?? this.blockByNormalizedName.get(normalizeBlockName(blockRef))
-
-    if (!sourceBlock) {
-      const accessibleNames = this.getAccessibleBlockNamesForError(currentBlockId)
-      return {
-        isValid: false,
-        errorMessage: `Block "${blockRef}" was not found. Available blocks: ${accessibleNames.join(', ')}`,
-      }
-    }
+      this.blockById.get(blockRef) || this.blockByNormalizedName.get(normalizeBlockName(blockRef))
+    if (!sourceBlock) return undefined
 
     const accessibleBlocks = this.getAccessibleBlocks(currentBlockId)
     const isAlwaysAccessibleTrigger =
@@ -891,10 +660,10 @@ export class InputResolver {
       !isAlwaysAccessibleTrigger &&
       !accessibleBlocks.has(sourceBlock.id)
     ) {
-      return { isValid: false }
+      return undefined
     }
 
-    return { isValid: true, resolvedBlockId: sourceBlock.id }
+    return sourceBlock
   }
 
   /**
