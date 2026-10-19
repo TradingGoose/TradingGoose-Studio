@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getBlock } from '@/blocks'
+import { TradingPortfolioDetailBlock } from '@/blocks/blocks/portfolio_detail'
 import { ResponseBlock } from '@/blocks/blocks/response'
 import { getBlockOutputPaths, getBlockOutputType, readBlockOutputs } from './block-outputs'
 
@@ -33,6 +34,33 @@ const outputs = {
 describe('block output schema traversal', () => {
   beforeEach(() => {
     vi.mocked(getBlock).mockReturnValue({ outputs } as unknown as ReturnType<typeof getBlock>)
+  })
+
+  it('uses only the selected broker capability fields for portfolio references', () => {
+    vi.mocked(getBlock).mockReturnValue(TradingPortfolioDetailBlock)
+    const subBlocks = { provider: { value: '' } }
+    for (const provider of ['alpaca', 'robinhood', 'tradier']) {
+      subBlocks.provider.value = provider
+      const paths = getBlockOutputPaths('portfolio_detail', subBlocks)
+      expect(paths).toContain('portfolioDetail.positions[0].quantity')
+      expect(paths.includes('portfolioDetail.positions[0].marketValue')).toBe(provider === 'alpaca')
+      expect(paths.includes('portfolioDetail.summary.totalUnrealizedPnl')).toBe(
+        provider !== 'robinhood'
+      )
+      expect(paths.some((path) => path.includes('orders'))).toBe(false)
+      expect(
+        getBlockOutputType(
+          'portfolio_detail',
+          'portfolioDetail.positions[3].listingIdentity',
+          subBlocks
+        )
+      ).toBe('listingIdentity')
+    }
+    expect(getBlockOutputPaths('portfolio_detail')).toEqual([
+      'summary',
+      'provider',
+      'portfolioDetail',
+    ])
   })
 
   it('exposes the actual Response block envelope through canonical object properties', () => {

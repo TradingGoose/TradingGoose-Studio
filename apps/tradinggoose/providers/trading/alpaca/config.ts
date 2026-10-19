@@ -1,7 +1,7 @@
 import type { AssetClass } from '@/providers/market/types'
 import { alpacaTradingSymbolRules } from '@/providers/trading/alpaca/rules'
 import type { TradingProviderConfig } from '@/providers/trading/providers'
-import { TRADING_PORTFOLIO_MONITOR_METRICS } from '@/providers/trading/types'
+import { BASE_PORTFOLIO_OUTPUTS } from '@/providers/trading/types'
 
 export const ALPACA_LIVE_TRADING_BASE_URL = 'https://api.alpaca.markets'
 export const ALPACA_PAPER_TRADING_BASE_URL = 'https://paper-api.alpaca.markets'
@@ -146,7 +146,23 @@ export const alpacaTradingProviderConfig: TradingProviderConfig = {
     },
     portfolioDetail: {
       performanceWindows: ['1D', '1W', '1M', '3M', 'YTD', '1Y'],
-      monitorMetrics: TRADING_PORTFOLIO_MONITOR_METRICS,
+      outputs: {
+        cashBalances: {
+          ...BASE_PORTFOLIO_OUTPUTS.cashBalances,
+          conversionRate: { type: 'number' },
+          amountInAccountCurrency: { type: 'number' },
+        },
+        positions: {
+          ...BASE_PORTFOLIO_OUTPUTS.positions,
+          marketPrice: { type: 'number' },
+          marketValue: { type: 'number' },
+          conversionRate: { type: 'number' },
+          unrealizedPnl: { type: 'number' },
+          unrealizedPnlPercent: { type: 'number' },
+          multiplier: { type: 'number' },
+        },
+        summary: { ...BASE_PORTFOLIO_OUTPUTS.summary, totalUnrealizedPnl: { type: 'number' } },
+      },
     },
   },
   rulePrecedence: {

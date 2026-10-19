@@ -22,6 +22,8 @@ import type {
   TradingProviderOAuthConfig,
   TradingRequestConfig,
 } from '@/providers/trading/types'
+import { TRADING_PORTFOLIO_MONITOR_METRICS } from '@/providers/trading/types'
+import type { OutputProperty } from '@/tools/types'
 
 export interface TradingProviderAvailability {
   assetClass: AssetClass[]
@@ -43,7 +45,7 @@ export interface TradingOrderInputCapabilities {
 
 export interface TradingPortfolioDetailInputCapabilities {
   performanceWindows: TradingPortfolioPerformanceWindow[]
-  monitorMetrics: readonly TradingPortfolioMonitorMetric[]
+  outputs: Record<'cashBalances' | 'positions' | 'summary', Record<string, OutputProperty>>
 }
 
 export interface TradingProviderCapabilities {
@@ -198,13 +200,47 @@ export function getTradingProviderConfig(
 export function getTradingPortfolioDetailCapabilities(
   providerId: TradingProviderId
 ): TradingPortfolioDetailInputCapabilities | null {
-  return TRADING_PROVIDER_DEFINITIONS[providerId]?.config.capabilities?.portfolioDetail || null
+  const config = getTradingProviderConfig(providerId)
+  return config?.availability.portfolioDetail
+    ? (config.capabilities?.portfolioDetail ?? null)
+    : null
 }
 
 export function getTradingPortfolioMonitorMetrics(
   providerId: TradingProviderId
 ): readonly TradingPortfolioMonitorMetric[] {
-  return getTradingPortfolioDetailCapabilities(providerId)?.monitorMetrics ?? []
+  const outputs = getTradingPortfolioDetailCapabilities(providerId)?.outputs
+  if (!outputs) return []
+
+  return TRADING_PORTFOLIO_MONITOR_METRICS.filter((metric) => {
+    if (metric === 'positions.count') return true
+    if (metric === 'position.exists') return Object.hasOwn(outputs.positions, 'listingIdentity')
+
+    const [group, field] = metric.split('.')
+    if (group === 'summary') return Object.hasOwn(outputs.summary, field)
+    const positionField =
+      field === 'totalMarketValue'
+        ? 'marketValue'
+        : field === 'totalUnrealizedPnl'
+          ? 'unrealizedPnl'
+          : field
+    return Object.hasOwn(outputs.positions, positionField)
+  })
+}
+
+export function getTradingPortfolioOutputFields(
+  providerId: TradingProviderId
+): Record<string, OutputProperty> {
+  const outputs = getTradingPortfolioDetailCapabilities(providerId)?.outputs
+  if (!outputs) return {}
+  return Object.fromEntries(
+    Object.entries(outputs).flatMap(([group, fields]) =>
+      Object.entries(fields).map(([field, definition]) => [
+        `portfolioDetail.${group}${group === 'summary' ? '' : '[0]'}.${field}`,
+        definition,
+      ])
+    )
+  )
 }
 
 export function getTradingOrderCapabilities(

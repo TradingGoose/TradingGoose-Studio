@@ -10,7 +10,12 @@ import type {
   PortfolioMonitorCreateInput,
   PortfolioMonitorUpdateInput,
 } from '../shared/types'
-import { buildDefaultDraft, buildDraftFromMonitor, isAuthParamDefinition } from '../shared/utils'
+import {
+  buildDefaultDraft,
+  buildDraftFromMonitor,
+  DEFAULT_PORTFOLIO_FIRE_CONDITION,
+  isAuthParamDefinition,
+} from '../shared/utils'
 
 export type MonitorDraftIssues = Record<string, string[]>
 
@@ -155,6 +160,10 @@ export const mergeMonitorDraftPatch = ({
       ? (patch.credentialId ?? '')
       : (patch.credentialId ?? draft.credentialId),
     accountId: providerChanged ? (patch.accountId ?? '') : (patch.accountId ?? draft.accountId),
+    condition:
+      providerChanged && nextSource === PORTFOLIO_MONITOR_PROVIDER
+        ? DEFAULT_PORTFOLIO_FIRE_CONDITION
+        : (patch.condition ?? draft.condition),
     indicatorInputs: Object.hasOwn(patch, 'indicatorInputs')
       ? (patch.indicatorInputs ?? {})
       : indicatorChanged

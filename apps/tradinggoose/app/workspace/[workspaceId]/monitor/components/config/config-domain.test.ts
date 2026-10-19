@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { getPublicCopy } from '@/i18n/public-copy'
 import type { MonitorRecord, MonitorReferenceData } from '../shared/types'
+import { buildDefaultDraft, DEFAULT_PORTFOLIO_FIRE_CONDITION } from '../shared/utils'
 import { DEFAULT_CONFIG_MONITOR_VIEW_CONFIG } from '../view/view-config'
 import { buildConfigBoardSections } from './config-board-state'
 import { buildConfigMonitorCards } from './config-card-model'
 import {
   buildDraftFromMonitorWithPatch,
   buildMonitorUpdatePayloadFromDraft,
+  mergeMonitorDraftPatch,
   validateMonitorDraft,
 } from './config-draft'
 import { resolveConfigBoardContextPatch } from './config-drop'
@@ -411,6 +413,23 @@ describe('config monitor domain', () => {
       'param:feed': ['Feed is required.'],
     })
   })
+
+  it.each(['alpaca', 'robinhood'])(
+    'resets portfolio conditions only when the provider changes to %s',
+    (providerId) => {
+      const draft = buildDefaultDraft({ source: 'portfolio', providerId: 'alpaca', interval: '' })
+      draft.condition = {
+        root: {
+          combinator: 'and',
+          rules: [{ metric: 'position.marketValue', operator: 'lt', value: 5 }],
+        },
+      }
+      const next = mergeMonitorDraftPatch({ draft, patch: { providerId }, referenceData })
+      expect(next.condition).toEqual(
+        providerId === draft.providerId ? draft.condition : DEFAULT_PORTFOLIO_FIRE_CONDITION
+      )
+    }
+  )
 
   it('uses the default draft interval when an editor provider change has no interval list', () => {
     const nextReferenceData: MonitorReferenceData = {

@@ -42,7 +42,6 @@ describe('executePortfolioMonitorJob', () => {
         asOf: '2026-09-16T12:00:00.000Z',
         cashBalances: [],
         positions: [],
-        orders: [],
         summary: { totalPortfolioValue: 10_000, totalCashValue: 10_000 },
       }
       const payload = {

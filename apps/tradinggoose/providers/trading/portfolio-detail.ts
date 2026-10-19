@@ -7,7 +7,6 @@ import type {
 import type {
   UnifiedTradingAccountSummary,
   UnifiedTradingCashBalance,
-  UnifiedTradingOrder,
   UnifiedTradingPosition,
 } from '@/providers/trading/types'
 
@@ -32,7 +31,6 @@ export async function buildPortfolioDetail({
   asOf,
   cashBalances,
   positions,
-  orders,
   summary,
 }: {
   identity: PortfolioIdentity
@@ -40,7 +38,6 @@ export async function buildPortfolioDetail({
   asOf: string
   cashBalances: UnifiedTradingCashBalance[]
   positions: UnifiedTradingPosition[]
-  orders?: UnifiedTradingOrder[]
   summary: UnifiedTradingAccountSummary
 }): Promise<PortfolioDetail> {
   return {
@@ -49,7 +46,6 @@ export async function buildPortfolioDetail({
     asOf,
     cashBalances,
     positions: await resolvePortfolioPositions(positions),
-    orders: orders ?? [],
     summary,
   }
 }
