@@ -27,7 +27,6 @@ import {
   renderOTPEmail,
   renderPasswordResetEmail,
 } from '@/components/emails/render-email'
-import { checkApiEndpointRateLimit } from '@/lib/api/rate-limit'
 import { sendBillingTierWelcomeEmail } from '@/lib/billing'
 import { authorizeSubscriptionReference } from '@/lib/billing/authorization'
 import { ensureDefaultUserSubscription } from '@/lib/billing/core/subscription'
@@ -231,13 +230,6 @@ function createGenericOAuthPlugin(options: Parameters<typeof genericOAuth>[0]) {
   plugin.endpoints.oAuth2LinkAccount.options.use.push(
     createAuthMiddleware(async (ctx) => {
       if (ctx.body?.providerId === 'robinhood') {
-        const rateLimit = await checkApiEndpointRateLimit(ctx.context.session!.user.id)
-        if (!rateLimit.allowed) {
-          throw new APIError(
-            rateLimit.failureKind === 'dependency' ? 'SERVICE_UNAVAILABLE' : 'TOO_MANY_REQUESTS',
-            { message: rateLimit.error || 'Rate limit exceeded' }
-          )
-        }
         try {
           const clientId = await registerRobinhoodOAuthClient(
             getRobinhoodOAuthRedirectUri(getBaseUrl(), isHosted)
