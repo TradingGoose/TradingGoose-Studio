@@ -18384,7 +18384,7 @@
           "cancel": "取消",
           "connectService": "连接 {serviceName}",
           "connectNow": "立即连接",
-          "robinhoodHostedHelper": "请在运行浏览器的同一台电脑上执行命令。该命令会打开 Robinhood，并保持回调助手运行。"
+          "robinhoodHostedHelper": "请在运行浏览器的同一台电脑上执行命令。该命令会打开 Robinhood，并在授权结束后自动退出。"
         },
         "dropdown": {
           "placeholder": "选择一个选项...",

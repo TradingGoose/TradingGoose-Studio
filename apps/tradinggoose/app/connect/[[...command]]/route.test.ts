@@ -347,7 +347,7 @@ describe('Robinhood connection helper route', () => {
     expect(script).toContain(
       "AUTHORIZE_URL='https://studio.example.test/connect/robinhood/authorize?callbackURL=%2Fworkspace%2Fteam%2Fintegrations%3Ftab%3Dtrading%23connections'"
     )
-    expect(script).toContain('openBrowser(authorizeUrl)')
+    expect(script).toContain('openBrowser(authorizeUrl.toString())')
     expect(script).not.toContain('access_token')
     expect(script).not.toContain('refresh_token')
   })
@@ -363,10 +363,10 @@ describe('Robinhood connection helper route', () => {
     await expect(response.text()).resolves.toBe('Invalid callback URL\n')
   })
 
-  it('keeps listening after forwarded callbacks', async () => {
+  it.each(['', 'access_denied'])('exits after hosted completion (%s)', async (error) => {
     const relayScript = buildRobinhoodConnectScript(
       'https://preview.example.test',
-      '/workspace',
+      '/workspace?tab=trading#connections',
       'sh'
     )
       .replace(
@@ -377,7 +377,8 @@ describe('Robinhood connection helper route', () => {
         "console.log('Robinhood connection helper is ready.')",
         'console.log(server.address().port)'
       )
-      .replace('openBrowser(authorizeUrl)', '')
+      .replace('randomUUID()', "'test-completion-token'")
+      .replace('openBrowser(authorizeUrl.toString())', '')
     const relay = spawn('sh', ['-c', relayScript], { stdio: ['ignore', 'pipe', 'pipe'] })
     const relayExited = once(relay, 'exit')
 
@@ -415,6 +416,26 @@ describe('Robinhood connection helper route', () => {
         status: 302,
       })
       expect(relay.exitCode).toBeNull()
+      await expect(getLocalStatus(`${loopbackUrl}?complete=wrong-token`)).resolves.toEqual({
+        location: undefined,
+        status: 400,
+      })
+      expect(relay.exitCode).toBeNull()
+
+      const destination = new URL('https://preview.example.test/workspace?tab=trading#connections')
+      const completionUrl = new URL(loopbackUrl)
+      completionUrl.searchParams.set('complete', 'test-completion-token')
+      if (error) {
+        for (const url of [destination, completionUrl]) {
+          url.searchParams.set('error', error)
+          url.searchParams.set('error_description', 'User denied access')
+        }
+      }
+      await expect(getLocalStatus(completionUrl.toString())).resolves.toEqual({
+        location: destination.toString(),
+        status: 302,
+      })
+      await expect(relayExited).resolves.toEqual([0, null])
     } finally {
       if (relay.exitCode === null) relay.kill()
       await relayExited

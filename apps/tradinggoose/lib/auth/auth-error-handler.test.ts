@@ -42,7 +42,7 @@ describe('handleAuthError', () => {
     vi.resetModules()
     vi.clearAllMocks()
     const destination = '/workspace/team/integrations?tab=trading#accounts'
-    const returnURL = `/connect/robinhood/authorize?callbackURL=${encodeURIComponent(destination)}`
+    const returnURL = `/connect/robinhood/authorize?callbackURL=${encodeURIComponent(destination)}&relayToken=completion-token`
     stubWindow(`https://studio.example.test/es${returnURL}`)
     const { handleAuthError } = await import('./auth-error-handler')
 
