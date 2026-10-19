@@ -1,10 +1,20 @@
+import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
-import { checkTagTrigger } from '@/components/ui/tag-dropdown'
+import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { extractFieldsFromSchema, parseResponseFormatSafely } from '@/lib/response-format'
 import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
+import {
+  useWorkflowBlocks,
+  useWorkflowEdges,
+  useWorkflowLoops,
+  useWorkflowParallels,
+} from '@/lib/yjs/use-workflow-doc'
 import { LoopBlock } from '@/blocks/blocks/loop'
+import { ParallelContainerBlock } from '@/blocks/blocks/parallel_container'
 import type { BlockState } from '@/stores/workflows/workflow/types'
-import { generateLoopBlocks } from '@/stores/workflows/workflow/utils'
+import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/workflow/utils'
+
+vi.unmock('@/blocks/registry')
 
 // Mock getTool function for testing tool output types
 vi.mock('@/lib/get-tool', () => ({
@@ -768,183 +778,79 @@ describe('TagDropdown Trigger Output Parsing', () => {
   })
 })
 
-describe('TagDropdown Loop Suggestions', () => {
-  it.concurrent('should generate correct loop suggestions for forEach loops', () => {
-    const blocks: Record<string, BlockState> = {
-      loop1: {
-        id: 'loop1',
-        type: 'loop',
-        name: 'Test Loop',
-        position: { x: 0, y: 0 },
-        subBlocks: buildInitialSubBlockStates(LoopBlock.subBlocks, {
-          loopType: 'forEach',
-          forEachItems: '["item1", "item2", "item3"]',
+describe('TagDropdown container references', () => {
+  it.each([
+    ['for', LoopBlock, 'function'],
+    ['forEach', LoopBlock, 'function'],
+    ['count', ParallelContainerBlock, 'function'],
+    ['collection', ParallelContainerBlock, 'function'],
+    ['for', LoopBlock, 'loop'],
+  ] as const)('keeps %s context separate from completed outputs', (mode, config, childType) => {
+    const child: BlockState = {
+      id: 'child',
+      type: childType,
+      name: 'Child',
+      position: { x: 0, y: 0 },
+      subBlocks: buildInitialSubBlockStates(
+        childType === 'loop' ? LoopBlock.subBlocks : []
+      ) as BlockState['subBlocks'],
+      outputs: {},
+      enabled: true,
+      data: { parentId: 'container' },
+    }
+    const blocks = {
+      container: {
+        ...child,
+        id: 'container',
+        type: config.type,
+        name: 'Container',
+        subBlocks: buildInitialSubBlockStates(config.subBlocks, {
+          [config.type === 'loop' ? 'loopType' : 'parallelType']: mode,
         }) as BlockState['subBlocks'],
-        outputs: {},
-        enabled: true,
+        data: {},
       },
-      function1: {
-        id: 'function1',
-        type: 'function',
-        name: 'Function 1',
-        position: { x: 0, y: 0 },
-        subBlocks: {},
-        outputs: {},
-        enabled: true,
-        data: {
-          parentId: 'loop1',
-        },
-      },
+      child,
+      after: { ...child, id: 'after', name: 'After', data: {} },
     }
+    vi.mocked(useWorkflowBlocks).mockReturnValue(blocks)
+    vi.mocked(useWorkflowEdges).mockReturnValue([
+      { id: 'inside', source: 'container', target: 'child' },
+      { id: 'outside', source: 'container', target: 'after' },
+    ])
+    vi.mocked(useWorkflowLoops).mockReturnValue(generateLoopBlocks(blocks))
+    vi.mocked(useWorkflowParallels).mockReturnValue(generateParallelBlocks(blocks))
 
-    const loops = generateLoopBlocks(blocks)
+    const render = (
+      blockId: string,
+      activeSourceBlockId: string | null = null,
+      allowContextualTags = true
+    ) =>
+      renderToStaticMarkup(
+        <TagDropdown
+          visible
+          onSelect={vi.fn()}
+          blockId={blockId}
+          activeSourceBlockId={activeSourceBlockId}
+          inputValue='<'
+          cursorPosition={1}
+          allowContextualTags={allowContextualTags}
+        />
+      )
 
-    // Verify loop was generated correctly
-    expect(loops.loop1).toBeDefined()
-    expect(loops.loop1.loopType).toBe('forEach')
-    expect(loops.loop1.forEachItems).toBe('["item1", "item2", "item3"]')
-    expect(loops.loop1.nodes).toContain('function1')
-
-    // Simulate the tag generation logic from TagDropdown
-    const loopTags: string[] = []
-    const containingLoop = Object.entries(loops).find(([_, loop]) =>
-      loop.nodes.includes('function1')
-    )
-
-    if (containingLoop) {
-      const [_loopId, loop] = containingLoop
-      const loopType = loop.loopType || 'for'
-
-      // Add loop.index for all loop types
-      loopTags.push('loop.index')
-
-      // Add forEach specific properties
-      if (loopType === 'forEach') {
-        loopTags.push('loop.currentItem')
-        loopTags.push('loop.items')
-      }
+    for (const source of [null, 'container']) {
+      const inside = render('child', source)
+      expect(
+        inside.match(new RegExp(`>${childType === 'loop' ? 'Child' : 'Container'}<`, 'g'))
+      ).toHaveLength(1)
+      if (childType === 'loop') expect(inside).not.toContain('>Container<')
+      expect(inside).toContain('>index<')
+      expect(inside.includes('>currentItem<')).toBe(mode === 'forEach' || mode === 'collection')
+      expect(inside.includes('>items<')).toBe(mode === 'forEach' || mode === 'collection')
+      expect(inside).not.toContain('>results<')
+      expect(render('child', source, false)).not.toContain('>Container<')
+      expect(render('after', source)).toContain('>results<')
     }
-
-    // Verify all loop tags are present
-    expect(loopTags).toContain('loop.index')
-    expect(loopTags).toContain('loop.currentItem')
-    expect(loopTags).toContain('loop.items')
-    expect(loopTags).toHaveLength(3)
-  })
-
-  it.concurrent('should only generate loop.index for regular for loops', () => {
-    const blocks: Record<string, BlockState> = {
-      loop1: {
-        id: 'loop1',
-        type: 'loop',
-        name: 'Test Loop',
-        position: { x: 0, y: 0 },
-        subBlocks: buildInitialSubBlockStates(LoopBlock.subBlocks) as BlockState['subBlocks'],
-        outputs: {},
-        enabled: true,
-      },
-      function1: {
-        id: 'function1',
-        type: 'function',
-        name: 'Function 1',
-        position: { x: 0, y: 0 },
-        subBlocks: {},
-        outputs: {},
-        enabled: true,
-        data: {
-          parentId: 'loop1',
-        },
-      },
-    }
-
-    const loops = generateLoopBlocks(blocks)
-
-    // Simulate the tag generation logic
-    const loopTags: string[] = []
-    const containingLoop = Object.entries(loops).find(([_, loop]) =>
-      loop.nodes.includes('function1')
-    )
-
-    if (containingLoop) {
-      const [_loopId, loop] = containingLoop
-      const loopType = loop.loopType || 'for'
-
-      loopTags.push('loop.index')
-
-      if (loopType === 'forEach') {
-        loopTags.push('loop.currentItem')
-        loopTags.push('loop.items')
-      }
-    }
-
-    // For regular loops, should only have loop.index
-    expect(loopTags).toContain('loop.index')
-    expect(loopTags).not.toContain('loop.currentItem')
-    expect(loopTags).not.toContain('loop.items')
-    expect(loopTags).toHaveLength(1)
-  })
-})
-
-describe('TagDropdown Parallel Suggestions', () => {
-  it.concurrent('should generate correct parallel suggestions', () => {
-    const blocks: Record<string, BlockState> = {
-      parallel1: {
-        id: 'parallel1',
-        type: 'parallel',
-        name: 'Test Parallel',
-        position: { x: 0, y: 0 },
-        subBlocks: {
-          parallelType: { id: 'parallelType', type: 'dropdown', value: 'collection' },
-          distribution: {
-            id: 'distribution',
-            type: 'long-input',
-            value: '["item1", "item2", "item3"]',
-          },
-        },
-        outputs: {},
-        enabled: true,
-      },
-      function1: {
-        id: 'function1',
-        type: 'function',
-        name: 'Function 1',
-        position: { x: 0, y: 0 },
-        subBlocks: {},
-        outputs: {},
-        enabled: true,
-        data: {
-          parentId: 'parallel1',
-        },
-      },
-    }
-
-    // Simulate parallel blocks structure (similar to loops)
-    const parallels = {
-      parallel1: {
-        nodes: ['function1'],
-        collection: '["item1", "item2", "item3"]',
-      },
-    }
-
-    // Simulate the tag generation logic for parallel blocks
-    const parallelTags: string[] = []
-    const containingParallel = Object.entries(parallels).find(([_, parallel]) =>
-      parallel.nodes.includes('function1')
-    )
-
-    if (containingParallel) {
-      // Add parallel.index for all parallel blocks
-      parallelTags.push('parallel.index')
-      // Add parallel.currentItem and parallel.items
-      parallelTags.push('parallel.currentItem')
-      parallelTags.push('parallel.items')
-    }
-
-    // Verify all parallel tags are present
-    expect(parallelTags).toContain('parallel.index')
-    expect(parallelTags).toContain('parallel.currentItem')
-    expect(parallelTags).toContain('parallel.items')
-    expect(parallelTags).toHaveLength(3)
+    expect(render('child', 'child')).not.toContain('>results<')
   })
 })
 
