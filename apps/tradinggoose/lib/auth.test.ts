@@ -2,10 +2,14 @@ import { getOAuthState } from 'better-auth/api'
 import { genericOAuth } from 'better-auth/plugins'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { registerClient } = vi.hoisted(() => ({ registerClient: vi.fn() }))
+const { registerClient, checkRateLimit } = vi.hoisted(() => ({
+  registerClient: vi.fn(),
+  checkRateLimit: vi.fn(),
+}))
 
 vi.mock('@modelcontextprotocol/sdk/client/auth.js', () => ({ registerClient }))
 vi.mock('@tradinggoose/db', () => ({ db: {} }))
+vi.mock('@/lib/api/rate-limit', () => ({ checkApiEndpointRateLimit: checkRateLimit }))
 vi.mock('@/lib/billing/plans', () => ({ getBetterAuthPlansConfig: () => [] }))
 vi.mock('better-auth', async (original) => {
   const actual = await original<typeof import('better-auth')>()
@@ -70,6 +74,7 @@ describe('Robinhood OAuth identity', () => {
 describe('Robinhood OAuth linking', () => {
   beforeEach(() => {
     vi.mocked(parseState).mockReset()
+    checkRateLimit.mockReset().mockResolvedValue({ allowed: true })
     registerClient.mockReset()
     registerClient.mockImplementation(async (_resource, { clientMetadata }) => ({
       ...clientMetadata,
@@ -145,7 +150,7 @@ describe('Robinhood OAuth linking', () => {
       async () => {
         await registerClientForLink({
           body: { providerId: 'robinhood' },
-          context: { session: { session: {}, user: {} } },
+          context: { session: { session: {}, user: { id: 'studio-user' } } },
         } as never)
         expect(getSystemOAuthClientCredentialsForRequest('robinhood').clientId).toBe(
           'registered-client'
@@ -156,9 +161,25 @@ describe('Robinhood OAuth linking', () => {
             clientMetadata: expect.objectContaining({ redirect_uris: [config.redirectURI] }),
           })
         )
+        expect(checkRateLimit).toHaveBeenCalledWith('studio-user')
       },
       { robinhood: { clientId: '', clientSecret: '', fields: {} } }
     )
+  })
+
+  it.each([
+    ['TOO_MANY_REQUESTS', undefined],
+    ['SERVICE_UNAVAILABLE', 'dependency'],
+  ])('rejects %s before registering a client', async (status, failureKind) => {
+    checkRateLimit.mockResolvedValueOnce({ allowed: false, failureKind })
+    const middleware = genericOAuthPlugin.endpoints.oAuth2LinkAccount.options.use.at(-1)!
+    await expect(
+      middleware({
+        body: { providerId: 'robinhood' },
+        context: { session: { session: {}, user: { id: 'studio-user' } } },
+      } as never)
+    ).rejects.toMatchObject({ status })
+    expect(registerClient).not.toHaveBeenCalled()
   })
 
   it('changes the Robinhood client ID only with its replacement refresh token', async () => {

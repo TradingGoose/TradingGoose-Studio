@@ -9,13 +9,14 @@ import { OAuthRequiredModal } from './oauth-required-modal'
 
 const mockStartOAuthConnectFlow = vi.fn()
 const mockEnvironment = vi.hoisted(() => ({ isHosted: true }))
+const mockGetBaseUrl = vi.hoisted(() => vi.fn(() => 'https://www.tradinggoose.ai'))
 
 vi.mock('@/lib/environment', () => ({
   get isHosted() {
     return mockEnvironment.isHosted
   },
 }))
-vi.mock('@/lib/urls/utils', () => ({ getBaseUrl: () => 'https://www.tradinggoose.ai' }))
+vi.mock('@/lib/urls/utils', () => ({ getBaseUrl: mockGetBaseUrl }))
 vi.mock('@/lib/oauth/connect', () => ({
   startOAuthConnectFlow: (...args: unknown[]) => mockStartOAuthConnectFlow(...args),
 }))
@@ -72,6 +73,7 @@ describe('OAuthRequiredModal', () => {
 
     expect(document.body.textContent).toContain('Connect Alpaca Live')
     expect(document.body.textContent).toContain('Connect Alpaca Paper')
+    expect(mockGetBaseUrl).not.toHaveBeenCalled()
     const paperButton = Array.from(document.body.querySelectorAll('button')).find((button) =>
       button.textContent?.includes('Connect Alpaca Paper')
     )
@@ -127,6 +129,7 @@ describe('OAuthRequiredModal', () => {
       button.textContent?.includes('Connect Now')
     )
     expect(connectButton).toBeTruthy()
+    expect(mockGetBaseUrl).not.toHaveBeenCalled()
 
     await act(async () => {
       connectButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
