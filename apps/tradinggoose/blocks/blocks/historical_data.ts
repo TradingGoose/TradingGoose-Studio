@@ -10,7 +10,9 @@ import {
   getMarketSeriesCapabilities,
   type MarketProviderParamType,
 } from '@/providers/market/providers'
-import type { NormalizationMode } from '@/providers/market/types'
+import { intervalToMs } from '@/providers/market/series-planner'
+import { DEFAULT_RANGE_PRESETS, rangeToMs } from '@/providers/market/series-window'
+import type { MarketSeriesWindow, NormalizationMode } from '@/providers/market/types'
 import type { MarketSeriesOutput } from '@/tools/market_data'
 import type { ToolResponse } from '@/tools/types'
 
@@ -34,6 +36,8 @@ const RESERVED_PARAM_IDS = new Set([
   'provider',
   'listing',
   'interval',
+  'rangePresetId',
+  'window',
   'start',
   'end',
   'normalizationMode',
@@ -132,6 +136,22 @@ const sanitizeNormalizationMode = (
   return mode as NormalizationMode
 }
 
+const getRangePresets = (provider: string) => {
+  const capabilities = getMarketSeriesCapabilities(provider)
+  if (!capabilities || !capabilities.windowModes?.includes('range')) return []
+
+  return DEFAULT_RANGE_PRESETS.filter((preset) => {
+    if (preset.interval && !capabilities.intervals?.includes(preset.interval)) return false
+    const retention =
+      (preset.interval && capabilities.retention?.byInterval?.[preset.interval]) ||
+      capabilities.retention?.default
+    const rangeMs = rangeToMs(preset.range)!
+    if (retention?.maxRangeDays && rangeMs > retention.maxRangeDays * 86_400_000) return false
+    const intervalMs = intervalToMs(preset.interval)
+    return !(retention?.maxBars && intervalMs && rangeMs > retention.maxBars * intervalMs)
+  })
+}
+
 const resolveParamInputType = (paramId: string): SubBlockConfig['type'] => {
   const definition = providerParamRegistry[paramId]?.definition
   if (!definition) return 'short-input'
@@ -221,7 +241,7 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
   name: 'Historical Data',
   description: 'Fetch historical market series from registered providers.',
   longDescription:
-    'Choose a market data provider, select a canonical listing, and fetch series bars that include open, high, low, close, volume, and timestamps. Start and end can be ISO strings or UNIX timestamps.',
+    'Choose a market data provider, select a canonical listing, and fetch series bars that include open, high, low, close, volume, and timestamps. Select a latest data range available from the provider or custom start and end dates. Custom dates can be ISO strings or UNIX timestamps.',
   category: 'tools',
   authMode: AuthMode.ApiKey,
   bgColor: '#0EA5E9',
@@ -245,6 +265,32 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
     },
     ...providerParamSubBlocks,
     {
+      id: 'rangePresetId',
+      title: 'Data Range',
+      type: 'dropdown',
+      layout: 'full',
+      placeholder: 'Select data range',
+      required: true,
+      dependsOn: ['provider'],
+      fetchOptions: async (_blockId, _subBlockId, context) => {
+        const provider = resolveContextValue(context.contextValues, 'provider')
+        if (!provider) return []
+        const capabilities = getMarketSeriesCapabilities(provider)
+        return [
+          ...(capabilities?.windowModes?.includes('absolute')
+            ? [{ id: 'custom', label: 'Custom dates' }]
+            : []),
+          ...getRangePresets(provider).map((preset) => ({
+            id: preset.id,
+            label:
+              preset.id === 'all'
+                ? 'All available'
+                : `Latest ${preset.range.value} ${preset.range.unit}${preset.range.value === 1 ? '' : 's'}`,
+          })),
+        ]
+      },
+    },
+    {
       id: 'interval',
       title: 'Interval',
       type: 'dropdown',
@@ -252,7 +298,11 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
       placeholder: 'Select interval',
       required: false,
       condition: providersWithIntervals.length
-        ? { field: 'provider', value: providersWithIntervals }
+        ? {
+            field: 'provider',
+            value: providersWithIntervals,
+            and: { field: 'rangePresetId', value: 'custom' },
+          }
         : undefined,
       dependsOn: ['provider'],
       fetchOptions: async (_blockId, _subBlockId, context) => {
@@ -295,6 +345,7 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
       placeholder: 'Start time',
       timePicker: { hour: true, minute: true, second: false },
       required: true,
+      condition: { field: 'rangePresetId', value: 'custom' },
     },
     {
       id: 'end',
@@ -304,6 +355,7 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
       placeholder: 'End time',
       timePicker: { hour: true, minute: true, second: false },
       required: true,
+      condition: { field: 'rangePresetId', value: 'custom' },
     },
   ],
   tools: {
@@ -330,7 +382,17 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
           }
         })
 
-        const interval = sanitizeInterval(params.provider, params.interval)
+        const rangePreset = getRangePresets(params.provider).find(
+          (preset) => preset.id === params.rangePresetId
+        )
+        const window: MarketSeriesWindow | undefined =
+          params.rangePresetId === 'custom' &&
+          getMarketSeriesCapabilities(params.provider)?.windowModes?.includes('absolute')
+            ? { mode: 'absolute', start: params.start, end: params.end }
+            : rangePreset
+              ? { mode: 'range', range: rangePreset.range }
+              : undefined
+        const interval = rangePreset?.interval ?? sanitizeInterval(params.provider, params.interval)
         const normalizationMode = sanitizeNormalizationMode(
           params.provider,
           params.normalizationMode
@@ -345,8 +407,7 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
           provider: params.provider,
           listing: params.listing,
           interval,
-          start: params.start,
-          end: params.end,
+          window,
           normalizationMode,
           providerParams,
           apiKey: auth.apiKey,
@@ -359,7 +420,11 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
   inputs: {
     provider: { type: 'string', description: 'Market provider id' },
     listing: { type: LISTING_IDENTITY_VALUE_TYPE, description: 'Structured listing payload' },
-    interval: { type: 'string', description: 'Series interval/timeframe' },
+    interval: { type: 'string', description: 'Series interval/timeframe for custom dates' },
+    rangePresetId: {
+      type: 'string',
+      description: 'Provider-supported latest data range preset, or custom for explicit dates',
+    },
     start: {
       type: 'string',
       description: 'Inclusive start of the interval (ISO or UNIX timestamp)',
