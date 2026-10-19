@@ -1,10 +1,76 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { validateWorkflowState } from '@/lib/workflows/validation'
+import { ImageGeneratorBlock } from '@/blocks/blocks/image_generator'
+import { SttBlock } from '@/blocks/blocks/stt'
+import type { BlockState } from '@/stores/workflows/workflow/types'
 import {
   buildConfiguredSubBlockParams,
+  buildInitialSubBlockStates,
   resolveDisplayedSubBlockValue,
   resolveInitialSubBlockValue,
   stringifySubBlockValue,
 } from './subblock-values'
+
+vi.unmock('@/blocks/registry')
+
+describe('buildInitialSubBlockStates', () => {
+  it.each([
+    [SttBlock, {}, { provider: 'whisper', model: 'whisper-1' }],
+    [SttBlock, { provider: 'elevenlabs' }, { provider: 'elevenlabs', model: 'scribe_v1' }],
+    [SttBlock, { provider: 'deepgram' }, { provider: 'deepgram', model: 'nova-3' }],
+    [SttBlock, { provider: 'assemblyai' }, { provider: 'assemblyai', model: 'best' }],
+    [SttBlock, { provider: 'gemini' }, { provider: 'gemini', model: 'gemini-2.5-flash' }],
+    [
+      SttBlock,
+      { provider: 'elevenlabs', model: 'scribe_v1_experimental' },
+      { provider: 'elevenlabs', model: 'scribe_v1_experimental' },
+    ],
+    [ImageGeneratorBlock, {}, { model: 'dall-e-3', size: '1024x1024' }],
+    [ImageGeneratorBlock, { model: 'gpt-image-1' }, { model: 'gpt-image-1', size: 'auto' }],
+  ])('initializes valid active defaults (case %#)', (config, overrides, expected) => {
+    const subBlocks = buildInitialSubBlockStates(config.subBlocks, overrides)
+    expect(
+      Object.fromEntries(Object.entries(subBlocks).map(([id, field]) => [id, field.value]))
+    ).toMatchObject(expected)
+    const block: BlockState = {
+      id: 'sample',
+      type: config.type,
+      name: config.name,
+      position: { x: 0, y: 0 },
+      subBlocks: subBlocks as BlockState['subBlocks'],
+      outputs: {},
+      enabled: true,
+    }
+    expect(
+      validateWorkflowState({ blocks: { sample: block }, edges: [], loops: {}, parallels: {} })
+        .errors
+    ).toEqual([])
+  })
+
+  it('retains inactive fields, configured callbacks, and explicit overrides', () => {
+    const subBlocks = buildInitialSubBlockStates(
+      [
+        { id: 'mode', type: 'dropdown', defaultValue: 'active' },
+        { id: 'value', type: 'short-input', value: (params) => params.mode },
+        {
+          id: 'value',
+          type: 'short-input',
+          defaultValue: 'inactive',
+          condition: () => ({ field: 'mode', value: 'inactive' }),
+        },
+        {
+          id: 'items',
+          type: 'long-input',
+          defaultValue: '[]',
+          condition: { field: 'mode', value: 'inactive' },
+        },
+      ],
+      { mode: 'chosen' }
+    )
+    expect(subBlocks.value.value).toBe('chosen')
+    expect(subBlocks.items.value).toBe('[]')
+  })
+})
 
 describe('stringifySubBlockValue', () => {
   it.each([

@@ -30,14 +30,7 @@ vi.mock('@/lib/yjs/server/apply-workflow-state', () => ({
   applyWorkflowState: (...args: any[]) => mockApplyWorkflowState(...args),
 }))
 
-vi.mock('@/lib/workflows/validation', () => ({
-  validateWorkflowState: (state: any) => ({
-    valid: true,
-    errors: [],
-    warnings: [],
-    sanitizedState: state,
-  }),
-}))
+vi.unmock('@/blocks/registry')
 
 const BASE_WORKFLOW_STATE = {
   direction: 'TD',
@@ -261,7 +254,7 @@ describe('editWorkflowServerTool', () => {
     expect(result.workflowState.blocks.fn2).toMatchObject({
       id: 'fn2',
       type: 'function',
-      name: 'Mock Function',
+      name: 'Function',
       enabled: true,
     })
     expect(result.workflowState.blocks.fn2.subBlocks.code).toMatchObject({
@@ -270,9 +263,27 @@ describe('editWorkflowServerTool', () => {
       value: '',
     })
     expect(result.documentFormat).toBe(WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT)
-    expect(result.entityDocument).toContain('Mock Function')
+    expect(result.entityDocument).toContain('Function')
     expect(result.entityDocument).not.toContain('["id: fn2')
     expect(result.preview.blockDiff.added).toEqual(['fn2'])
+  })
+
+  it.each([
+    ['stt', { provider: 'whisper', model: 'whisper-1' }],
+    ['image_generator', { model: 'dall-e-3', size: '1024x1024' }],
+  ])('adds %s with valid conditional defaults through shared validation', async (type, values) => {
+    mockLoadWorkflowState.mockResolvedValueOnce({ blocks: {}, edges: [], loops: {}, parallels: {} })
+    const result = await editWorkflowServerTool.execute(
+      {
+        entityId: 'wf-1',
+        entityDocument: graph(['flowchart TD', `n1["id: new1<br/>type: ${type}"]`]),
+      },
+      { userId: 'user-1', accessLevel: 'limited' }
+    )
+    for (const [id, value] of Object.entries(values)) {
+      expect(result.workflowState.blocks.new1.subBlocks[id].value).toBe(value)
+    }
+    expect(result.preview.blockDiff.added).toEqual(['new1'])
   })
 
   it('places new blocks after existing siblings regardless of Mermaid order', async () => {

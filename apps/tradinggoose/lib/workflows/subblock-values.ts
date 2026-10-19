@@ -1,4 +1,5 @@
 import { getBaseUrl } from '@/lib/urls/utils'
+import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import type { SubBlockConfig } from '@/blocks/types'
 
 type SubBlockStateLike = Record<string, { value?: unknown } | undefined>
@@ -111,6 +112,13 @@ export function buildInitialSubBlockStates(
   const resolvedSubBlockParams: Record<string, any> = {}
 
   for (const subBlock of subBlockConfigs) {
+    if (
+      subBlocks[subBlock.id] &&
+      !evaluateSubBlockConditionValues(subBlock.condition, resolvedSubBlockParams)
+    ) {
+      continue
+    }
+
     const resolvedInitialValue = resolveInitialSubBlockValue(
       subBlock,
       resolvedSubBlockParams,
