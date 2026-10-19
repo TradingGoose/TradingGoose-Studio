@@ -22,6 +22,7 @@ import {
 import { isUtcOffset, normalizeUtcOffset } from '@/lib/time-format'
 import { cn } from '@/lib/utils'
 import { getMarketSeriesCapabilities } from '@/providers/market/providers'
+import { DEFAULT_RANGE_PRESETS } from '@/providers/market/series-window'
 import type { MarketInterval } from '@/providers/market/types'
 import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
 import {
@@ -35,7 +36,7 @@ import {
   useDataChartCopy,
 } from '@/widgets/widgets/data_chart/copy'
 import { useDataChartParamsPatch } from '@/widgets/widgets/data_chart/hooks/use-data-chart-params-patch'
-import { addRangeToDate, DEFAULT_RANGE_PRESETS } from '@/widgets/widgets/data_chart/series-data'
+import { addRangeToDate } from '@/widgets/widgets/data_chart/series-data'
 import { chooseIntervalForRange } from '@/widgets/widgets/data_chart/series-window'
 
 type TimeZoneOption = Awaited<ReturnType<typeof fetchTimeZoneOptions>>[number]
