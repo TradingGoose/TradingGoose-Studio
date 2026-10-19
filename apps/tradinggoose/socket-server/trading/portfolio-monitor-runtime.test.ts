@@ -58,7 +58,7 @@ vi.mock('@/lib/monitors/portfolio-conditions', () => ({
 }))
 
 vi.mock('@/lib/monitors/portfolio-config', () => ({
-  PortfolioMonitorProviderConfigSchema: {
+  SupportedPortfolioMonitorProviderConfigSchema: {
     safeParse: (value: unknown) => ({ success: true, data: value }),
   },
 }))

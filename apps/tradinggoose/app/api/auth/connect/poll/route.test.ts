@@ -6,15 +6,15 @@ import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
-  mockAcknowledgeMcpDeviceLogin,
+  mockAcknowledgeConnectionLogin,
   mockCheckPublicApiEndpointRateLimit,
   mockIsApiKeyStorageAvailable,
-  mockPollMcpDeviceLogin,
+  mockPollConnectionLogin,
 } = vi.hoisted(() => ({
-  mockAcknowledgeMcpDeviceLogin: vi.fn(),
+  mockAcknowledgeConnectionLogin: vi.fn(),
   mockCheckPublicApiEndpointRateLimit: vi.fn(),
   mockIsApiKeyStorageAvailable: vi.fn(),
-  mockPollMcpDeviceLogin: vi.fn(),
+  mockPollConnectionLogin: vi.fn(),
 }))
 
 vi.mock('@/lib/api/rate-limit', () => ({
@@ -26,12 +26,12 @@ vi.mock('@/lib/api-key/service', () => ({
   isApiKeyStorageAvailable: (...args: unknown[]) => mockIsApiKeyStorageAvailable(...args),
 }))
 
-vi.mock('@/lib/mcp/auth', () => ({
-  acknowledgeMcpDeviceLogin: (...args: unknown[]) => mockAcknowledgeMcpDeviceLogin(...args),
-  pollMcpDeviceLogin: (...args: unknown[]) => mockPollMcpDeviceLogin(...args),
+vi.mock('@/lib/connect/auth', () => ({
+  acknowledgeConnectionLogin: (...args: unknown[]) => mockAcknowledgeConnectionLogin(...args),
+  pollConnectionLogin: (...args: unknown[]) => mockPollConnectionLogin(...args),
 }))
 
-describe('MCP login poll route', () => {
+describe('connection login poll route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCheckPublicApiEndpointRateLimit.mockResolvedValue({
@@ -41,19 +41,19 @@ describe('MCP login poll route', () => {
       limit: 120,
     })
     mockIsApiKeyStorageAvailable.mockReturnValue(true)
-    mockPollMcpDeviceLogin.mockResolvedValue({
+    mockPollConnectionLogin.mockResolvedValue({
       status: 'approved',
       apiKey: 'sk-tradinggoose-token',
       expiresAt: '2026-06-19T12:00:00.000Z',
     })
-    mockAcknowledgeMcpDeviceLogin.mockResolvedValue({
+    mockAcknowledgeConnectionLogin.mockResolvedValue({
       status: 'acknowledged',
     })
   })
 
   it('polls the device login by code and verification key', async () => {
     const { POST } = await import('./route')
-    const request = new NextRequest('https://studio.example.test/api/auth/mcp/poll', {
+    const request = new NextRequest('https://studio.example.test/api/auth/connect/poll', {
       method: 'POST',
       body: JSON.stringify({ code: 'login-code', verificationKey: 'verification-key' }),
     })
@@ -66,14 +66,14 @@ describe('MCP login poll route', () => {
       apiKey: 'sk-tradinggoose-token',
       expiresAt: '2026-06-19T12:00:00.000Z',
     })
-    expect(mockCheckPublicApiEndpointRateLimit).toHaveBeenCalledWith(request, 'mcp-auth-poll')
-    expect(mockPollMcpDeviceLogin).toHaveBeenCalledWith('login-code', 'verification-key')
-    expect(mockAcknowledgeMcpDeviceLogin).not.toHaveBeenCalled()
+    expect(mockCheckPublicApiEndpointRateLimit).toHaveBeenCalledWith(request, 'connect-auth-poll')
+    expect(mockPollConnectionLogin).toHaveBeenCalledWith('login-code', 'verification-key')
+    expect(mockAcknowledgeConnectionLogin).not.toHaveBeenCalled()
   })
 
   it('acknowledges a locally persisted device login token', async () => {
     const { POST } = await import('./route')
-    const request = new NextRequest('https://studio.example.test/api/auth/mcp/poll', {
+    const request = new NextRequest('https://studio.example.test/api/auth/connect/poll', {
       method: 'POST',
       body: JSON.stringify({
         code: 'login-code',
@@ -86,26 +86,26 @@ describe('MCP login poll route', () => {
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({ status: 'acknowledged' })
-    expect(mockAcknowledgeMcpDeviceLogin).toHaveBeenCalledWith({
+    expect(mockAcknowledgeConnectionLogin).toHaveBeenCalledWith({
       apiKey: 'sk-tradinggoose-token',
       code: 'login-code',
       verificationKey: 'verification-key',
     })
-    expect(mockPollMcpDeviceLogin).not.toHaveBeenCalled()
+    expect(mockPollConnectionLogin).not.toHaveBeenCalled()
   })
 
   it('rejects malformed poll requests', async () => {
     const { POST } = await import('./route')
 
     const response = await POST(
-      new NextRequest('https://studio.example.test/api/auth/mcp/poll', {
+      new NextRequest('https://studio.example.test/api/auth/connect/poll', {
         method: 'POST',
         body: JSON.stringify({}),
       })
     )
 
     expect(response.status).toBe(400)
-    expect(mockPollMcpDeviceLogin).not.toHaveBeenCalled()
+    expect(mockPollConnectionLogin).not.toHaveBeenCalled()
   })
 
   it('rejects polls when the public endpoint rate limit is exhausted', async () => {
@@ -118,13 +118,13 @@ describe('MCP login poll route', () => {
     const { POST } = await import('./route')
 
     const response = await POST(
-      new NextRequest('https://studio.example.test/api/auth/mcp/poll', {
+      new NextRequest('https://studio.example.test/api/auth/connect/poll', {
         method: 'POST',
         body: JSON.stringify({ code: 'login-code', verificationKey: 'verification-key' }),
       })
     )
 
     expect(response.status).toBe(429)
-    expect(mockPollMcpDeviceLogin).not.toHaveBeenCalled()
+    expect(mockPollConnectionLogin).not.toHaveBeenCalled()
   })
 })

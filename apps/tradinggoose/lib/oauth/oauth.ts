@@ -172,27 +172,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     id: 'robinhood',
     name: 'Robinhood',
     icon: (props) => RobinHoodIcon(props),
-    credentialFields: [
-      {
-        key: 'client_id',
-        label: 'Client ID',
-        note: 'Registered automatically when connecting Robinhood',
-        placeholder: 'Automatically registered',
-        isSensitive: false,
-        required: false,
-        systemManaged: true,
-        oauthProperty: 'clientId',
-      },
-      {
-        key: 'redirect_uri',
-        label: 'Redirect URI',
-        note: 'Registered automatically when connecting Robinhood',
-        placeholder: 'Automatically registered',
-        isSensitive: false,
-        required: false,
-        systemManaged: true,
-      },
-    ],
+    credentialFields: [],
     services: {
       robinhood: {
         id: 'robinhood',

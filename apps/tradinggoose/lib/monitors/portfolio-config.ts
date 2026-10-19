@@ -3,13 +3,16 @@ import { ListingIdentitySchema } from '@/lib/listing/identity'
 import {
   isPortfolioConditionOperatorCompatible,
   isPortfolioConditionValuelessOperator,
-  PORTFOLIO_CONDITION_METRICS,
+  isPortfolioMonitorConditionSupported,
   PORTFOLIO_CONDITION_OPERATORS,
   type PortfolioFireCondition,
   portfolioConditionRequiresListing,
 } from '@/lib/monitors/portfolio-conditions'
 import { PORTFOLIO_MONITOR_PROVIDER, PORTFOLIO_MONITOR_TRIGGER_ID } from '@/lib/monitors/sources'
-import type { TradingProviderId } from '@/providers/trading/types'
+import {
+  TRADING_PORTFOLIO_MONITOR_METRICS,
+  type TradingProviderId,
+} from '@/providers/trading/types'
 
 const nonEmptyString = z.string().trim().min(1)
 const tradingProviderId = nonEmptyString.transform((value) => value as TradingProviderId)
@@ -17,7 +20,7 @@ const tradingProviderId = nonEmptyString.transform((value) => value as TradingPr
 const PortfolioConditionRuleSchema: z.ZodType<any> = z
   .object({
     id: z.string().optional(),
-    metric: z.enum(PORTFOLIO_CONDITION_METRICS),
+    metric: z.enum(TRADING_PORTFOLIO_MONITOR_METRICS),
     operator: z.enum(PORTFOLIO_CONDITION_OPERATORS),
     value: z.union([z.number().finite(), z.string(), z.boolean(), z.null()]).optional(),
     listing: ListingIdentitySchema.nullish(),
@@ -31,10 +34,8 @@ const PortfolioConditionRuleSchema: z.ZodType<any> = z
     { message: 'Invalid portfolio condition rule' }
   )
   .transform((rule) => ({
-    id: rule.id,
-    metric: rule.metric,
-    operator: rule.operator,
-    value: isPortfolioConditionValuelessOperator(rule.operator) ? null : rule.value,
+    ...rule,
+    ...(isPortfolioConditionValuelessOperator(rule.operator) ? { value: null } : {}),
     listing: portfolioConditionRequiresListing(rule.metric) ? rule.listing : null,
   }))
 
@@ -118,6 +119,19 @@ export const PortfolioMonitorProviderConfigSchema = z
   })
   .strict()
 
+export const SupportedPortfolioMonitorProviderConfigSchema =
+  PortfolioMonitorProviderConfigSchema.superRefine((config, context) => {
+    if (
+      !isPortfolioMonitorConditionSupported(config.monitor.providerId, config.monitor.condition)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['monitor', 'condition'],
+        message: `Invalid portfolio monitor condition for ${config.monitor.providerId}`,
+      })
+    }
+  })
+
 export type PortfolioMonitorProviderConfig = z.infer<typeof PortfolioMonitorProviderConfigSchema>
 
 export const normalizePortfolioMonitorConfig = (input: {
@@ -131,22 +145,23 @@ export const normalizePortfolioMonitorConfig = (input: {
   fireMode?: 'edge' | 'while_true'
   cooldownSeconds?: number
   pollIntervalSeconds?: number
-}): PortfolioMonitorProviderConfig => ({
-  triggerId: PORTFOLIO_MONITOR_TRIGGER_ID,
-  version: 1,
-  monitor: {
-    triggerBlockId: input.triggerBlockId,
-    providerId: input.providerId as TradingProviderId,
-    serviceId: input.serviceId,
-    credentialId: input.credentialId,
-    connectionOwnerUserId: input.connectionOwnerUserId,
-    accountId: input.accountId,
-    condition: input.condition,
-    fireMode: input.fireMode ?? 'edge',
-    cooldownSeconds: input.cooldownSeconds ?? 300,
-    pollIntervalSeconds: input.pollIntervalSeconds ?? 60,
-  },
-})
+}): PortfolioMonitorProviderConfig =>
+  SupportedPortfolioMonitorProviderConfigSchema.parse({
+    triggerId: PORTFOLIO_MONITOR_TRIGGER_ID,
+    version: 1,
+    monitor: {
+      triggerBlockId: input.triggerBlockId,
+      providerId: input.providerId as TradingProviderId,
+      serviceId: input.serviceId,
+      credentialId: input.credentialId,
+      connectionOwnerUserId: input.connectionOwnerUserId,
+      accountId: input.accountId,
+      condition: input.condition,
+      fireMode: input.fireMode ?? 'edge',
+      cooldownSeconds: input.cooldownSeconds ?? 300,
+      pollIntervalSeconds: input.pollIntervalSeconds ?? 60,
+    },
+  })
 
 export const toPublicPortfolioMonitorProviderConfig = (config: PortfolioMonitorProviderConfig) => {
   const { connectionOwnerUserId: _connectionOwnerUserId, ...monitor } = config.monitor

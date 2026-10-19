@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { normalizeCallbackUrl } from '@/i18n/utils'
 
 const replaceMock = vi.fn()
 
@@ -35,5 +36,21 @@ describe('handleAuthError', () => {
     await handleAuthError('socket-auth', '/login')
 
     expect(replaceMock).toHaveBeenCalledWith('/login?callbackUrl=%2Fworkspace&reauth=1#credentials')
+  })
+
+  it('preserves the Robinhood helper return URL through login normalization', async () => {
+    vi.resetModules()
+    vi.clearAllMocks()
+    const destination = '/workspace/team/integrations?tab=trading#accounts'
+    const returnURL = `/connect/robinhood/authorize?callbackURL=${encodeURIComponent(destination)}&relayToken=completion-token`
+    stubWindow(`https://studio.example.test/es${returnURL}`)
+    const { handleAuthError } = await import('./auth-error-handler')
+
+    await handleAuthError('robinhood-connect', '/connect/robinhood/authorize')
+
+    const loginURL = new URL(replaceMock.mock.calls[0][0], 'https://studio.example.test')
+    expect(loginURL.pathname).toBe('/login')
+    expect(loginURL.searchParams.get('reauth')).toBe('1')
+    expect(normalizeCallbackUrl(loginURL.searchParams.get('callbackUrl'))).toBe(returnURL)
   })
 })

@@ -101,6 +101,8 @@
       "privacyPolicy": "Privacy Policy",
       "and": "and",
       "returnHome": "Return home",
+      "retry": "Try again",
+      "goBack": "Go back",
       "backToLogin": "Back to login",
       "backToSignup": "Back to signup",
       "verifyEmail": "Verify email",
@@ -18390,14 +18392,12 @@
           "delete": "Delete"
         },
         "oauthRequiredModal": {
-          "additionalAccessRequired": "Additional Access Required",
           "toolRequiresAccess": "The \"{toolName}\" tool requires access to your {providerName} account to function properly.",
           "connectProvider": "Connect {providerName}",
-          "connectProviderDescription": "You need to connect your {providerName} account to continue",
-          "permissionsRequested": "Permissions requested",
           "cancel": "Cancel",
           "connectService": "Connect {serviceName}",
-          "connectNow": "Connect Now"
+          "connectNow": "Connect Now",
+          "robinhoodHostedHelper": "Run the command on the same computer as your browser. It will open Robinhood and close automatically when authorization finishes."
         },
         "dropdown": {
           "placeholder": "Select an option...",

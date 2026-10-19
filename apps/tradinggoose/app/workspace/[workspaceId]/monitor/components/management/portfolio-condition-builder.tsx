@@ -17,9 +17,7 @@ import {
 import {
   getPortfolioConditionOperatorsForMetric,
   isPortfolioConditionValuelessOperator,
-  PORTFOLIO_CONDITION_METRICS,
   type PortfolioConditionGroup,
-  type PortfolioConditionMetric,
   type PortfolioConditionNode,
   type PortfolioConditionOperator,
   type PortfolioConditionRule,
@@ -27,6 +25,8 @@ import {
   portfolioConditionRequiresListing,
 } from '@/lib/monitors/portfolio-conditions'
 import { cn } from '@/lib/utils'
+import { getTradingPortfolioMonitorMetrics } from '@/providers/trading/providers'
+import type { TradingPortfolioMonitorMetric } from '@/providers/trading/types'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 
 type PortfolioConditionBuilderProps = {
@@ -38,7 +38,7 @@ type PortfolioConditionBuilderProps = {
   onChange: (condition: PortfolioFireCondition) => void
 }
 
-const METRIC_LABELS: Record<PortfolioConditionMetric, string> = {
+const METRIC_LABELS: Record<TradingPortfolioMonitorMetric, string> = {
   'summary.totalPortfolioValue': 'Total portfolio value',
   'summary.totalCashValue': 'Cash value',
   'summary.totalHoldingsValue': 'Holdings value',
@@ -93,7 +93,7 @@ const isGroup = (node: PortfolioConditionNode): node is PortfolioConditionGroup 
 
 const normalizeRuleForMetric = (
   rule: PortfolioConditionRule,
-  metric: PortfolioConditionMetric
+  metric: TradingPortfolioMonitorMetric
 ): PortfolioConditionRule => {
   const operators = getPortfolioConditionOperatorsForMetric(metric)
   const operator = operators.includes(rule.operator) ? rule.operator : operators[0]!
@@ -309,6 +309,17 @@ function ConditionRuleEditor({
   onRemove: (path: number[]) => void
 }) {
   const t = useTranslations('workspace.monitor.editor.form')
+  const availableMetrics = tradingProviderId
+    ? getTradingPortfolioMonitorMetrics(tradingProviderId)
+    : []
+  const unsupportedMetric =
+    tradingProviderId && !availableMetrics.includes(rule.metric) ? rule.metric : null
+  const metricOptions = [
+    ...(unsupportedMetric
+      ? [{ value: unsupportedMetric, label: `${METRIC_LABELS[unsupportedMetric]} (Unsupported)` }]
+      : []),
+    ...availableMetrics.map((metric) => ({ value: metric, label: METRIC_LABELS[metric] })),
+  ]
   const operators = getPortfolioConditionOperatorsForMetric(rule.metric)
   const showListing = portfolioConditionRequiresListing(rule.metric)
   const showValue = !isPortfolioConditionValuelessOperator(rule.operator)
@@ -341,10 +352,7 @@ function ConditionRuleEditor({
     >
       <Select
         value={rule.metric}
-        items={PORTFOLIO_CONDITION_METRICS.map((metric) => ({
-          value: metric,
-          label: METRIC_LABELS[metric],
-        }))}
+        items={metricOptions}
         disabled={disabled}
         onValueChange={(metric) => {
           if (metric !== null) {
@@ -356,9 +364,9 @@ function ConditionRuleEditor({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {PORTFOLIO_CONDITION_METRICS.map((metric) => (
-            <SelectItem key={metric} value={metric}>
-              {METRIC_LABELS[metric]}
+          {metricOptions.map(({ value, label }) => (
+            <SelectItem key={value} value={value} disabled={value === unsupportedMetric}>
+              {label}
             </SelectItem>
           ))}
         </SelectContent>

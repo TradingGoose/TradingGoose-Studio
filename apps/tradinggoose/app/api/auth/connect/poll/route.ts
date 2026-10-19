@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { checkPublicApiEndpointRateLimit } from '@/lib/api/rate-limit'
 import { isApiKeyStorageAvailable } from '@/lib/api-key/service'
-import { acknowledgeMcpDeviceLogin, pollMcpDeviceLogin } from '@/lib/mcp/auth'
+import { acknowledgeConnectionLogin, pollConnectionLogin } from '@/lib/connect/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,7 +15,7 @@ const PollRequestSchema = z
   .strict()
 
 export async function POST(request: NextRequest) {
-  const rateLimit = await checkPublicApiEndpointRateLimit(request, 'mcp-auth-poll')
+  const rateLimit = await checkPublicApiEndpointRateLimit(request, 'connect-auth-poll')
   if (!rateLimit.allowed) {
     const status = rateLimit.failureKind === 'dependency' ? 503 : 429
     return NextResponse.json({ error: rateLimit.error || 'Rate limit exceeded' }, { status })
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
   const parsed = PollRequestSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid MCP login poll request' }, { status: 400 })
+    return NextResponse.json({ error: 'Invalid connection poll request' }, { status: 400 })
   }
 
   if (!isApiKeyStorageAvailable()) {
@@ -32,11 +32,11 @@ export async function POST(request: NextRequest) {
 
   const result =
     parsed.data.ackApiKey !== undefined
-      ? await acknowledgeMcpDeviceLogin({
+      ? await acknowledgeConnectionLogin({
           apiKey: parsed.data.ackApiKey,
           code: parsed.data.code,
           verificationKey: parsed.data.verificationKey,
         })
-      : await pollMcpDeviceLogin(parsed.data.code, parsed.data.verificationKey)
+      : await pollConnectionLogin(parsed.data.code, parsed.data.verificationKey)
   return NextResponse.json(result)
 }

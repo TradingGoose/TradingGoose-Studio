@@ -3,7 +3,7 @@ import { getSessionCookie } from 'better-auth/cookies'
 import { headers } from 'next/headers'
 import { Button } from '@/components/ui/button'
 import { getSession } from '@/lib/auth'
-import { createMcpDeviceLoginApprovalChallenge } from '@/lib/mcp/auth'
+import { createConnectionLoginApprovalChallenge } from '@/lib/connect/auth'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { inter } from '@/app/fonts/inter'
 import { redirect } from '@/i18n/navigation'
@@ -64,14 +64,14 @@ export default async function McpAuthorizePage({
         pathname: '/login',
         query: {
           ...(getSessionCookie(requestHeaders) ? { reauth: '1' } : {}),
-          callbackUrl: `/${locale}/mcp/authorize?code=${encodeURIComponent(code)}`,
+          callbackUrl: `/${locale}/connect/mcp/authorize?code=${encodeURIComponent(code)}`,
         },
       },
       locale,
     })
   }
 
-  const approvalStatus = await createMcpDeviceLoginApprovalChallenge({
+  const approvalStatus = await createConnectionLoginApprovalChallenge({
     code,
     userId: session.user.id,
   })
@@ -95,7 +95,7 @@ export default async function McpAuthorizePage({
         title={mcpCopy.confirm.title}
         description={mcpCopy.confirm.description}
       />
-      <Form method='post' action='/api/auth/mcp/authorize' className='space-y-3'>
+      <Form method='post' action='/api/auth/connect/authorize' className='space-y-3'>
         <input type='hidden' name='code' value={code} />
         <input type='hidden' name='approvalToken' value={approvalStatus.approvalToken} />
         <input type='hidden' name='locale' value={locale} />

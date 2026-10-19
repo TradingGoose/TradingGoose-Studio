@@ -10,17 +10,17 @@ import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscription
 import { getBillingTierById } from '@/lib/billing/tiers'
 import { getOccupiedSeatCount } from '@/lib/billing/validation/seat-management'
 import { isSignInOAuthProviderId } from '@/lib/oauth'
+import { getRobinhoodOAuthClientIdFromState } from '@/lib/oauth/robinhood'
 import {
-  ensureRobinhoodOAuthClient,
   loadSystemOAuthClientCredentials,
   runWithSystemOAuthClientCredentials,
 } from '@/lib/oauth/system-managed-config'
-import { getBaseUrl } from '@/lib/urls/utils'
 
 export const dynamic = 'force-dynamic'
 
 const SYSTEM_OAUTH_CALLBACK_PATH_PREFIXES = ['/api/auth/callback/', '/api/auth/oauth2/callback/']
 const SUBSCRIPTION_UPGRADE_PATH = '/api/auth/subscription/upgrade'
+const ROBINHOOD_OAUTH_CALLBACK_PATH = '/api/auth/oauth2/callback/robinhood'
 const APP_OWNED_AUTH_POST_PATHS = new Set([
   '/api/auth/subscription/cancel',
   '/api/auth/subscription/billing-portal',
@@ -67,6 +67,32 @@ async function getRequestedSystemOAuthProviderId(request: Request, pathname: str
   }
 
   return ''
+}
+
+async function handleRobinhoodOAuthRequest(request: Request, pathname: string) {
+  const isLinkRequest = request.method === 'POST' && pathname === '/api/auth/oauth2/link'
+  const isCallbackRequest = request.method === 'GET' && pathname === ROBINHOOD_OAUTH_CALLBACK_PATH
+  if (!isLinkRequest && !isCallbackRequest) {
+    return Response.json({ error: 'OAuth provider is not configured' }, { status: 400 })
+  }
+
+  if (isLinkRequest) {
+    return runWithSystemOAuthClientCredentials(() => auth.handler(request), {
+      robinhood: { clientId: '', clientSecret: '', fields: {} },
+    })
+  }
+
+  const clientId = await getRobinhoodOAuthClientIdFromState(
+    new URL(request.url).searchParams.get('state')?.trim() ?? ''
+  )
+
+  if (!clientId) {
+    return Response.json({ error: 'Robinhood OAuth connection expired' }, { status: 400 })
+  }
+
+  return runWithSystemOAuthClientCredentials(() => auth.handler(request), {
+    robinhood: { clientId, clientSecret: '', fields: {} },
+  })
 }
 
 async function prepareSubscriptionUpgrade(request: Request): Promise<Request | Response> {
@@ -234,28 +260,7 @@ export const handleAuthRequest = async (request: Request) => {
   }
 
   if (providerId === 'robinhood') {
-    const isLinkRequest = request.method === 'POST' && pathname === '/api/auth/oauth2/link'
-    if (!isLinkRequest && !credentials[providerId].clientId) {
-      return Response.json({ error: 'OAuth provider is not configured' }, { status: 400 })
-    }
-    if (isLinkRequest) {
-      const session = await getSession(request.headers)
-      if (!session?.user?.id) {
-        return Response.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-
-      try {
-        const redirectUri = `${getBaseUrl()}/api/auth/oauth2/callback/${providerId}`
-        const clientId = await ensureRobinhoodOAuthClient(redirectUri)
-        credentials[providerId].clientId = clientId
-        credentials[providerId].fields.client_id = clientId
-      } catch {
-        return Response.json(
-          { error: 'Could not register the Robinhood connection' },
-          { status: 502 }
-        )
-      }
-    }
+    return handleRobinhoodOAuthRequest(requestToHandle, pathname)
   }
 
   return runWithSystemOAuthClientCredentials(() => auth.handler(requestToHandle), credentials)

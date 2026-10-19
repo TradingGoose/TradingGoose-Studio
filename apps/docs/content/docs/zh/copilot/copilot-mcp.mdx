@@ -20,13 +20,13 @@ Copilot MCP 允许你的编码代理使用 TradingGoose 的服务端 Copilot 工
 ### macOS 和 Linux
 
 ```bash
-curl -fsSL https://www.tradinggoose.ai/mcp/setup | sh
+curl -fsSL https://www.tradinggoose.ai/connect/mcp/setup | sh
 ```
 
 ### Windows PowerShell
 
 ```powershell
-irm https://www.tradinggoose.ai/mcp/setup | iex
+irm https://www.tradinggoose.ai/connect/mcp/setup | iex
 ```
 
 ### 批准访问并选择客户端
@@ -40,28 +40,28 @@ irm https://www.tradinggoose.ai/mcp/setup | iex
 
 ### 为特定客户端安装
 
-在 `/mcp/setup` 后追加目标即可跳过客户端选择器。例如，配置 Codex：
+在 `/connect/mcp/setup` 后追加目标即可跳过客户端选择器。例如，配置 Codex：
 
 ```bash
-curl -fsSL https://www.tradinggoose.ai/mcp/setup/codex | sh
+curl -fsSL https://www.tradinggoose.ai/connect/mcp/setup/codex | sh
 ```
 
 ```powershell
-irm https://www.tradinggoose.ai/mcp/setup/codex | iex
+irm https://www.tradinggoose.ai/connect/mcp/setup/codex | iex
 ```
 
 安装程序会写入一个名为 `TradingGoose` 的用户级服务器条目。以下是支持的目标与默认配置位置；`~` 表示你的主目录。
 
 | 客户端 | 目标路径 | 默认配置文件 |
 |--------|-------------|----------------------------|
-| Claude Code | `/mcp/setup/claude` | `~/.claude.json` |
-| Cursor | `/mcp/setup/cursor` | `~/.cursor/mcp.json` |
-| OpenCode | `/mcp/setup/opencode` | `~/.config/opencode/opencode.json` |
-| Codex | `/mcp/setup/codex` | `~/.codex/config.toml` |
-| Antigravity | `/mcp/setup/antigravity` | `~/.gemini/config/mcp_config.json` |
-| Gemini CLI | `/mcp/setup/gemini` | `~/.gemini/settings.json` |
+| Claude Code | `/connect/mcp/setup/claude` | `~/.claude.json` |
+| Cursor | `/connect/mcp/setup/cursor` | `~/.cursor/mcp.json` |
+| OpenCode | `/connect/mcp/setup/opencode` | `~/.config/opencode/opencode.json` |
+| Codex | `/connect/mcp/setup/codex` | `~/.codex/config.toml` |
+| Antigravity | `/connect/mcp/setup/antigravity` | `~/.gemini/config/mcp_config.json` |
+| Gemini CLI | `/connect/mcp/setup/gemini` | `~/.gemini/settings.json` |
 
-使用 `/mcp/setup/all` 可配置全部六个客户端。指定目标或使用 `all` 也可跳过交互式客户端选择器；当不存在有效的已保存凭据时，仍需进行浏览器审批。
+使用 `/connect/mcp/setup/all` 可配置全部六个客户端。指定目标或使用 `all` 也可跳过交互式客户端选择器；当不存在有效的已保存凭据时，仍需进行浏览器审批。
 
 对于 Claude Code，安装程序还会检查已设置的 `CLAUDE_CONFIG_DIR`。对于 OpenCode，如果存在受支持的 JSON 或 JSONC 配置，安装程序会更新它。它会保留无关设置，并在重新配置该客户端时替换现有的 `TradingGoose` 条目。
 
@@ -76,11 +76,11 @@ MCP 身份验证使用**个人 TradingGoose API 密钥**。工作区 API 密钥�
 对于没有安装程序目标的客户端，请使用 login 命令获取端点和授权标头：
 
 ```bash
-curl -fsSL https://www.tradinggoose.ai/mcp/login | sh
+curl -fsSL https://www.tradinggoose.ai/connect/mcp/login | sh
 ```
 
 ```powershell
-irm https://www.tradinggoose.ai/mcp/login | iex
+irm https://www.tradinggoose.ai/connect/mcp/login | iex
 ```
 
 login 会在必要时完成身份验证，并输出连接详情。它不会写入编码代理的 MCP 配置。
@@ -144,7 +144,7 @@ MCP 工具集是[内置 Copilot](/copilot)的子集。它可以检查部署状�
 | 症状 | 检查内容 |
 |---------|---------------|
 | Node 缺失或版本过旧 | 安装 Node.js 18 或更高版本，并确保在运行设置的终端中可以使用 `node`。 |
-| 设置需要交互式终端 | 使用目标 URL（如 `/mcp/setup/cursor`），或从终端运行交互式命令。 |
+| 设置需要交互式终端 | 使用目标 URL（如 `/connect/mcp/setup/cursor`），或从终端运行交互式命令。 |
 | 浏览器批准过期 | 在十分钟内重新运行设置或登录并批准新链接。 |
 | 无法验证已保存的凭据 | 检查 Studio 连接并重试。速率限制或服务错误会停止设置，但不会替换已保存的密钥或客户端配置。 |
 | 客户端未配置 | 在安装程序输出中读取该客户端的结果。检查报告的文件及其权限，然后重新运行其目标命令。 |

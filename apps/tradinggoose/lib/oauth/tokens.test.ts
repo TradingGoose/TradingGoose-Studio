@@ -20,6 +20,9 @@ describe('OAuth Tokens', () => {
   }
   mockDb.transaction.mockImplementation((action: (tx: typeof mockDb) => unknown) => action(mockDb))
   const mockLoadSystemOAuthClientCredentials = vi.fn(async () => ({}))
+  const mockRunWithSystemOAuthClientCredentials = vi.fn((callback: () => Promise<unknown>) =>
+    callback()
+  )
   const mockRefreshOAuthToken = vi.fn()
   const mockLogger = {
     info: vi.fn(),
@@ -51,7 +54,7 @@ describe('OAuth Tokens', () => {
 
     vi.doMock('@/lib/oauth/system-managed-config', () => ({
       loadSystemOAuthClientCredentials: mockLoadSystemOAuthClientCredentials,
-      runWithSystemOAuthClientCredentials: (callback: () => Promise<unknown>) => callback(),
+      runWithSystemOAuthClientCredentials: mockRunWithSystemOAuthClientCredentials,
     }))
 
     vi.doMock('@/lib/logs/console/logger', () => ({
@@ -175,7 +178,7 @@ describe('OAuth Tokens', () => {
         accessToken: 'expired-token',
         refreshToken: 'refresh-token',
         accessTokenExpiresAt: new Date(Date.now() - 3600 * 1000), // 1 hour in the past
-        providerId: 'robinhood',
+        providerId: 'google',
         userId: 'test-user-id',
       }
       mockDb.limit.mockReturnValueOnce([mockTokenAccount]).mockReturnValueOnce([mockTokenAccount])
@@ -192,10 +195,10 @@ describe('OAuth Tokens', () => {
         'account-id',
         'test-user-id',
         'request-id',
-        'robinhood'
+        'google'
       )
 
-      expect(mockRefreshOAuthToken).toHaveBeenCalledWith('robinhood', 'refresh-token')
+      expect(mockRefreshOAuthToken).toHaveBeenCalledWith('google', 'refresh-token')
       expect(mockLoadSystemOAuthClientCredentials.mock.invocationCallOrder[0]).toBeLessThan(
         mockDb.transaction.mock.invocationCallOrder[0]!
       )
@@ -203,6 +206,65 @@ describe('OAuth Tokens', () => {
       expect(mockDb.set).toHaveBeenCalled()
       expect(mockDb.for).toHaveBeenCalledWith('update')
       expect(token).toBe('new-token')
+    })
+
+    it('refreshes Robinhood with the public client ID stored on its account', async () => {
+      const mockTokenAccount = {
+        id: 'account-id',
+        accessToken: 'expired-token',
+        refreshToken: 'refresh-token',
+        oauthClientId: 'registered-client',
+        accessTokenExpiresAt: new Date(Date.now() - 3600 * 1000),
+        providerId: 'robinhood',
+        userId: 'test-user-id',
+      }
+      mockDb.limit.mockReturnValueOnce([mockTokenAccount]).mockReturnValueOnce([mockTokenAccount])
+      mockLoadSystemOAuthClientCredentials.mockResolvedValueOnce({
+        robinhood: { clientId: '', clientSecret: '', fields: {} },
+      })
+      mockRefreshOAuthToken.mockResolvedValueOnce({
+        accessToken: 'new-token',
+        expiresIn: 3600,
+        refreshToken: 'new-refresh-token',
+      })
+
+      const { refreshAccessTokenIfNeeded } = await import('@/lib/oauth/tokens')
+
+      await expect(
+        refreshAccessTokenIfNeeded('account-id', 'test-user-id', 'request-id', 'robinhood')
+      ).resolves.toBe('new-token')
+      expect(mockLoadSystemOAuthClientCredentials).toHaveBeenCalledWith(['robinhood'])
+      expect(mockRunWithSystemOAuthClientCredentials).toHaveBeenCalledWith(expect.any(Function), {
+        robinhood: {
+          clientId: 'registered-client',
+          clientSecret: '',
+          fields: {},
+        },
+      })
+    })
+
+    it('does not refresh Robinhood when its system integration is disabled', async () => {
+      mockDb.limit.mockReturnValueOnce([
+        {
+          id: 'account-id',
+          accessToken: 'expired-token',
+          refreshToken: 'refresh-token',
+          oauthClientId: 'registered-client',
+          accessTokenExpiresAt: new Date(Date.now() - 3600 * 1000),
+          providerId: 'robinhood',
+          userId: 'test-user-id',
+        },
+      ])
+
+      const { refreshAccessTokenIfNeeded } = await import('@/lib/oauth/tokens')
+
+      await expect(
+        refreshAccessTokenIfNeeded('account-id', 'test-user-id', 'request-id', 'robinhood')
+      ).resolves.toBeNull()
+      expect(mockLoadSystemOAuthClientCredentials).toHaveBeenCalledWith(['robinhood'])
+      expect(mockRunWithSystemOAuthClientCredentials).not.toHaveBeenCalled()
+      expect(mockRefreshOAuthToken).not.toHaveBeenCalled()
+      expect(mockDb.transaction).not.toHaveBeenCalled()
     })
 
     it.each([3600, -3600])(

@@ -1,11 +1,8 @@
 import { sso } from '@better-auth/sso'
 import { stripe } from '@better-auth/stripe'
-import { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
-import { type CallToolResult, CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js'
 import { db } from '@tradinggoose/db'
 import * as schema from '@tradinggoose/db/schema'
-import { betterAuth } from 'better-auth'
+import { betterAuth, parseState } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { APIError, createAuthMiddleware, getOAuthState } from 'better-auth/api'
 import { nextCookies } from 'better-auth/next-js'
@@ -21,10 +18,9 @@ import type { GenericOAuthConfig } from 'better-auth/plugins/generic-oauth'
 /** OAuth2 token type extracted from better-auth's GenericOAuthConfig */
 type OAuthTokens = Parameters<NonNullable<GenericOAuthConfig['getUserInfo']>>[0]
 
-import { and, eq, inArray } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import type Stripe from 'stripe'
-import { z } from 'zod'
 import {
   getEmailSubject,
   renderInvitationEmail,
@@ -56,7 +52,7 @@ import { resolveEmailLocale } from '@/lib/email/locale'
 import { addVerifiedUserEmailToAudience, sendEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { env, getEnv } from '@/lib/env'
-import { isEmailVerificationEnabled } from '@/lib/environment'
+import { isEmailVerificationEnabled, isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   getCanonicalScopesForProvider,
@@ -66,7 +62,15 @@ import {
   MICROSOFT_PROVIDERS,
   OAUTH_PROVIDERS,
 } from '@/lib/oauth'
-import { getSystemOAuthClientCredentialsForRequest } from '@/lib/oauth/system-managed-config'
+import { addRobinhoodOAuthClientToState, registerRobinhoodOAuthClient } from '@/lib/oauth/robinhood'
+import {
+  getRobinhoodOAuthRedirectUri,
+  ROBINHOOD_OAUTH_RESOURCE,
+} from '@/lib/oauth/robinhood-constants'
+import {
+  getSystemOAuthClientCredentialsForRequest,
+  setSystemOAuthClientIdForRequest,
+} from '@/lib/oauth/system-managed-config'
 import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getRegistrationEligibility, markWaitlistEntrySignedUp } from '@/lib/registration/service'
 import {
@@ -190,101 +194,61 @@ function toSystemManagedGenericOAuthConfigs(configs: SystemManagedGenericOAuthCo
 
 function createRobinhoodOAuthConfig(): SystemManagedGenericOAuthConfig {
   const providerId = 'robinhood'
-  const resource = 'https://agent.robinhood.com/mcp/trading'
+  const redirectUri = getRobinhoodOAuthRedirectUri(getBaseUrl(), isHosted)
   return {
     providerId,
     authorizationUrl: 'https://robinhood.com/oauth',
     tokenUrl: 'https://api.robinhood.com/oauth2/token/',
-    authorizationUrlParams: { resource },
-    tokenUrlParams: { resource },
+    authorizationUrlParams: { resource: ROBINHOOD_OAUTH_RESOURCE },
+    tokenUrlParams: { resource: ROBINHOOD_OAUTH_RESOURCE },
     authentication: 'post',
     pkce: true,
     scopes: getCanonicalScopesForProvider(providerId),
-    redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/${providerId}`,
+    redirectURI: redirectUri,
     disableSignUp: true,
     getUserInfo: async (tokens) => {
-      if (!tokens.accessToken?.trim()) throw new Error('Robinhood access token is required')
-      const ownerUserId = (await getOAuthState())?.link?.userId
-      if (!ownerUserId) throw new Error('Robinhood requires an authenticated link')
-      const signal = AbortSignal.timeout(30_000)
-      const client = new Client({ name: 'TradingGoose', version: '1.0.0' })
-      const transport = new StreamableHTTPClientTransport(new URL(resource), {
-        requestInit: { headers: { Authorization: `Bearer ${tokens.accessToken}` } },
-        fetch: (url, init) =>
-          fetch(url, {
-            ...init,
-            signal: init?.signal ? AbortSignal.any([signal, init.signal]) : signal,
-          }),
-      })
-      let payload: unknown
-      try {
-        await client.connect(transport, { signal })
-        const result = (await client.callTool(
-          { name: 'get_accounts', arguments: {} },
-          CallToolResultSchema,
-          { signal }
-        )) as CallToolResult
-        if (result.isError) throw new Error('Robinhood account lookup failed')
-        const content = result.content.find((item) => item.type === 'text')
-        payload = result.structuredContent ?? JSON.parse(content?.text ?? 'null')
-      } catch {
-        // Upstream MCP errors may contain private account data.
-        throw new Error(
-          'Unable to retrieve Robinhood account profile. Reconnect Robinhood and try again.'
-        )
-      } finally {
-        await client.close().catch(() => undefined)
+      const linkUserId = (await getOAuthState())?.link?.userId
+      if (typeof linkUserId !== 'string' || !linkUserId.trim()) {
+        throw new Error('Robinhood OAuth requires an authenticated link')
       }
-      const result = z
-        .object({
-          data: z.object({
-            accounts: z
-              .array(
-                z
-                  .object({
-                    account_number: z.string().trim().min(1),
-                    is_default: z.boolean().optional(),
-                  })
-                  .nullable()
-              )
-              .nullable()
-              .transform((accounts) => (accounts ?? []).filter((account) => account !== null)),
-          }),
-        })
-        .safeParse(payload)
-      if (!result.success) throw new Error('Robinhood returned an invalid account profile.')
-      const existing = await db
-        .select({ accountId: schema.account.accountId })
-        .from(schema.account)
-        .where(
-          and(
-            eq(schema.account.providerId, providerId),
-            eq(schema.account.userId, ownerUserId),
-            inArray(
-              schema.account.accountId,
-              result.data.data.accounts.map((account) => account.account_number)
-            )
-          )
-        )
-        .limit(2)
-      if (existing.length > 1)
-        throw new Error(
-          'Robinhood has multiple connected account identities. Remove duplicate connections before reconnecting.'
-        )
-      const defaults = result.data.data.accounts.filter((account) => account.is_default)
-      if (!existing.length && defaults.length !== 1)
-        throw new Error('Robinhood did not identify a unique default account.')
-      // Preserve an authorized connection even when Robinhood changes its default account.
-      const accountNumber = existing[0]?.accountId ?? defaults[0].account_number
+      if (!tokens.accessToken?.trim()) throw new Error('Robinhood access token is required')
+      const userUuid = typeof tokens.raw?.user_uuid === 'string' ? tokens.raw.user_uuid.trim() : ''
+      if (!userUuid) throw new Error('Robinhood token response is missing the user identity')
       return {
-        id: accountNumber,
+        id: userUuid,
         name: 'Robinhood',
-        email: `${accountNumber}@robinhood.account`,
+        email: `${userUuid}@robinhood.account`,
         image: '',
         emailVerified: false,
       }
     },
   }
+}
+
+function createGenericOAuthPlugin(options: Parameters<typeof genericOAuth>[0]) {
+  const plugin = genericOAuth(options)
+  plugin.endpoints.oAuth2LinkAccount.options.use.push(
+    createAuthMiddleware(async (ctx) => {
+      if (ctx.body?.providerId === 'robinhood') {
+        try {
+          const clientId = await registerRobinhoodOAuthClient(
+            getRobinhoodOAuthRedirectUri(getBaseUrl(), isHosted)
+          )
+          setSystemOAuthClientIdForRequest('robinhood', clientId)
+        } catch (error) {
+          logger.error('Robinhood OAuth client registration failed', {
+            error: error instanceof Error ? error.message : String(error),
+          })
+          throw new APIError('BAD_GATEWAY', {
+            message: 'Could not register the Robinhood connection',
+          })
+        }
+      }
+
+      return { session: ctx.context.session! }
+    })
+  )
+  return plugin
 }
 
 function createAlpacaOAuthConfig(
@@ -633,6 +597,12 @@ export const auth = betterAuth({
     },
     account: {
       create: {
+        before: async (account) => {
+          if (account.providerId !== 'robinhood') return
+          const oauthClientId = getSystemOAuthClientCredentialsForRequest('robinhood').clientId
+          if (!oauthClientId) throw new Error('Robinhood OAuth client registration is missing')
+          return { data: { ...account, oauthClientId } }
+        },
         after: async (account) => {
           if (!isMicrosoftProvider(account.providerId)) {
             return
@@ -652,6 +622,28 @@ export const auth = betterAuth({
                 error,
               }
             )
+          }
+        },
+      },
+      update: {
+        before: async (account) => {
+          if (typeof account.refreshToken !== 'string' || !account.refreshToken.trim()) return
+          const oauthClientId = getSystemOAuthClientCredentialsForRequest('robinhood').clientId
+          return oauthClientId ? { data: { ...account, oauthClientId } } : undefined
+        },
+      },
+    },
+    verification: {
+      create: {
+        before: async (verification, context) => {
+          if (context?.path !== '/oauth2/link' || context.body?.providerId !== 'robinhood') return
+          const clientId = getSystemOAuthClientCredentialsForRequest('robinhood').clientId
+          if (!clientId) return
+          return {
+            data: {
+              ...verification,
+              value: addRobinhoodOAuthClientToState(verification.value, clientId),
+            },
           }
         },
       },
@@ -696,6 +688,14 @@ export const auth = betterAuth({
     },
   },
   account: {
+    additionalFields: {
+      oauthClientId: {
+        type: 'string',
+        required: false,
+        input: false,
+        returned: false,
+      },
+    },
     accountLinking: {
       enabled: true,
       allowDifferentEmails: true,
@@ -740,6 +740,21 @@ export const auth = betterAuth({
   },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
+      if (
+        ctx.path === '/oauth2/callback/:providerId' &&
+        ctx.params?.providerId === 'robinhood' &&
+        typeof ctx.query?.error === 'string'
+      ) {
+        const { errorURL = '/error' } = await parseState(ctx)
+        const redirectURL = new URL(errorURL, getBaseUrl())
+        redirectURL.searchParams.set('error', ctx.query.error)
+        if (typeof ctx.query.error_description === 'string') {
+          redirectURL.searchParams.set('error_description', ctx.query.error_description)
+        }
+        const redirectPath = `/${redirectURL.pathname.replace(/^\/+/, '')}`
+        throw ctx.redirect(`${redirectPath}${redirectURL.search}${redirectURL.hash}`)
+      }
+
       if (
         (ctx.path.startsWith('/sign-in') || ctx.path.startsWith('/sign-up')) &&
         (env.ALLOWED_LOGIN_EMAILS || env.ALLOWED_LOGIN_DOMAINS)
@@ -835,7 +850,7 @@ export const auth = betterAuth({
       otpLength: 6, // Explicitly set the OTP length
       expiresIn: 15 * 60, // 15 minutes in seconds
     }),
-    genericOAuth({
+    createGenericOAuthPlugin({
       config: toSystemManagedGenericOAuthConfigs([
         createRobinhoodOAuthConfig(),
         createAlpacaOAuthConfig('alpaca-live', 'live'),

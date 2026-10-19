@@ -149,7 +149,7 @@ Choose your platform and open only the instructions you need.
 <summary><strong>macOS / Linux / WSL</strong></summary>
 
 ```bash
-curl -fsSL https://tradinggoose.ai/mcp/setup | sh
+curl -fsSL https://tradinggoose.ai/connect/mcp/setup | sh
 ```
 
 For a self-hosted instance, replace `https://tradinggoose.ai` with its URL, such as `http://localhost:3000`.
@@ -160,14 +160,14 @@ For a self-hosted instance, replace `https://tradinggoose.ai` with its URL, such
 <summary><strong>Windows PowerShell</strong></summary>
 
 ```powershell
-irm https://tradinggoose.ai/mcp/setup | iex
+irm https://tradinggoose.ai/connect/mcp/setup | iex
 ```
 
 For a self-hosted instance, replace `https://tradinggoose.ai` with its URL, such as `http://localhost:3000`.
 
 </details>
 <br>
-The setup endpoint opens an interactive target picker. Append a supported target to configure it directly—for example, `/mcp/setup/codex`. Self-hosted MCP setup requires `API_ENCRYPTION_KEY`.
+The setup endpoint opens an interactive target picker. Append a supported target to configure it directly—for example, `/connect/mcp/setup/codex`. Self-hosted MCP setup requires `API_ENCRYPTION_KEY`.
 
 ## FAQ
 

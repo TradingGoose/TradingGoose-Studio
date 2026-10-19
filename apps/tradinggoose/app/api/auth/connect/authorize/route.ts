@@ -1,14 +1,14 @@
 import { getSessionCookie } from 'better-auth/cookies'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
-import { approveMcpDeviceLogin, cancelMcpDeviceLogin } from '@/lib/mcp/auth'
+import { approveConnectionLogin, cancelConnectionLogin } from '@/lib/connect/auth'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { normalizeLocaleCode } from '@/i18n/utils'
 
 export const dynamic = 'force-dynamic'
 
 function redirectToAuthorizeStatus(locale: string, status: string) {
-  const url = new URL(`/${normalizeLocaleCode(locale)}/mcp/authorize`, getBaseUrl())
+  const url = new URL(`/${normalizeLocaleCode(locale)}/connect/mcp/authorize`, getBaseUrl())
   url.searchParams.set('status', status)
   return NextResponse.redirect(url)
 }
@@ -21,7 +21,7 @@ function redirectToLogin(request: NextRequest, locale: string, code: string) {
   }
   url.searchParams.set(
     'callbackUrl',
-    `/${normalizedLocale}/mcp/authorize?code=${encodeURIComponent(code)}`
+    `/${normalizedLocale}/connect/mcp/authorize?code=${encodeURIComponent(code)}`
   )
   return NextResponse.redirect(url)
 }
@@ -75,8 +75,8 @@ export async function POST(request: NextRequest) {
 
   const result =
     action === 'approve'
-      ? await approveMcpDeviceLogin({ approvalToken, code, userId: session.user.id })
-      : await cancelMcpDeviceLogin({ approvalToken, code, userId: session.user.id })
+      ? await approveConnectionLogin({ approvalToken, code, userId: session.user.id })
+      : await cancelConnectionLogin({ approvalToken, code, userId: session.user.id })
 
   return redirectToAuthorizeStatus(locale, result.status)
 }

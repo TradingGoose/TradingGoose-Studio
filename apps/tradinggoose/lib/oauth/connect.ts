@@ -22,9 +22,13 @@ export async function startOAuthConnectFlow({
     return
   }
 
-  await client.oauth2.link({
+  const result = await client.oauth2.link({
     providerId,
     callbackURL: canonicalCallbackURL,
     errorCallbackURL: canonicalCallbackURL,
   })
+
+  if (result.error) {
+    throw new Error(result.error.message || 'Failed to start OAuth connection')
+  }
 }

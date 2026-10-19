@@ -1,24 +1,9 @@
 import { areListingIdentitiesEqual, type ListingIdentity } from '@/lib/listing/identity'
 import type { PortfolioDetail } from '@/providers/trading/portfolio-identity'
+import { getTradingPortfolioMonitorMetrics } from '@/providers/trading/providers'
+import type { TradingPortfolioMonitorMetric, TradingProviderId } from '@/providers/trading/types'
 
 export type PortfolioConditionSnapshot = Pick<PortfolioDetail, 'summary' | 'positions'>
-
-export const PORTFOLIO_CONDITION_METRICS = [
-  'summary.totalPortfolioValue',
-  'summary.totalCashValue',
-  'summary.totalHoldingsValue',
-  'summary.totalUnrealizedPnl',
-  'summary.buyingPower',
-  'summary.equity',
-  'positions.count',
-  'positions.totalMarketValue',
-  'positions.totalUnrealizedPnl',
-  'position.quantity',
-  'position.marketValue',
-  'position.unrealizedPnl',
-  'position.unrealizedPnlPercent',
-  'position.exists',
-] as const
 
 export const PORTFOLIO_CONDITION_OPERATORS = [
   'gt',
@@ -35,12 +20,11 @@ export const PORTFOLIO_CONDITION_OPERATORS = [
   'not_exists',
 ] as const
 
-export type PortfolioConditionMetric = (typeof PORTFOLIO_CONDITION_METRICS)[number]
 export type PortfolioConditionOperator = (typeof PORTFOLIO_CONDITION_OPERATORS)[number]
 
 export type PortfolioConditionRule = {
   id?: string
-  metric: PortfolioConditionMetric
+  metric: TradingPortfolioMonitorMetric
   operator: PortfolioConditionOperator
   value?: number | string | boolean | null
   listing?: ListingIdentity | null
@@ -66,6 +50,16 @@ type EvaluationContext = {
 const isGroup = (node: PortfolioConditionNode): node is PortfolioConditionGroup =>
   Array.isArray((node as PortfolioConditionGroup).rules)
 
+export const isPortfolioMonitorConditionSupported = (
+  providerId: TradingProviderId,
+  condition: PortfolioFireCondition
+) => {
+  const supported = new Set(getTradingPortfolioMonitorMetrics(providerId))
+  const isSupported = (node: PortfolioConditionNode): boolean =>
+    isGroup(node) ? node.rules.every(isSupported) : supported.has(node.metric)
+  return isSupported(condition.root)
+}
+
 const toFiniteNumber = (value: unknown): number | null =>
   typeof value === 'number' && Number.isFinite(value) ? value : null
 
@@ -87,18 +81,18 @@ const toTargetNumber = (value: unknown): number | null => {
   return null
 }
 
-export const portfolioConditionRequiresListing = (metric: PortfolioConditionMetric) =>
+export const portfolioConditionRequiresListing = (metric: TradingPortfolioMonitorMetric) =>
   metric.startsWith('position.')
 
 export const isPortfolioConditionValuelessOperator = (operator: PortfolioConditionOperator) =>
   operator === 'exists' || operator === 'not_exists'
 
 export const isPortfolioConditionOperatorCompatible = (
-  metric: PortfolioConditionMetric,
+  metric: TradingPortfolioMonitorMetric,
   operator: PortfolioConditionOperator
 ) => isPortfolioConditionValuelessOperator(operator) === (metric === 'position.exists')
 
-export const getPortfolioConditionOperatorsForMetric = (metric: PortfolioConditionMetric) =>
+export const getPortfolioConditionOperatorsForMetric = (metric: TradingPortfolioMonitorMetric) =>
   PORTFOLIO_CONDITION_OPERATORS.filter((operator) =>
     isPortfolioConditionOperatorCompatible(metric, operator)
   )

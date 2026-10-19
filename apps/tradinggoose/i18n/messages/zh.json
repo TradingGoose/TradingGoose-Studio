@@ -101,6 +101,8 @@
       "privacyPolicy": "隐私政策",
       "and": "和",
       "returnHome": "返回首页",
+      "retry": "重试",
+      "goBack": "返回",
       "backToLogin": "返回登录",
       "backToSignup": "返回注册",
       "verifyEmail": "验证邮箱",
@@ -18377,14 +18379,12 @@
           "delete": "删除"
         },
         "oauthRequiredModal": {
-          "additionalAccessRequired": "需要额外访问权限",
           "toolRequiresAccess": "“{toolName}”工具需要访问你的 {providerName} 账户才能正常工作。",
           "connectProvider": "连接 {providerName}",
-          "connectProviderDescription": "你需要连接 {providerName} 账户才能继续",
-          "permissionsRequested": "请求的权限",
           "cancel": "取消",
           "connectService": "连接 {serviceName}",
-          "connectNow": "立即连接"
+          "connectNow": "立即连接",
+          "robinhoodHostedHelper": "请在运行浏览器的同一台电脑上执行命令。该命令会打开 Robinhood，并在授权结束后自动退出。"
         },
         "dropdown": {
           "placeholder": "选择一个选项...",

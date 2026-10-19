@@ -23,7 +23,6 @@ describe('Trello callback route', () => {
 
     const body = await response.text()
     expect(body).toContain('/api/auth/trello/store')
-    expect(body).toContain('trello_connected')
     expect(body).toContain('trello-state')
     expect(body).toContain('http://localhost:3000/workspace/ws-1/integrations')
   })

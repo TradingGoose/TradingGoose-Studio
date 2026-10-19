@@ -93,7 +93,7 @@ function renderTrelloCallbackPage({ callbackURL, state }: { callbackURL: URL; st
             throw new Error(body?.error || 'Unable to connect Trello');
           }
 
-          redirect({ trello_connected: '1' });
+          redirect({});
         } catch (saveError) {
           const message = saveError instanceof Error ? saveError.message : 'Unable to connect Trello';
           redirect({

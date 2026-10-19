@@ -1,4 +1,5 @@
 import type { ListingIdentity } from '@/lib/listing/identity'
+import { isPortfolioMonitorConditionSupported } from '@/lib/monitors/portfolio-conditions'
 import { INDICATOR_MONITOR_PROVIDER, PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import type {
   MonitorCreateInput,
@@ -216,6 +217,16 @@ export const validateMonitorDraft = ({
     }
     if (!hasPortfolioConditionRules(draft)) {
       addMonitorDraftIssue(issues, 'condition', 'At least one fire condition is required.')
+    }
+    if (
+      draft.providerId &&
+      !isPortfolioMonitorConditionSupported(draft.providerId, draft.condition)
+    ) {
+      addMonitorDraftIssue(
+        issues,
+        'condition',
+        'Selected trading provider does not support one or more fire condition metrics.'
+      )
     }
 
     return {

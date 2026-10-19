@@ -181,6 +181,14 @@ async function buildProviderConfigForUpdate({
   if (source === PORTFOLIO_MONITOR_PROVIDER) {
     const portfolioPayload = payload as PortfolioUpdatePayload
     const portfolioConfig = existingConfig as PortfolioMonitorProviderConfig
+    if (
+      portfolioPayload.isActive === false &&
+      Object.keys(portfolioPayload).every((key) =>
+        ['workspaceId', 'source', 'isActive'].includes(key)
+      )
+    ) {
+      return portfolioConfig
+    }
     const existingMonitor = portfolioConfig.monitor
     const nextProviderId = portfolioPayload.providerId ?? existingMonitor.providerId
     const nextCredentialId = portfolioPayload.credentialId ?? existingMonitor.credentialId

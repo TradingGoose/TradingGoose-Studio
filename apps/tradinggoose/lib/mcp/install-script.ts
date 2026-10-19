@@ -245,7 +245,7 @@ function assertSetupIsPossible() {
   }
 
   if (targets.length === 0 && !process.stdin.isTTY) {
-    fail('setup requires an interactive terminal or a target URL such as /mcp/setup/codex.')
+    fail('setup requires an interactive terminal or a target URL such as /connect/mcp/setup/codex.')
   }
 }
 
@@ -269,21 +269,19 @@ async function authenticate() {
   }
   const asMessage = (error) => (error instanceof Error ? error.message : String(error))
 
-  const start = await postJson(baseUrl + '/api/auth/mcp/start').catch((error) =>
+  const start = await postJson(baseUrl + '/api/auth/connect/start').catch((error) =>
     abort(asMessage(error))
   )
 
   const code = String(start?.code || '')
   const verificationKey = String(start?.verificationKey || '')
-  const authorizeUrl = String(start?.authorizeUrl || '')
+  const authorizeUrl = baseUrl + '/connect/mcp/authorize?code=' + encodeURIComponent(code)
   const intervalSeconds = Math.max(1, Number(start?.intervalSeconds) || 2)
   const missing = !code
     ? 'code'
     : !verificationKey
       ? 'verification key'
-      : !authorizeUrl
-        ? 'authorization URL'
-        : ''
+      : ''
   if (missing) abort('Studio did not return a login ' + missing)
 
   spin.stop()
@@ -295,7 +293,7 @@ async function authenticate() {
 
   const deadline = Date.now() + 600000
   while (Date.now() < deadline) {
-    const poll = await postJson(baseUrl + '/api/auth/mcp/poll', { code, verificationKey }).catch(
+    const poll = await postJson(baseUrl + '/api/auth/connect/poll', { code, verificationKey }).catch(
       (error) => abort(asMessage(error))
     )
     const status = String(poll?.status || 'pending')
@@ -316,7 +314,7 @@ async function authenticate() {
 }
 
 async function acknowledge(login) {
-  const ackJson = await postJson(baseUrl + '/api/auth/mcp/poll', {
+  const ackJson = await postJson(baseUrl + '/api/auth/connect/poll', {
     code: login.code,
     verificationKey: login.verificationKey,
     ackApiKey: login.token,
@@ -440,14 +438,14 @@ usage() {
 TradingGoose MCP setup
 
 Usage:
-  curl -fsSL <studio-url>/mcp/setup | sh
-  curl -fsSL <studio-url>/mcp/setup/codex | sh
-  curl -fsSL <studio-url>/mcp/login | sh
+  curl -fsSL <studio-url>/connect/mcp/setup | sh
+  curl -fsSL <studio-url>/connect/mcp/setup/codex | sh
+  curl -fsSL <studio-url>/connect/mcp/login | sh
 
 PowerShell:
-  irm <studio-url>/mcp/setup | iex
-  irm <studio-url>/mcp/setup/codex | iex
-  irm <studio-url>/mcp/login | iex
+  irm <studio-url>/connect/mcp/setup | iex
+  irm <studio-url>/connect/mcp/setup/codex | iex
+  irm <studio-url>/connect/mcp/login | iex
 
 Commands:
   login   Print the MCP endpoint and authorization header, authenticating when needed.
@@ -536,14 +534,14 @@ function Show-Usage {
 TradingGoose MCP setup
 
 Usage:
-  irm <studio-url>/mcp/setup | iex
-  irm <studio-url>/mcp/setup/codex | iex
-  irm <studio-url>/mcp/login | iex
+  irm <studio-url>/connect/mcp/setup | iex
+  irm <studio-url>/connect/mcp/setup/codex | iex
+  irm <studio-url>/connect/mcp/login | iex
 
 POSIX shell:
-  curl -fsSL <studio-url>/mcp/setup | sh
-  curl -fsSL <studio-url>/mcp/setup/codex | sh
-  curl -fsSL <studio-url>/mcp/login | sh
+  curl -fsSL <studio-url>/connect/mcp/setup | sh
+  curl -fsSL <studio-url>/connect/mcp/setup/codex | sh
+  curl -fsSL <studio-url>/connect/mcp/login | sh
 
 Commands:
   login   Print the MCP endpoint and authorization header, authenticating when needed.

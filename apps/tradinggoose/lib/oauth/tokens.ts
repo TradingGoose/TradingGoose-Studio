@@ -193,6 +193,11 @@ export async function refreshAccessTokenIfNeeded(
     logger.info(`[${requestId}] Refreshing OAuth token account`)
     try {
       const credentials = await loadSystemOAuthClientCredentials([tokenAccount.providerId])
+      if (tokenAccount.providerId === 'robinhood') {
+        const clientId = tokenAccount.oauthClientId?.trim() ?? ''
+        if (!credentials.robinhood || !clientId) return null
+        credentials.robinhood = { clientId, clientSecret: '', fields: {} }
+      }
       return await runWithSystemOAuthClientCredentials(
         () => refreshTokenAccount(requestId, tokenAccountId, ownerUserId, tokenAccount.providerId),
         credentials
