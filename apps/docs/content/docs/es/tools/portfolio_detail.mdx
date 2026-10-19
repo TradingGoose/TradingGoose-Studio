@@ -46,7 +46,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 ### `trading_get_portfolio_detail`
 
-Obtén el resumen de la cuenta, el efectivo, las posiciones y las órdenes de Alpaca o Tradier.
+Obtén el resumen de la cuenta, el efectivo y los campos de posiciones compatibles con el bróker seleccionado.
 
 #### Entrada
 
@@ -60,11 +60,11 @@ Obtén el resumen de la cuenta, el efectivo, las posiciones y las órdenes de Al
 | --------- | ---- | ----------- |
 | `summary` | string | Mensaje de estado de la recuperación del detalle de la cartera. |
 | `provider` | string | Bróker/proveedor usado para la solicitud. |
-| `portfolioDetail` | json | Detalle de cartera canónico con efectivo, posiciones y resumen. |
+| `portfolioDetail` | json | Instantánea de cartera con los campos compatibles con el bróker seleccionado. |
 
 ## Instrucciones de uso
 
-Bloque de detalle de cartera que devuelve el resumen de la cuenta, el efectivo, las posiciones y las órdenes de Alpaca o Tradier.
+Devuelve el resumen de la cuenta, el efectivo y los campos de posiciones compatibles con el proveedor seleccionado. Los campos no compatibles se omiten. Usa Trading Order History para consultar las órdenes registradas a través de TradingGoose.
 
 ## Notas
 
