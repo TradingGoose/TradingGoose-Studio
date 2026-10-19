@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildCopilotServerToolErrorResponse } from '@/lib/copilot/server-tool-errors'
 import { buildCopilotServerToolError } from '@/lib/copilot/tools/client/server-tool-response'
 import { AgentBlock } from '@/blocks/blocks/agent'
+import { DatadogBlock } from '@/blocks/blocks/datadog'
 import { LoopBlock } from '@/blocks/blocks/loop'
 import { ParallelContainerBlock } from '@/blocks/blocks/parallel_container'
 import { PolymarketBlock } from '@/blocks/blocks/polymarket'
@@ -243,7 +244,19 @@ describe('canonical sub-block validation', () => {
     }
   )
 
-  it.each(['invalid', '<>', '<variable.startTime> + 1'])(
+  it.each(['{{EPOCH_PREFIX}}000', '<variable.epochPrefix>000'])(
+    'preserves numeric interpolation templates: %s',
+    (from) => {
+      validationMocks.getBlock.mockReturnValue(DatadogBlock)
+      expect(
+        validateWorkflowState(
+          workflowWithValues('datadog', { operation: 'datadog_query_timeseries', from })
+        ).valid
+      ).toBe(true)
+    }
+  )
+
+  it.each(['invalid', '<>', '{{}}000'])(
     'rejects invalid numeric literals and malformed references: %s',
     (startTs) => {
       validationMocks.getBlock.mockReturnValue(PolymarketBlock)
@@ -256,8 +269,8 @@ describe('canonical sub-block validation', () => {
   )
 
   it.each([
-    [LoopBlock, { loopType: 'for', iterations: '<variable.count>' }],
-    [ParallelContainerBlock, { parallelType: 'count', count: '{{COUNT}}' }],
+    [LoopBlock, { loopType: 'for', iterations: '<variable.count>0' }],
+    [ParallelContainerBlock, { parallelType: 'count', count: '{{COUNT}}0' }],
   ] as const)(
     'requires numeric literals when a field disables runtime references',
     (config, values) => {

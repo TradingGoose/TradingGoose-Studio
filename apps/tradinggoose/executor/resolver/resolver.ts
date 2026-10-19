@@ -1,6 +1,10 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { VariableManager } from '@/lib/variables/variable-manager'
-import { extractReferencePrefixes, SYSTEM_REFERENCE_PREFIXES } from '@/lib/workflows/references'
+import {
+  extractEnvironmentReferences,
+  extractReferencePrefixes,
+  SYSTEM_REFERENCE_PREFIXES,
+} from '@/lib/workflows/references'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { getBlock } from '@/blocks/index'
 import type { LoopManager } from '@/executor/loops/loops'
@@ -739,8 +743,8 @@ export class InputResolver {
    */
   resolveEnvVariables(value: any): any {
     if (typeof value === 'string') {
-      const envMatches = value.match(/\{\{([^}]+)\}\}/g)
-      if (envMatches) {
+      const envMatches = extractEnvironmentReferences(value)
+      if (envMatches.length > 0) {
         let resolvedValue = value
         for (const match of envMatches) {
           const envKey = match.slice(2, -2)

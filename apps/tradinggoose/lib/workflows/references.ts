@@ -7,6 +7,10 @@ const INVALID_REFERENCE_CHARS = /[+*/=<>!]/
 export const isEnvironmentReference = (value: string): boolean =>
   /^\s*\{\{[^{}]+\}\}\s*$/.test(value)
 
+export function extractEnvironmentReferences(value: string): string[] {
+  return value.match(/\{\{([^}]+)\}\}/g) ?? []
+}
+
 export function isLikelyReferenceSegment(segment: string): boolean {
   if (!segment.startsWith('<') || !segment.endsWith('>')) {
     return false

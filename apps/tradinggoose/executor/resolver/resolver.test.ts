@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
+import { DatadogBlock } from '@/blocks/blocks/datadog'
 import { getBlock } from '@/blocks/index'
 import { BlockType } from '@/executor/consts'
 import { InputResolver } from '@/executor/resolver/resolver'
@@ -448,7 +449,8 @@ describe('InputResolver', () => {
       expect(result.regularParam).toBe('Base URL is: https://api.example.com')
     })
 
-    it('should resolve explicit environment variables', () => {
+    it('resolves explicit environment variables and interpolated numeric tool parameters', () => {
+      mockEnvironmentVars.EPOCH_PREFIX = '1700000'
       const block: SerializedBlock = {
         id: 'test-block',
         metadata: { id: 'generic', name: 'Test Block' },
@@ -457,6 +459,8 @@ describe('InputResolver', () => {
           tool: 'generic',
           params: {
             explicitEnv: '{{BASE_URL}}',
+            from: '{{EPOCH_PREFIX}}000',
+            to: '<variable.numberVar>000',
           },
         },
         inputs: {
@@ -469,6 +473,11 @@ describe('InputResolver', () => {
       const result = resolver.resolveInputs(block, mockContext)
 
       expect(result.explicitEnv).toBe('https://api.example.com')
+      expect(result.from).toBe('1700000000')
+      expect(result.to).toBe('42000')
+      expect(
+        DatadogBlock.tools.config!.params!({ operation: 'datadog_query_timeseries', ...result })
+      ).toMatchObject({ from: 1700000000, to: 42000 })
     })
 
     it('should resolve environment variables in all contexts', () => {

@@ -3,7 +3,7 @@ import {
   isCustomToolRuntimeId,
 } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
-import { extractReferencePrefixes, isEnvironmentReference } from '@/lib/workflows/references'
+import { extractEnvironmentReferences, extractReferencePrefixes } from '@/lib/workflows/references'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { buildConfiguredSubBlockParams, isSubBlockInMode } from '@/lib/workflows/subblock-values'
 import { getBlock } from '@/blocks/registry'
@@ -145,10 +145,9 @@ function validateSubBlockValues(block: BlockState, blockConfig: BlockConfig): st
     let issue: string | undefined
     if (inputType === 'number' && (config.inputType === 'number' || config.type === 'slider')) {
       if (config.supportsReferences !== false && typeof value === 'string') {
-        const references = extractReferencePrefixes(value.trim())
         if (
-          (references.length === 1 && references[0].raw === value.trim()) ||
-          isEnvironmentReference(value)
+          extractReferencePrefixes(value).length > 0 ||
+          extractEnvironmentReferences(value).length > 0
         ) {
           continue
         }
