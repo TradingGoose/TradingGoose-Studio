@@ -7,6 +7,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { handleAuthError } from '@/lib/auth/auth-error-handler'
 import { useSession } from '@/lib/auth-client'
 import { startOAuthConnectFlow } from '@/lib/oauth/connect'
+import { ROBINHOOD_LOOPBACK_REDIRECT_URI } from '@/lib/oauth/robinhood-constants'
 import { Link, usePathname } from '@/i18n/navigation'
 import { normalizeCallbackUrl } from '@/i18n/utils'
 
@@ -18,18 +19,38 @@ export default function RobinhoodAuthorizePage() {
   const started = useRef(false)
   const [failed, setFailed] = useState(false)
   const callbackURL = normalizeCallbackUrl(searchParams.get('callbackURL')) ?? ''
+  const relayToken = searchParams.get('relayToken') ?? ''
 
   useEffect(() => {
     if (isPending || failed || started.current) return
     started.current = true
+    if (!relayToken) {
+      started.current = false
+      setFailed(true)
+      return
+    }
+    if (searchParams.get('complete') === '1') {
+      const completionUrl = new URL(ROBINHOOD_LOOPBACK_REDIRECT_URI)
+      completionUrl.searchParams.set('complete', relayToken)
+      for (const parameter of ['error', 'error_description']) {
+        const value = searchParams.get(parameter)
+        if (value !== null) completionUrl.searchParams.set(parameter, value)
+      }
+      window.location.replace(completionUrl.toString())
+      return
+    }
+    const returnParams = new URLSearchParams({ callbackURL, relayToken, complete: '1' })
     const connection = session?.user?.id
-      ? startOAuthConnectFlow({ providerId: 'robinhood', callbackURL })
+      ? startOAuthConnectFlow({
+          providerId: 'robinhood',
+          callbackURL: `${pathname}?${returnParams}`,
+        })
       : handleAuthError('robinhood-connect', pathname)
     void connection.catch(() => {
       started.current = false
       setFailed(true)
     })
-  }, [callbackURL, failed, isPending, pathname, session?.user?.id])
+  }, [callbackURL, failed, isPending, pathname, relayToken, searchParams, session?.user?.id])
 
   return (
     <div className='space-y-4 text-center'>

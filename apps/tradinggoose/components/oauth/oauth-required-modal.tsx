@@ -91,8 +91,10 @@ export function OAuthRequiredModal({
   const resolvedCallbackURL =
     callbackURL ??
     `${pathname}${typeof window === 'undefined' ? '' : window.location.search + window.location.hash}`
-  const robinhoodHelperUrl = new URL('/connect/robinhood', getBaseUrl())
-  robinhoodHelperUrl.searchParams.set('callbackURL', resolvedCallbackURL)
+  const robinhoodHelperUrl = showRobinhoodHelper
+    ? new URL('/connect/robinhood', getBaseUrl())
+    : null
+  robinhoodHelperUrl?.searchParams.set('callbackURL', resolvedCallbackURL)
 
   // Default to base provider name and icon
   let providerName = baseProviderConfig?.name || provider

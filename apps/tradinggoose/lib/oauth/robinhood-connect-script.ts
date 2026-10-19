@@ -2,9 +2,12 @@ import { ROBINHOOD_LOOPBACK_REDIRECT_URI, ROBINHOOD_OAUTH_RESOURCE } from './rob
 
 const ROBINHOOD_RELAY_SCRIPT = String.raw`const http = require('node:http')
 const { spawn } = require('node:child_process')
+const { randomUUID } = require('node:crypto')
 
-const authorizeUrl = process.argv[2]
-const hostedOrigin = new URL(authorizeUrl).origin
+const authorizeUrl = new URL(process.argv[2])
+const hostedOrigin = authorizeUrl.origin
+const completionToken = randomUUID()
+authorizeUrl.searchParams.set('relayToken', completionToken)
 const loopbackUrl = new URL(${JSON.stringify(ROBINHOOD_LOOPBACK_REDIRECT_URI)})
 const forwardedParameters = ['code', 'state', 'iss', 'error', 'error_description']
 const robinhoodIssuer = ${JSON.stringify(ROBINHOOD_OAUTH_RESOURCE)}
@@ -50,23 +53,28 @@ if (Number(process.versions.node.split('.')[0]) < 18) {
   fail('Node.js 18 or newer is required.')
 } else {
   const server = http.createServer((request, response) => {
+    response.setHeader('connection', 'close')
     const requestUrl = new URL(request.url || '/', loopbackUrl.origin)
     if (request.method !== 'GET' || requestUrl.pathname !== loopbackUrl.pathname) {
       sendText(response, 404, 'Not found')
       return
     }
 
+    const completed = requestUrl.searchParams.get('complete') === completionToken
     const code = requestUrl.searchParams.get('code')
     const error = requestUrl.searchParams.get('error')
     const issuer = requestUrl.searchParams.get('iss')
     const state = requestUrl.searchParams.get('state')
     const validResponse = (!!code && !error && issuer === robinhoodIssuer) || (!!error && !code)
-    if (!state || !validResponse) {
+    if (!completed && (!state || !validResponse)) {
       sendText(response, 400, 'Invalid OAuth callback')
       return
     }
-    const hostedCallback = new URL(loopbackUrl.pathname, hostedOrigin)
-    for (const parameter of forwardedParameters) {
+    const hostedCallback = new URL(
+      completed ? authorizeUrl.searchParams.get('callbackURL') : loopbackUrl.pathname,
+      hostedOrigin
+    )
+    for (const parameter of completed ? ['error', 'error_description'] : forwardedParameters) {
       const value = requestUrl.searchParams.get(parameter)
       if (value !== null) hostedCallback.searchParams.set(parameter, value)
     }
@@ -76,7 +84,12 @@ if (Number(process.versions.node.split('.')[0]) < 18) {
       location: hostedCallback.toString(),
       'x-content-type-options': 'nosniff',
     })
-    response.end()
+    response.end(() => {
+      if (completed) {
+        console.log('Robinhood authorization finished. Helper stopped.')
+        server.close()
+      }
+    })
   })
 
   server.on('error', (error) => {
@@ -84,9 +97,9 @@ if (Number(process.versions.node.split('.')[0]) < 18) {
   })
   server.listen(Number(loopbackUrl.port), '127.0.0.1', () => {
     console.log('Robinhood connection helper is ready.')
-    console.log('Keep this command running until the browser confirms the connection, then press Ctrl+C.')
+    console.log('The helper closes automatically when Robinhood authorization finishes.')
     console.log('Waiting for Robinhood to return to ' + loopbackUrl.toString())
-    openBrowser(authorizeUrl)
+    openBrowser(authorizeUrl.toString())
   })
 }
 `

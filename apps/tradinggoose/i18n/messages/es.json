@@ -18397,7 +18397,7 @@
           "cancel": "Cancelar",
           "connectService": "Conectar {serviceName}",
           "connectNow": "Conectar ahora",
-          "robinhoodHostedHelper": "Ejecuta el comando en el mismo equipo que tu navegador. Abrirá Robinhood y mantendrá activo el asistente de retorno."
+          "robinhoodHostedHelper": "Ejecuta el comando en el mismo equipo que tu navegador. Abrirá Robinhood y se cerrará automáticamente cuando termine la autorización."
         },
         "dropdown": {
           "placeholder": "Selecciona una opción...",

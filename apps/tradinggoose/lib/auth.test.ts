@@ -145,7 +145,7 @@ describe('Robinhood OAuth linking', () => {
       async () => {
         await registerClientForLink({
           body: { providerId: 'robinhood' },
-          context: { session: { session: {}, user: {} } },
+          context: { session: { session: {}, user: { id: 'studio-user' } } },
         } as never)
         expect(getSystemOAuthClientCredentialsForRequest('robinhood').clientId).toBe(
           'registered-client'
