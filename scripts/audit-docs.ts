@@ -144,7 +144,7 @@ function matchSourceToDocs(
 // ── Scanners ─────────────────────────────────────────────────────────────────
 
 function scanBlocks(): SourceItem[] {
-  const items = getAllBlocks()
+  return getAllBlocks()
     .filter((block) => block.category === 'blocks' || block.type === 'evaluator')
     .map((block) => ({
       id: block.type,
@@ -152,25 +152,6 @@ function scanBlocks(): SourceItem[] {
       description: block.description,
       sourcePath: PATHS.blocks,
     }))
-
-  for (const container of ['loop', 'parallel']) {
-    const sourcePath = path.join(
-      APP_ROOT,
-      'executor/handlers',
-      container,
-      `${container}-handler.ts`
-    )
-    if (fs.existsSync(sourcePath)) {
-      items.push({
-        id: container,
-        name: container[0].toUpperCase() + container.slice(1),
-        description: '',
-        sourcePath,
-      })
-    }
-  }
-
-  return items
 }
 
 function scanTools(): SourceItem[] {
