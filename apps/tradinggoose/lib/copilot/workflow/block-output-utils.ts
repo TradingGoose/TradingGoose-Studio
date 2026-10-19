@@ -92,13 +92,11 @@ function getSubflowInsidePaths(
 ): string[] {
   const paths = ['index']
   if (blockType === 'loop') {
-    const loopType = loops[blockId]?.loopType || 'for'
-    if (loopType === 'forEach') {
+    if (loops[blockId]?.loopType === 'forEach') {
       paths.push('currentItem', 'items')
     }
   } else {
-    const parallelType = parallels[blockId]?.parallelType || 'count'
-    if (parallelType === 'collection') {
+    if (parallels[blockId]?.parallelType === 'collection') {
       paths.push('currentItem', 'items')
     }
   }

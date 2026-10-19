@@ -8,13 +8,9 @@ const logger = createLogger('LoopManager')
 
 /**
  * Manages loop detection, iteration limits, and state resets.
- * With the new loop block approach, this class is significantly simplified.
  */
 export class LoopManager {
-  constructor(
-    private loops: Record<string, SerializedLoop>,
-    private defaultIterations = 5
-  ) {}
+  constructor(private loops: Record<string, SerializedLoop>) {}
 
   /**
    * Processes all loops and checks if any need to be iterated.
@@ -44,7 +40,7 @@ export class LoopManager {
       }
 
       // Check if all blocks in the loop have been executed
-      const allBlocksInLoopExecuted = this.allBlocksExecuted(loop.nodes, context)
+      const allBlocksInLoopExecuted = this.allReachableBlocksExecuted(loop.nodes, context)
 
       if (allBlocksInLoopExecuted) {
         // All blocks in the loop have been executed
@@ -57,30 +53,15 @@ export class LoopManager {
         // We just need to reset the blocks so they can run again
 
         // Determine the maximum iterations
-        let maxIterations = loop.iterations || this.defaultIterations
+        let maxIterations = loop.iterations
 
         // For forEach loops, use the actual items length
-        if (loop.loopType === 'forEach' && loop.forEachItems) {
-          // First check if the items have already been evaluated and stored by the loop handler
+        if (loop.loopType === 'forEach') {
           const storedItems = context.loopItems.get(`${loopId}_items`)
-          if (storedItems) {
-            const itemsLength = Array.isArray(storedItems)
-              ? storedItems.length
-              : Object.keys(storedItems).length
-
-            maxIterations = itemsLength
-            logger.info(
-              `forEach loop ${loopId} - Items: ${itemsLength}, Max iterations: ${maxIterations}`
-            )
-          } else {
-            const itemsLength = this.getItemsLength(loop.forEachItems)
-            if (itemsLength > 0) {
-              maxIterations = itemsLength
-              logger.info(
-                `forEach loop ${loopId} - Parsed items: ${itemsLength}, Max iterations: ${maxIterations}`
-              )
-            }
-          }
+          if (!storedItems) throw new Error(`Evaluated items not found for loop ${loopId}`)
+          maxIterations = Array.isArray(storedItems)
+            ? storedItems.length
+            : Object.keys(storedItems).length
         } else if (loop.loopType === 'while' || loop.loopType === 'doWhile') {
           // For while and doWhile loops, no max iteration limit
           // They rely on the condition to stop (and workflow timeout as safety)
@@ -112,7 +93,7 @@ export class LoopManager {
             loopId,
             currentIteration: maxIterations - 1, // Last iteration index
             maxIterations,
-            loopType: loop.loopType || 'for',
+            loopType: loop.loopType,
             completed: true,
             results,
             message: `Completed all ${maxIterations} iterations`,
@@ -158,19 +139,6 @@ export class LoopManager {
     }
 
     return hasLoopReachedMaxIterations
-  }
-
-  /**
-   * Checks if all reachable blocks in a loop have been executed.
-   * This method now excludes completely unconnected blocks from consideration,
-   * ensuring they don't prevent loop completion.
-   *
-   * @param nodeIds - All node IDs in the loop
-   * @param context - Execution context
-   * @returns Whether all reachable blocks have been executed
-   */
-  private allBlocksExecuted(nodeIds: string[], context: ExecutionContext): boolean {
-    return this.allReachableBlocksExecuted(nodeIds, context)
   }
 
   /**
@@ -258,30 +226,6 @@ export class LoopManager {
   }
 
   /**
-   * Helper to get the length of items for forEach loops
-   */
-  private getItemsLength(forEachItems: any): number {
-    if (Array.isArray(forEachItems)) {
-      return forEachItems.length
-    }
-    if (typeof forEachItems === 'object' && forEachItems !== null) {
-      return Object.keys(forEachItems).length
-    }
-    if (typeof forEachItems === 'string') {
-      try {
-        const parsed = JSON.parse(forEachItems)
-        if (Array.isArray(parsed)) {
-          return parsed.length
-        }
-        if (typeof parsed === 'object' && parsed !== null) {
-          return Object.keys(parsed).length
-        }
-      } catch {}
-    }
-    return 0
-  }
-
-  /**
    * Resets all blocks within a loop for the next iteration.
    *
    * @param loopId - ID of the loop
@@ -311,19 +255,21 @@ export class LoopManager {
     iterationIndex: number,
     output: any
   ): void {
+    const loop = this.loops[loopId]
+    if (!loop) throw new Error(`Loop configuration not found for block ${loopId}`)
+    if (loop.loopType !== 'for' && loop.loopType !== 'forEach') return
+
     if (!context.loopExecutions) {
       context.loopExecutions = new Map()
     }
 
     let loopState = context.loopExecutions.get(loopId)
     if (!loopState) {
-      const loop = this.loops[loopId]
-      const loopType = loop?.loopType === 'forEach' ? 'forEach' : 'for'
-      const forEachItems = loop?.forEachItems
+      const forEachItems = loop.forEachItems
 
       loopState = {
-        maxIterations: loop?.iterations || this.defaultIterations,
-        loopType,
+        maxIterations: loop.iterations,
+        loopType: loop.loopType,
         forEachItems:
           Array.isArray(forEachItems) || (typeof forEachItems === 'object' && forEachItems !== null)
             ? forEachItems
@@ -362,16 +308,6 @@ export class LoopManager {
 
     // Return the current iteration counter
     return context.loopIterations.get(loopId) || 0
-  }
-
-  /**
-   * Gets the iterations for a loop.
-   *
-   * @param loopId - ID of the loop
-   * @returns Iterations for the loop
-   */
-  getIterations(loopId: string): number {
-    return this.loops[loopId]?.iterations || this.defaultIterations
   }
 
   /**

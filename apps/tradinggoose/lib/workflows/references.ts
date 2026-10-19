@@ -4,6 +4,9 @@ export const SYSTEM_REFERENCE_PREFIXES = new Set(['start', 'loop', 'parallel', '
 
 const INVALID_REFERENCE_CHARS = /[+*/=<>!]/
 
+export const isEnvironmentReference = (value: string): boolean =>
+  /^\s*\{\{[^{}]+\}\}\s*$/.test(value)
+
 export function isLikelyReferenceSegment(segment: string): boolean {
   if (!segment.startsWith('<') || !segment.endsWith('>')) {
     return false

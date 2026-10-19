@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToolResultSchemas } from '@/lib/copilot/registry'
 import { editWorkflowServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow'
 import { WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
+import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
+import { LoopBlock } from '@/blocks/blocks/loop'
 
 const mockLoadWorkflowState = vi.hoisted(() => vi.fn())
 const mockApplyWorkflowState = vi.hoisted(() => vi.fn())
@@ -304,7 +306,7 @@ describe('editWorkflowServerTool', () => {
           name: 'Loop',
           position: { x: 100, y: 100 },
           enabled: true,
-          subBlocks: {},
+          subBlocks: buildInitialSubBlockStates(LoopBlock.subBlocks),
           outputs: {},
         },
       },
@@ -375,7 +377,7 @@ describe('editWorkflowServerTool', () => {
           name: 'Loop',
           position: { x: 100, y: 100 },
           enabled: true,
-          subBlocks: {},
+          subBlocks: buildInitialSubBlockStates(LoopBlock.subBlocks),
           outputs: {},
         },
         fn1: {

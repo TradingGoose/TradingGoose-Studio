@@ -30,6 +30,7 @@ export const ParallelContainerBlock: BlockConfig = {
       title: 'Executions',
       type: 'short-input',
       inputType: 'number',
+      supportsReferences: false,
       integer: true,
       min: 1,
       max: 20,

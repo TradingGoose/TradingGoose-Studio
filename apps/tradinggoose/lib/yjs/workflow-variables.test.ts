@@ -165,38 +165,47 @@ describe('workflow variable Yjs mutations', () => {
     })
   })
 
-  it('rewrites references inside text-backed workflow subblocks when renaming', () => {
-    const doc = createDoc()
+  it.each(['update', 'replace'])(
+    'rewrites text-backed references when renaming variables through %s',
+    (method) => {
+      const doc = createDoc()
 
-    addWorkflowVariable(
-      doc,
-      { workflowId: 'wf-1', name: 'Foo Value', type: 'plain', value: 'hello' },
-      'var-1',
-      'test'
-    )
+      addWorkflowVariable(
+        doc,
+        { workflowId: 'wf-1', name: 'Foo Value', type: 'plain', value: 'hello' },
+        'var-1',
+        'test'
+      )
 
-    const textFieldKey = createWorkflowTextFieldKey('blockA', 'prompt')
-    const sharedText = new Y.Text()
-    sharedText.insert(0, 'Use <variable.foovalue> in this prompt')
-    readWorkflowTextFieldsMap(doc).set(textFieldKey, sharedText)
+      const textFieldKey = createWorkflowTextFieldKey('blockA', 'prompt')
+      const sharedText = new Y.Text()
+      sharedText.insert(0, 'Use <variable.foovalue> in this prompt')
+      readWorkflowTextFieldsMap(doc).set(textFieldKey, sharedText)
 
-    expect(updateWorkflowVariable(doc, 'var-1', { name: 'Bar Value' }, 'test')).toBe(true)
+      if (method === 'update') {
+        expect(updateWorkflowVariable(doc, 'var-1', { name: 'Bar Value' }, 'test')).toBe(true)
+      } else {
+        replaceWorkflowVariables(doc, {
+          'var-1': { ...getVariablesSnapshot(doc)['var-1'], name: 'Bar Value' },
+        })
+      }
 
-    expect(sharedText.toString()).toBe('Use <variable.barvalue> in this prompt')
-    expect(readWorkflowTextFieldsMap(doc).get(textFieldKey)).toBe(sharedText)
-    expect(doc.getMap('workflow').get('blocks')).toMatchObject({
-      blockA: {
-        subBlocks: {
-          prompt: {
-            value: 'Use <variable.barvalue> in this prompt',
+      expect(sharedText.toString()).toBe('Use <variable.barvalue> in this prompt')
+      expect(readWorkflowTextFieldsMap(doc).get(textFieldKey)).toBe(sharedText)
+      expect(doc.getMap('workflow').get('blocks')).toMatchObject({
+        blockA: {
+          subBlocks: {
+            prompt: {
+              value: 'Use <variable.barvalue> in this prompt',
+            },
           },
         },
-      },
-    })
-    expect(readWorkflowSnapshot(doc).blocks.blockA.subBlocks.prompt.value).toBe(
-      'Use <variable.barvalue> in this prompt'
-    )
-  })
+      })
+      expect(readWorkflowSnapshot(doc).blocks.blockA.subBlocks.prompt.value).toBe(
+        'Use <variable.barvalue> in this prompt'
+      )
+    }
+  )
 
   it('does not rewrite references during transient blank-name edits', () => {
     const doc = createDoc()

@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { checkTagTrigger } from '@/components/ui/tag-dropdown'
 import { extractFieldsFromSchema, parseResponseFormatSafely } from '@/lib/response-format'
+import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
+import { LoopBlock } from '@/blocks/blocks/loop'
 import type { BlockState } from '@/stores/workflows/workflow/types'
 import { generateLoopBlocks } from '@/stores/workflows/workflow/utils'
 
@@ -774,14 +776,10 @@ describe('TagDropdown Loop Suggestions', () => {
         type: 'loop',
         name: 'Test Loop',
         position: { x: 0, y: 0 },
-        subBlocks: {
-          loopType: { id: 'loopType', type: 'dropdown', value: 'forEach' },
-          forEachItems: {
-            id: 'forEachItems',
-            type: 'long-input',
-            value: '["item1", "item2", "item3"]',
-          },
-        },
+        subBlocks: buildInitialSubBlockStates(LoopBlock.subBlocks, {
+          loopType: 'forEach',
+          forEachItems: '["item1", "item2", "item3"]',
+        }) as BlockState['subBlocks'],
         outputs: {},
         enabled: true,
       },
@@ -804,7 +802,7 @@ describe('TagDropdown Loop Suggestions', () => {
     // Verify loop was generated correctly
     expect(loops.loop1).toBeDefined()
     expect(loops.loop1.loopType).toBe('forEach')
-    expect(loops.loop1.forEachItems).toEqual(['item1', 'item2', 'item3'])
+    expect(loops.loop1.forEachItems).toBe('["item1", "item2", "item3"]')
     expect(loops.loop1.nodes).toContain('function1')
 
     // Simulate the tag generation logic from TagDropdown
@@ -841,10 +839,7 @@ describe('TagDropdown Loop Suggestions', () => {
         type: 'loop',
         name: 'Test Loop',
         position: { x: 0, y: 0 },
-        subBlocks: {
-          loopType: { id: 'loopType', type: 'dropdown', value: 'for' },
-          iterations: { id: 'iterations', type: 'short-input', value: 5 },
-        },
+        subBlocks: buildInitialSubBlockStates(LoopBlock.subBlocks) as BlockState['subBlocks'],
         outputs: {},
         enabled: true,
       },

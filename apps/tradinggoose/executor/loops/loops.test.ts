@@ -113,29 +113,6 @@ describe('LoopManager', () => {
     })
   })
 
-  describe('constructor', () => {
-    test('should initialize with provided loops', () => {
-      const loops = {
-        'loop-1': createBasicLoop(),
-        'loop-2': createBasicLoop({ id: 'loop-2', iterations: 5 }),
-      }
-      const loopManager = new LoopManager(loops)
-
-      expect(loopManager.getIterations('loop-1')).toBe(3)
-      expect(loopManager.getIterations('loop-2')).toBe(5)
-    })
-
-    test('should use default iterations for unknown loops', () => {
-      const loopManager = new LoopManager({})
-      expect(loopManager.getIterations('unknown-loop')).toBe(5) // default
-    })
-
-    test('should accept custom default iterations', () => {
-      const loopManager = new LoopManager({}, 10)
-      expect(loopManager.getIterations('unknown-loop')).toBe(10)
-    })
-  })
-
   describe('processLoopIterations', () => {
     test('should return false when no loops exist', async () => {
       const emptyManager = new LoopManager({})
@@ -299,6 +276,8 @@ describe('LoopManager', () => {
       mockContext.executedBlocks.add('block-2')
       mockContext.loopIterations.set('loop-1', 3) // All items processed
 
+      mockContext.loopItems.set('loop-1_items', ['a', 'b', 'c'])
+
       const result = await manager.processLoopIterations(mockContext)
 
       expect(result).toBe(true) // Loop completed
@@ -378,16 +357,6 @@ describe('LoopManager', () => {
       const index = unknownManager.getLoopIndex('unknown', 'block-1', mockContext)
 
       expect(index).toBe(0)
-    })
-  })
-
-  describe('getIterations', () => {
-    test('should return iterations for existing loop', () => {
-      expect(manager.getIterations('loop-1')).toBe(3)
-    })
-
-    test('should return default iterations for non-existent loop', () => {
-      expect(manager.getIterations('non-existent')).toBe(5) // default
     })
   })
 
@@ -578,36 +547,17 @@ describe('LoopManager', () => {
       expect(result).toBe(false)
     })
 
-    test('should handle forEach loop with invalid JSON string', async () => {
-      const forEachLoop = createForEachLoop('invalid json')
+    test('requires collection items evaluated by the loop handler', async () => {
+      const forEachLoop = createForEachLoop('<source.items>')
       manager = new LoopManager({ 'loop-1': forEachLoop })
       mockContext.workflow!.loops['loop-1'] = forEachLoop
-
       mockContext.executedBlocks.add('loop-1')
       mockContext.executedBlocks.add('block-1')
       mockContext.executedBlocks.add('block-2')
-      mockContext.loopIterations.set('loop-1', 1)
 
-      const result = await manager.processLoopIterations(mockContext)
-
-      // Should handle gracefully and use default iterations
-      expect(result).toBe(false)
-    })
-
-    test('should handle forEach loop with null items', async () => {
-      const forEachLoop = createForEachLoop(null)
-      manager = new LoopManager({ 'loop-1': forEachLoop })
-      mockContext.workflow!.loops['loop-1'] = forEachLoop
-
-      mockContext.executedBlocks.add('loop-1')
-      mockContext.executedBlocks.add('block-1')
-      mockContext.executedBlocks.add('block-2')
-      mockContext.loopIterations.set('loop-1', 1)
-
-      const result = await manager.processLoopIterations(mockContext)
-
-      // Should handle gracefully
-      expect(result).toBe(false)
+      await expect(manager.processLoopIterations(mockContext)).rejects.toThrow(
+        'Evaluated items not found for loop loop-1'
+      )
     })
   })
 

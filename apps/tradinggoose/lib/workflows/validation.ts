@@ -3,6 +3,9 @@ import {
   isCustomToolRuntimeId,
 } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
+import { extractReferencePrefixes, isEnvironmentReference } from '@/lib/workflows/references'
+import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
+import { buildConfiguredSubBlockParams, isSubBlockInMode } from '@/lib/workflows/subblock-values'
 import { getBlock } from '@/blocks/registry'
 import type { BlockConfig } from '@/blocks/types'
 import type { BlockState, WorkflowState } from '@/stores/workflows/workflow/types'
@@ -114,13 +117,42 @@ export interface WorkflowValidationResult {
 
 function validateSubBlockValues(block: BlockState, blockConfig: BlockConfig): string[] {
   const errors: string[] = []
+  const isAdvancedMode = block.advancedMode ?? false
+  const isPureTriggerBlock = blockConfig.category === 'triggers'
+  const isTriggerMode = block.triggerMode === true || isPureTriggerBlock
+  const params = buildConfiguredSubBlockParams({
+    blockId: block.id,
+    subBlockConfigs: blockConfig.subBlocks,
+    subBlocks: block.subBlocks,
+    isAdvancedMode,
+  })
+
   for (const config of blockConfig.subBlocks) {
+    if (!isSubBlockInMode(config, isAdvancedMode)) continue
+    if (
+      isTriggerMode
+        ? config.mode !== 'trigger' && (!isPureTriggerBlock || !!config.mode)
+        : config.mode === 'trigger'
+    ) {
+      continue
+    }
+    if (!evaluateSubBlockConditionValues(config.condition, params)) continue
+
     const value = block.subBlocks?.[config.id]?.value
     if (value === undefined || value === '') continue
 
     const inputType = blockConfig.inputs[config.canonicalParamId ?? config.id]?.type
     let issue: string | undefined
     if (inputType === 'number' && (config.inputType === 'number' || config.type === 'slider')) {
+      if (config.supportsReferences !== false && typeof value === 'string') {
+        const references = extractReferencePrefixes(value.trim())
+        if (
+          (references.length === 1 && references[0].raw === value.trim()) ||
+          isEnvironmentReference(value)
+        ) {
+          continue
+        }
+      }
       const number =
         typeof value === 'number' || typeof value === 'string' ? Number(value) : Number.NaN
       if (!Number.isFinite(number) || (config.integer && !Number.isInteger(number))) {

@@ -203,6 +203,9 @@ function buildSubBlockSummaries(
       ...(subBlock.mode ? { mode: subBlock.mode } : {}),
       ...(typeof subBlock.required === 'boolean' ? { required: subBlock.required } : {}),
       ...(subBlock.inputType ? { inputType: subBlock.inputType } : {}),
+      ...(subBlock.supportsReferences !== undefined
+        ? { supportsReferences: subBlock.supportsReferences }
+        : {}),
       ...(subBlock.min !== undefined ? { min: subBlock.min } : {}),
       ...(subBlock.max !== undefined ? { max: subBlock.max } : {}),
       ...(subBlock.integer !== undefined ? { integer: subBlock.integer } : {}),

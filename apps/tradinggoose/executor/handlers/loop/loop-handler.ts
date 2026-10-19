@@ -10,8 +10,6 @@ import type { SerializedBlock } from '@/serializer/types'
 
 const logger = createLogger('LoopBlockHandler')
 
-const DEFAULT_MAX_ITERATIONS = 5
-
 /**
  * Handler for loop blocks that manage iteration control and flow.
  * Loop blocks don't execute logic themselves but control the flow of blocks within them.
@@ -127,7 +125,7 @@ export class LoopBlockHandler implements BlockHandler {
       // No max iterations for while/doWhile - rely on condition and workflow timeout
       maxIterations = Number.MAX_SAFE_INTEGER
     } else {
-      maxIterations = loop.iterations || DEFAULT_MAX_ITERATIONS
+      maxIterations = loop.iterations
       logger.info(`For loop ${block.id} - Max iterations: ${maxIterations}`)
     }
 
@@ -181,7 +179,7 @@ export class LoopBlockHandler implements BlockHandler {
         loopId: block.id,
         currentIteration: currentIteration - 1, // Report the actual last iteration number
         maxIterations,
-        loopType: loop.loopType || 'for',
+        loopType: loop.loopType,
         completed: false, // Not completed until all blocks in this iteration execute
         message: `Final iteration ${currentIteration} of ${maxIterations}`,
       } as Record<string, any>
@@ -247,7 +245,7 @@ export class LoopBlockHandler implements BlockHandler {
       loopId: block.id,
       currentIteration,
       maxIterations,
-      loopType: loop.loopType || 'for',
+      loopType: loop.loopType,
       completed: false,
       message: `Starting iteration ${currentIteration} of ${maxIterations}`,
     } as Record<string, any>

@@ -280,6 +280,7 @@ describe('getBlocksMetadataServerTool', () => {
         expect.objectContaining({
           id: 'iterations',
           inputType: 'number',
+          supportsReferences: false,
           integer: true,
           min: 1,
           max: 100,
@@ -317,6 +318,7 @@ describe('getBlocksMetadataServerTool', () => {
         expect.objectContaining({
           id: 'count',
           inputType: 'number',
+          supportsReferences: false,
           integer: true,
           min: 1,
           max: 20,

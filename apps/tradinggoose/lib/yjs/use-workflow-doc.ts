@@ -20,7 +20,6 @@ import { YJS_ORIGINS, type YjsOrigin } from '@/lib/yjs/transaction-origins'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
 import { rewriteWorkflowContentReferences } from '@/lib/yjs/workflow-reference-rewrite'
 import {
-  createWorkflowSnapshot,
   createWorkflowTextFieldKey,
   ensureWorkflowTextField,
   getVariablesMap,
@@ -32,6 +31,7 @@ import {
   readWorkflowTextFieldFromMap,
   readWorkflowTextFieldsMap,
   readWorkflowTextFieldValue,
+  regenerateContainerConfigs,
   replaceWorkflowTextField,
   setWorkflowState,
   type WorkflowSnapshot,
@@ -57,32 +57,11 @@ import type {
   SubBlockState,
   WorkflowState,
 } from '@/stores/workflows/workflow/types'
-import {
-  findAllDescendantNodes,
-  generateLoopBlocks,
-  generateParallelBlocks,
-  isBlockProtected,
-} from '@/stores/workflows/workflow/utils'
+import { findAllDescendantNodes, isBlockProtected } from '@/stores/workflows/workflow/utils'
 
 // ---------------------------------------------------------------------------
 // Helpers shared across mutations (no hook state captured)
 // ---------------------------------------------------------------------------
-
-const regenLoops = (wMap: Y.Map<any>, blocks: Record<string, any>) =>
-  wMap.set(YJS_KEYS.LOOPS, generateLoopBlocks(blocks))
-const regenParallels = (wMap: Y.Map<any>, blocks: Record<string, any>) =>
-  wMap.set(YJS_KEYS.PARALLELS, generateParallelBlocks(blocks))
-
-function regenerateContainerConfigs(doc: Y.Doc, blockIds: string[]): void {
-  const { blocks } = readWorkflowSnapshot(doc)
-  const wMap = readWorkflowMap(doc)
-  if (blockIds.some((id) => blocks[id]?.type === 'loop')) {
-    regenLoops(wMap, blocks)
-  }
-  if (blockIds.some((id) => blocks[id]?.type === 'parallel')) {
-    regenParallels(wMap, blocks)
-  }
-}
 
 function writeSharedTextValue(text: Y.Text, value: unknown): void {
   const nextTextValue = stringifySubBlockValue(value)
@@ -794,7 +773,7 @@ export function useWorkflowMutations() {
     (
       id: string,
       updater: (block: any) => any,
-      afterPatch?: (wMap: Y.Map<any>, blocks: Record<string, any>) => void,
+      afterPatch?: (doc: Y.Doc) => void,
       options?: {
         origin?: YjsOrigin
       }
@@ -808,7 +787,7 @@ export function useWorkflowMutations() {
         if (updated === block) return
         blocks[id] = updated
         wMap.set(YJS_KEYS.BLOCKS, blocks)
-        afterPatch?.(wMap, blocks)
+        afterPatch?.(d)
       }, options?.origin ?? YJS_ORIGINS.USER)
     },
     [transactWorkflow]
@@ -878,8 +857,7 @@ export function useWorkflowMutations() {
 
         blocks[id] = block
         wMap.set(YJS_KEYS.BLOCKS, blocks)
-        regenLoops(wMap, blocks)
-        regenParallels(wMap, blocks)
+        regenerateContainerConfigs(d)
       }, YJS_ORIGINS.USER)
     },
     [transactWorkflow]
@@ -918,8 +896,7 @@ export function useWorkflowMutations() {
         wMap.set(YJS_KEYS.EDGES, filteredEdges)
 
         // Regenerate loops and parallels
-        wMap.set(YJS_KEYS.LOOPS, generateLoopBlocks(blocks))
-        wMap.set(YJS_KEYS.PARALLELS, generateParallelBlocks(blocks))
+        regenerateContainerConfigs(d)
       }, YJS_ORIGINS.USER)
     },
     [transactWorkflow]
@@ -1026,7 +1003,7 @@ export function useWorkflowMutations() {
           const regex = new RegExp(`<${escapeRegExp(normalizedOld)}(?=(?:>|\\.))`, 'gi')
           const replacement = `<${normalizedRequestedName}`
 
-          rewriteWorkflowContentReferences(wm, readWorkflowTextFieldsMap(d), regex, replacement)
+          rewriteWorkflowContentReferences(d, regex, replacement)
         }
         success = true
       }, YJS_ORIGINS.USER)
@@ -1082,8 +1059,7 @@ export function useWorkflowMutations() {
           )
         }
 
-        regenLoops(wMap, blocks)
-        regenParallels(wMap, blocks)
+        regenerateContainerConfigs(d)
       }, YJS_ORIGINS.USER)
     },
     [transactWorkflow]
@@ -1119,20 +1095,24 @@ export function useWorkflowMutations() {
 
   const updateParentId = useCallback(
     (id: string, parentId: string, extent: 'parent') =>
-      patchBlock(id, (b) => {
-        if (parentId) {
-          return { ...b, data: { ...b.data, parentId, extent } }
-        }
+      patchBlock(
+        id,
+        (b) => {
+          if (parentId) {
+            return { ...b, data: { ...b.data, parentId, extent } }
+          }
 
-        const {
-          parentId: _parentId,
-          extent: _extent,
-          width: _width,
-          height: _height,
-          ...data
-        } = b.data ?? {}
-        return { ...b, data }
-      }),
+          const {
+            parentId: _parentId,
+            extent: _extent,
+            width: _width,
+            height: _height,
+            ...data
+          } = b.data ?? {}
+          return { ...b, data }
+        },
+        regenerateContainerConfigs
+      ),
     [patchBlock]
   )
 
@@ -1161,6 +1141,7 @@ export function useWorkflowMutations() {
           }
         }
         wMap.set(YJS_KEYS.BLOCKS, blocks)
+        regenerateContainerConfigs(d)
       }, YJS_ORIGINS.USER)
     },
     [transactWorkflow]
@@ -1397,16 +1378,6 @@ export function useWorkflowDoc() {
     // Mutations
     ...mutations,
 
-    // Compat: methods that still exist on the type but map to Yjs
-    readWorkflowState: (): WorkflowState => {
-      if (!session?.doc) {
-        return createWorkflowSnapshot()
-      }
-
-      return readWorkflowSnapshot(session.doc)
-    },
-
-    triggerUpdate: () => {}, // no-op, Yjs observer handles reactivity
     updateLastSaved: () =>
       session?.transactWorkflow(
         (workflowDoc) => readWorkflowMap(workflowDoc).set(YJS_KEYS.LAST_SAVED, Date.now()),

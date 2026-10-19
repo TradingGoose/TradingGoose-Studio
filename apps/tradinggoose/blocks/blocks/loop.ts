@@ -32,6 +32,7 @@ export const LoopBlock: BlockConfig = {
       title: 'Iterations',
       type: 'short-input',
       inputType: 'number',
+      supportsReferences: false,
       integer: true,
       min: 1,
       max: 100,

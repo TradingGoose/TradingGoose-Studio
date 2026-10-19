@@ -4,10 +4,12 @@ import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
+import type { BlockState } from '@/stores/workflows/workflow/types'
 import { createYjsUndoTrackedOrigins, YJS_ORIGINS } from './transaction-origins'
 import { bindWorkflowTextObserver } from './use-workflow-doc'
 import {
   createWorkflowTextFieldKey,
+  extractPersistedStateFromDoc,
   readWorkflowSnapshot,
   readWorkflowTextFieldsMap,
 } from './workflow-session'
@@ -139,7 +141,8 @@ describe('useWorkflowMutations', () => {
   async function mountContainerEditor(
     type: 'loop' | 'parallel',
     textFieldId = 'whileCondition',
-    initialValues?: Record<string, unknown>
+    initialValues?: Record<string, unknown>,
+    mirrorDelayMs?: number
   ) {
     const doc = new Y.Doc()
     const workflowMap = doc.getMap('workflow')
@@ -169,13 +172,18 @@ describe('useWorkflowMutations', () => {
     let mutations: ReturnType<typeof useWorkflowMutations> | null = null
     let textField: ReturnType<typeof useWorkflowTextField> | null = null
     let textFieldEnabled = initialValues === undefined
-    function Harness() {
-      mutations = useWorkflowMutations()
+    let editorOpen = true
+    function TextEditor() {
       textField = useWorkflowTextField('container-1', textFieldId, '', {
         enabled: textFieldEnabled,
         autoCreate: initialValues !== undefined,
+        mirrorDelayMs,
       })
       return null
+    }
+    function Harness() {
+      mutations = useWorkflowMutations()
+      return editorOpen ? React.createElement(TextEditor) : null
     }
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -200,6 +208,10 @@ describe('useWorkflowMutations', () => {
     return {
       doc,
       workflowMap,
+      async closeEditor() {
+        editorOpen = false
+        await act(async () => root?.render(React.createElement(Harness)))
+      },
       get mutations() {
         return mutations!
       },
@@ -208,6 +220,88 @@ describe('useWorkflowMutations', () => {
       },
     }
   }
+
+  it.each([
+    ['loop', 'while', 'whileCondition', 'loops'],
+    ['loop', 'doWhile', 'whileCondition', 'loops'],
+    ['loop', 'forEach', 'forEachItems', 'loops'],
+    ['parallel', 'collection', 'distribution', 'parallels'],
+  ] as const)(
+    'preserves live %s %s text through structural mutations with its editor closed',
+    async (type, mode, fieldId, mapKey) => {
+      const editor = await mountContainerEditor(
+        type,
+        fieldId,
+        {
+          [type === 'loop' ? 'loopType' : 'parallelType']: mode,
+          [fieldId]: '<upstream.previous> <variable.old>',
+        },
+        60_000
+      )
+      await act(async () => {
+        editor.mutations.addBlock('upstream', 'loop', 'Upstream', { x: 0, y: 0 })
+        editor.mutations.addBlock('other-container', type, 'Other Container', { x: 500, y: 0 })
+        editor.mutations.addVariable(
+          { workflowId: 'wf', name: 'old', type: 'plain', value: '' },
+          'var'
+        )
+      })
+      await act(async () => editor.textField.setValue('<upstream.current> <variable.old>'))
+      expect(editor.textField.value).toBe('<upstream.current> <variable.old>')
+      await editor.closeEditor()
+
+      function expectPersisted(nodes: string[], value = '<upstream.current> <variable.old>') {
+        const persisted = extractPersistedStateFromDoc(editor.doc)
+        expect(persisted.blocks['container-1'].subBlocks[fieldId].value).toBe(value)
+        expect(persisted[mapKey]['container-1']).toMatchObject({ [fieldId]: value, nodes })
+        return persisted
+      }
+
+      await act(async () =>
+        editor.mutations.addBlock(
+          'child',
+          'script',
+          'Script',
+          { x: 0, y: 0 },
+          undefined,
+          'container-1'
+        )
+      )
+      expectPersisted(['child'])
+      // Unmount canceled the mirror, so regeneration must not read this stale raw value.
+      expect(
+        (editor.workflowMap.get('blocks') as Record<string, BlockState>)['container-1'].subBlocks[
+          fieldId
+        ].value
+      ).toBe('<upstream.previous> <variable.old>')
+
+      await act(async () => editor.mutations.setBlockTriggerMode('upstream', true))
+      expectPersisted(['child'])
+
+      await act(async () => editor.mutations.updateParentId('child', 'other-container', 'parent'))
+      expect(expectPersisted([])[mapKey]['other-container'].nodes).toEqual(['child'])
+
+      await act(async () => {
+        editor.mutations.updateParentIds([
+          { id: 'child', parentId: 'container-1', extent: 'parent' },
+        ])
+      })
+      expect(expectPersisted(['child'])[mapKey]['other-container'].nodes).toEqual([])
+
+      await act(async () => {
+        expect(editor.mutations.updateBlockName('upstream', 'Renamed Source')).toBe(true)
+      })
+      expectPersisted(['child'], '<renamedsource.current> <variable.old>')
+
+      await act(async () => {
+        expect(editor.mutations.updateVariable('var', { name: 'new' })).toBe(true)
+      })
+      expectPersisted(['child'], '<renamedsource.current> <variable.new>')
+
+      await act(async () => editor.mutations.removeBlock('child'))
+      expectPersisted([], '<renamedsource.current> <variable.new>')
+    }
+  )
 
   it.each([
     {
@@ -273,8 +367,8 @@ describe('useWorkflowMutations', () => {
       expect(
         type === 'loop'
           ? state.loops['container-1'].forEachItems
-          : JSON.parse(state.parallels['container-1'].distribution as string)
-      ).toEqual(replacement)
+          : state.parallels['container-1'].distribution
+      ).toBe(JSON.stringify(replacement))
     }
   )
 
@@ -383,79 +477,6 @@ describe('useWorkflowMutations', () => {
       expect((editor.workflowMap.get(mapKey) as any)['container-1'][runtimeField]).toBe(
         '{{second}}'
       )
-    }
-  )
-
-  it.each([
-    {
-      blockType: 'loop' as const,
-      mapKey: 'loops' as const,
-      containerName: 'Loop',
-    },
-    {
-      blockType: 'parallel' as const,
-      mapKey: 'parallels' as const,
-      containerName: 'Parallel',
-    },
-  ])(
-    'keeps $mapKey in sync when adding nested blocks to a $blockType container',
-    async ({ blockType, mapKey, containerName }) => {
-      const doc = new Y.Doc()
-      const workflowMap = doc.getMap('workflow')
-      workflowMap.set('blocks', {})
-      workflowMap.set('loops', {})
-      workflowMap.set('parallels', {})
-
-      const session = {
-        doc,
-        transactWorkflow: (fn: (d: Y.Doc) => void, origin?: string) => {
-          doc.transact(() => fn(doc), origin ?? 'test')
-        },
-      }
-
-      vi.resetModules()
-      vi.doMock('@/lib/yjs/workflow-session-host', () => ({
-        useOptionalWorkflowSession: () => session,
-        useWorkflowSession: () => session,
-      }))
-
-      const { useWorkflowMutations } = await import('./use-workflow-doc')
-
-      let mutations: any = null
-      function Harness() {
-        mutations = useWorkflowMutations()
-        return null
-      }
-
-      container = document.createElement('div')
-      document.body.appendChild(container)
-      root = createRoot(container)
-
-      await act(async () => {
-        root?.render(React.createElement(Harness))
-      })
-
-      await act(async () => {
-        mutations.addBlock('container-1', blockType, containerName, { x: 0, y: 0 })
-      })
-
-      expect((workflowMap.get(mapKey) as Record<string, any>)['container-1']?.nodes).toEqual([])
-
-      await act(async () => {
-        mutations.addBlock(
-          'child-1',
-          'script',
-          'Script',
-          { x: 100, y: 100 },
-          undefined,
-          'container-1',
-          'parent'
-        )
-      })
-
-      expect((workflowMap.get(mapKey) as Record<string, any>)['container-1']?.nodes).toEqual([
-        'child-1',
-      ])
     }
   )
 

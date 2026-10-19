@@ -1005,65 +1005,6 @@ export class InputResolver {
   }
 
   /**
-   * Gets the items for a forEach loop.
-   * The items can be stored directly in loop.forEachItems or may need to be evaluated.
-   *
-   * @param loop - The loop configuration
-   * @param context - Current execution context
-   * @returns The items to iterate over (array or object)
-   */
-  private getLoopItems(loop: any, context: ExecutionContext): any[] | Record<string, any> | null {
-    if (!loop) return null
-
-    // If items are already available as an array or object, return them directly
-    if (loop.forEachItems) {
-      if (
-        Array.isArray(loop.forEachItems) ||
-        (typeof loop.forEachItems === 'object' && loop.forEachItems !== null)
-      ) {
-        return loop.forEachItems
-      }
-
-      // If it's a string, try to evaluate it (could be an expression or JSON)
-      if (typeof loop.forEachItems === 'string') {
-        try {
-          // Check if it's valid JSON
-          const trimmedExpression = loop.forEachItems.trim()
-          if (trimmedExpression.startsWith('[') || trimmedExpression.startsWith('{')) {
-            try {
-              // Try to parse as JSON first
-              // Handle both JSON format (double quotes) and JS format (single quotes)
-              const normalizedExpression = trimmedExpression
-                .replace(/'/g, '"') // Replace all single quotes with double quotes
-                .replace(/(\w+):/g, '"$1":') // Convert property names to double-quoted strings
-                .replace(/,\s*]/g, ']') // Remove trailing commas before closing brackets
-                .replace(/,\s*}/g, '}') // Remove trailing commas before closing braces
-
-              return JSON.parse(normalizedExpression)
-            } catch (jsonError) {
-              logger.error('Error parsing JSON for loop:', jsonError)
-              // If JSON parsing fails, continue with expression evaluation
-            }
-          }
-
-          // If not valid JSON or JSON parsing failed, try to evaluate as an expression
-          if (trimmedExpression && !trimmedExpression.startsWith('//')) {
-            const result = new Function('context', `return ${loop.forEachItems}`)(context)
-            if (Array.isArray(result) || (typeof result === 'object' && result !== null)) {
-              return result
-            }
-          }
-        } catch (e) {
-          logger.error('Error evaluating forEach items:', e)
-        }
-      }
-    }
-
-    // Default to empty array if no valid items found
-    return []
-  }
-
-  /**
    * Formats a value for safe use in a code context (like function blocks).
    * Ensures strings are properly quoted in JavaScript.
    *
@@ -1256,11 +1197,8 @@ export class InputResolver {
           return null
         }
 
-        // Get all items - prefer stored items from context
-        const items = context.loopItems.get(`${loopId}_items`) || this.getLoopItems(loop, context)
-        if (!items) {
-          return '[]'
-        }
+        const items = context.loopItems.get(`${loopId}_items`)
+        if (!items) throw new Error(`Evaluated items not found for loop ${loopId}`)
 
         return this.formatValueForCodeContext(items, currentBlock, isInTemplateLiteral)
       }
@@ -1370,13 +1308,10 @@ export class InputResolver {
       }
 
       case 'items': {
-        // Get all items for the parallel distribution
-        const items =
-          context.loopItems.get(`${parallelId}_items`) ||
-          (parallel.distribution && this.getParallelItems(parallel, context))
-        if (!items) {
-          return '[]'
-        }
+        if (parallel.parallelType !== 'collection') return null
+
+        const items = context.loopItems.get(`${parallelId}_items`)
+        if (!items) throw new Error(`Evaluated items not found for parallel ${parallelId}`)
 
         return this.formatValueForCodeContext(items, currentBlock, isInTemplateLiteral)
       }
@@ -1400,56 +1335,6 @@ export class InputResolver {
       default:
         return null
     }
-  }
-
-  /**
-   * Gets the items for a parallel distribution.
-   * Similar to getLoopItems but for parallel blocks.
-   *
-   * @param parallel - The parallel configuration
-   * @param context - Current execution context
-   * @returns The items to distribute (array or object)
-   */
-  private getParallelItems(
-    parallel: any,
-    context: ExecutionContext
-  ): any[] | Record<string, any> | null {
-    if (!parallel || !parallel.distribution) return null
-
-    // If items are already available as an array or object, return them directly
-    if (
-      Array.isArray(parallel.distribution) ||
-      (typeof parallel.distribution === 'object' && parallel.distribution !== null)
-    ) {
-      return parallel.distribution
-    }
-
-    // If it's a string, try to evaluate it (could be an expression or JSON)
-    if (typeof parallel.distribution === 'string') {
-      try {
-        // Check if it's valid JSON
-        const trimmedExpression = parallel.distribution.trim()
-        if (trimmedExpression.startsWith('[') || trimmedExpression.startsWith('{')) {
-          try {
-            return JSON.parse(trimmedExpression)
-          } catch {
-            // Continue with expression evaluation
-          }
-        }
-
-        // Try to evaluate as an expression
-        if (trimmedExpression && !trimmedExpression.startsWith('//')) {
-          const result = new Function('context', `return ${parallel.distribution}`)(context)
-          if (Array.isArray(result) || (typeof result === 'object' && result !== null)) {
-            return result
-          }
-        }
-      } catch (e) {
-        logger.error('Error evaluating parallel distribution items:', e)
-      }
-    }
-
-    return []
   }
 
   /**

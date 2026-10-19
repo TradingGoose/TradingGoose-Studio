@@ -7,7 +7,6 @@
  *  - autoGenerateVariableName: `variable1`, `variable2`, ...
  *  - ensureUniqueVariableName: appends ` (N)` suffixes on collision
  *  - validateVariableValue: format validation without value mutation
- *  - rewriteVariableReferences: `<variable.foo>` reference rewriting in blocks
  */
 
 import type * as Y from 'yjs'
@@ -18,7 +17,7 @@ import {
 import { escapeRegExp } from '@/lib/utils'
 import type { Variable } from '@/stores/variables/types'
 import { rewriteWorkflowContentReferences } from './workflow-reference-rewrite'
-import { getVariablesMap, readWorkflowMap, readWorkflowTextFieldsMap } from './workflow-session'
+import { getVariablesMap } from './workflow-session'
 
 // ---------------------------------------------------------------------------
 // Name generation
@@ -148,39 +147,6 @@ export function validateVariableValue(type: Variable['type'], value: any): strin
 }
 
 // ---------------------------------------------------------------------------
-// Reference rewriting
-// ---------------------------------------------------------------------------
-
-/**
- * Rewrites `<variable.oldName>` references to `<variable.newName>` inside
- * every block's subBlock values and any text-backed workflow subblocks stored
- * in the Yjs document.
- *
- * Name comparison is case-insensitive and ignores internal whitespace,
- * matching the existing Zustand store behaviour.
- *
- * The update is performed inside a single Yjs transaction so remote peers
- * receive it atomically.
- */
-export function rewriteVariableReferences(
-  doc: Y.Doc,
-  oldName: string,
-  newName: string,
-  origin?: string
-): void {
-  if (oldName === newName || oldName.trim() === '' || newName.trim() === '') return
-
-  doc.transact(() => {
-    rewriteVariableReferencesInWorkflowContent(
-      readWorkflowMap(doc),
-      readWorkflowTextFieldsMap(doc),
-      oldName,
-      newName
-    )
-  }, origin ?? 'variable-rename')
-}
-
-// ---------------------------------------------------------------------------
 // Yjs-backed variable mutations
 // ---------------------------------------------------------------------------
 
@@ -269,12 +235,7 @@ export function updateWorkflowVariable(
     vMap.set(id, nextVariable)
 
     if (current.name !== nextName && current.name.trim() !== '' && nextName.trim() !== '') {
-      rewriteVariableReferencesInWorkflowContent(
-        readWorkflowMap(doc),
-        readWorkflowTextFieldsMap(doc),
-        current.name,
-        nextName
-      )
+      rewriteVariableReferences(doc, current.name, nextName)
     }
   }, origin ?? 'variable-update')
 
@@ -304,12 +265,7 @@ export function replaceWorkflowVariables(
       const current = vMap.get(id) as Variable | undefined
       const nextName = typeof nextVariable?.name === 'string' ? nextVariable.name : undefined
       if (current && nextName && current.name !== nextName) {
-        rewriteVariableReferencesInWorkflowContent(
-          readWorkflowMap(doc),
-          readWorkflowTextFieldsMap(doc),
-          current.name,
-          nextName
-        )
+        rewriteVariableReferences(doc, current.name, nextName)
       }
     }
 
@@ -366,12 +322,7 @@ export function readWorkflowVariables(doc: Y.Doc, workflowId: string): Variable[
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function rewriteVariableReferencesInWorkflowContent(
-  workflowMap: Y.Map<any>,
-  textFields: Y.Map<any>,
-  oldName: string,
-  newName: string
-): void {
+function rewriteVariableReferences(doc: Y.Doc, oldName: string, newName: string): void {
   if (oldName === newName || oldName.trim() === '' || newName.trim() === '') return
 
   const normalizedOld = oldName.replace(/\s+/g, '').toLowerCase()
@@ -379,5 +330,5 @@ function rewriteVariableReferencesInWorkflowContent(
   const regex = new RegExp(`<variable\\.${escapeRegExp(normalizedOld)}>`, 'gi')
   const replacement = `<variable.${normalizedNew}>`
 
-  rewriteWorkflowContentReferences(workflowMap, textFields, regex, replacement)
+  rewriteWorkflowContentReferences(doc, regex, replacement)
 }

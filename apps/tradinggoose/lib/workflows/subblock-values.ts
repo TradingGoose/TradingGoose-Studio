@@ -35,6 +35,16 @@ function cloneSubBlockValue(value: unknown): unknown {
   return value
 }
 
+export function isSubBlockInMode(
+  subBlock: Pick<SubBlockConfig, 'mode'>,
+  isAdvancedMode?: boolean
+): boolean {
+  return !(
+    (isAdvancedMode === false && subBlock.mode === 'advanced') ||
+    (isAdvancedMode === true && subBlock.mode === 'basic')
+  )
+}
+
 export function buildConfiguredSubBlockParams(args: {
   blockId?: string
   subBlockConfigs: SubBlockConfig[]
@@ -45,8 +55,7 @@ export function buildConfiguredSubBlockParams(args: {
   const params: Record<string, any> = {}
 
   for (const subBlockConfig of subBlockConfigs) {
-    if (isAdvancedMode === false && subBlockConfig.mode === 'advanced') continue
-    if (isAdvancedMode === true && subBlockConfig.mode === 'basic') continue
+    if (!isSubBlockInMode(subBlockConfig, isAdvancedMode)) continue
 
     const resolvedValue = readStoredSubBlockValue(subBlocks?.[subBlockConfig.id]?.value)
     if (resolvedValue !== undefined) {

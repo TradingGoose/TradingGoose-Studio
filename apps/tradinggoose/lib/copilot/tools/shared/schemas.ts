@@ -82,6 +82,7 @@ const BlockMermaidSubBlockSchema = z.object({
   mode: z.enum(['basic', 'advanced', 'both', 'trigger']).optional(),
   required: z.boolean().optional(),
   inputType: z.enum(['text', 'number']).optional(),
+  supportsReferences: z.boolean().optional(),
   min: z.number().optional(),
   max: z.number().optional(),
   integer: z.boolean().optional(),

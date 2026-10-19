@@ -1,14 +1,19 @@
 import * as Y from 'yjs'
-import { YJS_KEYS } from './workflow-session'
+import {
+  readWorkflowMap,
+  readWorkflowTextFieldsMap,
+  regenerateContainerConfigs,
+  YJS_KEYS,
+} from './workflow-session'
 
 export function rewriteWorkflowContentReferences(
-  workflowMap: Y.Map<any>,
-  textFields: Y.Map<any>,
+  doc: Y.Doc,
   regex: RegExp,
   replacement: string
 ): void {
-  rewriteWorkflowReferencesInBlocks(workflowMap, regex, replacement)
-  rewriteWorkflowReferencesInTextFields(textFields, regex, replacement)
+  rewriteWorkflowReferencesInBlocks(readWorkflowMap(doc), regex, replacement)
+  rewriteWorkflowReferencesInTextFields(readWorkflowTextFieldsMap(doc), regex, replacement)
+  regenerateContainerConfigs(doc)
 }
 
 function rewriteWorkflowReferencesInBlocks(

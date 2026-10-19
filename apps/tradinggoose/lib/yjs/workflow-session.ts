@@ -21,6 +21,7 @@ import type {
   Parallel,
   WorkflowDirection,
 } from '@/stores/workflows/workflow/types'
+import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/workflow/utils'
 
 // ---------------------------------------------------------------------------
 // Yjs map key constants (avoids stringly-typed keys across the codebase)
@@ -289,6 +290,17 @@ export function readWorkflowSnapshot(doc: Y.Doc): WorkflowSnapshot {
     parallels: wMap.get(YJS_KEYS.PARALLELS) ?? {},
     lastSaved: wMap.get(YJS_KEYS.LAST_SAVED),
   })
+}
+
+export function regenerateContainerConfigs(doc: Y.Doc, blockIds?: string[]): void {
+  const { blocks } = readWorkflowSnapshot(doc)
+  const workflowMap = readWorkflowMap(doc)
+  if (!blockIds || blockIds.some((id) => blocks[id]?.type === 'loop')) {
+    workflowMap.set(YJS_KEYS.LOOPS, generateLoopBlocks(blocks))
+  }
+  if (!blockIds || blockIds.some((id) => blocks[id]?.type === 'parallel')) {
+    workflowMap.set(YJS_KEYS.PARALLELS, generateParallelBlocks(blocks))
+  }
 }
 
 /**

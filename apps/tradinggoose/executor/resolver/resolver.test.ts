@@ -909,73 +909,10 @@ describe('InputResolver', () => {
       const resolvedInputs = resolver.resolveInputs(functionBlock, context)
 
       expect(resolvedInputs.allItems).toEqual(items) // Direct array, not stringified
-    })
-
-    it('uses loop configuration when cached loop items are absent', () => {
-      const loopBlock: SerializedBlock = {
-        id: 'loop-1',
-        position: { x: 0, y: 0 },
-        config: { tool: BlockType.LOOP, params: {} },
-        inputs: {},
-        outputs: {},
-        metadata: { id: BlockType.LOOP, name: 'Test Loop' },
-        enabled: true,
-      }
-
-      const functionBlock: SerializedBlock = {
-        id: 'function-1',
-        position: { x: 0, y: 0 },
-        config: {
-          tool: BlockType.FUNCTION,
-          params: {
-            allItems: '<loop.items>', // Direct reference to all items
-          },
-        },
-        inputs: {},
-        outputs: {},
-        metadata: { id: BlockType.FUNCTION, name: 'Process All Items' },
-        enabled: true,
-      }
-
-      const items = ['item1', 'item2', 'item3']
-      const workflow: SerializedWorkflow = {
-        version: '1.0',
-        blocks: [loopBlock, functionBlock],
-        connections: [],
-        loops: {
-          'loop-1': {
-            id: 'loop-1',
-            nodes: ['function-1'],
-            iterations: 3,
-            loopType: 'forEach',
-            forEachItems: items,
-          },
-        },
-      }
-
-      const resolver = createInputResolver(workflow)
-      const loopItemsMap = new Map<string, any>()
-      loopItemsMap.set('loop-1', 'item1')
-      const context: ExecutionContext = {
-        workflowId: 'test',
-        workspaceId: 'test-workspace-id',
-        blockStates: new Map(),
-        blockLogs: [],
-        metadata: { duration: 0 },
-        environmentVariables: {},
-        decisions: { router: new Map(), condition: new Map() },
-        loopIterations: new Map([['loop-1', 1]]),
-        loopItems: loopItemsMap,
-        completedLoops: new Set(),
-        executedBlocks: new Set(),
-        activeExecutionPath: new Set(['function-1']),
-        workflow,
-      }
-
-      const resolvedInputs = resolver.resolveInputs(functionBlock, context)
-
-      // Should fall back to the items from the loop configuration
-      expect(resolvedInputs.allItems).toEqual(items)
+      context.loopItems.delete('loop-1_items')
+      expect(() => resolver.resolveInputs(functionBlock, context)).toThrow(
+        'Evaluated items not found for loop loop-1'
+      )
     })
   })
 
@@ -996,7 +933,10 @@ describe('InputResolver', () => {
           {
             id: 'function-1',
             position: { x: 0, y: 0 },
-            config: { tool: BlockType.FUNCTION, params: { code: '<parallel.currentItem>' } },
+            config: {
+              tool: BlockType.FUNCTION,
+              params: { code: '<parallel.currentItem>', allItems: '<parallel.items>' },
+            },
             inputs: {},
             outputs: {},
             metadata: { id: BlockType.FUNCTION, name: 'Function 1' },
@@ -1009,6 +949,7 @@ describe('InputResolver', () => {
           'parallel-1': {
             id: 'parallel-1',
             nodes: ['function-1'],
+            parallelType: 'collection',
             distribution: ['item1', 'item2'],
           },
         },
@@ -1024,7 +965,10 @@ describe('InputResolver', () => {
         environmentVariables: {},
         decisions: { router: new Map(), condition: new Map() },
         loopIterations: new Map([['parallel-1', 0]]),
-        loopItems: new Map([['parallel-1_iteration_0', ['test-item']]]),
+        loopItems: new Map([
+          ['parallel-1_iteration_0', ['test-item']],
+          ['parallel-1_items', ['test-item', 'other-item']],
+        ]),
         completedLoops: new Set(),
         executedBlocks: new Set(),
         activeExecutionPath: new Set(['function-1']),
@@ -1046,6 +990,11 @@ describe('InputResolver', () => {
       const result = resolver.resolveInputs(block, context)
 
       expect(result.code).toEqual(['test-item'])
+      expect(result.allItems).toEqual(['test-item', 'other-item'])
+      context.loopItems.delete('parallel-1_items')
+      expect(() => resolver.resolveInputs(block, context)).toThrow(
+        'Evaluated items not found for parallel parallel-1'
+      )
     })
 
     it('should resolve parallel references by block name when multiple parallels exist', () => {

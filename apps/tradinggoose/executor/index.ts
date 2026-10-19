@@ -1635,7 +1635,7 @@ export class Executor {
                   : Object.keys(forEachItems).length
               }
             } else if (loop.loopType === 'for') {
-              iterationTotal = loop.iterations || 5
+              iterationTotal = loop.iterations
             }
             iterationType = 'loop'
           }

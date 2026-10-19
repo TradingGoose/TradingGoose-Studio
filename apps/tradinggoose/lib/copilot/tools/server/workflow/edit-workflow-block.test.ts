@@ -22,9 +22,15 @@ vi.mock('@/lib/yjs/server/apply-workflow-state', () => ({
 vi.mock('@/blocks/registry', async () => {
   const { LoopBlock } = await import('@/blocks/blocks/loop')
   const { ParallelContainerBlock } = await import('@/blocks/blocks/parallel_container')
+  const { SttBlock } = await import('@/blocks/blocks/stt')
+  const { AgentBlock } = await import('@/blocks/blocks/agent')
+  const { PolymarketBlock } = await import('@/blocks/blocks/polymarket')
   const registry = {
     loop: LoopBlock,
     parallel: ParallelContainerBlock,
+    stt: SttBlock,
+    agent: AgentBlock,
+    polymarket: PolymarketBlock,
     function: {
       type: 'function',
       name: 'Function',
@@ -127,6 +133,27 @@ describe('editWorkflowBlockServerTool', () => {
     )
   })
 
+  it('allows unrelated edits beside valid conditional fields and numeric runtime references', async () => {
+    current.blocks.whisper = block('whisper', 'stt', { provider: 'whisper', model: 'whisper-1' })
+    current.blocks.agent = block('agent', 'agent', { model: 'gpt-4.1', temperature: 1.5 })
+    current.blocks.market = block('market', 'polymarket', {
+      operation: 'get_price_history',
+      startTs: '<variable.startTime>',
+      endTs: '{{END_TIME}}',
+    })
+
+    const result = await editWorkflowBlockServerTool.execute(
+      { entityId: 'wf-1', blockId: 'fn1', subBlocks: { code: 'return 42' } },
+      { userId: 'user-1', accessLevel: 'limited' }
+    )
+
+    expect(result.workflowState.blocks.fn1.subBlocks.code.value).toBe('return 42')
+    for (const id of ['whisper', 'agent', 'market']) {
+      expect(result.workflowState.blocks[id]).toEqual(current.blocks[id])
+    }
+    expect(result.preview.blockDiff).toEqual({ added: [], removed: [], updated: ['fn1'] })
+  })
+
   it.each([
     { id: 'loop1', patch: { iterations: 100 }, runtime: { iterations: 100, loopType: 'for' } },
     {
@@ -142,7 +169,7 @@ describe('editWorkflowBlockServerTool', () => {
     {
       id: 'loop1',
       patch: { loopType: 'forEach', forEachItems: '["NVDA"]' },
-      runtime: { loopType: 'forEach', forEachItems: ['NVDA'] },
+      runtime: { loopType: 'forEach', forEachItems: '["NVDA"]' },
     },
     {
       id: 'loop1',
@@ -256,17 +283,8 @@ describe('editWorkflowBlockServerTool', () => {
   })
 
   it.each([
-    ['loop1', 'iterations', 0],
-    ['loop1', 'iterations', 101],
-    ['loop1', 'iterations', 1.5],
-    ['loop1', 'iterations', null],
-    ['loop1', 'iterations', 'invalid'],
-    ['parallel1', 'count', 0],
-    ['parallel1', 'count', 21],
-    ['parallel1', 'count', 1.5],
     ['loop1', 'loopType', 'invalid'],
     ['parallel1', 'parallelType', 'invalid'],
-    ['loop1', 'whileCondition', false],
     ['loop1', 'count', 3],
     ['parallel1', 'forEachItems', []],
     ['fn1', 'iterations', 5],
@@ -281,6 +299,24 @@ describe('editWorkflowBlockServerTool', () => {
       issues: expect.arrayContaining([expect.objectContaining({ path: `subBlocks.${key}` })]),
     })
     expect(mockApply).not.toHaveBeenCalled()
+  })
+
+  it('rejects an invalid active condition through shared block validation', async () => {
+    await expect(
+      editWorkflowBlockServerTool.execute(
+        {
+          entityId: 'wf-1',
+          blockId: 'loop1',
+          subBlocks: { loopType: 'while', whileCondition: false },
+        },
+        { userId: 'user-1', accessLevel: 'limited' }
+      )
+    ).rejects.toMatchObject({
+      code: 'invalid_workflow_block_edit',
+      issues: expect.arrayContaining([
+        expect.objectContaining({ path: 'subBlocks.whileCondition' }),
+      ]),
+    })
   })
 })
 

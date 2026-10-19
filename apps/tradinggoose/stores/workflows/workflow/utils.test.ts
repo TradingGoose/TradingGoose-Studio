@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
+import { LoopBlock } from '@/blocks/blocks/loop'
+import { ParallelContainerBlock } from '@/blocks/blocks/parallel_container'
 import type { BlockState } from '@/stores/workflows/workflow/types'
 import {
   buildExecutableWorkflowData,
@@ -11,7 +14,13 @@ const block = (id: string, type = 'agent', extra: Partial<BlockState> = {}): Blo
   type,
   name: id,
   position: { x: 0, y: 0 },
-  subBlocks: {},
+  subBlocks: buildInitialSubBlockStates(
+    type === 'loop'
+      ? LoopBlock.subBlocks
+      : type === 'parallel'
+        ? ParallelContainerBlock.subBlocks
+        : []
+  ) as BlockState['subBlocks'],
   outputs: {},
   enabled: true,
   ...extra,
@@ -40,42 +49,43 @@ describe('buildExecutableWorkflowData', () => {
   })
 })
 
-const configuredBlock = (id: string, type: string, values: Record<string, any>) =>
-  block(id, type, {
-    subBlocks: Object.fromEntries(
-      Object.entries(values).map(([key, value]) => [key, { id: key, type: 'short-input', value }])
-    ),
-  })
+const configuredBlock = (id: string, type: string, values: Record<string, any>) => {
+  const configured = block(id, type)
+  for (const [key, value] of Object.entries(values)) configured.subBlocks[key].value = value
+  return configured
+}
 
 describe('convertLoopBlockToLoop', () => {
-  it.concurrent.each([
-    ['["item1", "item2"]', ['item1', 'item2']],
-    ['{"key1": "value1"}', { key1: 'value1' }],
-    ['<blockName.items>', '<blockName.items>'],
-    ['', ''],
+  it.concurrent.each(
     [
+      '["item1", "item2"]',
+      '{"key1": "value1"}',
+      '<blockName.items>',
+      '',
       [1, 2],
-      [1, 2],
-    ],
-    [{ key: 'value' }, { key: 'value' }],
-  ])('reads the canonical collection value %j', (forEachItems, expected) => {
-    const blocks = {
-      loop1: configuredBlock('loop1', 'loop', {
-        loopType: 'forEach',
-        iterations: '10',
-        forEachItems,
-      }),
-      child: block('child', 'function', { data: { parentId: 'loop1' } }),
-    }
+      { key: 'value' },
+    ].map((forEachItems) => ({ forEachItems }))
+  )(
+    'preserves the canonical collection $forEachItems for runtime evaluation',
+    ({ forEachItems }) => {
+      const blocks = {
+        loop1: configuredBlock('loop1', 'loop', {
+          loopType: 'forEach',
+          iterations: '10',
+          forEachItems,
+        }),
+        child: block('child', 'function', { data: { parentId: 'loop1' } }),
+      }
 
-    expect(convertLoopBlockToLoop('loop1', blocks)).toEqual({
-      id: 'loop1',
-      nodes: ['child'],
-      iterations: 10,
-      loopType: 'forEach',
-      forEachItems: expected,
-    })
-  })
+      expect(convertLoopBlockToLoop('loop1', blocks)).toEqual({
+        id: 'loop1',
+        nodes: ['child'],
+        iterations: 10,
+        loopType: 'forEach',
+        forEachItems,
+      })
+    }
+  )
 
   it.concurrent.each(['while', 'doWhile'])(
     'reads %s condition from its canonical sub-block',
@@ -99,7 +109,7 @@ describe('convertLoopBlockToLoop', () => {
     }
   )
 
-  it.concurrent('uses numeric-mode defaults and preserves the inactive collection', () => {
+  it.concurrent('projects initialized defaults and preserves the inactive collection', () => {
     const blocks = {
       loop1: configuredBlock('loop1', 'loop', { forEachItems: '["retained"]' }),
     }
@@ -107,7 +117,7 @@ describe('convertLoopBlockToLoop', () => {
     expect(convertLoopBlockToLoop('loop1', blocks)).toMatchObject({
       loopType: 'for',
       iterations: 5,
-      forEachItems: ['retained'],
+      forEachItems: '["retained"]',
     })
   })
 })
@@ -152,7 +162,7 @@ describe('convertParallelBlockToParallel', () => {
     }
   )
 
-  it.concurrent('uses count-mode defaults', () => {
+  it.concurrent('projects initialized count-mode defaults', () => {
     expect(
       convertParallelBlockToParallel('parallel1', { parallel1: block('parallel1', 'parallel') })
     ).toMatchObject({ parallelType: 'count', count: 5, distribution: '' })

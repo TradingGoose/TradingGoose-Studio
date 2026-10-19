@@ -87,6 +87,7 @@ export function ShortInput({
 
   const resolvedWandConfig = config.wandConfig ?? { enabled: false, prompt: '' }
   const isWorkflowManaged = onChange === undefined
+  const supportsReferences = config.supportsReferences !== false
 
   const [searchTerm, setSearchTerm] = useState('')
   const [cursorPosition, setCursorPosition] = useState(0)
@@ -116,6 +117,19 @@ export function ShortInput({
   const persistedValue = isWorkflowManaged ? textFieldValue : baseValueString
   const commitValue = useCallback(
     (nextValue: string) => {
+      if (config.inputType === 'number') {
+        let number = Number(nextValue)
+        const isLiteral = nextValue.trim() !== '' && !Number.isNaN(number)
+        if (!supportsReferences && !isLiteral) return
+        if (isLiteral) {
+          if (config.integer) number = Math.round(number)
+          if (config.min !== undefined) number = Math.max(config.min, number)
+          if (config.max !== undefined) number = Math.min(config.max, number)
+          if (!Number.isFinite(number)) return
+          nextValue = String(number)
+        }
+      }
+
       if (isWorkflowManaged) {
         setTextFieldValue(nextValue)
         return
@@ -123,7 +137,16 @@ export function ShortInput({
 
       onChange?.(nextValue)
     },
-    [isWorkflowManaged, onChange, setTextFieldValue]
+    [
+      config.inputType,
+      config.integer,
+      config.min,
+      config.max,
+      supportsReferences,
+      isWorkflowManaged,
+      onChange,
+      setTextFieldValue,
+    ]
   )
   const {
     value: localContent,
@@ -223,6 +246,7 @@ export function ShortInput({
     setValueDebounced(newValue)
 
     setCursorPosition(newCursorPosition)
+    if (!supportsReferences) return
 
     // Check for environment variables trigger
     const envVarTrigger = checkEnvVarTrigger(newValue, newCursorPosition)
@@ -325,12 +349,12 @@ export function ShortInput({
 
   // Drag and Drop handlers
   const handleDragOver = (e: React.DragEvent<HTMLInputElement>) => {
-    if (config?.connectionDroppable === false) return
+    if (!supportsReferences || config?.connectionDroppable === false) return
     e.preventDefault()
   }
 
   const handleDrop = (e: React.DragEvent<HTMLInputElement>) => {
-    if (config?.connectionDroppable === false) return
+    if (!supportsReferences || config?.connectionDroppable === false) return
     e.preventDefault()
 
     try {
@@ -466,7 +490,8 @@ export function ShortInput({
           id={inputId}
           className={cn(
             'allow-scroll w-full overflow-auto text-transparent caret-foreground [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground/50 [&::-webkit-scrollbar]:hidden',
-            isConnecting &&
+            supportsReferences &&
+              isConnecting &&
               config?.connectionDroppable !== false &&
               'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500',
             showCopyButton && resolvedWandConfig.enabled
@@ -567,7 +592,7 @@ export function ShortInput({
           )}
         </div>
 
-        {!wandHook.isStreaming && (
+        {!wandHook.isStreaming && supportsReferences && (
           <>
             <EnvVarDropdown
               visible={showEnvVars}
