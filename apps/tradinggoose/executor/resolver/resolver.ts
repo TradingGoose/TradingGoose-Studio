@@ -271,13 +271,15 @@ export class InputResolver {
    * @param value - String containing block references
    * @param context - Current execution context
    * @param currentBlock - Block that contains the references
+   * @param inputKey - Input field being resolved, for Response Editor JSON formatting
    * @returns String with resolved references
    * @throws Error if referenced block is not found or disabled
    */
   resolveBlockReferences(
     value: string,
     context: ExecutionContext,
-    currentBlock: SerializedBlock
+    currentBlock: SerializedBlock,
+    inputKey?: string
   ): string {
     // Skip resolution for API block body content that looks like XML
     if (
@@ -414,6 +416,21 @@ export class InputResolver {
 
       if (currentBlock.metadata?.id === 'condition') {
         formattedValue = this.stringifyForCondition(replacementValue)
+      } else if (
+        currentBlock.metadata?.id === 'response' &&
+        currentBlock.config.params.dataMode === 'json' &&
+        inputKey === 'data'
+      ) {
+        const prefix = resolvedValue.slice(0, resolvedValue.indexOf(raw))
+        let inString = false
+        for (let index = 0; index < prefix.length; index++) {
+          if (prefix[index] === '\\') index++
+          else if (prefix[index] === '"') inString = !inString
+        }
+        const jsonValue = replacementValue === undefined ? '' : replacementValue
+        formattedValue = inString
+          ? JSON.stringify(this.formatValueForCodeContext(jsonValue, currentBlock)).slice(1, -1)
+          : JSON.stringify(jsonValue)
       } else if (replacementValue === undefined) {
         formattedValue =
           currentBlock.metadata?.id === 'function'
@@ -423,10 +440,11 @@ export class InputResolver {
         typeof replacementValue === 'string' &&
         this.needsCodeStringLiteral(currentBlock, value)
       ) {
-        formattedValue =
-          currentBlock.metadata?.id === 'response' && !isStartReference
-            ? JSON.stringify(replacementValue)
-            : this.formatValueForCodeContext(replacementValue, currentBlock, isInTemplateLiteral)
+        formattedValue = this.formatValueForCodeContext(
+          replacementValue,
+          currentBlock,
+          isInTemplateLiteral
+        )
       } else {
         // The function execution API will handle variable resolution within code strings
         formattedValue =
@@ -435,7 +453,7 @@ export class InputResolver {
             : String(replacementValue)
       }
 
-      resolvedValue = resolvedValue.replace(raw, formattedValue)
+      resolvedValue = resolvedValue.replace(raw, () => formattedValue)
     }
 
     return resolvedValue
@@ -1022,7 +1040,7 @@ export class InputResolver {
     const resolvedVars = this.resolveVariableReferences(value, block)
 
     // Then resolve block references
-    const resolvedReferences = this.resolveBlockReferences(resolvedVars, context, block)
+    const resolvedReferences = this.resolveBlockReferences(resolvedVars, context, block, key)
 
     // Then resolve environment variables
     const resolvedEnv = this.resolveEnvVariables(resolvedReferences)

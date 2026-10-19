@@ -1577,84 +1577,65 @@ describe('InputResolver', () => {
       expect(result).toBe('return "AAPL"')
     })
 
-    it('should format start.input properly for different block types', async () => {
-      // Test function block - should quote strings
-      const functionBlock: SerializedBlock = {
-        id: 'test-function',
-        metadata: { id: BlockType.FUNCTION, name: 'Test Function' },
-        position: { x: 100, y: 100 },
-        config: {
-          tool: BlockType.FUNCTION,
-          params: {
-            code: 'return <start.input>',
+    it.each(['start', 'trigger-1'])(
+      'preserves Response values through Builder-to-Editor conversion for <%s.*>',
+      async (source) => {
+        const output = {
+          symbol: 'AAPL',
+          input: 'Say "go"\\next\n$&',
+          quantity: 0,
+          active: false,
+          details: { cash: 0 },
+        }
+        contextWithConnections.blockStates.get('trigger-1')!.output = {
+          ...output,
+          responseStatus: '201',
+        }
+        const builderData: Parameters<
+          typeof ResponseBlockHandler.convertBuilderDataToJsonString
+        >[0] = [
+          { id: 'symbol', name: 'symbol', type: 'string', value: `<${source}.symbol>` },
+          { id: 'input', name: 'input', type: 'string', value: `<${source}.input>` },
+          {
+            id: 'greeting',
+            name: 'greeting',
+            type: 'string',
+            value: `Say "<${source}.input>" for <${source}.symbol>`,
           },
-        },
-        inputs: {},
-        outputs: {},
-        enabled: true,
+          { id: 'quantity', name: 'quantity', type: 'number', value: `<${source}.quantity>` },
+          { id: 'active', name: 'active', type: 'boolean', value: `<${source}.active>` },
+          { id: 'details', name: 'details', type: 'object', value: `<${source}.details>` },
+          { id: 'missing', name: 'missing', type: 'string', value: `<${source}.missing>` },
+        ]
+        for (const dataMode of ['structured', 'json']) {
+          const block: SerializedBlock = {
+            ...workflowWithConnections.blocks[2],
+            id: 'test-response-block',
+            metadata: { id: BlockType.RESPONSE },
+            config: {
+              tool: BlockType.RESPONSE,
+              params: {
+                dataMode,
+                builderData,
+                data: ResponseBlockHandler.convertBuilderDataToJsonString(builderData),
+                status: `<${source}.responseStatus>`,
+                headers: [{ id: 'symbol', cells: { Key: 'X-Symbol', Value: `<${source}.input>` } }],
+              },
+            },
+          }
+          const inputs = connectionResolver.resolveInputs(block, contextWithConnections)
+          expect((await new ResponseBlockHandler().execute(block, inputs)).response).toMatchObject({
+            status: 201,
+            data: {
+              ...output,
+              greeting: `Say "${output.input}" for ${output.symbol}`,
+              missing: '',
+            },
+            headers: { 'X-Symbol': output.input },
+          })
+        }
       }
-
-      // Test condition block - should quote strings
-      const conditionBlock: SerializedBlock = {
-        id: 'test-condition',
-        metadata: { id: BlockType.CONDITION, name: 'Test Condition' },
-        position: { x: 200, y: 100 },
-        config: {
-          tool: BlockType.CONDITION,
-          params: {
-            conditions: JSON.stringify([
-              { id: 'cond1', title: 'if', value: '<start.input> === "Hello World"' },
-            ]),
-          },
-        },
-        inputs: {},
-        outputs: {},
-        enabled: true,
-      }
-
-      // Runtime trigger strings interpolate directly into Response fields.
-      const responseBlock: SerializedBlock = {
-        id: 'test-response',
-        metadata: { id: BlockType.RESPONSE, name: 'Test Response' },
-        position: { x: 300, y: 100 },
-        config: {
-          tool: BlockType.RESPONSE,
-          params: {
-            dataMode: 'structured',
-            builderData: [
-              { id: 'message', name: 'message', type: 'string', value: '<start.input>' },
-              { id: 'greeting', name: 'greeting', type: 'string', value: 'Hello <start.input>!' },
-            ],
-          },
-        },
-        inputs: {},
-        outputs: {},
-        enabled: true,
-      }
-
-      const functionResult = connectionResolver.resolveInputs(functionBlock, contextWithConnections)
-      expect(functionResult.code).toBe('return "Hello World"') // Quoted for function
-
-      const conditionResult = connectionResolver.resolveInputs(
-        conditionBlock,
-        contextWithConnections
-      )
-      expect(conditionResult.conditions).toBe(
-        JSON.stringify([{ id: 'cond1', title: 'if', value: '<start.input> === "Hello World"' }])
-      )
-
-      const responseResult = connectionResolver.resolveInputs(responseBlock, contextWithConnections)
-      expect(responseResult.builderData[0].value).toBe('Hello World')
-      expect(
-        (await new ResponseBlockHandler().execute(responseBlock, responseResult)).response.data
-      ).toEqual({ message: 'Hello World', greeting: 'Hello Hello World!' })
-
-      responseBlock.config.params = { dataMode: 'json', data: '{"message":"<start.input>"}' }
-      const jsonInputs = connectionResolver.resolveInputs(responseBlock, contextWithConnections)
-      expect(
-        (await new ResponseBlockHandler().execute(responseBlock, jsonInputs)).response.data
-      ).toEqual({ message: 'Hello World' })
-    })
+    )
 
     it('should properly format start.input when resolved directly via resolveBlockReferences', () => {
       // Test that start.input gets proper formatting for different block types
