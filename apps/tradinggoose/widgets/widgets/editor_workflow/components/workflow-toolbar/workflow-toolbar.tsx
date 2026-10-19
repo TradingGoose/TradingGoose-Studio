@@ -42,8 +42,6 @@ import {
 import type { BlockConfig } from '@/blocks/types'
 import { formatWorkflowTemplate, type WorkflowToolbarCopy } from '@/i18n/workflow-inspector-core'
 import { ToolbarBlock } from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-block/toolbar-block'
-import LoopToolbarItem from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-loop-block/toolbar-loop-block'
-import ParallelToolbarItem from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-parallel-block/toolbar-parallel-block'
 import { ToolbarAddBlockProvider } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-context'
 import { dispatchToolbarAddBlock } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-dispatcher'
 import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
@@ -67,7 +65,6 @@ interface ToolbarListData {
   regularBlocks: ToolbarBlockEntry[]
   toolBlocks: ToolbarBlockEntry[]
   triggerBlocks: ToolbarBlockEntry[]
-  includeSpecialBlocks: boolean
 }
 
 const DEFAULT_PROVIDER_AVAILABILITY: ProviderAvailability = {}
@@ -127,7 +124,6 @@ function useToolbarList(
       regularBlocks,
       toolBlocks,
       triggerBlocks,
-      includeSpecialBlocks: isBlocksMode,
     }
   }, [getLocalizedBlockMetadata, searchQuery, mode, providerAvailability])
 }
@@ -363,11 +359,11 @@ function ToolbarDropdownContent({
   copy: WorkflowToolbarCopy
   disabled: boolean
 }) {
-  const { regularBlocks, toolBlocks, triggerBlocks, includeSpecialBlocks } = data
+  const { regularBlocks, toolBlocks, triggerBlocks } = data
   const modeLabel = mode === 'blocks' ? copy.blocks : mode === 'tools' ? copy.tools : copy.triggers
 
   const hasResults = (() => {
-    if (mode === 'blocks') return regularBlocks.length > 0 || includeSpecialBlocks
+    if (mode === 'blocks') return regularBlocks.length > 0
     if (mode === 'tools') return toolBlocks.length > 0
     return triggerBlocks.length > 0
   })()
@@ -392,18 +388,6 @@ function ToolbarDropdownContent({
               <ToolbarBlock config={block.config} label={block.name} disabled={disabled} />
             </DropdownMenuItem>
           ))}
-        </div>
-      )}
-
-      {mode === 'blocks' && includeSpecialBlocks && (
-        <div className='space-y-1 pb-2'>
-          <SectionLabel title={copy.special} />
-          <DropdownMenuItem className='p-0 focus:bg-transparent'>
-            <LoopToolbarItem disabled={disabled} />
-          </DropdownMenuItem>
-          <DropdownMenuItem className='p-0 focus:bg-transparent'>
-            <ParallelToolbarItem disabled={disabled} />
-          </DropdownMenuItem>
         </div>
       )}
 

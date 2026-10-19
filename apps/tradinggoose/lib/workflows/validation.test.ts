@@ -99,3 +99,75 @@ describe('sanitizeAgentToolsInBlocks', () => {
     expect(clientError.message).not.toContain('raw-secret')
   })
 })
+
+describe('canonical sub-block validation', () => {
+  beforeEach(() => {
+    validationMocks.getBlock.mockReset()
+    validationMocks.getBlock.mockReturnValue({
+      subBlocks: [
+        { id: 'attempts', type: 'short-input', inputType: 'number', integer: true, min: 1, max: 3 },
+        { id: 'mode', type: 'dropdown', options: [{ id: 'fast', label: 'Fast' }] },
+        { id: 'message', type: 'long-input' },
+      ],
+      inputs: { attempts: { type: 'number' }, message: { type: 'string' } },
+    })
+  })
+
+  it.each([
+    ['attempts', 0],
+    ['attempts', 4],
+    ['attempts', 1.5],
+    ['attempts', Number.NaN],
+    ['mode', 'unknown'],
+    ['message', false],
+  ])('validates %s using metadata on any registered block', (id, value) => {
+    const result = validateWorkflowState({
+      blocks: {
+        sample: {
+          id: 'sample',
+          type: 'sample',
+          name: 'Sample',
+          position: { x: 0, y: 0 },
+          subBlocks: { [id]: { id, type: 'short-input', value: value as any } },
+          outputs: {},
+          enabled: true,
+        },
+      },
+      edges: [],
+      loops: {},
+      parallels: {},
+    })
+    expect(result.valid).toBe(false)
+    expect(result.errors).toEqual([
+      expect.stringContaining(`invalid block sub-block values for ${id}`),
+    ])
+  })
+
+  it('preserves references on numeric-looking fields declared as strings', () => {
+    validationMocks.getBlock.mockReturnValue({
+      subBlocks: [
+        { id: 'timeValue', type: 'short-input', inputType: 'number', integer: true, min: 1 },
+      ],
+      inputs: { timeValue: { type: 'string' } },
+    })
+    const result = validateWorkflowState({
+      blocks: {
+        wait: {
+          id: 'wait',
+          type: 'wait',
+          name: 'Wait',
+          position: { x: 0, y: 0 },
+          subBlocks: {
+            timeValue: { id: 'timeValue', type: 'short-input', value: '<source.seconds>' },
+          },
+          outputs: {},
+          enabled: true,
+        },
+      },
+      edges: [],
+      loops: {},
+      parallels: {},
+    })
+    expect(result.valid).toBe(true)
+  })
+})

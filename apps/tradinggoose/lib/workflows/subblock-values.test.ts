@@ -3,7 +3,22 @@ import {
   buildConfiguredSubBlockParams,
   resolveDisplayedSubBlockValue,
   resolveInitialSubBlockValue,
+  stringifySubBlockValue,
 } from './subblock-values'
+
+describe('stringifySubBlockValue', () => {
+  it.each([
+    { value: ['NVDA', 'AAPL'], text: '["NVDA","AAPL"]' },
+    { value: { symbol: 'NVDA' }, text: '{"symbol":"NVDA"}' },
+    { value: 'NVDA', text: 'NVDA' },
+    { value: 5, text: '5' },
+    { value: false, text: 'false' },
+    { value: null, text: '' },
+    { value: undefined, text: '' },
+  ])('formats $value for a text editor without losing structured values', ({ value, text }) => {
+    expect(stringifySubBlockValue(value)).toBe(text)
+  })
+})
 
 describe('resolveInitialSubBlockValue', () => {
   it('uses defaultValue when no explicit or configured value exists', () => {

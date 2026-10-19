@@ -52,15 +52,6 @@ export interface BlockData {
   width?: number
   height?: number
 
-  // Loop-specific properties
-  collection?: any // The items to iterate over in a forEach loop
-  count?: number // Number of iterations for numeric loops
-  loopType?: 'for' | 'forEach' | 'while' | 'doWhile' // Type of loop - must match Loop interface
-  whileCondition?: string // While/DoWhile loop condition (JS expression)
-
-  // Parallel-specific properties
-  parallelType?: 'collection' | 'count' // Type of parallel execution
-
   // Container node type (for ReactFlow node type determination)
   type?: string
 }
@@ -203,12 +194,6 @@ export interface WorkflowActions {
   setBlockAdvancedMode: (id: string, advancedMode: boolean) => void
   setBlockTriggerMode: (id: string, triggerMode: boolean) => void
   updateBlockLayoutMetrics: (id: string, dimensions: { width: number; height: number }) => void
-  updateLoopCount: (loopId: string, count: number) => void
-  updateLoopType: (loopId: string, loopType: 'for' | 'forEach' | 'while' | 'doWhile') => void
-  updateLoopCollection: (loopId: string, collection: string) => void
-  updateParallelCount: (parallelId: string, count: number) => void
-  updateParallelCollection: (parallelId: string, collection: string) => void
-  updateParallelType: (parallelId: string, parallelType: 'count' | 'collection') => void
   replaceWorkflowState: (
     workflowState: WorkflowState,
     options?: { updateLastSaved?: boolean }

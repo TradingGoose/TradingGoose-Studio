@@ -50,26 +50,6 @@ type BlockCatalogDefinition = {
   }>
 }
 
-const SPECIAL_BLOCK_DEFINITIONS: Record<
-  string,
-  Omit<BlockCatalogDefinition, 'blockType' | 'yamlDocumentation' | 'operationChoices'>
-> = {
-  loop: {
-    blockName: 'Loop',
-    category: 'block',
-    blockDescription: 'Control-flow container for iterating over child blocks.',
-    bestPractices:
-      'Keep child blocks inside the loop container. Incoming outer workflow edges target the Loop block alias itself, not Loop Start or Loop End. Loop Start only connects from the loop container to child blocks. Child outputs reconnect to Loop End before leaving the container.',
-  },
-  parallel: {
-    blockName: 'Parallel',
-    category: 'block',
-    blockDescription: 'Control-flow container for running child branches in parallel.',
-    bestPractices:
-      'Keep child blocks inside the parallel container. Incoming outer workflow edges target the Parallel block alias itself, not Parallel Start or Parallel End. Parallel Start only connects from the parallel container to child blocks. Child outputs reconnect to Parallel End before leaving the container.',
-  },
-}
-
 const NON_INPUT_SUBBLOCK_TYPES = new Set(['text', 'trigger-save', 'schedule-config'])
 
 function resolveAuthType(authMode: AuthMode | undefined): BlockAuthType | undefined {
@@ -213,6 +193,8 @@ function buildSubBlockSummaries(
   const subBlocks: BlockSubBlockSummary[] = blockConfig.subBlocks.map((subBlock) => {
     const options = resolveSubBlockOptions(subBlock)
     const description = resolveSubBlockDescription(subBlock)
+    const condition =
+      typeof subBlock.condition === 'function' ? subBlock.condition() : subBlock.condition
 
     return {
       id: subBlock.id,
@@ -220,6 +202,11 @@ function buildSubBlockSummaries(
       type: subBlock.type,
       ...(subBlock.mode ? { mode: subBlock.mode } : {}),
       ...(typeof subBlock.required === 'boolean' ? { required: subBlock.required } : {}),
+      ...(subBlock.inputType ? { inputType: subBlock.inputType } : {}),
+      ...(subBlock.min !== undefined ? { min: subBlock.min } : {}),
+      ...(subBlock.max !== undefined ? { max: subBlock.max } : {}),
+      ...(subBlock.integer !== undefined ? { integer: subBlock.integer } : {}),
+      ...(condition ? { condition: { ...condition } } : {}),
       ...(description ? { description } : {}),
       ...(subBlock.placeholder ? { placeholder: subBlock.placeholder } : {}),
       ...(subBlock.canonicalParamId ? { canonicalParamId: subBlock.canonicalParamId } : {}),
@@ -312,18 +299,6 @@ function resolveBlockCatalogDefinition(
     toolsRegistry?: Record<string, { description?: string }>
   } = {}
 ): BlockCatalogDefinition | null {
-  const specialDefinition = SPECIAL_BLOCK_DEFINITIONS[blockType]
-  if (specialDefinition) {
-    return {
-      blockType,
-      operationChoices: [],
-      yamlDocumentation: options.includeDocumentation
-        ? readBlockDocumentation(blockType)
-        : undefined,
-      ...specialDefinition,
-    }
-  }
-
   const blockConfig = blockRegistry[blockType]
   if (!blockConfig || blockConfig.hideFromToolbar) {
     return null
@@ -362,10 +337,6 @@ export async function readWorkflowBlockCatalogAvailability(): Promise<ProviderAv
 }
 
 function isCatalogBlockAvailable(blockType: string, availability: ProviderAvailability): boolean {
-  if (SPECIAL_BLOCK_DEFINITIONS[blockType]) {
-    return true
-  }
-
   const blockConfig = blockRegistry[blockType]
   if (!blockConfig || blockConfig.hideFromToolbar) {
     return false
@@ -391,12 +362,8 @@ function buildOperationSummaries(
 
 export async function listWorkflowBlockCatalogItems(): Promise<BlockCatalogItem[]> {
   const availability = await readWorkflowBlockCatalogAvailability()
-  const blockTypes = [
-    ...Object.keys(blockRegistry).filter((blockType) => !blockRegistry[blockType]?.hideFromToolbar),
-    ...Object.keys(SPECIAL_BLOCK_DEFINITIONS),
-  ]
-
-  const items = Array.from(new Set(blockTypes))
+  const items = Object.keys(blockRegistry)
+    .filter((blockType) => !blockRegistry[blockType]?.hideFromToolbar)
     .sort((left, right) => left.localeCompare(right))
     .map((blockType) => {
       if (!isCatalogBlockAvailable(blockType, availability)) {

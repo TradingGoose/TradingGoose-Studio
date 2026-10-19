@@ -8,6 +8,7 @@ import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { Textarea } from '@/components/ui/textarea'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
+import { stringifySubBlockValue } from '@/lib/workflows/subblock-values'
 import { useWorkflowTextField } from '@/lib/yjs/use-workflow-doc'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useTagSelection } from '@/hooks/use-tag-selection'
@@ -27,7 +28,7 @@ interface LongInputProps {
   isConnecting: boolean
   config: SubBlockConfig
   rows?: number
-  value?: string
+  value?: unknown
   onChange?: (value: string) => void
   disabled?: boolean
 }
@@ -67,7 +68,7 @@ export function LongInput({
   const containerRef = useRef<HTMLDivElement>(null)
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
-  const baseValueString = propValue?.toString() ?? ''
+  const baseValueString = stringifySubBlockValue(propValue)
   const { value: textFieldValue, setValue: setTextFieldValue } = useWorkflowTextField(
     blockId,
     subBlockId,

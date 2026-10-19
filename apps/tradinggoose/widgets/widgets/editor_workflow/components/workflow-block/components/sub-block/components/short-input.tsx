@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
+import { stringifySubBlockValue } from '@/lib/workflows/subblock-values'
 import { useWorkflowTextField } from '@/lib/yjs/use-workflow-doc'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useTagSelection } from '@/hooks/use-tag-selection'
@@ -43,7 +44,7 @@ interface ShortInputProps {
   subBlockId: string
   isConnecting: boolean
   config: SubBlockConfig
-  value?: string
+  value?: unknown
   onChange?: (value: string) => void
   disabled?: boolean
   readOnly?: boolean
@@ -101,7 +102,7 @@ export function ShortInput({
   // Get ReactFlow instance for zoom control (optional outside ReactFlow providers)
   const reactFlowInstance = useOptionalReactFlow()
 
-  const baseValueString = propValue?.toString() ?? ''
+  const baseValueString = stringifySubBlockValue(propValue)
   const { value: textFieldValue, setValue: setTextFieldValue } = useWorkflowTextField(
     blockId,
     subBlockId,

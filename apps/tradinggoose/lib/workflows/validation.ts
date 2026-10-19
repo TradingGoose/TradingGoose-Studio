@@ -4,7 +4,9 @@ import {
 } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBlock } from '@/blocks/registry'
-import type { WorkflowState } from '@/stores/workflows/workflow/types'
+import type { BlockConfig } from '@/blocks/types'
+import type { BlockState, WorkflowState } from '@/stores/workflows/workflow/types'
+import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/workflow/utils'
 import { getTool } from '@/tools/utils'
 
 const logger = createLogger('WorkflowValidation')
@@ -110,6 +112,47 @@ export interface WorkflowValidationResult {
   sanitizedState?: WorkflowState
 }
 
+function validateSubBlockValues(block: BlockState, blockConfig: BlockConfig): string[] {
+  const errors: string[] = []
+  for (const config of blockConfig.subBlocks) {
+    const value = block.subBlocks?.[config.id]?.value
+    if (value === undefined || value === '') continue
+
+    const inputType = blockConfig.inputs[config.canonicalParamId ?? config.id]?.type
+    let issue: string | undefined
+    if (inputType === 'number' && (config.inputType === 'number' || config.type === 'slider')) {
+      const number =
+        typeof value === 'number' || typeof value === 'string' ? Number(value) : Number.NaN
+      if (!Number.isFinite(number) || (config.integer && !Number.isInteger(number))) {
+        issue = config.integer ? 'Expected an integer.' : 'Expected a finite number.'
+      } else if (config.min !== undefined && number < config.min) {
+        issue = `Expected a number greater than or equal to ${config.min}.`
+      } else if (config.max !== undefined && number > config.max) {
+        issue = `Expected a number less than or equal to ${config.max}.`
+      }
+    } else if (
+      config.type === 'dropdown' &&
+      Array.isArray(config.options) &&
+      config.options.length > 0
+    ) {
+      if (!config.options.some((option) => option.id === value)) {
+        issue = `Expected one of: ${config.options.map((option) => option.id).join(', ')}.`
+      }
+    } else if (config.type === 'long-input') {
+      if (inputType === 'string' && typeof value !== 'string') {
+        issue = 'Expected a string.'
+      }
+    }
+
+    if (issue) {
+      errors.push(
+        `Document contract is inconsistent: invalid block sub-block values for ${config.id} (${issue})`
+      )
+    }
+  }
+  return errors
+}
+
 /**
  * Comprehensive workflow state validation
  * Checks all tool references, block types, and required fields
@@ -147,19 +190,16 @@ export function validateWorkflowState(
       // Check if block type exists
       const blockConfig = getBlock(block.type)
 
-      // Special handling for container blocks (loop and parallel)
-      if (block.type === 'loop' || block.type === 'parallel') {
-        // These are valid container types, they don't need block configs
-        sanitizedBlocks[blockId] = block
-        continue
-      }
-
       if (!blockConfig) {
         workflowIssues.push(`Block ${block.name || blockId}: unknown block type '${block.type}'`)
         if (options.sanitize) {
           hasChanges = true
           continue // Skip this block in sanitized output
         }
+      }
+
+      if (blockConfig) {
+        workflowIssues.push(...validateSubBlockValues(block, blockConfig))
       }
 
       // Validate tool references in blocks that use tools
@@ -234,6 +274,13 @@ export function validateWorkflowState(
     }
 
     const valid = workflowIssues.length === 0
+    if (valid && options.sanitize) {
+      sanitizedState = {
+        ...sanitizedState,
+        loops: generateLoopBlocks(sanitizedState.blocks),
+        parallels: generateParallelBlocks(sanitizedState.blocks),
+      }
+    }
     return {
       valid,
       errors: workflowIssues,

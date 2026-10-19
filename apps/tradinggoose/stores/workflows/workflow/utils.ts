@@ -17,23 +17,23 @@ export function convertLoopBlockToLoop(
   const loopBlock = blocks[loopBlockId]
   if (!loopBlock || loopBlock.type !== 'loop') return undefined
 
-  const loopType = loopBlock.data?.loopType || 'for'
+  const loopType = (loopBlock.subBlocks?.loopType?.value || 'for') as Loop['loopType']
 
   const loop: Loop = {
     id: loopBlockId,
     nodes: findChildNodes(loopBlockId, blocks),
-    iterations: loopBlock.data?.count || DEFAULT_LOOP_ITERATIONS,
+    iterations: Number(loopBlock.subBlocks?.iterations?.value || DEFAULT_LOOP_ITERATIONS),
     loopType,
   }
 
   // Set the appropriate field based on loop type
   if (loopType === 'while' || loopType === 'doWhile') {
     // For while and doWhile loops, use whileCondition
-    loop.whileCondition = loopBlock.data?.whileCondition || ''
+    loop.whileCondition = String(loopBlock.subBlocks?.whileCondition?.value || '')
   } else {
-    // For for/forEach loops, read from collection (block data) and map to forEachItems (loops store)
+    // Parse literal collections while preserving expressions for runtime evaluation.
     // Parse collection if it's a string representation of an array/object
-    let forEachItems: any = loopBlock.data?.collection || ''
+    let forEachItems: any = loopBlock.subBlocks?.forEachItems?.value || ''
     if (typeof forEachItems === 'string' && forEachItems.trim()) {
       const trimmed = forEachItems.trim()
       // Try to parse if it looks like JSON
@@ -65,8 +65,9 @@ export function convertParallelBlockToParallel(
   const parallelBlock = blocks[parallelBlockId]
   if (!parallelBlock || parallelBlock.type !== 'parallel') return undefined
 
-  // Get the parallel type from block data, defaulting to 'count' for consistency
-  const parallelType = parallelBlock.data?.parallelType || 'count'
+  const parallelType = (parallelBlock.subBlocks?.parallelType?.value || 'count') as NonNullable<
+    Parallel['parallelType']
+  >
 
   // Validate parallelType against allowed values
   const validParallelTypes = ['collection', 'count'] as const
@@ -76,9 +77,11 @@ export function convertParallelBlockToParallel(
 
   // Only set distribution if it's a collection-based parallel
   const distribution =
-    validatedParallelType === 'collection' ? parallelBlock.data?.collection || '' : ''
+    validatedParallelType === 'collection'
+      ? (parallelBlock.subBlocks?.distribution?.value as Parallel['distribution']) || ''
+      : ''
 
-  const count = parallelBlock.data?.count || 5
+  const count = Number(parallelBlock.subBlocks?.count?.value || 5)
 
   return {
     id: parallelBlockId,

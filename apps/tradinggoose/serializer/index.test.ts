@@ -21,11 +21,37 @@ import {
 } from '@/serializer/__test-utils__/test-workflows'
 import { Serializer } from '@/serializer/index'
 import type { SerializedWorkflow } from '@/serializer/types'
+import type { BlockState } from '@/stores/workflows/workflow/types'
 
 vi.mock('@/blocks', () => ({
   getBlock: (type: string) => {
     // Mock block configurations for different block types
     const mockConfigs: Record<string, any> = {
+      loop: {
+        name: 'Loop',
+        description: 'Repeat child blocks',
+        category: 'blocks',
+        tools: { access: [] },
+        subBlocks: [
+          { id: 'loopType', type: 'dropdown' },
+          { id: 'iterations', type: 'short-input' },
+          { id: 'forEachItems', type: 'long-input' },
+          { id: 'whileCondition', type: 'long-input' },
+        ],
+        inputs: {},
+      },
+      parallel: {
+        name: 'Parallel',
+        description: 'Run child blocks concurrently',
+        category: 'blocks',
+        tools: { access: [] },
+        subBlocks: [
+          { id: 'parallelType', type: 'dropdown' },
+          { id: 'count', type: 'short-input' },
+          { id: 'distribution', type: 'long-input' },
+        ],
+        inputs: {},
+      },
       input_trigger: {
         name: 'Input Trigger',
         description: 'Start of the workflow',
@@ -531,6 +557,58 @@ describe('Serializer', () => {
    * End-to-end serialization/deserialization tests
    */
   describe('round-trip serialization', () => {
+    it.concurrent.each([
+      {
+        type: 'loop',
+        values: { loopType: 'for', iterations: 8, forEachItems: '', whileCondition: '' },
+      },
+      {
+        type: 'loop',
+        values: { loopType: 'forEach', iterations: 5, forEachItems: '[1,2]', whileCondition: '' },
+      },
+      {
+        type: 'loop',
+        values: {
+          loopType: 'while',
+          iterations: 5,
+          forEachItems: '',
+          whileCondition: '<counter.value> < 3',
+        },
+      },
+      {
+        type: 'loop',
+        values: { loopType: 'doWhile', iterations: 5, forEachItems: '', whileCondition: 'false' },
+      },
+      { type: 'parallel', values: { parallelType: 'count', count: 4, distribution: '' } },
+      { type: 'parallel', values: { parallelType: 'collection', count: 5, distribution: '[1,2]' } },
+    ])(
+      'round-trips canonical $type parameters through the standard serializer',
+      ({ type, values }) => {
+        const block: BlockState = {
+          id: 'container',
+          type,
+          name: 'Container',
+          position: { x: 1, y: 2 },
+          subBlocks: Object.fromEntries(
+            Object.entries(values).map(([id, value]) => [id, { id, type: 'short-input', value }])
+          ),
+          outputs: {},
+          enabled: true,
+        }
+        const serializer = new Serializer()
+        const serialized = serializer.serializeWorkflow({ container: block }, [], {})
+        const restored = serializer.deserializeWorkflow(serialized).blocks.container
+
+        expect(serialized.blocks[0].config.params).toEqual(values)
+        expect(
+          Object.fromEntries(
+            Object.entries(restored.subBlocks).map(([id, subBlock]) => [id, subBlock.value])
+          )
+        ).toEqual(values)
+        expect(restored.data).toBeUndefined()
+      }
+    )
+
     it.concurrent('should preserve all data through serialization and deserialization', () => {
       const { blocks, edges, loops } = createComplexWorkflowState()
       const serializer = new Serializer()

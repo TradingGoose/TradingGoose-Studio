@@ -182,28 +182,6 @@ export class Serializer {
       accessibleBlocksMap: Map<string, Set<string>>
     }
   ): SerializedBlock {
-    // Special handling for subflow blocks (loops, parallels, etc.)
-    if (block.type === 'loop' || block.type === 'parallel') {
-      return {
-        id: block.id,
-        position: block.position,
-        config: {
-          tool: '', // Loop blocks don't have tools
-          params: block.data || {}, // Preserve the block data (parallelType, count, etc.)
-        },
-        inputs: {},
-        outputs: block.outputs,
-        metadata: {
-          id: block.type,
-          name: block.name,
-          description: block.type === 'loop' ? 'Loop container' : 'Parallel container',
-          category: 'subflow',
-          color: block.type === 'loop' ? '#3b82f6' : '#8b5cf6',
-        },
-        enabled: block.enabled,
-      }
-    }
-
     const blockConfig = getBlock(block.type)
     if (!blockConfig) {
       throw new Error(`Invalid block type: ${block.type}`)
@@ -307,11 +285,6 @@ export class Serializer {
   }
 
   private extractParams(block: BlockState): Record<string, any> {
-    // Special handling for subflow blocks (loops, parallels, etc.)
-    if (block.type === 'loop' || block.type === 'parallel') {
-      return {} // Loop and parallel blocks don't have traditional params
-    }
-
     const blockConfig = getBlock(block.type)
     if (!blockConfig) {
       throw new Error(`Invalid block type: ${block.type}`)
@@ -462,20 +435,6 @@ export class Serializer {
     const blockType = serializedBlock.metadata?.id
     if (!blockType) {
       throw new Error(`Invalid block type: ${serializedBlock.metadata?.id}`)
-    }
-
-    // Special handling for subflow blocks (loops, parallels, etc.)
-    if (blockType === 'loop' || blockType === 'parallel') {
-      return {
-        id: serializedBlock.id,
-        type: blockType,
-        name: serializedBlock.metadata?.name || (blockType === 'loop' ? 'Loop' : 'Parallel'),
-        position: serializedBlock.position,
-        subBlocks: {}, // Loops and parallels don't have traditional subBlocks
-        outputs: serializedBlock.outputs,
-        enabled: serializedBlock.enabled ?? true,
-        data: serializedBlock.config.params, // Preserve the data (parallelType, count, etc.)
-      }
     }
 
     const blockConfig = getBlock(blockType)

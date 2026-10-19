@@ -774,13 +774,16 @@ describe('TagDropdown Loop Suggestions', () => {
         type: 'loop',
         name: 'Test Loop',
         position: { x: 0, y: 0 },
-        subBlocks: {},
+        subBlocks: {
+          loopType: { id: 'loopType', type: 'dropdown', value: 'forEach' },
+          forEachItems: {
+            id: 'forEachItems',
+            type: 'long-input',
+            value: '["item1", "item2", "item3"]',
+          },
+        },
         outputs: {},
         enabled: true,
-        data: {
-          loopType: 'forEach',
-          collection: '["item1", "item2", "item3"]',
-        },
       },
       function1: {
         id: 'function1',
@@ -838,14 +841,12 @@ describe('TagDropdown Loop Suggestions', () => {
         type: 'loop',
         name: 'Test Loop',
         position: { x: 0, y: 0 },
-        subBlocks: {},
+        subBlocks: {
+          loopType: { id: 'loopType', type: 'dropdown', value: 'for' },
+          iterations: { id: 'iterations', type: 'short-input', value: 5 },
+        },
         outputs: {},
         enabled: true,
-        data: {
-          loopType: 'for',
-          count: 5,
-          collection: '',
-        },
       },
       function1: {
         id: 'function1',
@@ -897,12 +898,16 @@ describe('TagDropdown Parallel Suggestions', () => {
         type: 'parallel',
         name: 'Test Parallel',
         position: { x: 0, y: 0 },
-        subBlocks: {},
+        subBlocks: {
+          parallelType: { id: 'parallelType', type: 'dropdown', value: 'collection' },
+          distribution: {
+            id: 'distribution',
+            type: 'long-input',
+            value: '["item1", "item2", "item3"]',
+          },
+        },
         outputs: {},
         enabled: true,
-        data: {
-          collection: '["item1", "item2", "item3"]',
-        },
       },
       function1: {
         id: 'function1',

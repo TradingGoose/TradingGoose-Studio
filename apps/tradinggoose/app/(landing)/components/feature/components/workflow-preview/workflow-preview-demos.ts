@@ -1,5 +1,6 @@
 import type { Edge } from '@xyflow/react'
 import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
+import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
 import { getBlock } from '@/blocks'
 import {
   getLocalizedDefaultBlockName,
@@ -68,6 +69,7 @@ type LoopBlockConfig = {
   name: string
   position: Position
   size: { width: number; height: number }
+  iterations: number
 }
 
 const createSubBlock = (
@@ -141,12 +143,15 @@ const createAgentBlock = ({
     },
   })
 
-const createLoopBlock = ({ id, name, position, size }: LoopBlockConfig): BlockState =>
+const createLoopBlock = ({ id, name, position, size, iterations }: LoopBlockConfig): BlockState =>
   createBlock({
     id,
     type: 'loop',
     name,
     position,
+    subBlocks: buildInitialSubBlockStates(getBlock('loop')!.subBlocks, {
+      iterations,
+    }) as BlockState['subBlocks'],
     data: {
       type: 'loop',
       width: size.width,
@@ -585,6 +590,7 @@ function buildInvestmentDebateState(
       }),
       investmentDebate: createLoopBlock({
         id: 'investmentDebate',
+        iterations: INVESTMENT_DEBATE_LOOP.iterations,
         name: localizeCustomName(locale, 'bullVsBearDebate'),
         position: { x: 1215, y: 150 },
         size: { width: 951.75, height: 741 },
@@ -728,6 +734,7 @@ function buildRiskRoutingState(
       }),
       riskCommittee: createLoopBlock({
         id: 'riskCommittee',
+        iterations: RISK_COMMITTEE_LOOP.iterations,
         name: localizeCustomName(locale, 'riskCommittee'),
         position: { x: 1215, y: 150 },
         size: { width: 1253.5, height: 952 },

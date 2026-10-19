@@ -3,6 +3,11 @@ import type { SubBlockConfig } from '@/blocks/types'
 
 type SubBlockStateLike = Record<string, { value?: unknown } | undefined>
 
+export function stringifySubBlockValue(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  return typeof value === 'object' ? (JSON.stringify(value) ?? '') : String(value)
+}
+
 function readStoredSubBlockValue(value: unknown): unknown {
   return typeof value === 'function' ? undefined : value
 }

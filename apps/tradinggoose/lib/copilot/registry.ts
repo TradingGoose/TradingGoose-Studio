@@ -247,7 +247,7 @@ const EditWorkflowBlockArgs = z
       .record(z.string(), z.any())
       .optional()
       .describe(
-        'Partial patch for the selected block only: map changed canonical sub-block ids to replacement values. Do not send a full workflow document, unchanged fields, or invented keys. Use `get_blocks_metadata` for canonical ids and `read_workflow` for current derived sub-block entries.'
+        'Partial patch for the selected block only: map changed canonical sub-block ids to replacement values. Do not send a full workflow document, unchanged fields, or invented keys. Use `get_blocks_metadata` for canonical ids, options, defaults, bounds, and conditions; use `read_workflow` for current sub-block entries.'
       ),
   })
   .strict()

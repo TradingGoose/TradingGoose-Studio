@@ -14,6 +14,7 @@ import {
 const mockAddBlock = vi.hoisted(() => vi.fn())
 const mockUpdateBlockPosition = vi.hoisted(() => vi.fn())
 const mockUpdateBlockPositions = vi.hoisted(() => vi.fn())
+const mockSetSubBlockValue = vi.hoisted(() => vi.fn())
 const mockSession = vi.hoisted(() => ({
   readWorkflowSnapshot: vi.fn(),
 }))
@@ -36,6 +37,7 @@ vi.mock('@/lib/yjs/use-workflow-doc', () => ({
     addBlock: mockAddBlock,
     updateBlockPosition: mockUpdateBlockPosition,
     updateBlockPositions: mockUpdateBlockPositions,
+    setSubBlockValue: mockSetSubBlockValue,
   }),
 }))
 
@@ -64,6 +66,7 @@ describe('useWorkflowEditorActions', () => {
     mockAddBlock.mockReset()
     mockUpdateBlockPosition.mockReset()
     mockUpdateBlockPositions.mockReset()
+    mockSetSubBlockValue.mockReset()
     mockSession.readWorkflowSnapshot.mockReset()
     mockUseWorkflowRegistry.mockClear()
   })
@@ -83,6 +86,55 @@ describe('useWorkflowEditorActions', () => {
   afterAll(() => {
     ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = previousActEnvironment
   })
+
+  it.each([
+    {
+      type: 'loop',
+      modeId: 'loopType',
+      mode: 'forEach',
+      countId: 'iterations',
+      itemsId: 'forEachItems',
+    },
+    {
+      type: 'parallel',
+      modeId: 'parallelType',
+      mode: 'collection',
+      countId: 'count',
+      itemsId: 'distribution',
+    },
+  ])(
+    'preserves inactive $type settings when changing modes through the generic edit action',
+    async ({ type, modeId, mode, countId, itemsId }) => {
+      const subBlocks = {
+        [modeId]: { id: modeId, type: 'dropdown', value: type === 'loop' ? 'for' : 'count' },
+        [countId]: { id: countId, type: 'short-input', value: 7 },
+        [itemsId]: { id: itemsId, type: 'long-input', value: '{{symbols}}' },
+      }
+      mockSession.readWorkflowSnapshot.mockReturnValue({
+        blocks: { 'container-1': { type, subBlocks } },
+      })
+      mockSetSubBlockValue.mockImplementation((_blockId, subBlockId, value) => {
+        subBlocks[subBlockId].value = value
+      })
+      const { useWorkflowEditorActions } = await import('./use-workflow-editor-actions')
+      let actions: ReturnType<typeof useWorkflowEditorActions> | null = null
+      function Harness() {
+        actions = useWorkflowEditorActions()
+        return null
+      }
+      container = document.createElement('div')
+      document.body.appendChild(container)
+      root = createRoot(container)
+      await act(async () => root?.render(React.createElement(Harness)))
+
+      await act(async () => actions?.collaborativeSetSubblockValue('container-1', modeId, mode))
+
+      expect(subBlocks[countId].value).toBe(7)
+      expect(subBlocks[itemsId].value).toBe('{{symbols}}')
+      expect(subBlocks[modeId].value).toBe(mode)
+      expect(mockSetSubBlockValue).toHaveBeenCalledExactlyOnceWith('container-1', modeId, mode)
+    }
+  )
 
   it('duplicates blocks from the materialized live workflow snapshot', async () => {
     const doc = new Y.Doc()

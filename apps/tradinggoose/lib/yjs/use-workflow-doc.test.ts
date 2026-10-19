@@ -5,12 +5,12 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import { createYjsUndoTrackedOrigins, YJS_ORIGINS } from './transaction-origins'
+import { bindWorkflowTextObserver } from './use-workflow-doc'
 import {
-  bindWorkflowTextObserver,
-  getLoopCollectionDataUpdate,
-  getParallelCollectionDataUpdate,
-} from './use-workflow-doc'
-import { createWorkflowTextFieldKey, readWorkflowTextFieldsMap } from './workflow-session'
+  createWorkflowTextFieldKey,
+  readWorkflowSnapshot,
+  readWorkflowTextFieldsMap,
+} from './workflow-session'
 
 let container: HTMLDivElement | null = null
 let root: Root | null = null
@@ -40,21 +40,6 @@ afterAll(() => {
 })
 
 describe('workflow mutation helpers', () => {
-  it('writes while/doWhile collection edits to whileCondition', () => {
-    expect(getLoopCollectionDataUpdate('while', 'status.ready')).toEqual({
-      whileCondition: 'status.ready',
-    })
-    expect(getLoopCollectionDataUpdate('doWhile', 'status.ready')).toEqual({
-      whileCondition: 'status.ready',
-    })
-  })
-
-  it('writes collection-mode parallel edits to collection', () => {
-    expect(getParallelCollectionDataUpdate('items')).toEqual({
-      collection: 'items',
-    })
-  })
-
   it('binds and cleans up existing Y.Text observers without double-unobserve errors', () => {
     const doc = new Y.Doc()
     const textFields = readWorkflowTextFieldsMap(doc)
@@ -151,6 +136,256 @@ describe('useWorkflowBlocks', () => {
 })
 
 describe('useWorkflowMutations', () => {
+  async function mountContainerEditor(
+    type: 'loop' | 'parallel',
+    textFieldId = 'whileCondition',
+    initialValues?: Record<string, unknown>
+  ) {
+    const doc = new Y.Doc()
+    const workflowMap = doc.getMap('workflow')
+    const session = {
+      doc,
+      transactWorkflow: (fn: (d: Y.Doc) => void, origin?: string) =>
+        doc.transact(() => fn(doc), origin ?? YJS_ORIGINS.USER),
+    }
+    vi.resetModules()
+    vi.doMock('@/lib/yjs/workflow-session-host', () => ({
+      useOptionalWorkflowSession: () => session,
+      useWorkflowSession: () => session,
+    }))
+    vi.doMock('@/blocks', async () => {
+      const { LoopBlock } = await import('@/blocks/blocks/loop')
+      const { ParallelContainerBlock } = await import('@/blocks/blocks/parallel_container')
+      return {
+        getBlock: (blockType: string) =>
+          blockType === 'loop'
+            ? LoopBlock
+            : blockType === 'parallel'
+              ? ParallelContainerBlock
+              : undefined,
+      }
+    })
+    const { useWorkflowMutations, useWorkflowTextField } = await import('./use-workflow-doc')
+    let mutations: ReturnType<typeof useWorkflowMutations> | null = null
+    let textField: ReturnType<typeof useWorkflowTextField> | null = null
+    let textFieldEnabled = initialValues === undefined
+    function Harness() {
+      mutations = useWorkflowMutations()
+      textField = useWorkflowTextField('container-1', textFieldId, '', {
+        enabled: textFieldEnabled,
+        autoCreate: initialValues !== undefined,
+      })
+      return null
+    }
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+    await act(async () => root?.render(React.createElement(Harness)))
+    await act(async () => {
+      mutations?.addBlock(
+        'container-1',
+        type,
+        'Research',
+        { x: 0, y: 0 },
+        { width: 400, height: 300 },
+        undefined,
+        undefined,
+        { initialSubBlockValues: initialValues }
+      )
+    })
+    if (initialValues) {
+      textFieldEnabled = true
+      await act(async () => root?.render(React.createElement(Harness)))
+    }
+    return {
+      doc,
+      workflowMap,
+      get mutations() {
+        return mutations!
+      },
+      get textField() {
+        return textField!
+      },
+    }
+  }
+
+  it.each([
+    {
+      type: 'loop' as const,
+      modeId: 'loopType',
+      mode: 'forEach',
+      fieldId: 'forEachItems',
+      collection: ['NVDA', 'AAPL'],
+    },
+    {
+      type: 'loop' as const,
+      modeId: 'loopType',
+      mode: 'forEach',
+      fieldId: 'forEachItems',
+      collection: { primary: 'NVDA', secondary: 'AAPL' },
+    },
+    {
+      type: 'parallel' as const,
+      modeId: 'parallelType',
+      mode: 'collection',
+      fieldId: 'distribution',
+      collection: ['NVDA', 'AAPL'],
+    },
+    {
+      type: 'parallel' as const,
+      modeId: 'parallelType',
+      mode: 'collection',
+      fieldId: 'distribution',
+      collection: { primary: 'NVDA', secondary: 'AAPL' },
+    },
+  ])(
+    'preserves literal $type collections when mounting and editing a shared text field',
+    async ({ type, modeId, mode, fieldId, collection }) => {
+      const editor = await mountContainerEditor(type, fieldId, {
+        [modeId]: mode,
+        [fieldId]: collection,
+      })
+
+      expect(editor.textField.value).toBe(JSON.stringify(collection))
+      expect(
+        JSON.parse(
+          readWorkflowSnapshot(editor.doc).blocks['container-1'].subBlocks[fieldId].value as string
+        )
+      ).toEqual(collection)
+      if (type === 'loop') {
+        expect(readWorkflowSnapshot(editor.doc).loops['container-1'].forEachItems).toEqual(
+          collection
+        )
+      } else {
+        expect(readWorkflowSnapshot(editor.doc).parallels['container-1'].distribution).toEqual(
+          collection
+        )
+      }
+
+      const replacement = { primary: 'MSFT', secondary: 'GOOG' }
+      await act(async () => editor.mutations.setSubBlockValue('container-1', fieldId, replacement))
+
+      expect(editor.textField.value).toBe(JSON.stringify(replacement))
+      const state = readWorkflowSnapshot(editor.doc)
+      expect(JSON.parse(state.blocks['container-1'].subBlocks[fieldId].value as string)).toEqual(
+        replacement
+      )
+      expect(
+        type === 'loop'
+          ? state.loops['container-1'].forEachItems
+          : JSON.parse(state.parallels['container-1'].distribution as string)
+      ).toEqual(replacement)
+    }
+  )
+
+  it.each([
+    { type: 'loop' as const, fieldId: 'iterations', mapKey: 'loops', runtimeField: 'iterations' },
+    { type: 'parallel' as const, fieldId: 'count', mapKey: 'parallels', runtimeField: 'count' },
+  ])(
+    'updates $type counts and derived execution state in one undoable transaction',
+    async ({ type, fieldId, mapKey, runtimeField }) => {
+      const editor = await mountContainerEditor(type)
+      const undoManager = new Y.UndoManager(editor.workflowMap, {
+        trackedOrigins: createYjsUndoTrackedOrigins(),
+      })
+      const changes = vi.fn(() => {
+        const state = readWorkflowSnapshot(editor.doc)
+        expect(state.blocks['container-1'].subBlocks[fieldId].value).toBe(9)
+        expect((editor.workflowMap.get(mapKey) as any)['container-1'][runtimeField]).toBe(9)
+      })
+      editor.doc.on('update', changes)
+
+      await act(async () => editor.mutations.setSubBlockValue('container-1', fieldId, 9))
+
+      expect(changes).toHaveBeenCalledTimes(1)
+      expect(readWorkflowSnapshot(editor.doc).blocks['container-1'].data).toEqual({
+        width: 400,
+        height: 300,
+      })
+      editor.doc.off('update', changes)
+      await act(async () => undoManager.undo())
+      expect(readWorkflowSnapshot(editor.doc).blocks['container-1'].subBlocks[fieldId].value).toBe(
+        5
+      )
+      expect((editor.workflowMap.get(mapKey) as any)['container-1'][runtimeField]).toBe(5)
+      undoManager.destroy()
+    }
+  )
+
+  it('derives batch edits from live shared text and preserves inactive container values', async () => {
+    const editor = await mountContainerEditor('loop')
+    const sharedText = new Y.Text('old condition')
+    await act(async () => {
+      readWorkflowTextFieldsMap(editor.doc).set(
+        createWorkflowTextFieldKey('container-1', 'whileCondition'),
+        sharedText
+      )
+    })
+    const changes = vi.fn()
+    editor.doc.on('update', changes)
+
+    await act(async () =>
+      editor.mutations.batchSetSubBlockValues([
+        { blockId: 'container-1', subBlockId: 'iterations', value: 11 },
+        { blockId: 'container-1', subBlockId: 'forEachItems', value: '{{symbols}}' },
+        { blockId: 'container-1', subBlockId: 'loopType', value: 'while' },
+        { blockId: 'container-1', subBlockId: 'whileCondition', value: '{{keepGoing}}' },
+      ])
+    )
+
+    const state = readWorkflowSnapshot(editor.doc)
+    expect(state.blocks['container-1'].subBlocks.iterations.value).toBe(11)
+    expect(state.blocks['container-1'].subBlocks.forEachItems.value).toBe('{{symbols}}')
+    expect(state.blocks['container-1'].subBlocks.whileCondition.value).toBe('{{keepGoing}}')
+    expect(state.loops['container-1']).toMatchObject({
+      loopType: 'while',
+      iterations: 11,
+      whileCondition: '{{keepGoing}}',
+    })
+    expect(changes).toHaveBeenCalledTimes(1)
+    editor.doc.off('update', changes)
+  })
+
+  it.each([
+    {
+      type: 'loop' as const,
+      modeId: 'loopType',
+      mode: 'forEach',
+      fieldId: 'forEachItems',
+      mapKey: 'loops',
+      runtimeField: 'forEachItems',
+    },
+    {
+      type: 'loop' as const,
+      modeId: 'loopType',
+      mode: 'doWhile',
+      fieldId: 'whileCondition',
+      mapKey: 'loops',
+      runtimeField: 'whileCondition',
+    },
+    {
+      type: 'parallel' as const,
+      modeId: 'parallelType',
+      mode: 'collection',
+      fieldId: 'distribution',
+      mapKey: 'parallels',
+      runtimeField: 'distribution',
+    },
+  ])(
+    'keeps $type $fieldId execution values current for generic and shared-text edits',
+    async ({ type, modeId, mode, fieldId, mapKey, runtimeField }) => {
+      const editor = await mountContainerEditor(type, fieldId)
+      await act(async () => editor.mutations.setSubBlockValue('container-1', modeId, mode))
+      await act(async () => editor.textField.setValue('{{first}}'))
+      expect((editor.workflowMap.get(mapKey) as any)['container-1'][runtimeField]).toBe('{{first}}')
+      await act(async () => editor.mutations.setSubBlockValue('container-1', fieldId, '{{second}}'))
+      expect(editor.textField.value).toBe('{{second}}')
+      expect((editor.workflowMap.get(mapKey) as any)['container-1'][runtimeField]).toBe(
+        '{{second}}'
+      )
+    }
+  )
+
   it.each([
     {
       blockType: 'loop' as const,

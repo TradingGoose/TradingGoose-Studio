@@ -45,18 +45,6 @@ export function useWorkflowEditorActions() {
     ) => {
       const blockConfig = getBlock(type)
 
-      // Handle loop/parallel blocks that don't use BlockConfig
-      if (!blockConfig && (type === 'loop' || type === 'parallel')) {
-        mutations.addBlock(id, type, name, position, data, parentId, extent, {
-          locked: false,
-          triggerMode: triggerMode || false,
-        })
-        if (autoConnectEdge) {
-          mutations.addEdge(autoConnectEdge)
-        }
-        return
-      }
-
       if (!blockConfig) {
         logger.error(`Block type ${type} not found`)
         return
@@ -295,61 +283,6 @@ export function useWorkflowEditorActions() {
     [getBlocksSnapshot, mutations]
   )
 
-  const collaborativeUpdateLoopType = useCallback(
-    (loopId: string, loopType: 'for' | 'forEach' | 'while' | 'doWhile') => {
-      const currentBlock = getBlocksSnapshot()[loopId]
-      if (!currentBlock || currentBlock.type !== 'loop') return
-
-      mutations.updateLoopType(loopId, loopType)
-    },
-    [getBlocksSnapshot, mutations]
-  )
-
-  const collaborativeUpdateParallelType = useCallback(
-    (parallelId: string, parallelType: 'count' | 'collection') => {
-      const currentBlock = getBlocksSnapshot()[parallelId]
-      if (!currentBlock || currentBlock.type !== 'parallel') return
-
-      mutations.updateParallelType(parallelId, parallelType)
-
-      // Apply side effects for type change
-      if (parallelType === 'count') {
-        mutations.updateParallelCollection(parallelId, '')
-      } else {
-        mutations.updateParallelCount(parallelId, 1)
-      }
-    },
-    [getBlocksSnapshot, mutations]
-  )
-
-  const collaborativeUpdateIterationCount = useCallback(
-    (nodeId: string, iterationType: 'loop' | 'parallel', count: number) => {
-      const currentBlock = getBlocksSnapshot()[nodeId]
-      if (!currentBlock || currentBlock.type !== iterationType) return
-
-      if (iterationType === 'loop') {
-        mutations.updateLoopCount(nodeId, count)
-      } else {
-        mutations.updateParallelCount(nodeId, count)
-      }
-    },
-    [getBlocksSnapshot, mutations]
-  )
-
-  const collaborativeUpdateIterationCollection = useCallback(
-    (nodeId: string, iterationType: 'loop' | 'parallel', collection: string) => {
-      const currentBlock = getBlocksSnapshot()[nodeId]
-      if (!currentBlock || currentBlock.type !== iterationType) return
-
-      if (iterationType === 'loop') {
-        mutations.updateLoopCollection(nodeId, collection)
-      } else {
-        mutations.updateParallelCollection(nodeId, collection)
-      }
-    },
-    [getBlocksSnapshot, mutations]
-  )
-
   const collaborativeUpdateVariable = useCallback(
     (variableId: string, field: 'name' | 'value' | 'type', value: any) => {
       mutations.updateVariable(variableId, { [field]: value })
@@ -415,13 +348,5 @@ export function useWorkflowEditorActions() {
     collaborativeAddVariable,
     collaborativeDeleteVariable,
     collaborativeDuplicateVariable,
-
-    // Collaborative loop/parallel operations
-    collaborativeUpdateLoopType,
-    collaborativeUpdateParallelType,
-
-    // Unified iteration operations
-    collaborativeUpdateIterationCount,
-    collaborativeUpdateIterationCollection,
   }
 }

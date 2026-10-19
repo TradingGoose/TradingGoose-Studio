@@ -302,22 +302,7 @@ export function sanitizeForCopilot(state: WorkflowState): CopilotWorkflowState {
   const sanitizeBlock = (blockId: string, block: BlockState): CopilotBlockState => {
     const connections = extractConnectionsForBlock(blockId, state.edges)
 
-    // For loop/parallel blocks, extract config from block.data instead of subBlocks
-    let inputs: Record<string, string | number | string[][] | object>
-
-    if (block.type === 'loop' || block.type === 'parallel') {
-      // Extract configuration from block.data
-      const loopInputs: Record<string, string | number | string[][] | object> = {}
-      if (block.data?.loopType) loopInputs.loopType = block.data.loopType
-      if (block.data?.count !== undefined) loopInputs.iterations = block.data.count
-      if (block.data?.collection !== undefined) loopInputs.collection = block.data.collection
-      if (block.data?.whileCondition !== undefined) loopInputs.condition = block.data.whileCondition
-      if (block.data?.parallelType) loopInputs.parallelType = block.data.parallelType
-      inputs = loopInputs
-    } else {
-      // For regular blocks, sanitize subBlocks
-      inputs = sanitizeSubBlocks(block.subBlocks)
-    }
+    const inputs = sanitizeSubBlocks(block.subBlocks)
 
     // Check if this is a loop or parallel (has children)
     const childBlockIds = findChildBlocks(blockId)

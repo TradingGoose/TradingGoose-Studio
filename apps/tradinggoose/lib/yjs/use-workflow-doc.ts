@@ -15,7 +15,7 @@ import type { Edge } from '@xyflow/react'
 import type * as Y from 'yjs'
 import { escapeRegExp } from '@/lib/utils'
 import { readBlockOutputs } from '@/lib/workflows/block-outputs'
-import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
+import { buildInitialSubBlockStates, stringifySubBlockValue } from '@/lib/workflows/subblock-values'
 import { YJS_ORIGINS, type YjsOrigin } from '@/lib/yjs/transaction-origins'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
 import { rewriteWorkflowContentReferences } from '@/lib/yjs/workflow-reference-rewrite'
@@ -73,8 +73,19 @@ const regenLoops = (wMap: Y.Map<any>, blocks: Record<string, any>) =>
 const regenParallels = (wMap: Y.Map<any>, blocks: Record<string, any>) =>
   wMap.set(YJS_KEYS.PARALLELS, generateParallelBlocks(blocks))
 
+function regenerateContainerConfigs(doc: Y.Doc, blockIds: string[]): void {
+  const { blocks } = readWorkflowSnapshot(doc)
+  const wMap = readWorkflowMap(doc)
+  if (blockIds.some((id) => blocks[id]?.type === 'loop')) {
+    regenLoops(wMap, blocks)
+  }
+  if (blockIds.some((id) => blocks[id]?.type === 'parallel')) {
+    regenParallels(wMap, blocks)
+  }
+}
+
 function writeSharedTextValue(text: Y.Text, value: unknown): void {
-  const nextTextValue = typeof value === 'string' ? value : value == null ? '' : String(value)
+  const nextTextValue = stringifySubBlockValue(value)
   if (text.toString() === nextTextValue) {
     return
   }
@@ -108,21 +119,6 @@ function resolveUpdatedWorkflowBlockRuntimeState(args: {
     subBlocks: args.subBlocks,
     outputs: resolveOutputType(readBlockOutputs(args.block.type, outputSubBlocks, triggerMode)),
   }
-}
-
-export function getLoopCollectionDataUpdate(
-  loopType: 'for' | 'forEach' | 'while' | 'doWhile' | undefined,
-  collection: string
-): Record<string, string> {
-  if (loopType === 'while' || loopType === 'doWhile') {
-    return { whileCondition: collection }
-  }
-
-  return { collection }
-}
-
-export function getParallelCollectionDataUpdate(collection: string): Record<string, string> {
-  return { collection }
 }
 
 // ---------------------------------------------------------------------------
@@ -630,13 +626,10 @@ export function useWorkflowTextField(
 
     const blocks = readWorkflowMap(doc).get(YJS_KEYS.BLOCKS) as Record<string, any> | undefined
     const rawValue = blocks?.[blockId]?.subBlocks?.[subBlockId]?.value
-    if (typeof rawValue === 'string') {
-      return rawValue
-    }
     if (rawValue === null || rawValue === undefined) {
       return fallback
     }
-    return String(rawValue)
+    return stringifySubBlockValue(rawValue)
   }, [blockId, doc, fallback, subBlockId])
 
   const value = useYjsSubscription(subscribe, extract, fallback)
@@ -648,11 +641,10 @@ export function useWorkflowTextField(
 
   const setValue = useCallback(
     (nextValue: string) =>
-      transactWorkflow?.(
-        (workflowDoc) =>
-          replaceWorkflowTextField(workflowDoc, blockId, subBlockId, nextValue, YJS_ORIGINS.USER),
-        YJS_ORIGINS.USER
-      ),
+      transactWorkflow?.((workflowDoc) => {
+        replaceWorkflowTextField(workflowDoc, blockId, subBlockId, nextValue, YJS_ORIGINS.USER)
+        regenerateContainerConfigs(workflowDoc, [blockId])
+      }, YJS_ORIGINS.USER),
     [blockId, subBlockId, transactWorkflow]
   )
 
@@ -1226,6 +1218,7 @@ export function useWorkflowMutations() {
           textFields,
         })
         wMap.set(YJS_KEYS.BLOCKS, blocks)
+        regenerateContainerConfigs(d, [blockId])
       }, YJS_ORIGINS.USER),
     [transactWorkflow]
   )
@@ -1281,6 +1274,10 @@ export function useWorkflowMutations() {
         }
         if (changed) {
           wMap.set(YJS_KEYS.BLOCKS, blocks)
+          regenerateContainerConfigs(
+            d,
+            updates.map(({ blockId }) => blockId)
+          )
         }
       }, YJS_ORIGINS.USER)
     },
@@ -1295,74 +1292,6 @@ export function useWorkflowMutations() {
         YJS_ORIGINS.SYSTEM
       ),
     [transactWorkflow]
-  )
-
-  const patchBlockData = useCallback(
-    (
-      id: string,
-      dataUpdate: Record<string, any>,
-      afterPatch?: (wMap: Y.Map<any>, blocks: Record<string, any>) => void
-    ) =>
-      patchBlock(
-        id,
-        (b) => (b.data ? { ...b, data: { ...b.data, ...dataUpdate } } : b),
-        afterPatch
-      ),
-    [patchBlock]
-  )
-
-  const updateLoopCount = useCallback(
-    (loopId: string, count: number) => patchBlockData(loopId, { count }, regenLoops),
-    [patchBlockData]
-  )
-
-  const updateLoopType = useCallback(
-    (loopId: string, loopType: 'for' | 'forEach' | 'while' | 'doWhile') =>
-      patchBlockData(loopId, { loopType }, regenLoops),
-    [patchBlockData]
-  )
-
-  const updateLoopCollection = useCallback(
-    (loopId: string, collection: string) =>
-      patchBlock(
-        loopId,
-        (block) => ({
-          ...block,
-          data: {
-            ...block.data,
-            ...getLoopCollectionDataUpdate(block.data?.loopType, collection),
-          },
-        }),
-        regenLoops
-      ),
-    [patchBlock]
-  )
-
-  const updateParallelCount = useCallback(
-    (parallelId: string, count: number) => patchBlockData(parallelId, { count }, regenParallels),
-    [patchBlockData]
-  )
-
-  const updateParallelCollection = useCallback(
-    (parallelId: string, collection: string) =>
-      patchBlock(
-        parallelId,
-        (block) => ({
-          ...block,
-          data: {
-            ...block.data,
-            ...getParallelCollectionDataUpdate(collection),
-          },
-        }),
-        regenParallels
-      ),
-    [patchBlock]
-  )
-
-  const updateParallelType = useCallback(
-    (parallelId: string, parallelType: 'count' | 'collection') =>
-      patchBlockData(parallelId, { parallelType }, regenParallels),
-    [patchBlockData]
   )
 
   const addVariable = useCallback(
@@ -1432,12 +1361,6 @@ export function useWorkflowMutations() {
     setSubBlockValue,
     batchSetSubBlockValues,
     replaceWorkflowState,
-    updateLoopCount,
-    updateLoopType,
-    updateLoopCollection,
-    updateParallelCount,
-    updateParallelCollection,
-    updateParallelType,
     addVariable,
     updateVariable,
     deleteVariable,

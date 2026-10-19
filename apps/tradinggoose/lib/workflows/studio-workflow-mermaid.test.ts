@@ -64,13 +64,12 @@ describe('studio workflow Mermaid documents', () => {
         name: 'For Each Symbol',
         position: { x: 320, y: 24 },
         enabled: true,
-        subBlocks: {},
+        subBlocks: {
+          loopType: { id: 'loopType', type: 'dropdown', value: 'forEach' },
+          forEachItems: { id: 'forEachItems', type: 'long-input', value: '{{symbols}}' },
+        },
         outputs: {
           item: { type: 'string' } as any,
-        },
-        data: {
-          loopType: 'forEach',
-          collection: '{{symbols}}',
         },
       },
       sink: {
