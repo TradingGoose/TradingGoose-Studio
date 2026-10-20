@@ -18,6 +18,7 @@ export const LoopBlock: BlockConfig = {
       id: 'loopType',
       title: 'Loop Type',
       type: 'dropdown',
+      supportsReferences: false,
       description: 'Choose a fixed count, collection, pre-test condition, or post-test condition.',
       defaultValue: 'for',
       options: [

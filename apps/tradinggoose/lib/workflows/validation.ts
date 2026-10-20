@@ -140,25 +140,27 @@ function validateSubBlockValues(block: BlockState, blockConfig: BlockConfig): st
 
     const value = block.subBlocks?.[config.id]?.value
     if (value === undefined || value === '') continue
+    if (
+      config.supportsReferences !== false &&
+      typeof value === 'string' &&
+      (extractReferencePrefixes(value).length > 0 || extractEnvironmentReferences(value).length > 0)
+    ) {
+      continue
+    }
 
     const inputType = blockConfig.inputs[config.canonicalParamId ?? config.id]?.type
+    const literalValue = inputType === 'number' && typeof value === 'string' ? Number(value) : value
     let issue: string | undefined
     if (inputType === 'number' && (config.inputType === 'number' || config.type === 'slider')) {
-      if (config.supportsReferences !== false && typeof value === 'string') {
-        if (
-          extractReferencePrefixes(value).length > 0 ||
-          extractEnvironmentReferences(value).length > 0
-        ) {
-          continue
-        }
-      }
-      const number =
-        typeof value === 'number' || typeof value === 'string' ? Number(value) : Number.NaN
-      if (!Number.isFinite(number) || (config.integer && !Number.isInteger(number))) {
+      if (
+        typeof literalValue !== 'number' ||
+        !Number.isFinite(literalValue) ||
+        (config.integer && !Number.isInteger(literalValue))
+      ) {
         issue = config.integer ? 'Expected an integer.' : 'Expected a finite number.'
-      } else if (config.min !== undefined && number < config.min) {
+      } else if (config.min !== undefined && literalValue < config.min) {
         issue = `Expected a number greater than or equal to ${config.min}.`
-      } else if (config.max !== undefined && number > config.max) {
+      } else if (config.max !== undefined && literalValue > config.max) {
         issue = `Expected a number less than or equal to ${config.max}.`
       }
     } else if (
@@ -166,13 +168,19 @@ function validateSubBlockValues(block: BlockState, blockConfig: BlockConfig): st
       Array.isArray(config.options) &&
       config.options.length > 0
     ) {
-      if (!config.options.some((option) => option.id === value)) {
+      if (
+        !config.options.some(
+          (option) => (inputType === 'number' ? Number(option.id) : option.id) === literalValue
+        )
+      ) {
         issue = `Expected one of: ${config.options.map((option) => option.id).join(', ')}.`
       }
-    } else if (config.type === 'long-input') {
-      if (inputType === 'string' && typeof value !== 'string') {
-        issue = 'Expected a string.'
-      }
+    } else if (
+      config.type === 'long-input' &&
+      inputType === 'string' &&
+      typeof value !== 'string'
+    ) {
+      issue = 'Expected a string.'
     }
 
     if (issue) {
@@ -236,8 +244,6 @@ export function validateWorkflowState(
       // Validate tool references in blocks that use tools
       if (block.type === 'api' || block.type === 'generic') {
         // For API and generic blocks, the tool is determined by the block's tool configuration
-        // In the workflow state, we need to check if the block type has valid tool access
-        const blockConfig = getBlock(block.type)
         if (blockConfig?.tools?.access) {
           // API block has static tool access
           const toolIds = blockConfig.tools.access
@@ -248,10 +254,6 @@ export function validateWorkflowState(
             }
           }
         }
-      } else if (block.type === 'knowledge' || block.type === 'supabase' || block.type === 'mcp') {
-        // These blocks have dynamic tool selection based on operation
-        // The actual tool validation happens at runtime based on the operation value
-        // For now, just ensure the block type is valid (already checked above)
       }
 
       // Special validation for agent blocks
@@ -272,8 +274,6 @@ export function validateWorkflowState(
     // Validate edges reference existing blocks
     if (workflowState.edges && Array.isArray(workflowState.edges)) {
       const blockIds = new Set(Object.keys(sanitizedBlocks))
-      const loopIds = new Set(Object.keys(workflowState.loops || {}))
-      const parallelIds = new Set(Object.keys(workflowState.parallels || {}))
 
       for (const edge of workflowState.edges) {
         if (!edge || typeof edge !== 'object') {
@@ -281,16 +281,10 @@ export function validateWorkflowState(
           continue
         }
 
-        // Check if source and target exist
-        const sourceExists =
-          blockIds.has(edge.source) || loopIds.has(edge.source) || parallelIds.has(edge.source)
-        const targetExists =
-          blockIds.has(edge.target) || loopIds.has(edge.target) || parallelIds.has(edge.target)
-
-        if (!sourceExists) {
+        if (!blockIds.has(edge.source)) {
           workflowIssues.push(`Edge references non-existent source block '${edge.source}'`)
         }
-        if (!targetExists) {
+        if (!blockIds.has(edge.target)) {
           workflowIssues.push(`Edge references non-existent target block '${edge.target}'`)
         }
       }

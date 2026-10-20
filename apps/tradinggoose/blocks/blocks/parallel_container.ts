@@ -18,6 +18,7 @@ export const ParallelContainerBlock: BlockConfig = {
       id: 'parallelType',
       title: 'Parallel Type',
       type: 'dropdown',
+      supportsReferences: false,
       description: 'Choose a fixed execution count or one execution per collection item.',
       defaultValue: 'count',
       options: [

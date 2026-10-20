@@ -6,7 +6,10 @@ import { DatadogBlock } from '@/blocks/blocks/datadog'
 import { LoopBlock } from '@/blocks/blocks/loop'
 import { ParallelContainerBlock } from '@/blocks/blocks/parallel_container'
 import { PolymarketBlock } from '@/blocks/blocks/polymarket'
+import { SerperBlock } from '@/blocks/blocks/serper'
 import { SttBlock } from '@/blocks/blocks/stt'
+import { VideoGeneratorBlock } from '@/blocks/blocks/video_generator'
+import { WaitBlock } from '@/blocks/blocks/wait'
 import type { BlockState, WorkflowState } from '@/stores/workflows/workflow/types'
 import { sanitizeAgentToolsInBlocks, validateWorkflowState } from './validation'
 
@@ -149,6 +152,17 @@ describe('canonical sub-block validation', () => {
     ])
   })
 
+  it('requires container edge endpoints to exist as blocks', () => {
+    const state = workflowWithValues('sample', {})
+    state.loops.loop = { id: 'loop', nodes: [], loopType: 'for', iterations: 1 }
+    state.parallels.parallel = { id: 'parallel', nodes: [], parallelType: 'count', count: 1 }
+    state.edges = [{ id: 'orphan', source: 'loop', target: 'parallel' }]
+    expect(validateWorkflowState(state).errors).toEqual([
+      "Edge references non-existent source block 'loop'",
+      "Edge references non-existent target block 'parallel'",
+    ])
+  })
+
   it('preserves references on numeric-looking fields declared as strings', () => {
     validationMocks.getBlock.mockReturnValue({
       subBlocks: [
@@ -256,6 +270,38 @@ describe('canonical sub-block validation', () => {
     }
   )
 
+  it.each(['<variable.unit>', '<source.unit>', '{{UNIT}}', '{{UNIT_PREFIX}}onds'])(
+    'preserves supported dropdown references: %s',
+    (timeUnit) => {
+      validationMocks.getBlock.mockReturnValue(WaitBlock)
+      const state = workflowWithValues('wait', { timeUnit })
+      expect(validateWorkflowState(state).valid).toBe(true)
+      expect(state.blocks.sample.subBlocks.timeUnit.value).toBe(timeUnit)
+    }
+  )
+
+  it.each([
+    [SerperBlock, { num: 10 }, true],
+    [SerperBlock, { num: '10' }, true],
+    [SerperBlock, { num: 17 }, false],
+    [SerperBlock, { num: true }, false],
+    [SerperBlock, { num: null }, false],
+    [SerperBlock, { num: [10] }, false],
+    [VideoGeneratorBlock, { provider: 'runway', duration: 5 }, true],
+    [VideoGeneratorBlock, { provider: 'runway', duration: '5' }, true],
+    [VideoGeneratorBlock, { provider: 'runway', duration: 6 }, false],
+    [VideoGeneratorBlock, { provider: 'veo', duration: 6 }, true],
+    [WaitBlock, { timeUnit: 'seconds' }, true],
+    [WaitBlock, { timeUnit: 'invalid' }, false],
+    [WaitBlock, { timeUnit: 10 }, false],
+  ] as const)(
+    'validates dropdown options using declared input types (case %#)',
+    (config, values, valid) => {
+      validationMocks.getBlock.mockReturnValue(config)
+      expect(validateWorkflowState(workflowWithValues(config.type, values)).valid).toBe(valid)
+    }
+  )
+
   it.each(['invalid', '<>', '{{}}000'])(
     'rejects invalid numeric literals and malformed references: %s',
     (startTs) => {
@@ -271,11 +317,10 @@ describe('canonical sub-block validation', () => {
   it.each([
     [LoopBlock, { loopType: 'for', iterations: '<variable.count>0' }],
     [ParallelContainerBlock, { parallelType: 'count', count: '{{COUNT}}0' }],
-  ] as const)(
-    'requires numeric literals when a field disables runtime references',
-    (config, values) => {
-      validationMocks.getBlock.mockReturnValue(config)
-      expect(validateWorkflowState(workflowWithValues(config.type, values)).valid).toBe(false)
-    }
-  )
+    [LoopBlock, { loopType: '<variable.mode>' }],
+    [ParallelContainerBlock, { parallelType: '{{MODE}}' }],
+  ] as const)('requires literals when a field disables runtime references', (config, values) => {
+    validationMocks.getBlock.mockReturnValue(config)
+    expect(validateWorkflowState(workflowWithValues(config.type, values)).valid).toBe(false)
+  })
 })

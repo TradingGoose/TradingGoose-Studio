@@ -25,12 +25,18 @@ vi.mock('@/blocks/registry', async () => {
   const { SttBlock } = await import('@/blocks/blocks/stt')
   const { AgentBlock } = await import('@/blocks/blocks/agent')
   const { PolymarketBlock } = await import('@/blocks/blocks/polymarket')
+  const { WaitBlock } = await import('@/blocks/blocks/wait')
+  const { SerperBlock } = await import('@/blocks/blocks/serper')
+  const { VideoGeneratorBlock } = await import('@/blocks/blocks/video_generator')
   const registry = {
     loop: LoopBlock,
     parallel: ParallelContainerBlock,
     stt: SttBlock,
     agent: AgentBlock,
     polymarket: PolymarketBlock,
+    wait: WaitBlock,
+    serper: SerperBlock,
+    video_generator: VideoGeneratorBlock,
     function: {
       type: 'function',
       name: 'Function',
@@ -133,7 +139,7 @@ describe('editWorkflowBlockServerTool', () => {
     )
   })
 
-  it('allows unrelated edits beside valid conditional fields and numeric runtime references', async () => {
+  it('allows unrelated edits beside valid conditional fields and runtime values', async () => {
     current.blocks.whisper = block('whisper', 'stt', { provider: 'whisper', model: 'whisper-1' })
     current.blocks.agent = block('agent', 'agent', { model: 'gpt-4.1', temperature: 1.5 })
     current.blocks.market = block('market', 'polymarket', {
@@ -141,6 +147,9 @@ describe('editWorkflowBlockServerTool', () => {
       startTs: '<variable.startTime>',
       endTs: '{{END_TIME}}',
     })
+    current.blocks.wait = block('wait', 'wait', { timeUnit: '<variable.unit>' })
+    current.blocks.search = block('search', 'serper', { num: 10 })
+    current.blocks.video = block('video', 'video_generator', { provider: 'runway', duration: 5 })
 
     const result = await editWorkflowBlockServerTool.execute(
       { entityId: 'wf-1', blockId: 'fn1', subBlocks: { code: 'return 42' } },
@@ -148,7 +157,7 @@ describe('editWorkflowBlockServerTool', () => {
     )
 
     expect(result.workflowState.blocks.fn1.subBlocks.code.value).toBe('return 42')
-    for (const id of ['whisper', 'agent', 'market']) {
+    for (const id of ['whisper', 'agent', 'market', 'wait', 'search', 'video']) {
       expect(result.workflowState.blocks[id]).toEqual(current.blocks[id])
     }
     expect(result.preview.blockDiff).toEqual({ added: [], removed: [], updated: ['fn1'] })
