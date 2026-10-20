@@ -244,45 +244,7 @@ export function materializeWorkflowBlockFields(
   block: BlockState | null,
   subBlockFields: Y.Map<any>
 ): BlockState | null {
-  if (!block) {
-    return block
-  }
-
-  let nextBlock = block
-
-  for (const [key, field] of subBlockFields) {
-    const parsed = parseWorkflowSubBlockFieldKey(key)
-    if (!parsed || parsed.blockId !== blockId) continue
-    const { subBlockId } = parsed
-    const nextValue = field instanceof Y.Text ? field.toString() : field
-    if (block.subBlocks?.[subBlockId]?.value === nextValue) {
-      continue
-    }
-
-    if (nextBlock === block) {
-      nextBlock = {
-        ...block,
-        subBlocks: {
-          ...block.subBlocks,
-        },
-      }
-    }
-
-    nextBlock.subBlocks[subBlockId] = {
-      ...nextBlock.subBlocks[subBlockId],
-      id: subBlockId,
-      value: nextValue,
-    }
-  }
-
-  return nextBlock === block
-    ? nextBlock
-    : {
-        ...nextBlock,
-        outputs: resolveOutputType(
-          readBlockOutputs(block.type, nextBlock.subBlocks, block.triggerMode === true)
-        ),
-      }
+  return block ? materializeWorkflowFields({ [blockId]: block }, subBlockFields)[blockId] : null
 }
 
 export function materializeWorkflowFields(
@@ -291,18 +253,34 @@ export function materializeWorkflowFields(
 ): Record<string, BlockState> {
   let nextBlocks = blocks
 
-  for (const [blockId, block] of Object.entries(blocks)) {
-    const materializedBlock = materializeWorkflowBlockFields(blockId, block, subBlockFields)
-    if (!materializedBlock || materializedBlock === block) {
-      continue
-    }
+  for (const [key, field] of subBlockFields) {
+    const parsed = parseWorkflowSubBlockFieldKey(key)
+    if (!parsed) continue
+    const { blockId, subBlockId } = parsed
+    const block = nextBlocks[blockId]
+    if (!block) continue
+    const value = field instanceof Y.Text ? field.toString() : field
+    if (block.subBlocks?.[subBlockId]?.value === value) continue
 
-    if (nextBlocks === blocks) {
-      nextBlocks = { ...blocks }
+    if (nextBlocks === blocks) nextBlocks = { ...blocks }
+    if (block === blocks[blockId]) {
+      nextBlocks[blockId] = { ...block, subBlocks: { ...block.subBlocks } }
     }
-    nextBlocks[blockId] = materializedBlock
+    nextBlocks[blockId].subBlocks[subBlockId] = {
+      ...block.subBlocks?.[subBlockId],
+      id: subBlockId,
+      value,
+    }
   }
 
+  if (nextBlocks !== blocks) {
+    for (const [blockId, block] of Object.entries(nextBlocks)) {
+      if (block === blocks[blockId]) continue
+      block.outputs = resolveOutputType(
+        readBlockOutputs(block.type, block.subBlocks, block.triggerMode === true)
+      )
+    }
+  }
   return nextBlocks
 }
 

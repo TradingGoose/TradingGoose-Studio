@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
+import { AgentBlock } from '@/blocks/blocks/agent'
 import { FunctionBlock } from '@/blocks/blocks/function'
 import { LoopBlock } from '@/blocks/blocks/loop'
 import { ParallelContainerBlock } from '@/blocks/blocks/parallel_container'
@@ -181,6 +182,52 @@ describe('workflow session fields', () => {
       doc.destroy()
     }
   )
+
+  it('materializes many Agent blocks in one field traversal and preserves derived outputs', () => {
+    const doc = new Y.Doc()
+    const blocks = Object.fromEntries(
+      Array.from({ length: 100 }, (_, index) => {
+        const id = `agent-${index}`
+        return [
+          id,
+          {
+            id,
+            type: 'agent',
+            name: id,
+            enabled: true,
+            position: { x: 0, y: 0 },
+            outputs: {},
+            subBlocks: buildInitialSubBlockStates(AgentBlock.subBlocks) as BlockState['subBlocks'],
+          },
+        ]
+      })
+    )
+    setWorkflowState(doc, createWorkflowSnapshot({ blocks }))
+    const responseFormat = JSON.stringify({
+      type: 'object',
+      properties: { symbol: { type: 'string' } },
+    })
+    setWorkflowSubBlockValues(doc, [
+      { blockId: 'agent-0', subBlockId: 'responseFormat', value: responseFormat },
+    ])
+    const fields = readWorkflowSubBlockFieldsMap(doc)
+    const entries = fields.entries.bind(fields)
+    let visited = 0
+    const scan = vi.spyOn(fields, 'entries').mockImplementation(function* () {
+      for (const entry of entries()) {
+        visited++
+        yield entry
+      }
+    })
+
+    const snapshot = readWorkflowSnapshot(doc)
+    expect(visited).toBeLessThanOrEqual(fields.size)
+    expect(snapshot.blocks['agent-0'].subBlocks.responseFormat.value).toBe(responseFormat)
+    expect(snapshot.blocks['agent-0'].outputs).toEqual({ symbol: 'string' })
+    expect(snapshot.blocks['agent-99']).toBe(blocks['agent-99'])
+    scan.mockRestore()
+    doc.destroy()
+  })
 
   it.each([
     [LoopBlock, 'while', 'whileCondition', 'false', 'true', 'loops'],
