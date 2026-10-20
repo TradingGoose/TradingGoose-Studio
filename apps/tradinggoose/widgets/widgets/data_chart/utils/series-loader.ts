@@ -1,19 +1,8 @@
+import { toDate } from '@/providers/market/market-hours/date-utils'
 import { intervalToMs } from '@/providers/market/series-planner'
+import { rangeToMs } from '@/providers/market/series-window'
 import type { MarketSeries, MarketSeriesWindow } from '@/providers/market/types'
 import { DEFAULT_BAR_COUNT } from '@/widgets/widgets/data_chart/series-data'
-import { rangeToMs } from '@/widgets/widgets/data_chart/series-window'
-
-const toEpochMs = (value?: string | number | null): number | null => {
-  if (value === undefined || value === null) return null
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value > 1e12 ? value : value * 1000
-  }
-  if (typeof value === 'string') {
-    const parsed = Date.parse(value)
-    return Number.isFinite(parsed) ? parsed : null
-  }
-  return null
-}
 
 const resolveWindowSpanMs = (window: MarketSeriesWindow, intervalMs?: number | null) => {
   if (window.mode === 'range') return rangeToMs(window.range)
@@ -22,8 +11,8 @@ const resolveWindowSpanMs = (window: MarketSeriesWindow, intervalMs?: number | n
     const spanMs = intervalMs * window.barCount
     return spanMs > 0 ? spanMs : null
   }
-  const startMs = toEpochMs(window.start)
-  const endMs = toEpochMs(window.end) ?? Date.now()
+  const startMs = toDate(window.start)?.getTime()
+  const endMs = toDate(window.end)?.getTime() ?? Date.now()
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null
   const spanMs = Number(endMs) - Number(startMs)
   return spanMs > 0 ? spanMs : null
@@ -97,8 +86,8 @@ export const resolveSeriesSpanMs = ({
   interval?: string | null
   defaultBarCount?: number
 }): number | null => {
-  const startMs = toEpochMs(series.start)
-  const endMs = toEpochMs(series.end)
+  const startMs = toDate(series.start)?.getTime()
+  const endMs = toDate(series.end)?.getTime()
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null
   const spanMs = Number(endMs) - Number(startMs)
   if (spanMs <= 0) return null

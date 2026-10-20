@@ -9,22 +9,23 @@ const listing = {
 }
 
 describe('planMarketSeriesRequest', () => {
-  it('accepts absolute windows that start at unix epoch', () => {
+  it.each([0, '0', -1, '-1'] as const)('accepts Unix bounds around the epoch: %s', (start) => {
+    const startMs = Number(start) * 1000
     const end = Date.parse('1974-07-11T13:30:00.000Z')
     const result = planMarketSeriesRequest('alpaca', {
       kind: 'series',
       listing,
       interval: '1d',
-      windows: [{ mode: 'absolute', start: 0, end }],
+      windows: [{ mode: 'absolute', start, end }],
     })
 
     expect(result.mode).toBe('absolute')
     expect(result.window).toEqual({
       mode: 'absolute',
-      startMs: 0,
+      startMs,
       endMs: end,
     })
-    expect(result.request.start).toBe('1970-01-01T00:00:00.000Z')
+    expect(result.request.start).toBe(new Date(startMs).toISOString())
     expect(result.request.end).toBe('1974-07-11T13:30:00.000Z')
     expect(result.request.windows).toEqual([
       { mode: 'absolute', start: result.request.start, end: result.request.end },

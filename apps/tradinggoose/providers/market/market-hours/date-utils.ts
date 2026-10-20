@@ -2,7 +2,13 @@ import { DATE_KEY_RE, MARKET_DAY_MS } from './constants'
 
 export const toDate = (value?: string | number): Date | null => {
   if (value === undefined || value === null) return null
-  const date = new Date(value)
+  const timestamp =
+    typeof value === 'string' && /^[+-]?\d+(?:\.\d+)?$/.test(value.trim()) ? Number(value) : value
+  const date = new Date(
+    typeof timestamp === 'number' && Math.abs(timestamp) < 10_000_000_000
+      ? timestamp * 1000
+      : timestamp
+  )
   return Number.isNaN(date.getTime()) ? null : date
 }
 

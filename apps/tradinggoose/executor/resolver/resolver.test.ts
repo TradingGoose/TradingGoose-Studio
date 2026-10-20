@@ -1,11 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
 import { DatadogBlock } from '@/blocks/blocks/datadog'
+import { HistoricalDataBlock } from '@/blocks/blocks/historical_data'
 import { getBlock } from '@/blocks/index'
 import { BlockType } from '@/executor/consts'
 import { InputResolver } from '@/executor/resolver/resolver'
 import type { ExecutionContext } from '@/executor/types'
+import { planMarketSeriesRequest } from '@/providers/market/series-planner'
+import type { MarketSeriesRequest } from '@/providers/market/types'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
+import { historicalDataTool, type MarketSeriesParams } from '@/tools/market_data/series'
 
 const createInputResolver = (
   workflow: SerializedWorkflow,
@@ -314,6 +318,38 @@ describe('InputResolver', () => {
   })
 
   describe('Block Reference Resolution', () => {
+    it.each([
+      [1704067200, 1704153600],
+      [1704067200000, 1704153600000],
+    ])('preserves historical timestamp bounds resolved from block outputs: %s', (start, end) => {
+      mockContext.blockStates.get('function-block').output = { start, end }
+      vi.mocked(getBlock).mockReturnValueOnce(HistoricalDataBlock)
+      const block: SerializedBlock = {
+        ...sampleWorkflow.blocks[1],
+        id: 'test-block',
+        metadata: { id: 'historical_data' },
+        config: {
+          tool: 'historical_data_fetch',
+          params: {
+            provider: 'alpaca',
+            listing: { listing_id: 'AAPL', base_id: '', quote_id: '', listing_type: 'default' },
+            rangePresetId: 'custom',
+            start: '<function.start>',
+            end: '<function.end>',
+          },
+        },
+      }
+      const inputs = resolver.resolveInputs(block, mockContext)
+      expect([inputs.start, inputs.end]).toEqual([String(start), String(end)])
+      const params = HistoricalDataBlock.tools.config!.params!(inputs)
+      const body = historicalDataTool.request.body!(params as MarketSeriesParams)
+      const planned = planMarketSeriesRequest('alpaca', body as MarketSeriesRequest)
+
+      expect(planned.request.windows).toEqual([
+        { mode: 'absolute', start: '2024-01-01T00:00:00.000Z', end: '2024-01-02T00:00:00.000Z' },
+      ])
+    })
+
     it('should resolve references to other blocks', () => {
       const block: SerializedBlock = {
         id: 'test-block',
