@@ -105,7 +105,7 @@ describe('LoopManager', () => {
 
     mockContext = createMockContext({
       workflow: createWorkflowWithLoop(createBasicLoop()),
-      loopIterations: new Map([['loop-1', 0]]),
+      loopIterations: new Map([['loop-1', 1]]),
       loopItems: new Map(),
       executedBlocks: new Set(),
       activeExecutionPath: new Set(['trigger', 'loop-1']),
@@ -188,17 +188,14 @@ describe('LoopManager', () => {
 
       // Set up loop execution state with some results
       mockContext.loopExecutions = new Map()
-      mockContext.loopExecutions.set('loop-1', {
-        maxIterations: 3,
-        loopType: 'for',
-        forEachItems: null,
-        executionResults: new Map([
+      mockContext.loopExecutions.set(
+        'loop-1',
+        new Map([
           ['iteration_0', { iteration: { 'block-1': { result: 'result1' } } }],
           ['iteration_1', { iteration: { 'block-1': { result: 'result2' } } }],
           ['iteration_2', { iteration: { 'block-1': { result: 'result3' } } }],
-        ]),
-        currentIteration: 3,
-      })
+        ])
+      )
 
       const result = await manager.processLoopIterations(mockContext)
 
@@ -294,21 +291,13 @@ describe('LoopManager', () => {
       expect(mockContext.loopExecutions).toBeDefined()
       const loopState = mockContext.loopExecutions!.get('loop-1')
       expect(loopState).toBeDefined()
-      expect(loopState?.maxIterations).toBe(3)
-      expect(loopState?.loopType).toBe('for')
-      expect(loopState?.executionResults.get('iteration_0')).toEqual(output)
+      expect(loopState?.get('iteration_0')).toEqual(output)
     })
 
     test('should add to existing loop state', () => {
       // Initialize loop state
       mockContext.loopExecutions = new Map()
-      mockContext.loopExecutions.set('loop-1', {
-        maxIterations: 3,
-        loopType: 'for',
-        forEachItems: null,
-        executionResults: new Map(),
-        currentIteration: 0,
-      })
+      mockContext.loopExecutions.set('loop-1', new Map())
 
       const output1 = { result: 'result1' }
       const output2 = { result: 'result2' }
@@ -317,66 +306,14 @@ describe('LoopManager', () => {
       manager.storeIterationResult(mockContext, 'loop-1', 0, output2)
 
       const loopState = mockContext.loopExecutions.get('loop-1')
-      const iterationResults = loopState?.executionResults.get('iteration_0')
+      const iterationResults = loopState?.get('iteration_0')
 
       // When multiple results are stored for the same iteration, they are combined into an array
       expect(iterationResults).toEqual([output1, output2])
     })
-
-    test('should handle forEach loop state creation', () => {
-      const forEachLoop = createForEachLoop(['item1', 'item2'])
-      manager = new LoopManager({ 'loop-1': forEachLoop })
-
-      const output = { result: 'test result' }
-
-      manager.storeIterationResult(mockContext, 'loop-1', 0, output)
-
-      const loopState = mockContext.loopExecutions!.get('loop-1')
-      expect(loopState?.loopType).toBe('forEach')
-      expect(loopState?.forEachItems).toEqual(['item1', 'item2'])
-    })
   })
 
-  describe('getLoopIndex', () => {
-    test('should return current iteration for existing loop', () => {
-      mockContext.loopIterations.set('loop-1', 2)
-
-      const index = manager.getLoopIndex('loop-1', 'block-1', mockContext)
-
-      expect(index).toBe(2)
-    })
-
-    test('should return 0 for non-existent loop iteration', () => {
-      const index = manager.getLoopIndex('non-existent', 'block-1', mockContext)
-
-      expect(index).toBe(0)
-    })
-
-    test('should return 0 for unknown loop', () => {
-      const unknownManager = new LoopManager({})
-      const index = unknownManager.getLoopIndex('unknown', 'block-1', mockContext)
-
-      expect(index).toBe(0)
-    })
-  })
-
-  describe('getCurrentItem', () => {
-    test('should return current item for loop', () => {
-      mockContext.loopItems.set('loop-1', ['current-item'])
-
-      const item = manager.getCurrentItem('loop-1', mockContext)
-
-      expect(item).toEqual(['current-item'])
-    })
-
-    test('should return undefined for non-existent loop item', () => {
-      const item = manager.getCurrentItem('non-existent', mockContext)
-
-      expect(item).toBeUndefined()
-    })
-  })
-
-  describe('allBlocksExecuted (private method testing through processLoopIterations)', () => {
+  describe('reachable loop blocks', () => {
     test('should handle router blocks with selected paths', async () => {
       // Create a workflow with a router block inside the loop
       const workflow = createWorkflowWithLoop(createBasicLoop())
@@ -579,16 +516,13 @@ describe('LoopManager', () => {
 
       // Set up loop execution states
       mockContext.loopExecutions = new Map()
-      mockContext.loopExecutions.set('loop-1', {
-        maxIterations: 2,
-        loopType: 'for',
-        forEachItems: null,
-        executionResults: new Map([
+      mockContext.loopExecutions.set(
+        'loop-1',
+        new Map([
           ['iteration_0', { iteration: { 'block-1': { result: 'result1' } } }],
           ['iteration_1', { iteration: { 'block-1': { result: 'result2' } } }],
-        ]),
-        currentIteration: 2,
-      })
+        ])
+      )
 
       const result = await manager.processLoopIterations(mockContext)
 

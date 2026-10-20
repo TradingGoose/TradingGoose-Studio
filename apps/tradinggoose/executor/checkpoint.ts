@@ -3,9 +3,6 @@ import type { ExecutionContext, NormalizedBlockOutput } from '@/executor/types'
 import type { SerializedWorkflow } from '@/serializer/types'
 
 type MapEntries<T> = T extends Map<infer Key, infer Value> ? [Key, Value][] : never
-type LoopState = NonNullable<ExecutionContext['loopExecutions']> extends Map<string, infer State>
-  ? State
-  : never
 type ParallelState = NonNullable<ExecutionContext['parallelExecutions']> extends Map<
   string,
   infer State
@@ -42,10 +39,7 @@ type SavedContext = Omit<
   completedLoops: string[]
   executedBlocks: string[]
   activeExecutionPath: string[]
-  loopExecutions?: [
-    string,
-    Omit<LoopState, 'executionResults'> & { executionResults: [string, unknown][] },
-  ][]
+  loopExecutions?: [string, [string, unknown][]][]
   parallelExecutions?: [
     string,
     Omit<ParallelState, 'executionResults' | 'activeIterations'> & {
@@ -91,10 +85,7 @@ export function saveExecutionContext(context: ExecutionContext): SavedContext {
     activeExecutionPath: [...context.activeExecutionPath],
     loopExecutions:
       context.loopExecutions &&
-      [...context.loopExecutions].map(([id, state]) => [
-        id,
-        { ...state, executionResults: [...state.executionResults] },
-      ]),
+      [...context.loopExecutions].map(([id, results]) => [id, [...results]]),
     parallelExecutions:
       context.parallelExecutions &&
       [...context.parallelExecutions].map(([id, state]) => [
@@ -124,12 +115,7 @@ export function restoreExecutionContext(saved: SavedContext): ExecutionContext {
     activeExecutionPath: new Set(saved.activeExecutionPath),
     loopExecutions:
       saved.loopExecutions &&
-      new Map(
-        saved.loopExecutions.map(([id, state]) => [
-          id,
-          { ...state, executionResults: new Map(state.executionResults) },
-        ])
-      ),
+      new Map(saved.loopExecutions.map(([id, results]) => [id, new Map(results)])),
     parallelExecutions:
       saved.parallelExecutions &&
       new Map(

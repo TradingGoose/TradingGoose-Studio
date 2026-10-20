@@ -78,9 +78,6 @@ export const setupExecutorCoreMocks = () => {
   vi.doMock('@/executor/loops', () => ({
     LoopManager: vi.fn().mockImplementation(() => ({
       processLoopIterations: vi.fn().mockResolvedValue(false),
-      getLoopIndex: vi.fn().mockImplementation((loopId, blockId, context) => {
-        return context.loopIterations?.get(loopId) || 0
-      }),
     })),
   }))
 

@@ -82,20 +82,33 @@ describe('LoopBlockHandler', () => {
 
   describe('execute', () => {
     it.each([
-      ['while', '<loop.index> < 3', [0, 1, 2]],
-      ['doWhile', '<loop.index> < 3', [0, 1, 2]],
-      ['while', 'false', []],
-      ['doWhile', 'false', [0]],
+      ['for', '', [0], ''],
+      ['for', '', [0, 1, 2], ''],
+      ['forEach', '', [0], '["single"]'],
+      ['forEach', '', [0, 1, 2], '["a","b","c"]'],
+      ['forEach', '', [0, 1], '{"a":1,"b":2}'],
+      ['while', '<loop.index> < 3', [0, 1, 2], ''],
+      ['doWhile', '<loop.index> < 3', [0, 1, 2], ''],
+      ['while', 'false', [], ''],
+      ['doWhile', 'false', [0], ''],
     ] as const)(
-      'executes %s condition %s with the current body index',
-      async (loopType, condition, expected) => {
+      'executes %s with complete iteration outputs (case %#)',
+      async (loopType, condition, expected, collection) => {
         const workflow = mockContext.workflow!
+        const aggregatesResults = loopType === 'for' || loopType === 'forEach'
         workflow.loops[mockBlock.id] = {
           ...workflow.loops[mockBlock.id],
           loopType,
+          iterations: loopType === 'for' ? expected.length : 3,
+          forEachItems: collection,
           whileCondition: condition,
         }
-        mockBlock.config.params = { loopType, whileCondition: condition }
+        mockBlock.config.params = {
+          loopType,
+          iterations: workflow.loops[mockBlock.id].iterations,
+          forEachItems: collection,
+          whileCondition: condition,
+        }
         workflow.blocks.push(
           {
             ...mockBlock,
@@ -116,7 +129,15 @@ describe('LoopBlockHandler', () => {
             ...mockBlock,
             id: 'after-loop',
             metadata: { id: BlockType.RESPONSE, name: 'After' },
-            config: { tool: 'response', params: { dataMode: 'json', data: '{"done":true}' } },
+            config: {
+              tool: 'response',
+              params: {
+                dataMode: 'json',
+                data: aggregatesResults
+                  ? '{"done":true,"results":<testloop.results>}'
+                  : '{"done":true}',
+              },
+            },
           }
         )
         workflow.connections.unshift({ source: 'trigger', target: mockBlock.id })
@@ -126,12 +147,12 @@ describe('LoopBlockHandler', () => {
         }).execute('test-workflow', 'trigger')
 
         expect(result.success).toBe(true)
-        expect(
-          result.logs
-            ?.filter((log) => log.blockId === 'inner-block')
-            .map((log) => log.output?.response?.data.index)
-        ).toEqual(expected)
+        const bodyLogs = result.logs!.filter((log) => log.blockId === 'inner-block')
+        expect(bodyLogs.map((log) => log.output?.response?.data.index)).toEqual(expected)
         expect(result.output.response?.data.done).toBe(true)
+        if (aggregatesResults) {
+          expect(result.output.response?.data.results).toEqual(bodyLogs.map((log) => log.output))
+        }
       }
     )
 

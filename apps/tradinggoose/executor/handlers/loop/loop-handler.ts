@@ -46,7 +46,7 @@ export class LoopBlockHandler implements BlockHandler {
       logger.info(`Initialized loop ${block.id} starting at iteration 1`)
     }
 
-    const currentIteration = context.loopIterations.get(block.id) || 1
+    const currentIteration = context.loopIterations.get(block.id)!
     let maxIterations: number
     let forEachItems: any[] | Record<string, any> | null = null
     let shouldContinueLoop = true
@@ -84,14 +84,6 @@ export class LoopBlockHandler implements BlockHandler {
         `forEach loop ${block.id} - Items: ${itemsLength}, Max iterations: ${maxIterations}`
       )
     } else if (loop.loopType === 'while' || loop.loopType === 'doWhile') {
-      // For while and doWhile loops, set loop context BEFORE evaluating condition
-      // This makes variables like index, currentIteration available in the condition
-      const loopContext = {
-        index: currentIteration - 1, // 0-based index
-        currentIteration, // 1-based iteration number
-      }
-      context.loopItems.set(block.id, loopContext)
-
       // Evaluate the condition to determine if we should continue
       if (!loop.whileCondition || loop.whileCondition.trim() === '') {
         throw new Error(

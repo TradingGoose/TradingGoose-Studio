@@ -229,8 +229,7 @@ export class Executor {
       this.actualWorkflow,
       this.environmentVariables,
       this.workflowVariables,
-      accessibleBlocksMap,
-      this.loopManager
+      accessibleBlocksMap
     )
     this.pathTracker = new PathTracker(this.actualWorkflow)
 
@@ -690,14 +689,6 @@ export class Executor {
         executionTime: 0,
       })
     })
-
-    // Initialize loop iterations
-    if (this.actualWorkflow.loops) {
-      for (const loopId of Object.keys(this.actualWorkflow.loops)) {
-        // Start all loops at iteration 0
-        context.loopIterations.set(loopId, 0)
-      }
-    }
 
     const initBlock = this.actualWorkflow.blocks.find((block) => block.id === triggerBlockId)
     if (!initBlock) {

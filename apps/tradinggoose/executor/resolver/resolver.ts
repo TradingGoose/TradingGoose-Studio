@@ -8,17 +8,12 @@ import {
 } from '@/lib/workflows/references'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { getBlock } from '@/blocks/index'
-import type { LoopManager } from '@/executor/loops/loops'
 import type { ExecutionContext } from '@/executor/types'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 import type { VariableType } from '@/stores/variables/types'
 import { normalizeBlockName } from '@/stores/workflows/utils'
 
 const logger = createLogger('InputResolver')
-
-function resolvePropertyAccess(obj: any, property: string): any {
-  return obj[property]
-}
 
 export class InputResolver {
   private blockById: Map<string, SerializedBlock>
@@ -30,8 +25,7 @@ export class InputResolver {
     private workflow: SerializedWorkflow,
     private environmentVariables: Record<string, string>,
     private workflowVariables: Record<string, any>,
-    public accessibleBlocksMap: Map<string, Set<string>>,
-    private loopManager?: LoopManager
+    public accessibleBlocksMap: Map<string, Set<string>>
   ) {
     // Create maps for efficient lookups
     this.blockById = new Map(workflow.blocks.map((block) => [block.id, block]))
@@ -39,7 +33,7 @@ export class InputResolver {
     // Initialize the normalized name map
     this.blockByNormalizedName = new Map(
       workflow.blocks.map((block) => [
-        block.metadata?.name ? this.normalizeBlockName(block.metadata.name) : block.id,
+        block.metadata?.name ? normalizeBlockName(block.metadata.name) : block.id,
         block,
       ])
     )
@@ -451,7 +445,7 @@ export class InputResolver {
               if (Array.isArray(replacementValue)) {
                 throw new Error(`Array path "${path}" in trigger block must use an explicit index.`)
               }
-              replacementValue = resolvePropertyAccess(replacementValue, part)
+              replacementValue = replacementValue[part]
             }
 
             if (replacementValue === undefined) {
@@ -657,7 +651,7 @@ export class InputResolver {
               `Array path "${path}" in block "${sourceBlock.metadata?.name || sourceBlock.id}" must use an explicit index.`
             )
           }
-          replacementValue = resolvePropertyAccess(replacementValue, part)
+          replacementValue = replacementValue[part]
         }
 
         if (replacementValue === undefined) {
@@ -859,7 +853,7 @@ export class InputResolver {
     let rest = part
     if (propMatch) {
       const prop = propMatch[1]
-      value = resolvePropertyAccess(value, prop)
+      value = value[prop]
       rest = part.slice(prop.length)
       if (value === undefined) {
         throw new Error(`No value found at path "${fullPath}" in block "${sourceName}".`)
@@ -887,17 +881,6 @@ export class InputResolver {
     }
 
     return value
-  }
-
-  /**
-   * Normalizes block name for consistent lookups.
-   * Converts to lowercase and removes whitespace.
-   *
-   * @param name - Block name to normalize
-   * @returns Normalized block name
-   */
-  private normalizeBlockName(name: string): string {
-    return name.toLowerCase().replace(/\s+/g, '')
   }
 
   /**
@@ -954,23 +937,8 @@ export class InputResolver {
     currentBlockId: string
   ): { isValid: boolean; resolvedBlockId?: string; errorMessage?: string } {
     // Check if block exists
-    let sourceBlock = this.blockById.get(blockRef)
-    if (!sourceBlock) {
-      const normalizedRef = this.normalizeBlockName(blockRef)
-      sourceBlock = this.blockByNormalizedName.get(normalizedRef)
-
-      if (!sourceBlock) {
-        for (const candidate of this.workflow.blocks) {
-          const candidateName = candidate.metadata?.name
-          if (!candidateName) continue
-          const normalizedName = this.normalizeBlockName(candidateName)
-          if (normalizedName === normalizedRef) {
-            sourceBlock = candidate
-            break
-          }
-        }
-      }
-    }
+    const sourceBlock =
+      this.blockById.get(blockRef) ?? this.blockByNormalizedName.get(normalizeBlockName(blockRef))
 
     if (!sourceBlock) {
       const accessibleNames = this.getAccessibleBlockNamesForError(currentBlockId)
@@ -1202,8 +1170,7 @@ export class InputResolver {
 
       case 'index': {
         // The manager advances the one-based counter after each completed body.
-        const index = context.loopIterations.get(loopId) || 0
-        const adjustedIndex = Math.max(0, index - 1)
+        const adjustedIndex = (context.loopIterations.get(loopId) ?? 1) - 1
         return this.formatValueForCodeContext(adjustedIndex, currentBlock, isInTemplateLiteral)
       }
 

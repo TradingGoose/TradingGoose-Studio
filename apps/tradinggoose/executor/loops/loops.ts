@@ -2,7 +2,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { BlockType } from '@/executor/consts'
 import type { ExecutionContext } from '@/executor/types'
 import { ConnectionUtils } from '@/executor/utils/connections'
-import type { SerializedBlock, SerializedConnection, SerializedLoop } from '@/serializer/types'
+import type { SerializedLoop } from '@/serializer/types'
 
 const logger = createLogger('LoopManager')
 
@@ -44,7 +44,7 @@ export class LoopManager {
 
       if (allBlocksInLoopExecuted) {
         // All blocks in the loop have been executed
-        const currentIteration = context.loopIterations.get(loopId) || 1
+        const currentIteration = context.loopIterations.get(loopId)!
 
         // Results are now stored individually as blocks execute (like parallels)
         // No need for bulk collection here
@@ -76,10 +76,10 @@ export class LoopManager {
           logger.info(`Loop ${loopId} has completed all ${maxIterations} iterations`)
 
           const results = []
-          const loopState = context.loopExecutions?.get(loopId)
-          if (loopState) {
+          const loopResults = context.loopExecutions?.get(loopId)
+          if (loopResults) {
             for (let i = 0; i < maxIterations; i++) {
-              const result = loopState.executionResults.get(`iteration_${i}`)
+              const result = loopResults.get(`iteration_${i}`)
               if (result) {
                 results.push(result)
               }
@@ -120,7 +120,7 @@ export class LoopManager {
 
           // Condition-driven loops reset their children after the next condition passes.
           if (loop.loopType === 'for' || loop.loopType === 'forEach') {
-            this.resetLoopBlocks(loopId, loop, context)
+            this.resetLoopBlocks(loop, context)
           }
           context.executedBlocks.delete(loopId)
           context.blockStates.delete(loopId)
@@ -218,11 +218,10 @@ export class LoopManager {
   /**
    * Resets all blocks within a loop for the next iteration.
    *
-   * @param loopId - ID of the loop
    * @param loop - The loop configuration
    * @param context - Current execution context
    */
-  private resetLoopBlocks(loopId: string, loop: SerializedLoop, context: ExecutionContext): void {
+  private resetLoopBlocks(loop: SerializedLoop, context: ExecutionContext): void {
     // Reset all blocks in the loop
     for (const nodeId of loop.nodes) {
       context.executedBlocks.delete(nodeId)
@@ -249,90 +248,26 @@ export class LoopManager {
     if (!loop) throw new Error(`Loop configuration not found for block ${loopId}`)
     if (loop.loopType !== 'for' && loop.loopType !== 'forEach') return
 
-    if (!context.loopExecutions) {
-      context.loopExecutions = new Map()
-    }
+    context.loopExecutions ??= new Map()
 
-    let loopState = context.loopExecutions.get(loopId)
-    if (!loopState) {
-      const forEachItems = loop.forEachItems
-
-      loopState = {
-        maxIterations: loop.iterations,
-        loopType: loop.loopType,
-        forEachItems:
-          Array.isArray(forEachItems) || (typeof forEachItems === 'object' && forEachItems !== null)
-            ? forEachItems
-            : null,
-        executionResults: new Map(),
-        currentIteration: 0,
-      }
-      context.loopExecutions.set(loopId, loopState)
+    let loopResults = context.loopExecutions.get(loopId)
+    if (!loopResults) {
+      loopResults = new Map()
+      context.loopExecutions.set(loopId, loopResults)
     }
 
     const iterationKey = `iteration_${iterationIndex}`
-    const existingResult = loopState.executionResults.get(iterationKey)
+    const existingResult = loopResults.get(iterationKey)
 
     if (existingResult) {
       if (Array.isArray(existingResult)) {
         existingResult.push(output)
       } else {
-        loopState.executionResults.set(iterationKey, [existingResult, output])
+        loopResults.set(iterationKey, [existingResult, output])
       }
     } else {
-      loopState.executionResults.set(iterationKey, output)
+      loopResults.set(iterationKey, output)
     }
-  }
-
-  /**
-   * Gets the correct loop index based on the current block being executed.
-   *
-   * @param loopId - ID of the loop
-   * @param blockId - ID of the block requesting the index
-   * @param context - Current execution context
-   * @returns The correct loop index for this block
-   */
-  getLoopIndex(loopId: string, blockId: string, context: ExecutionContext): number {
-    const loop = this.loops[loopId]
-    if (!loop) return 0
-
-    // Return the current iteration counter
-    return context.loopIterations.get(loopId) || 0
-  }
-
-  /**
-   * Gets the current item for a forEach loop.
-   *
-   * @param loopId - ID of the loop
-   * @param context - Current execution context
-   * @returns Current item in the loop iteration
-   */
-  getCurrentItem(loopId: string, context: ExecutionContext): any {
-    return context.loopItems.get(loopId)
-  }
-
-  /**
-   * Checks if a connection forms a feedback path in a loop.
-   * With loop blocks, feedback paths are now handled by loop-to-inner-block connections.
-   *
-   * @param connection - Connection to check
-   * @param blocks - All blocks in the workflow
-   * @returns Whether the connection forms a feedback path
-   */
-  isFeedbackPath(connection: SerializedConnection, blocks: SerializedBlock[]): boolean {
-    // With the new loop block approach, feedback paths are connections from
-    // blocks inside the loop back to the loop block itself
-    for (const [loopId, loop] of Object.entries(this.loops)) {
-      // Use Set for O(1) lookup performance instead of O(n) includes()
-      const loopNodesSet = new Set(loop.nodes)
-
-      // Check if source is inside the loop and target is the loop block
-      if (loopNodesSet.has(connection.source) && connection.target === loopId) {
-        return true
-      }
-    }
-
-    return false
   }
 
   /**
