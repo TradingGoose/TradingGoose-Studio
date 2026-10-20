@@ -16,7 +16,6 @@ import * as Y from 'yjs'
 import { resolveStoredDateValue } from '@/lib/time-format'
 import { readBlockOutputs } from '@/lib/workflows/block-outputs'
 import { evaluateSubBlockCondition } from '@/lib/workflows/sub-block-conditions'
-import { isSubBlockInMode } from '@/lib/workflows/subblock-values'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { getBlock } from '@/blocks/registry'
 import { resolveOutputType } from '@/blocks/utils'
@@ -96,22 +95,29 @@ function isWorkflowTextField(
   const config = block && getBlock(block.type)
   const variants = config?.subBlocks.filter(({ id }) => id === subBlockId)
   if (!config || !variants?.length) return undefined
+  const textVariants = variants.filter(
+    (variant) =>
+      (variant.type === 'short-input' && variant.inputType !== 'number') ||
+      variant.type === 'long-input' ||
+      variant.type === 'code'
+  )
+  if (textVariants.length === 0) return false
+  if (textVariants.length === variants.length) return true
+
   const isPureTrigger = config.category === 'triggers'
   const isTriggerMode = block?.triggerMode === true || isPureTrigger
-  const field = variants.find(
-    (variant) =>
-      isSubBlockInMode(variant, block?.advancedMode === true) &&
-      (isTriggerMode
-        ? variant.mode === 'trigger' || (isPureTrigger && !variant.mode)
-        : variant.mode !== 'trigger') &&
-      evaluateSubBlockCondition(variant.condition, readFieldValue)
+  const modeVariants = variants.filter((variant) =>
+    isTriggerMode
+      ? variant.mode === 'trigger' || (isPureTrigger && !variant.mode)
+      : variant.mode !== 'trigger'
   )
-  if (!field) return false
-  return (
-    (field.type === 'short-input' && field.inputType !== 'number') ||
-    field.type === 'long-input' ||
-    field.type === 'code'
+  if (modeVariants.length > 0 && modeVariants.every((variant) => textVariants.includes(variant))) {
+    return true
+  }
+  const field = modeVariants.find((variant) =>
+    evaluateSubBlockCondition(variant.condition, readFieldValue)
   )
+  return !!field && textVariants.includes(field)
 }
 
 export function readWorkflowTextFieldFromMap(
@@ -170,11 +176,9 @@ export function ensureWorkflowTextField(
   blockId: string,
   subBlockId: string,
   initialValue = ''
-): Y.Text {
+): Y.Text | null {
   const subBlockFields = readWorkflowSubBlockFieldsMap(doc)
-  if (isWorkflowTextField(doc, blockId, subBlockId) === false) {
-    throw new Error(`Subblock ${blockId}.${subBlockId} cannot use collaborative text`)
-  }
+  if (isWorkflowTextField(doc, blockId, subBlockId) === false) return null
   const existing = readWorkflowTextFieldFromMap(subBlockFields, blockId, subBlockId)
   if (existing) {
     return existing

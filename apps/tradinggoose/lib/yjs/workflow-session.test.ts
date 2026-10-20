@@ -157,9 +157,8 @@ describe('workflow session fields', () => {
       expect(readWorkflowSnapshot(doc).blocks.block.subBlocks[fieldId].value).toBe(value)
       expect(extractPersistedStateFromDoc(doc).blocks.block.subBlocks[fieldId].value).toBe(value)
       if (!collaborative) {
-        expect(() => ensureWorkflowTextField(doc, 'block', fieldId)).toThrow(
-          'cannot use collaborative text'
-        )
+        expect(ensureWorkflowTextField(doc, 'block', fieldId)).toBeNull()
+        expect(textFields.get(key)).toBe(value)
       }
 
       if ('provider' in params) {

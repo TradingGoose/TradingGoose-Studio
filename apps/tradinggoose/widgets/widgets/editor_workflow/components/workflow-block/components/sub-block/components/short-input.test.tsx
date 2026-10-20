@@ -18,9 +18,12 @@ import { LoopBlock } from '@/blocks/blocks/loop'
 import { ParallelContainerBlock } from '@/blocks/blocks/parallel_container'
 import { PolymarketBlock } from '@/blocks/blocks/polymarket'
 import { SerperBlock } from '@/blocks/blocks/serper'
+import { getBlock } from '@/blocks/registry'
 import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
+import { getWorkflowInspectorCopy } from '@/i18n/block-editor'
 import { Serializer } from '@/serializer'
 import type { BlockState } from '@/stores/workflows/workflow/types'
+import { buildTriggerEditingLayout } from '../trigger-editing-layout'
 import { ShortInput } from './short-input'
 
 const mocks = vi.hoisted(() => ({
@@ -109,7 +112,8 @@ describe('ShortInput numeric contract', () => {
   function mount(
     config: SubBlockConfig,
     onChange?: (value: string) => void,
-    blockId = 'container'
+    blockId = 'container',
+    disabled = false
   ) {
     act(() => {
       root.render(
@@ -120,6 +124,7 @@ describe('ShortInput numeric contract', () => {
           value={config.defaultValue ?? '5'}
           isConnecting={false}
           onChange={onChange}
+          disabled={disabled}
         />
       )
     })
@@ -133,9 +138,13 @@ describe('ShortInput numeric contract', () => {
       ParallelContainerBlock,
       PolymarketBlock,
       SerperBlock,
-    ].find((block) => block.subBlocks.includes(config))!
+    ].find((block) => block.subBlocks.includes(config))!,
+    options: Pick<BlockState, 'advancedMode' | 'triggerMode' | 'locked'> & {
+      values?: Record<string, unknown>
+    } = {}
   ) {
     fieldId = config.id
+    const { values, ...blockProperties } = options
     setWorkflowState(doc, {
       blocks: {
         container: {
@@ -145,13 +154,19 @@ describe('ShortInput numeric contract', () => {
           position: { x: 0, y: 0 },
           enabled: true,
           outputs: {},
+          ...blockProperties,
           subBlocks: {
             ...buildInitialSubBlockStates(blockConfig.subBlocks, {
               operation: 'get_price_history',
               startTs: '5',
               endTs: '5',
+              ...values,
             }),
-            [config.id]: { id: config.id, type: config.type, value: config.defaultValue ?? '5' },
+            [config.id]: {
+              id: config.id,
+              type: config.type,
+              value: values?.[config.id] ?? config.defaultValue ?? '5',
+            },
           } as BlockState['subBlocks'],
         },
       },
@@ -159,7 +174,7 @@ describe('ShortInput numeric contract', () => {
       loops: {},
       parallels: {},
     })
-    const input = mount(config)
+    const input = mount(config, undefined, 'container', blockProperties.locked === true)
     onUpdate.mockClear()
     return input
   }
@@ -175,6 +190,43 @@ describe('ShortInput numeric contract', () => {
       input.dispatchEvent(new Event('input', { bubbles: true }))
     })
   }
+
+  it.each([
+    ['agent', 'memories', { advancedMode: false, locked: true }, {}],
+    ['wealthbox', 'taskId', { advancedMode: true }, { operation: 'read_task' }],
+    ['gmail', 'messageId', {}, { operation: 'read_gmail', folder: 'INBOX', manualFolder: '' }],
+    ['github', 'webhookSecret', { triggerMode: true }, { selectedTriggerId: '' }],
+  ] as const)(
+    'mounts the text field exposed by the actual %s layout',
+    (type, id, modes, values) => {
+      const blockConfig = getBlock(type)!
+      const config = blockConfig.subBlocks.find((field) => field.id === id)!
+      let input!: HTMLInputElement
+      expect(() => {
+        input = render(config, blockConfig, { ...modes, values: { ...values, [id]: 'saved-text' } })
+      }).not.toThrow()
+      const block = readWorkflowSnapshot(doc).blocks.container
+      const layout = buildTriggerEditingLayout({
+        inspectorCopy: getWorkflowInspectorCopy('en'),
+        blockType: type,
+        blockId: 'container',
+        blockConfig,
+        blockState: block,
+        shouldDisableWrite: block.locked === true,
+      })
+      expect(
+        [
+          ...layout.regularRows.flat(),
+          ...(layout.displayAdvancedOptions ? layout.advancedRows.flat() : []),
+        ].map((field) => field.id)
+      ).toContain(id)
+      expect(input.value).toBe('saved-text')
+      expect(savedValue()).toBe('saved-text')
+      expect(
+        readWorkflowSubBlockFieldsMap(doc).get(createWorkflowSubBlockFieldKey('container', id))
+      ).toBeInstanceOf(Y.Text)
+    }
+  )
 
   it.each([
     ['Loop', LoopBlock, 'iterations', 100],
