@@ -48,7 +48,7 @@ vi.mock('@/hooks/workflow/use-workflow-editor-actions', () => ({
 }))
 
 vi.mock('@/lib/yjs/use-workflow-doc', () => ({
-  useWorkflowBlocks: () => mockBlocks,
+  useBlock: (blockId: string) => mockBlocks[blockId] ?? null,
 }))
 
 vi.mock(
@@ -83,6 +83,9 @@ describe('ActionBar', () => {
     document.body.appendChild(host)
     root = createRoot(container)
     Object.values(mockActions).forEach((mockFn) => mockFn.mockReset())
+    mockBlocks.block_1.enabled = true
+    mockBlocks.block_1.data = {}
+    mockBlocks.parent = undefined
   })
 
   afterEach(() => {
@@ -122,5 +125,35 @@ describe('ActionBar', () => {
     expect(parentMouseDown).not.toHaveBeenCalled()
     expect(parentClick).not.toHaveBeenCalled()
     expect(mockActions.collaborativeToggleBlockEnabled).toHaveBeenCalledWith('block_1')
+  })
+
+  it.each([
+    [true, true],
+    [false, false],
+  ])('keeps child actions gated by parent lock %s and enabled %s', (locked, enabled) => {
+    mockBlocks.block_1.enabled = false
+    mockBlocks.block_1.data = { parentId: 'parent' }
+    mockBlocks.parent = { id: 'parent', type: 'loop', locked, enabled }
+
+    act(() => {
+      root.render(
+        <ActionBar
+          blockId='block_1'
+          blockType='agent'
+          workflowId='workflow_1'
+          channelId='channel_1'
+        />
+      )
+    })
+
+    const buttons = container.querySelectorAll('button')
+    expect(buttons[0].disabled).toBe(true)
+    expect(buttons[2].disabled).toBe(locked)
+    act(() => {
+      buttons[0].click()
+      buttons[2].click()
+    })
+    expect(mockActions.collaborativeToggleBlockEnabled).not.toHaveBeenCalled()
+    expect(mockActions.collaborativeDuplicateBlock).toHaveBeenCalledTimes(locked ? 0 : 1)
   })
 })
