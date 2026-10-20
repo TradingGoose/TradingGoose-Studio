@@ -97,7 +97,7 @@ function formatOutputReferencesWithPrefix(
 
 function resolveSubflowOutputType(path: string): string {
   if (path === 'index') return 'number'
-  if (path === 'results' || path === 'items') return 'json'
+  if (path === 'items') return 'json'
   return 'any'
 }
 
@@ -112,10 +112,6 @@ export function getSubflowInsideOutputReferences(
     blockType,
     resolveSubflowOutputType
   )
-}
-
-export function getSubflowOutsideOutputReferences(blockName: string): BlockOutputReference[] {
-  return formatOutputReferencesWithPrefix(['results'], blockName, resolveSubflowOutputType)
 }
 
 export function computeBlockOutputReferences(

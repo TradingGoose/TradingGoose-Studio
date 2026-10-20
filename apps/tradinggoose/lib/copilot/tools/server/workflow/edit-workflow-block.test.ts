@@ -19,37 +19,7 @@ vi.mock('@/lib/copilot/tools/server/entities/shared', () => ({
 vi.mock('@/lib/yjs/server/apply-workflow-state', () => ({
   applyWorkflowState: (...args: any[]) => mockApply(...args),
 }))
-vi.mock('@/blocks/registry', async () => {
-  const { LoopBlock } = await import('@/blocks/blocks/loop')
-  const { ParallelContainerBlock } = await import('@/blocks/blocks/parallel_container')
-  const { SttBlock } = await import('@/blocks/blocks/stt')
-  const { AgentBlock } = await import('@/blocks/blocks/agent')
-  const { MongoDBBlock } = await import('@/blocks/blocks/mongodb')
-  const { PolymarketBlock } = await import('@/blocks/blocks/polymarket')
-  const { WaitBlock } = await import('@/blocks/blocks/wait')
-  const { SerperBlock } = await import('@/blocks/blocks/serper')
-  const { VideoGeneratorBlock } = await import('@/blocks/blocks/video_generator')
-  const registry = {
-    loop: LoopBlock,
-    parallel: ParallelContainerBlock,
-    stt: SttBlock,
-    agent: AgentBlock,
-    mongodb: MongoDBBlock,
-    polymarket: PolymarketBlock,
-    wait: WaitBlock,
-    serper: SerperBlock,
-    video_generator: VideoGeneratorBlock,
-    function: {
-      type: 'function',
-      name: 'Function',
-      subBlocks: [{ id: 'code', type: 'code' }],
-      inputs: { code: { type: 'string' } },
-      outputs: {},
-    },
-  }
-  return { getBlock: (type: string) => registry[type as keyof typeof registry] }
-})
-vi.mock('@/blocks', async () => ({ getBlock: (await import('@/blocks/registry')).getBlock }))
+vi.unmock('@/blocks/registry')
 
 function block(id: string, type: string, values: Record<string, unknown> = {}): BlockState {
   return {

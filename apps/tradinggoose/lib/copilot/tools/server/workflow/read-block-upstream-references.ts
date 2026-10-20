@@ -7,7 +7,6 @@ import {
   computeBlockOutputReferences,
   extractSubBlockValuesFromBlocks,
   getSubflowInsideOutputReferences,
-  getSubflowOutsideOutputReferences,
   readWorkflowVariableOutputs,
 } from '@/lib/copilot/workflow/block-output-utils'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -126,7 +125,7 @@ export const readBlockUpstreamReferencesServerTool: BaseServerTool<
           accessContext = isInside ? 'inside' : 'outside'
           outputs = isInside
             ? getSubflowInsideOutputReferences(block.type, accessibleBlockId, loops, parallels)
-            : getSubflowOutsideOutputReferences(blockName)
+            : computeBlockOutputReferences(block, ctx, variableOutputs)
         } else {
           outputs = computeBlockOutputReferences(block, ctx, variableOutputs)
         }

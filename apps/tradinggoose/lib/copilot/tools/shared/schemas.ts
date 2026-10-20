@@ -344,7 +344,6 @@ export const ReadBlockOutputsResult = z.object({
       blockType: z.string(),
       outputs: z.array(BlockOutputReferenceSchema),
       insideSubflowOutputs: z.array(BlockOutputReferenceSchema).optional(),
-      outsideSubflowOutputs: z.array(BlockOutputReferenceSchema).optional(),
     })
   ),
   variables: z

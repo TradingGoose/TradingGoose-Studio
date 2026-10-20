@@ -6,7 +6,6 @@ import {
   computeBlockOutputReferences,
   extractSubBlockValuesFromBlocks,
   getSubflowInsideOutputReferences,
-  getSubflowOutsideOutputReferences,
   readWorkflowVariableOutputs,
 } from '@/lib/copilot/workflow/block-output-utils'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -49,7 +48,7 @@ export const readBlockOutputsServerTool: BaseServerTool<
         blockId,
         blockName,
         blockType: block.type,
-        outputs: [],
+        outputs: computeBlockOutputReferences(block, ctx, variableOutputs),
       }
 
       if (block.type === 'loop' || block.type === 'parallel') {
@@ -59,9 +58,6 @@ export const readBlockOutputsServerTool: BaseServerTool<
           loops,
           parallels
         )
-        blockOutput.outsideSubflowOutputs = getSubflowOutsideOutputReferences(blockName)
-      } else {
-        blockOutput.outputs = computeBlockOutputReferences(block, ctx, variableOutputs)
       }
 
       blockOutputs.push(blockOutput)
