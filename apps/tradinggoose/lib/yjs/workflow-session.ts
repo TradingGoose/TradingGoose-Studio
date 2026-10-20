@@ -12,6 +12,7 @@
  */
 
 import type { Edge } from '@xyflow/react'
+import { isEqual } from 'lodash'
 import * as Y from 'yjs'
 import { resolveStoredDateValue } from '@/lib/time-format'
 import { readBlockOutputs } from '@/lib/workflows/block-outputs'
@@ -133,11 +134,7 @@ export function setWorkflowSubBlockValues(
       } else {
         fields.set(subBlockId, new Y.Text(value))
       }
-    } else if (
-      !fields.has(subBlockId) ||
-      existing instanceof Y.Text ||
-      (!Object.is(existing, value) && JSON.stringify(existing) !== JSON.stringify(value))
-    ) {
+    } else if (!fields.has(subBlockId) || existing instanceof Y.Text || !isEqual(existing, value)) {
       fields.set(subBlockId, value)
     }
   }
@@ -153,7 +150,7 @@ export function materializeWorkflowBlockFields(
   let nextBlock = block
   for (const [subBlockId, field] of fields) {
     const value = field instanceof Y.Text ? field.toString() : field
-    if (block.subBlocks?.[subBlockId]?.value === value) continue
+    if (isEqual(block.subBlocks?.[subBlockId]?.value, value)) continue
     if (nextBlock === block) nextBlock = { ...block, subBlocks: { ...block.subBlocks } }
     nextBlock.subBlocks[subBlockId] = { ...block.subBlocks?.[subBlockId], id: subBlockId, value }
   }

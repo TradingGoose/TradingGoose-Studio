@@ -205,6 +205,11 @@ describe('workflow session fields', () => {
     const doc = new Y.Doc()
     Y.applyUpdate(doc, Y.encodeStateAsUpdate(seed))
     const rawBlocks = readWorkflowMap(doc).get(YJS_KEYS.BLOCKS)
+    expect(readWorkflowSubBlockFieldValue(doc, 'agent-0', 'tools')).not.toBe(
+      rawBlocks['agent-0'].subBlocks.tools.value
+    )
+    expect(readWorkflowSnapshot(doc).blocks).toBe(rawBlocks)
+    expect(readWorkflowSnapshot(doc).blocks).toBe(rawBlocks)
     const responseFormat = JSON.stringify({
       type: 'object',
       properties: { symbol: { type: 'string' } },
@@ -243,7 +248,8 @@ describe('workflow session fields', () => {
         expect(materialized.outputs).toEqual({ symbol: 'string' })
         expect(materialized.subBlocks._empty.value).toBeNull()
       } else {
-        expect(materialized.subBlocks).toEqual(block.subBlocks)
+        expect(materialized).toBe(block)
+        expect(materialized.outputs).toBe(block.outputs)
       }
     }
     expect(visited).toBeLessThanOrEqual(fieldCount)
@@ -254,6 +260,26 @@ describe('workflow session fields', () => {
     expect(snapshot.blocks['agent-0'].outputs).toEqual({ symbol: 'string' })
     expect(Object.keys(snapshot.blocks)).toHaveLength(100)
     for (const scan of scans) scan.mockRestore()
+
+    const tools = [{ id: 'tool', params: { symbols: ['NVDA'], limit: 1 } }]
+    setWorkflowSubBlockValues(seed, [{ blockId: 'agent-1', subBlockId: 'tools', value: tools }])
+    Y.applyUpdate(doc, Y.encodeStateAsUpdate(seed))
+    const updated = readWorkflowSnapshot(doc)
+    expect(updated.blocks['agent-1']).not.toBe(rawBlocks['agent-1'])
+    expect(updated.blocks['agent-1'].subBlocks.tools.value).toEqual(tools)
+    expect(updated.blocks['agent-2']).toBe(rawBlocks['agent-2'])
+    expect(readWorkflowSnapshot(doc).blocks['agent-2']).toBe(updated.blocks['agent-2'])
+
+    const onUpdate = vi.fn()
+    doc.on('update', onUpdate)
+    setWorkflowSubBlockValues(doc, [
+      {
+        blockId: 'agent-1',
+        subBlockId: 'tools',
+        value: [{ params: { limit: 1, symbols: ['NVDA'] }, id: 'tool' }],
+      },
+    ])
+    expect(onUpdate).not.toHaveBeenCalled()
     doc.destroy()
     seed.destroy()
   })
