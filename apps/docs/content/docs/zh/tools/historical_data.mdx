@@ -73,12 +73,21 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "description": "当提供商为 'alpaca' 时显示。"
         },
         {
+            "id": "rangePresetId",
+            "type": "dropdown",
+            "title": "数据范围",
+            "layout": "full",
+            "placeholder": "选择数据范围",
+            "required": true,
+            "description": "可用范围取决于所选提供商。"
+        },
+        {
             "id": "interval",
             "type": "dropdown",
             "title": "时间间隔",
             "layout": "full",
             "placeholder": "选择时间间隔",
-            "description": "当提供商为 'alpha-vantage'、'alpaca'、'yahoo-finance' 或 'finnhub' 之一时显示。"
+            "description": "仅在选择自定义日期且所选提供商支持时间间隔时显示。"
         },
         {
             "id": "normalizationMode",
@@ -94,7 +103,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "开始",
             "layout": "full",
             "placeholder": "开始时间",
-            "required": true
+            "required": true,
+            "description": "仅在选择自定义日期时显示且必填。"
         },
         {
             "id": "end",
@@ -102,7 +112,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "结束",
             "layout": "full",
             "placeholder": "结束时间",
-            "required": true
+            "required": true,
+            "description": "仅在选择自定义日期时显示且必填。"
         }
     ]}
   />
@@ -143,7 +154,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 ## 使用说明
 
-选择市场数据提供商，选择一个规范列表，并获取包含开盘价、最高价、最低价、收盘价、成交量和时间戳的K线数据。开始和结束时间可以是ISO字符串或UNIX时间戳。
+选择市场数据提供商、规范标的以及数据范围（`rangePresetId`）。可用预设由提供商决定，并自动选择时间间隔。使用自定义日期（`custom`）时，设置受支持的时间间隔及必填的开始和结束时间；日期支持 ISO 字符串或 UNIX 时间戳。
 
 ## 说明
 

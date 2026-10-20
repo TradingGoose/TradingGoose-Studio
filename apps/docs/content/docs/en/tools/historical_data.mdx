@@ -75,12 +75,21 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "description": "Shown when provider is 'alpaca'."
         },
         {
+            "id": "rangePresetId",
+            "type": "dropdown",
+            "title": "Data Range",
+            "layout": "full",
+            "placeholder": "Select data range",
+            "required": true,
+            "description": "Available ranges depend on the selected provider."
+        },
+        {
             "id": "interval",
             "type": "dropdown",
             "title": "Interval",
             "layout": "full",
             "placeholder": "Select interval",
-            "description": "Shown when provider is one of 'alpha-vantage', 'alpaca', 'yahoo-finance', 'finnhub'."
+            "description": "Shown only for Custom dates when the selected provider supports intervals."
         },
         {
             "id": "normalizationMode",
@@ -96,7 +105,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Start",
             "layout": "full",
             "placeholder": "Start time",
-            "required": true
+            "required": true,
+            "description": "Shown and required only for Custom dates."
         },
         {
             "id": "end",
@@ -104,7 +114,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "End",
             "layout": "full",
             "placeholder": "End time",
-            "required": true
+            "required": true,
+            "description": "Shown and required only for Custom dates."
         }
     ]}
   />
@@ -146,7 +157,7 @@ Fetch and normalize market series data from registered market providers.
 
 ## Usage Instructions
 
-Choose a market data provider, select a canonical listing, and fetch series bars that include open, high, low, close, volume, and timestamps. Start and end can be ISO strings or UNIX timestamps.
+Choose a market data provider, a canonical listing, and a Data Range (`rangePresetId`). Available presets depend on the provider and select the interval automatically. For Custom dates (`custom`), set a supported interval and the required start/end dates as ISO strings or UNIX timestamps.
 
 
 

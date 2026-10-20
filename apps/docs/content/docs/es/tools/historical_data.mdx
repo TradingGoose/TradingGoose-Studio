@@ -73,12 +73,21 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "description": "Se muestra cuando el proveedor es 'alpaca'."
         },
         {
+            "id": "rangePresetId",
+            "type": "dropdown",
+            "title": "Rango de datos",
+            "layout": "full",
+            "placeholder": "Selecciona un rango de datos",
+            "required": true,
+            "description": "Los rangos disponibles dependen del proveedor seleccionado."
+        },
+        {
             "id": "interval",
             "type": "dropdown",
             "title": "Intervalo",
             "layout": "full",
             "placeholder": "Seleccionar intervalo",
-            "description": "Se muestra cuando el proveedor es uno de 'alpha-vantage', 'alpaca', 'yahoo-finance', 'finnhub'."
+            "description": "Se muestra solo para Fechas personalizadas si el proveedor seleccionado admite intervalos."
         },
         {
             "id": "normalizationMode",
@@ -94,7 +103,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Inicio",
             "layout": "full",
             "placeholder": "Hora de inicio",
-            "required": true
+            "required": true,
+            "description": "Solo se muestra y es obligatorio para Fechas personalizadas."
         },
         {
             "id": "end",
@@ -102,7 +112,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Fin",
             "layout": "full",
             "placeholder": "Hora de fin",
-            "required": true
+            "required": true,
+            "description": "Solo se muestra y es obligatorio para Fechas personalizadas."
         }
     ]}
   />
@@ -143,7 +154,7 @@ Obtiene y normaliza series de mercado de proveedores de mercado registrados.
 
 ## Instrucciones de uso
 
-Elige un proveedor de datos de mercado, selecciona un listado canónico y recupera barras de series que incluyan apertura, máximo, mínimo, cierre, volumen y marcas de tiempo. El inicio y el fin pueden ser cadenas ISO o timestamps UNIX.
+Elige un proveedor de datos de mercado, un listado canónico y un Rango de datos (`rangePresetId`). Los preajustes disponibles dependen del proveedor y seleccionan el intervalo automáticamente. Para Fechas personalizadas (`custom`), configura un intervalo admitido y las fechas de inicio y fin obligatorias, en formato ISO o como timestamps UNIX.
 
 ## Notas
 
