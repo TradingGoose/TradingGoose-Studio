@@ -346,7 +346,7 @@ export class Executor {
             }
           }
 
-          // Process loop iterations - this will activate external paths when loops complete
+          // Schedule the next loop pass, including final completion.
           await this.loopManager.processLoopIterations(context)
 
           // Process parallel iterations - similar to loops but conceptually for parallel execution
@@ -604,7 +604,7 @@ export class Executor {
         }
       }
 
-      if (loop.iterations <= 0) {
+      if (loop.loopType === 'for' && loop.iterations <= 0) {
         throw new Error(`Loop ${loopId} must have a positive iterations value`)
       }
 
@@ -1597,10 +1597,8 @@ export class Executor {
     const blockType = block.metadata?.id || 'unknown'
     const blockName = block.metadata?.name || 'Unnamed Block'
     const isTriggerBlock = isSerializedTriggerBlock(block)
-    const shouldLogToConsole =
-      block.metadata?.id !== BlockType.LOOP &&
-      block.metadata?.id !== BlockType.PARALLEL &&
-      !isTriggerBlock
+    const isContainerBlock = blockType === BlockType.LOOP || blockType === BlockType.PARALLEL
+    const shouldLogToConsole = !isContainerBlock && !isTriggerBlock
     const resolveIterationContext = () => {
       let iterationCurrent: number | undefined
       let iterationTotal: number | undefined
@@ -1714,7 +1712,7 @@ export class Executor {
 
         context.blockLogs.push(blockLog)
 
-        if (shouldLogToConsole) {
+        if (shouldLogToConsole || (isContainerBlock && output.completed === true)) {
           await this.emitExecutionEvent({
             type: 'block:completed',
             data: {

@@ -1,11 +1,10 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
 import { evaluateConditionExpression } from '@/executor/handlers/condition/condition-handler'
 import type { PathTracker } from '@/executor/path/path'
 import type { InputResolver } from '@/executor/resolver/resolver'
 import { Routing } from '@/executor/routing/routing'
-import type { BlockHandler, ExecutionContext } from '@/executor/types'
+import type { BlockHandler, ExecutionContext, NormalizedBlockOutput } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
 
 const logger = createLogger('LoopBlockHandler')
@@ -28,7 +27,7 @@ export class LoopBlockHandler implements BlockHandler {
     block: SerializedBlock,
     _inputs: Record<string, any>,
     context: ExecutionContext
-  ): Promise<BlockOutput> {
+  ): Promise<NormalizedBlockOutput> {
     logger.info(`Executing loop block: ${block.id}`)
 
     const loop = context.workflow?.loops?.[block.id]
@@ -47,11 +46,16 @@ export class LoopBlockHandler implements BlockHandler {
     }
 
     const currentIteration = context.loopIterations.get(block.id)!
+    const countedLoop = loop.loopType === 'for' || loop.loopType === 'forEach'
+    const previousOutput = context.blockStates.get(block.id)?.output
     let maxIterations: number
     let forEachItems: any[] | Record<string, any> | null = null
     let shouldContinueLoop = true
 
-    if (loop.loopType === 'forEach') {
+    if (countedLoop && previousOutput && currentIteration > previousOutput.maxIterations) {
+      maxIterations = previousOutput.maxIterations
+      shouldContinueLoop = false
+    } else if (loop.loopType === 'forEach') {
       if (
         !loop.forEachItems ||
         (typeof loop.forEachItems === 'string' && loop.forEachItems.trim() === '')
@@ -125,8 +129,7 @@ export class LoopBlockHandler implements BlockHandler {
       `Loop ${block.id} - Current iteration: ${currentIteration}, Max iterations: ${maxIterations}, Should continue: ${shouldContinueLoop}`
     )
 
-    // For while and doWhile loops, check if the condition is false
-    if ((loop.loopType === 'while' || loop.loopType === 'doWhile') && !shouldContinueLoop) {
+    if (!shouldContinueLoop) {
       // Mark the loop as completed
       context.completedLoops.add(block.id)
 
@@ -150,31 +153,26 @@ export class LoopBlockHandler implements BlockHandler {
         context.activeExecutionPath.add(conn.target)
       }
 
+      const results = []
+      if (countedLoop) {
+        const loopResults = context.loopExecutions?.get(block.id)
+        for (let i = 0; i < maxIterations; i++) {
+          const result = loopResults?.get(`iteration_${i}`)
+          if (result) results.push(result)
+        }
+      }
+
       return {
         loopId: block.id,
-        currentIteration,
+        currentIteration: countedLoop ? maxIterations - 1 : currentIteration,
         maxIterations,
         loopType: loop.loopType,
         completed: true,
-        message: `${loop.loopType === 'doWhile' ? 'Do-While' : 'While'} loop completed after ${currentIteration} iterations (condition became false)`,
-      } as Record<string, any>
-    }
-
-    // Only check max iterations for for/forEach loops (while/doWhile have no limit)
-    if (
-      (loop.loopType === 'for' || loop.loopType === 'forEach') &&
-      currentIteration > maxIterations
-    ) {
-      logger.info(`Loop ${block.id} has reached maximum iterations (${maxIterations})`)
-
-      return {
-        loopId: block.id,
-        currentIteration: currentIteration - 1, // Report the actual last iteration number
-        maxIterations,
-        loopType: loop.loopType,
-        completed: false, // Not completed until all blocks in this iteration execute
-        message: `Final iteration ${currentIteration} of ${maxIterations}`,
-      } as Record<string, any>
+        ...(countedLoop ? { results } : {}),
+        message: countedLoop
+          ? `Completed all ${maxIterations} iterations`
+          : `${loop.loopType === 'doWhile' ? 'Do-While' : 'While'} loop completed after ${currentIteration} iterations (condition became false)`,
+      }
     }
 
     if (loop.loopType === 'forEach' && forEachItems) {
@@ -234,7 +232,7 @@ export class LoopBlockHandler implements BlockHandler {
       loopType: loop.loopType,
       completed: false,
       message: `Starting iteration ${currentIteration} of ${maxIterations}`,
-    } as Record<string, any>
+    }
   }
 
   /**

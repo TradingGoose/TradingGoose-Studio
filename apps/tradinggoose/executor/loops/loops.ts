@@ -46,9 +46,6 @@ export class LoopManager {
         // All blocks in the loop have been executed
         const currentIteration = context.loopIterations.get(loopId)!
 
-        // Results are now stored individually as blocks execute (like parallels)
-        // No need for bulk collection here
-
         // Determine the maximum iterations
         let maxIterations = loop.iterations
 
@@ -73,58 +70,17 @@ export class LoopManager {
           (loop.loopType === 'for' || loop.loopType === 'forEach')
         ) {
           hasLoopReachedMaxIterations = true
-          logger.info(`Loop ${loopId} has completed all ${maxIterations} iterations`)
-
-          const results = []
-          const loopResults = context.loopExecutions?.get(loopId)
-          if (loopResults) {
-            for (let i = 0; i < maxIterations; i++) {
-              const result = loopResults.get(`iteration_${i}`)
-              if (result) {
-                results.push(result)
-              }
-            }
-          }
-
-          const aggregatedOutput = {
-            loopId,
-            currentIteration: maxIterations - 1, // Last iteration index
-            maxIterations,
-            loopType: loop.loopType,
-            completed: true,
-            results,
-            message: `Completed all ${maxIterations} iterations`,
-          }
-
-          context.blockStates.set(loopId, {
-            output: aggregatedOutput,
-            executed: true,
-            executionTime: 0,
-          })
-
-          context.completedLoops.add(loopId)
-
-          const loopEndConnections =
-            context.workflow?.connections.filter(
-              (conn) => conn.source === loopId && conn.sourceHandle === 'loop-end-source'
-            ) || []
-
-          for (const conn of loopEndConnections) {
-            context.activeExecutionPath.add(conn.target)
-            logger.info(`Activated post-loop path from ${loopId} to ${conn.target}`)
-          }
-
-          logger.info(`Loop ${loopId} - Completed and activated end connections`)
+          // Retain the last evaluated bound and children until the handler publishes completion.
+          context.activeExecutionPath.add(loopId)
         } else {
-          context.loopIterations.set(loopId, currentIteration + 1)
-
           // Condition-driven loops reset their children after the next condition passes.
           if (loop.loopType === 'for' || loop.loopType === 'forEach') {
             this.resetLoopBlocks(loop, context)
           }
-          context.executedBlocks.delete(loopId)
           context.blockStates.delete(loopId)
         }
+        context.loopIterations.set(loopId, currentIteration + 1)
+        context.executedBlocks.delete(loopId)
       }
     }
 

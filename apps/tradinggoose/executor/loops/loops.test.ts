@@ -179,107 +179,60 @@ describe('LoopManager', () => {
       expect(mockContext.activeExecutionPath.has('block-2')).toBe(false)
     })
 
-    test('should complete loop and activate end connections when max iterations reached', async () => {
-      // Set up as if we've completed all iterations
+    test('schedules finalization without clearing children or the evaluated bound', async () => {
       mockContext.executedBlocks.add('loop-1')
       mockContext.executedBlocks.add('block-1')
       mockContext.executedBlocks.add('block-2')
-      mockContext.loopIterations.set('loop-1', 3) // Max iterations reached
+      mockContext.loopIterations.set('loop-1', 3)
+      const lastState = {
+        output: { maxIterations: 3, completed: false },
+        executed: true,
+        executionTime: 0,
+      }
+      mockContext.blockStates.set('loop-1', lastState)
+      const childState = { output: { answer: 42 }, executed: true, executionTime: 1 }
+      mockContext.blockStates.set('block-2', childState)
 
-      // Set up loop execution state with some results
-      mockContext.loopExecutions = new Map()
-      mockContext.loopExecutions.set(
-        'loop-1',
-        new Map([
-          ['iteration_0', { iteration: { 'block-1': { result: 'result1' } } }],
-          ['iteration_1', { iteration: { 'block-1': { result: 'result2' } } }],
-          ['iteration_2', { iteration: { 'block-1': { result: 'result3' } } }],
-        ])
-      )
-
-      const result = await manager.processLoopIterations(mockContext)
-
-      expect(result).toBe(true) // Loop reached max iterations
-
-      // Verify loop was marked as completed
-      expect(mockContext.completedLoops.has('loop-1')).toBe(true)
-
-      // Verify loop block state was updated with aggregated results
-      const loopBlockState = mockContext.blockStates.get('loop-1')
-      expect(loopBlockState).toBeDefined()
-      expect(loopBlockState?.output.completed).toBe(true)
-      expect(loopBlockState?.output.results).toHaveLength(3)
-
-      // Verify end connection was activated
-      expect(mockContext.activeExecutionPath.has('after-loop')).toBe(true)
+      expect(await manager.processLoopIterations(mockContext)).toBe(true)
+      expect(mockContext.loopIterations.get('loop-1')).toBe(4)
+      expect(mockContext.executedBlocks.has('loop-1')).toBe(false)
+      expect(mockContext.executedBlocks.has('block-1')).toBe(true)
+      expect(mockContext.executedBlocks.has('block-2')).toBe(true)
+      expect(mockContext.blockStates.get('loop-1')).toBe(lastState)
+      expect(mockContext.blockStates.get('block-2')).toBe(childState)
+      expect(mockContext.activeExecutionPath.has('loop-1')).toBe(true)
+      expect(mockContext.activeExecutionPath.has('after-loop')).toBe(false)
+      expect(mockContext.completedLoops.has('loop-1')).toBe(false)
     })
 
-    test('should handle forEach loops with array items', async () => {
-      const forEachLoop = createForEachLoop(['item1', 'item2', 'item3'])
-      manager = new LoopManager({ 'loop-1': forEachLoop })
-      mockContext.workflow!.loops['loop-1'] = forEachLoop
+    test.each([
+      { collection: ['a', 'b', 'c'], items: ['a', 'b', 'c'], count: 3 },
+      { collection: { a: 1, b: 2 }, items: { a: 1, b: 2 }, count: 2 },
+      { collection: '["a", "b", "c"]', items: ['a', 'b', 'c'], count: 3 },
+    ])(
+      'schedules For Each completion using evaluated items: $collection',
+      async ({ collection, items, count }) => {
+        const loop = createForEachLoop(collection)
+        manager = new LoopManager({ 'loop-1': loop })
+        mockContext.workflow!.loops['loop-1'] = loop
+        mockContext.executedBlocks = new Set(['loop-1', 'block-1', 'block-2'])
+        mockContext.loopIterations.set('loop-1', count)
+        mockContext.loopItems.set('loop-1_items', items)
+        const lastState = {
+          output: { maxIterations: count, loopType: 'forEach', completed: false },
+          executed: true,
+          executionTime: 0,
+        }
+        mockContext.blockStates.set('loop-1', lastState)
 
-      // Set up as if we've completed all iterations
-      mockContext.executedBlocks.add('loop-1')
-      mockContext.executedBlocks.add('block-1')
-      mockContext.executedBlocks.add('block-2')
-      mockContext.loopIterations.set('loop-1', 3) // All items processed
-
-      // Store items in context as the loop handler would
-      mockContext.loopItems.set('loop-1_items', ['item1', 'item2', 'item3'])
-
-      const result = await manager.processLoopIterations(mockContext)
-
-      expect(result).toBe(true) // Loop completed
-      expect(mockContext.completedLoops.has('loop-1')).toBe(true)
-
-      const loopBlockState = mockContext.blockStates.get('loop-1')
-      expect(loopBlockState?.output.loopType).toBe('forEach')
-      expect(loopBlockState?.output.maxIterations).toBe(3)
-    })
-
-    test('should handle forEach loops with object items', async () => {
-      const items = { key1: 'value1', key2: 'value2' }
-      const forEachLoop = createForEachLoop(items)
-      manager = new LoopManager({ 'loop-1': forEachLoop })
-      mockContext.workflow!.loops['loop-1'] = forEachLoop
-
-      // Set up as if we've completed all iterations
-      mockContext.executedBlocks.add('loop-1')
-      mockContext.executedBlocks.add('block-1')
-      mockContext.executedBlocks.add('block-2')
-      mockContext.loopIterations.set('loop-1', 2) // All items processed
-
-      // Store items in context as the loop handler would
-      mockContext.loopItems.set('loop-1_items', items)
-
-      const result = await manager.processLoopIterations(mockContext)
-
-      expect(result).toBe(true) // Loop completed
-      expect(mockContext.completedLoops.has('loop-1')).toBe(true)
-
-      const loopBlockState = mockContext.blockStates.get('loop-1')
-      expect(loopBlockState?.output.maxIterations).toBe(2)
-    })
-
-    test('should handle forEach loops with string items', async () => {
-      const forEachLoop = createForEachLoop('["a", "b", "c"]') // JSON string
-      manager = new LoopManager({ 'loop-1': forEachLoop })
-      mockContext.workflow!.loops['loop-1'] = forEachLoop
-
-      // Set up as if we've completed all iterations
-      mockContext.executedBlocks.add('loop-1')
-      mockContext.executedBlocks.add('block-1')
-      mockContext.executedBlocks.add('block-2')
-      mockContext.loopIterations.set('loop-1', 3) // All items processed
-
-      mockContext.loopItems.set('loop-1_items', ['a', 'b', 'c'])
-
-      const result = await manager.processLoopIterations(mockContext)
-
-      expect(result).toBe(true) // Loop completed
-      expect(mockContext.completedLoops.has('loop-1')).toBe(true)
-    })
+        expect(await manager.processLoopIterations(mockContext)).toBe(true)
+        expect(mockContext.loopIterations.get('loop-1')).toBe(count + 1)
+        expect(mockContext.executedBlocks.has('loop-1')).toBe(false)
+        expect(mockContext.blockStates.get('loop-1')).toBe(lastState)
+        expect(mockContext.completedLoops.has('loop-1')).toBe(false)
+        expect(mockContext.activeExecutionPath.has('after-loop')).toBe(false)
+      }
+    )
   })
 
   describe('storeIterationResult', () => {
@@ -514,20 +467,12 @@ describe('LoopManager', () => {
       mockContext.executedBlocks.add('block-1')
       mockContext.executedBlocks.add('block-2')
 
-      // Set up loop execution states
-      mockContext.loopExecutions = new Map()
-      mockContext.loopExecutions.set(
-        'loop-1',
-        new Map([
-          ['iteration_0', { iteration: { 'block-1': { result: 'result1' } } }],
-          ['iteration_1', { iteration: { 'block-1': { result: 'result2' } } }],
-        ])
-      )
-
       const result = await manager.processLoopIterations(mockContext)
 
       expect(result).toBe(true) // loop-1 reached max iterations
-      expect(mockContext.completedLoops.has('loop-1')).toBe(true)
+      expect(mockContext.completedLoops.has('loop-1')).toBe(false)
+      expect(mockContext.executedBlocks.has('loop-1')).toBe(false)
+      expect(mockContext.loopIterations.get('loop-1')).toBe(3)
       expect(mockContext.completedLoops.has('loop-2')).toBe(false)
     })
 

@@ -99,7 +99,7 @@ describe('LoopBlockHandler', () => {
         workflow.loops[mockBlock.id] = {
           ...workflow.loops[mockBlock.id],
           loopType,
-          iterations: loopType === 'for' ? expected.length : 3,
+          iterations: loopType === 'for' ? expected.length : 0,
           forEachItems: collection,
           whileCondition: condition,
         }
@@ -171,19 +171,24 @@ describe('LoopBlockHandler', () => {
     })
 
     it('should activate loop-end-source when iterations complete', async () => {
+      mockContext.blockStates.set('loop-1', {
+        output: await handler.execute(mockBlock, {}, mockContext),
+        executed: true,
+        executionTime: 0,
+      })
       mockContext.loopIterations.set('loop-1', 4)
 
       const result = await handler.execute(mockBlock, {}, mockContext)
 
-      expect(mockContext.completedLoops.has('loop-1')).toBe(false)
-      expect(mockContext.activeExecutionPath.has('after-loop')).toBe(false)
+      expect(mockContext.completedLoops.has('loop-1')).toBe(true)
+      expect(mockContext.activeExecutionPath.has('after-loop')).toBe(true)
       expect(mockContext.activeExecutionPath.has('inner-block')).toBe(false)
-
-      if (typeof result === 'object' && result !== null) {
-        const response = result as any
-        expect(response.completed).toBe(false)
-        expect(response.message).toContain('Final iteration')
-      }
+      expect(result).toMatchObject({
+        completed: true,
+        currentIteration: 2,
+        maxIterations: 3,
+        results: [],
+      })
     })
 
     it('should handle forEach loops with array items', async () => {
@@ -223,7 +228,7 @@ describe('LoopBlockHandler', () => {
       expect((currentItem as any)[1]).toBe('value1')
     })
 
-    it('should limit forEach loops by collection size, not iterations parameter', async () => {
+    it('finishes forEach at the last evaluated collection bound', async () => {
       mockContext.workflow!.loops['loop-1'] = {
         id: 'loop-1',
         nodes: ['inner-block'],
@@ -236,11 +241,7 @@ describe('LoopBlockHandler', () => {
       expect(mockContext.loopIterations.get('loop-1')).toBe(1)
       expect(mockContext.loopItems.get('loop-1')).toBe('a')
 
-      if (typeof result === 'object' && result !== null) {
-        const response = result as any
-        expect(response.maxIterations).toBe(2)
-        expect(response.completed).toBe(false)
-      }
+      expect(result).toMatchObject({ maxIterations: 2, completed: false })
 
       mockContext.loopIterations.set('loop-1', 2)
 
@@ -248,18 +249,32 @@ describe('LoopBlockHandler', () => {
       expect(mockContext.loopIterations.get('loop-1')).toBe(2)
       expect(mockContext.loopItems.get('loop-1')).toBe('b')
 
-      if (typeof result === 'object' && result !== null) {
-        const response = result as any
-        expect(response.completed).toBe(false)
-      }
-
-      // Manually increment iteration for third execution (exceeds max)
+      expect(result).toMatchObject({ completed: false })
+      mockContext.blockStates.set('loop-1', {
+        output: result,
+        executed: true,
+        executionTime: 0,
+      })
+      mockContext.workflow!.loops['loop-1'].forEachItems = []
+      mockContext.loopExecutions = new Map([
+        [
+          'loop-1',
+          new Map([
+            ['iteration_1', { result: 'b' }],
+            ['iteration_0', { result: 'a' }],
+          ]),
+        ],
+      ])
       mockContext.loopIterations.set('loop-1', 3)
 
-      // Third execution should exceed the loop limit
       result = await handler.execute(mockBlock, {}, mockContext)
-      // The loop handler no longer marks loops as completed - that's handled by the loop manager
-      expect(mockContext.completedLoops.has('loop-1')).toBe(false)
+      expect(mockContext.completedLoops.has('loop-1')).toBe(true)
+      expect(result).toMatchObject({
+        completed: true,
+        currentIteration: 1,
+        maxIterations: 2,
+        results: [{ result: 'a' }, { result: 'b' }],
+      })
     })
 
     it('should throw error for forEach loops without collection', async () => {

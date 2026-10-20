@@ -183,8 +183,8 @@ describe('editWorkflowBlockServerTool', () => {
     { id: 'loop1', patch: { iterations: 100 }, runtime: { iterations: 100, loopType: 'for' } },
     {
       id: 'loop1',
-      patch: { loopType: 'forEach', forEachItems: ['NVDA', 'AAPL'] },
-      runtime: { loopType: 'forEach', forEachItems: ['NVDA', 'AAPL'] },
+      patch: { loopType: 'forEach', iterations: '', forEachItems: ['NVDA', 'AAPL'] },
+      runtime: { loopType: 'forEach', iterations: 0, forEachItems: ['NVDA', 'AAPL'] },
     },
     {
       id: 'loop1',
@@ -203,19 +203,19 @@ describe('editWorkflowBlockServerTool', () => {
     },
     {
       id: 'loop1',
-      patch: { loopType: 'while', whileCondition: '<variable.running> === true' },
-      runtime: { loopType: 'while', whileCondition: '<variable.running> === true' },
+      patch: { loopType: 'while', iterations: '', whileCondition: '<variable.running> === true' },
+      runtime: { loopType: 'while', iterations: 0, whileCondition: '<variable.running> === true' },
     },
     {
       id: 'loop1',
-      patch: { loopType: 'doWhile', whileCondition: '<fn1.rsi> < 70' },
-      runtime: { loopType: 'doWhile', whileCondition: '<fn1.rsi> < 70' },
+      patch: { loopType: 'doWhile', iterations: '', whileCondition: '<fn1.rsi> < 70' },
+      runtime: { loopType: 'doWhile', iterations: 0, whileCondition: '<fn1.rsi> < 70' },
     },
     { id: 'parallel1', patch: { count: 20 }, runtime: { parallelType: 'count', count: 20 } },
     {
       id: 'parallel1',
-      patch: { parallelType: 'collection', distribution: ['NVDA'] },
-      runtime: { parallelType: 'collection', distribution: ['NVDA'] },
+      patch: { parallelType: 'collection', count: '', distribution: ['NVDA'] },
+      runtime: { parallelType: 'collection', count: 0, distribution: ['NVDA'] },
     },
     {
       id: 'parallel1',
