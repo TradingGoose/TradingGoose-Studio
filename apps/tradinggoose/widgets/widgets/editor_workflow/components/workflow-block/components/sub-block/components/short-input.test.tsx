@@ -3,12 +3,30 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as Y from 'yjs'
+import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
+import { validateWorkflowState } from '@/lib/workflows/validation'
+import {
+  extractPersistedStateFromDoc,
+  readWorkflowSnapshot,
+  readWorkflowTextFieldValue,
+  setWorkflowState,
+} from '@/lib/yjs/workflow-session'
+import type { WorkflowSessionContextValue } from '@/lib/yjs/workflow-session-host'
 import { LoopBlock } from '@/blocks/blocks/loop'
 import { ParallelContainerBlock } from '@/blocks/blocks/parallel_container'
+import { PolymarketBlock } from '@/blocks/blocks/polymarket'
+import { SerperBlock } from '@/blocks/blocks/serper'
 import type { SubBlockConfig } from '@/blocks/types'
+import { Serializer } from '@/serializer'
+import type { BlockState } from '@/stores/workflows/workflow/types'
 import { ShortInput } from './short-input'
 
-const mocks = vi.hoisted(() => ({ commit: vi.fn() }))
+const mocks = vi.hoisted(() => ({
+  session: null as Pick<WorkflowSessionContextValue, 'doc' | 'transactWorkflow'> | null,
+}))
+
+vi.unmock('@/blocks/registry')
 
 vi.mock('@xyflow/react', () => ({ useReactFlow: () => null }))
 
@@ -43,19 +61,10 @@ vi.mock('@/widgets/widgets/editor_workflow/copy', () => ({
   useWorkflowBlockEditorCopy: () => ({ shortInput: {} }),
 }))
 
-vi.mock('@/lib/yjs/use-workflow-doc', async () => {
-  const { useCallback, useState } = await import('react')
-  return {
-    useWorkflowTextField: (_blockId: string, _subBlockId: string, initialValue: string) => {
-      const [value, setValue] = useState(initialValue)
-      const commit = useCallback((nextValue: string) => {
-        mocks.commit(nextValue)
-        setValue(nextValue)
-      }, [])
-      return { value, setValue: commit }
-    },
-  }
-})
+vi.mock('@/lib/yjs/workflow-session-host', () => ({
+  useOptionalWorkflowSession: () => mocks.session,
+  useWorkflowSession: () => mocks.session,
+}))
 
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
@@ -64,10 +73,23 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 describe('ShortInput numeric contract', () => {
   let container: HTMLDivElement
   let root: Root
+  let doc: Y.Doc
+  let fieldId: string
+  const onUpdate = vi.fn<() => void>()
+
+  function useDoc(nextDoc: Y.Doc) {
+    mocks.session = {
+      doc: nextDoc,
+      transactWorkflow: (fn, origin) => nextDoc.transact(() => fn(nextDoc), origin),
+    }
+  }
 
   beforeEach(() => {
     vi.useFakeTimers()
-    mocks.commit.mockReset()
+    doc = new Y.Doc()
+    onUpdate.mockReset()
+    doc.on('update', onUpdate)
+    useDoc(doc)
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -77,11 +99,13 @@ describe('ShortInput numeric contract', () => {
   afterEach(() => {
     act(() => root.unmount())
     container.remove()
+    doc.destroy()
+    mocks.session = null
     vi.useRealTimers()
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  function render(config: SubBlockConfig, onChange?: (value: string) => void) {
+  function mount(config: SubBlockConfig, onChange?: (value: string) => void) {
     act(() => {
       root.render(
         <ShortInput
@@ -95,6 +119,41 @@ describe('ShortInput numeric contract', () => {
       )
     })
     return container.querySelector('input')!
+  }
+
+  function render(config: SubBlockConfig, onChange?: (value: string) => void) {
+    fieldId = config.id
+    const blockConfig = [LoopBlock, ParallelContainerBlock, PolymarketBlock, SerperBlock].find(
+      (block) => block.subBlocks.some((field) => field.id === config.id)
+    )!
+    setWorkflowState(doc, {
+      blocks: {
+        container: {
+          id: 'container',
+          type: blockConfig.type,
+          name: 'Container',
+          position: { x: 0, y: 0 },
+          enabled: true,
+          outputs: {},
+          subBlocks: {
+            ...buildInitialSubBlockStates(blockConfig.subBlocks, {
+              operation: 'get_price_history',
+            }),
+            [config.id]: { id: config.id, type: config.type, value: config.defaultValue ?? '5' },
+          } as BlockState['subBlocks'],
+        },
+      },
+      edges: [],
+      loops: {},
+      parallels: {},
+    })
+    const input = mount(config, onChange)
+    onUpdate.mockClear()
+    return input
+  }
+
+  function savedValue() {
+    return readWorkflowSnapshot(doc).blocks.container.subBlocks[fieldId].value
   }
 
   function type(input: HTMLInputElement, value: string) {
@@ -112,10 +171,10 @@ describe('ShortInput numeric contract', () => {
     const config = block.subBlocks.find((field) => field.id === id)!
     const input = render(config)
     type(input, '1000')
-    expect(mocks.commit).not.toHaveBeenCalled()
+    expect(onUpdate).not.toHaveBeenCalled()
 
     act(() => vi.advanceTimersByTime(300))
-    expect(mocks.commit).toHaveBeenLastCalledWith(String(max))
+    expect(savedValue()).toBe(String(max))
 
     act(() => input.blur())
     expect(input.value).toBe(String(max))
@@ -129,7 +188,7 @@ describe('ShortInput numeric contract', () => {
     const input = render(LoopBlock.subBlocks.find((field) => field.id === 'iterations')!)
     type(input, value)
     act(() => input.blur())
-    expect(mocks.commit).toHaveBeenLastCalledWith(expected)
+    expect(savedValue()).toBe(expected)
     expect(input.value).toBe(expected)
   })
 
@@ -137,9 +196,10 @@ describe('ShortInput numeric contract', () => {
     const input = render(ParallelContainerBlock.subBlocks.find((field) => field.id === 'count')!)
     type(input, '1000')
     act(() => root.render(null))
-    expect(mocks.commit).toHaveBeenCalledExactlyOnceWith('20')
+    expect(savedValue()).toBe('20')
+    expect(onUpdate).toHaveBeenCalledTimes(1)
     act(() => vi.advanceTimersByTime(300))
-    expect(mocks.commit).toHaveBeenCalledTimes(1)
+    expect(onUpdate).toHaveBeenCalledTimes(1)
   })
 
   it.each(['<variable.count>', '{{COUNT}}', '', 'text'])(
@@ -149,7 +209,8 @@ describe('ShortInput numeric contract', () => {
       type(input, value)
       expect(container.querySelector('[data-reference-picker]')).toBeNull()
       act(() => input.blur())
-      expect(mocks.commit).not.toHaveBeenCalled()
+      expect(onUpdate).not.toHaveBeenCalled()
+      expect(savedValue()).toBe(5)
       expect(input.value).toBe('5')
     }
   )
@@ -158,11 +219,12 @@ describe('ShortInput numeric contract', () => {
     const input = render(LoopBlock.subBlocks.find((field) => field.id === 'iterations')!)
     type(input, '7')
     act(() => input.blur())
-    mocks.commit.mockClear()
+    onUpdate.mockClear()
 
     type(input, '<variable.count>')
     act(() => root.render(null))
-    expect(mocks.commit).not.toHaveBeenCalled()
+    expect(onUpdate).not.toHaveBeenCalled()
+    expect(savedValue()).toBe('7')
   })
 
   it('ignores reference drops on fields that declare no reference support', () => {
@@ -173,35 +235,109 @@ describe('ShortInput numeric contract', () => {
     })
     act(() => input.dispatchEvent(drop))
     expect(input.value).toBe('5')
-    expect(mocks.commit).not.toHaveBeenCalled()
+    expect(onUpdate).not.toHaveBeenCalled()
   })
 
   it.each(['<variable.startTime>', '{{START_TIME}}', '', '1e'])(
     'preserves reference or incomplete numeric text %j',
     (value) => {
-      const input = render({ id: 'startTs', type: 'short-input', inputType: 'number', min: 1 })
+      const input = render({
+        ...PolymarketBlock.subBlocks.find((field) => field.id === 'startTs')!,
+        min: 1,
+      })
       type(input, value)
       act(() => input.blur())
-      expect(mocks.commit).toHaveBeenLastCalledWith(value)
+      expect(savedValue()).toBe(value)
+      expect(readWorkflowTextFieldValue(doc, 'container', 'startTs')).toBeNull()
     }
   )
 
   it('preserves fractional numeric values for controlled short inputs', () => {
     const onChange = vi.fn()
-    const input = render(
+    mocks.session = null
+    const input = mount(
       { id: 'speed', type: 'short-input', inputType: 'number', min: 0.25, max: 4 },
       onChange
     )
     type(input, '1.5')
     act(() => input.blur())
     expect(onChange).toHaveBeenLastCalledWith('1.5')
-    expect(mocks.commit).not.toHaveBeenCalled()
+    expect(onUpdate).not.toHaveBeenCalled()
   })
 
   it('does not apply numeric constraints to text inputs', () => {
-    const input = render({ id: 'text', type: 'short-input', integer: true, min: 1, max: 20 })
+    const input = render({
+      ...SerperBlock.subBlocks.find((field) => field.id === 'query')!,
+      integer: true,
+      min: 1,
+      max: 20,
+    })
     type(input, '1000')
     act(() => input.blur())
-    expect(mocks.commit).toHaveBeenLastCalledWith('1000')
+    expect(savedValue()).toBe('1000')
+  })
+
+  it.each([
+    [LoopBlock, 'iterations', 'loops'],
+    [ParallelContainerBlock, 'count', 'parallels'],
+    [PolymarketBlock, 'startTs', null],
+    [SerperBlock, 'query', null],
+  ] as const)('preserves scalar and text merge semantics (case %#)', (block, id, mapKey) => {
+    doc.clientID = 1
+    const config = block.subBlocks.find((field) => field.id === id)!
+    render(config)
+    act(() => root.render(null))
+    const initialUpdate = Y.encodeStateAsUpdate(doc)
+    const initialVector = Y.encodeStateVector(doc)
+    const clients = [2, 3].map((clientId) => {
+      const client = new Y.Doc()
+      client.clientID = clientId
+      Y.applyUpdate(client, initialUpdate)
+      return client
+    })
+    const edits = clients.map((client, index) => {
+      useDoc(client)
+      const input = mount(config)
+      type(input, String(index + 8))
+      act(() => input.blur())
+      act(() => root.render(null))
+      return Y.encodeStateAsUpdate(client, initialVector)
+    })
+
+    const mergedValues = []
+    for (const updates of [edits, [...edits].reverse()]) {
+      const merged = new Y.Doc()
+      Y.applyUpdate(merged, initialUpdate)
+      for (const update of updates) Y.applyUpdate(merged, update)
+      const snapshot = readWorkflowSnapshot(merged)
+      const value = snapshot.blocks.container.subBlocks[id].value
+      mergedValues.push(value)
+      if (config.inputType === 'number') {
+        expect(['8', '9']).toContain(value)
+        expect(readWorkflowTextFieldValue(merged, 'container', id)).toBeNull()
+      } else {
+        expect(value).toBe('89')
+        expect(readWorkflowTextFieldValue(merged, 'container', id)).toBe(value)
+      }
+
+      for (const state of [snapshot, extractPersistedStateFromDoc(merged)]) {
+        expect(state.blocks.container.subBlocks[id].value).toBe(value)
+        expect(validateWorkflowState(state).errors).toEqual([])
+        const serialized = new Serializer().serializeWorkflow(
+          state.blocks,
+          state.edges,
+          state.loops,
+          state.parallels
+        )
+        expect(serialized.blocks[0].config.params[id]).toBe(value)
+        if (mapKey) {
+          expect(state[mapKey].container).toMatchObject({ [id]: Number(value) })
+          expect(serialized[mapKey]?.container).toMatchObject({ [id]: Number(value) })
+        }
+      }
+      merged.destroy()
+    }
+    expect(new Set(mergedValues).size).toBe(1)
+    for (const client of clients) client.destroy()
   })
 })

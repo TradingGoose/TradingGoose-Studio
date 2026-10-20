@@ -15,6 +15,7 @@ import type { Edge } from '@xyflow/react'
 import * as Y from 'yjs'
 import { resolveStoredDateValue } from '@/lib/time-format'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import { getBlock } from '@/blocks/registry'
 import type {
   BlockState,
   Loop,
@@ -78,11 +79,18 @@ export function parseWorkflowTextFieldKey(
   }
 }
 
+function isWorkflowTextField(textFields: Y.Map<any>, blockId: string, subBlockId: string): boolean {
+  const block = textFields.doc && readWorkflowMap(textFields.doc).get(YJS_KEYS.BLOCKS)?.[blockId]
+  const field = block && getBlock(block.type)?.subBlocks.find(({ id }) => id === subBlockId)
+  return !(field?.type === 'short-input' && field.inputType === 'number')
+}
+
 export function readWorkflowTextFieldFromMap(
   textFields: Y.Map<any>,
   blockId: string,
   subBlockId: string
 ): Y.Text | null {
+  if (!isWorkflowTextField(textFields, blockId, subBlockId)) return null
   const existing = textFields.get(createWorkflowTextFieldKey(blockId, subBlockId))
   return existing instanceof Y.Text ? existing : null
 }
@@ -116,6 +124,9 @@ export function ensureWorkflowTextField(
   initialValue = ''
 ): Y.Text {
   const textFields = readWorkflowTextFieldsMap(doc)
+  if (!isWorkflowTextField(textFields, blockId, subBlockId)) {
+    throw new Error(`Numeric subblock ${blockId}.${subBlockId} cannot use collaborative text`)
+  }
   const existing = readWorkflowTextFieldFromMap(textFields, blockId, subBlockId)
   if (existing) {
     return existing
@@ -322,7 +333,10 @@ export function setWorkflowState(doc: Y.Doc, state: WorkflowSnapshot, origin?: s
       }
 
       const nextValue = state.blocks?.[parsed.blockId]?.subBlocks?.[parsed.subBlockId]?.value
-      if (typeof nextValue !== 'string') {
+      if (
+        typeof nextValue !== 'string' ||
+        !isWorkflowTextField(textFields, parsed.blockId, parsed.subBlockId)
+      ) {
         textFields.delete(key)
         continue
       }

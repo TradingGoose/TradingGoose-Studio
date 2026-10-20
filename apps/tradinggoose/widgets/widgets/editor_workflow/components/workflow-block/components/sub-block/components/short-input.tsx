@@ -9,7 +9,13 @@ import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { stringifySubBlockValue } from '@/lib/workflows/subblock-values'
-import { useWorkflowTextField } from '@/lib/yjs/use-workflow-doc'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import {
+  setWorkflowSubBlockValues,
+  useSubBlockValue,
+  useWorkflowTextField,
+} from '@/lib/yjs/use-workflow-doc'
+import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useTagSelection } from '@/hooks/use-tag-selection'
 import { useWebhookManagement } from '@/hooks/use-webhook-management'
@@ -87,7 +93,10 @@ export function ShortInput({
 
   const resolvedWandConfig = config.wandConfig ?? { enabled: false, prompt: '' }
   const isWorkflowManaged = onChange === undefined
+  const isNumericInput = config.inputType === 'number'
   const supportsReferences = config.supportsReferences !== false
+  const transactWorkflow = useOptionalWorkflowSession()?.transactWorkflow
+  const scalarValue = useSubBlockValue(blockId, subBlockId, isWorkflowManaged && isNumericInput)
 
   const [searchTerm, setSearchTerm] = useState('')
   const [cursorPosition, setCursorPosition] = useState(0)
@@ -109,15 +118,19 @@ export function ShortInput({
     subBlockId,
     baseValueString,
     {
-      enabled: isWorkflowManaged,
-      autoCreate: isWorkflowManaged && !readOnly && !disabled,
-      mirrorDelayMs: isWorkflowManaged ? 300 : null,
+      enabled: isWorkflowManaged && !isNumericInput,
+      autoCreate: isWorkflowManaged && !isNumericInput && !readOnly && !disabled,
+      mirrorDelayMs: isWorkflowManaged && !isNumericInput ? 300 : null,
     }
   )
-  const persistedValue = isWorkflowManaged ? textFieldValue : baseValueString
+  const persistedValue = !isWorkflowManaged
+    ? baseValueString
+    : isNumericInput
+      ? stringifySubBlockValue(scalarValue ?? propValue)
+      : textFieldValue
   const commitValue = useCallback(
     (nextValue: string) => {
-      if (config.inputType === 'number') {
+      if (isNumericInput) {
         let number = Number(nextValue)
         const isLiteral = nextValue.trim() !== '' && !Number.isNaN(number)
         if (!supportsReferences && !isLiteral) return
@@ -131,14 +144,21 @@ export function ShortInput({
       }
 
       if (isWorkflowManaged) {
-        setTextFieldValue(nextValue)
+        if (isNumericInput) {
+          transactWorkflow?.(
+            (doc) => setWorkflowSubBlockValues(doc, [{ blockId, subBlockId, value: nextValue }]),
+            YJS_ORIGINS.USER
+          )
+        } else {
+          setTextFieldValue(nextValue)
+        }
         return
       }
 
       onChange?.(nextValue)
     },
     [
-      config.inputType,
+      isNumericInput,
       config.integer,
       config.min,
       config.max,
@@ -146,6 +166,9 @@ export function ShortInput({
       isWorkflowManaged,
       onChange,
       setTextFieldValue,
+      transactWorkflow,
+      blockId,
+      subBlockId,
     ]
   )
   const {
@@ -182,7 +205,6 @@ export function ShortInput({
   const effectiveValue =
     useWebhookUrl && webhookManagement.webhookUrl ? webhookManagement.webhookUrl : localContent
 
-  const isNumericInput = config.inputType === 'number'
   const numericStep = isNumericInput ? (config.step ?? (config.integer ? 1 : undefined)) : undefined
   const numericInputMode =
     isNumericInput && (config.integer || numericStep === 1 || numericStep === undefined)

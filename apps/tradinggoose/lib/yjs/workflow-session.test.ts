@@ -4,16 +4,20 @@ import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
 import { FunctionBlock } from '@/blocks/blocks/function'
 import { LoopBlock } from '@/blocks/blocks/loop'
 import { ParallelContainerBlock } from '@/blocks/blocks/parallel_container'
+import { WaitBlock } from '@/blocks/blocks/wait'
 import { Serializer } from '@/serializer'
 import type { BlockState } from '@/stores/workflows/workflow/types'
 import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/workflow/utils'
 import {
+  createWorkflowSnapshot,
   createWorkflowTextFieldKey,
+  ensureWorkflowTextField,
   extractPersistedStateFromDoc,
   readWorkflowMap,
   readWorkflowSnapshot,
   readWorkflowSnapshotCloned,
   readWorkflowTextFieldsMap,
+  readWorkflowTextFieldValue,
   replaceWorkflowTextField,
   setWorkflowState,
   YJS_KEYS,
@@ -91,6 +95,46 @@ describe('workflow session text fields', () => {
       (textFields.get(createWorkflowTextFieldKey('block-1', 'code')) as Y.Text).toString()
     ).toBe('fresh')
     expect(readWorkflowSnapshot(doc).blocks['block-1']?.subBlocks?.code?.value).toBe('fresh')
+  })
+
+  it.each([
+    [LoopBlock, 'iterations', '8'],
+    [ParallelContainerBlock, 'count', '9'],
+    [WaitBlock, 'timeValue', '<variable.delay>'],
+  ] as const)('stores numeric ShortInput values atomically (case %#)', (config, fieldId, value) => {
+    const doc = new Y.Doc()
+    const block: BlockState = {
+      id: 'block',
+      type: config.type,
+      name: config.name,
+      position: { x: 0, y: 0 },
+      enabled: true,
+      outputs: {},
+      subBlocks: buildInitialSubBlockStates(config.subBlocks, {
+        [fieldId]: value,
+      }) as BlockState['subBlocks'],
+    }
+    const state = createWorkflowSnapshot({ blocks: { block } })
+    setWorkflowState(doc, state)
+    const textFields = readWorkflowTextFieldsMap(doc)
+    const key = createWorkflowTextFieldKey('block', fieldId)
+    const staleText = new Y.Text()
+    staleText.insert(0, '89')
+    textFields.set(key, staleText)
+
+    expect(readWorkflowTextFieldValue(doc, 'block', fieldId)).toBeNull()
+    expect(readWorkflowSnapshot(doc).blocks.block.subBlocks[fieldId].value).toBe(value)
+    expect(extractPersistedStateFromDoc(doc).blocks.block.subBlocks[fieldId].value).toBe(value)
+    expect(() => replaceWorkflowTextField(doc, 'block', fieldId, '8')).toThrow(
+      'cannot use collaborative text'
+    )
+
+    setWorkflowState(doc, state)
+    expect(() => ensureWorkflowTextField(doc, 'block', fieldId)).toThrow(
+      'cannot use collaborative text'
+    )
+    expect(textFields.has(key)).toBe(false)
+    doc.destroy()
   })
 
   it.each([
