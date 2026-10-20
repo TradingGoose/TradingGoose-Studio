@@ -1,10 +1,5 @@
 import * as Y from 'yjs'
-import {
-  readWorkflowMap,
-  readWorkflowTextFieldsMap,
-  regenerateContainerConfigs,
-  YJS_KEYS,
-} from './workflow-session'
+import { readWorkflowMap, readWorkflowTextFieldsMap, YJS_KEYS } from './workflow-session'
 
 export function rewriteWorkflowContentReferences(
   doc: Y.Doc,
@@ -13,7 +8,6 @@ export function rewriteWorkflowContentReferences(
 ): void {
   rewriteWorkflowReferencesInBlocks(readWorkflowMap(doc), regex, replacement)
   rewriteWorkflowReferencesInTextFields(readWorkflowTextFieldsMap(doc), regex, replacement)
-  regenerateContainerConfigs(doc)
 }
 
 function rewriteWorkflowReferencesInBlocks(

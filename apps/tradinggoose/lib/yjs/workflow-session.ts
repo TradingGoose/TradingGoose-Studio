@@ -5,7 +5,7 @@
  * and provides helpers to read/write the live workflow state.
  *
  * Top-level collections:
- *   - "workflow"  (Y.Map) — editable blocks, edges, loops, parallels, and save timestamp
+ *   - "workflow"  (Y.Map) — editable blocks, edges, and save timestamp
  *   - "textFields" (Y.Map) — text-heavy subblock values keyed by blockId/subBlockId
  *   - "variables" (Y.Map) — per-workflow variable records keyed by variable id
  *   - "metadata"  (Y.Map) — session-level workflow metadata
@@ -34,8 +34,6 @@ export const YJS_KEYS = {
   METADATA: 'metadata',
   BLOCKS: 'blocks',
   EDGES: 'edges',
-  LOOPS: 'loops',
-  PARALLELS: 'parallels',
   DIRECTION: 'direction',
   LAST_SAVED: 'lastSaved',
 } as const
@@ -270,8 +268,8 @@ export function createWorkflowSnapshot(partial: Partial<WorkflowSnapshot> = {}):
 // ---------------------------------------------------------------------------
 
 /**
- * Returns a plain-object snapshot of the current workflow state stored in the
- * Yjs document.  Missing keys fall back to safe defaults (empty containers).
+ * Returns a snapshot with loop and parallel settings derived from materialized
+ * block values, so concurrent Yjs updates cannot leave execution settings stale.
  *
  * The returned data references the underlying Y.Map values directly.
  * **Callers must treat the result as read-only.** If you need to mutate
@@ -286,21 +284,10 @@ export function readWorkflowSnapshot(doc: Y.Doc): WorkflowSnapshot {
     direction: wMap.get(YJS_KEYS.DIRECTION),
     blocks,
     edges: wMap.get(YJS_KEYS.EDGES) ?? [],
-    loops: wMap.get(YJS_KEYS.LOOPS) ?? {},
-    parallels: wMap.get(YJS_KEYS.PARALLELS) ?? {},
+    loops: generateLoopBlocks(blocks),
+    parallels: generateParallelBlocks(blocks),
     lastSaved: wMap.get(YJS_KEYS.LAST_SAVED),
   })
-}
-
-export function regenerateContainerConfigs(doc: Y.Doc, blockIds?: string[]): void {
-  const { blocks } = readWorkflowSnapshot(doc)
-  const workflowMap = readWorkflowMap(doc)
-  if (!blockIds || blockIds.some((id) => blocks[id]?.type === 'loop')) {
-    workflowMap.set(YJS_KEYS.LOOPS, generateLoopBlocks(blocks))
-  }
-  if (!blockIds || blockIds.some((id) => blocks[id]?.type === 'parallel')) {
-    workflowMap.set(YJS_KEYS.PARALLELS, generateParallelBlocks(blocks))
-  }
 }
 
 /**
@@ -308,24 +295,7 @@ export function regenerateContainerConfigs(doc: Y.Doc, blockIds?: string[]): voi
  * caller can safely mutate the returned data.
  */
 export function readWorkflowSnapshotCloned(doc: Y.Doc): WorkflowSnapshot {
-  const wMap = readWorkflowMap(doc)
-  const textFields = readWorkflowTextFieldsMap(doc)
-
-  const { blocks, edges, loops, parallels } = structuredClone({
-    blocks: wMap.get(YJS_KEYS.BLOCKS) ?? {},
-    edges: wMap.get(YJS_KEYS.EDGES) ?? [],
-    loops: wMap.get(YJS_KEYS.LOOPS) ?? {},
-    parallels: wMap.get(YJS_KEYS.PARALLELS) ?? {},
-  })
-
-  return applySnapshotDefaults({
-    direction: wMap.get(YJS_KEYS.DIRECTION),
-    blocks: materializeWorkflowTextFields(blocks, textFields),
-    edges,
-    loops,
-    parallels,
-    lastSaved: wMap.get(YJS_KEYS.LAST_SAVED),
-  })
+  return structuredClone(readWorkflowSnapshot(doc))
 }
 
 /**
@@ -342,8 +312,6 @@ export function setWorkflowState(doc: Y.Doc, state: WorkflowSnapshot, origin?: s
     if (state.direction !== undefined) wMap.set(YJS_KEYS.DIRECTION, state.direction)
     wMap.set(YJS_KEYS.BLOCKS, state.blocks ?? {})
     wMap.set(YJS_KEYS.EDGES, state.edges ?? [])
-    wMap.set(YJS_KEYS.LOOPS, state.loops ?? {})
-    wMap.set(YJS_KEYS.PARALLELS, state.parallels ?? {})
     if (state.lastSaved !== undefined) wMap.set(YJS_KEYS.LAST_SAVED, state.lastSaved)
 
     for (const key of Array.from(textFields.keys())) {
@@ -508,12 +476,8 @@ export function extractPersistedStateFromDoc(doc: Y.Doc): PersistedDocState {
   const lastSaved = resolveStoredDateValue(snapshot.lastSaved)?.getTime() ?? Date.now()
 
   return {
-    ...(snapshot.direction !== undefined ? { direction: snapshot.direction } : {}),
-    blocks: snapshot.blocks || {},
-    edges: snapshot.edges || [],
-    loops: snapshot.loops || {},
-    parallels: snapshot.parallels || {},
-    variables: variables || {},
+    ...snapshot,
+    variables,
     lastSaved,
   }
 }

@@ -3463,6 +3463,8 @@
           "watchlist": "Watchlist"
         },
         "blockDescriptions": {
+          "loop": "Repeat the blocks inside a workflow container sequentially.",
+          "parallel": "Execute copies of a workflow container concurrently.",
           "response": "Send structured API response",
           "variables": "Set workflow-scoped variables",
           "wait": "Pause workflow execution for a specified time delay",

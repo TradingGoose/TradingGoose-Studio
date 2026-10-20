@@ -168,9 +168,12 @@ describe('useWorkflowMutations', () => {
               : undefined,
       }
     })
-    const { useWorkflowMutations, useWorkflowTextField } = await import('./use-workflow-doc')
+    const { useWorkflowMutations, useWorkflowTextField, useWorkflowLoops, useWorkflowParallels } =
+      await import('./use-workflow-doc')
     let mutations: ReturnType<typeof useWorkflowMutations> | null = null
     let textField: ReturnType<typeof useWorkflowTextField> | null = null
+    let loops: ReturnType<typeof useWorkflowLoops> = {}
+    let parallels: ReturnType<typeof useWorkflowParallels> = {}
     let textFieldEnabled = initialValues === undefined
     let editorOpen = true
     function TextEditor() {
@@ -183,6 +186,8 @@ describe('useWorkflowMutations', () => {
     }
     function Harness() {
       mutations = useWorkflowMutations()
+      loops = useWorkflowLoops()
+      parallels = useWorkflowParallels()
       return editorOpen ? React.createElement(TextEditor) : null
     }
     container = document.createElement('div')
@@ -217,6 +222,12 @@ describe('useWorkflowMutations', () => {
       },
       get textField() {
         return textField!
+      },
+      get loops() {
+        return loops
+      },
+      get parallels() {
+        return parallels
       },
     }
   }
@@ -268,7 +279,7 @@ describe('useWorkflowMutations', () => {
         )
       )
       expectPersisted(['child'])
-      // Unmount canceled the mirror, so regeneration must not read this stale raw value.
+      // Unmount canceled the mirror; projections still use shared text.
       expect(
         (editor.workflowMap.get('blocks') as Record<string, BlockState>)['container-1'].subBlocks[
           fieldId
@@ -346,15 +357,12 @@ describe('useWorkflowMutations', () => {
           readWorkflowSnapshot(editor.doc).blocks['container-1'].subBlocks[fieldId].value as string
         )
       ).toEqual(collection)
-      if (type === 'loop') {
-        expect(readWorkflowSnapshot(editor.doc).loops['container-1'].forEachItems).toEqual(
-          collection
-        )
-      } else {
-        expect(readWorkflowSnapshot(editor.doc).parallels['container-1'].distribution).toEqual(
-          collection
-        )
-      }
+      const snapshot = readWorkflowSnapshot(editor.doc)
+      expect(
+        type === 'loop'
+          ? snapshot.loops['container-1'].forEachItems
+          : snapshot.parallels['container-1'].distribution
+      ).toBe(JSON.stringify(collection))
 
       const replacement = { primary: 'MSFT', secondary: 'GOOG' }
       await act(async () => editor.mutations.setSubBlockValue('container-1', fieldId, replacement))
@@ -385,7 +393,7 @@ describe('useWorkflowMutations', () => {
       const changes = vi.fn(() => {
         const state = readWorkflowSnapshot(editor.doc)
         expect(state.blocks['container-1'].subBlocks[fieldId].value).toBe(9)
-        expect((editor.workflowMap.get(mapKey) as any)['container-1'][runtimeField]).toBe(9)
+        expect(state).toMatchObject({ [mapKey]: { 'container-1': { [runtimeField]: 9 } } })
       })
       editor.doc.on('update', changes)
 
@@ -401,7 +409,9 @@ describe('useWorkflowMutations', () => {
       expect(readWorkflowSnapshot(editor.doc).blocks['container-1'].subBlocks[fieldId].value).toBe(
         5
       )
-      expect((editor.workflowMap.get(mapKey) as any)['container-1'][runtimeField]).toBe(5)
+      expect(readWorkflowSnapshot(editor.doc)).toMatchObject({
+        [mapKey]: { 'container-1': { [runtimeField]: 5 } },
+      })
       undoManager.destroy()
     }
   )
@@ -471,12 +481,31 @@ describe('useWorkflowMutations', () => {
       const editor = await mountContainerEditor(type, fieldId)
       await act(async () => editor.mutations.setSubBlockValue('container-1', modeId, mode))
       await act(async () => editor.textField.setValue('{{first}}'))
-      expect((editor.workflowMap.get(mapKey) as any)['container-1'][runtimeField]).toBe('{{first}}')
+      expect(readWorkflowSnapshot(editor.doc)).toMatchObject({
+        [mapKey]: { 'container-1': { [runtimeField]: '{{first}}' } },
+      })
       await act(async () => editor.mutations.setSubBlockValue('container-1', fieldId, '{{second}}'))
       expect(editor.textField.value).toBe('{{second}}')
-      expect((editor.workflowMap.get(mapKey) as any)['container-1'][runtimeField]).toBe(
-        '{{second}}'
-      )
+      expect(readWorkflowSnapshot(editor.doc)).toMatchObject({
+        [mapKey]: { 'container-1': { [runtimeField]: '{{second}}' } },
+      })
+
+      await editor.closeEditor()
+      const remote = new Y.Doc()
+      Y.applyUpdate(remote, Y.encodeStateAsUpdate(editor.doc))
+      const remoteText = readWorkflowTextFieldsMap(remote).get(
+        createWorkflowTextFieldKey('container-1', fieldId)
+      ) as Y.Text
+      remoteText.insert(remoteText.length, ' + remote')
+      const changes = vi.fn()
+      editor.doc.on('update', changes)
+      await act(async () => Y.applyUpdate(editor.doc, Y.encodeStateAsUpdate(remote), 'remote'))
+      expect({ loops: editor.loops, parallels: editor.parallels }).toMatchObject({
+        [mapKey]: { 'container-1': { [runtimeField]: '{{second}} + remote' } },
+      })
+      expect(changes).toHaveBeenCalledTimes(1)
+      editor.doc.off('update', changes)
+      remote.destroy()
     }
   )
 
@@ -495,8 +524,6 @@ describe('useWorkflowMutations', () => {
       },
     })
     workflowMap.set('edges', [])
-    workflowMap.set('loops', {})
-    workflowMap.set('parallels', {})
 
     const transactWorkflow = vi.fn((fn: (d: Y.Doc) => void, origin?: string) => {
       doc.transact(() => fn(doc), origin ?? YJS_ORIGINS.USER)
@@ -608,8 +635,6 @@ describe('useWorkflowMutations', () => {
       },
     })
     workflowMap.set('edges', [])
-    workflowMap.set('loops', {})
-    workflowMap.set('parallels', {})
 
     const session = {
       doc,
@@ -696,8 +721,6 @@ describe('useWorkflowMutations', () => {
       },
     })
     workflowMap.set('edges', [])
-    workflowMap.set('loops', {})
-    workflowMap.set('parallels', {})
 
     const textFieldKey = createWorkflowTextFieldKey('block-2', 'code')
     const sharedText = new Y.Text()
@@ -768,8 +791,6 @@ describe('useWorkflowMutations', () => {
       },
     })
     workflowMap.set('edges', [])
-    workflowMap.set('loops', {})
-    workflowMap.set('parallels', {})
 
     const session = {
       doc,

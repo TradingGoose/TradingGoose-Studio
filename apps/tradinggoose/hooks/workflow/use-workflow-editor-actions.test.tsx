@@ -164,8 +164,6 @@ describe('useWorkflowEditorActions', () => {
       },
     })
     workflowMap.set('edges', [])
-    workflowMap.set('loops', {})
-    workflowMap.set('parallels', {})
 
     const sharedText = new Y.Text()
     sharedText.insert(0, 'live-ytext-value')
@@ -218,8 +216,6 @@ describe('useWorkflowEditorActions', () => {
       },
     })
     workflowMap.set('edges', [])
-    workflowMap.set('loops', {})
-    workflowMap.set('parallels', {})
 
     mockSession.readWorkflowSnapshot.mockReturnValue(readWorkflowSnapshot(doc))
 
@@ -264,8 +260,6 @@ describe('useWorkflowEditorActions', () => {
       },
     })
     workflowMap.set('edges', [])
-    workflowMap.set('loops', {})
-    workflowMap.set('parallels', {})
 
     mockSession.readWorkflowSnapshot.mockReturnValue(readWorkflowSnapshot(doc))
     mockUpdateBlockPosition.mockImplementation((id: string, position: { x: number; y: number }) => {

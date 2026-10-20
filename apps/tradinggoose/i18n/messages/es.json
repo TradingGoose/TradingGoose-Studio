@@ -3463,6 +3463,8 @@
           "watchlist": "Lista de seguimiento"
         },
         "blockDescriptions": {
+          "loop": "Repite secuencialmente los bloques dentro de un contenedor del flujo de trabajo.",
+          "parallel": "Ejecuta copias de un contenedor del flujo de trabajo de forma simultánea.",
           "response": "Envía una respuesta de API estructurada",
           "variables": "Establece variables de ámbito de flujo de trabajo",
           "wait": "Pausa la ejecución del flujo de trabajo durante un tiempo específico",

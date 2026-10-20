@@ -3450,6 +3450,8 @@
           "watchlist": "自选列表"
         },
         "blockDescriptions": {
+          "loop": "按顺序重复执行工作流容器内的块。",
+          "parallel": "并发执行工作流容器的多个副本。",
           "response": "发送结构化 API 响应",
           "variables": "设置工作流作用域变量",
           "wait": "按指定时间延迟暂停工作流执行",
