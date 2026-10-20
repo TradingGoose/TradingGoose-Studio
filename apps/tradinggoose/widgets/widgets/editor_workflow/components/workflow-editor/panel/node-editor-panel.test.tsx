@@ -408,7 +408,7 @@ describe('NodeEditorPanel', () => {
       )
 
       expect(markup).toContain('data-testid="rows"')
-      expect(markup).toContain('Symbols')
+      expect(markup).toContain('Colección')
       expect(markup).not.toContain('Inactive')
     }
   )

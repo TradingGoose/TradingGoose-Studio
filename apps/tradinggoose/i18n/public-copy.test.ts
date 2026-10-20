@@ -268,12 +268,6 @@ describe('public copy', () => {
     expect(getPublicCopy('en').workspace.widgets.workflowVariables.unableToLoadWorkflows).toBe(
       'Unable to load workflows'
     )
-    expect(getPublicCopy('zh').workspace.widgets.workflowEditor.whileConditionPlaceholder).toBe(
-      '<counter.value> < 10'
-    )
-    expect(getPublicCopy('en').workspace.widgets.workflowEditor.collectionItemsPlaceholder).toBe(
-      "['item1', 'item2', 'item3']"
-    )
     expect(
       getPublicCopy('en').workspace.widgets.blockEditor.googleCalendarSelector.accessLabel
     ).toBe('Access:')

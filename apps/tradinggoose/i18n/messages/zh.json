@@ -3709,6 +3709,69 @@
           }
         },
         "subBlocks": {
+          "loop": {
+            "loopType": {
+              "title": "循环类型",
+              "description": "选择固定次数、集合，或在每次迭代前后检查的条件。",
+              "options": [
+                {
+                  "id": "for",
+                  "label": "固定次数"
+                },
+                {
+                  "id": "forEach",
+                  "label": "遍历集合"
+                },
+                {
+                  "id": "while",
+                  "label": "先检查条件"
+                },
+                {
+                  "id": "doWhile",
+                  "label": "后检查条件"
+                }
+              ]
+            },
+            "iterations": {
+              "title": "迭代次数",
+              "description": "固定次数模式下顺序执行的迭代次数，必须为 1 至 100 的整数。"
+            },
+            "forEachItems": {
+              "title": "集合",
+              "description": "遍历集合模式下使用的非空数组或对象。支持直接输入数组、对象、JSON 文本或 <function.result> 等完整上游引用。对象条目会转换为键值对。",
+              "placeholder": "输入数组、对象或上游引用"
+            },
+            "whileCondition": {
+              "title": "条件",
+              "description": "先检查条件或后检查条件模式使用的布尔表达式。<loop.index> 表示当前被检查迭代的从零开始的索引。支持上游和工作流变量引用；请提供能够终止循环的条件。",
+              "placeholder": "输入布尔表达式"
+            }
+          },
+          "parallel": {
+            "parallelType": {
+              "title": "并行类型",
+              "description": "选择固定执行次数，或为集合中的每个元素执行一次。",
+              "options": [
+                {
+                  "id": "count",
+                  "label": "固定次数"
+                },
+                {
+                  "id": "collection",
+                  "label": "遍历集合"
+                }
+              ]
+            },
+            "count": {
+              "title": "执行次数",
+              "description": "固定次数模式下的并行执行次数，必须为 1 至 20 的整数。"
+            },
+            "distribution": {
+              "title": "集合",
+              "description": "集合模式下使用的数组或对象。支持直接输入数组、对象、JSON 文本或 <function.result> 等完整上游引用。每个元素启动一次执行；对象条目会转换为键值对。",
+              "placeholder": "输入数组、对象或上游引用"
+            }
+          },
           "response": {
             "dataMode": {
               "title": "响应数据模式",
@@ -20204,23 +20267,6 @@
         "renameNode": "重命名节点",
         "locked": "已锁定",
         "disabled": "已禁用",
-        "loopTypeLabel": "循环类型",
-        "parallelTypeLabel": "并行类型",
-        "selectType": "选择类型",
-        "forLoop": "For 循环",
-        "forEachLoop": "逐项循环",
-        "whileLoop": "While 循环",
-        "doWhileLoop": "Do While 循环",
-        "parallelCount": "并行计数",
-        "parallelEach": "并行遍历",
-        "loopIterations": "循环迭代次数",
-        "parallelExecutions": "并行执行次数",
-        "whileCondition": "While 条件",
-        "whileConditionPlaceholder": "<counter.value> < 10",
-        "collectionItems": "集合项",
-        "collectionItemsPlaceholder": "['item1', 'item2', 'item3']",
-        "parallelItems": "并行项",
-        "enterValueBetween": "请输入 1 到 {max} 之间的值",
         "hideAdditionalFields": "隐藏附加字段",
         "showAdditionalFields": "显示附加字段",
         "additionalFields": "附加字段",
@@ -20235,8 +20281,6 @@
           "previousMonth": "上个月",
           "nextMonth": "下个月"
         },
-        "loop": "循环",
-        "parallel": "并行",
         "start": "开始",
         "end": "结束",
         "controlBar": {
