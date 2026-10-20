@@ -5,11 +5,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
-import {
-  createWorkflowSubBlockFieldKey,
-  readWorkflowSnapshot,
-  readWorkflowSubBlockFieldsMap,
-} from '@/lib/yjs/workflow-session'
+import { ensureWorkflowBlockFieldsMap, readWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 const mockAddBlock = vi.hoisted(() => vi.fn())
 const mockUpdateBlockPosition = vi.hoisted(() => vi.fn())
@@ -139,7 +135,7 @@ describe('useWorkflowEditorActions', () => {
   it('duplicates blocks from the materialized live workflow snapshot', async () => {
     const doc = new Y.Doc()
     const workflowMap = doc.getMap('workflow')
-    const textFields = readWorkflowSubBlockFieldsMap(doc)
+    const textFields = ensureWorkflowBlockFieldsMap(doc, 'block-1')
 
     workflowMap.set('blocks', {
       'block-1': {
@@ -167,7 +163,7 @@ describe('useWorkflowEditorActions', () => {
 
     const sharedText = new Y.Text()
     sharedText.insert(0, 'live-ytext-value')
-    textFields.set(createWorkflowSubBlockFieldKey('block-1', 'code'), sharedText)
+    textFields.set('code', sharedText)
 
     mockSession.readWorkflowSnapshot.mockReturnValue(readWorkflowSnapshot(doc))
 

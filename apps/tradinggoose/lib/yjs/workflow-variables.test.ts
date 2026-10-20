@@ -4,7 +4,6 @@
 import { describe, expect, it } from 'vitest'
 import * as Y from 'yjs'
 import {
-  createWorkflowSubBlockFieldKey,
   getVariablesSnapshot,
   readWorkflowSnapshot,
   readWorkflowSubBlockFieldsMap,
@@ -177,10 +176,9 @@ describe('workflow variable Yjs mutations', () => {
         'test'
       )
 
-      const textFieldKey = createWorkflowSubBlockFieldKey('blockA', 'prompt')
       const sharedText = new Y.Text()
       sharedText.insert(0, 'Use <variable.foovalue> in this prompt')
-      readWorkflowSubBlockFieldsMap(doc).set(textFieldKey, sharedText)
+      readWorkflowSubBlockFieldsMap(doc).get('blockA')!.set('prompt', sharedText)
 
       if (method === 'update') {
         expect(updateWorkflowVariable(doc, 'var-1', { name: 'Bar Value' }, 'test')).toBe(true)
@@ -191,7 +189,7 @@ describe('workflow variable Yjs mutations', () => {
       }
 
       expect(sharedText.toString()).toBe('Use <variable.barvalue> in this prompt')
-      expect(readWorkflowSubBlockFieldsMap(doc).get(textFieldKey)).toBe(sharedText)
+      expect(readWorkflowSubBlockFieldsMap(doc).get('blockA')!.get('prompt')).toBe(sharedText)
       expect(readWorkflowSnapshot(doc).blocks).toMatchObject({
         blockA: {
           subBlocks: {

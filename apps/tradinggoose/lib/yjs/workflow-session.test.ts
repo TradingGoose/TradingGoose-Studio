@@ -13,8 +13,9 @@ import type { BlockState } from '@/stores/workflows/workflow/types'
 import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/workflow/utils'
 import {
   createWorkflowSnapshot,
-  createWorkflowSubBlockFieldKey,
+  ensureWorkflowBlockFieldsMap,
   extractPersistedStateFromDoc,
+  materializeWorkflowBlockFields,
   readWorkflowMap,
   readWorkflowSnapshot,
   readWorkflowSnapshotCloned,
@@ -80,11 +81,11 @@ describe('workflow session fields', () => {
 
   it('keeps existing Y.Text entries in sync when workflow state is replaced', () => {
     const doc = new Y.Doc()
-    const textFields = readWorkflowSubBlockFieldsMap(doc)
+    const textFields = ensureWorkflowBlockFieldsMap(doc, 'block-1')
 
     const staleText = new Y.Text()
     staleText.insert(0, 'stale')
-    textFields.set(createWorkflowSubBlockFieldKey('block-1', 'code'), staleText)
+    textFields.set('code', staleText)
 
     setWorkflowState(doc, {
       blocks: {
@@ -109,10 +110,8 @@ describe('workflow session fields', () => {
       parallels: {},
     })
 
-    expect(textFields.get(createWorkflowSubBlockFieldKey('block-1', 'code'))).toBeInstanceOf(Y.Text)
-    expect(
-      (textFields.get(createWorkflowSubBlockFieldKey('block-1', 'code')) as Y.Text).toString()
-    ).toBe('fresh')
+    expect(textFields.get('code')).toBe(staleText)
+    expect(staleText.toString()).toBe('fresh')
     expect(readWorkflowSnapshot(doc).blocks['block-1']?.subBlocks?.code?.value).toBe('fresh')
   })
 
@@ -165,9 +164,8 @@ describe('workflow session fields', () => {
       }
       const state = createWorkflowSnapshot({ blocks: { block } })
       setWorkflowState(doc, state)
-      const textFields = readWorkflowSubBlockFieldsMap(doc)
-      const key = createWorkflowSubBlockFieldKey('block', fieldId)
-      expect(textFields.get(key) instanceof Y.Text).toBe(collaborative)
+      const textFields = readWorkflowSubBlockFieldsMap(doc).get('block')!
+      expect(textFields.get(fieldId) instanceof Y.Text).toBe(collaborative)
       expect(readWorkflowSubBlockFieldValue(doc, 'block', fieldId)).toBe(value)
       expect(readWorkflowSnapshot(doc).blocks.block.subBlocks[fieldId].value).toBe(value)
       expect(extractPersistedStateFromDoc(doc).blocks.block.subBlocks[fieldId].value).toBe(value)
@@ -179,13 +177,13 @@ describe('workflow session fields', () => {
           collaborative: !collaborative,
         },
       ])
-      expect(textFields.get(key) instanceof Y.Text).toBe(collaborative)
+      expect(textFields.get(fieldId) instanceof Y.Text).toBe(collaborative)
       doc.destroy()
     }
   )
 
-  it('materializes many Agent blocks in one field traversal and preserves derived outputs', () => {
-    const doc = new Y.Doc()
+  it('scopes synchronized Agent reads to their fields and preserves derived outputs', () => {
+    const seed = new Y.Doc()
     const blocks = Object.fromEntries(
       Array.from({ length: 100 }, (_, index) => {
         const id = `agent-${index}`
@@ -203,31 +201,96 @@ describe('workflow session fields', () => {
         ]
       })
     )
-    setWorkflowState(doc, createWorkflowSnapshot({ blocks }))
+    setWorkflowState(seed, createWorkflowSnapshot({ blocks }))
+    const doc = new Y.Doc()
+    Y.applyUpdate(doc, Y.encodeStateAsUpdate(seed))
+    const rawBlocks = readWorkflowMap(doc).get(YJS_KEYS.BLOCKS)
     const responseFormat = JSON.stringify({
       type: 'object',
       properties: { symbol: { type: 'string' } },
     })
-    setWorkflowSubBlockValues(doc, [
-      { blockId: 'agent-0', subBlockId: 'responseFormat', value: responseFormat },
-    ])
+    doc.transact(() => {
+      setWorkflowSubBlockValues(doc, [
+        { blockId: 'agent-0', subBlockId: 'responseFormat', value: responseFormat },
+        { blockId: 'agent-0', subBlockId: '_toolSchema', value: { enabled: true } },
+        { blockId: 'agent-0', subBlockId: '_empty', value: null },
+      ])
+      expect(
+        materializeWorkflowBlockFields(
+          'agent-0',
+          rawBlocks['agent-0'],
+          readWorkflowSubBlockFieldsMap(doc)
+        )?.subBlocks._toolSchema.value
+      ).toEqual({ enabled: true })
+    })
     const fields = readWorkflowSubBlockFieldsMap(doc)
-    const entries = fields.entries.bind(fields)
     let visited = 0
-    const scan = vi.spyOn(fields, 'entries').mockImplementation(function* () {
-      for (const entry of entries()) {
-        visited++
-        yield entry
-      }
+    let fieldCount = 0
+    const scans = [...fields.values()].map((blockFields) => {
+      fieldCount += blockFields.size
+      const entries = blockFields.entries.bind(blockFields)
+      return vi.spyOn(blockFields, 'entries').mockImplementation(function* () {
+        for (const entry of entries()) {
+          visited++
+          yield entry
+        }
+      })
     })
 
+    for (const [id, block] of Object.entries(rawBlocks) as Array<[string, BlockState]>) {
+      const materialized = materializeWorkflowBlockFields(id, block, fields)!
+      if (id === 'agent-0') {
+        expect(materialized.outputs).toEqual({ symbol: 'string' })
+        expect(materialized.subBlocks._empty.value).toBeNull()
+      } else {
+        expect(materialized.subBlocks).toEqual(block.subBlocks)
+      }
+    }
+    expect(visited).toBeLessThanOrEqual(fieldCount)
+    visited = 0
     const snapshot = readWorkflowSnapshot(doc)
-    expect(visited).toBeLessThanOrEqual(fields.size)
+    expect(visited).toBeLessThanOrEqual(fieldCount)
     expect(snapshot.blocks['agent-0'].subBlocks.responseFormat.value).toBe(responseFormat)
     expect(snapshot.blocks['agent-0'].outputs).toEqual({ symbol: 'string' })
-    expect(snapshot.blocks['agent-99']).toBe(blocks['agent-99'])
-    scan.mockRestore()
+    expect(Object.keys(snapshot.blocks)).toHaveLength(100)
+    for (const scan of scans) scan.mockRestore()
     doc.destroy()
+    seed.destroy()
+  })
+
+  it('merges independent first field edits on an initially empty block', () => {
+    const seed = new Y.Doc()
+    setWorkflowState(
+      seed,
+      createWorkflowSnapshot({
+        blocks: {
+          block: {
+            id: 'block',
+            type: 'function',
+            name: 'Function',
+            enabled: true,
+            position: { x: 0, y: 0 },
+            subBlocks: {},
+            outputs: {},
+          },
+        },
+      })
+    )
+    expect(readWorkflowSubBlockFieldsMap(seed).get('block')?.size).toBe(0)
+    const initial = Y.encodeStateAsUpdate(seed)
+    const clients = ['first', 'second'].map((subBlockId, index) => {
+      const client = new Y.Doc()
+      Y.applyUpdate(client, initial)
+      setWorkflowSubBlockValues(client, [{ blockId: 'block', subBlockId, value: index + 8 }])
+      return client
+    })
+    for (const client of clients) Y.applyUpdate(seed, Y.encodeStateAsUpdate(client))
+    expect(readWorkflowSnapshot(seed).blocks.block.subBlocks).toMatchObject({
+      first: { value: 8 },
+      second: { value: 9 },
+    })
+    for (const client of clients) client.destroy()
+    seed.destroy()
   })
 
   it.each([

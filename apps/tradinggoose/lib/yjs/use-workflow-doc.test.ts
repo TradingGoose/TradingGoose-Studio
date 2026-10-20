@@ -5,10 +5,8 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import { createYjsUndoTrackedOrigins, YJS_ORIGINS } from './transaction-origins'
-import { bindWorkflowTextObserver } from './use-workflow-doc'
 import {
   createWorkflowSnapshot,
-  createWorkflowSubBlockFieldKey,
   extractPersistedStateFromDoc,
   readWorkflowSnapshot,
   readWorkflowSubBlockFieldsMap,
@@ -42,33 +40,6 @@ afterAll(() => {
   ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = previousActEnvironment
 })
 
-describe('workflow mutation helpers', () => {
-  it('binds and cleans up existing Y.Text observers without double-unobserve errors', () => {
-    const doc = new Y.Doc()
-    const textFields = readWorkflowSubBlockFieldsMap(doc)
-    const text = new Y.Text()
-    text.insert(0, 'hello')
-    textFields.set(createWorkflowSubBlockFieldKey('block-1', 'code'), text)
-
-    const cb = vi.fn()
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-    const observer = bindWorkflowTextObserver(textFields, 'block-1', 'code', cb)
-
-    expect(() => observer.rebind()).not.toThrow()
-    expect(() => observer.rebind()).not.toThrow()
-
-    text.insert(text.length, ' world')
-    expect(cb).toHaveBeenCalledTimes(1)
-
-    expect(() => observer.cleanup()).not.toThrow()
-    expect(() => observer.cleanup()).not.toThrow()
-    expect(consoleErrorSpy).not.toHaveBeenCalled()
-
-    consoleErrorSpy.mockRestore()
-  })
-})
-
 describe('useWorkflowBlocks', () => {
   it('materializes and observes Y.Text-backed subblock values in workflow blocks', async () => {
     const doc = new Y.Doc()
@@ -98,7 +69,7 @@ describe('useWorkflowBlocks', () => {
         },
       })
     )
-    textFields.set(createWorkflowSubBlockFieldKey('block-1', 'code'), sharedText)
+    textFields.get('block-1')!.set('code', sharedText)
 
     const session = { doc }
     vi.resetModules()
@@ -139,6 +110,104 @@ describe('useWorkflowBlocks', () => {
     })
 
     expect(latestBlocks['block-1']?.subBlocks?.code?.value).toBe('freshest-ytext-value')
+  })
+})
+
+describe('useBlock', () => {
+  it('scopes reads and drag updates while observing remote, replacement, and restored fields', async () => {
+    const source = new Y.Doc()
+    setWorkflowState(
+      source,
+      createWorkflowSnapshot({
+        blocks: Object.fromEntries(
+          ['target', 'neighbor'].map((id) => [
+            id,
+            {
+              id,
+              type: 'function',
+              name: id,
+              enabled: true,
+              position: { x: 0, y: 0 },
+              outputs: {},
+              subBlocks: { code: { id: 'code', type: 'code', value: 'return 1' } },
+            },
+          ])
+        ),
+      })
+    )
+    const doc = new Y.Doc()
+    Y.applyUpdate(doc, Y.encodeStateAsUpdate(source))
+    const session = { doc }
+    vi.resetModules()
+    vi.doMock('@/lib/yjs/workflow-session-host', () => ({
+      useOptionalWorkflowSession: () => session,
+      useWorkflowSession: () => session,
+    }))
+    const { useBlock } = await import('./use-workflow-doc')
+    const latest: Record<string, ReturnType<typeof useBlock>> = {}
+    const renders = { target: 0, neighbor: 0 }
+    function Harness({ id }: { id: keyof typeof renders }) {
+      latest[id] = useBlock(id)
+      renders[id]++
+      return null
+    }
+    const fields = readWorkflowSubBlockFieldsMap(doc)
+    const scans = [
+      vi.spyOn(fields, Symbol.iterator),
+      vi.spyOn(fields, 'keys'),
+      vi.spyOn(fields, 'entries'),
+      vi.spyOn(fields, 'values'),
+    ]
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+    await act(async () => {
+      root?.render(
+        React.createElement(
+          React.Fragment,
+          null,
+          React.createElement(Harness, { id: 'target' }),
+          React.createElement(Harness, { id: 'neighbor' })
+        )
+      )
+    })
+    const targetRenders = renders.target
+    await act(async () => {
+      const workflow = doc.getMap('workflow')
+      const blocks = workflow.get('blocks') as Record<string, any>
+      workflow.set('blocks', {
+        ...blocks,
+        neighbor: { ...blocks.neighbor, position: { x: 10, y: 20 } },
+      })
+    })
+    expect(renders.target).toBe(targetRenders)
+    expect(latest.neighbor?.position).toEqual({ x: 10, y: 20 })
+
+    const targetFields = fields.get('target')!
+    const previousText = targetFields.get('code') as Y.Text
+    await act(async () => targetFields.set('code', new Y.Text('replacement')))
+    expect(latest.target?.subBlocks.code.value).toBe('replacement')
+    await act(async () => previousText.insert(0, 'detached'))
+    expect(latest.target?.subBlocks.code.value).toBe('replacement')
+
+    const remote = new Y.Doc()
+    Y.applyUpdate(remote, Y.encodeStateAsUpdate(doc))
+    const remoteFields = readWorkflowSubBlockFieldsMap(remote).get('target')!
+    remoteFields.set('synthetic', new Y.Text('remote'))
+    await act(async () => Y.applyUpdate(doc, Y.encodeStateAsUpdate(remote)))
+    expect(latest.target?.subBlocks.synthetic.value).toBe('remote')
+    const undo = new Y.UndoManager(fields, { captureTimeout: 0 })
+    await act(async () => targetFields.delete('synthetic'))
+    expect(latest.target?.subBlocks.synthetic).toBeUndefined()
+    await act(async () => undo.undo())
+    expect(latest.target?.subBlocks.synthetic.value).toBe('remote')
+    await act(async () => (targetFields.get('synthetic') as Y.Text).insert(6, ' edit'))
+    expect(latest.target?.subBlocks.synthetic.value).toBe('remote edit')
+    for (const scan of scans) expect(scan).not.toHaveBeenCalled()
+    for (const scan of scans) scan.mockRestore()
+    undo.destroy()
+    source.destroy()
+    remote.destroy()
   })
 })
 
@@ -388,10 +457,9 @@ describe('useWorkflowMutations', () => {
     const editor = await mountContainerEditor('loop')
     const sharedText = new Y.Text('old condition')
     await act(async () => {
-      readWorkflowSubBlockFieldsMap(editor.doc).set(
-        createWorkflowSubBlockFieldKey('container-1', 'whileCondition'),
-        sharedText
-      )
+      readWorkflowSubBlockFieldsMap(editor.doc)
+        .get('container-1')!
+        .set('whileCondition', sharedText)
     })
     const changes = vi.fn()
     editor.doc.on('update', changes)
@@ -461,9 +529,9 @@ describe('useWorkflowMutations', () => {
       await editor.closeEditor()
       const remote = new Y.Doc()
       Y.applyUpdate(remote, Y.encodeStateAsUpdate(editor.doc))
-      const remoteText = readWorkflowSubBlockFieldsMap(remote).get(
-        createWorkflowSubBlockFieldKey('container-1', fieldId)
-      ) as Y.Text
+      const remoteText = readWorkflowSubBlockFieldsMap(remote)
+        .get('container-1')!
+        .get(fieldId) as Y.Text
       remoteText.insert(remoteText.length, ' + remote')
       const changes = vi.fn()
       editor.doc.on('update', changes)
@@ -701,10 +769,9 @@ describe('useWorkflowMutations', () => {
       })
     )
 
-    const textFieldKey = createWorkflowSubBlockFieldKey('block-2', 'code')
     const sharedText = new Y.Text()
     sharedText.insert(0, 'return <myblock.output>')
-    readWorkflowSubBlockFieldsMap(doc).set(textFieldKey, sharedText)
+    readWorkflowSubBlockFieldsMap(doc).get('block-2')!.set('code', sharedText)
 
     const session = {
       doc,

@@ -6,7 +6,7 @@
  *
  * Top-level collections:
  *   - "workflow"  (Y.Map) — editable blocks, edges, and save timestamp
- *   - "subBlockFields" (Y.Map) — scalar or collaborative text values keyed by blockId/subBlockId
+ *   - "subBlockFields" (Y.Map) — per-block Y.Maps of scalar or collaborative text field values
  *   - "variables" (Y.Map) — per-workflow variable records keyed by variable id
  *   - "metadata"  (Y.Map) — session-level workflow metadata
  */
@@ -41,8 +41,6 @@ export const YJS_KEYS = {
   LAST_SAVED: 'lastSaved',
 } as const
 
-const WORKFLOW_SUB_BLOCK_FIELD_SEPARATOR = '::'
-
 // ---------------------------------------------------------------------------
 // Top-level map accessors
 // ---------------------------------------------------------------------------
@@ -55,33 +53,21 @@ export function getVariablesMap(doc: Y.Doc): Y.Map<any> {
   return doc.getMap(YJS_KEYS.VARIABLES)
 }
 
-export function readWorkflowSubBlockFieldsMap(doc: Y.Doc): Y.Map<any> {
-  return doc.getMap(YJS_KEYS.SUB_BLOCK_FIELDS)
+export function readWorkflowSubBlockFieldsMap(doc: Y.Doc): Y.Map<Y.Map<any>> {
+  return doc.getMap<Y.Map<any>>(YJS_KEYS.SUB_BLOCK_FIELDS)
+}
+
+export function ensureWorkflowBlockFieldsMap(doc: Y.Doc, blockId: string): Y.Map<any> {
+  const fields = readWorkflowSubBlockFieldsMap(doc)
+  const existing = fields.get(blockId)
+  if (existing) return existing
+  const blockFields = new Y.Map<any>()
+  fields.set(blockId, blockFields)
+  return blockFields
 }
 
 export function getMetadataMap(doc: Y.Doc): Y.Map<any> {
   return doc.getMap(YJS_KEYS.METADATA)
-}
-
-export function createWorkflowSubBlockFieldKey(blockId: string, subBlockId: string): string {
-  return `${blockId}${WORKFLOW_SUB_BLOCK_FIELD_SEPARATOR}${subBlockId}`
-}
-
-export function parseWorkflowSubBlockFieldKey(
-  key: string
-): { blockId: string; subBlockId: string } | null {
-  const separatorIndex = key.indexOf(WORKFLOW_SUB_BLOCK_FIELD_SEPARATOR)
-  if (
-    separatorIndex <= 0 ||
-    separatorIndex >= key.length - WORKFLOW_SUB_BLOCK_FIELD_SEPARATOR.length
-  ) {
-    return null
-  }
-
-  return {
-    blockId: key.slice(0, separatorIndex),
-    subBlockId: key.slice(separatorIndex + WORKFLOW_SUB_BLOCK_FIELD_SEPARATOR.length),
-  }
 }
 
 function isWorkflowTextField(blockType: string, subBlockId: string): boolean | undefined {
@@ -97,21 +83,12 @@ function isWorkflowTextField(blockType: string, subBlockId: string): boolean | u
     : undefined
 }
 
-export function readWorkflowTextFieldFromMap(
-  subBlockFields: Y.Map<any>,
-  blockId: string,
-  subBlockId: string
-): Y.Text | null {
-  const existing = subBlockFields.get(createWorkflowSubBlockFieldKey(blockId, subBlockId))
-  return existing instanceof Y.Text ? existing : null
-}
-
 export function readWorkflowSubBlockFieldValueFromMap(
-  subBlockFields: Y.Map<any>,
+  subBlockFields: Y.Map<Y.Map<any>>,
   blockId: string,
   subBlockId: string
 ): any {
-  const value = subBlockFields.get(createWorkflowSubBlockFieldKey(blockId, subBlockId))
+  const value = subBlockFields.get(blockId)?.get(subBlockId)
   return value instanceof Y.Text ? value.toString() : value
 }
 
@@ -132,7 +109,8 @@ export function readWorkflowTextField(
   blockId: string,
   subBlockId: string
 ): Y.Text | null {
-  return readWorkflowTextFieldFromMap(readWorkflowSubBlockFieldsMap(doc), blockId, subBlockId)
+  const value = readWorkflowSubBlockFieldsMap(doc).get(blockId)?.get(subBlockId)
+  return value instanceof Y.Text ? value : null
 }
 
 export function setWorkflowSubBlockValues(
@@ -140,12 +118,11 @@ export function setWorkflowSubBlockValues(
   updates: Array<{ blockId: string; subBlockId: string; value: any; collaborative?: boolean }>
 ): void {
   const blocks = readWorkflowMap(doc).get(YJS_KEYS.BLOCKS)
-  const fields = readWorkflowSubBlockFieldsMap(doc)
   for (const { blockId, subBlockId, value, collaborative } of updates) {
     const block = blocks?.[blockId]
     if (!block) continue
-    const key = createWorkflowSubBlockFieldKey(blockId, subBlockId)
-    const existing = fields.get(key)
+    const fields = ensureWorkflowBlockFieldsMap(doc, blockId)
+    const existing = fields.get(subBlockId)
     const textField =
       isWorkflowTextField(block.type, subBlockId) ?? collaborative ?? existing instanceof Y.Text
     if (typeof value === 'string' && textField) {
@@ -154,14 +131,14 @@ export function setWorkflowSubBlockValues(
         existing.delete(0, existing.length)
         existing.insert(0, value)
       } else {
-        fields.set(key, new Y.Text(value))
+        fields.set(subBlockId, new Y.Text(value))
       }
     } else if (
-      !fields.has(key) ||
+      !fields.has(subBlockId) ||
       existing instanceof Y.Text ||
       (!Object.is(existing, value) && JSON.stringify(existing) !== JSON.stringify(value))
     ) {
-      fields.set(key, value)
+      fields.set(subBlockId, value)
     }
   }
 }
@@ -169,44 +146,35 @@ export function setWorkflowSubBlockValues(
 export function materializeWorkflowBlockFields(
   blockId: string,
   block: BlockState | null,
-  subBlockFields: Y.Map<any>
+  subBlockFields: Y.Map<Y.Map<any>>
 ): BlockState | null {
-  return block ? materializeWorkflowFields({ [blockId]: block }, subBlockFields)[blockId] : null
+  const fields = subBlockFields.get(blockId)
+  if (!block || !fields) return block
+  let nextBlock = block
+  for (const [subBlockId, field] of fields) {
+    const value = field instanceof Y.Text ? field.toString() : field
+    if (block.subBlocks?.[subBlockId]?.value === value) continue
+    if (nextBlock === block) nextBlock = { ...block, subBlocks: { ...block.subBlocks } }
+    nextBlock.subBlocks[subBlockId] = { ...block.subBlocks?.[subBlockId], id: subBlockId, value }
+  }
+  if (nextBlock !== block) {
+    nextBlock.outputs = resolveOutputType(
+      readBlockOutputs(block.type, nextBlock.subBlocks, block.triggerMode === true)
+    )
+  }
+  return nextBlock
 }
 
 export function materializeWorkflowFields(
   blocks: Record<string, BlockState>,
-  subBlockFields: Y.Map<any>
+  subBlockFields: Y.Map<Y.Map<any>>
 ): Record<string, BlockState> {
   let nextBlocks = blocks
-
-  for (const [key, field] of subBlockFields) {
-    const parsed = parseWorkflowSubBlockFieldKey(key)
-    if (!parsed) continue
-    const { blockId, subBlockId } = parsed
-    const block = nextBlocks[blockId]
-    if (!block) continue
-    const value = field instanceof Y.Text ? field.toString() : field
-    if (block.subBlocks?.[subBlockId]?.value === value) continue
-
+  for (const [blockId, block] of Object.entries(blocks)) {
+    const materialized = materializeWorkflowBlockFields(blockId, block, subBlockFields)!
+    if (materialized === block) continue
     if (nextBlocks === blocks) nextBlocks = { ...blocks }
-    if (block === blocks[blockId]) {
-      nextBlocks[blockId] = { ...block, subBlocks: { ...block.subBlocks } }
-    }
-    nextBlocks[blockId].subBlocks[subBlockId] = {
-      ...block.subBlocks?.[subBlockId],
-      id: subBlockId,
-      value,
-    }
-  }
-
-  if (nextBlocks !== blocks) {
-    for (const [blockId, block] of Object.entries(nextBlocks)) {
-      if (block === blocks[blockId]) continue
-      block.outputs = resolveOutputType(
-        readBlockOutputs(block.type, block.subBlocks, block.triggerMode === true)
-      )
-    }
+    nextBlocks[blockId] = materialized
   }
   return nextBlocks
 }
@@ -299,15 +267,13 @@ export function setWorkflowState(doc: Y.Doc, state: WorkflowSnapshot, origin?: s
     wMap.set(YJS_KEYS.EDGES, state.edges)
     if (state.lastSaved !== undefined) wMap.set(YJS_KEYS.LAST_SAVED, state.lastSaved)
 
-    for (const key of Array.from(subBlockFields.keys())) {
-      const parsed = parseWorkflowSubBlockFieldKey(key)
-      if (!parsed) {
-        subBlockFields.delete(key)
-        continue
-      }
-
-      if (!state.blocks?.[parsed.blockId]?.subBlocks?.[parsed.subBlockId]) {
-        subBlockFields.delete(key)
+    for (const blockId of Array.from(subBlockFields.keys())) {
+      if (!state.blocks[blockId]) subBlockFields.delete(blockId)
+    }
+    for (const [blockId, block] of Object.entries(state.blocks)) {
+      const fields = ensureWorkflowBlockFieldsMap(doc, blockId)
+      for (const subBlockId of Array.from(fields.keys())) {
+        if (!block.subBlocks[subBlockId]) fields.delete(subBlockId)
       }
     }
     setWorkflowSubBlockValues(

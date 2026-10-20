@@ -7,7 +7,6 @@ import * as Y from 'yjs'
 import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
 import { validateWorkflowState } from '@/lib/workflows/validation'
 import {
-  createWorkflowSubBlockFieldKey,
   extractPersistedStateFromDoc,
   readWorkflowSnapshot,
   readWorkflowSubBlockFieldsMap,
@@ -222,9 +221,7 @@ describe('ShortInput numeric contract', () => {
       ).toContain(id)
       expect(input.value).toBe('saved-text')
       expect(savedValue()).toBe('saved-text')
-      expect(
-        readWorkflowSubBlockFieldsMap(doc).get(createWorkflowSubBlockFieldKey('container', id))
-      ).toBeInstanceOf(Y.Text)
+      expect(readWorkflowSubBlockFieldsMap(doc).get('container')?.get(id)).toBeInstanceOf(Y.Text)
     }
   )
 
@@ -315,11 +312,7 @@ describe('ShortInput numeric contract', () => {
       type(input, value)
       act(() => input.blur())
       expect(savedValue()).toBe(value)
-      expect(
-        readWorkflowSubBlockFieldsMap(doc).get(
-          createWorkflowSubBlockFieldKey('container', 'startTs')
-        )
-      ).toBe(value)
+      expect(readWorkflowSubBlockFieldsMap(doc).get('container')?.get('startTs')).toBe(value)
     }
   )
 
@@ -437,9 +430,7 @@ describe('ShortInput numeric contract', () => {
             state.parallels
           )
           for (const [blockId, fieldId, expected] of fields) {
-            const stored = readWorkflowSubBlockFieldsMap(merged).get(
-              createWorkflowSubBlockFieldKey(blockId, fieldId)
-            )
+            const stored = readWorkflowSubBlockFieldsMap(merged).get(blockId)?.get(fieldId)
             expect(stored instanceof Y.Text ? stored.toString() : stored).toBe(expected)
             expect(stored instanceof Y.Text).toBe(config.inputType !== 'number')
             expect(state.blocks[blockId].subBlocks[fieldId].value).toBe(expected)

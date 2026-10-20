@@ -1,6 +1,5 @@
 import type * as Y from 'yjs'
 import {
-  parseWorkflowSubBlockFieldKey,
   readWorkflowSubBlockFieldsMap,
   readWorkflowSubBlockFieldValueFromMap,
   setWorkflowSubBlockValues,
@@ -13,16 +12,12 @@ export function rewriteWorkflowContentReferences(
 ): void {
   const fields = readWorkflowSubBlockFieldsMap(doc)
   const updates: Array<{ blockId: string; subBlockId: string; value: any }> = []
-  for (const key of fields.keys()) {
-    const parsed = parseWorkflowSubBlockFieldKey(key)
-    if (!parsed) continue
-    const currentValue = readWorkflowSubBlockFieldValueFromMap(
-      fields,
-      parsed.blockId,
-      parsed.subBlockId
-    )
-    const updatedValue = rewriteWorkflowReferenceValue(currentValue, regex, replacement)
-    if (updatedValue !== currentValue) updates.push({ ...parsed, value: updatedValue })
+  for (const [blockId, blockFields] of fields) {
+    for (const subBlockId of blockFields.keys()) {
+      const currentValue = readWorkflowSubBlockFieldValueFromMap(fields, blockId, subBlockId)
+      const updatedValue = rewriteWorkflowReferenceValue(currentValue, regex, replacement)
+      if (updatedValue !== currentValue) updates.push({ blockId, subBlockId, value: updatedValue })
+    }
   }
   setWorkflowSubBlockValues(doc, updates)
 }
