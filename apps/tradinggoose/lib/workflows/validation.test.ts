@@ -4,6 +4,7 @@ import { buildCopilotServerToolError } from '@/lib/copilot/tools/client/server-t
 import { AgentBlock } from '@/blocks/blocks/agent'
 import { DatadogBlock } from '@/blocks/blocks/datadog'
 import { LoopBlock } from '@/blocks/blocks/loop'
+import { MongoDBBlock } from '@/blocks/blocks/mongodb'
 import { ParallelContainerBlock } from '@/blocks/blocks/parallel_container'
 import { PolymarketBlock } from '@/blocks/blocks/polymarket'
 import { SerperBlock } from '@/blocks/blocks/serper'
@@ -294,6 +295,14 @@ describe('canonical sub-block validation', () => {
     [WaitBlock, { timeUnit: 'seconds' }, true],
     [WaitBlock, { timeUnit: 'invalid' }, false],
     [WaitBlock, { timeUnit: 10 }, false],
+    [MongoDBBlock, { operation: 'update', upsert: true, multi: false }, true],
+    [MongoDBBlock, { operation: 'update', upsert: 'true', multi: 'false' }, true],
+    [MongoDBBlock, { operation: 'update', upsert: 'invalid' }, false],
+    [MongoDBBlock, { operation: 'update', upsert: 0 }, false],
+    [MongoDBBlock, { operation: 'update', upsert: 1 }, false],
+    [MongoDBBlock, { operation: 'update', upsert: null }, false],
+    [MongoDBBlock, { operation: 'update', multi: [true] }, false],
+    [MongoDBBlock, { operation: 'update', multi: {} }, false],
   ] as const)(
     'validates dropdown options using declared input types (case %#)',
     (config, values, valid) => {

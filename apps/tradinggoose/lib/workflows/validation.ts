@@ -149,7 +149,12 @@ function validateSubBlockValues(block: BlockState, blockConfig: BlockConfig): st
     }
 
     const inputType = blockConfig.inputs[config.canonicalParamId ?? config.id]?.type
-    const literalValue = inputType === 'number' && typeof value === 'string' ? Number(value) : value
+    const literalValue =
+      inputType === 'number' && typeof value === 'string'
+        ? Number(value)
+        : inputType === 'boolean' && typeof value === 'boolean'
+          ? String(value)
+          : value
     let issue: string | undefined
     if (inputType === 'number' && (config.inputType === 'number' || config.type === 'slider')) {
       if (

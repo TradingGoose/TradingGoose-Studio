@@ -24,6 +24,7 @@ vi.mock('@/blocks/registry', async () => {
   const { ParallelContainerBlock } = await import('@/blocks/blocks/parallel_container')
   const { SttBlock } = await import('@/blocks/blocks/stt')
   const { AgentBlock } = await import('@/blocks/blocks/agent')
+  const { MongoDBBlock } = await import('@/blocks/blocks/mongodb')
   const { PolymarketBlock } = await import('@/blocks/blocks/polymarket')
   const { WaitBlock } = await import('@/blocks/blocks/wait')
   const { SerperBlock } = await import('@/blocks/blocks/serper')
@@ -33,6 +34,7 @@ vi.mock('@/blocks/registry', async () => {
     parallel: ParallelContainerBlock,
     stt: SttBlock,
     agent: AgentBlock,
+    mongodb: MongoDBBlock,
     polymarket: PolymarketBlock,
     wait: WaitBlock,
     serper: SerperBlock,
@@ -150,6 +152,11 @@ describe('editWorkflowBlockServerTool', () => {
     current.blocks.wait = block('wait', 'wait', { timeUnit: '<variable.unit>' })
     current.blocks.search = block('search', 'serper', { num: 10 })
     current.blocks.video = block('video', 'video_generator', { provider: 'runway', duration: 5 })
+    current.blocks.mongo = block('mongo', 'mongodb', {
+      operation: 'update',
+      upsert: true,
+      multi: false,
+    })
 
     const result = await editWorkflowBlockServerTool.execute(
       { entityId: 'wf-1', blockId: 'fn1', subBlocks: { code: 'return 42' } },
@@ -157,10 +164,19 @@ describe('editWorkflowBlockServerTool', () => {
     )
 
     expect(result.workflowState.blocks.fn1.subBlocks.code.value).toBe('return 42')
-    for (const id of ['whisper', 'agent', 'market', 'wait', 'search', 'video']) {
+    for (const id of ['whisper', 'agent', 'market', 'wait', 'search', 'video', 'mongo']) {
       expect(result.workflowState.blocks[id]).toEqual(current.blocks[id])
     }
     expect(result.preview.blockDiff).toEqual({ added: [], removed: [], updated: ['fn1'] })
+
+    const booleanEdit = await editWorkflowBlockServerTool.execute(
+      { entityId: 'wf-1', blockId: 'mongo', subBlocks: { upsert: false, multi: true } },
+      { userId: 'user-1', accessLevel: 'limited' }
+    )
+    expect(booleanEdit.workflowState.blocks.mongo.subBlocks).toMatchObject({
+      upsert: { value: false },
+      multi: { value: true },
+    })
   })
 
   it.each([
