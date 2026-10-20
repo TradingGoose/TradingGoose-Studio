@@ -384,17 +384,15 @@ export const useChartDataLoader = ({
       setIsLoading(true)
       backfillArmedAtRef.current = Number.POSITIVE_INFINITY
       try {
-        const pendingRange = pendingRangeRef.current
-        const useExplicitRange = Boolean(pendingRange)
+        const pendingRange = primaryWindow?.mode === 'all' ? null : pendingRangeRef.current
+        pendingRangeRef.current = null
         if (pendingRange) {
-          pendingRangeRef.current = null
           expectedBarsRef.current = null
         }
         dataContext.marketSessionsRef.current = []
-        const seriesResponse =
-          useExplicitRange && pendingRange
-            ? await fetchSeriesRange(pendingRange.startMs, pendingRange.endMs)
-            : await fetchSeries()
+        const seriesResponse = pendingRange
+          ? await fetchSeriesRange(pendingRange.startMs, pendingRange.endMs)
+          : await fetchSeries()
         if (isStale()) return
         updateMarketSessions(seriesResponse.marketSessions)
         const barsMs = mapMarketSeriesToBarsMs(seriesResponse, dataContext.intervalMs)
@@ -419,7 +417,7 @@ export const useChartDataLoader = ({
           retentionStartMs === null
             ? true
             : typeof earliestTimestamp === 'number' && earliestTimestamp > retentionStartMs
-        hasMoreHistoricalDataRef.current = canLoadMore
+        hasMoreHistoricalDataRef.current = primaryWindow?.mode !== 'all' && canLoadMore
         historicalCursorRef.current = null
         const expectedBars =
           primaryWindow?.mode === 'range' && typeof expectedBarsRef.current === 'number'

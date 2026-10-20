@@ -1,4 +1,4 @@
-import type { MarketBar, MarketSeries, MarketSeriesRange } from '@/providers/market/types'
+import type { MarketBar, MarketSeries } from '@/providers/market/types'
 import type { DataChartCandleType } from '@/widgets/widgets/data_chart/contract'
 
 export const DEFAULT_BAR_COUNT = 500
@@ -329,22 +329,4 @@ export const buildIndexMaps = (barsMs: BarMs[]) => {
   })
 
   return { indexByOpenTimeMs, openTimeMsByIndex }
-}
-
-export const addRangeToDate = (date: Date, range: MarketSeriesRange): Date => {
-  const next = new Date(date)
-  if (range.unit === 'day') {
-    next.setDate(next.getDate() + range.value)
-  } else if (range.unit === 'week') {
-    next.setDate(next.getDate() + range.value * 7)
-  } else if (range.unit === 'month') {
-    next.setMonth(next.getMonth() + range.value)
-  } else {
-    next.setFullYear(next.getFullYear() + range.value)
-  }
-  return next
-}
-
-export const subtractRangeFromDate = (date: Date, range: MarketSeriesRange): Date => {
-  return addRangeToDate(date, { value: -range.value, unit: range.unit })
 }

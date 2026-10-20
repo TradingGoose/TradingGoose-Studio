@@ -86,7 +86,7 @@ const buildToolParams = (): ToolConfig['params'] => {
     type: 'json',
     required: true,
     visibility: 'user-or-llm',
-    description: 'Series window (range, bars, or absolute).',
+    description: 'Series window (range, bars, absolute, or all where supported).',
   }
 
   params.providerParams = {

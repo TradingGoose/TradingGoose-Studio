@@ -610,7 +610,6 @@ export const DataChartWidgetBody = ({ params, context, panelId, widget }: Widget
         params={dataParams as DataChartWidgetParams}
         widgetKey={widgetKey}
         panelId={panelId}
-        allowedIntervals={seriesWindow.allowedIntervals}
         exchangeTimezone={seriesTimezone}
       />
     </div>

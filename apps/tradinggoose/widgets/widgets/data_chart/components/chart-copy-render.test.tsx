@@ -92,8 +92,7 @@ describe('data chart localized component copy', () => {
     await act(async () => {
       renderWithLocale(
         <DataChartFooter
-          params={{ view: { rangePresetId: 'all' } }}
-          allowedIntervals={['1m', '1d', '1mo']}
+          params={{ data: { provider: 'yahoo-finance' }, view: { rangePresetId: 'all' } }}
         />
       )
     })
@@ -103,13 +102,24 @@ describe('data chart localized component copy', () => {
     expect(container.querySelector('[aria-label="Pie del widget"]')).toBeTruthy()
   })
 
+  it.each(['alpaca', 'robinhood', 'unknown'])(
+    'omits All when %s cannot fetch complete history',
+    async (provider) => {
+      await act(async () => {
+        renderWithLocale(<DataChartFooter params={{ data: { provider } }} />, 'en')
+      })
+      expect(container.textContent).not.toContain('ALL')
+    }
+  )
+
   it.each(['interval', 'range'])(
     'clears the previous viewport when selecting a new %s',
     async (control) => {
       const params = {
+        data: { provider: 'yahoo-finance' },
         view: {
-          interval: '1d',
-          rangePresetId: '1y',
+          interval: control === 'range' ? '3mo' : '1d',
+          rangePresetId: control === 'range' ? 'all' : '1y',
           start: 1,
           end: 2,
           candleType: 'area' as const,
@@ -121,7 +131,7 @@ describe('data chart localized component copy', () => {
           control === 'interval' ? (
             <DataChartIntervalDropdown interval='1d' allowedIntervals={['1h']} supportsInterval />
           ) : (
-            <DataChartFooter params={params} allowedIntervals={['1m', '1d']} />
+            <DataChartFooter params={params} />
           ),
           'en'
         )

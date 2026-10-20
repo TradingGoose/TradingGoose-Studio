@@ -39,7 +39,7 @@ describe('historical data range selection', () => {
   })
 
   it.each([
-    ['alpaca', ['custom', '1d', '5d', '1w', '1m', '3m', '1y', '5y', 'all']],
+    ['alpaca', ['custom', '1d', '5d', '1w', '1m', '3m', '1y', '5y']],
     ['yahoo-finance', ['custom', '1d', '5d', '1m', '1y', '5y', 'all']],
   ])('limits %s ranges by supported intervals and retention', async (provider, expectedIds) => {
     const range = HistoricalDataBlock.subBlocks.find((subBlock) => subBlock.id === 'rangePresetId')
@@ -141,6 +141,28 @@ describe('historical data range selection', () => {
     expect(planned.request.windows).toEqual([{ mode: 'range', range: { value: 30, unit: 'day' } }])
   })
 
+  it.each([
+    ['yahoo-finance', '3mo'],
+    ['alpha-vantage', '1mo'],
+  ])(
+    'requests all available %s history without date or bar-count cutoffs',
+    (provider, interval) => {
+      const body = requestBody({
+        provider,
+        rangePresetId: 'all',
+        interval: '1m',
+        start: '1976-01-01',
+        end: '2026-01-01',
+      })
+      expect(body).toMatchObject({ interval, windows: [{ mode: 'all' }] })
+      const planned = planMarketSeriesRequest(provider, body as unknown as MarketSeriesRequest)
+      expect(planned.window).toEqual({ mode: 'all' })
+      expect(planned.request.start).toBeUndefined()
+      expect(planned.request.end).toBeUndefined()
+      expect(planned.request.providerParams?.limit).toBeUndefined()
+    }
+  )
+
   it('uses the preset interval when the saved interval is unsupported by the provider', () => {
     expect(requestBody({ rangePresetId: '1d', interval: '4h' })).toMatchObject({
       interval: '1m',
@@ -180,6 +202,9 @@ describe('historical data range selection', () => {
     { provider: 'yahoo-finance', rangePresetId: '1w' },
     { provider: 'yahoo-finance', rangePresetId: '3m' },
     { provider: 'alpaca', rangePresetId: '6m' },
+    { provider: 'alpaca', rangePresetId: 'all' },
+    { provider: 'finnhub', rangePresetId: 'all' },
+    { provider: 'robinhood', rangePresetId: 'all' },
   ])('does not substitute dates for an invalid range selection: %j', (selection) => {
     const params = buildParams({
       ...selection,

@@ -6,21 +6,21 @@ import type {
 
 type RangePreset = {
   id: string
-  range: MarketSeriesRange
+  window: Extract<MarketSeriesWindow, { mode: 'range' | 'all' }>
   interval?: MarketInterval
 }
 
-export const DEFAULT_RANGE_PRESETS: RangePreset[] = [
-  { id: '1d', range: { value: 1, unit: 'day' }, interval: '1m' },
-  { id: '5d', range: { value: 5, unit: 'day' }, interval: '5m' },
-  { id: '1w', range: { value: 1, unit: 'week' }, interval: '10m' },
-  { id: '1m', range: { value: 1, unit: 'month' }, interval: '30m' },
-  { id: '3m', range: { value: 3, unit: 'month' }, interval: '1h' },
-  { id: '6m', range: { value: 6, unit: 'month' }, interval: '4h' },
-  { id: '1y', range: { value: 1, unit: 'year' }, interval: '1d' },
-  { id: '5y', range: { value: 5, unit: 'year' }, interval: '1w' },
-  { id: 'all', range: { value: 50, unit: 'year' }, interval: '1mo' },
-]
+export const DEFAULT_RANGE_PRESETS = [
+  { id: '1d', window: { mode: 'range', range: { value: 1, unit: 'day' } }, interval: '1m' },
+  { id: '5d', window: { mode: 'range', range: { value: 5, unit: 'day' } }, interval: '5m' },
+  { id: '1w', window: { mode: 'range', range: { value: 1, unit: 'week' } }, interval: '10m' },
+  { id: '1m', window: { mode: 'range', range: { value: 1, unit: 'month' } }, interval: '30m' },
+  { id: '3m', window: { mode: 'range', range: { value: 3, unit: 'month' } }, interval: '1h' },
+  { id: '6m', window: { mode: 'range', range: { value: 6, unit: 'month' } }, interval: '4h' },
+  { id: '1y', window: { mode: 'range', range: { value: 1, unit: 'year' } }, interval: '1d' },
+  { id: '5y', window: { mode: 'range', range: { value: 5, unit: 'year' } }, interval: '1w' },
+  { id: 'all', window: { mode: 'all' } },
+] as const satisfies readonly RangePreset[]
 
 const DAY_MS = 24 * 60 * 60 * 1000
 

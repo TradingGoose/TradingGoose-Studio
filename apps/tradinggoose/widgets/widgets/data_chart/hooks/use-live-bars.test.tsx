@@ -23,6 +23,30 @@ const series = { seriesType: () => 'Candlestick', update: vi.fn(), setData: vi.f
 const onDataUpdated = vi.fn()
 let controls: ReturnType<typeof useLiveBars>
 let dataContext: DataChartDataContext
+let loader: ReturnType<typeof useChartDataLoader>
+
+type LoaderArgs = Parameters<typeof useChartDataLoader>[0]
+const loaderArgs = (overrides: Partial<LoaderArgs> = {}): LoaderArgs => ({
+  chartRef: { current: { timeScale: () => null } as any },
+  chartContainerRef: { current: null },
+  mainSeriesRef: { current: series as any },
+  chartReady: 1,
+  socket: socket as any,
+  workspaceId: 'workspace-1',
+  providerId: 'robinhood',
+  listing,
+  seriesWindow: resolveSeriesWindow({ view: { interval: '1m' } }, 'robinhood'),
+  dataParams: { data: { providerParams } },
+  dataContext,
+  onDataUpdated,
+  errorCopy: getPublicCopy('en').workspace.widgets.dataChart.errors,
+  ...overrides,
+})
+
+function LoaderHarness({ args }: { args: LoaderArgs }) {
+  loader = useChartDataLoader(args)
+  return null
+}
 
 function Harness({ providerId, enabled = true }: { providerId: string; enabled?: boolean }) {
   controls = useLiveBars({
@@ -74,6 +98,7 @@ describe('useLiveBars', () => {
 
   afterEach(() => {
     act(() => root.unmount())
+    vi.useRealTimers()
     vi.unstubAllGlobals()
     ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = false
   })
@@ -84,27 +109,7 @@ describe('useLiveBars', () => {
       json: async () => ({ bars: [{ timeStamp, close: 11 }] }),
     })
     vi.stubGlobal('fetch', fetchSeries)
-    const args: Parameters<typeof useChartDataLoader>[0] = {
-      chartRef: { current: { timeScale: () => null } as any },
-      chartContainerRef: { current: null },
-      mainSeriesRef: { current: series as any },
-      chartReady: 1,
-      socket: socket as any,
-      workspaceId: 'workspace-1',
-      providerId: 'robinhood',
-      listing,
-      seriesWindow: resolveSeriesWindow({ view: { interval: '1m' } }, 'robinhood'),
-      dataParams: { data: { providerParams } },
-      dataContext,
-      onDataUpdated,
-      errorCopy: getPublicCopy('en').workspace.widgets.dataChart.errors,
-    }
-    let loader: ReturnType<typeof useChartDataLoader>
-    function LoaderHarness() {
-      loader = useChartDataLoader(args)
-      return null
-    }
-    await act(async () => root.render(<LoaderHarness />))
+    await act(async () => root.render(<LoaderHarness args={loaderArgs()} />))
     const loadedBars = dataContext.barsMsRef.current
     const { clientSubscriptionId } = socket.emit.mock.calls[0][1]
     act(() => {
@@ -119,6 +124,44 @@ describe('useLiveBars', () => {
     expect(onDataUpdated).not.toHaveBeenCalled()
     expect(fetchSeries).toHaveBeenCalledOnce()
     expect(socket.emit).toHaveBeenCalledOnce()
+  })
+
+  it('keeps All unbounded across listing changes and stops historical backfill', async () => {
+    vi.useFakeTimers()
+    const fetchSeries = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ bars: [{ timeStamp, close: 11 }] }),
+    })
+    vi.stubGlobal('fetch', fetchSeries)
+    let onRangeChange: (range: { from: number; to: number }) => Promise<void>
+    const args = loaderArgs({
+      providerId: 'yahoo-finance',
+      seriesWindow: resolveSeriesWindow({ view: { rangePresetId: 'all' } }, 'yahoo-finance'),
+      dataParams: { view: { start: openTime - 86_400_000, end: openTime } },
+      chartRef: {
+        current: {
+          timeScale: () => ({
+            subscribeVisibleLogicalRangeChange: (handler: typeof onRangeChange) => {
+              onRangeChange = handler
+            },
+            unsubscribeVisibleLogicalRangeChange: vi.fn(),
+            getVisibleLogicalRange: () => ({ from: -10, to: 10 }),
+          }),
+        } as any,
+      },
+    })
+    await act(async () => root.render(<LoaderHarness args={args} />))
+    args.listing = { ...listing, listing_id: 'MSFT' }
+    await act(async () => root.render(<LoaderHarness args={args} />))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300)
+      await onRangeChange!({ from: -10, to: 10 })
+    })
+
+    expect(fetchSeries).toHaveBeenCalledTimes(2)
+    for (const [, init] of fetchSeries.mock.calls) {
+      expect(JSON.parse(init.body)).toMatchObject({ interval: '3mo', windows: [{ mode: 'all' }] })
+    }
   })
 
   it.each(['robinhood', 'alpaca', 'finnhub'])(

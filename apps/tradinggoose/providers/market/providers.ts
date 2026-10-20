@@ -46,6 +46,7 @@ export interface MarketSeriesInputCapabilities {
   supportsInterval?: boolean
   intervals?: MarketInterval[]
   windowModes?: MarketSeriesWindowMode[]
+  allInterval?: MarketInterval
   normalizationModes?: NormalizationMode[]
   retention?: MarketSeriesRetentionPolicy
   marketSessions?: MarketSessionMode[]

@@ -158,7 +158,7 @@ describe('getBlocksMetadataServerTool', () => {
     })
     expect(range?.options).toContainEqual({ id: 'custom', label: 'Custom dates' })
     expect(range?.description).toContain('yahoo-finance: custom, 1d, 5d, 1m, 1y, 5y, all')
-    expect(range?.description).toContain('alpaca: custom, 1d, 5d, 1w, 1m, 3m, 1y, 5y, all')
+    expect(range?.description).toContain('alpaca: custom, 1d, 5d, 1w, 1m, 3m, 1y, 5y;')
     expect(range?.options).toContainEqual({ id: '1m', label: 'Latest 1 month' })
   })
 

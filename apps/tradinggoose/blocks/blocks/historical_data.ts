@@ -9,8 +9,8 @@ import {
   getMarketSeriesCapabilities,
   type MarketProviderParamType,
 } from '@/providers/market/providers'
-import { intervalToMs } from '@/providers/market/series-planner'
-import { DEFAULT_RANGE_PRESETS, rangeToMs } from '@/providers/market/series-window'
+import { getMarketSeriesRangePresets } from '@/providers/market/series-planner'
+import { DEFAULT_RANGE_PRESETS } from '@/providers/market/series-window'
 import type { MarketSeries, MarketSeriesWindow } from '@/providers/market/types'
 import type { ToolResponse } from '@/tools/types'
 
@@ -107,35 +107,19 @@ const formatIntervalLabel = (interval: string): string => {
   return `${value} ${unit}${value === 1 ? '' : 's'}`
 }
 
-const getRangePresets = (provider: string) => {
-  const capabilities = getMarketSeriesCapabilities(provider)
-  if (!capabilities || !capabilities.windowModes?.includes('range')) return []
-
-  return DEFAULT_RANGE_PRESETS.filter((preset) => {
-    if (preset.interval && !capabilities.intervals?.includes(preset.interval)) return false
-    const retention =
-      (preset.interval && capabilities.retention?.byInterval?.[preset.interval]) ||
-      capabilities.retention?.default
-    const rangeMs = rangeToMs(preset.range)!
-    if (retention?.maxRangeDays && rangeMs > retention.maxRangeDays * 86_400_000) return false
-    const intervalMs = intervalToMs(preset.interval)
-    return !(retention?.maxBars && intervalMs && rangeMs > retention.maxBars * intervalMs)
-  })
-}
-
 const rangeOptions = [
   { id: 'custom', label: 'Custom dates' },
   ...DEFAULT_RANGE_PRESETS.map((preset) => ({
     id: preset.id,
     label:
-      preset.id === 'all'
+      preset.window.mode === 'all'
         ? 'All available'
-        : `Latest ${preset.range.value} ${preset.range.unit}${preset.range.value === 1 ? '' : 's'}`,
+        : `Latest ${preset.window.range.value} ${preset.window.range.unit}${preset.window.range.value === 1 ? '' : 's'}`,
   })),
 ]
 
 const getRangeOptions = (provider: string) => {
-  const presetIds = new Set(getRangePresets(provider).map((preset) => preset.id))
+  const presetIds = new Set(getMarketSeriesRangePresets(provider).map((preset) => preset.id))
   const supportsCustom = getMarketSeriesCapabilities(provider)?.windowModes?.includes('absolute')
   return rangeOptions.filter((option) =>
     option.id === 'custom' ? supportsCustom : presetIds.has(option.id)
@@ -359,7 +343,7 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
     config: {
       tool: () => 'historical_data_fetch',
       params: (params) => {
-        const rangePreset = getRangePresets(params.provider).find(
+        const rangePreset = getMarketSeriesRangePresets(params.provider).find(
           (preset) => preset.id === params.rangePresetId
         )
         const window: MarketSeriesWindow | undefined =
@@ -367,7 +351,7 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
           getMarketSeriesCapabilities(params.provider)?.windowModes?.includes('absolute')
             ? { mode: 'absolute', start: params.start, end: params.end }
             : rangePreset
-              ? { mode: 'range', range: rangePreset.range }
+              ? rangePreset.window
               : undefined
         return {
           provider: params.provider,

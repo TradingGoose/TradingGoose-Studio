@@ -22,8 +22,7 @@ import {
 import { isUtcOffset, normalizeUtcOffset } from '@/lib/time-format'
 import { cn } from '@/lib/utils'
 import { getMarketSeriesCapabilities } from '@/providers/market/providers'
-import { DEFAULT_RANGE_PRESETS } from '@/providers/market/series-window'
-import type { MarketInterval } from '@/providers/market/types'
+import { getMarketSeriesRangePresets } from '@/providers/market/series-planner'
 import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
 import {
   formatDataChartIntervalLabel,
@@ -36,8 +35,6 @@ import {
   useDataChartCopy,
 } from '@/widgets/widgets/data_chart/copy'
 import { useDataChartParamsPatch } from '@/widgets/widgets/data_chart/hooks/use-data-chart-params-patch'
-import { addRangeToDate } from '@/widgets/widgets/data_chart/series-data'
-import { chooseIntervalForRange } from '@/widgets/widgets/data_chart/series-window'
 
 type TimeZoneOption = Awaited<ReturnType<typeof fetchTimeZoneOptions>>[number]
 
@@ -466,20 +463,16 @@ export const DataChartFooter = ({
   params,
   widgetKey,
   panelId,
-  allowedIntervals,
   exchangeTimezone,
 }: {
   params: DataChartWidgetParams
   widgetKey?: string
   panelId?: string
-  allowedIntervals: MarketInterval[]
   exchangeTimezone?: string | null
 }) => {
   const copy = useDataChartCopy()
   const patchWidgetParams = useDataChartParamsPatch()
-  const availablePresets = DEFAULT_RANGE_PRESETS.filter(
-    (preset) => !preset.interval || allowedIntervals.includes(preset.interval)
-  )
+  const availablePresets = getMarketSeriesRangePresets(params.data?.provider)
   const storedRangeId =
     typeof params.view?.rangePresetId === 'string' ? params.view.rangePresetId.trim() : ''
   const selectedRangeId = storedRangeId
@@ -490,15 +483,8 @@ export const DataChartFooter = ({
     const preset = availablePresets.find((range) => range.id === presetId)
     if (!preset) return
 
-    const anchor = new Date(0)
-    const rangeEnd = addRangeToDate(anchor, preset.range)
-    const rangeMs = rangeEnd.getTime() - anchor.getTime()
-    const fallbackInterval = params.view?.interval
-    const presetInterval = preset.interval
-    const interval =
-      presetInterval ?? chooseIntervalForRange(rangeMs, allowedIntervals) ?? fallbackInterval
     patchWidgetParams({
-      view: { rangePresetId: preset.id, interval, start: null, end: null },
+      view: { rangePresetId: preset.id, interval: preset.interval, start: null, end: null },
     })
   }
 
@@ -545,25 +531,15 @@ export const DataChartFooter = ({
                         />
                         <TooltipContent side='top'>
                           {(() => {
-                            const anchor = new Date(0)
-                            const rangeEnd = addRangeToDate(anchor, preset.range)
-                            const rangeMs = rangeEnd.getTime() - anchor.getTime()
-                            const resolvedInterval =
-                              preset.interval ??
-                              chooseIntervalForRange(rangeMs, allowedIntervals) ??
-                              (typeof params.view?.interval === 'string'
-                                ? params.view.interval
-                                : null)
                             const rangeLabel =
-                              preset.id === 'all'
+                              preset.window.mode === 'all'
                                 ? copy.footer.range.allAvailableData
-                                : formatDataChartRangeLabel(copy, preset.range)
-                            const intervalLabel = resolvedInterval
-                              ? formatDataChartIntervalLabel(copy, resolvedInterval)
-                              : null
-                            return intervalLabel
-                              ? formatDataChartRangeIntervalTooltip(copy, rangeLabel, intervalLabel)
-                              : rangeLabel
+                                : formatDataChartRangeLabel(copy, preset.window.range)
+                            return formatDataChartRangeIntervalTooltip(
+                              copy,
+                              rangeLabel,
+                              formatDataChartIntervalLabel(copy, preset.interval)
+                            )
                           })()}
                         </TooltipContent>
                       </Tooltip>

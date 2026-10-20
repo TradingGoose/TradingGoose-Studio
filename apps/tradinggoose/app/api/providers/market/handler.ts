@@ -56,6 +56,7 @@ export async function handleMarketProviderRequest({
         : undefined
 
     const MarketSeriesWindowSchema = z.discriminatedUnion('mode', [
+      z.object({ mode: z.literal('all') }),
       z.object({
         mode: z.literal('bars'),
         barCount: z.number(),

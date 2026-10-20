@@ -5,6 +5,7 @@ import type { MarketSeries, MarketSeriesWindow } from '@/providers/market/types'
 import { DEFAULT_BAR_COUNT } from '@/widgets/widgets/data_chart/series-data'
 
 const resolveWindowSpanMs = (window: MarketSeriesWindow, intervalMs?: number | null) => {
+  if (window.mode === 'all') return null
   if (window.mode === 'range') return rangeToMs(window.range)
   if (window.mode === 'bars') {
     if (!intervalMs) return null
