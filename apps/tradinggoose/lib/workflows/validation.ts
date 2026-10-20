@@ -139,7 +139,12 @@ function validateSubBlockValues(block: BlockState, blockConfig: BlockConfig): st
     if (!evaluateSubBlockConditionValues(config.condition, params)) continue
 
     const value = block.subBlocks?.[config.id]?.value
-    if (value === undefined || value === '') continue
+    const inputType = blockConfig.inputs[config.canonicalParamId ?? config.id]?.type
+    const requiredNumeric =
+      inputType === 'number' &&
+      config.required !== undefined &&
+      evaluateSubBlockConditionValues(config.required, params)
+    if (value === undefined || (value === '' && !requiredNumeric)) continue
     if (
       config.supportsReferences !== false &&
       typeof value === 'string' &&
@@ -148,7 +153,6 @@ function validateSubBlockValues(block: BlockState, blockConfig: BlockConfig): st
       continue
     }
 
-    const inputType = blockConfig.inputs[config.canonicalParamId ?? config.id]?.type
     const literalValue =
       inputType === 'number' && typeof value === 'string'
         ? Number(value)

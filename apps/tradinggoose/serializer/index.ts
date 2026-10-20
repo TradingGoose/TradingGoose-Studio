@@ -348,14 +348,7 @@ export class Serializer {
         return
       }
 
-      const isRequired =
-        subBlockConfig.required === undefined ||
-        subBlockConfig.required === true ||
-        (typeof subBlockConfig.required === 'object' &&
-          evaluateSubBlockConditionValues(subBlockConfig.required, params)) ||
-        (typeof subBlockConfig.required === 'function' &&
-          evaluateSubBlockConditionValues(subBlockConfig.required, params))
-      if (!isRequired) return
+      if (!evaluateSubBlockConditionValues(subBlockConfig.required, params)) return
 
       const fieldValue = params[paramId]
       if (fieldValue === undefined || fieldValue === null || fieldValue === '') {

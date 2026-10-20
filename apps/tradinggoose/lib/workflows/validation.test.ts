@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildCopilotServerToolErrorResponse } from '@/lib/copilot/server-tool-errors'
 import { buildCopilotServerToolError } from '@/lib/copilot/tools/client/server-tool-response'
+import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
 import { AgentBlock } from '@/blocks/blocks/agent'
 import { DatadogBlock } from '@/blocks/blocks/datadog'
 import { LoopBlock } from '@/blocks/blocks/loop'
+import { Mem0Block } from '@/blocks/blocks/mem0'
 import { MongoDBBlock } from '@/blocks/blocks/mongodb'
 import { ParallelContainerBlock } from '@/blocks/blocks/parallel_container'
 import { PolymarketBlock } from '@/blocks/blocks/polymarket'
@@ -11,6 +13,8 @@ import { SerperBlock } from '@/blocks/blocks/serper'
 import { SttBlock } from '@/blocks/blocks/stt'
 import { VideoGeneratorBlock } from '@/blocks/blocks/video_generator'
 import { WaitBlock } from '@/blocks/blocks/wait'
+import { YouTubeBlock } from '@/blocks/blocks/youtube'
+import { ZepBlock } from '@/blocks/blocks/zep'
 import type { BlockState, WorkflowState } from '@/stores/workflows/workflow/types'
 import { sanitizeAgentToolsInBlocks, validateWorkflowState } from './validation'
 
@@ -151,6 +155,45 @@ describe('canonical sub-block validation', () => {
     expect(result.errors).toEqual([
       expect.stringContaining(`invalid block sub-block values for ${id}`),
     ])
+  })
+
+  it.each([
+    [true, 'run', false],
+    [false, 'run', true],
+    [undefined, 'run', true],
+    [{ field: 'operation', value: 'run' }, 'run', false],
+    [{ field: 'operation', value: 'run' }, 'skip', true],
+    [() => ({ field: 'operation', value: 'run' }), 'run', false],
+    [() => ({ field: 'operation', value: 'run' }), 'skip', true],
+  ])(
+    'checks blank numeric values against required metadata (case %#)',
+    (required, operation, valid) => {
+      validationMocks.getBlock.mockReturnValue({
+        subBlocks: [
+          { id: 'attempts', type: 'short-input', inputType: 'number', min: 1, required },
+          { id: 'operation', type: 'short-input' },
+        ],
+        inputs: { attempts: { type: 'number' } },
+      })
+      expect(
+        validateWorkflowState(workflowWithValues('sample', { attempts: '', operation })).valid
+      ).toBe(valid)
+    }
+  )
+
+  it.each([
+    [YouTubeBlock, {}, 'maxResults'],
+    [Mem0Block, { operation: 'search' }, 'limit'],
+    [ZepBlock, { operation: 'get_messages' }, 'limit'],
+  ] as const)('preserves optional numeric blanks on %s', (config, values, field) => {
+    validationMocks.getBlock.mockReturnValue(config)
+    const state = workflowWithValues(config.type, {})
+    state.blocks.sample.subBlocks = buildInitialSubBlockStates(
+      config.subBlocks,
+      values
+    ) as BlockState['subBlocks']
+    expect(state.blocks.sample.subBlocks[field].value).toBe('')
+    expect(validateWorkflowState(state).valid).toBe(true)
   })
 
   it('requires container edge endpoints to exist as blocks', () => {
@@ -324,11 +367,15 @@ describe('canonical sub-block validation', () => {
   )
 
   it.each([
+    [LoopBlock, { loopType: 'for', iterations: '' }],
+    [LoopBlock, { loopType: 'for', iterations: '  ' }],
+    [ParallelContainerBlock, { parallelType: 'count', count: '' }],
+    [ParallelContainerBlock, { parallelType: 'count', count: '  ' }],
     [LoopBlock, { loopType: 'for', iterations: '<variable.count>0' }],
     [ParallelContainerBlock, { parallelType: 'count', count: '{{COUNT}}0' }],
     [LoopBlock, { loopType: '<variable.mode>' }],
     [ParallelContainerBlock, { parallelType: '{{MODE}}' }],
-  ] as const)('requires literals when a field disables runtime references', (config, values) => {
+  ] as const)('rejects invalid literals on reference-disabled fields', (config, values) => {
     validationMocks.getBlock.mockReturnValue(config)
     expect(validateWorkflowState(workflowWithValues(config.type, values)).valid).toBe(false)
   })

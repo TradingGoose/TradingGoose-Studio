@@ -278,6 +278,24 @@ describe('editWorkflowBlockServerTool', () => {
   })
 
   it.each([
+    ['loop1', 'iterations'],
+    ['parallel1', 'count'],
+  ])('rejects blank active %s counts through shared validation', async (id, key) => {
+    for (const value of ['', '  ']) {
+      await expect(
+        editWorkflowBlockServerTool.execute(
+          { entityId: 'wf-1', blockId: id, subBlocks: { [key]: value } },
+          { userId: 'user-1', accessLevel: 'limited' }
+        )
+      ).rejects.toMatchObject({
+        code: 'invalid_workflow_block_edit',
+        issues: expect.arrayContaining([expect.objectContaining({ path: `subBlocks.${key}` })]),
+      })
+    }
+    expect(mockApply).not.toHaveBeenCalled()
+  })
+
+  it.each([
     ['loop1', 'loopType', 'invalid'],
     ['parallel1', 'parallelType', 'invalid'],
     ['loop1', 'count', 3],
