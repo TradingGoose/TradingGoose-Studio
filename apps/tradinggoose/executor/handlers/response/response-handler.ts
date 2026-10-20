@@ -146,10 +146,9 @@ export class ResponseBlockHandler implements BlockHandler {
     switch (type) {
       case 'object':
       case LISTING_IDENTITY_VALUE_TYPE:
-        return this.convertObjectValue(value)
       case 'array':
       case 'files':
-        return this.convertArrayValue(value)
+        return typeof value === 'string' ? JSON.parse(value) : value
       case 'number':
         return this.convertNumberValue(value)
       case 'boolean':
@@ -157,38 +156,6 @@ export class ResponseBlockHandler implements BlockHandler {
       default:
         return value
     }
-  }
-
-  private convertObjectValue(value: any): any {
-    if (Array.isArray(value)) {
-      return this.convertBuilderDataToJson(value)
-    }
-
-    if (typeof value === 'string') {
-      return JSON.parse(value)
-    }
-
-    return value
-  }
-
-  private convertArrayValue(value: any): any {
-    if (Array.isArray(value)) {
-      return value.map((item: any) => this.convertArrayItem(item))
-    }
-
-    if (typeof value === 'string') {
-      const parsed = JSON.parse(value)
-      return Array.isArray(parsed) ? parsed : value
-    }
-
-    return value
-  }
-
-  private convertArrayItem(item: any): any {
-    if (!item || typeof item !== 'object' || !item.type || !Object.hasOwn(item, 'value')) {
-      return item
-    }
-    return this.convertPropertyValue(item)
   }
 
   private convertNumberValue(value: any): any {

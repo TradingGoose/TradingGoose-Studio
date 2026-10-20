@@ -1,3 +1,4 @@
+import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { VariableManager } from '@/lib/variables/variable-manager'
 import {
@@ -14,6 +15,12 @@ import type { VariableType } from '@/stores/variables/types'
 import { normalizeBlockName } from '@/stores/workflows/utils'
 
 const logger = createLogger('InputResolver')
+const UNRESOLVED_REFERENCE = Symbol('unresolvedReference')
+
+interface ReferenceContext {
+  native?: boolean
+  json?: boolean
+}
 
 export class InputResolver {
   private blockById: Map<string, SerializedBlock>
@@ -117,58 +124,17 @@ export class InputResolver {
         return value
       }
 
-      const directLoopMatch = trimmedValue.match(/^<loop\.([^>]+)>$/)
-      if (directLoopMatch) {
-        const loopValue = this.resolveLoopReference(
-          directLoopMatch[1].split('.'),
-          context,
-          block,
-          false
-        )
-        if (loopValue !== null) {
-          try {
-            return JSON.parse(loopValue)
-          } catch {
-            return loopValue
-          }
-        }
-        logger.warn(`Direct loop reference <loop.${directLoopMatch[1]}> could not be resolved.`)
-        return value
-      }
-
-      const directParallelMatch = trimmedValue.match(/^<parallel\.([^>]+)>$/)
-      if (directParallelMatch) {
-        let containingParallelId: string | undefined
-        for (const [parallelId, parallel] of Object.entries(context.workflow?.parallels || {})) {
-          if (parallel.nodes.includes(block.id)) {
-            containingParallelId = parallelId
-            break
-          }
-        }
-        if (containingParallelId) {
-          const parallelValue = this.resolveParallelReference(
-            containingParallelId,
-            directParallelMatch[1].split('.'),
-            context,
-            block,
-            false
-          )
-          if (parallelValue !== null) {
-            try {
-              return JSON.parse(parallelValue)
-            } catch {
-              return parallelValue
-            }
-          }
-        }
-        logger.warn(
-          `Direct parallel reference <parallel.${directParallelMatch[1]}> could not be resolved.`
-        )
-        return value
+      const references = extractReferencePrefixes(trimmedValue)
+      if (
+        references.length === 1 &&
+        references[0].raw === trimmedValue &&
+        ['loop', 'parallel'].includes(references[0].prefix)
+      ) {
+        return this.resolveBlockReferences(value, context, block, { native: true })
       }
       return this.processStringValue(value, key, context, block)
     }
-    return typeof value === 'object' ? this.processObjectValue(value, context, block) : value
+    return typeof value === 'object' ? this.processObjectValue(value, context, block, key) : value
   }
   /**
    * Retrieves the correctly typed value of a variable based on its stored type.
@@ -271,7 +237,7 @@ export class InputResolver {
    * @param value - String containing block references
    * @param context - Current execution context
    * @param currentBlock - Block that contains the references
-   * @param inputKey - Input field being resolved, for Response Editor JSON formatting
+   * @param referenceContext - Native value and JSON interpolation context
    * @returns String with resolved references
    * @throws Error if referenced block is not found or disabled
    */
@@ -279,8 +245,8 @@ export class InputResolver {
     value: string,
     context: ExecutionContext,
     currentBlock: SerializedBlock,
-    inputKey?: string
-  ): string {
+    referenceContext: ReferenceContext = {}
+  ): any {
     // Skip resolution for API block body content that looks like XML
     if (
       currentBlock.metadata?.id === 'api' &&
@@ -297,10 +263,14 @@ export class InputResolver {
     if (blockMatches.length === 0) return value
 
     let resolvedValue = value
+    let referenceCursor = 0
 
     for (const match of blockMatches) {
       const { raw } = match
-      if (raw.startsWith('<variable.')) {
+      const sourceIndex = value.indexOf(raw, referenceCursor)
+      referenceCursor = sourceIndex + raw.length
+      const resolvedIndex = sourceIndex + resolvedValue.length - value.length
+      if (raw.startsWith('<variable.') && !referenceContext.native && !referenceContext.json) {
         continue
       }
 
@@ -321,107 +291,90 @@ export class InputResolver {
         value.includes('`')
 
       const blockRefLower = blockRef.toLowerCase()
-      // Special case for "loop" references - allows accessing loop properties
-      if (blockRefLower === 'loop') {
-        const formattedValue = this.resolveLoopReference(
-          pathParts,
-          context,
-          currentBlock,
-          isInTemplateLiteral
-        )
 
-        if (formattedValue !== null) {
-          resolvedValue = resolvedValue.replace(raw, formattedValue)
+      let replacementValue: any = UNRESOLVED_REFERENCE
+      if (blockRefLower === 'variable') {
+        const variable = this.findVariableByName(pathParts.join('.'))
+        if (!variable) continue
+        replacementValue = this.getTypedVariableValue(variable)
+      } else if (blockRefLower === 'loop') {
+        replacementValue = this.resolveLoopReference(pathParts, context, currentBlock)
+      } else if (blockRefLower === 'parallel') {
+        const parallelId = this.parallelsByBlockId.get(currentBlock.id)
+        if (parallelId)
+          replacementValue = this.resolveParallelReference(parallelId, pathParts, context)
+      }
+
+      if (replacementValue === UNRESOLVED_REFERENCE) {
+        const isStartReference = blockRefLower === 'start'
+        const sourceBlock = isStartReference
+          ? context.triggerBlockId
+            ? this.blockById.get(context.triggerBlockId)
+            : undefined
+          : this.validateBlockReference(blockRef, currentBlock.id)
+
+        if (!sourceBlock) {
+          if (isStartReference) {
+            throw new Error('Runtime trigger block is not available for <start> reference.')
+          }
           continue
         }
-      }
 
-      // Special case for "parallel" references - allows accessing parallel properties
-      if (blockRefLower === 'parallel') {
-        // Find which parallel this block belongs to using efficient lookup
-        const containingParallelId = this.parallelsByBlockId.get(currentBlock.id)
+        if (!isStartReference && sourceBlock.enabled === false) {
+          throw new Error(`Block "${sourceBlock.metadata?.name || sourceBlock.id}" is disabled`)
+        }
 
-        if (containingParallelId) {
-          const formattedValue = this.resolveParallelReference(
-            containingParallelId,
-            pathParts,
-            context,
-            currentBlock,
-            isInTemplateLiteral
+        let blockState = context.blockStates.get(sourceBlock.id)
+        if (!isStartReference && context.currentVirtualBlockId) {
+          const currentParallelInfo = context.parallelBlockMapping?.get(
+            context.currentVirtualBlockId
+          )
+          if (!currentParallelInfo) {
+            throw new Error(
+              `No parallel mapping found for block "${context.currentVirtualBlockId}"`
+            )
+          }
+
+          const parallel = context.workflow?.parallels?.[currentParallelInfo.parallelId]
+          if (parallel?.nodes.includes(sourceBlock.id)) {
+            const virtualSourceBlockId = `${sourceBlock.id}_parallel_${currentParallelInfo.parallelId}_iteration_${currentParallelInfo.iterationIndex}`
+            blockState = context.blockStates.get(virtualSourceBlockId)
+            if (!blockState) {
+              throw new Error(`No state found for block "${virtualSourceBlockId}"`)
+            }
+          }
+        }
+
+        replacementValue = blockState?.output
+
+        for (const part of pathParts) {
+          if (!replacementValue || typeof replacementValue !== 'object') {
+            replacementValue = undefined
+            break
+          }
+
+          replacementValue = this.resolvePartWithIndices(
+            replacementValue,
+            part,
+            path,
+            sourceBlock.metadata?.name || sourceBlock.id
           )
 
-          if (formattedValue !== null) {
-            resolvedValue = resolvedValue.replace(raw, formattedValue)
-            continue
+          if (replacementValue === undefined) {
+            break
           }
         }
       }
-
-      const isStartReference = blockRefLower === 'start'
-      const sourceBlock = isStartReference
-        ? context.triggerBlockId
-          ? this.blockById.get(context.triggerBlockId)
-          : undefined
-        : this.validateBlockReference(blockRef, currentBlock.id)
-
-      if (!sourceBlock) {
-        if (isStartReference) {
-          throw new Error('Runtime trigger block is not available for <start> reference.')
-        }
-        continue
-      }
-
-      if (!isStartReference && sourceBlock.enabled === false) {
-        throw new Error(`Block "${sourceBlock.metadata?.name || sourceBlock.id}" is disabled`)
-      }
-
-      let blockState = context.blockStates.get(sourceBlock.id)
-      if (!isStartReference && context.currentVirtualBlockId) {
-        const currentParallelInfo = context.parallelBlockMapping?.get(context.currentVirtualBlockId)
-        if (!currentParallelInfo) {
-          throw new Error(`No parallel mapping found for block "${context.currentVirtualBlockId}"`)
-        }
-
-        const parallel = context.workflow?.parallels?.[currentParallelInfo.parallelId]
-        if (parallel?.nodes.includes(sourceBlock.id)) {
-          const virtualSourceBlockId = `${sourceBlock.id}_parallel_${currentParallelInfo.parallelId}_iteration_${currentParallelInfo.iterationIndex}`
-          blockState = context.blockStates.get(virtualSourceBlockId)
-          if (!blockState) {
-            throw new Error(`No state found for block "${virtualSourceBlockId}"`)
-          }
-        }
-      }
-
-      let replacementValue: any = blockState?.output
-
-      for (const part of pathParts) {
-        if (!replacementValue || typeof replacementValue !== 'object') {
-          replacementValue = undefined
-          break
-        }
-
-        replacementValue = this.resolvePartWithIndices(
-          replacementValue,
-          part,
-          path,
-          sourceBlock.metadata?.name || sourceBlock.id
-        )
-
-        if (replacementValue === undefined) {
-          break
-        }
+      if (referenceContext.native && blockMatches.length === 1 && value.trim() === raw) {
+        return replacementValue
       }
 
       let formattedValue: string
 
       if (currentBlock.metadata?.id === 'condition') {
         formattedValue = this.stringifyForCondition(replacementValue)
-      } else if (
-        currentBlock.metadata?.id === 'response' &&
-        currentBlock.config.params.dataMode === 'json' &&
-        inputKey === 'data'
-      ) {
-        const prefix = resolvedValue.slice(0, resolvedValue.indexOf(raw))
+      } else if (referenceContext.json) {
+        const prefix = resolvedValue.slice(0, resolvedIndex)
         let inString = false
         for (let index = 0; index < prefix.length; index++) {
           if (prefix[index] === '\\') index++
@@ -453,7 +406,10 @@ export class InputResolver {
             : String(replacementValue)
       }
 
-      resolvedValue = resolvedValue.replace(raw, () => formattedValue)
+      resolvedValue =
+        resolvedValue.slice(0, resolvedIndex) +
+        formattedValue +
+        resolvedValue.slice(resolvedIndex + raw.length)
     }
 
     return resolvedValue
@@ -515,7 +471,8 @@ export class InputResolver {
   private resolveNestedStructure(
     value: any,
     context: ExecutionContext,
-    currentBlock: SerializedBlock
+    currentBlock: SerializedBlock,
+    referenceContext?: ReferenceContext
   ): any {
     // Handle null or undefined
     if (value === null || value === undefined) {
@@ -525,10 +482,20 @@ export class InputResolver {
     // Handle strings
     if (typeof value === 'string') {
       // First resolve variable references
-      const resolvedVars = this.resolveVariableReferences(value, currentBlock)
+      const resolvedVars = referenceContext
+        ? value
+        : this.resolveVariableReferences(value, currentBlock)
 
       // Then resolve block references
-      const resolvedReferences = this.resolveBlockReferences(resolvedVars, context, currentBlock)
+      const resolvedReferences = this.resolveBlockReferences(
+        resolvedVars,
+        context,
+        currentBlock,
+        referenceContext
+      )
+
+      const references = referenceContext?.native ? extractReferencePrefixes(value) : []
+      if (references.length === 1 && references[0].raw === value.trim()) return resolvedReferences
 
       // Then resolve environment variables
       return this.resolveEnvVariables(resolvedReferences)
@@ -536,14 +503,25 @@ export class InputResolver {
 
     // Handle arrays
     if (Array.isArray(value)) {
-      return value.map((item) => this.resolveNestedStructure(item, context, currentBlock))
+      return value.map((item) =>
+        this.resolveNestedStructure(item, context, currentBlock, referenceContext)
+      )
     }
 
     // Handle objects
     if (typeof value === 'object') {
       const result: Record<string, any> = {}
       for (const [k, v] of Object.entries(value)) {
-        result[k] = this.resolveNestedStructure(v, context, currentBlock)
+        const fieldContext =
+          referenceContext?.native && k === 'value'
+            ? {
+                native: true,
+                json: ['object', 'array', 'files', LISTING_IDENTITY_VALUE_TYPE].includes(
+                  value.type
+                ),
+              }
+            : undefined
+        result[k] = this.resolveNestedStructure(v, context, currentBlock, fieldContext)
       }
       return result
     }
@@ -802,25 +780,22 @@ export class InputResolver {
    *
    * @param pathParts - Parts of the reference path after 'loop'
    * @param context - Current execution context
-   * @param currentBlock - Block containing the reference
-   * @param isInTemplateLiteral - Whether this is inside a template literal
-   * @returns Formatted value or null if reference is invalid
+   * @returns Native value or UNRESOLVED_REFERENCE if the property is unsupported
    */
   private resolveLoopReference(
     pathParts: string[],
     context: ExecutionContext,
-    currentBlock: SerializedBlock,
-    isInTemplateLiteral: boolean
-  ): string | null {
+    currentBlock: SerializedBlock
+  ): unknown {
     const loopId = getLoopContextId(
       currentBlock.id,
       context.workflow?.loops ?? {},
       this.loopsByBlockId.get(currentBlock.id)
     )
-    if (!loopId) return null
+    if (!loopId) return UNRESOLVED_REFERENCE
 
     const loop = context.workflow?.loops[loopId]
-    if (!loop) return null
+    if (!loop) return UNRESOLVED_REFERENCE
 
     const property = pathParts[0]
 
@@ -830,7 +805,7 @@ export class InputResolver {
         const currentItem = context.loopItems.get(loopId)
         if (currentItem === undefined) {
           // If no current item stored, we're probably not in an active iteration
-          return ''
+          return undefined
         }
 
         // Handle nested path access (e.g., <loop.currentItem.key>)
@@ -843,18 +818,10 @@ export class InputResolver {
           ) {
             const subProperty = pathParts[1]
             if (subProperty === 'key') {
-              return this.formatValueForCodeContext(
-                currentItem[0],
-                currentBlock,
-                isInTemplateLiteral
-              )
+              return currentItem[0]
             }
             if (subProperty === 'value') {
-              return this.formatValueForCodeContext(
-                currentItem[1],
-                currentBlock,
-                isInTemplateLiteral
-              )
+              return currentItem[1]
             }
           }
 
@@ -869,33 +836,32 @@ export class InputResolver {
               throw new Error(`No value found at path "loop.${pathParts.join('.')}" in loop item`)
             }
           }
-          return this.formatValueForCodeContext(value, currentBlock, isInTemplateLiteral)
+          return value
         }
 
         // Return the whole current item
-        return this.formatValueForCodeContext(currentItem, currentBlock, isInTemplateLiteral)
+        return currentItem
       }
 
       case 'items': {
         // Only valid for forEach loops
         if (loop.loopType !== 'forEach') {
-          return null
+          return UNRESOLVED_REFERENCE
         }
 
         const items = context.loopItems.get(`${loopId}_items`)
         if (!items) throw new Error(`Evaluated items not found for loop ${loopId}`)
 
-        return this.formatValueForCodeContext(items, currentBlock, isInTemplateLiteral)
+        return items
       }
 
       case 'index': {
         // The manager advances the one-based counter after each completed body.
-        const adjustedIndex = (context.loopIterations.get(loopId) ?? 1) - 1
-        return this.formatValueForCodeContext(adjustedIndex, currentBlock, isInTemplateLiteral)
+        return (context.loopIterations.get(loopId) ?? 1) - 1
       }
 
       default:
-        return null
+        return UNRESOLVED_REFERENCE
     }
   }
 
@@ -906,19 +872,15 @@ export class InputResolver {
    * @param parallelId - ID of the parallel block
    * @param pathParts - Parts of the reference path after 'parallel'
    * @param context - Current execution context
-   * @param currentBlock - Block containing the reference
-   * @param isInTemplateLiteral - Whether this is inside a template literal
-   * @returns Formatted value or null if reference is invalid
+   * @returns Native value or UNRESOLVED_REFERENCE if the property is unsupported
    */
   private resolveParallelReference(
     parallelId: string,
     pathParts: string[],
-    context: ExecutionContext,
-    currentBlock: SerializedBlock,
-    isInTemplateLiteral: boolean
-  ): string | null {
+    context: ExecutionContext
+  ): unknown {
     const parallel = context.workflow?.parallels?.[parallelId]
-    if (!parallel) return null
+    if (!parallel) return UNRESOLVED_REFERENCE
 
     const property = pathParts[0]
 
@@ -942,7 +904,7 @@ export class InputResolver {
         }
 
         if (currentItem === undefined) {
-          return ''
+          return undefined
         }
 
         // Handle nested path access (e.g., <parallel.currentItem.key>)
@@ -955,18 +917,10 @@ export class InputResolver {
           ) {
             const subProperty = pathParts[1]
             if (subProperty === 'key') {
-              return this.formatValueForCodeContext(
-                currentItem[0],
-                currentBlock,
-                isInTemplateLiteral
-              )
+              return currentItem[0]
             }
             if (subProperty === 'value') {
-              return this.formatValueForCodeContext(
-                currentItem[1],
-                currentBlock,
-                isInTemplateLiteral
-              )
+              return currentItem[1]
             }
           }
 
@@ -983,20 +937,20 @@ export class InputResolver {
               )
             }
           }
-          return this.formatValueForCodeContext(value, currentBlock, isInTemplateLiteral)
+          return value
         }
 
         // Return the whole current item
-        return this.formatValueForCodeContext(currentItem, currentBlock, isInTemplateLiteral)
+        return currentItem
       }
 
       case 'items': {
-        if (parallel.parallelType !== 'collection') return null
+        if (parallel.parallelType !== 'collection') return UNRESOLVED_REFERENCE
 
         const items = context.loopItems.get(`${parallelId}_items`)
         if (!items) throw new Error(`Evaluated items not found for parallel ${parallelId}`)
 
-        return this.formatValueForCodeContext(items, currentBlock, isInTemplateLiteral)
+        return items
       }
 
       case 'index': {
@@ -1012,11 +966,11 @@ export class InputResolver {
         }
 
         const adjustedIndex = index !== undefined ? index : 0
-        return this.formatValueForCodeContext(adjustedIndex, currentBlock, isInTemplateLiteral)
+        return adjustedIndex
       }
 
       default:
-        return null
+        return UNRESOLVED_REFERENCE
     }
   }
 
@@ -1036,14 +990,11 @@ export class InputResolver {
     context: ExecutionContext,
     block: SerializedBlock
   ): any {
-    // First resolve variable references (interpolation)
-    const resolvedVars = this.resolveVariableReferences(value, block)
-
-    // Then resolve block references
-    const resolvedReferences = this.resolveBlockReferences(resolvedVars, context, block, key)
-
-    // Then resolve environment variables
-    const resolvedEnv = this.resolveEnvVariables(resolvedReferences)
+    const referenceContext =
+      block.metadata?.id === 'response' && key === 'data' && block.config.params.dataMode === 'json'
+        ? { json: true }
+        : undefined
+    const resolvedEnv = this.resolveNestedStructure(value, context, block, referenceContext)
 
     // Special handling for different block types
     const blockType = block.metadata?.id
@@ -1089,7 +1040,12 @@ export class InputResolver {
    * @param block - Block containing the value
    * @returns Processed object/array
    */
-  private processObjectValue(value: any, context: ExecutionContext, block: SerializedBlock): any {
+  private processObjectValue(
+    value: any,
+    context: ExecutionContext,
+    block: SerializedBlock,
+    inputKey?: string
+  ): any {
     // Special handling for table-like arrays (e.g., from API params/headers)
     if (
       Array.isArray(value) &&
@@ -1133,7 +1089,12 @@ export class InputResolver {
     }
 
     // Use general recursive resolution for other objects/arrays
-    return this.resolveNestedStructure(value, context, block)
+    return this.resolveNestedStructure(
+      value,
+      context,
+      block,
+      inputKey === 'builderData' ? { native: true } : undefined
+    )
   }
 
   /**
