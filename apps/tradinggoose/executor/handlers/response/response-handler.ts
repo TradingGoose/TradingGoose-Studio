@@ -1,4 +1,4 @@
-import type { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
+import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { BlockType } from '@/executor/consts'
 import type { BlockHandler, NormalizedBlockOutput } from '@/executor/types'
@@ -82,8 +82,7 @@ export class ResponseBlockHandler implements BlockHandler {
 
     if (dataMode === 'structured') {
       // Handle structured mode - convert builderData to JSON
-      const convertedData = this.convertBuilderDataToJson(inputs.builderData)
-      return this.parseObjectStrings(convertedData)
+      return this.convertBuilderDataToJson(inputs.builderData)
     }
 
     throw new Error(`Unsupported response data mode: ${dataMode}`)
@@ -102,7 +101,7 @@ export class ResponseBlockHandler implements BlockHandler {
       }
 
       const value = this.convertPropertyValue(prop)
-      result[prop.name] = value
+      if (value !== undefined) result[prop.name] = value
     }
 
     return result
@@ -136,20 +135,27 @@ export class ResponseBlockHandler implements BlockHandler {
   }
 
   private convertPropertyValue(prop: JSONProperty): any {
-    switch (prop.type) {
+    const { type, value } = prop
+    if (
+      type !== 'string' &&
+      (value == null ||
+        (typeof value === 'string' && (!value.trim() || this.isVariableReference(value))))
+    ) {
+      return undefined
+    }
+    switch (type) {
       case 'object':
-        return this.convertObjectValue(prop.value)
+      case LISTING_IDENTITY_VALUE_TYPE:
+        return this.convertObjectValue(value)
       case 'array':
-        return this.convertArrayValue(prop.value)
-      case 'number':
-        return this.convertNumberValue(prop.value)
-      case 'boolean':
-        return this.convertBooleanValue(prop.value)
       case 'files':
-        // File values should be passed through as-is (UserFile objects)
-        return prop.value
+        return this.convertArrayValue(value)
+      case 'number':
+        return this.convertNumberValue(value)
+      case 'boolean':
+        return this.convertBooleanValue(value)
       default:
-        return prop.value
+        return value
     }
   }
 
@@ -158,11 +164,10 @@ export class ResponseBlockHandler implements BlockHandler {
       return this.convertBuilderDataToJson(value)
     }
 
-    if (typeof value === 'string' && !this.isVariableReference(value)) {
+    if (typeof value === 'string') {
       return JSON.parse(value)
     }
 
-    // Keep variable references or other values as-is (they'll be resolved later)
     return value
   }
 
@@ -171,76 +176,34 @@ export class ResponseBlockHandler implements BlockHandler {
       return value.map((item: any) => this.convertArrayItem(item))
     }
 
-    if (typeof value === 'string' && !this.isVariableReference(value)) {
+    if (typeof value === 'string') {
       const parsed = JSON.parse(value)
       return Array.isArray(parsed) ? parsed : value
     }
 
-    // Keep variable references or other values as-is
     return value
   }
 
   private convertArrayItem(item: any): any {
-    if (typeof item !== 'object' || !item.type) {
+    if (!item || typeof item !== 'object' || !item.type || !Object.hasOwn(item, 'value')) {
       return item
     }
-
-    if (item.type === 'object' && Array.isArray(item.value)) {
-      return this.convertBuilderDataToJson(item.value)
-    }
-
-    if (item.type === 'array' && Array.isArray(item.value)) {
-      return item.value.map((subItem: any) =>
-        typeof subItem === 'object' && subItem.type ? subItem.value : subItem
-      )
-    }
-
-    return item.value
+    return this.convertPropertyValue(item)
   }
 
   private convertNumberValue(value: any): any {
-    if (this.isVariableReference(value)) {
-      return value
-    }
-
     const numValue = Number(value)
-    return Number.isNaN(numValue) ? value : numValue
+    return Number.isFinite(numValue) ? numValue : undefined
   }
 
   private convertBooleanValue(value: any): any {
-    if (this.isVariableReference(value)) {
-      return value
-    }
-
-    return value === 'true' || value === true
+    if (value === 'true' || value === true) return true
+    if (value === 'false' || value === false) return false
+    return undefined
   }
 
   private isVariableReference(value: any): boolean {
     return typeof value === 'string' && value.trim().startsWith('<') && value.trim().includes('>')
-  }
-
-  private parseObjectStrings(data: any): any {
-    if (typeof data === 'string') {
-      // Try to parse strings that might be JSON objects
-      try {
-        const parsed = JSON.parse(data)
-        if (typeof parsed === 'object' && parsed !== null) {
-          return this.parseObjectStrings(parsed) // Recursively parse nested objects
-        }
-        return parsed
-      } catch {
-        return data // Return as string if not valid JSON
-      }
-    } else if (Array.isArray(data)) {
-      return data.map((item) => this.parseObjectStrings(item))
-    } else if (typeof data === 'object' && data !== null) {
-      const result: any = {}
-      for (const [key, value] of Object.entries(data)) {
-        result[key] = this.parseObjectStrings(value)
-      }
-      return result
-    }
-    return data
   }
 
   private parseStatus(status?: string): number {

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
+import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { DatadogBlock } from '@/blocks/blocks/datadog'
 import { GmailBlock } from '@/blocks/blocks/gmail'
@@ -1585,7 +1586,31 @@ describe('InputResolver', () => {
           input: 'Say "go"\\next\n$&',
           quantity: 0,
           active: false,
-          details: { cash: 0 },
+          accountId: '123',
+          booleanText: 'true',
+          nullText: 'null',
+          arrayText: '[1,2]',
+          objectText: '{"id":1}',
+          details: { cash: 0, accountId: '123' },
+          positions: [{ quantity: 0, accountId: '123' }, null],
+          files: [
+            {
+              id: '123',
+              name: 'report.txt',
+              type: 'text/plain',
+              url: '/report.txt',
+              size: 0,
+              key: '123',
+              uploadedAt: '2026-10-19T00:00:00.000Z',
+              expiresAt: '2026-10-20T00:00:00.000Z',
+            },
+          ],
+          listingIdentity: {
+            listing_id: '123',
+            base_id: '',
+            quote_id: '',
+            listing_type: 'default',
+          },
         }
         contextWithConnections.blockStates.get('trigger-1')!.output = {
           ...output,
@@ -1596,6 +1621,12 @@ describe('InputResolver', () => {
         >[0] = [
           { id: 'symbol', name: 'symbol', type: 'string', value: `<${source}.symbol>` },
           { id: 'input', name: 'input', type: 'string', value: `<${source}.input>` },
+          ...['accountId', 'booleanText', 'nullText', 'arrayText', 'objectText'].map((name) => ({
+            id: name,
+            name,
+            type: 'string' as const,
+            value: `<${source}.${name}>`,
+          })),
           {
             id: 'greeting',
             name: 'greeting',
@@ -1605,6 +1636,15 @@ describe('InputResolver', () => {
           { id: 'quantity', name: 'quantity', type: 'number', value: `<${source}.quantity>` },
           { id: 'active', name: 'active', type: 'boolean', value: `<${source}.active>` },
           { id: 'details', name: 'details', type: 'object', value: `<${source}.details>` },
+          { id: 'positions', name: 'positions', type: 'array', value: `<${source}.positions>` },
+          { id: 'files', name: 'files', type: 'files', value: `<${source}.files>` },
+          { id: 'nativeFiles', name: 'nativeFiles', type: 'files', value: output.files },
+          {
+            id: 'listing',
+            name: 'listingIdentity',
+            type: LISTING_IDENTITY_VALUE_TYPE,
+            value: `<${source}.listingIdentity>`,
+          },
           { id: 'missing', name: 'missing', type: 'string', value: `<${source}.missing>` },
         ]
         for (const dataMode of ['structured', 'json']) {
@@ -1628,6 +1668,7 @@ describe('InputResolver', () => {
             status: 201,
             data: {
               ...output,
+              nativeFiles: output.files,
               greeting: `Say "${output.input}" for ${output.symbol}`,
               missing: '',
             },
@@ -1636,6 +1677,91 @@ describe('InputResolver', () => {
         }
       }
     )
+
+    it.each([
+      { averagePrice: undefined, expected: {} },
+      { averagePrice: null, expected: {} },
+      { averagePrice: '', expected: {} },
+      { averagePrice: '   ', expected: {} },
+      { averagePrice: 0, expected: { price: 0 } },
+      { averagePrice: '0', expected: { price: 0 } },
+      { averagePrice: 12.5, expected: { price: 12.5 } },
+    ])(
+      'preserves absent portfolio prices without inventing zero: $averagePrice',
+      async ({ averagePrice, expected }) => {
+        contextWithConnections.blockStates.get('trigger-1')!.output = {
+          portfolioDetail: { positions: [{ averagePrice, quantity: 0 }] },
+        }
+        const block: SerializedBlock = {
+          ...workflowWithConnections.blocks[2],
+          id: 'test-response-block',
+          metadata: { id: BlockType.RESPONSE },
+          config: {
+            tool: BlockType.RESPONSE,
+            params: {
+              builderData: [
+                {
+                  id: 'price',
+                  name: 'price',
+                  type: 'number',
+                  value: '<start.portfolioDetail.positions[0].averagePrice>',
+                },
+                {
+                  id: 'quantity',
+                  name: 'quantity',
+                  type: 'number',
+                  value: '<start.portfolioDetail.positions[0].quantity>',
+                },
+                ...(
+                  ['boolean', 'object', 'array', 'files', LISTING_IDENTITY_VALUE_TYPE] as const
+                ).map((type) => ({
+                  id: type,
+                  name: type,
+                  type,
+                  value: '<start.portfolioDetail.positions[0].missing>',
+                })),
+              ],
+            },
+          },
+        }
+        const inputs = connectionResolver.resolveInputs(block, contextWithConnections)
+        const { response } = await new ResponseBlockHandler().execute(block, inputs)
+        expect(response.status).toBe(200)
+        expect(response.data).toStrictEqual({ quantity: 0, ...expected })
+      }
+    )
+
+    it('converts nested Builder fields through their declared types', async () => {
+      const { response } = await new ResponseBlockHandler().execute(
+        workflowWithConnections.blocks[2],
+        {
+          builderData: [
+            {
+              id: 'values',
+              name: 'values',
+              type: 'array',
+              value: [
+                { type: 'number', value: '0' },
+                { type: 'string', value: 'null' },
+                { type: 'boolean', value: 'false' },
+                null,
+                {
+                  type: 'object',
+                  value: [
+                    { id: 'price', name: 'price', type: 'number', value: '' },
+                    { id: 'accountId', name: 'accountId', type: 'string', value: '123' },
+                  ],
+                },
+              ],
+            },
+          ],
+        }
+      )
+      expect(response.status).toBe(200)
+      expect(response.data).toStrictEqual({
+        values: [0, 'null', false, null, { accountId: '123' }],
+      })
+    })
 
     it('should properly format start.input when resolved directly via resolveBlockReferences', () => {
       // Test that start.input gets proper formatting for different block types
