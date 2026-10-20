@@ -6,7 +6,7 @@
  *
  * Top-level collections:
  *   - "workflow"  (Y.Map) — editable blocks, edges, and save timestamp
- *   - "textFields" (Y.Map) — text-heavy subblock values keyed by blockId/subBlockId
+ *   - "subBlockFields" (Y.Map) — scalar or collaborative text values keyed by blockId/subBlockId
  *   - "variables" (Y.Map) — per-workflow variable records keyed by variable id
  *   - "metadata"  (Y.Map) — session-level workflow metadata
  */
@@ -14,8 +14,12 @@
 import type { Edge } from '@xyflow/react'
 import * as Y from 'yjs'
 import { resolveStoredDateValue } from '@/lib/time-format'
+import { readBlockOutputs } from '@/lib/workflows/block-outputs'
+import { evaluateSubBlockCondition } from '@/lib/workflows/sub-block-conditions'
+import { isSubBlockInMode } from '@/lib/workflows/subblock-values'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { getBlock } from '@/blocks/registry'
+import { resolveOutputType } from '@/blocks/utils'
 import type {
   BlockState,
   Loop,
@@ -30,7 +34,7 @@ import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/w
 
 export const YJS_KEYS = {
   WORKFLOW: 'workflow',
-  TEXT_FIELDS: 'textFields',
+  SUB_BLOCK_FIELDS: 'subBlockFields',
   VARIABLES: 'variables',
   METADATA: 'metadata',
   BLOCKS: 'blocks',
@@ -39,7 +43,7 @@ export const YJS_KEYS = {
   LAST_SAVED: 'lastSaved',
 } as const
 
-const WORKFLOW_TEXT_FIELD_SEPARATOR = '::'
+const WORKFLOW_SUB_BLOCK_FIELD_SEPARATOR = '::'
 
 // ---------------------------------------------------------------------------
 // Top-level map accessors
@@ -53,46 +57,91 @@ export function getVariablesMap(doc: Y.Doc): Y.Map<any> {
   return doc.getMap(YJS_KEYS.VARIABLES)
 }
 
-export function readWorkflowTextFieldsMap(doc: Y.Doc): Y.Map<any> {
-  return doc.getMap(YJS_KEYS.TEXT_FIELDS)
+export function readWorkflowSubBlockFieldsMap(doc: Y.Doc): Y.Map<any> {
+  return doc.getMap(YJS_KEYS.SUB_BLOCK_FIELDS)
 }
 
 export function getMetadataMap(doc: Y.Doc): Y.Map<any> {
   return doc.getMap(YJS_KEYS.METADATA)
 }
 
-export function createWorkflowTextFieldKey(blockId: string, subBlockId: string): string {
-  return `${blockId}${WORKFLOW_TEXT_FIELD_SEPARATOR}${subBlockId}`
+export function createWorkflowSubBlockFieldKey(blockId: string, subBlockId: string): string {
+  return `${blockId}${WORKFLOW_SUB_BLOCK_FIELD_SEPARATOR}${subBlockId}`
 }
 
-export function parseWorkflowTextFieldKey(
+export function parseWorkflowSubBlockFieldKey(
   key: string
 ): { blockId: string; subBlockId: string } | null {
-  const separatorIndex = key.indexOf(WORKFLOW_TEXT_FIELD_SEPARATOR)
-  if (separatorIndex <= 0 || separatorIndex >= key.length - WORKFLOW_TEXT_FIELD_SEPARATOR.length) {
+  const separatorIndex = key.indexOf(WORKFLOW_SUB_BLOCK_FIELD_SEPARATOR)
+  if (
+    separatorIndex <= 0 ||
+    separatorIndex >= key.length - WORKFLOW_SUB_BLOCK_FIELD_SEPARATOR.length
+  ) {
     return null
   }
 
   return {
     blockId: key.slice(0, separatorIndex),
-    subBlockId: key.slice(separatorIndex + WORKFLOW_TEXT_FIELD_SEPARATOR.length),
+    subBlockId: key.slice(separatorIndex + WORKFLOW_SUB_BLOCK_FIELD_SEPARATOR.length),
   }
 }
 
-function isWorkflowTextField(textFields: Y.Map<any>, blockId: string, subBlockId: string): boolean {
-  const block = textFields.doc && readWorkflowMap(textFields.doc).get(YJS_KEYS.BLOCKS)?.[blockId]
-  const field = block && getBlock(block.type)?.subBlocks.find(({ id }) => id === subBlockId)
-  return !(field?.type === 'short-input' && field.inputType === 'number')
+function isWorkflowTextField(
+  doc: Y.Doc,
+  blockId: string,
+  subBlockId: string,
+  readFieldValue = (field: string) => readWorkflowSubBlockFieldValue(doc, blockId, field)
+): boolean | undefined {
+  const block = readWorkflowMap(doc).get(YJS_KEYS.BLOCKS)?.[blockId] as BlockState | undefined
+  const config = block && getBlock(block.type)
+  const variants = config?.subBlocks.filter(({ id }) => id === subBlockId)
+  if (!config || !variants?.length) return undefined
+  const isPureTrigger = config.category === 'triggers'
+  const isTriggerMode = block?.triggerMode === true || isPureTrigger
+  const field = variants.find(
+    (variant) =>
+      isSubBlockInMode(variant, block?.advancedMode === true) &&
+      (isTriggerMode
+        ? variant.mode === 'trigger' || (isPureTrigger && !variant.mode)
+        : variant.mode !== 'trigger') &&
+      evaluateSubBlockCondition(variant.condition, readFieldValue)
+  )
+  if (!field) return false
+  return (
+    (field.type === 'short-input' && field.inputType !== 'number') ||
+    field.type === 'long-input' ||
+    field.type === 'code'
+  )
 }
 
 export function readWorkflowTextFieldFromMap(
-  textFields: Y.Map<any>,
+  subBlockFields: Y.Map<any>,
   blockId: string,
   subBlockId: string
 ): Y.Text | null {
-  if (!isWorkflowTextField(textFields, blockId, subBlockId)) return null
-  const existing = textFields.get(createWorkflowTextFieldKey(blockId, subBlockId))
+  const existing = subBlockFields.get(createWorkflowSubBlockFieldKey(blockId, subBlockId))
   return existing instanceof Y.Text ? existing : null
+}
+
+export function readWorkflowSubBlockFieldValueFromMap(
+  subBlockFields: Y.Map<any>,
+  blockId: string,
+  subBlockId: string
+): any {
+  const value = subBlockFields.get(createWorkflowSubBlockFieldKey(blockId, subBlockId))
+  return value instanceof Y.Text ? value.toString() : value
+}
+
+export function readWorkflowSubBlockFieldValue(
+  doc: Y.Doc,
+  blockId: string,
+  subBlockId: string
+): any {
+  return readWorkflowSubBlockFieldValueFromMap(
+    readWorkflowSubBlockFieldsMap(doc),
+    blockId,
+    subBlockId
+  )
 }
 
 export function readWorkflowTextField(
@@ -100,20 +149,19 @@ export function readWorkflowTextField(
   blockId: string,
   subBlockId: string
 ): Y.Text | null {
-  return readWorkflowTextFieldFromMap(readWorkflowTextFieldsMap(doc), blockId, subBlockId)
+  return readWorkflowTextFieldFromMap(readWorkflowSubBlockFieldsMap(doc), blockId, subBlockId)
 }
 
 function writeYTextValue(text: Y.Text, value: string): void {
-  const nextValue = value ?? ''
-  if (text.toString() === nextValue) {
+  if (text.toString() === value) {
     return
   }
 
   if (text.length > 0) {
     text.delete(0, text.length)
   }
-  if (nextValue) {
-    text.insert(0, nextValue)
+  if (value) {
+    text.insert(0, value)
   }
 }
 
@@ -123,11 +171,11 @@ export function ensureWorkflowTextField(
   subBlockId: string,
   initialValue = ''
 ): Y.Text {
-  const textFields = readWorkflowTextFieldsMap(doc)
-  if (!isWorkflowTextField(textFields, blockId, subBlockId)) {
-    throw new Error(`Numeric subblock ${blockId}.${subBlockId} cannot use collaborative text`)
+  const subBlockFields = readWorkflowSubBlockFieldsMap(doc)
+  if (isWorkflowTextField(doc, blockId, subBlockId) === false) {
+    throw new Error(`Subblock ${blockId}.${subBlockId} cannot use collaborative text`)
   }
-  const existing = readWorkflowTextFieldFromMap(textFields, blockId, subBlockId)
+  const existing = readWorkflowTextFieldFromMap(subBlockFields, blockId, subBlockId)
   if (existing) {
     return existing
   }
@@ -138,53 +186,72 @@ export function ensureWorkflowTextField(
   }
 
   doc.transact(() => {
-    textFields.set(createWorkflowTextFieldKey(blockId, subBlockId), next)
+    subBlockFields.set(createWorkflowSubBlockFieldKey(blockId, subBlockId), next)
   }, YJS_ORIGINS.SYSTEM)
 
   return next
 }
 
-export function replaceWorkflowTextField(
+export function setWorkflowSubBlockValues(
   doc: Y.Doc,
-  blockId: string,
-  subBlockId: string,
-  value: string,
-  origin: unknown = YJS_ORIGINS.USER
+  updates: Array<{ blockId: string; subBlockId: string; value: any }>
 ): void {
-  const text = ensureWorkflowTextField(doc, blockId, subBlockId)
-  doc.transact(() => {
-    writeYTextValue(text, value ?? '')
-  }, origin)
+  const blocks = readWorkflowMap(doc).get(YJS_KEYS.BLOCKS)
+  const fields = readWorkflowSubBlockFieldsMap(doc)
+  const pendingValues = new Map(
+    updates.map(
+      ({ blockId, subBlockId, value }) =>
+        [createWorkflowSubBlockFieldKey(blockId, subBlockId), value] as const
+    )
+  )
+  for (const { blockId, subBlockId, value } of updates) {
+    if (!blocks?.[blockId]) continue
+    const key = createWorkflowSubBlockFieldKey(blockId, subBlockId)
+    const existing = fields.get(key)
+    const textField = isWorkflowTextField(doc, blockId, subBlockId, (field) => {
+      const fieldKey = createWorkflowSubBlockFieldKey(blockId, field)
+      return pendingValues.has(fieldKey)
+        ? pendingValues.get(fieldKey)
+        : readWorkflowSubBlockFieldValueFromMap(fields, blockId, field)
+    })
+    if (
+      typeof value === 'string' &&
+      (textField === true || (textField === undefined && existing instanceof Y.Text))
+    ) {
+      if (existing instanceof Y.Text) {
+        writeYTextValue(existing, value)
+      } else {
+        const text = new Y.Text()
+        if (value) text.insert(0, value)
+        fields.set(key, text)
+      }
+    } else if (
+      !fields.has(key) ||
+      existing instanceof Y.Text ||
+      (!Object.is(existing, value) && JSON.stringify(existing) !== JSON.stringify(value))
+    ) {
+      fields.set(key, value)
+    }
+  }
 }
 
-export function readWorkflowTextFieldValue(
-  doc: Y.Doc,
-  blockId: string,
-  subBlockId: string
-): string | null {
-  const text = readWorkflowTextField(doc, blockId, subBlockId)
-  return text ? text.toString() : null
-}
-
-export function materializeWorkflowBlockTextFields(
+export function materializeWorkflowBlockFields(
   blockId: string,
   block: BlockState | null,
-  textFields: Y.Map<any>
+  subBlockFields: Y.Map<any>
 ): BlockState | null {
-  if (!block?.subBlocks) {
+  if (!block) {
     return block
   }
 
   let nextBlock = block
 
-  for (const subBlockId of Object.keys(block.subBlocks)) {
-    const sharedText = readWorkflowTextFieldFromMap(textFields, blockId, subBlockId)
-    if (!sharedText) {
-      continue
-    }
-
-    const nextValue = sharedText.toString()
-    if (block.subBlocks[subBlockId]?.value === nextValue) {
+  for (const [key, field] of subBlockFields) {
+    const parsed = parseWorkflowSubBlockFieldKey(key)
+    if (!parsed || parsed.blockId !== blockId) continue
+    const { subBlockId } = parsed
+    const nextValue = field instanceof Y.Text ? field.toString() : field
+    if (block.subBlocks?.[subBlockId]?.value === nextValue) {
       continue
     }
 
@@ -199,31 +266,29 @@ export function materializeWorkflowBlockTextFields(
 
     nextBlock.subBlocks[subBlockId] = {
       ...nextBlock.subBlocks[subBlockId],
+      id: subBlockId,
       value: nextValue,
     }
   }
 
-  return nextBlock
+  return nextBlock === block
+    ? nextBlock
+    : {
+        ...nextBlock,
+        outputs: resolveOutputType(
+          readBlockOutputs(block.type, nextBlock.subBlocks, block.triggerMode === true)
+        ),
+      }
 }
 
-export function materializeWorkflowTextFields(
+export function materializeWorkflowFields(
   blocks: Record<string, BlockState>,
-  textFields: Y.Map<any>
+  subBlockFields: Y.Map<any>
 ): Record<string, BlockState> {
   let nextBlocks = blocks
 
-  for (const key of textFields.keys()) {
-    const parsed = parseWorkflowTextFieldKey(key)
-    if (!parsed) {
-      continue
-    }
-
-    const block = nextBlocks[parsed.blockId]
-    if (!block) {
-      continue
-    }
-
-    const materializedBlock = materializeWorkflowBlockTextFields(parsed.blockId, block, textFields)
+  for (const [blockId, block] of Object.entries(blocks)) {
+    const materializedBlock = materializeWorkflowBlockFields(blockId, block, subBlockFields)
     if (!materializedBlock || materializedBlock === block) {
       continue
     }
@@ -231,7 +296,7 @@ export function materializeWorkflowTextFields(
     if (nextBlocks === blocks) {
       nextBlocks = { ...blocks }
     }
-    nextBlocks[parsed.blockId] = materializedBlock
+    nextBlocks[blockId] = materializedBlock
   }
 
   return nextBlocks
@@ -288,8 +353,8 @@ export function createWorkflowSnapshot(partial: Partial<WorkflowSnapshot> = {}):
  */
 export function readWorkflowSnapshot(doc: Y.Doc): WorkflowSnapshot {
   const wMap = readWorkflowMap(doc)
-  const textFields = readWorkflowTextFieldsMap(doc)
-  const blocks = materializeWorkflowTextFields(wMap.get(YJS_KEYS.BLOCKS) ?? {}, textFields)
+  const subBlockFields = readWorkflowSubBlockFieldsMap(doc)
+  const blocks = materializeWorkflowFields(wMap.get(YJS_KEYS.BLOCKS) ?? {}, subBlockFields)
 
   return applySnapshotDefaults({
     direction: wMap.get(YJS_KEYS.DIRECTION),
@@ -319,38 +384,33 @@ export function readWorkflowSnapshotCloned(doc: Y.Doc): WorkflowSnapshot {
 export function setWorkflowState(doc: Y.Doc, state: WorkflowSnapshot, origin?: string): void {
   doc.transact(() => {
     const wMap = readWorkflowMap(doc)
-    const textFields = readWorkflowTextFieldsMap(doc)
+    const subBlockFields = readWorkflowSubBlockFieldsMap(doc)
     if (state.direction !== undefined) wMap.set(YJS_KEYS.DIRECTION, state.direction)
-    wMap.set(YJS_KEYS.BLOCKS, state.blocks ?? {})
-    wMap.set(YJS_KEYS.EDGES, state.edges ?? [])
+    wMap.set(YJS_KEYS.BLOCKS, state.blocks)
+    wMap.set(YJS_KEYS.EDGES, state.edges)
     if (state.lastSaved !== undefined) wMap.set(YJS_KEYS.LAST_SAVED, state.lastSaved)
 
-    for (const key of Array.from(textFields.keys())) {
-      const parsed = parseWorkflowTextFieldKey(key)
+    for (const key of Array.from(subBlockFields.keys())) {
+      const parsed = parseWorkflowSubBlockFieldKey(key)
       if (!parsed) {
-        textFields.delete(key)
+        subBlockFields.delete(key)
         continue
       }
 
-      const nextValue = state.blocks?.[parsed.blockId]?.subBlocks?.[parsed.subBlockId]?.value
-      if (
-        typeof nextValue !== 'string' ||
-        !isWorkflowTextField(textFields, parsed.blockId, parsed.subBlockId)
-      ) {
-        textFields.delete(key)
-        continue
+      if (!state.blocks?.[parsed.blockId]?.subBlocks?.[parsed.subBlockId]) {
+        subBlockFields.delete(key)
       }
-
-      const existing = textFields.get(key)
-      if (existing instanceof Y.Text) {
-        writeYTextValue(existing, nextValue)
-        continue
-      }
-
-      const next = new Y.Text()
-      writeYTextValue(next, nextValue)
-      textFields.set(key, next)
     }
+    setWorkflowSubBlockValues(
+      doc,
+      Object.entries(state.blocks).flatMap(([blockId, block]) =>
+        Object.entries(block.subBlocks).map(([subBlockId, subBlock]) => ({
+          blockId,
+          subBlockId,
+          value: subBlock.value,
+        }))
+      )
+    )
   }, origin ?? YJS_ORIGINS.SYSTEM)
 }
 
@@ -364,72 +424,6 @@ export function replaceWorkflowDocumentState(
   if (variables !== undefined) {
     setVariables(doc, variables, YJS_ORIGINS.SYSTEM)
   }
-}
-
-// ---------------------------------------------------------------------------
-// Block mutation helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Applies an updater function to a single block inside a Yjs transaction.
- * This is the canonical way to mutate a block imperatively (outside of React
- * hooks).  If the updater returns the same reference the write is skipped.
- *
- * NOTE: Blocks are stored as a plain object under a single Y.Map key, not as
- * nested Y.Maps. A shallow spread of the blocks object is therefore required
- * so that `wMap.set()` receives a new object reference and Yjs detects the
- * change. The cost is O(N) property assignments (pointer copies, not deep
- * clones), which is acceptable for typical workflow sizes.
- *
- * @param origin - Yjs transaction origin tag (defaults to `'system'`)
- */
-export function patchWorkflowBlock(
-  doc: Y.Doc,
-  blockId: string,
-  updater: (block: any) => any,
-  origin?: string
-): void {
-  doc.transact(() => {
-    const wMap = readWorkflowMap(doc)
-    const existing = wMap.get(YJS_KEYS.BLOCKS) ?? {}
-    const block = existing[blockId]
-    if (!block) return
-    const updated = updater(block)
-    if (updated === block) return
-    // Spread is required: Yjs needs a new object reference to detect the change.
-    // Only the updated block is cloned; all other entries are pointer copies.
-    wMap.set(YJS_KEYS.BLOCKS, { ...existing, [blockId]: updated })
-  }, origin ?? YJS_ORIGINS.SYSTEM)
-}
-
-/**
- * Batch-patches multiple blocks in a single Yjs transaction.
- * Each entry maps a blockId to an updater. The blocks map is replaced once.
- *
- * @param origin - Yjs transaction origin tag (defaults to `'system'`)
- */
-export function patchWorkflowBlocks(
-  doc: Y.Doc,
-  patches: Record<string, (block: any) => any>,
-  origin?: string
-): void {
-  doc.transact(() => {
-    const wMap = readWorkflowMap(doc)
-    const blocks: Record<string, any> = { ...(wMap.get(YJS_KEYS.BLOCKS) ?? {}) }
-    let changed = false
-    for (const [blockId, updater] of Object.entries(patches)) {
-      const block = blocks[blockId]
-      if (!block) continue
-      const updated = updater(block)
-      if (updated !== block) {
-        blocks[blockId] = updated
-        changed = true
-      }
-    }
-    if (changed) {
-      wMap.set(YJS_KEYS.BLOCKS, blocks)
-    }
-  }, origin ?? YJS_ORIGINS.SYSTEM)
 }
 
 // ---------------------------------------------------------------------------

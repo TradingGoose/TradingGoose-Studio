@@ -4,14 +4,15 @@ import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
-import type { BlockState } from '@/stores/workflows/workflow/types'
 import { createYjsUndoTrackedOrigins, YJS_ORIGINS } from './transaction-origins'
 import { bindWorkflowTextObserver } from './use-workflow-doc'
 import {
-  createWorkflowTextFieldKey,
+  createWorkflowSnapshot,
+  createWorkflowSubBlockFieldKey,
   extractPersistedStateFromDoc,
   readWorkflowSnapshot,
-  readWorkflowTextFieldsMap,
+  readWorkflowSubBlockFieldsMap,
+  setWorkflowState,
 } from './workflow-session'
 
 let container: HTMLDivElement | null = null
@@ -44,10 +45,10 @@ afterAll(() => {
 describe('workflow mutation helpers', () => {
   it('binds and cleans up existing Y.Text observers without double-unobserve errors', () => {
     const doc = new Y.Doc()
-    const textFields = readWorkflowTextFieldsMap(doc)
+    const textFields = readWorkflowSubBlockFieldsMap(doc)
     const text = new Y.Text()
     text.insert(0, 'hello')
-    textFields.set(createWorkflowTextFieldKey('block-1', 'code'), text)
+    textFields.set(createWorkflowSubBlockFieldKey('block-1', 'code'), text)
 
     const cb = vi.fn()
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -74,26 +75,30 @@ describe('useWorkflowBlocks', () => {
     const sharedText = new Y.Text()
     sharedText.insert(0, 'live-ytext-value')
 
-    const workflowMap = doc.getMap('workflow')
-    const textFields = readWorkflowTextFieldsMap(doc)
-    workflowMap.set('blocks', {
-      'block-1': {
-        id: 'block-1',
-        type: 'script',
-        name: 'Script',
-        enabled: true,
-        position: { x: 0, y: 0 },
-        subBlocks: {
-          code: {
-            id: 'code',
-            type: 'code',
-            value: 'stale-block-value',
+    const textFields = readWorkflowSubBlockFieldsMap(doc)
+    setWorkflowState(
+      doc,
+      createWorkflowSnapshot({
+        blocks: {
+          'block-1': {
+            id: 'block-1',
+            type: 'script',
+            name: 'Script',
+            enabled: true,
+            position: { x: 0, y: 0 },
+            subBlocks: {
+              code: {
+                id: 'code',
+                type: 'code',
+                value: 'stale-block-value',
+              },
+            },
+            outputs: {},
           },
         },
-        outputs: {},
-      },
-    })
-    textFields.set(createWorkflowTextFieldKey('block-1', 'code'), sharedText)
+      })
+    )
+    textFields.set(createWorkflowSubBlockFieldKey('block-1', 'code'), sharedText)
 
     const session = { doc }
     vi.resetModules()
@@ -141,8 +146,7 @@ describe('useWorkflowMutations', () => {
   async function mountContainerEditor(
     type: 'loop' | 'parallel',
     textFieldId = 'whileCondition',
-    initialValues?: Record<string, unknown>,
-    mirrorDelayMs?: number
+    initialValues?: Record<string, unknown>
   ) {
     const doc = new Y.Doc()
     const workflowMap = doc.getMap('workflow')
@@ -168,20 +172,15 @@ describe('useWorkflowMutations', () => {
               : undefined,
       }
     })
-    const { useWorkflowMutations, useWorkflowTextField, useWorkflowLoops, useWorkflowParallels } =
+    const { useWorkflowMutations, useWorkflowField, useWorkflowLoops, useWorkflowParallels } =
       await import('./use-workflow-doc')
     let mutations: ReturnType<typeof useWorkflowMutations> | null = null
-    let textField: ReturnType<typeof useWorkflowTextField> | null = null
+    let textField: ReturnType<typeof useWorkflowField> | null = null
     let loops: ReturnType<typeof useWorkflowLoops> = {}
     let parallels: ReturnType<typeof useWorkflowParallels> = {}
-    let textFieldEnabled = initialValues === undefined
-    let editorOpen = true
+    let editorOpen = false
     function TextEditor() {
-      textField = useWorkflowTextField('container-1', textFieldId, '', {
-        enabled: textFieldEnabled,
-        autoCreate: initialValues !== undefined,
-        mirrorDelayMs,
-      })
+      textField = useWorkflowField('container-1', textFieldId)
       return null
     }
     function Harness() {
@@ -206,10 +205,8 @@ describe('useWorkflowMutations', () => {
         { initialSubBlockValues: initialValues }
       )
     })
-    if (initialValues) {
-      textFieldEnabled = true
-      await act(async () => root?.render(React.createElement(Harness)))
-    }
+    editorOpen = true
+    await act(async () => root?.render(React.createElement(Harness)))
     return {
       doc,
       workflowMap,
@@ -240,15 +237,10 @@ describe('useWorkflowMutations', () => {
   ] as const)(
     'preserves live %s %s text through structural mutations with its editor closed',
     async (type, mode, fieldId, mapKey) => {
-      const editor = await mountContainerEditor(
-        type,
-        fieldId,
-        {
-          [type === 'loop' ? 'loopType' : 'parallelType']: mode,
-          [fieldId]: '<upstream.previous> <variable.old>',
-        },
-        60_000
-      )
+      const editor = await mountContainerEditor(type, fieldId, {
+        [type === 'loop' ? 'loopType' : 'parallelType']: mode,
+        [fieldId]: '<upstream.previous> <variable.old>',
+      })
       await act(async () => {
         editor.mutations.addBlock('upstream', 'loop', 'Upstream', { x: 0, y: 0 })
         editor.mutations.addBlock('other-container', type, 'Other Container', { x: 500, y: 0 })
@@ -279,13 +271,6 @@ describe('useWorkflowMutations', () => {
         )
       )
       expectPersisted(['child'])
-      // Unmount canceled the mirror; projections still use shared text.
-      expect(
-        (editor.workflowMap.get('blocks') as Record<string, BlockState>)['container-1'].subBlocks[
-          fieldId
-        ].value
-      ).toBe('<upstream.previous> <variable.old>')
-
       await act(async () => editor.mutations.setBlockTriggerMode('upstream', true))
       expectPersisted(['child'])
 
@@ -387,9 +372,12 @@ describe('useWorkflowMutations', () => {
     'updates $type counts and derived execution state in one undoable transaction',
     async ({ type, fieldId, mapKey, runtimeField }) => {
       const editor = await mountContainerEditor(type)
-      const undoManager = new Y.UndoManager(editor.workflowMap, {
-        trackedOrigins: createYjsUndoTrackedOrigins(),
-      })
+      const undoManager = new Y.UndoManager(
+        [editor.workflowMap, readWorkflowSubBlockFieldsMap(editor.doc)],
+        {
+          trackedOrigins: createYjsUndoTrackedOrigins(),
+        }
+      )
       const changes = vi.fn(() => {
         const state = readWorkflowSnapshot(editor.doc)
         expect(state.blocks['container-1'].subBlocks[fieldId].value).toBe(9)
@@ -420,8 +408,8 @@ describe('useWorkflowMutations', () => {
     const editor = await mountContainerEditor('loop')
     const sharedText = new Y.Text('old condition')
     await act(async () => {
-      readWorkflowTextFieldsMap(editor.doc).set(
-        createWorkflowTextFieldKey('container-1', 'whileCondition'),
+      readWorkflowSubBlockFieldsMap(editor.doc).set(
+        createWorkflowSubBlockFieldKey('container-1', 'whileCondition'),
         sharedText
       )
     })
@@ -493,8 +481,8 @@ describe('useWorkflowMutations', () => {
       await editor.closeEditor()
       const remote = new Y.Doc()
       Y.applyUpdate(remote, Y.encodeStateAsUpdate(editor.doc))
-      const remoteText = readWorkflowTextFieldsMap(remote).get(
-        createWorkflowTextFieldKey('container-1', fieldId)
+      const remoteText = readWorkflowSubBlockFieldsMap(remote).get(
+        createWorkflowSubBlockFieldKey('container-1', fieldId)
       ) as Y.Text
       remoteText.insert(remoteText.length, ' + remote')
       const changes = vi.fn()
@@ -512,18 +500,22 @@ describe('useWorkflowMutations', () => {
   it('supports custom origins when updating block positions', async () => {
     const doc = new Y.Doc()
     const workflowMap = doc.getMap('workflow')
-    workflowMap.set('blocks', {
-      'block-1': {
-        id: 'block-1',
-        type: 'script',
-        name: 'Script',
-        enabled: true,
-        position: { x: 10, y: 20 },
-        subBlocks: {},
-        outputs: {},
-      },
-    })
-    workflowMap.set('edges', [])
+    setWorkflowState(
+      doc,
+      createWorkflowSnapshot({
+        blocks: {
+          'block-1': {
+            id: 'block-1',
+            type: 'script',
+            name: 'Script',
+            enabled: true,
+            position: { x: 10, y: 20 },
+            subBlocks: {},
+            outputs: {},
+          },
+        },
+      })
+    )
 
     const transactWorkflow = vi.fn((fn: (d: Y.Doc) => void, origin?: string) => {
       doc.transact(() => fn(doc), origin ?? YJS_ORIGINS.USER)
@@ -614,27 +606,31 @@ describe('useWorkflowMutations', () => {
   it('allows typed block names unless another block already uses the normalized name', async () => {
     const doc = new Y.Doc()
     const workflowMap = doc.getMap('workflow')
-    workflowMap.set('blocks', {
-      'block-1': {
-        id: 'block-1',
-        type: 'script',
-        name: 'Script 1',
-        enabled: true,
-        position: { x: 10, y: 20 },
-        subBlocks: {},
-        outputs: {},
-      },
-      'block-2': {
-        id: 'block-2',
-        type: 'script',
-        name: 'Block 2',
-        enabled: true,
-        position: { x: 30, y: 40 },
-        subBlocks: {},
-        outputs: {},
-      },
-    })
-    workflowMap.set('edges', [])
+    setWorkflowState(
+      doc,
+      createWorkflowSnapshot({
+        blocks: {
+          'block-1': {
+            id: 'block-1',
+            type: 'script',
+            name: 'Script 1',
+            enabled: true,
+            position: { x: 10, y: 20 },
+            subBlocks: {},
+            outputs: {},
+          },
+          'block-2': {
+            id: 'block-2',
+            type: 'script',
+            name: 'Block 2',
+            enabled: true,
+            position: { x: 30, y: 40 },
+            subBlocks: {},
+            outputs: {},
+          },
+        },
+      })
+    )
 
     const session = {
       doc,
@@ -688,44 +684,47 @@ describe('useWorkflowMutations', () => {
 
   it('rewrites block-name references in subBlocks and text fields when renaming a block', async () => {
     const doc = new Y.Doc()
-    const workflowMap = doc.getMap('workflow')
-    workflowMap.set('blocks', {
-      'block-1': {
-        id: 'block-1',
-        type: 'script',
-        name: 'My Block',
-        enabled: true,
-        position: { x: 10, y: 20 },
-        subBlocks: {},
-        outputs: {},
-      },
-      'block-2': {
-        id: 'block-2',
-        type: 'script',
-        name: 'Consumer',
-        enabled: true,
-        position: { x: 30, y: 40 },
-        subBlocks: {
-          prompt: {
-            id: 'prompt',
-            type: 'long-input',
-            value: 'Use <myblock.result> and <myblock>',
+    setWorkflowState(
+      doc,
+      createWorkflowSnapshot({
+        blocks: {
+          'block-1': {
+            id: 'block-1',
+            type: 'script',
+            name: 'My Block',
+            enabled: true,
+            position: { x: 10, y: 20 },
+            subBlocks: {},
+            outputs: {},
           },
-          code: {
-            id: 'code',
-            type: 'code',
-            value: 'return <myblock.output>',
+          'block-2': {
+            id: 'block-2',
+            type: 'script',
+            name: 'Consumer',
+            enabled: true,
+            position: { x: 30, y: 40 },
+            subBlocks: {
+              prompt: {
+                id: 'prompt',
+                type: 'long-input',
+                value: 'Use <myblock.result> and <myblock>',
+              },
+              code: {
+                id: 'code',
+                type: 'code',
+                value: 'return <myblock.output>',
+              },
+            },
+            outputs: {},
           },
         },
-        outputs: {},
-      },
-    })
-    workflowMap.set('edges', [])
+      })
+    )
 
-    const textFieldKey = createWorkflowTextFieldKey('block-2', 'code')
+    const textFieldKey = createWorkflowSubBlockFieldKey('block-2', 'code')
     const sharedText = new Y.Text()
     sharedText.insert(0, 'return <myblock.output>')
-    readWorkflowTextFieldsMap(doc).set(textFieldKey, sharedText)
+    readWorkflowSubBlockFieldsMap(doc).set(textFieldKey, sharedText)
 
     const session = {
       doc,
@@ -760,7 +759,7 @@ describe('useWorkflowMutations', () => {
       mutations?.updateBlockName('block-1', 'Human Friendly Name')
     })
 
-    const blocks = workflowMap.get('blocks') as Record<string, any>
+    const blocks = readWorkflowSnapshot(doc).blocks
     expect(blocks['block-1']?.name).toBe('Human Friendly Name')
     expect(blocks['block-2']?.subBlocks?.prompt?.value).toBe(
       'Use <humanfriendlyname.result> and <humanfriendlyname>'
@@ -771,26 +770,29 @@ describe('useWorkflowMutations', () => {
 
   it('clears parent-specific data when detaching a block from a container', async () => {
     const doc = new Y.Doc()
-    const workflowMap = doc.getMap('workflow')
-    workflowMap.set('blocks', {
-      'block-1': {
-        id: 'block-1',
-        type: 'script',
-        name: 'Script 1',
-        enabled: true,
-        position: { x: 10, y: 20 },
-        subBlocks: {},
-        outputs: {},
-        data: {
-          parentId: 'loop-1',
-          extent: 'parent',
-          width: 350,
-          height: 180,
-          locked: true,
+    setWorkflowState(
+      doc,
+      createWorkflowSnapshot({
+        blocks: {
+          'block-1': {
+            id: 'block-1',
+            type: 'script',
+            name: 'Script 1',
+            enabled: true,
+            position: { x: 10, y: 20 },
+            subBlocks: {},
+            outputs: {},
+            locked: true,
+            data: {
+              parentId: 'loop-1',
+              extent: 'parent',
+              width: 350,
+              height: 180,
+            },
+          },
         },
-      },
-    })
-    workflowMap.set('edges', [])
+      })
+    )
 
     const session = {
       doc,
@@ -825,49 +827,56 @@ describe('useWorkflowMutations', () => {
       mutations?.updateParentId('block-1', '', 'parent')
     })
 
-    expect((workflowMap.get('blocks') as Record<string, any>)['block-1']?.data).toEqual({
-      locked: true,
-    })
+    expect(readWorkflowSnapshot(doc).blocks['block-1']).toMatchObject({ data: {}, locked: true })
   })
 })
 
-describe('useWorkflowTextField', () => {
-  it('falls back to the block subblock value before a shared text field exists', async () => {
+describe('useWorkflowField', () => {
+  it('keeps mounted synthetic text fields canonical through updates, removal, and clear', async () => {
     const doc = new Y.Doc()
-    const workflowMap = doc.getMap('workflow')
-    workflowMap.set('blocks', {
-      'block-1': {
-        id: 'block-1',
-        type: 'script',
-        name: 'Script',
-        enabled: true,
-        position: { x: 0, y: 0 },
-        subBlocks: {
-          code: {
-            id: 'code',
-            type: 'code',
-            value: 'block-backed-value',
+    setWorkflowState(
+      doc,
+      createWorkflowSnapshot({
+        blocks: {
+          'block-1': {
+            id: 'block-1',
+            type: 'function',
+            name: 'Script',
+            enabled: true,
+            position: { x: 0, y: 0 },
+            subBlocks: {
+              code: {
+                id: 'code',
+                type: 'code',
+                value: 'block-backed-value',
+              },
+            },
+            outputs: {},
           },
         },
-        outputs: {},
-      },
-    })
+      })
+    )
 
-    const session = { doc }
+    const session = {
+      doc,
+      transactWorkflow: (fn: (workflowDoc: Y.Doc) => void, origin?: string) =>
+        doc.transact(() => fn(doc), origin),
+    }
     vi.resetModules()
     vi.doMock('@/lib/yjs/workflow-session-host', () => ({
       useOptionalWorkflowSession: () => session,
       useWorkflowSession: () => session,
     }))
 
-    const { useWorkflowTextField } = await import('./use-workflow-doc')
+    const { useWorkflowField, useWorkflowMutations } = await import('./use-workflow-doc')
 
     let latestValue = ''
+    let field!: ReturnType<typeof useWorkflowField>
+    let mutations!: ReturnType<typeof useWorkflowMutations>
     function Harness() {
-      const hook = useWorkflowTextField('block-1', 'code', '', {
-        autoCreate: false,
-      })
-      latestValue = hook.value
+      latestValue = useWorkflowField('block-1', 'code').value
+      field = useWorkflowField('block-1', 'tool_code', 'return 1')
+      mutations = useWorkflowMutations()
       return null
     }
 
@@ -880,86 +889,18 @@ describe('useWorkflowTextField', () => {
     })
 
     expect(latestValue).toBe('block-backed-value')
-  })
+    const sharedText = field.yText
+    expect(sharedText).toBeInstanceOf(Y.Text)
+    await act(async () => field.setValue('return 2'))
+    expect(field.yText).toBe(sharedText)
+    expect(field.value).toBe('return 2')
 
-  it('keeps delayed block mirrors out of the user undo stack', async () => {
-    vi.useFakeTimers()
-    try {
-      const doc = new Y.Doc()
-      const workflowMap = doc.getMap('workflow')
-      const textFields = readWorkflowTextFieldsMap(doc)
-      const sharedText = new Y.Text()
-      sharedText.insert(0, '')
-      textFields.set(createWorkflowTextFieldKey('block-1', 'code'), sharedText)
-
-      workflowMap.set('blocks', {
-        'block-1': {
-          id: 'block-1',
-          type: 'script',
-          name: 'Script',
-          enabled: true,
-          position: { x: 0, y: 0 },
-          subBlocks: {
-            code: {
-              id: 'code',
-              type: 'code',
-              value: '',
-            },
-          },
-          outputs: {},
-        },
-      })
-
-      const undoManager = new Y.UndoManager([workflowMap, textFields], {
-        trackedOrigins: createYjsUndoTrackedOrigins(),
-      })
-      undoManager.clear()
-
-      const session = {
-        doc,
-        transactWorkflow: (fn: (workflowDoc: Y.Doc) => void, origin?: string) =>
-          doc.transact(() => fn(doc), origin ?? YJS_ORIGINS.USER),
-      }
-      vi.resetModules()
-      vi.doMock('@/lib/yjs/workflow-session-host', () => ({
-        useOptionalWorkflowSession: () => session,
-        useWorkflowSession: () => session,
-      }))
-
-      const { useWorkflowTextField } = await import('./use-workflow-doc')
-
-      let setValue: (value: string) => void = () => {}
-      function Harness() {
-        const hook = useWorkflowTextField('block-1', 'code', '', {
-          autoCreate: false,
-          mirrorDelayMs: 25,
-        })
-        setValue = hook.setValue
-        return null
-      }
-
-      container = document.createElement('div')
-      document.body.appendChild(container)
-      root = createRoot(container)
-
-      await act(async () => {
-        root?.render(React.createElement(Harness))
-      })
-
-      await act(async () => {
-        setValue('hello')
-        await vi.advanceTimersByTimeAsync(25)
-      })
-
-      expect(undoManager.undoStack.length).toBe(1)
-
-      await act(async () => {
-        undoManager.undo()
-      })
-
-      expect(undoManager.canUndo()).toBe(false)
-    } finally {
-      vi.useRealTimers()
-    }
+    await act(async () => mutations.removeBlock('block-1'))
+    expect(readWorkflowSubBlockFieldsMap(doc).size).toBe(0)
+    await act(async () => mutations.addBlock('block-1', 'function', 'Script', { x: 0, y: 0 }))
+    expect(field.value).toBe('return 1')
+    await act(async () => mutations.clear())
+    expect(readWorkflowSubBlockFieldsMap(doc).size).toBe(0)
+    expect(readWorkflowSnapshot(doc).blocks).toEqual({})
   })
 })

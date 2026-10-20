@@ -36,7 +36,7 @@ describe('workflow-review-tool-utils', () => {
           ['loops', {}],
           ['parallels', {}],
         ]),
-        textFields: new Map(),
+        subBlockFields: new Map(),
         variables: new Map(Object.entries(variables)),
       }
       return values[key]

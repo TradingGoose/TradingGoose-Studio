@@ -9,13 +9,7 @@ import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { stringifySubBlockValue } from '@/lib/workflows/subblock-values'
-import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
-import {
-  setWorkflowSubBlockValues,
-  useSubBlockValue,
-  useWorkflowTextField,
-} from '@/lib/yjs/use-workflow-doc'
-import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
+import { useWorkflowField } from '@/lib/yjs/use-workflow-doc'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useTagSelection } from '@/hooks/use-tag-selection'
 import { useWebhookManagement } from '@/hooks/use-webhook-management'
@@ -95,8 +89,6 @@ export function ShortInput({
   const isWorkflowManaged = onChange === undefined
   const isNumericInput = config.inputType === 'number'
   const supportsReferences = config.supportsReferences !== false
-  const transactWorkflow = useOptionalWorkflowSession()?.transactWorkflow
-  const scalarValue = useSubBlockValue(blockId, subBlockId, isWorkflowManaged && isNumericInput)
 
   const [searchTerm, setSearchTerm] = useState('')
   const [cursorPosition, setCursorPosition] = useState(0)
@@ -113,21 +105,16 @@ export function ShortInput({
   const reactFlowInstance = useOptionalReactFlow()
 
   const baseValueString = stringifySubBlockValue(propValue)
-  const { value: textFieldValue, setValue: setTextFieldValue } = useWorkflowTextField(
+  const { value: fieldValue, setValue: setFieldValue } = useWorkflowField(
     blockId,
     subBlockId,
     baseValueString,
     {
-      enabled: isWorkflowManaged && !isNumericInput,
-      autoCreate: isWorkflowManaged && !isNumericInput && !readOnly && !disabled,
-      mirrorDelayMs: isWorkflowManaged && !isNumericInput ? 300 : null,
+      enabled: isWorkflowManaged,
+      collaborative: !isNumericInput,
     }
   )
-  const persistedValue = !isWorkflowManaged
-    ? baseValueString
-    : isNumericInput
-      ? stringifySubBlockValue(scalarValue ?? propValue)
-      : textFieldValue
+  const persistedValue = isWorkflowManaged ? fieldValue : baseValueString
   const commitValue = useCallback(
     (nextValue: string) => {
       if (isNumericInput) {
@@ -144,14 +131,7 @@ export function ShortInput({
       }
 
       if (isWorkflowManaged) {
-        if (isNumericInput) {
-          transactWorkflow?.(
-            (doc) => setWorkflowSubBlockValues(doc, [{ blockId, subBlockId, value: nextValue }]),
-            YJS_ORIGINS.USER
-          )
-        } else {
-          setTextFieldValue(nextValue)
-        }
+        setFieldValue(nextValue)
         return
       }
 
@@ -165,10 +145,7 @@ export function ShortInput({
       supportsReferences,
       isWorkflowManaged,
       onChange,
-      setTextFieldValue,
-      transactWorkflow,
-      blockId,
-      subBlockId,
+      setFieldValue,
     ]
   )
   const {

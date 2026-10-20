@@ -7,9 +7,10 @@ import * as Y from 'yjs'
 import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
 import { validateWorkflowState } from '@/lib/workflows/validation'
 import {
+  createWorkflowSubBlockFieldKey,
   extractPersistedStateFromDoc,
   readWorkflowSnapshot,
-  readWorkflowTextFieldValue,
+  readWorkflowSubBlockFieldsMap,
   setWorkflowState,
 } from '@/lib/yjs/workflow-session'
 import type { WorkflowSessionContextValue } from '@/lib/yjs/workflow-session-host'
@@ -17,7 +18,7 @@ import { LoopBlock } from '@/blocks/blocks/loop'
 import { ParallelContainerBlock } from '@/blocks/blocks/parallel_container'
 import { PolymarketBlock } from '@/blocks/blocks/polymarket'
 import { SerperBlock } from '@/blocks/blocks/serper'
-import type { SubBlockConfig } from '@/blocks/types'
+import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
 import { Serializer } from '@/serializer'
 import type { BlockState } from '@/stores/workflows/workflow/types'
 import { ShortInput } from './short-input'
@@ -105,11 +106,15 @@ describe('ShortInput numeric contract', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  function mount(config: SubBlockConfig, onChange?: (value: string) => void) {
+  function mount(
+    config: SubBlockConfig,
+    onChange?: (value: string) => void,
+    blockId = 'container'
+  ) {
     act(() => {
       root.render(
         <ShortInput
-          blockId='container'
+          blockId={blockId}
           subBlockId={config.id}
           config={config}
           value={config.defaultValue ?? '5'}
@@ -121,11 +126,16 @@ describe('ShortInput numeric contract', () => {
     return container.querySelector('input')!
   }
 
-  function render(config: SubBlockConfig, onChange?: (value: string) => void) {
+  function render(
+    config: SubBlockConfig,
+    blockConfig: BlockConfig = [
+      LoopBlock,
+      ParallelContainerBlock,
+      PolymarketBlock,
+      SerperBlock,
+    ].find((block) => block.subBlocks.includes(config))!
+  ) {
     fieldId = config.id
-    const blockConfig = [LoopBlock, ParallelContainerBlock, PolymarketBlock, SerperBlock].find(
-      (block) => block.subBlocks.some((field) => field.id === config.id)
-    )!
     setWorkflowState(doc, {
       blocks: {
         container: {
@@ -138,6 +148,8 @@ describe('ShortInput numeric contract', () => {
           subBlocks: {
             ...buildInitialSubBlockStates(blockConfig.subBlocks, {
               operation: 'get_price_history',
+              startTs: '5',
+              endTs: '5',
             }),
             [config.id]: { id: config.id, type: config.type, value: config.defaultValue ?? '5' },
           } as BlockState['subBlocks'],
@@ -147,7 +159,7 @@ describe('ShortInput numeric contract', () => {
       loops: {},
       parallels: {},
     })
-    const input = mount(config, onChange)
+    const input = mount(config)
     onUpdate.mockClear()
     return input
   }
@@ -241,14 +253,21 @@ describe('ShortInput numeric contract', () => {
   it.each(['<variable.startTime>', '{{START_TIME}}', '', '1e'])(
     'preserves reference or incomplete numeric text %j',
     (value) => {
-      const input = render({
-        ...PolymarketBlock.subBlocks.find((field) => field.id === 'startTs')!,
-        min: 1,
-      })
+      const input = render(
+        {
+          ...PolymarketBlock.subBlocks.find((field) => field.id === 'startTs')!,
+          min: 1,
+        },
+        PolymarketBlock
+      )
       type(input, value)
       act(() => input.blur())
       expect(savedValue()).toBe(value)
-      expect(readWorkflowTextFieldValue(doc, 'container', 'startTs')).toBeNull()
+      expect(
+        readWorkflowSubBlockFieldsMap(doc).get(
+          createWorkflowSubBlockFieldKey('container', 'startTs')
+        )
+      ).toBe(value)
     }
   )
 
@@ -266,78 +285,126 @@ describe('ShortInput numeric contract', () => {
   })
 
   it('does not apply numeric constraints to text inputs', () => {
-    const input = render({
-      ...SerperBlock.subBlocks.find((field) => field.id === 'query')!,
-      integer: true,
-      min: 1,
-      max: 20,
-    })
+    const input = render(
+      {
+        ...SerperBlock.subBlocks.find((field) => field.id === 'query')!,
+        integer: true,
+        min: 1,
+        max: 20,
+      },
+      SerperBlock
+    )
     type(input, '1000')
     act(() => input.blur())
     expect(savedValue()).toBe('1000')
   })
 
   it.each([
-    [LoopBlock, 'iterations', 'loops'],
-    [ParallelContainerBlock, 'count', 'parallels'],
-    [PolymarketBlock, 'startTs', null],
-    [SerperBlock, 'query', null],
-  ] as const)('preserves scalar and text merge semantics (case %#)', (block, id, mapKey) => {
-    doc.clientID = 1
-    const config = block.subBlocks.find((field) => field.id === id)!
-    render(config)
-    act(() => root.render(null))
-    const initialUpdate = Y.encodeStateAsUpdate(doc)
-    const initialVector = Y.encodeStateVector(doc)
-    const clients = [2, 3].map((clientId) => {
-      const client = new Y.Doc()
-      client.clientID = clientId
-      Y.applyUpdate(client, initialUpdate)
-      return client
-    })
-    const edits = clients.map((client, index) => {
-      useDoc(client)
-      const input = mount(config)
-      type(input, String(index + 8))
-      act(() => input.blur())
+    [LoopBlock, 'iterations', 'loops', 'same-field'],
+    [ParallelContainerBlock, 'count', 'parallels', 'same-field'],
+    [PolymarketBlock, 'startTs', null, 'same-field'],
+    [SerperBlock, 'query', null, 'same-field'],
+    [PolymarketBlock, 'startTs', null, 'same-block'],
+    [PolymarketBlock, 'startTs', null, 'different-blocks'],
+  ] as const)(
+    'preserves scalar and text merge semantics (case %#)',
+    (block, id, mapKey, scenario) => {
+      doc.clientID = 1
+      const config = block.subBlocks.find((field) => field.id === id)!
+      render(config)
       act(() => root.render(null))
-      return Y.encodeStateAsUpdate(client, initialVector)
-    })
-
-    const mergedValues = []
-    for (const updates of [edits, [...edits].reverse()]) {
-      const merged = new Y.Doc()
-      Y.applyUpdate(merged, initialUpdate)
-      for (const update of updates) Y.applyUpdate(merged, update)
-      const snapshot = readWorkflowSnapshot(merged)
-      const value = snapshot.blocks.container.subBlocks[id].value
-      mergedValues.push(value)
-      if (config.inputType === 'number') {
-        expect(['8', '9']).toContain(value)
-        expect(readWorkflowTextFieldValue(merged, 'container', id)).toBeNull()
-      } else {
-        expect(value).toBe('89')
-        expect(readWorkflowTextFieldValue(merged, 'container', id)).toBe(value)
+      const secondBlockId = scenario === 'different-blocks' ? 'other' : 'container'
+      const secondFieldId = scenario === 'same-block' ? 'endTs' : id
+      if (scenario === 'different-blocks') {
+        const state = readWorkflowSnapshot(doc)
+        setWorkflowState(doc, {
+          ...state,
+          blocks: {
+            ...state.blocks,
+            other: { ...state.blocks.container, id: 'other', name: 'Other' },
+          },
+        })
       }
+      const initialUpdate = Y.encodeStateAsUpdate(doc)
+      const initialVector = Y.encodeStateVector(doc)
+      const clients = [2, 3].map((clientId) => {
+        const client = new Y.Doc()
+        client.clientID = clientId
+        Y.applyUpdate(client, initialUpdate)
+        return client
+      })
+      const edits = clients.map((client, index) => {
+        useDoc(client)
+        const editedConfig = block.subBlocks.find(
+          (field) => field.id === (index === 0 ? id : secondFieldId)
+        )!
+        const input = mount(editedConfig, undefined, index === 0 ? 'container' : secondBlockId)
+        type(input, String(index + 8))
+        act(() => input.blur())
+        act(() => root.render(null))
+        return Y.encodeStateAsUpdate(client, initialVector)
+      })
 
-      for (const state of [snapshot, extractPersistedStateFromDoc(merged)]) {
-        expect(state.blocks.container.subBlocks[id].value).toBe(value)
-        expect(validateWorkflowState(state).errors).toEqual([])
-        const serialized = new Serializer().serializeWorkflow(
-          state.blocks,
-          state.edges,
-          state.loops,
-          state.parallels
-        )
-        expect(serialized.blocks[0].config.params[id]).toBe(value)
-        if (mapKey) {
-          expect(state[mapKey].container).toMatchObject({ [id]: Number(value) })
-          expect(serialized[mapKey]?.container).toMatchObject({ [id]: Number(value) })
+      const mergedValues = []
+      for (const updates of [edits, [...edits].reverse()]) {
+        const merged = new Y.Doc()
+        Y.applyUpdate(merged, initialUpdate)
+        for (const update of updates) Y.applyUpdate(merged, update)
+        const snapshot = readWorkflowSnapshot(merged)
+        const value = snapshot.blocks.container.subBlocks[id].value
+        const secondValue = snapshot.blocks[secondBlockId].subBlocks[secondFieldId].value
+        mergedValues.push(JSON.stringify([value, secondValue]))
+        if (scenario !== 'same-field') {
+          expect([value, secondValue]).toEqual(['8', '9'])
+        } else if (config.inputType === 'number') {
+          expect(['8', '9']).toContain(value)
+        } else {
+          expect(value).toBe('89')
         }
+
+        const fields: Array<[string, string, unknown]> =
+          scenario === 'same-field'
+            ? [['container', id, value]]
+            : [
+                ['container', id, '8'],
+                [secondBlockId, secondFieldId, '9'],
+              ]
+
+        const restored = new Y.Doc()
+        Y.applyUpdate(restored, Y.encodeStateAsUpdate(merged))
+        for (const state of [
+          snapshot,
+          extractPersistedStateFromDoc(merged),
+          readWorkflowSnapshot(restored),
+        ]) {
+          expect(validateWorkflowState(state).errors).toEqual([])
+          const serialized = new Serializer().serializeWorkflow(
+            state.blocks,
+            state.edges,
+            state.loops,
+            state.parallels
+          )
+          for (const [blockId, fieldId, expected] of fields) {
+            const stored = readWorkflowSubBlockFieldsMap(merged).get(
+              createWorkflowSubBlockFieldKey(blockId, fieldId)
+            )
+            expect(stored instanceof Y.Text ? stored.toString() : stored).toBe(expected)
+            expect(stored instanceof Y.Text).toBe(config.inputType !== 'number')
+            expect(state.blocks[blockId].subBlocks[fieldId].value).toBe(expected)
+            expect(
+              serialized.blocks.find((item) => item.id === blockId)?.config.params[fieldId]
+            ).toBe(expected)
+          }
+          if (mapKey) {
+            expect(state[mapKey].container).toMatchObject({ [id]: Number(value) })
+            expect(serialized[mapKey]?.container).toMatchObject({ [id]: Number(value) })
+          }
+        }
+        restored.destroy()
+        merged.destroy()
       }
-      merged.destroy()
+      expect(new Set(mergedValues).size).toBe(1)
+      for (const client of clients) client.destroy()
     }
-    expect(new Set(mergedValues).size).toBe(1)
-    for (const client of clients) client.destroy()
-  })
+  )
 })

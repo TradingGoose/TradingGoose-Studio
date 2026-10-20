@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { stringifySubBlockValue } from '@/lib/workflows/subblock-values'
-import { useWorkflowTextField } from '@/lib/yjs/use-workflow-doc'
+import { useWorkflowField } from '@/lib/yjs/use-workflow-doc'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useTagSelection } from '@/hooks/use-tag-selection'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
@@ -69,14 +69,12 @@ export function LongInput({
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
   const baseValueString = stringifySubBlockValue(propValue)
-  const { value: textFieldValue, setValue: setTextFieldValue } = useWorkflowTextField(
+  const { value: textFieldValue, setValue: setTextFieldValue } = useWorkflowField(
     blockId,
     subBlockId,
     baseValueString,
     {
       enabled: isWorkflowManaged,
-      autoCreate: isWorkflowManaged && !disabled,
-      mirrorDelayMs: isWorkflowManaged ? 450 : null,
     }
   )
   const persistedValue = isWorkflowManaged ? textFieldValue : baseValueString

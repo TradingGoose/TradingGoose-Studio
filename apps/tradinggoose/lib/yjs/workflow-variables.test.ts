@@ -4,10 +4,10 @@
 import { describe, expect, it } from 'vitest'
 import * as Y from 'yjs'
 import {
-  createWorkflowTextFieldKey,
+  createWorkflowSubBlockFieldKey,
   getVariablesSnapshot,
   readWorkflowSnapshot,
-  readWorkflowTextFieldsMap,
+  readWorkflowSubBlockFieldsMap,
   setWorkflowState,
 } from '@/lib/yjs/workflow-session'
 import {
@@ -154,7 +154,7 @@ describe('workflow variable Yjs mutations', () => {
       value: 'not-bool',
       validationError: 'Expected "true" or "false"',
     })
-    expect(doc.getMap('workflow').get('blocks')).toMatchObject({
+    expect(readWorkflowSnapshot(doc).blocks).toMatchObject({
       blockA: {
         subBlocks: {
           prompt: {
@@ -177,10 +177,10 @@ describe('workflow variable Yjs mutations', () => {
         'test'
       )
 
-      const textFieldKey = createWorkflowTextFieldKey('blockA', 'prompt')
+      const textFieldKey = createWorkflowSubBlockFieldKey('blockA', 'prompt')
       const sharedText = new Y.Text()
       sharedText.insert(0, 'Use <variable.foovalue> in this prompt')
-      readWorkflowTextFieldsMap(doc).set(textFieldKey, sharedText)
+      readWorkflowSubBlockFieldsMap(doc).set(textFieldKey, sharedText)
 
       if (method === 'update') {
         expect(updateWorkflowVariable(doc, 'var-1', { name: 'Bar Value' }, 'test')).toBe(true)
@@ -191,8 +191,8 @@ describe('workflow variable Yjs mutations', () => {
       }
 
       expect(sharedText.toString()).toBe('Use <variable.barvalue> in this prompt')
-      expect(readWorkflowTextFieldsMap(doc).get(textFieldKey)).toBe(sharedText)
-      expect(doc.getMap('workflow').get('blocks')).toMatchObject({
+      expect(readWorkflowSubBlockFieldsMap(doc).get(textFieldKey)).toBe(sharedText)
+      expect(readWorkflowSnapshot(doc).blocks).toMatchObject({
         blockA: {
           subBlocks: {
             prompt: {
@@ -222,7 +222,7 @@ describe('workflow variable Yjs mutations', () => {
       id: 'var-1',
       name: '',
     })
-    expect(doc.getMap('workflow').get('blocks')).toMatchObject({
+    expect(readWorkflowSnapshot(doc).blocks).toMatchObject({
       blockA: {
         subBlocks: {
           prompt: {
