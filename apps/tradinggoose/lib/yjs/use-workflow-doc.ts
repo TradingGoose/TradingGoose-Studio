@@ -272,12 +272,8 @@ function useWorkflowFieldState(blockId: string, subBlockId: string, enabled = tr
 
   const subscribe = useMemo(() => {
     if (!doc) return (cb: () => void) => () => {}
-    const workflowMap = readWorkflowMap(doc)
     const fields = readWorkflowSubBlockFieldsMap(doc)
     return (cb: () => void) => {
-      const workflowHandler = (event: Y.YMapEvent<any>) => {
-        if (event.keysChanged.has(YJS_KEYS.BLOCKS)) cb()
-      }
       const fieldHandler = (events: Y.YEvent<any>[]) => {
         for (const event of events) {
           if (
@@ -292,10 +288,8 @@ function useWorkflowFieldState(blockId: string, subBlockId: string, enabled = tr
           }
         }
       }
-      workflowMap.observe(workflowHandler)
       fields.observeDeep(fieldHandler)
       return () => {
-        workflowMap.unobserve(workflowHandler)
         fields.unobserveDeep(fieldHandler)
       }
     }

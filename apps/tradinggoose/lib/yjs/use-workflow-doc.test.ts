@@ -13,6 +13,8 @@ import {
   setWorkflowState,
 } from './workflow-session'
 
+vi.unmock('@/blocks/registry')
+
 let container: HTMLDivElement | null = null
 let root: Root | null = null
 const previousActEnvironment = (globalThis as any).IS_REACT_ACT_ENVIRONMENT
@@ -229,18 +231,6 @@ describe('useWorkflowMutations', () => {
       useOptionalWorkflowSession: () => session,
       useWorkflowSession: () => session,
     }))
-    vi.doMock('@/blocks', async () => {
-      const { LoopBlock } = await import('@/blocks/blocks/loop')
-      const { ParallelContainerBlock } = await import('@/blocks/blocks/parallel_container')
-      return {
-        getBlock: (blockType: string) =>
-          blockType === 'loop'
-            ? LoopBlock
-            : blockType === 'parallel'
-              ? ParallelContainerBlock
-              : undefined,
-      }
-    })
     const { useWorkflowMutations, useWorkflowField, useWorkflowLoops, useWorkflowParallels } =
       await import('./use-workflow-doc')
     let mutations: ReturnType<typeof useWorkflowMutations> | null = null
@@ -304,13 +294,17 @@ describe('useWorkflowMutations', () => {
     ['loop', 'forEach', 'forEachItems', 'loops'],
     ['parallel', 'collection', 'distribution', 'parallels'],
   ] as const)(
-    'preserves live %s %s text through structural mutations with its editor closed',
+    'preserves %s %s execution values through generic, structural, and remote edits',
     async (type, mode, fieldId, mapKey) => {
       const editor = await mountContainerEditor(type, fieldId, {
-        [type === 'loop' ? 'loopType' : 'parallelType']: mode,
         [fieldId]: '<upstream.previous> <variable.old>',
       })
       await act(async () => {
+        editor.mutations.setSubBlockValue(
+          'container-1',
+          type === 'loop' ? 'loopType' : 'parallelType',
+          mode
+        )
         editor.mutations.addBlock('upstream', 'loop', 'Upstream', { x: 0, y: 0 })
         editor.mutations.addBlock('other-container', type, 'Other Container', { x: 500, y: 0 })
         editor.mutations.addVariable(
@@ -320,6 +314,17 @@ describe('useWorkflowMutations', () => {
       })
       await act(async () => editor.textField.setValue('<upstream.current> <variable.old>'))
       expect(editor.textField.value).toBe('<upstream.current> <variable.old>')
+      expect(readWorkflowSnapshot(editor.doc)).toMatchObject({
+        [mapKey]: {
+          'container-1': { [fieldId]: '<upstream.current> <variable.old>' },
+        },
+      })
+      await act(async () => editor.mutations.setSubBlockValue('container-1', fieldId, '{{second}}'))
+      expect(editor.textField.value).toBe('{{second}}')
+      expect(readWorkflowSnapshot(editor.doc)).toMatchObject({
+        [mapKey]: { 'container-1': { [fieldId]: '{{second}}' } },
+      })
+      await act(async () => editor.textField.setValue('<upstream.current> <variable.old>'))
       await editor.closeEditor()
 
       function expectPersisted(nodes: string[], value = '<upstream.current> <variable.old>') {
@@ -332,8 +337,8 @@ describe('useWorkflowMutations', () => {
       await act(async () =>
         editor.mutations.addBlock(
           'child',
-          'script',
-          'Script',
+          'function',
+          'Function',
           { x: 0, y: 0 },
           undefined,
           'container-1'
@@ -365,6 +370,24 @@ describe('useWorkflowMutations', () => {
 
       await act(async () => editor.mutations.removeBlock('child'))
       expectPersisted([], '<renamedsource.current> <variable.new>')
+
+      const remote = new Y.Doc()
+      Y.applyUpdate(remote, Y.encodeStateAsUpdate(editor.doc))
+      const remoteText = readWorkflowSubBlockFieldsMap(remote)
+        .get('container-1')!
+        .get(fieldId) as Y.Text
+      remoteText.insert(remoteText.length, ' + remote')
+      const changes = vi.fn()
+      editor.doc.on('update', changes)
+      await act(async () => Y.applyUpdate(editor.doc, Y.encodeStateAsUpdate(remote), 'remote'))
+      const remoteValue = '<renamedsource.current> <variable.new> + remote'
+      expectPersisted([], remoteValue)
+      expect({ loops: editor.loops, parallels: editor.parallels }).toMatchObject({
+        [mapKey]: { 'container-1': { [fieldId]: remoteValue } },
+      })
+      expect(changes).toHaveBeenCalledTimes(1)
+      editor.doc.off('update', changes)
+      remote.destroy()
     }
   )
 
@@ -415,11 +438,11 @@ describe('useWorkflowMutations', () => {
   )
 
   it.each([
-    { type: 'loop' as const, fieldId: 'iterations', mapKey: 'loops', runtimeField: 'iterations' },
-    { type: 'parallel' as const, fieldId: 'count', mapKey: 'parallels', runtimeField: 'count' },
+    { type: 'loop' as const, fieldId: 'iterations', mapKey: 'loops' },
+    { type: 'parallel' as const, fieldId: 'count', mapKey: 'parallels' },
   ])(
     'updates $type counts and derived execution state in one undoable transaction',
-    async ({ type, fieldId, mapKey, runtimeField }) => {
+    async ({ type, fieldId, mapKey }) => {
       const editor = await mountContainerEditor(type)
       const undoManager = new Y.UndoManager(
         [editor.workflowMap, readWorkflowSubBlockFieldsMap(editor.doc)],
@@ -430,7 +453,7 @@ describe('useWorkflowMutations', () => {
       const changes = vi.fn(() => {
         const state = readWorkflowSnapshot(editor.doc)
         expect(state.blocks['container-1'].subBlocks[fieldId].value).toBe(9)
-        expect(state).toMatchObject({ [mapKey]: { 'container-1': { [runtimeField]: 9 } } })
+        expect(state).toMatchObject({ [mapKey]: { 'container-1': { [fieldId]: 9 } } })
       })
       editor.doc.on('update', changes)
 
@@ -447,7 +470,7 @@ describe('useWorkflowMutations', () => {
         5
       )
       expect(readWorkflowSnapshot(editor.doc)).toMatchObject({
-        [mapKey]: { 'container-1': { [runtimeField]: 5 } },
+        [mapKey]: { 'container-1': { [fieldId]: 5 } },
       })
       undoManager.destroy()
     }
@@ -485,65 +508,6 @@ describe('useWorkflowMutations', () => {
     expect(changes).toHaveBeenCalledTimes(1)
     editor.doc.off('update', changes)
   })
-
-  it.each([
-    {
-      type: 'loop' as const,
-      modeId: 'loopType',
-      mode: 'forEach',
-      fieldId: 'forEachItems',
-      mapKey: 'loops',
-      runtimeField: 'forEachItems',
-    },
-    {
-      type: 'loop' as const,
-      modeId: 'loopType',
-      mode: 'doWhile',
-      fieldId: 'whileCondition',
-      mapKey: 'loops',
-      runtimeField: 'whileCondition',
-    },
-    {
-      type: 'parallel' as const,
-      modeId: 'parallelType',
-      mode: 'collection',
-      fieldId: 'distribution',
-      mapKey: 'parallels',
-      runtimeField: 'distribution',
-    },
-  ])(
-    'keeps $type $fieldId execution values current for generic and shared-text edits',
-    async ({ type, modeId, mode, fieldId, mapKey, runtimeField }) => {
-      const editor = await mountContainerEditor(type, fieldId)
-      await act(async () => editor.mutations.setSubBlockValue('container-1', modeId, mode))
-      await act(async () => editor.textField.setValue('{{first}}'))
-      expect(readWorkflowSnapshot(editor.doc)).toMatchObject({
-        [mapKey]: { 'container-1': { [runtimeField]: '{{first}}' } },
-      })
-      await act(async () => editor.mutations.setSubBlockValue('container-1', fieldId, '{{second}}'))
-      expect(editor.textField.value).toBe('{{second}}')
-      expect(readWorkflowSnapshot(editor.doc)).toMatchObject({
-        [mapKey]: { 'container-1': { [runtimeField]: '{{second}}' } },
-      })
-
-      await editor.closeEditor()
-      const remote = new Y.Doc()
-      Y.applyUpdate(remote, Y.encodeStateAsUpdate(editor.doc))
-      const remoteText = readWorkflowSubBlockFieldsMap(remote)
-        .get('container-1')!
-        .get(fieldId) as Y.Text
-      remoteText.insert(remoteText.length, ' + remote')
-      const changes = vi.fn()
-      editor.doc.on('update', changes)
-      await act(async () => Y.applyUpdate(editor.doc, Y.encodeStateAsUpdate(remote), 'remote'))
-      expect({ loops: editor.loops, parallels: editor.parallels }).toMatchObject({
-        [mapKey]: { 'container-1': { [runtimeField]: '{{second}} + remote' } },
-      })
-      expect(changes).toHaveBeenCalledTimes(1)
-      editor.doc.off('update', changes)
-      remote.destroy()
-    }
-  )
 
   it('supports custom origins when updating block positions', async () => {
     const doc = new Y.Doc()
@@ -881,7 +845,6 @@ describe('useWorkflowMutations', () => {
 describe('useWorkflowField', () => {
   it('keeps provider and synthetic field edits undoable through removal and clear', async () => {
     vi.resetModules()
-    vi.doUnmock('@/blocks/registry')
     const fields = await import('./workflow-session')
     const doc = new Y.Doc()
     fields.setWorkflowState(
