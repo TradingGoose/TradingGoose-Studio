@@ -843,6 +843,73 @@ describe('useWorkflowMutations', () => {
 })
 
 describe('useWorkflowField', () => {
+  it('initializes populated dynamic text before concurrent editing and preserves its identity', async () => {
+    vi.resetModules()
+    const { AgentBlock } = await import('@/blocks/blocks/agent')
+    const fields = await import('./workflow-session')
+    const clients = [new Y.Doc(), new Y.Doc()]
+    const fieldId = 'tools-tool-0-query'
+    fields.setWorkflowState(
+      clients[0],
+      createWorkflowSnapshot({
+        blocks: {
+          agent: {
+            id: 'agent',
+            type: AgentBlock.type,
+            name: AgentBlock.name,
+            enabled: true,
+            position: { x: 0, y: 0 },
+            outputs: {},
+            subBlocks: { [fieldId]: { id: fieldId, type: 'code', value: 'SELECT 1' } },
+          },
+        },
+      })
+    )
+    Y.applyUpdate(clients[1], Y.encodeStateAsUpdate(clients[0]))
+    const session = {
+      doc: clients[0],
+      transactWorkflow: (fn: (doc: Y.Doc) => void, origin?: string) =>
+        session.doc.transact(() => fn(session.doc), origin),
+    }
+    vi.doMock('@/lib/yjs/workflow-session-host', () => ({
+      useOptionalWorkflowSession: () => session,
+      useWorkflowSession: () => session,
+    }))
+    const { useWorkflowField } = await import('./use-workflow-doc')
+    let field!: ReturnType<typeof useWorkflowField>
+    function Harness() {
+      field = useWorkflowField('agent', fieldId)
+      return null
+    }
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const texts: Y.Text[] = []
+    for (const [index, client] of clients.entries()) {
+      session.doc = client
+      await act(async () => root?.render(React.createElement(Harness, { key: index })))
+      expect(field.value).toBe('SELECT 1')
+      expect(field.yText).toBeInstanceOf(Y.Text)
+      texts.push(field.yText!)
+      await act(async () => root?.render(React.createElement(Harness, { key: `remount-${index}` })))
+      expect(field.yText).toBe(texts[index])
+      if (index === 0) Y.applyUpdate(clients[1], Y.encodeStateAsUpdate(client))
+    }
+    await act(async () => {
+      texts[0].insert(0, '-- prefix\n')
+      texts[1].insert(texts[1].length, '; -- suffix')
+      Y.applyUpdate(clients[0], Y.encodeStateAsUpdate(clients[1]))
+      Y.applyUpdate(clients[1], Y.encodeStateAsUpdate(clients[0]))
+    })
+    for (const client of clients) {
+      expect(extractPersistedStateFromDoc(client).blocks.agent.subBlocks[fieldId].value).toBe(
+        '-- prefix\nSELECT 1; -- suffix'
+      )
+    }
+    await act(async () => root?.render(null))
+    for (const client of clients) client.destroy()
+  })
+
   it('keeps provider and synthetic field edits undoable through removal and clear', async () => {
     vi.resetModules()
     const fields = await import('./workflow-session')
@@ -899,6 +966,8 @@ describe('useWorkflowField', () => {
     document.body.appendChild(container)
     root = createRoot(container)
     await act(async () => root?.render(React.createElement(Harness)))
+    const sharedText = field.yText
+    expect(sharedText).toBeInstanceOf(Y.Text)
     await act(async () => mutations.setSubBlockValue('block-1', 'provider', 'openai'))
     await act(async () => mutations.setSubBlockValue('block-1', 'voice', 'echo'))
     await act(async () => mutations.setSubBlockValue('block-1', 'provider', 'cartesia'))
@@ -917,15 +986,15 @@ describe('useWorkflowField', () => {
       expect(fields.readWorkflowTextField(doc, 'block-1', 'voice')).toBeNull()
     }
     undo.clear()
-    expect(field.yText).toBeNull()
+    expect(field.yText).toBe(sharedText)
     await act(async () => field.setValue('return 2'))
-    expect(field.yText).toBeInstanceOf(Y.Text)
+    expect(field.yText).toBe(sharedText)
     expect(field.value).toBe('return 2')
     await act(async () => undo.undo())
     expect(field.value).toBe('return 1')
-    expect(field.yText).toBeNull()
+    expect(field.yText).toBe(sharedText)
     await act(async () => undo.redo())
-    const sharedText = field.yText
+    expect(field.yText).toBe(sharedText)
     await act(async () => field.setValue('return 3'))
     expect(field.value).toBe('return 3')
     expect(field.yText).toBe(sharedText)

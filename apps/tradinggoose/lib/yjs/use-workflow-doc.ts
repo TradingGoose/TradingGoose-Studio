@@ -345,15 +345,19 @@ export function useWorkflowField(
   )
 
   useEffect(() => {
-    if (!doc || !collaborative || !transactWorkflow || field.value !== undefined) return
+    if (!doc || !collaborative || !transactWorkflow || field.yText) return
     transactWorkflow((workflowDoc) => {
-      if (!readWorkflowSubBlockFieldsMap(workflowDoc).get(blockId)?.has(subBlockId)) {
-        setWorkflowSubBlockValues(workflowDoc, [
-          { blockId, subBlockId, value: fallback, collaborative },
-        ])
-      }
+      const currentValue = readWorkflowSubBlockFieldValue(workflowDoc, blockId, subBlockId)
+      setWorkflowSubBlockValues(workflowDoc, [
+        {
+          blockId,
+          subBlockId,
+          value: currentValue === undefined ? fallback : currentValue,
+          collaborative,
+        },
+      ])
     }, YJS_ORIGINS.SYSTEM)
-  }, [blockId, collaborative, doc, fallback, field.value, subBlockId, transactWorkflow])
+  }, [blockId, collaborative, doc, fallback, field, subBlockId, transactWorkflow])
 
   return { value, yText: field.yText, setValue }
 }
