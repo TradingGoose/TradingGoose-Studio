@@ -873,7 +873,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
           path={resolvedPath}
           defaultLanguage={language}
           theme={theme}
-          onChange={yText ? undefined : (nextValue) => onChange?.(nextValue ?? '')}
+          onChange={(nextValue) => onChange?.(nextValue ?? '')}
           onMount={(editor, monaco) => {
             editorRef.current = editor
             monacoRef.current = monaco
@@ -957,14 +957,6 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
                 updateAutoHeight()
               })
             )
-
-            if (yText && onChange) {
-              subscriptionsRef.current.push(
-                editor.onDidChangeModelContent(() => {
-                  onChange(editor.getValue())
-                })
-              )
-            }
 
             subscriptionsRef.current.push(
               editor.onDidLayoutChange(() => {

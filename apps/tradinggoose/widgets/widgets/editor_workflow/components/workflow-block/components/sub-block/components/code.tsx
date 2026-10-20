@@ -291,6 +291,7 @@ Current code context: {context}
   const handleEditorChange = useCallback(
     (newCode: string) => {
       if (isCollapsed || isAiStreaming || isReadOnly) return
+      if (!yText) persistValue(newCode)
 
       const cursorPos = editorRef.current?.getCursorOffset() ?? 0
       setCursorPosition(cursorPos)
@@ -305,7 +306,7 @@ Current code context: {context}
       setShowEnvVars(envVarTrigger.show)
       setSearchTerm(envVarTrigger.show ? envVarTrigger.searchTerm : '')
     },
-    [isCollapsed, isAiStreaming, isReadOnly]
+    [isCollapsed, isAiStreaming, isReadOnly, persistValue, yText]
   )
 
   const handleCursorChange = useCallback(
