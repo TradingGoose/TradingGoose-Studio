@@ -317,7 +317,7 @@ export class Executor {
           const outputs = await this.executeLayer(nextLayer, context)
 
           if (outputs.length > 0) {
-            finalOutput = outputs[outputs.length - 1] as NormalizedBlockOutput
+            finalOutput = this.selectFinalOutput(nextLayer, outputs, context)
           }
 
           if (await this.shouldStopExecution()) {
@@ -483,7 +483,7 @@ export class Executor {
       const outputs = await this.executeLayer(blockIds, context)
 
       if (outputs.length > 0) {
-        finalOutput = outputs[outputs.length - 1]
+        finalOutput = this.selectFinalOutput(blockIds, outputs, context)
       }
       if (await this.shouldStopExecution()) {
         return {
@@ -1435,6 +1435,30 @@ export class Executor {
       // For regular blocks, dependency is met if source is executed
       return sourceExecuted
     })
+  }
+
+  private selectFinalOutput(
+    blockIds: string[],
+    outputs: NormalizedBlockOutput[],
+    context: ExecutionContext
+  ): NormalizedBlockOutput {
+    const output = outputs[outputs.length - 1]
+    const blockId = blockIds[outputs.length - 1]
+    const isContainer = (id: string) =>
+      this.actualWorkflow.loops[id] || this.actualWorkflow.parallels?.[id]
+    const originalId = context.parallelBlockMapping?.get(blockId)?.originalBlockId ?? blockId
+    if (output.completed !== true || !isContainer(originalId)) return output
+
+    // Layer ordering determines the selected output, regardless of completion timing.
+    for (const id of [...context.executedBlocks].reverse()) {
+      const originalId = context.parallelBlockMapping?.get(id)?.originalBlockId ?? id
+      if (isContainer(originalId)) continue
+      const block = this.actualWorkflow.blocks.find((block) => block.id === originalId)
+      return block?.metadata?.id === BlockType.RESPONSE
+        ? context.blockStates.get(id)!.output
+        : output
+    }
+    return output
   }
 
   /**

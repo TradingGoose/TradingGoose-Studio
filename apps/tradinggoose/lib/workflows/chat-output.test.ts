@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { WorkflowExecutionEvent } from '@/lib/workflows/execution-events'
+import { createHttpResponseFromBlock, workflowHasResponseBlock } from '@/lib/workflows/utils'
 import { Executor } from '@/executor'
+import { createMockContext } from '@/executor/__test-utils__/executor-mocks'
+import { saveExecutionContext } from '@/executor/checkpoint'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 import { createChatOutputEventReader } from './chat-output'
 
@@ -24,6 +27,8 @@ function containerWorkflow(type: 'loop' | 'parallel', mode: string, count: numbe
       block('body', 'response', {
         dataMode: 'json',
         data: `{"answer":42,"index":<${type}.index>}`,
+        status: 201,
+        headers: [{ id: 'custom', cells: { Key: 'X-Workflow', Value: 'complete' } }],
       }),
     ],
     connections: [
@@ -96,6 +101,11 @@ describe('createChatOutputEventReader', () => {
         }).execute('workflow-1', 'trigger')
 
         expect(result.success).toBe(true)
+        expect(workflowHasResponseBlock(result)).toBe(true)
+        const response = createHttpResponseFromBlock(result)
+        expect(response.status).toBe(201)
+        expect(response.headers.get('X-Workflow')).toBe('complete')
+        expect(await response.json()).toEqual({ answer: 42, index: count - 1 })
         const completionEvents = events.filter(
           (event) => event.type === 'block:completed' && event.data.blockId === 'container'
         )
@@ -104,8 +114,8 @@ describe('createChatOutputEventReader', () => {
         const aggregates = Array.from({ length: count }, (_, index) => ({
           response: {
             data: { answer: 42, index },
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
+            status: 201,
+            headers: { 'Content-Type': 'application/json', 'X-Workflow': 'complete' },
           },
         }))
         expect(content).toEqual(['before', `\n\n${JSON.stringify(aggregates, null, 2)}`])
@@ -123,6 +133,102 @@ describe('createChatOutputEventReader', () => {
             { type: 'final', success: true, result },
           ]
         )
+      }
+    }
+  )
+
+  it.each(['loop', 'parallel'] as const)(
+    'keeps %s aggregate output after ordinary blocks, including concurrent response-shaped values',
+    async (type) => {
+      for (const sibling of [false, true]) {
+        const workflow = containerWorkflow(type, type === 'loop' ? 'for' : 'count', 1)
+        const container = type === 'loop' ? workflow.loops.container : workflow.parallels!.container
+        container.nodes.push('ordinary')
+        workflow.blocks.push({
+          ...workflow.blocks[3],
+          id: 'ordinary',
+          metadata: { id: 'variables', name: 'ordinary' },
+          config: {
+            tool: 'variables',
+            params: {
+              variables: [
+                { variableName: 'response', type: 'object', value: { data: { ordinary: true } } },
+              ],
+            },
+          },
+        })
+        if (!sibling) workflow.connections.pop()
+        workflow.connections.push(
+          sibling
+            ? { source: 'container', target: 'ordinary', sourceHandle: `${type}-start-source` }
+            : { source: 'body', target: 'ordinary' },
+          { source: 'ordinary', target: 'container' }
+        )
+        let ordinaryCompleted!: () => void
+        const ordinaryDone = new Promise<void>((resolve) => {
+          ordinaryCompleted = resolve
+        })
+        const result = await new Executor({
+          workflow,
+          contextExtensions: {
+            workspaceId: 'workspace-1',
+            onExecutionEvent: async (event) => {
+              if (
+                sibling &&
+                event.type === 'block:started' &&
+                event.data.blockId.startsWith('body')
+              ) {
+                await ordinaryDone
+              }
+              if (event.type === 'block:completed' && event.data.blockType === 'variables') {
+                ordinaryCompleted()
+              }
+            },
+          },
+        }).execute('workflow-1', 'trigger')
+
+        expect(result.success).toBe(true)
+        expect(result.output).toMatchObject({ completed: true, results: expect.any(Array) })
+        expect(workflowHasResponseBlock(result)).toBe(false)
+        if (sibling) {
+          const ordinaryIndex = result.logs!.findIndex((log) => log.blockType === 'variables')
+          const responseIndex = result.logs!.findIndex((log) => log.blockId.startsWith('body'))
+          expect(ordinaryIndex).toBeLessThan(responseIndex)
+        }
+      }
+    }
+  )
+
+  it.each(['loop', 'parallel'] as const)(
+    'preserves the %s response through debug completion and checkpoint resume',
+    async (type) => {
+      const workflow = containerWorkflow(type, type === 'loop' ? 'for' : 'count', 1)
+      const executor = new Executor({ workflow, contextExtensions: { workspaceId: 'workspace-1' } })
+      const context = createMockContext({ workflow, activeExecutionPath: new Set(['trigger']) })
+      let step = await executor.continueExecution(['trigger'], context)
+      while (!step.output.response?.data.answer) {
+        expect(step.success).toBe(true)
+        expect(step.metadata?.pendingBlocks?.length).toBeGreaterThan(0)
+        step = await executor.continueExecution(step.metadata!.pendingBlocks!, context)
+      }
+      const resumed = new Executor({
+        workflow,
+        contextExtensions: { workspaceId: 'workspace-1' },
+        checkpoint: {
+          workflow,
+          currentBlockStates: {},
+          context: saveExecutionContext(context),
+          iteration: 0,
+          finalOutput: step.output,
+        },
+      })
+      const completed = await executor.continueExecution(step.metadata!.pendingBlocks!, context)
+      const restored = await resumed.execute('workflow-1', 'trigger')
+      for (const result of [completed, restored]) {
+        expect(result.success).toBe(true)
+        expect(result.output).toEqual(step.output)
+        expect(workflowHasResponseBlock(result)).toBe(true)
+        expect(result.logs!.at(-1)?.output).toMatchObject({ completed: true })
       }
     }
   )
