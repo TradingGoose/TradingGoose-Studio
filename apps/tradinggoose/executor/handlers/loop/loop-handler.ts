@@ -223,7 +223,7 @@ export class LoopBlockHandler implements BlockHandler {
       this.activateChildNodes(block, context, currentIteration)
     }
 
-    // For while/doWhile loops, now that condition is confirmed true, reset child blocks and increment counter
+    // For while/doWhile loops, reset child blocks only after the condition is confirmed true.
     if (loop.loopType === 'while' || loop.loopType === 'doWhile') {
       // Reset all child blocks for this iteration
       for (const nodeId of loop.nodes || []) {
@@ -233,12 +233,6 @@ export class LoopBlockHandler implements BlockHandler {
         context.decisions.router.delete(nodeId)
         context.decisions.condition.delete(nodeId)
       }
-
-      // Increment the counter for the next iteration
-      context.loopIterations.set(block.id, currentIteration + 1)
-    } else {
-      // For for/forEach loops, keep the counter value - it will be managed by the loop manager
-      context.loopIterations.set(block.id, currentIteration)
     }
 
     return {

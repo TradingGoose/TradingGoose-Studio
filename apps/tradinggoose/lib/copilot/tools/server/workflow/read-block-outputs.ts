@@ -34,7 +34,7 @@ export const readBlockOutputsServerTool: BaseServerTool<
     const parallels = snapshot.parallels || {}
     const subBlockValues = extractSubBlockValuesFromBlocks(blocks)
     const variableOutputs = readWorkflowVariableOutputs(variables)
-    const ctx = { blocks, loops, parallels, subBlockValues }
+    const ctx = { blocks, subBlockValues }
     const targetBlockIds =
       args.blockIds && args.blockIds.length > 0 ? args.blockIds : Object.keys(blocks)
 
@@ -56,7 +56,6 @@ export const readBlockOutputsServerTool: BaseServerTool<
         blockOutput.insideSubflowOutputs = getSubflowInsideOutputReferences(
           block.type,
           blockId,
-          blockName,
           loops,
           parallels
         )

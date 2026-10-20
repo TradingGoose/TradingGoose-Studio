@@ -56,7 +56,7 @@ export const LoopBlock: BlockConfig = {
       type: 'long-input',
       defaultValue: '',
       description:
-        'Boolean expression for While or Do While using exact upstream or workflow variable references. Provide a terminating condition; these modes have no fixed iteration cap.',
+        'Boolean expression for While or Do While. <loop.index> is the zero-based index of the iteration being tested. Supports upstream and workflow variable references; provide a terminating condition.',
       placeholder: 'Enter a boolean expression',
       condition: { field: 'loopType', value: ['while', 'doWhile'] },
     },

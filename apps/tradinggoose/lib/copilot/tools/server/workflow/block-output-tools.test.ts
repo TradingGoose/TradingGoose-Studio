@@ -53,13 +53,21 @@ describe('server workflow output tools', () => {
       workflowState: {
         blocks: {
           'agent-1': { id: 'agent-1', type: 'agent', name: 'agent', subBlocks: {} },
-          'loop-1': { id: 'loop-1', type: 'loop', name: 'loop', subBlocks: {} },
+          'loop-1': { id: 'loop-1', type: 'loop', name: 'Research Loop', subBlocks: {} },
+          'parallel-1': {
+            id: 'parallel-1',
+            type: 'parallel',
+            name: 'Research Parallel',
+            subBlocks: {},
+          },
         },
         edges: [],
         loops: {
           'loop-1': { id: 'loop-1', nodes: [], loopType: 'forEach' },
         },
-        parallels: {},
+        parallels: {
+          'parallel-1': { id: 'parallel-1', nodes: [], parallelType: 'collection' },
+        },
       },
       workspaceId: 'ws-1',
       variables: {
@@ -68,7 +76,7 @@ describe('server workflow output tools', () => {
     })
 
     const result = await readBlockOutputsServerTool.execute(
-      { entityId: 'wf-1', blockIds: ['agent-1', 'loop-1'] },
+      { entityId: 'wf-1', blockIds: ['agent-1', 'loop-1', 'parallel-1'] },
       { userId: 'user-1' }
     )
 
@@ -86,7 +94,7 @@ describe('server workflow output tools', () => {
       },
       {
         blockId: 'loop-1',
-        blockName: 'loop',
+        blockName: 'Research Loop',
         blockType: 'loop',
         outputs: [],
         insideSubflowOutputs: [
@@ -94,7 +102,19 @@ describe('server workflow output tools', () => {
           { path: 'loop.currentItem', type: 'any' },
           { path: 'loop.items', type: 'json' },
         ],
-        outsideSubflowOutputs: [{ path: 'loop.results', type: 'json' }],
+        outsideSubflowOutputs: [{ path: 'researchloop.results', type: 'json' }],
+      },
+      {
+        blockId: 'parallel-1',
+        blockName: 'Research Parallel',
+        blockType: 'parallel',
+        outputs: [],
+        insideSubflowOutputs: [
+          { path: 'parallel.index', type: 'number' },
+          { path: 'parallel.currentItem', type: 'any' },
+          { path: 'parallel.items', type: 'json' },
+        ],
+        outsideSubflowOutputs: [{ path: 'researchparallel.results', type: 'json' }],
       },
     ])
     expect(ToolResultSchemas.read_block_outputs.parse(result)).toBeDefined()
@@ -104,6 +124,47 @@ describe('server workflow output tools', () => {
       'read'
     )
   })
+
+  it.each(['while', 'doWhile', 'forEach'])(
+    'read_block_upstream_references uses the active %s loop scope',
+    async (mode) => {
+      mockLoadWorkflowSnapshotForCopilot.mockResolvedValue({
+        workflowState: {
+          blocks: {
+            outer: { id: 'outer', type: 'loop', name: 'Outer Loop' },
+            inner: { id: 'inner', type: 'loop', name: 'Inner Loop' },
+          },
+          edges: [{ source: 'outer', target: 'inner' }],
+          loops: {
+            outer: { id: 'outer', nodes: ['inner'], loopType: 'forEach' },
+            inner: { id: 'inner', nodes: [], loopType: mode },
+          },
+          parallels: {},
+        },
+      })
+      const result = await readBlockUpstreamReferencesServerTool.execute(
+        { entityId: 'wf-1', blockIds: ['inner'] },
+        { userId: 'user-1' }
+      )
+      expect(result.results[0].accessibleBlocks).toEqual([
+        {
+          blockId: mode === 'forEach' ? 'outer' : 'inner',
+          blockName: mode === 'forEach' ? 'Outer Loop' : 'Inner Loop',
+          blockType: 'loop',
+          accessContext: 'inside',
+          outputs: [
+            { path: 'loop.index', type: 'number' },
+            ...(mode === 'forEach'
+              ? [
+                  { path: 'loop.currentItem', type: 'any' },
+                  { path: 'loop.items', type: 'json' },
+                ]
+              : []),
+          ],
+        },
+      ])
+    }
+  )
 
   it('read_block_upstream_references returns accessible output entries with paths and types', async () => {
     mockLoadWorkflowSnapshotForCopilot.mockResolvedValue({

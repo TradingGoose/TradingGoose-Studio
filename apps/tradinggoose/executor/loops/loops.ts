@@ -49,9 +49,6 @@ export class LoopManager {
         // Results are now stored individually as blocks execute (like parallels)
         // No need for bulk collection here
 
-        // The loop block will handle incrementing the iteration when it executes next
-        // We just need to reset the blocks so they can run again
-
         // Determine the maximum iterations
         let maxIterations = loop.iterations
 
@@ -119,21 +116,14 @@ export class LoopManager {
 
           logger.info(`Loop ${loopId} - Completed and activated end connections`)
         } else {
-          // For while/doWhile loops, DON'T reset yet - let the loop handler check the condition first
-          // The loop handler will decide whether to continue or exit based on the condition
-          if (loop.loopType === 'while' || loop.loopType === 'doWhile') {
-            // Just reset the loop block itself so it can re-evaluate the condition
-            context.executedBlocks.delete(loopId)
-            context.blockStates.delete(loopId)
-          } else {
-            // For for/forEach loops, increment and reset everything as usual
-            context.loopIterations.set(loopId, currentIteration + 1)
+          context.loopIterations.set(loopId, currentIteration + 1)
 
+          // Condition-driven loops reset their children after the next condition passes.
+          if (loop.loopType === 'for' || loop.loopType === 'forEach') {
             this.resetLoopBlocks(loopId, loop, context)
-
-            context.executedBlocks.delete(loopId)
-            context.blockStates.delete(loopId)
           }
+          context.executedBlocks.delete(loopId)
+          context.blockStates.delete(loopId)
         }
       }
     }

@@ -790,7 +790,7 @@ describe('InputResolver', () => {
       expect(resolvedInputs.item).toEqual(['item1']) // Current loop items
     })
 
-    it('should resolve direct loop.index reference without quotes', () => {
+    it('resolves child and nested-loop references in their evaluation scope', () => {
       const loopBlock: SerializedBlock = {
         id: 'loop-1',
         position: { x: 0, y: 0 },
@@ -830,6 +830,19 @@ describe('InputResolver', () => {
         },
       }
 
+      workflow.blocks.push({
+        ...loopBlock,
+        id: 'outer-loop',
+        metadata: { id: BlockType.LOOP, name: 'Renamed Outer' },
+      })
+      workflow.loops['outer-loop'] = {
+        id: 'outer-loop',
+        nodes: [loopBlock.id],
+        iterations: 10,
+        loopType: 'forEach',
+        forEachItems: [{ children: ['nested'] }],
+      }
+
       const resolver = createInputResolver(workflow)
       const context: ExecutionContext = {
         workflowId: 'test',
@@ -839,8 +852,11 @@ describe('InputResolver', () => {
         metadata: { duration: 0 },
         environmentVariables: {},
         decisions: { router: new Map(), condition: new Map() },
-        loopIterations: new Map([['loop-1', 3]]), // Iteration 3 (corresponds to 0-based index 2)
-        loopItems: new Map(),
+        loopIterations: new Map([
+          ['loop-1', 3],
+          ['outer-loop', 9],
+        ]),
+        loopItems: new Map([['outer-loop', { children: ['nested'] }]]),
         completedLoops: new Set(),
         executedBlocks: new Set(),
         activeExecutionPath: new Set(['function-1']),
@@ -850,6 +866,19 @@ describe('InputResolver', () => {
       const resolvedInputs = resolver.resolveInputs(functionBlock, context)
 
       expect(resolvedInputs.index).toBe(2) // Index 2 (adjusted from iteration 3)
+      expect(resolver.getContainingLoopId(loopBlock.id)).toBe('outer-loop')
+      loopBlock.config.params = { index: '<loop.index>' }
+      expect(resolver.resolveInputs(loopBlock, context).index).toBe(8)
+      for (const loopType of ['while', 'doWhile'] as const) {
+        workflow.loops['loop-1'].loopType = loopType
+        expect(resolver.resolveInputs(loopBlock, context).index).toBe(2)
+        expect(resolver.resolveBlockReferences('<loop.index> < 3', context, loopBlock)).toBe(
+          '2 < 3'
+        )
+      }
+      workflow.loops['loop-1'].loopType = 'forEach'
+      loopBlock.config.params = { items: '<loop.currentItem.children>' }
+      expect(resolver.resolveInputs(loopBlock, context).items).toEqual(['nested'])
     })
 
     it('should resolve direct loop.items reference for forEach loops', () => {

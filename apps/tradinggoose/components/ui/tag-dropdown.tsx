@@ -3,6 +3,7 @@ import { ChevronRight } from 'lucide-react'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { getBlockOutputPaths, getBlockOutputType } from '@/lib/workflows/block-outputs'
+import { getLoopContextId, getSubflowInsidePaths } from '@/lib/workflows/references'
 import {
   useWorkflowBlocks,
   useWorkflowEdges,
@@ -295,10 +296,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
     blockTagGroups: BlockTagGroup[]
   } = useMemo(() => {
     const containingLoop = Object.entries(loops).find(([_, loop]) => loop.nodes.includes(blockId))
-    const contextualLoop =
-      blocks[blockId]?.type === 'loop' && loops[blockId]
-        ? ([blockId, loops[blockId]] as const)
-        : containingLoop
+    const contextualLoopId = getLoopContextId(blockId, loops, containingLoop?.[0])
     const containingParallel = Object.entries(parallels).find(([_, parallel]) =>
       parallel.nodes.includes(blockId)
     )
@@ -501,35 +499,25 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
     let parallelBlockGroup: BlockTagGroup | null = null
 
     if (allowContextualTags) {
-      if (contextualLoop) {
-        const [loopId, loop] = contextualLoop
-        const contextualTags: string[] = ['index', 'currentIteration']
-        if (loop.loopType === 'forEach') {
-          contextualTags.push('currentItem')
-          contextualTags.push('items')
-        }
-
-        const containingLoopBlock = blocks[loopId]
+      if (contextualLoopId) {
+        const containingLoopBlock = blocks[contextualLoopId]
         if (containingLoopBlock) {
           const loopBlockName = containingLoopBlock.name || containingLoopBlock.type
 
           loopBlockGroup = {
             blockName: loopBlockName,
-            blockId: loopId,
+            blockId: contextualLoopId,
             blockType: 'loop',
-            tags: contextualTags,
+            tags: getSubflowInsidePaths('loop', contextualLoopId, loops, parallels).map(
+              (path) => `loop.${path}`
+            ),
             distance: 0,
           }
         }
       }
 
       if (containingParallel) {
-        const [parallelId, parallel] = containingParallel
-        const contextualTags: string[] = ['index']
-        if (parallel.parallelType === 'collection') {
-          contextualTags.push('currentItem')
-          contextualTags.push('items')
-        }
+        const [parallelId] = containingParallel
 
         const containingParallelBlock = blocks[parallelId]
         if (containingParallelBlock) {
@@ -539,7 +527,9 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
             blockName: parallelBlockName,
             blockId: parallelId,
             blockType: 'parallel',
-            tags: contextualTags,
+            tags: getSubflowInsidePaths('parallel', parallelId, loops, parallels).map(
+              (path) => `parallel.${path}`
+            ),
             distance: 0,
           }
         }
@@ -762,23 +752,11 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
           })
         } else {
           const path = tagParts.slice(1).join('.')
-          // Handle contextual tags for loop/parallel blocks (single words like 'index', 'currentItem')
-          if (
-            (group.blockType === 'loop' || group.blockType === 'parallel') &&
-            tagParts.length === 1
-          ) {
-            directTags.push({
-              key: tag,
-              display: tag,
-              fullTag: tag,
-            })
-          } else {
-            directTags.push({
-              key: path || group.blockName,
-              display: path || group.blockName,
-              fullTag: tag,
-            })
-          }
+          directTags.push({
+            key: path || group.blockName,
+            display: path || group.blockName,
+            fullTag: tag,
+          })
         }
       })
 
@@ -877,26 +855,6 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
         }
       }
 
-      if (tag.startsWith(TAG_PREFIXES.VARIABLE)) {
-        const variableName = tag.substring(TAG_PREFIXES.VARIABLE.length)
-        const variableObj = workflowVariables.find(
-          (v: Variable) => v.name.replace(/\s+/g, '') === variableName
-        )
-
-        if (variableObj) {
-          processedTag = tag
-        }
-      } else if (
-        blockGroup &&
-        (blockGroup.blockType === 'loop' || blockGroup.blockType === 'parallel')
-      ) {
-        if (!tag.includes('.') && ['index', 'currentItem', 'items'].includes(tag)) {
-          processedTag = `${blockGroup.blockType}.${tag}`
-        } else {
-          processedTag = tag
-        }
-      }
-
       const nextCloseBracket = textAfterCursor.indexOf('>')
       let remainingTextAfterCursor = textAfterCursor
 
@@ -915,7 +873,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
       onSelect(newValue)
       onClose?.()
     },
-    [inputValue, cursorPosition, workflowVariables, onSelect, onClose]
+    [inputValue, cursorPosition, onSelect, onClose]
   )
 
   useEffect(() => setSelectedIndex(0), [searchTerm])

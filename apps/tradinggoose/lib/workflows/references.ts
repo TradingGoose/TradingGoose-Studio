@@ -1,4 +1,5 @@
 import { normalizeBlockName } from '@/stores/workflows/utils'
+import type { Loop, Parallel } from '@/stores/workflows/workflow/types'
 
 export const SYSTEM_REFERENCE_PREFIXES = new Set(['start', 'loop', 'parallel', 'variable'])
 
@@ -9,6 +10,32 @@ export const isEnvironmentReference = (value: string): boolean =>
 
 export function extractEnvironmentReferences(value: string): string[] {
   return value.match(/\{\{([^}]+)\}\}/g) ?? []
+}
+
+export function getLoopContextId(
+  blockId: string,
+  loops: Record<string, { loopType?: Loop['loopType'] }>,
+  parentLoopId?: string
+): string | undefined {
+  const mode = loops[blockId]?.loopType
+  return mode === 'while' || mode === 'doWhile' ? blockId : parentLoopId
+}
+
+export function getSubflowInsidePaths(
+  blockType: 'loop' | 'parallel',
+  blockId: string,
+  loops: Record<string, Loop>,
+  parallels: Record<string, Parallel>
+): string[] {
+  const paths = ['index']
+  if (
+    blockType === 'loop'
+      ? loops[blockId]?.loopType === 'forEach'
+      : parallels[blockId]?.parallelType === 'collection'
+  ) {
+    paths.push('currentItem', 'items')
+  }
+  return paths
 }
 
 export function isLikelyReferenceSegment(segment: string): boolean {

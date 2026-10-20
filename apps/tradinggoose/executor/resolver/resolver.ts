@@ -3,6 +3,7 @@ import { VariableManager } from '@/lib/variables/variable-manager'
 import {
   extractEnvironmentReferences,
   extractReferencePrefixes,
+  getLoopContextId,
   SYSTEM_REFERENCE_PREFIXES,
 } from '@/lib/workflows/references'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
@@ -163,29 +164,22 @@ export class InputResolver {
         // Check for direct loop reference pattern: <loop.property>
         const directLoopMatch = trimmedValue.match(/^<loop\.([^>]+)>$/)
         if (directLoopMatch) {
-          // Find which loop this block belongs to using efficient lookup
-          const containingLoopId = this.loopsByBlockId.get(block.id)
+          const loopValue = this.resolveLoopReference(
+            directLoopMatch[1].split('.'),
+            context,
+            block,
+            false
+          )
 
-          if (containingLoopId) {
-            const pathParts = directLoopMatch[1].split('.')
-            const loopValue = this.resolveLoopReference(
-              containingLoopId,
-              pathParts,
-              context,
-              block,
-              false
-            )
-
-            if (loopValue !== null) {
-              // Parse the value if it's a JSON string
-              try {
-                result[key] = JSON.parse(loopValue)
-              } catch {
-                // If it's not valid JSON, use as is
-                result[key] = loopValue
-              }
-              continue
+          if (loopValue !== null) {
+            // Parse the value if it's a JSON string
+            try {
+              result[key] = JSON.parse(loopValue)
+            } catch {
+              // If it's not valid JSON, use as is
+              result[key] = loopValue
             }
+            continue
           }
 
           logger.warn(`Direct loop reference <loop.${directLoopMatch[1]}> could not be resolved.`)
@@ -539,22 +533,16 @@ export class InputResolver {
 
       // Special case for "loop" references - allows accessing loop properties
       if (blockRef.toLowerCase() === 'loop') {
-        // Find which loop this block belongs to using efficient lookup
-        const containingLoopId = this.loopsByBlockId.get(currentBlock.id)
+        const formattedValue = this.resolveLoopReference(
+          pathParts,
+          context,
+          currentBlock,
+          isInTemplateLiteral
+        )
 
-        if (containingLoopId) {
-          const formattedValue = this.resolveLoopReference(
-            containingLoopId,
-            pathParts,
-            context,
-            currentBlock,
-            isInTemplateLiteral
-          )
-
-          if (formattedValue !== null) {
-            resolvedValue = resolvedValue.replace(raw, formattedValue)
-            continue
-          }
+        if (formattedValue !== null) {
+          resolvedValue = resolvedValue.replace(raw, formattedValue)
+          continue
         }
       }
 
@@ -1124,7 +1112,6 @@ export class InputResolver {
    * Resolves a loop reference (<loop.property>).
    * Handles currentItem, items, and index references.
    *
-   * @param loopId - ID of the loop
    * @param pathParts - Parts of the reference path after 'loop'
    * @param context - Current execution context
    * @param currentBlock - Block containing the reference
@@ -1132,12 +1119,18 @@ export class InputResolver {
    * @returns Formatted value or null if reference is invalid
    */
   private resolveLoopReference(
-    loopId: string,
     pathParts: string[],
     context: ExecutionContext,
     currentBlock: SerializedBlock,
     isInTemplateLiteral: boolean
   ): string | null {
+    const loopId = getLoopContextId(
+      currentBlock.id,
+      context.workflow?.loops ?? {},
+      this.loopsByBlockId.get(currentBlock.id)
+    )
+    if (!loopId) return null
+
     const loop = context.workflow?.loops[loopId]
     if (!loop) return null
 
@@ -1208,9 +1201,8 @@ export class InputResolver {
       }
 
       case 'index': {
-        // Get the current iteration index
+        // The manager advances the one-based counter after each completed body.
         const index = context.loopIterations.get(loopId) || 0
-        // Adjust for the fact that the loop handler increments after setting up the iteration
         const adjustedIndex = Math.max(0, index - 1)
         return this.formatValueForCodeContext(adjustedIndex, currentBlock, isInTemplateLiteral)
       }

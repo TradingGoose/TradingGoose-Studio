@@ -11,6 +11,7 @@ import {
   readWorkflowVariableOutputs,
 } from '@/lib/copilot/workflow/block-output-utils'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getLoopContextId } from '@/lib/workflows/references'
 import type { Loop, Parallel } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('ReadBlockUpstreamReferencesServerTool')
@@ -36,7 +37,7 @@ export const readBlockUpstreamReferencesServerTool: BaseServerTool<
     const loops = snapshot.loops || {}
     const parallels = snapshot.parallels || {}
     const subBlockValues = extractSubBlockValuesFromBlocks(blocks)
-    const ctx = { blocks, loops, parallels, subBlockValues }
+    const ctx = { blocks, subBlockValues }
     const variableOutputs = readWorkflowVariableOutputs(variables)
     const graphEdges = edges.map((edge) => ({ source: edge.source, target: edge.target }))
     const results: ReadBlockUpstreamReferencesResultType['results'] = []
@@ -78,6 +79,11 @@ export const readBlockUpstreamReferencesServerTool: BaseServerTool<
         }
       })
 
+      const loopContextId = getLoopContextId(
+        blockId,
+        loops,
+        containingLoopIds.values().next().value
+      )
       const ancestorIds = BlockPathCalculator.findAllPathNodes(graphEdges, blockId)
       const accessibleIds = new Set<string>(ancestorIds)
       accessibleIds.add(blockId)
@@ -99,8 +105,14 @@ export const readBlockUpstreamReferencesServerTool: BaseServerTool<
         const block = blocks[accessibleBlockId]
         if (!block?.type) continue
 
-        const canSelfReference = block.type === 'approval' || block.type === 'human_in_the_loop'
+        const canSelfReference =
+          block.type === 'approval' ||
+          block.type === 'human_in_the_loop' ||
+          accessibleBlockId === loopContextId
         if (accessibleBlockId === blockId && !canSelfReference) continue
+        if (containingLoopIds.has(accessibleBlockId) && accessibleBlockId !== loopContextId) {
+          continue
+        }
 
         const blockName = block.name || block.type
         let accessContext: 'inside' | 'outside' | undefined
@@ -108,18 +120,12 @@ export const readBlockUpstreamReferencesServerTool: BaseServerTool<
 
         if (block.type === 'loop' || block.type === 'parallel') {
           const isInside =
-            (block.type === 'loop' && containingLoopIds.has(accessibleBlockId)) ||
+            (block.type === 'loop' && accessibleBlockId === loopContextId) ||
             (block.type === 'parallel' && containingParallelIds.has(accessibleBlockId))
 
           accessContext = isInside ? 'inside' : 'outside'
           outputs = isInside
-            ? getSubflowInsideOutputReferences(
-                block.type,
-                accessibleBlockId,
-                blockName,
-                loops,
-                parallels
-              )
+            ? getSubflowInsideOutputReferences(block.type, accessibleBlockId, loops, parallels)
             : getSubflowOutsideOutputReferences(blockName)
         } else {
           outputs = computeBlockOutputReferences(block, ctx, variableOutputs)

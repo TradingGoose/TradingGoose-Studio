@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { Executor } from '@/executor'
 import { BlockType } from '@/executor/consts'
 import { LoopBlockHandler } from '@/executor/handlers/loop/loop-handler'
 import type { ExecutionContext } from '@/executor/types'
@@ -80,6 +81,60 @@ describe('LoopBlockHandler', () => {
   })
 
   describe('execute', () => {
+    it.each([
+      ['while', '<loop.index> < 3', [0, 1, 2]],
+      ['doWhile', '<loop.index> < 3', [0, 1, 2]],
+      ['while', 'false', []],
+      ['doWhile', 'false', [0]],
+    ] as const)(
+      'executes %s condition %s with the current body index',
+      async (loopType, condition, expected) => {
+        const workflow = mockContext.workflow!
+        workflow.loops[mockBlock.id] = {
+          ...workflow.loops[mockBlock.id],
+          loopType,
+          whileCondition: condition,
+        }
+        mockBlock.config.params = { loopType, whileCondition: condition }
+        workflow.blocks.push(
+          {
+            ...mockBlock,
+            id: 'trigger',
+            metadata: { id: 'input_trigger', name: 'Start', category: 'triggers' },
+            config: { tool: 'input_trigger', params: {} },
+          },
+          {
+            ...mockBlock,
+            id: 'inner-block',
+            metadata: { id: BlockType.RESPONSE, name: 'Body' },
+            config: {
+              tool: 'response',
+              params: { dataMode: 'json', data: '{"index":<loop.index>}' },
+            },
+          },
+          {
+            ...mockBlock,
+            id: 'after-loop',
+            metadata: { id: BlockType.RESPONSE, name: 'After' },
+            config: { tool: 'response', params: { dataMode: 'json', data: '{"done":true}' } },
+          }
+        )
+        workflow.connections.unshift({ source: 'trigger', target: mockBlock.id })
+        const result = await new Executor({
+          workflow,
+          contextExtensions: { workspaceId: 'test-workspace-id' },
+        }).execute('test-workflow', 'trigger')
+
+        expect(result.success).toBe(true)
+        expect(
+          result.logs
+            ?.filter((log) => log.blockId === 'inner-block')
+            .map((log) => log.output?.response?.data.index)
+        ).toEqual(expected)
+        expect(result.output.response?.data.done).toBe(true)
+      }
+    )
+
     it('should initialize loop on first execution', async () => {
       const result = await handler.execute(mockBlock, {}, mockContext)
 
