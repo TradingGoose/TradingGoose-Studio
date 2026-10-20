@@ -1578,14 +1578,16 @@ describe('InputResolver', () => {
       expect(result).toBe('return "AAPL"')
     })
 
-    it.each(['start', 'trigger-1'])(
+    it.each(['start', 'trigger-1', 'variable'])(
       'preserves Response values through Builder-to-Editor conversion for <%s.*>',
       async (source) => {
         const output = {
           symbol: 'AAPL',
           input: 'Say "go"\\next\n$&',
           quantity: 0,
+          total: 123.5,
           active: false,
+          nullable: null,
           accountId: '123',
           booleanText: 'true',
           nullText: 'null',
@@ -1616,12 +1618,31 @@ describe('InputResolver', () => {
           ...output,
           responseStatus: '201',
         }
+        if (source === 'variable') {
+          connectionResolver = createInputResolver(
+            workflowWithConnections,
+            {},
+            Object.fromEntries(
+              Object.entries({ ...output, responseStatus: '201' }).map(([name, value]) => [
+                name,
+                {
+                  name,
+                  value,
+                  type:
+                    typeof value === 'string'
+                      ? 'plain'
+                      : Array.isArray(value)
+                        ? 'array'
+                        : typeof value,
+                },
+              ])
+            )
+          )
+        }
         const builderData: Parameters<
           typeof ResponseBlockHandler.convertBuilderDataToJsonString
         >[0] = [
-          { id: 'symbol', name: 'symbol', type: 'string', value: `<${source}.symbol>` },
-          { id: 'input', name: 'input', type: 'string', value: `<${source}.input>` },
-          ...['accountId', 'booleanText', 'nullText', 'arrayText', 'objectText'].map((name) => ({
+          ...Object.keys(output).map((name) => ({
             id: name,
             name,
             type: 'string' as const,
@@ -1633,19 +1654,7 @@ describe('InputResolver', () => {
             type: 'string',
             value: `Say "<${source}.input>" for <${source}.symbol>`,
           },
-          { id: 'quantity', name: 'quantity', type: 'number', value: `<${source}.quantity>` },
-          { id: 'active', name: 'active', type: 'boolean', value: `<${source}.active>` },
-          { id: 'details', name: 'details', type: 'object', value: `<${source}.details>` },
-          { id: 'positions', name: 'positions', type: 'array', value: `<${source}.positions>` },
-          { id: 'files', name: 'files', type: 'files', value: `<${source}.files>` },
           { id: 'nativeFiles', name: 'nativeFiles', type: 'files', value: output.files },
-          {
-            id: 'listing',
-            name: 'listingIdentity',
-            type: LISTING_IDENTITY_VALUE_TYPE,
-            value: `<${source}.listingIdentity>`,
-          },
-          { id: 'missing', name: 'missing', type: 'string', value: `<${source}.missing>` },
         ]
         for (const dataMode of ['structured', 'json']) {
           const block: SerializedBlock = {
@@ -1670,7 +1679,6 @@ describe('InputResolver', () => {
               ...output,
               nativeFiles: output.files,
               greeting: `Say "${output.input}" for ${output.symbol}`,
-              missing: '',
             },
             headers: { 'X-Symbol': output.input },
           })
@@ -1731,36 +1739,82 @@ describe('InputResolver', () => {
       }
     )
 
-    it('converts nested Builder fields through their declared types', async () => {
-      const { response } = await new ResponseBlockHandler().execute(
-        workflowWithConnections.blocks[2],
-        {
-          builderData: [
-            {
-              id: 'values',
-              name: 'values',
-              type: 'array',
-              value: [
-                { type: 'number', value: '0' },
-                { type: 'string', value: 'null' },
-                { type: 'boolean', value: 'false' },
-                null,
-                {
-                  type: 'object',
-                  value: [
-                    { id: 'price', name: 'price', type: 'number', value: '' },
-                    { id: 'accountId', name: 'accountId', type: 'string', value: '123' },
-                  ],
-                },
+    it.each(['start', 'trigger-1'])(
+      'formats Builder object and array JSON using the same context as Editor for <%s.*>',
+      async (source) => {
+        const output = {
+          symbol: `A"\\B\n$&<${source}.quantity>`,
+          quantity: 0,
+          accountId: '123',
+          positions: [{ type: 'number', value: '123' }, null],
+        }
+        contextWithConnections.blockStates.get('trigger-1')!.output = output
+        const details = `{"symbol": <${source}.symbol>, "quantity": <${source}.quantity>, "quoted": "<${source}.quantity>", "accountId": <${source}.accountId>, "greeting": "Hello <${source}.symbol>!"}`
+        const positions = `[<${source}.positions>, {"symbol": <${source}.symbol>}, null]`
+        const block: SerializedBlock = {
+          ...workflowWithConnections.blocks[2],
+          id: 'test-response-block',
+          metadata: { id: BlockType.RESPONSE },
+          config: {
+            tool: BlockType.RESPONSE,
+            params: {
+              builderData: [
+                { id: 'details', name: 'details', type: 'object', value: details },
+                { id: 'positions', name: 'positions', type: 'array', value: positions },
+                { id: 'native', name: 'native', type: 'array', value: `<${source}.positions>` },
               ],
             },
-          ],
+          },
         }
+        const expected = {
+          details: {
+            symbol: output.symbol,
+            quantity: 0,
+            quoted: '0',
+            accountId: '123',
+            greeting: `Hello ${output.symbol}!`,
+          },
+          positions: [output.positions, { symbol: output.symbol }, null],
+          native: output.positions,
+        }
+        for (const params of [
+          block.config.params,
+          {
+            dataMode: 'json',
+            data: `{"details": ${details}, "positions": ${positions}, "native": <${source}.positions>}`,
+          },
+        ]) {
+          block.config.params = params
+          const inputs = connectionResolver.resolveInputs(block, contextWithConnections)
+          const { response } = await new ResponseBlockHandler().execute(block, inputs)
+          expect(response.status).toBe(200)
+          expect(response.data).toStrictEqual(expected)
+        }
+      }
+    )
+
+    it('keeps exact Builder reference payloads opaque to environment interpolation', async () => {
+      const payload = { text: '{{UPSTREAM_DATA}}', records: [{ type: 'number', value: '123' }] }
+      contextWithConnections.blockStates.get('trigger-1')!.output = { payload }
+      const block: SerializedBlock = {
+        ...workflowWithConnections.blocks[2],
+        id: 'test-response-block',
+        metadata: { id: BlockType.RESPONSE },
+        config: {
+          tool: BlockType.RESPONSE,
+          params: {
+            builderData: [
+              { id: 'payload', name: 'payload', type: 'string', value: '<start.payload>' },
+            ],
+          },
+        },
+      }
+      const { response } = await new ResponseBlockHandler().execute(
+        block,
+        connectionResolver.resolveInputs(block, contextWithConnections)
       )
       expect(response.status).toBe(200)
-      expect(response.data).toStrictEqual({
-        values: [0, 'null', false, null, { accountId: '123' }],
-      })
+      expect(response.data).toStrictEqual({ payload })
     })
 
     it('should properly format start.input when resolved directly via resolveBlockReferences', () => {

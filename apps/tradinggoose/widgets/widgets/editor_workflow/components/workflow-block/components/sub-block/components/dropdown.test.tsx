@@ -5,6 +5,8 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
+  dataMode: '',
+  data: '',
   setBuilderData: vi.fn(),
   setData: vi.fn(),
   setValue: vi.fn(),
@@ -40,7 +42,8 @@ vi.mock(
   () => ({
     useSubBlockValue: (_blockId: string, subBlockId: string) => {
       if (subBlockId === 'builderData') return [[], mocks.setBuilderData]
-      if (subBlockId === 'data') return ['', mocks.setData]
+      if (subBlockId === 'data') return [mocks.data, mocks.setData]
+      if (subBlockId === 'dataMode') return [mocks.dataMode, mocks.setValue]
       return ['', mocks.setValue]
     },
   })
@@ -85,6 +88,8 @@ describe('workflow Dropdown', () => {
     mocks.setBuilderData.mockReset()
     mocks.setData.mockReset()
     mocks.setValue.mockReset()
+    mocks.dataMode = ''
+    mocks.data = ''
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
@@ -114,5 +119,48 @@ describe('workflow Dropdown', () => {
     expect(document.body).toHaveTextContent('First group')
     expect(document.body).toHaveTextContent('Second group')
     expect(container).not.toHaveTextContent('First option')
+  })
+
+  it('preserves object and array JSON text when switching from Editor to Builder', async () => {
+    const data = {
+      details: { message: '<start.input>', accountId: '123', quantity: 0, active: false },
+      positions: ['<start.details>', { message: '<start.input>' }, 0, false, null],
+      native: '<start.details>',
+    }
+    mocks.data = JSON.stringify(data)
+    mocks.dataMode = 'json'
+    const renderDropdown = async () => {
+      await act(async () => {
+        root.render(
+          <Dropdown
+            blockId='response-1'
+            subBlockId='dataMode'
+            options={[
+              { id: 'structured', label: 'Builder' },
+              { id: 'json', label: 'Editor' },
+            ]}
+          />
+        )
+      })
+    }
+
+    await renderDropdown()
+    expect(mocks.setBuilderData).not.toHaveBeenCalled()
+    mocks.dataMode = 'structured'
+    await renderDropdown()
+
+    expect(mocks.setBuilderData).toHaveBeenCalledExactlyOnceWith([
+      expect.objectContaining({
+        name: 'details',
+        type: 'object',
+        value: JSON.stringify(data.details, null, 2),
+      }),
+      expect.objectContaining({
+        name: 'positions',
+        type: 'array',
+        value: JSON.stringify(data.positions, null, 2),
+      }),
+      expect.objectContaining({ name: 'native', type: 'string', value: data.native }),
+    ])
   })
 })
