@@ -14,7 +14,6 @@ import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/w
 import {
   createWorkflowSnapshot,
   createWorkflowSubBlockFieldKey,
-  ensureWorkflowTextField,
   extractPersistedStateFromDoc,
   readWorkflowMap,
   readWorkflowSnapshot,
@@ -58,7 +57,14 @@ describe('workflow session fields', () => {
       { blockId: 'block', subBlockId: '_toolSchema', value: { enabled: true } },
       { blockId: 'block', subBlockId: '_empty', value: null },
     ])
-    ensureWorkflowTextField(doc, 'block', 'tool_code', 'return 1')
+    setWorkflowSubBlockValues(doc, [
+      {
+        blockId: 'block',
+        subBlockId: 'tool_code',
+        value: 'return 1',
+        collaborative: true,
+      },
+    ])
     expect(readWorkflowMap(doc).get(YJS_KEYS.BLOCKS)).toBe(rawBlocks)
 
     const snapshot = readWorkflowSnapshot(doc)
@@ -115,13 +121,21 @@ describe('workflow session fields', () => {
     [ParallelContainerBlock, 'count', '9', {}, false, false],
     [WaitBlock, 'timeValue', '<variable.delay>', {}, false, false],
     [TtsBlock, 'voice', 'alloy', { provider: 'openai' }, false, false],
-    [TtsBlock, 'voice', 'cartesia-voice', { provider: 'cartesia' }, true, false],
+    [TtsBlock, 'voice', 'cartesia-voice', { provider: 'cartesia' }, false, false],
+    [
+      getBlock('servicenow')!,
+      'fields',
+      '{}',
+      { operation: 'servicenow_create_record' },
+      true,
+      false,
+    ],
     [
       getBlock('webflow')!,
       'collectionId',
       'collection',
       { selectedTriggerId: 'webflow_collection_item_created' },
-      true,
+      false,
       false,
     ],
     [
@@ -133,7 +147,7 @@ describe('workflow session fields', () => {
       true,
     ],
   ] as const)(
-    'stores fields according to the active widget (case %#)',
+    'keeps field storage stable across widget variants (case %#)',
     (config, fieldId, value, params, collaborative, triggerMode) => {
       const doc = new Y.Doc()
       const block: BlockState = {
@@ -157,27 +171,14 @@ describe('workflow session fields', () => {
       expect(readWorkflowSubBlockFieldValue(doc, 'block', fieldId)).toBe(value)
       expect(readWorkflowSnapshot(doc).blocks.block.subBlocks[fieldId].value).toBe(value)
       expect(extractPersistedStateFromDoc(doc).blocks.block.subBlocks[fieldId].value).toBe(value)
-      if (!collaborative) {
-        expect(ensureWorkflowTextField(doc, 'block', fieldId)).toBeNull()
-        expect(textFields.get(key)).toBe(value)
-      }
-
-      if ('provider' in params) {
-        const nextProvider = collaborative ? 'openai' : 'cartesia'
-        const nextVoice = collaborative ? 'alloy' : 'cartesia-voice'
-        doc.transact(
-          () =>
-            setWorkflowSubBlockValues(doc, [
-              { blockId: 'block', subBlockId: 'voice', value: nextVoice },
-              { blockId: 'block', subBlockId: 'provider', value: nextProvider },
-            ]),
-          'user'
-        )
-        expect(textFields.get(key) instanceof Y.Text).toBe(!collaborative)
-        expect(readWorkflowSubBlockFieldValue(doc, 'block', fieldId)).toBe(nextVoice)
-      }
-      setWorkflowState(doc, state)
-      expect(readWorkflowSubBlockFieldValue(doc, 'block', fieldId)).toBe(value)
+      setWorkflowSubBlockValues(doc, [
+        {
+          blockId: 'block',
+          subBlockId: fieldId,
+          value,
+          collaborative: !collaborative,
+        },
+      ])
       expect(textFields.get(key) instanceof Y.Text).toBe(collaborative)
       doc.destroy()
     }

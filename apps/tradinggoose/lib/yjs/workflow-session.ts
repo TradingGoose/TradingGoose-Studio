@@ -15,7 +15,6 @@ import type { Edge } from '@xyflow/react'
 import * as Y from 'yjs'
 import { resolveStoredDateValue } from '@/lib/time-format'
 import { readBlockOutputs } from '@/lib/workflows/block-outputs'
-import { evaluateSubBlockCondition } from '@/lib/workflows/sub-block-conditions'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { getBlock } from '@/blocks/registry'
 import { resolveOutputType } from '@/blocks/utils'
@@ -85,39 +84,17 @@ export function parseWorkflowSubBlockFieldKey(
   }
 }
 
-function isWorkflowTextField(
-  doc: Y.Doc,
-  blockId: string,
-  subBlockId: string,
-  readFieldValue = (field: string) => readWorkflowSubBlockFieldValue(doc, blockId, field)
-): boolean | undefined {
-  const block = readWorkflowMap(doc).get(YJS_KEYS.BLOCKS)?.[blockId] as BlockState | undefined
-  const config = block && getBlock(block.type)
-  const variants = config?.subBlocks.filter(({ id }) => id === subBlockId)
-  if (!config || !variants?.length) return undefined
-  const textVariants = variants.filter(
-    (variant) =>
-      (variant.type === 'short-input' && variant.inputType !== 'number') ||
-      variant.type === 'long-input' ||
-      variant.type === 'code'
-  )
-  if (textVariants.length === 0) return false
-  if (textVariants.length === variants.length) return true
-
-  const isPureTrigger = config.category === 'triggers'
-  const isTriggerMode = block?.triggerMode === true || isPureTrigger
-  const modeVariants = variants.filter((variant) =>
-    isTriggerMode
-      ? variant.mode === 'trigger' || (isPureTrigger && !variant.mode)
-      : variant.mode !== 'trigger'
-  )
-  if (modeVariants.length > 0 && modeVariants.every((variant) => textVariants.includes(variant))) {
-    return true
-  }
-  const field = modeVariants.find((variant) =>
-    evaluateSubBlockCondition(variant.condition, readFieldValue)
-  )
-  return !!field && textVariants.includes(field)
+function isWorkflowTextField(blockType: string, subBlockId: string): boolean | undefined {
+  const variants = getBlock(blockType)?.subBlocks.filter(({ id }) => id === subBlockId)
+  // An atomic widget variant makes the whole field atomic across widget changes.
+  return variants?.length
+    ? variants.every(
+        (variant) =>
+          (variant.type === 'short-input' && variant.inputType !== 'number') ||
+          variant.type === 'long-input' ||
+          variant.type === 'code'
+      )
+    : undefined
 }
 
 export function readWorkflowTextFieldFromMap(
@@ -158,76 +135,26 @@ export function readWorkflowTextField(
   return readWorkflowTextFieldFromMap(readWorkflowSubBlockFieldsMap(doc), blockId, subBlockId)
 }
 
-function writeYTextValue(text: Y.Text, value: string): void {
-  if (text.toString() === value) {
-    return
-  }
-
-  if (text.length > 0) {
-    text.delete(0, text.length)
-  }
-  if (value) {
-    text.insert(0, value)
-  }
-}
-
-export function ensureWorkflowTextField(
-  doc: Y.Doc,
-  blockId: string,
-  subBlockId: string,
-  initialValue = ''
-): Y.Text | null {
-  const subBlockFields = readWorkflowSubBlockFieldsMap(doc)
-  if (isWorkflowTextField(doc, blockId, subBlockId) === false) return null
-  const existing = readWorkflowTextFieldFromMap(subBlockFields, blockId, subBlockId)
-  if (existing) {
-    return existing
-  }
-
-  const next = new Y.Text()
-  if (initialValue) {
-    next.insert(0, initialValue)
-  }
-
-  doc.transact(() => {
-    subBlockFields.set(createWorkflowSubBlockFieldKey(blockId, subBlockId), next)
-  }, YJS_ORIGINS.SYSTEM)
-
-  return next
-}
-
 export function setWorkflowSubBlockValues(
   doc: Y.Doc,
-  updates: Array<{ blockId: string; subBlockId: string; value: any }>
+  updates: Array<{ blockId: string; subBlockId: string; value: any; collaborative?: boolean }>
 ): void {
   const blocks = readWorkflowMap(doc).get(YJS_KEYS.BLOCKS)
   const fields = readWorkflowSubBlockFieldsMap(doc)
-  const pendingValues = new Map(
-    updates.map(
-      ({ blockId, subBlockId, value }) =>
-        [createWorkflowSubBlockFieldKey(blockId, subBlockId), value] as const
-    )
-  )
-  for (const { blockId, subBlockId, value } of updates) {
-    if (!blocks?.[blockId]) continue
+  for (const { blockId, subBlockId, value, collaborative } of updates) {
+    const block = blocks?.[blockId]
+    if (!block) continue
     const key = createWorkflowSubBlockFieldKey(blockId, subBlockId)
     const existing = fields.get(key)
-    const textField = isWorkflowTextField(doc, blockId, subBlockId, (field) => {
-      const fieldKey = createWorkflowSubBlockFieldKey(blockId, field)
-      return pendingValues.has(fieldKey)
-        ? pendingValues.get(fieldKey)
-        : readWorkflowSubBlockFieldValueFromMap(fields, blockId, field)
-    })
-    if (
-      typeof value === 'string' &&
-      (textField === true || (textField === undefined && existing instanceof Y.Text))
-    ) {
+    const textField =
+      isWorkflowTextField(block.type, subBlockId) ?? collaborative ?? existing instanceof Y.Text
+    if (typeof value === 'string' && textField) {
       if (existing instanceof Y.Text) {
-        writeYTextValue(existing, value)
+        if (existing.toString() === value) continue
+        existing.delete(0, existing.length)
+        existing.insert(0, value)
       } else {
-        const text = new Y.Text()
-        if (value) text.insert(0, value)
-        fields.set(key, text)
+        fields.set(key, new Y.Text(value))
       }
     } else if (
       !fields.has(key) ||

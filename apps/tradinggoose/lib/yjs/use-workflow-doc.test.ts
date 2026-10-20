@@ -308,25 +308,11 @@ describe('useWorkflowMutations', () => {
       collection: ['NVDA', 'AAPL'],
     },
     {
-      type: 'loop' as const,
-      modeId: 'loopType',
-      mode: 'forEach',
-      fieldId: 'forEachItems',
-      collection: { primary: 'NVDA', secondary: 'AAPL' },
-    },
-    {
       type: 'parallel' as const,
       modeId: 'parallelType',
       mode: 'collection',
       fieldId: 'distribution',
       collection: ['NVDA', 'AAPL'],
-    },
-    {
-      type: 'parallel' as const,
-      modeId: 'parallelType',
-      mode: 'collection',
-      fieldId: 'distribution',
-      collection: { primary: 'NVDA', secondary: 'AAPL' },
     },
   ])(
     'preserves literal $type collections when mounting and editing a shared text field',
@@ -337,31 +323,25 @@ describe('useWorkflowMutations', () => {
       })
 
       expect(editor.textField.value).toBe(JSON.stringify(collection))
-      expect(
-        JSON.parse(
-          readWorkflowSnapshot(editor.doc).blocks['container-1'].subBlocks[fieldId].value as string
-        )
-      ).toEqual(collection)
       const snapshot = readWorkflowSnapshot(editor.doc)
+      expect(snapshot.blocks['container-1'].subBlocks[fieldId].value).toEqual(collection)
       expect(
         type === 'loop'
           ? snapshot.loops['container-1'].forEachItems
           : snapshot.parallels['container-1'].distribution
-      ).toBe(JSON.stringify(collection))
+      ).toEqual(collection)
 
       const replacement = { primary: 'MSFT', secondary: 'GOOG' }
       await act(async () => editor.mutations.setSubBlockValue('container-1', fieldId, replacement))
 
       expect(editor.textField.value).toBe(JSON.stringify(replacement))
       const state = readWorkflowSnapshot(editor.doc)
-      expect(JSON.parse(state.blocks['container-1'].subBlocks[fieldId].value as string)).toEqual(
-        replacement
-      )
+      expect(state.blocks['container-1'].subBlocks[fieldId].value).toEqual(replacement)
       expect(
         type === 'loop'
           ? state.loops['container-1'].forEachItems
           : state.parallels['container-1'].distribution
-      ).toBe(JSON.stringify(replacement))
+      ).toEqual(replacement)
     }
   )
 
@@ -832,68 +812,93 @@ describe('useWorkflowMutations', () => {
 })
 
 describe('useWorkflowField', () => {
-  it('keeps mounted synthetic text fields canonical through updates, removal, and clear', async () => {
+  it('keeps provider and synthetic field edits undoable through removal and clear', async () => {
+    vi.resetModules()
+    vi.doUnmock('@/blocks/registry')
+    const fields = await import('./workflow-session')
     const doc = new Y.Doc()
-    setWorkflowState(
+    fields.setWorkflowState(
       doc,
       createWorkflowSnapshot({
         blocks: {
           'block-1': {
             id: 'block-1',
-            type: 'function',
-            name: 'Script',
+            type: 'tts',
+            name: 'TTS',
             enabled: true,
             position: { x: 0, y: 0 },
-            subBlocks: {
-              code: {
-                id: 'code',
-                type: 'code',
-                value: 'block-backed-value',
-              },
-            },
             outputs: {},
+            subBlocks: {
+              provider: { id: 'provider', type: 'dropdown', value: 'cartesia' },
+              voice: { id: 'voice', type: 'short-input', value: 'alloy' },
+              tool_code: { id: 'tool_code', type: 'code', value: 'return 1' },
+            },
           },
         },
       })
     )
-
     const session = {
       doc,
-      transactWorkflow: (fn: (workflowDoc: Y.Doc) => void, origin?: string) =>
+      transactWorkflow: (fn: (doc: Y.Doc) => void, origin?: string) =>
         doc.transact(() => fn(doc), origin),
     }
-    vi.resetModules()
     vi.doMock('@/lib/yjs/workflow-session-host', () => ({
       useOptionalWorkflowSession: () => session,
       useWorkflowSession: () => session,
     }))
-
-    const { useWorkflowField, useWorkflowMutations } = await import('./use-workflow-doc')
-
-    let latestValue = ''
+    const { useSubBlockValue, useWorkflowField, useWorkflowMutations } = await import(
+      './use-workflow-doc'
+    )
+    const undo = new Y.UndoManager(
+      [fields.readWorkflowMap(doc), fields.readWorkflowSubBlockFieldsMap(doc)],
+      { trackedOrigins: createYjsUndoTrackedOrigins(), captureTimeout: 0 }
+    )
     let field!: ReturnType<typeof useWorkflowField>
     let mutations!: ReturnType<typeof useWorkflowMutations>
-    function Harness() {
-      latestValue = useWorkflowField('block-1', 'code').value
-      field = useWorkflowField('block-1', 'tool_code', 'return 1')
-      mutations = useWorkflowMutations()
+    function VoiceEditor() {
+      useWorkflowField('block-1', 'voice')
       return null
     }
-
+    function Harness() {
+      const provider = useSubBlockValue('block-1', 'provider')
+      field = useWorkflowField('block-1', 'tool_code', 'return 1')
+      mutations = useWorkflowMutations()
+      return provider === 'cartesia' ? React.createElement(VoiceEditor) : null
+    }
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
+    await act(async () => root?.render(React.createElement(Harness)))
+    await act(async () => mutations.setSubBlockValue('block-1', 'provider', 'openai'))
+    await act(async () => mutations.setSubBlockValue('block-1', 'voice', 'echo'))
+    await act(async () => mutations.setSubBlockValue('block-1', 'provider', 'cartesia'))
 
-    await act(async () => {
-      root?.render(React.createElement(Harness))
-    })
-
-    expect(latestValue).toBe('block-backed-value')
-    const sharedText = field.yText
-    expect(sharedText).toBeInstanceOf(Y.Text)
+    for (const [operation, provider, voice] of [
+      ['undo', 'openai', 'echo'],
+      ['undo', 'openai', 'alloy'],
+      ['undo', 'cartesia', 'alloy'],
+      ['redo', 'openai', 'alloy'],
+      ['redo', 'openai', 'echo'],
+      ['redo', 'cartesia', 'echo'],
+    ] as const) {
+      await act(async () => undo[operation]())
+      expect(fields.readWorkflowSubBlockFieldValue(doc, 'block-1', 'provider')).toBe(provider)
+      expect(fields.readWorkflowSubBlockFieldValue(doc, 'block-1', 'voice')).toBe(voice)
+      expect(fields.readWorkflowTextField(doc, 'block-1', 'voice')).toBeNull()
+    }
+    undo.clear()
+    expect(field.yText).toBeNull()
     await act(async () => field.setValue('return 2'))
-    expect(field.yText).toBe(sharedText)
+    expect(field.yText).toBeInstanceOf(Y.Text)
     expect(field.value).toBe('return 2')
+    await act(async () => undo.undo())
+    expect(field.value).toBe('return 1')
+    expect(field.yText).toBeNull()
+    await act(async () => undo.redo())
+    const sharedText = field.yText
+    await act(async () => field.setValue('return 3'))
+    expect(field.value).toBe('return 3')
+    expect(field.yText).toBe(sharedText)
 
     await act(async () => mutations.removeBlock('block-1'))
     expect(readWorkflowSubBlockFieldsMap(doc).size).toBe(0)
@@ -902,5 +907,6 @@ describe('useWorkflowField', () => {
     await act(async () => mutations.clear())
     expect(readWorkflowSubBlockFieldsMap(doc).size).toBe(0)
     expect(readWorkflowSnapshot(doc).blocks).toEqual({})
+    undo.destroy()
   })
 })

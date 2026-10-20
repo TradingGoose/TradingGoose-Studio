@@ -21,7 +21,6 @@ import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
 import { rewriteWorkflowContentReferences } from '@/lib/yjs/workflow-reference-rewrite'
 import {
   createWorkflowSubBlockFieldKey,
-  ensureWorkflowTextField,
   getVariablesMap,
   materializeWorkflowBlockFields,
   materializeWorkflowFields,
@@ -446,24 +445,27 @@ export function useWorkflowField(
   const setValue = useCallback(
     (nextValue: string) =>
       transactWorkflow?.((workflowDoc) => {
-        setWorkflowSubBlockValues(workflowDoc, [{ blockId, subBlockId, value: nextValue }])
+        setWorkflowSubBlockValues(workflowDoc, [
+          { blockId, subBlockId, value: nextValue, collaborative },
+        ])
       }, YJS_ORIGINS.USER),
-    [blockId, subBlockId, transactWorkflow]
+    [blockId, collaborative, subBlockId, transactWorkflow]
   )
 
   useEffect(() => {
-    if (!doc || !collaborative || !transactWorkflow || field.yText) return
+    if (!doc || !collaborative || !transactWorkflow || field.value !== undefined) return
     transactWorkflow((workflowDoc) => {
-      if (!readWorkflowMap(workflowDoc).get(YJS_KEYS.BLOCKS)?.[blockId]) return
-      const currentValue = readWorkflowSubBlockFieldValue(workflowDoc, blockId, subBlockId)
-      ensureWorkflowTextField(
-        workflowDoc,
-        blockId,
-        subBlockId,
-        currentValue === undefined ? fallback : stringifySubBlockValue(currentValue)
-      )
+      if (
+        !readWorkflowSubBlockFieldsMap(workflowDoc).has(
+          createWorkflowSubBlockFieldKey(blockId, subBlockId)
+        )
+      ) {
+        setWorkflowSubBlockValues(workflowDoc, [
+          { blockId, subBlockId, value: fallback, collaborative },
+        ])
+      }
     }, YJS_ORIGINS.SYSTEM)
-  }, [blockId, collaborative, doc, fallback, field.yText, subBlockId, transactWorkflow])
+  }, [blockId, collaborative, doc, fallback, field.value, subBlockId, transactWorkflow])
 
   return { value, yText: field.yText, setValue }
 }
