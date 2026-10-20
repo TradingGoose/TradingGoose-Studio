@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { act, type ComponentProps } from 'react'
+import type { IRange } from 'monaco-editor'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
@@ -19,12 +20,62 @@ import { AgentBlock } from '@/blocks/blocks/agent'
 import type { BlockState } from '@/stores/workflows/workflow/types'
 import { Code } from './code'
 
-type ReactEditorProps = { value?: string; onChange?: (value?: string) => void }
-const mocks = vi.hoisted(() => ({
-  session: null as Pick<WorkflowSessionContextValue, 'doc' | 'transactWorkflow'> | null,
-  editor: {} as ReactEditorProps,
-  contentListener: undefined as ReactEditorProps['onChange'],
-}))
+type ReactEditorProps = {
+  value?: string
+  onChange?: (value?: string) => void
+  onMount?: (editor: any, monaco: any) => void
+}
+const mocks = vi.hoisted(() => {
+  let loadBinding!: () => void
+  return {
+    session: null as Pick<WorkflowSessionContextValue, 'doc' | 'transactWorkflow'> | null,
+    model: null as ReturnType<typeof createModel> | null,
+    bindingLoaded: new Promise<void>((resolve) => {
+      loadBinding = resolve
+    }),
+    loadBinding: () => loadBinding(),
+  }
+})
+
+function createModel(initial: string) {
+  let value = initial
+  type Change = { rangeOffset: number; rangeLength: number; text: string }
+  const listeners = new Set<(event: { changes: Change[] }) => void>()
+  const model = {
+    uri: { toString: () => 'inmemory://model/test.json' },
+    getLanguageId: () => 'json',
+    getValue: () => value,
+    getValueLength: () => value.length,
+    getOffsetAt: ({ column }: { lineNumber: number; column: number }) => column - 1,
+    getPositionAt: (offset: number) => ({ lineNumber: 1, column: offset + 1 }),
+    setValue(next: string, notify = true) {
+      if (value === next) return
+      const change = { rangeOffset: 0, rangeLength: value.length, text: next }
+      value = next
+      if (notify) listeners.forEach((listener) => listener({ changes: [change] }))
+    },
+    applyEdits(edits: Array<{ range: IRange; text: string }>) {
+      for (const { range, text } of edits) {
+        const start = model.getOffsetAt({
+          lineNumber: range.startLineNumber,
+          column: range.startColumn,
+        })
+        const end = model.getOffsetAt({ lineNumber: range.endLineNumber, column: range.endColumn })
+        model.setValue(value.slice(0, start) + text + value.slice(end))
+      }
+    },
+    onDidChangeContent(listener: (event: { changes: Change[] }) => void) {
+      listeners.add(listener)
+      return {
+        dispose() {
+          listeners.delete(listener)
+        },
+      }
+    },
+    onWillDispose: () => ({ dispose() {} }),
+  }
+  return model
+}
 
 vi.unmock('@/blocks/registry')
 vi.mock('@/lib/yjs/workflow-session-host', () => ({
@@ -32,25 +83,84 @@ vi.mock('@/lib/yjs/workflow-session-host', () => ({
   useWorkflowSession: () => mocks.session,
 }))
 vi.mock('next/dynamic', async () => {
-  const { useEffect } = await import('react')
+  const { useEffect, useRef, useState } = await import('react')
+  const monaco = await import('monaco-editor')
   return {
     default: () =>
       function MockReactEditor(props: ReactEditorProps) {
-        mocks.editor = props
+        const currentProps = useRef(props)
+        currentProps.current = props
+        const [model] = useState(() => createModel(props.value ?? ''))
+        mocks.model = model
         useEffect(() => {
-          // @monaco-editor/react retains its previous listener when onChange is absent.
-          if (props.onChange) mocks.contentListener = props.onChange
-        }, [props.onChange])
+          const subscription = model.onDidChangeContent(() =>
+            currentProps.current.onChange?.(model.getValue())
+          )
+          const noopSubscription = () => ({ dispose() {} })
+          props.onMount?.(
+            {
+              getModel: () => model,
+              getSelection: () => null,
+              getPosition: () => null,
+              getLayoutInfo: () => ({ width: 600, height: 100, contentLeft: 0 }),
+              getOption: () => ({ top: 0 }),
+              getContentHeight: () => 100,
+              layout() {},
+              deltaDecorations: () => [],
+              ...Object.fromEntries(
+                [
+                  'onDidChangeCursorPosition',
+                  'onKeyDown',
+                  'onKeyUp',
+                  'onMouseDown',
+                  'onDidBlurEditorText',
+                  'onDidFocusEditorText',
+                  'onDidContentSizeChange',
+                  'onDidLayoutChange',
+                  'onDidChangeModelContent',
+                ].map((name) => [name, noopSubscription])
+              ),
+            },
+            monaco
+          )
+          return () => subscription.dispose()
+        }, [model])
+        useEffect(() => {
+          if (props.value !== undefined) model.setValue(props.value, false)
+        }, [model, props.value])
         return null
       },
   }
 })
 vi.mock('@monaco-editor/react', () => ({ loader: { config: vi.fn() } }))
 vi.mock('monaco-editor', () => ({
-  editor: { setTheme: vi.fn() },
+  editor: {
+    setTheme: vi.fn(),
+    getModels: () => [],
+    getModelMarkers: () => [],
+    setModelMarkers: vi.fn(),
+    setModelLanguage: vi.fn(),
+    onDidChangeMarkers: () => ({ dispose() {} }),
+    EditorOption: { padding: 0 },
+  },
   typescript: undefined,
   languages: {},
 }))
+vi.mock('monaco-editor/esm/vs/editor/editor.api.js', () => ({
+  Selection: class {
+    constructor(
+      public startLineNumber: number,
+      public startColumn: number,
+      public endLineNumber: number,
+      public endColumn: number
+    ) {}
+  },
+}))
+vi.mock('y-monaco', async () => {
+  await mocks.bindingLoaded
+  // Inline the binding so its Monaco dependency uses this test's SDK mock.
+  return import('y-monaco?inline' as string) as Promise<typeof import('y-monaco')>
+})
 vi.mock('monaco-editor/esm/vs/language/json/monaco.contribution', () => ({}))
 vi.mock('monaco-editor/esm/vs/language/css/monaco.contribution', () => ({}))
 vi.mock('monaco-editor/esm/vs/language/html/monaco.contribution', () => ({}))
@@ -104,7 +214,14 @@ describe('Code workflow persistence', () => {
 
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
-    mocks.contentListener = undefined
+    mocks.model = null
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {}
+        disconnect() {}
+      }
+    )
     doc = new Y.Doc()
     mocks.session = {
       doc,
@@ -117,10 +234,16 @@ describe('Code workflow persistence', () => {
     act(() => root.unmount())
     doc.destroy()
     mocks.session = null
+    vi.unstubAllGlobals()
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  async function mount(initial: unknown, props: Partial<ComponentProps<typeof Code>> = {}) {
+  async function mount(
+    initial: unknown,
+    props: Partial<ComponentProps<typeof Code>> = {},
+    deferBinding = false
+  ) {
+    if (!deferBinding) mocks.loadBinding()
     const state = createWorkflowSnapshot({
       blocks: {
         agent: {
@@ -156,6 +279,22 @@ describe('Code workflow persistence', () => {
     return extractPersistedStateFromDoc(doc).blocks.agent.subBlocks.responseFormat.value
   }
 
+  it('waits for the collaborative binding module before mounting a writable editor', async () => {
+    const bindingModule = import('y-monaco')
+    await mount(schema, {}, true)
+    try {
+      expect(mocks.model).toBeNull()
+    } finally {
+      await act(async () => {
+        mocks.loadBinding()
+        await bindingModule
+        await vi.dynamicImportSettled()
+      })
+    }
+    expect(mocks.model?.getValue()).toBe(stringifySubBlockValue(schema))
+    expect(stored()).toEqual(schema)
+  })
+
   it.each([
     ['object', schema],
     ['null', null],
@@ -163,7 +302,7 @@ describe('Code workflow persistence', () => {
     'persists manual edits from a stored %s and preserves undo history',
     async (_label, initial) => {
       await mount(initial)
-      expect(mocks.editor.value).toBe(stringifySubBlockValue(initial))
+      expect(mocks.model!.getValue()).toBe(stringifySubBlockValue(initial))
       expect(readWorkflowTextField(doc, 'agent', 'responseFormat')).toBeNull()
       expect(stored()).toEqual(initial)
       const undo = new Y.UndoManager(readWorkflowSubBlockFieldsMap(doc), {
@@ -171,25 +310,34 @@ describe('Code workflow persistence', () => {
         captureTimeout: 0,
       })
       const write = vi.spyOn(doc, 'transact')
-      const edited = JSON.stringify({ name: 'edited', schema: { type: 'object' } })
-      act(() => mocks.contentListener!(edited))
+      const edited = '{"answer":"a"}'
+      act(() => mocks.model!.setValue(edited))
       expect(stored()).toBe(edited)
       expect(readWorkflowTextField(doc, 'agent', 'responseFormat')).toBeInstanceOf(Y.Text)
       expect(write).toHaveBeenCalledOnce()
       expect(write.mock.calls[0][1]).toBe(YJS_ORIGINS.USER)
 
+      write.mockClear()
+      const next = '{"answer":"ab"}'
+      act(() => mocks.model!.setValue(next))
+      expect(stored()).toBe(next)
+      expect(mocks.model!.getValue()).toBe(next)
+      expect(write).toHaveBeenCalledOnce()
+      expect(write.mock.calls[0][1]).not.toBe(YJS_ORIGINS.USER)
+
       act(() => undo.undo())
       expect(stored()).toEqual(initial)
       expect(readWorkflowTextField(doc, 'agent', 'responseFormat')).toBeNull()
+      expect(mocks.model!.getValue()).toBe(stringifySubBlockValue(initial))
       act(() => undo.redo())
-      expect(stored()).toBe(edited)
+      expect(stored()).toBe(next)
+      expect(mocks.model!.getValue()).toBe(next)
       const text = readWorkflowTextField(doc, 'agent', 'responseFormat')!
       write.mockClear()
-      act(() => mocks.contentListener!(`${edited} `))
-      expect(write).not.toHaveBeenCalled()
       act(() => doc.transact(() => text.insert(text.length, ' '), YJS_ORIGINS.USER))
       expect(readWorkflowTextField(doc, 'agent', 'responseFormat')).toBe(text)
-      expect(stored()).toBe(`${edited} `)
+      expect(stored()).toBe(`${next} `)
+      expect(mocks.model!.getValue()).toBe(`${next} `)
       expect(write).toHaveBeenCalledOnce()
       undo.destroy()
     }
@@ -199,7 +347,7 @@ describe('Code workflow persistence', () => {
     'does not persist edits from a noneditable or externally controlled editor: %j',
     async (props) => {
       await mount(schema, props)
-      act(() => mocks.contentListener!('{}'))
+      act(() => mocks.model!.setValue('{}'))
       expect(stored()).toEqual(schema)
       expect(readWorkflowTextField(doc, 'agent', 'responseFormat')).toBeNull()
     }
