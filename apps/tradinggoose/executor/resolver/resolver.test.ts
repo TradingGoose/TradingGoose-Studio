@@ -319,10 +319,11 @@ describe('InputResolver', () => {
 
   describe('Block Reference Resolution', () => {
     it.each([
-      [1704067200, 1704153600],
-      [1704067200000, 1704153600000],
-    ])('preserves historical timestamp bounds resolved from block outputs: %s', (start, end) => {
+      ['custom', 1704067200, 1704153600],
+      ['<variable.stringVar>', 1704067200000, 1704153600000],
+    ])('preserves historical bounds for range %s', (rangePresetId, start, end) => {
       mockContext.blockStates.get('function-block').output = { start, end }
+      mockWorkflowVars.stringVar.value = 'custom'
       vi.mocked(getBlock).mockReturnValueOnce(HistoricalDataBlock)
       const block: SerializedBlock = {
         ...sampleWorkflow.blocks[1],
@@ -333,7 +334,7 @@ describe('InputResolver', () => {
           params: {
             provider: 'alpaca',
             listing: { listing_id: 'AAPL', base_id: '', quote_id: '', listing_type: 'default' },
-            rangePresetId: 'custom',
+            rangePresetId,
             start: '<function.start>',
             end: '<function.end>',
           },

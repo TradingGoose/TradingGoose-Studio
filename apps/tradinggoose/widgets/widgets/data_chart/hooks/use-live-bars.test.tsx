@@ -4,6 +4,7 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getPublicCopy } from '@/i18n/public-copy'
+import { planMarketSeriesRequest } from '@/providers/market/series-planner'
 import { resolveSeriesWindow } from '@/widgets/widgets/data_chart/series-window'
 import type { DataChartDataContext } from '@/widgets/widgets/data_chart/types'
 import { useChartDataLoader } from './use-chart-data-loader'
@@ -124,6 +125,32 @@ describe('useLiveBars', () => {
     expect(onDataUpdated).not.toHaveBeenCalled()
     expect(fetchSeries).toHaveBeenCalledOnce()
     expect(socket.emit).toHaveBeenCalledOnce()
+  })
+
+  it.each([
+    ['1970-02-01T00:00:00.000Z', '1971-07-01T00:00:00.000Z'],
+    ['1970-01-01T00:00:00.000Z', '1970-01-02T00:00:00.000Z'],
+    ['1969-12-31T23:59:59.999Z', '1970-01-01T00:00:00.001Z'],
+  ])('preserves chart millisecond bounds through provider planning: %s', async (start, end) => {
+    const fetchSeries = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ bars: [{ timeStamp: end, close: 11 }] }),
+    })
+    vi.stubGlobal('fetch', fetchSeries)
+    const args = loaderArgs({
+      dataParams: { view: { start: Date.parse(start), end: Date.parse(end) } },
+    })
+    await act(async () => root.render(<LoaderHarness args={args} />))
+    args.listing = { ...listing, listing_id: 'MSFT' }
+    await act(async () => root.render(<LoaderHarness args={args} />))
+
+    const request = JSON.parse(fetchSeries.mock.calls[1][1].body)
+    expect(planMarketSeriesRequest('robinhood', request).window).toEqual({
+      mode: 'absolute',
+      startMs: Date.parse(start),
+      endMs: Date.parse(end),
+    })
+    expect(request.windows).toEqual([{ mode: 'absolute', start, end }])
   })
 
   it('keeps All unbounded across listing changes and stops historical backfill', async () => {

@@ -362,7 +362,9 @@ export const useChartDataLoader = ({
       endMs: number,
       allowEmpty = false
     ): Promise<MarketSeries> => {
-      const request: MarketSeriesRequest = {
+      const start = new Date(startMs).toISOString()
+      const end = new Date(endMs).toISOString()
+      return fetchSeriesRequest({
         kind: 'series',
         listing,
         interval: requestInterval,
@@ -370,9 +372,8 @@ export const useChartDataLoader = ({
         providerParams: allowEmpty
           ? { ...(providerParams ?? {}), allowEmpty: true }
           : providerParams,
-        windows: [{ mode: 'absolute', start: startMs, end: endMs }],
-      }
-      return fetchSeriesRequest(request)
+        windows: [{ mode: 'absolute', start, end }],
+      })
     }
 
     const resolveIntervalMs = () =>

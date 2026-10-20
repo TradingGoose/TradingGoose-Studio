@@ -107,6 +107,12 @@ const formatIntervalLabel = (interval: string): string => {
   return `${value} ${unit}${value === 1 ? '' : 's'}`
 }
 
+const customDateCondition = {
+  field: 'rangePresetId',
+  value: DEFAULT_RANGE_PRESETS.map((preset) => preset.id),
+  not: true,
+}
+
 const rangeOptions = [
   { id: 'custom', label: 'Custom dates' },
   ...DEFAULT_RANGE_PRESETS.map((preset) => ({
@@ -277,11 +283,7 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
         ? {
             field: 'provider',
             value: providersWithIntervals,
-            and: {
-              field: 'rangePresetId',
-              value: DEFAULT_RANGE_PRESETS.map((preset) => preset.id),
-              not: true,
-            },
+            and: customDateCondition,
           }
         : undefined,
       dependsOn: ['provider'],
@@ -325,7 +327,7 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
       placeholder: 'Start time',
       timePicker: { hour: true, minute: true, second: false },
       required: true,
-      condition: { field: 'rangePresetId', value: 'custom' },
+      condition: customDateCondition,
     },
     {
       id: 'end',
@@ -335,7 +337,7 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
       placeholder: 'End time',
       timePicker: { hour: true, minute: true, second: false },
       required: true,
-      condition: { field: 'rangePresetId', value: 'custom' },
+      condition: customDateCondition,
     },
   ],
   tools: {
