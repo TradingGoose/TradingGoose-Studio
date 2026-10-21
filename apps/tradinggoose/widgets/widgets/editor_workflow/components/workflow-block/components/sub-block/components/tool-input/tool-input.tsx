@@ -56,7 +56,7 @@ interface ToolInputProps {
 interface StoredTool {
   type: string
   title: string
-  toolId: string // Direct tool ID instead of relying on block mapping
+  toolId: string
   params: Record<string, any>
   isExpanded?: boolean
   schema?: any // For custom tools
@@ -249,11 +249,6 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
     return block.tools.access[0]
   }
 
-  // Initialize tool parameters - no autofill, just return empty params
-  const initializeToolParams = (): Record<string, string> => {
-    return {}
-  }
-
   const addToolToStore = (newTool: StoredTool) => {
     setStoreValue([
       ...selectedTools.map((tool) => ({
@@ -277,12 +272,12 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
     // Check if tool is already selected
     if (isToolAlreadySelected(toolId, toolBlock.type)) return
 
-    // Get tool parameters using the new utility with block type for UI components
-    const toolParams = getLocalizedToolParametersConfig(locale, toolId, toolBlock)
+    const toolParams = getLocalizedToolParametersConfig(locale, toolId, toolBlock, {
+      operation: defaultOperation,
+    })
     if (!toolParams) return
 
-    // Initialize parameters with auto-fill and default values
-    const initialParams = initializeToolParams()
+    const initialParams: Record<string, any> = {}
 
     // Add default values from UI component configurations
     toolParams.userInputParameters.forEach((param) => {
@@ -347,7 +342,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
           schema: mcpTool.inputSchema,
         }
 
-        handleMcpToolSelect(newTool)
+        addToolToStore(newTool)
       }
       setToolSelectorValue(undefined)
       return
@@ -397,12 +392,10 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
 
     const dependentParamIds = (() => {
       const toolBlock = allToolBlocks.find((block) => block.type === tool.type)
-      const toolParams = getLocalizedToolParametersConfig(
-        locale,
-        tool.toolId,
-        toolBlock,
-        tool.params
-      )
+      const toolParams = getLocalizedToolParametersConfig(locale, tool.toolId, toolBlock, {
+        ...tool.params,
+        operation: tool.operation,
+      })
       const params = toolParams?.userInputParameters ?? []
       const dependencyMap = new Map<string, string[]>()
 
@@ -469,15 +462,15 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
 
     // Get parameters for the new tool
     const toolBlock = allToolBlocks.find((block) => block.type === tool.type)
-    const toolParams = getLocalizedToolParametersConfig(locale, newToolId, toolBlock, tool.params)
+    const toolParams = getLocalizedToolParametersConfig(locale, newToolId, toolBlock, {
+      ...tool.params,
+      operation,
+    })
 
     if (!toolParams) {
       logger.info('❌ Early return: no toolParams')
       return
     }
-
-    // Initialize parameters for the new operation
-    const initialParams = initializeToolParams()
 
     // Preserve ALL existing parameters that also exist in the new tool configuration
     // This mimics how regular blocks work - each field maintains its state independently
@@ -508,7 +501,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
               ...tool,
               toolId: newToolId,
               operation,
-              params: { ...initialParams, ...preservedParams },
+              params: preservedParams,
             }
           : tool
       )
@@ -561,10 +554,6 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
     setDragOverIndex(null)
   }
 
-  const handleMcpToolSelect = (newTool: StoredTool) => {
-    addToolToStore(newTool)
-  }
-
   const handleDrop = (e: React.DragEvent, dropIndex: number) => {
     if (disabled || draggedIndex === null || draggedIndex === dropIndex) return
     e.preventDefault()
@@ -599,89 +588,27 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
     return <Icon className={className} style={style} />
   }
 
-  // Check if tool has OAuth requirements
-  const toolRequiresOAuth = (toolId: string): boolean => {
-    const toolParams = getLocalizedToolParametersConfig(locale, toolId)
-    return toolParams?.toolConfig?.oauth?.required || false
-  }
-
-  // Get OAuth configuration for tool
-  const getToolOAuthConfig = (toolId: string) => {
-    const toolParams = getLocalizedToolParametersConfig(locale, toolId)
-    return toolParams?.toolConfig?.oauth
-  }
-
-  // Evaluate parameter conditions to determine if parameter should be shown
-  const evaluateParameterCondition = (param: any, tool: StoredTool): boolean => {
-    if (!('uiComponent' in param) || !param.uiComponent?.condition) return true
-
-    const condition = param.uiComponent.condition
-    const currentValues: Record<string, any> = {
-      ...tool.params,
-      operation: tool.operation,
-    }
-
-    return evaluateSubBlockConditionValues(condition, currentValues)
-  }
-
   // Tool parameters render through the same SubBlock path as first-class block fields.
   const renderParameterInput = (
     param: ToolParameterConfig,
     toolIndex: number,
     currentToolParams: Record<string, any>,
-    currentToolContext: Record<string, any>,
-    toolId: string
+    currentToolContext: Record<string, any>
   ) => {
     const uiComponent = param.uiComponent
-    const providerType =
-      uiComponent?.providerType || (toolId?.startsWith('trading_') ? 'trading' : 'market')
     const subBlock: SubBlockConfig = {
+      ...uiComponent,
       id: uiComponent?.subBlockId ?? param.id,
       type: (uiComponent?.type || 'short-input') as SubBlockConfig['type'],
       title: uiComponent?.title ?? getLocalizedToolParameterLabel(locale, param.id),
       canonicalParamId: param.id,
-      options: uiComponent?.options,
       placeholder: uiComponent?.placeholder || param.description,
-      description: uiComponent?.description,
-      tooltip: uiComponent?.tooltip,
       required: param.required,
-      fetchOptionsCondition: uiComponent?.fetchOptionsCondition,
       password: uiComponent?.password || isPasswordParameter(param.id),
-      inputType: uiComponent?.inputType,
-      provider: uiComponent?.provider,
-      serviceId: uiComponent?.serviceId,
-      requiredScopes: uiComponent?.requiredScopes,
-      providerType,
-      marketProviderKind: uiComponent?.marketProviderKind,
-      tradingProviderKind: uiComponent?.tradingProviderKind,
-      tradingProviderFieldId: uiComponent?.tradingProviderFieldId,
-      enableSearch: uiComponent?.enableSearch,
-      searchPlaceholder: uiComponent?.searchPlaceholder,
-      mimeType: uiComponent?.mimeType,
-      columns: uiComponent?.columns,
-      min: uiComponent?.min,
-      max: uiComponent?.max,
-      step: uiComponent?.step,
-      integer: uiComponent?.integer,
-      rows: uiComponent?.rows,
-      timezone: uiComponent?.timezone,
-      clearable: uiComponent?.clearable,
-      hideCalendarIcon: uiComponent?.hideCalendarIcon,
-      minDate: uiComponent?.minDate,
-      maxDate: uiComponent?.maxDate,
-      hideTime: uiComponent?.hideTime,
-      use12HourFormat: uiComponent?.use12HourFormat,
-      timePicker: uiComponent?.timePicker,
-      language: uiComponent?.language as SubBlockConfig['language'],
-      generationType: uiComponent?.generationType as SubBlockConfig['generationType'],
       acceptedTypes: Array.isArray(uiComponent?.acceptedTypes)
         ? uiComponent.acceptedTypes.join(',')
         : uiComponent?.acceptedTypes,
-      multiple: uiComponent?.multiple,
-      maxSize: uiComponent?.maxSize,
-      autoSelectFirstOption: uiComponent?.autoSelectFirstOption,
       value: uiComponent?.value as SubBlockConfig['value'],
-      dependsOn: uiComponent?.dependsOn,
       fetchOptions: uiComponent?.fetchOptions
         ? async (blockId, subBlockId, context) =>
             uiComponent.fetchOptions?.(blockId, subBlockId, {
@@ -739,15 +666,15 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
               !isCustomTool && !isMcpTool
                 ? getToolIdForOperation(tool.type, tool.operation) || tool.toolId
                 : tool.toolId
+            const currentToolContext = { ...tool.params, operation: tool.operation }
 
-            // Get tool parameters using the new utility with block type for UI components
             const toolParams =
               !isCustomTool && !isMcpTool
                 ? getLocalizedToolParametersConfig(
                     locale,
                     currentToolId,
                     toolBlock ?? undefined,
-                    tool.params
+                    currentToolContext
                   )
                 : null
 
@@ -791,10 +718,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
                 ? mcpToolParams
                 : toolParams?.userInputParameters || []
 
-            // Check if tool requires OAuth
-            const requiresOAuth = !isCustomTool && !isMcpTool && toolRequiresOAuth(currentToolId)
-            const oauthConfig =
-              !isCustomTool && !isMcpTool ? getToolOAuthConfig(currentToolId) : null
+            const oauthConfig = toolParams?.toolConfig.oauth
 
             // Tools are always expandable so users can access the interface
             const isExpandedForDisplay = !!tool.isExpanded
@@ -989,7 +913,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
                       })()}
 
                       {/* OAuth credential selector if required */}
-                      {requiresOAuth && oauthConfig && (
+                      {oauthConfig?.required && (
                         <div className='relative min-w-0 space-y-1.5'>
                           <div className='font-medium text-muted-foreground text-xs'>
                             {copy.account}
@@ -1014,13 +938,14 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
 
                       {/* Tool parameters */}
                       {getRenderableToolParameters(displayParams)
-                        .filter((param) => evaluateParameterCondition(param, tool))
+                        .filter((param) =>
+                          evaluateSubBlockConditionValues(
+                            param.uiComponent?.condition,
+                            currentToolContext
+                          )
+                        )
                         .map((param) => {
                           const currentToolParams = tool.params
-                          const currentToolContext = {
-                            ...tool.params,
-                            operation: tool.operation,
-                          }
                           return (
                             <div key={param.id} className='relative min-w-0 space-y-1.5'>
                               <div className='relative w-full min-w-0'>
@@ -1028,8 +953,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
                                   param,
                                   toolIndex,
                                   currentToolParams,
-                                  currentToolContext,
-                                  currentToolId
+                                  currentToolContext
                                 )}
                               </div>
                             </div>

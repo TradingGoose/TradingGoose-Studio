@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
+import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
+import { GoogleDriveBlock } from '@/blocks/blocks/google_drive'
 import { ImageGeneratorBlock } from '@/blocks/blocks/image_generator'
+import { OneDriveBlock } from '@/blocks/blocks/onedrive'
 import type { BlockConfig } from '@/blocks/types'
 import {
   createExecutionToolSchema,
@@ -99,6 +102,34 @@ describe('Tool Parameters Utils', () => {
         )
       }
     })
+
+    it.each([
+      ['Google Drive', GoogleDriveBlock, 'google_drive_upload', 'fileUpload'],
+      ['OneDrive', OneDriveBlock, 'onedrive_upload', 'file'],
+    ] as const)(
+      'preserves selected operations sharing the %s upload tool',
+      (_, block, toolId, fileId) => {
+        for (const operation of ['create_file', 'upload', 'create_file']) {
+          const context = { operation, mimeType: 'text/plain' }
+          const params = getToolParametersConfig(toolId, block, context)!.allParameters
+          for (const [paramId, subBlockId, type, activeOperation] of [
+            ['file', fileId, 'file-upload', 'upload'],
+            ['content', 'content', 'long-input', 'create_file'],
+          ]) {
+            const ui = params.find((param) => param.id === paramId)!.uiComponent
+
+            expect(ui).toMatchObject({
+              subBlockId,
+              type,
+              condition: { field: 'operation', value: activeOperation },
+            })
+            expect(evaluateSubBlockConditionValues(ui?.condition, context)).toBe(
+              operation === activeOperation
+            )
+          }
+        }
+      }
+    )
 
     it.concurrent('selects active canonical variants while retaining inactive metadata', () => {
       const block: BlockConfig = {

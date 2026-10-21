@@ -115,15 +115,17 @@ const matchesConditionValue = (condition: ComponentCondition, value?: string): b
   )
 }
 
-const getOperationIdForTool = (blockConfig: BlockConfig, toolId: string): string | undefined => {
+const getOperationIdsForTool = (blockConfig: BlockConfig, toolId: string): string[] => {
   const operationSubBlock = blockConfig.subBlocks.find((subBlock) => subBlock.id === 'operation')
   const operationOptions = resolveSubBlockOptions(operationSubBlock?.options)
-  if (!Array.isArray(operationOptions)) return undefined
+  if (!Array.isArray(operationOptions)) return []
 
-  return operationOptions.find((option) => {
-    const configuredToolId = blockConfig.tools.config?.tool({ operation: option.id })
-    return configuredToolId === toolId || option.id === toolId
-  })?.id
+  return operationOptions
+    .filter((option) => {
+      const configuredToolId = blockConfig.tools.config?.tool({ operation: option.id })
+      return configuredToolId === toolId || option.id === toolId
+    })
+    .map((option) => option.id)
 }
 
 /**
@@ -149,7 +151,11 @@ export function getToolParametersConfig(
     }
 
     const baseParamEntries = Object.entries(toolConfig.params)
-    const operationId = blockConfig ? getOperationIdForTool(blockConfig, toolId) : undefined
+    const operationIds = blockConfig ? getOperationIdsForTool(blockConfig, toolId) : []
+    const preferredOperation = contextValues?.operation
+    const operationId = operationIds.includes(preferredOperation)
+      ? preferredOperation
+      : operationIds[0]
     const conditionValues = { ...contextValues, operation: operationId ?? toolId }
 
     // Convert tool params to our standard format with UI component info
@@ -173,19 +179,19 @@ export function getToolParametersConfig(
 
           return (
             matchesConditionValue(condition, toolId) ||
-            matchesConditionValue(condition, operationId)
+            operationIds.some((operation) => matchesConditionValue(condition, operation))
           )
         })
         // Retain inactive metadata so the renderer can still apply its visibility condition.
-        let subBlock =
+        let subBlock: SubBlockConfig | undefined =
           candidates.find((candidate) =>
             evaluateSubBlockConditionValues(candidate.condition, conditionValues)
           ) ?? candidates[0]
 
         // Special case: Check if this boolean parameter is part of a checkbox-list
-        if (!subBlock && param.type === 'boolean' && blockConfig) {
+        if (!subBlock && param.type === 'boolean') {
           // Look for a checkbox-list that includes this parameter as an option
-          const checkboxListBlock = blockConfig.subBlocks?.find((sb: SubBlockConfig) => {
+          subBlock = blockConfig.subBlocks.find((sb) => {
             const options = resolveSubBlockOptions(sb.options)
             return (
               sb.type === 'checkbox-list' &&
@@ -193,54 +199,17 @@ export function getToolParametersConfig(
               options.some((opt: any) => opt.id === paramId)
             )
           })
-
-          if (checkboxListBlock) {
-            subBlock = checkboxListBlock
-          }
         }
 
         if (subBlock) {
+          const { id, ...uiComponent } = subBlock
           toolParam.uiComponent = {
-            type: subBlock.type,
-            subBlockId: subBlock.id,
+            ...uiComponent,
+            subBlockId: id,
             options: resolveSubBlockOptions(subBlock.options),
-            placeholder: subBlock.placeholder,
-            description: subBlock.description,
-            tooltip: subBlock.tooltip,
-            password: subBlock.password,
             condition: resolveSubBlockCondition(subBlock.condition),
             fetchOptionsCondition: resolveSubBlockCondition(subBlock.fetchOptionsCondition),
-            title: subBlock.title,
-            mode: subBlock.mode,
-            layout: subBlock.layout,
-            value: subBlock.value,
-            provider: subBlock.provider,
-            serviceId: subBlock.serviceId,
-            requiredScopes: subBlock.requiredScopes,
-            providerType: subBlock.providerType,
-            marketProviderKind: subBlock.marketProviderKind,
-            tradingProviderKind: subBlock.tradingProviderKind,
-            tradingProviderFieldId: subBlock.tradingProviderFieldId,
-            enableSearch: subBlock.enableSearch,
-            searchPlaceholder: subBlock.searchPlaceholder,
-            mimeType: subBlock.mimeType,
-            columns: subBlock.columns,
-            min: subBlock.min,
-            max: subBlock.max,
-            step: subBlock.step,
-            integer: subBlock.integer,
-            format: subBlock.format,
-            timezone: subBlock.timezone,
-            clearable: subBlock.clearable,
-            hideCalendarIcon: subBlock.hideCalendarIcon,
-            language: subBlock.language,
-            generationType: subBlock.generationType,
-            acceptedTypes: subBlock.acceptedTypes,
-            multiple: subBlock.multiple,
-            maxSize: subBlock.maxSize,
-            autoSelectFirstOption: subBlock.autoSelectFirstOption,
             dependsOn: resolveDependsOn(subBlock.dependsOn),
-            fetchOptions: subBlock.fetchOptions,
           }
         }
       }

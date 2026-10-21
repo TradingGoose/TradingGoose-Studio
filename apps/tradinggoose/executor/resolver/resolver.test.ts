@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
+import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { DatadogBlock } from '@/blocks/blocks/datadog'
+import { GmailBlock } from '@/blocks/blocks/gmail'
 import { HistoricalDataBlock } from '@/blocks/blocks/historical_data'
+import { McpBlock } from '@/blocks/blocks/mcp'
+import { TradingActionBlock } from '@/blocks/blocks/trading_action'
 import { getBlock } from '@/blocks/index'
 import { BlockType } from '@/executor/consts'
 import { InputResolver } from '@/executor/resolver/resolver'
@@ -1970,6 +1974,65 @@ describe('InputResolver', () => {
     afterEach(() => {
       mockGetBlock.mockReset()
     })
+
+    const staleMcpInputs = { arguments: { value: '<disabled-block.result>' }, tool: 'stale-tool' }
+    const activeMcpInputs = {
+      ...staleMcpInputs,
+      arguments: { value: '<variable.stringVar>' },
+      server: 'server',
+    }
+    const tradierInputs = { quantity: 5, provider: 'tradier' }
+    it.each([
+      ['missing MCP server', McpBlock, staleMcpInputs, {}],
+      ['empty MCP server', McpBlock, { ...staleMcpInputs, server: '' }, { server: '' }],
+      [
+        'active MCP tool',
+        McpBlock,
+        activeMcpInputs,
+        { ...activeMcpInputs, arguments: { value: 'Hello' } },
+      ],
+      ['omitted Tradier sizing', TradingActionBlock, tradierInputs, tradierInputs],
+      [
+        'inactive Tradier sizing',
+        TradingActionBlock,
+        { ...tradierInputs, orderSizingMode: 'quantity' },
+        tradierInputs,
+      ],
+    ] as const)('resolves inputs for %s', (_, block, params, expected) => {
+      mockGetBlock.mockReturnValue(block)
+      expect(
+        resolver.resolveInputs(
+          {
+            ...sampleWorkflow.blocks[1],
+            metadata: { id: block.type },
+            config: { tool: block.type, params },
+          },
+          mockContext
+        )
+      ).toEqual(expected)
+    })
+
+    it.each([
+      [undefined, false],
+      [{ id: undefined }, false],
+      ['', false],
+      [null, true],
+      [false, true],
+      [0, true],
+    ])(
+      'normalizes only undefined condition controllers to an empty selection: %s',
+      (server, expected) => {
+        expect(evaluateSubBlockConditionValues(McpBlock.subBlocks[1].condition, { server })).toBe(
+          expected
+        )
+        expect(
+          evaluateSubBlockConditionValues(
+            GmailBlock.subBlocks.find((entry) => entry.id === 'messageId')!.condition,
+            { operation: 'read_gmail', folder: server }
+          )
+        ).toBe(!expected)
+      }
+    )
 
     it.each(['update', 'skip'])('resolves out-of-order condition chains for %s', (operation) => {
       mockWorkflowVars.stringVar.value = operation
