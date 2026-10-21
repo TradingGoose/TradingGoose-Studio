@@ -23,12 +23,13 @@ describe('getMarketSeriesRangePresets', () => {
     ['yahoo-finance', '1m', ['1d', '5d', '1w']],
     ['alpha-vantage', '1m', ['1d', '5d', '1w', '1m']],
     ['finnhub', '1m', ['1d', '5d', '1w', '1m', '3m', '6m', '1y']],
-    ['yahoo-finance', '1mo', ['1m', '3m', '6m', '1y', '5y']],
-    ['yahoo-finance', '3mo', ['3m', '6m', '1y', '5y', 'all']],
+    ['yahoo-finance', '1mo', ['3m', '6m', '1y', '5y']],
+    ['yahoo-finance', '3mo', ['6m', '1y', '5y', 'all']],
     ['alpaca', '1m', ['1d', '5d', '1w', '1m', '3m', '6m', '1y']],
     ['alpaca', '2m', ['1d', '5d', '1w', '1m', '3m', '6m', '1y']],
     ['alpaca', '3m', ['1d', '5d', '1w', '1m', '3m', '6m', '1y', '5y']],
-    ['alpaca', '12mo', ['1y', '5y']],
+    ['alpaca', '6mo', ['1y', '5y']],
+    ['alpaca', '12mo', ['5y']],
   ])('filters %s ranges for selected %s candles', (provider, interval, ids) => {
     const presets = getMarketSeriesRangePresets(provider, interval)
     expect(presets.map((preset) => preset.id)).toEqual(ids)

@@ -55,8 +55,8 @@ describe('historical data range selection', () => {
     ['alpaca', '1h', ['1d', '5d', '1w', '1m', '3m', '6m', '1y', '5y']],
     ['yahoo-finance', '1m', ['1d', '5d', '1w']],
     ['yahoo-finance', '30m', ['1d', '5d', '1w', '1m']],
-    ['yahoo-finance', '1mo', ['1m', '3m', '6m', '1y', '5y']],
-    ['yahoo-finance', '3mo', ['3m', '6m', '1y', '5y', 'all']],
+    ['yahoo-finance', '1mo', ['3m', '6m', '1y', '5y']],
+    ['yahoo-finance', '3mo', ['6m', '1y', '5y', 'all']],
   ])(
     'limits %s latest ranges at %s to provider availability',
     async (provider, interval, expectedIds) => {
@@ -207,6 +207,8 @@ describe('historical data range selection', () => {
     { rangePresetId: 'unknown' },
     { provider: 'alpaca', interval: '4h', rangePresetId: '1d' },
     { provider: 'yahoo-finance', interval: '1mo', rangePresetId: '1d' },
+    { provider: 'yahoo-finance', interval: '1mo', rangePresetId: '1m' },
+    { provider: 'yahoo-finance', interval: '3mo', rangePresetId: '3m' },
     { provider: 'yahoo-finance', interval: '1h', rangePresetId: '3m' },
     { provider: 'yahoo-finance', interval: '1h', rangePresetId: 'all' },
     { provider: 'alpaca', rangePresetId: 'all' },

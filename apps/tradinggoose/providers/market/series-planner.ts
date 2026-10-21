@@ -180,7 +180,10 @@ export const getMarketSeriesRangePresets = (
       !window ||
       (window.mode === 'range' &&
         preset.window.mode === 'range' &&
-        (window.rangeMs < intervalMs || window.rangeMs !== rangeToMs(preset.window.range)))
+        // Calendar candles may span longer than their nominal duration.
+        (window.rangeMs < intervalMs ||
+          (interval.endsWith('mo') && window.rangeMs === intervalMs) ||
+          window.rangeMs !== rangeToMs(preset.window.range)))
     )
       continue
     presets.push({ id: preset.id, window: preset.window, interval })
