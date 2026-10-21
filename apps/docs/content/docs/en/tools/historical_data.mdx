@@ -42,7 +42,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "short-input",
             "title": "API Key",
             "layout": "full",
-            "placeholder": "ALPHAVANTAGE_API_KEY",
+            "placeholder": "Enter API key",
             "password": true,
             "description": "Shown when provider is one of 'alpha-vantage', 'alpaca', 'finnhub'."
         },
@@ -152,7 +152,7 @@ Fetch and normalize market series data from registered market providers.
 | --------- | ---- | -------- | ----------- |
 | `provider` | string | Yes | Market data provider id \(e.g., alpaca, finnhub, yahoo-finance\). |
 | `listing` | listingIdentity | Yes | Structured listing payload from TradingGoose Market. |
-| `apiKey` | string | Yes | Alpha Vantage API key. |
+| `apiKey` | string | Yes | API key for the selected provider. |
 | `apiSecret` | string | Yes | Alpaca API secret key. |
 | `feed` | string | Yes | Alpaca data feed \(required for stock bars\). |
 | `interval` | string | No | Series interval/timeframe supported by the provider. |

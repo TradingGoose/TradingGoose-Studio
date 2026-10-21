@@ -40,7 +40,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "short-input",
             "title": "API 密钥",
             "layout": "full",
-            "placeholder": "ALPHAVANTAGE_API_KEY",
+            "placeholder": "输入 API 密钥",
             "password": true,
             "description": "当提供商为 'alpha-vantage'、'alpaca' 或 'finnhub' 时显示。"
         },
@@ -150,7 +150,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 | --------- | ---- | -------- | ----------- |
 | `provider` | string | 是 | 市场数据提供商 ID（例如：alpaca、finnhub、yahoo-finance）。 |
 | `listing` | listingIdentity | 是 | 来自 TradingGoose Market 的结构化标的负载。 |
-| `apiKey` | string | 是 | Alpha Vantage API 密钥。 |
+| `apiKey` | string | 是 | 所选提供商的 API 密钥。 |
 | `apiSecret` | string | 是 | Alpaca API 私钥。 |
 | `feed` | string | 是 | Alpaca 数据源（股票 K 线所需）。 |
 | `interval` | string | 否 | 提供商支持的序列间隔/时间范围。 |

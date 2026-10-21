@@ -40,7 +40,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "short-input",
             "title": "Clave API",
             "layout": "full",
-            "placeholder": "ALPHAVANTAGE_API_KEY",
+            "placeholder": "Introduce tu clave API",
             "password": true,
             "description": "Se muestra cuando el proveedor es uno de 'alpha-vantage', 'alpaca', 'finnhub'."
         },
@@ -150,7 +150,7 @@ Obtiene y normaliza series de mercado de proveedores de mercado registrados.
 | --------- | ---- | -------- | ----------- |
 | `provider` | string | Sí | Id del proveedor de datos de mercado \(p. ej., alpaca, finnhub, yahoo-finance\). |
 | `listing` | listingIdentity | Sí | Carga útil estructurada del listado de TradingGoose Market. |
-| `apiKey` | string | Sí | Clave API de Alpha Vantage. |
+| `apiKey` | string | Sí | Clave API del proveedor seleccionado. |
 | `apiSecret` | string | Sí | Clave secreta de API de Alpaca. |
 | `feed` | string | Sí | Feed de datos de Alpaca \(obligatorio para barras de acciones\). |
 | `interval` | string | No | Intervalo/periodo de la serie admitido por el proveedor. |
