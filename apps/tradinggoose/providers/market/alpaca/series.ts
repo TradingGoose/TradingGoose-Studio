@@ -5,6 +5,7 @@ import {
   alpacaProviderConfig,
 } from '@/providers/market/alpaca/config'
 import { toDate } from '@/providers/market/market-hours/date-utils'
+import { intervalToMs } from '@/providers/market/series-planner'
 import { rangeToMs } from '@/providers/market/series-window'
 import type {
   MarketBar,
@@ -106,25 +107,30 @@ export async function fetchAlpacaSeries(request: MarketSeriesRequest): Promise<M
   let start = toDate(request.start)?.toISOString()
   let end = toDate(request.end)?.toISOString()
   const window = request.windows?.[0]
-
-  if (!start && !end && window?.mode === 'range') {
-    const rangeMs = rangeToMs(window.range)
-    const endMs =
-      market === 'crypto'
-        ? Date.now()
-        : Date.parse((await fetchLatestBarTimestamp(symbol, feed, headers)) ?? '')
-    if (rangeMs && Number.isFinite(endMs)) {
-      end = new Date(endMs).toISOString()
-      start = new Date(endMs - rangeMs).toISOString()
-    }
-  }
-
   const limit = Number(request.providerParams?.limit)
   const bounded = Boolean(start || end || request.windows?.length)
   const countLimit =
     !bounded && Number.isFinite(limit) && limit > 0
       ? Math.min(Math.max(1, Math.floor(limit)), ALPACA_PAGE_SIZE)
       : undefined
+  const rangeMs =
+    window?.mode === 'range'
+      ? rangeToMs(window.range)
+      : countLimit
+        ? countLimit * intervalToMs(interval)!
+        : null
+
+  if (!start && !end && rangeMs) {
+    const endMs =
+      market === 'crypto'
+        ? Date.now()
+        : Date.parse((await fetchLatestBarTimestamp(symbol, feed, headers)) ?? '')
+    if (Number.isFinite(endMs)) {
+      end = new Date(endMs).toISOString()
+      start = new Date(Math.max(0, endMs - rangeMs)).toISOString()
+    }
+  }
+
   const pageLimit = bounded ? ALPACA_PAGE_SIZE : countLimit
   const sort =
     (request.providerParams?.sort as string | undefined) || (countLimit ? 'desc' : undefined)
