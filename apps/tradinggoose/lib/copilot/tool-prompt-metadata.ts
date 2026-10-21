@@ -54,7 +54,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   edit_workflow_block: {
     description:
-      'Default tool for one existing block config change. Patch one existing workflow block without changing workflow connections, graph structure, loops, parallels, condition branches, or adding or removing blocks. Use exact argument keys `entityId`, `blockId`, optional `blockType`, optional `name`, optional `enabled`, and optional `subBlocks` mapping canonical sub-block ids to new values. Use `read_workflow` first for the exact `blockId`, and use `get_blocks_metadata` before editing `subBlocks`. If a previous `edit_workflow` attempt only needed one block config change, switch to this tool instead of retrying `edit_workflow`.',
+      'Default tool for one existing block config change. Patch one existing workflow block without changing workflow connections, graph structure, container nesting, or adding or removing blocks. Use exact argument keys `entityId`, `blockId`, optional `blockType`, optional `name`, optional `enabled`, and optional `subBlocks` mapping canonical sub-block ids to new values. Use `read_workflow` first for the exact `blockId`, and use `get_blocks_metadata` for canonical parameter ids, options, defaults, bounds, and conditions before editing `subBlocks`. If a previous `edit_workflow` attempt only needed one block config change, switch to this tool instead of retrying `edit_workflow`.',
     kind: 'edit',
     entityKind: 'workflow',
   },

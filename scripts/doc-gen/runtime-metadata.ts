@@ -7,16 +7,10 @@ import type {
   SubBlockCondition,
   SubBlockConfig,
 } from '../../apps/tradinggoose/blocks/types'
-import { getPublicCopy } from '../../apps/tradinggoose/i18n/public-copy'
 import { tools as registeredTools } from '../../apps/tradinggoose/tools/registry'
 import type { ToolConfig } from '../../apps/tradinggoose/tools/types'
 import { TRIGGER_REGISTRY } from '../../apps/tradinggoose/triggers/registry'
 import type { TriggerConfig as RuntimeTriggerConfig } from '../../apps/tradinggoose/triggers/types'
-import {
-  getSubflowPanelCopy,
-  getSubflowPreviewSubBlocks,
-  SubflowBlockConfigs,
-} from '../../apps/tradinggoose/widgets/widgets/editor_workflow/components/subflows/config'
 import { shouldGenerateToolDoc } from './doc-pages'
 import type {
   BlockConfig,
@@ -353,28 +347,9 @@ function toBlockInfo(block: BlockConfig): ToolInfo {
 }
 
 export function getBlockDocConfigs(): BlockConfig[] {
-  const blocks = getAllBlocks()
+  return getAllBlocks()
     .filter((block) => block.category === 'blocks' || block.type === 'evaluator')
     .map((block) => sanitizeBlock(block, Boolean(block.tools.config?.tool)))
-  const copy = getPublicCopy('en').workspace.widgets.workflowEditor
-  for (const kind of ['loop', 'parallel'] as const) {
-    const config = SubflowBlockConfigs[kind]
-    const panel = getSubflowPanelCopy(copy, kind)
-    const subBlocks = getSubflowPreviewSubBlocks(copy, kind).map((subBlock) => {
-      const field = sanitizeSubBlock(subBlock, true, kind)!
-      if (field.id === `${kind}Type`) {
-        field.options = panel.typeOptions.map(({ value, label }) => ({ id: value, label }))
-      }
-      return field
-    })
-    blocks.push({
-      ...config,
-      category: 'blocks',
-      tools: { access: [] },
-      subBlocks,
-    })
-  }
-  return blocks
 }
 
 export function getToolDocConfigs(): BlockConfig[] {

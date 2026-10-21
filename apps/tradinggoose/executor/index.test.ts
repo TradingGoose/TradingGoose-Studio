@@ -162,6 +162,15 @@ describe('Executor', () => {
       expect(() => createTestExecutor(workflow)).not.toThrow()
     })
 
+    it.each([0, -1])('rejects a For loop with %s iterations', (iterations) => {
+      const workflow = createWorkflowWithLoop()
+      workflow.loops.loop1 = { ...workflow.loops.loop1, loopType: 'for', iterations }
+
+      expect(() => createTestExecutor(workflow)).toThrow(
+        'Loop loop1 must have a positive iterations value'
+      )
+    })
+
     it.concurrent('should allow trigger block with incoming connections', () => {
       const workflow = createMinimalWorkflow()
       workflow.connections.push({

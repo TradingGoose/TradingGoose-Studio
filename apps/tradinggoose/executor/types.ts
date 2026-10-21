@@ -154,16 +154,7 @@ export interface ExecutionContext {
   >
 
   // Loop execution tracking
-  loopExecutions?: Map<
-    string,
-    {
-      maxIterations: number
-      loopType: 'for' | 'forEach'
-      forEachItems?: any[] | Record<string, any> | null
-      executionResults: Map<string, any> // iteration_0, iteration_1, etc.
-      currentIteration: number
-    }
-  >
+  loopExecutions?: Map<string, Map<string, any>> // loopId -> iteration key -> outputs
 
   // Mapping for virtual parallel block IDs to their original blocks
   parallelBlockMapping?: Map<

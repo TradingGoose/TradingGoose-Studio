@@ -74,7 +74,7 @@ export type MonacoEditorProps = {
   /**
    * When provided, MonacoBinding from y-monaco binds this Y.Text directly to
    * the editor model for character-level collaborative editing. The `value`
-   * prop is ignored and `onChange` will not fire; all edits flow through Yjs.
+   * prop is ignored; edits flow through Yjs and `onChange` notifies content changes.
    */
   yText?: Y.Text | null
   /**

@@ -1,7 +1,13 @@
 import { getBaseUrl } from '@/lib/urls/utils'
+import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import type { SubBlockConfig } from '@/blocks/types'
 
 type SubBlockStateLike = Record<string, { value?: unknown } | undefined>
+
+export function stringifySubBlockValue(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  return typeof value === 'object' ? (JSON.stringify(value) ?? '') : String(value)
+}
 
 function readStoredSubBlockValue(value: unknown): unknown {
   return typeof value === 'function' ? undefined : value
@@ -30,6 +36,16 @@ function cloneSubBlockValue(value: unknown): unknown {
   return value
 }
 
+export function isSubBlockInMode(
+  subBlock: Pick<SubBlockConfig, 'mode'>,
+  isAdvancedMode?: boolean
+): boolean {
+  return !(
+    (isAdvancedMode === false && subBlock.mode === 'advanced') ||
+    (isAdvancedMode === true && subBlock.mode === 'basic')
+  )
+}
+
 export function buildConfiguredSubBlockParams(args: {
   blockId?: string
   subBlockConfigs: SubBlockConfig[]
@@ -40,8 +56,7 @@ export function buildConfiguredSubBlockParams(args: {
   const params: Record<string, any> = {}
 
   for (const subBlockConfig of subBlockConfigs) {
-    if (isAdvancedMode === false && subBlockConfig.mode === 'advanced') continue
-    if (isAdvancedMode === true && subBlockConfig.mode === 'basic') continue
+    if (!isSubBlockInMode(subBlockConfig, isAdvancedMode)) continue
 
     const resolvedValue = readStoredSubBlockValue(subBlocks?.[subBlockConfig.id]?.value)
     if (resolvedValue !== undefined) {
@@ -97,6 +112,13 @@ export function buildInitialSubBlockStates(
   const resolvedSubBlockParams: Record<string, any> = {}
 
   for (const subBlock of subBlockConfigs) {
+    if (
+      subBlocks[subBlock.id] &&
+      !evaluateSubBlockConditionValues(subBlock.condition, resolvedSubBlockParams)
+    ) {
+      continue
+    }
+
     const resolvedInitialValue = resolveInitialSubBlockValue(
       subBlock,
       resolvedSubBlockParams,

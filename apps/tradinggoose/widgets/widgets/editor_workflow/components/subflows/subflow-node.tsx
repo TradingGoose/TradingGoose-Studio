@@ -12,8 +12,8 @@ import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
+import { getBlock } from '@/blocks'
 import { useCurrentWorkflow } from '@/hooks/workflow'
-import { getSubflowBlockConfig } from '@/widgets/widgets/editor_workflow/components/subflows/config'
 import { ActionBar } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/action-bar/action-bar'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
@@ -98,7 +98,7 @@ export const SubflowNodeComponent = memo(({ data, id, selected }: NodeProps<Subf
   const isLocked = currentBlock?.locked ?? false
 
   const isLoop = data.kind === 'loop'
-  const subflowConfig = getSubflowBlockConfig(data.kind)
+  const subflowConfig = getBlock(data.kind)!
   const startHandleId = isLoop ? 'loop-start-source' : 'parallel-start-source'
   const endHandleId = isLoop ? 'loop-end-source' : 'parallel-end-source'
   const endTargetHandleId = isLoop ? 'loop-end-target' : 'parallel-end-target'

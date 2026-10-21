@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   addBlock: null as ((request: { type: string }) => void) | null,
   dispatch: vi.fn(),
   canEdit: true,
+  blocks: [] as any[],
 }))
 
 vi.mock('@/components/ui/dropdown-menu', () => {
@@ -44,7 +45,7 @@ vi.mock('@/lib/workflows/block-availability', () => ({
   isBlockAvailable: () => true,
 }))
 vi.mock('@/lib/workflows/trigger-utils', () => ({
-  getBlocksForSidebar: () => [],
+  getBlocksForSidebar: () => mocks.blocks,
   getTriggersForSidebar: () => [],
   hasTriggerCapability: () => false,
 }))
@@ -99,5 +100,46 @@ it('disables open toolbar actions when local workspace permission becomes read-o
     [...container.querySelectorAll('button,input')].every((element: any) => element.disabled)
   ).toBe(true)
   act(() => root.unmount())
+  vi.unstubAllGlobals()
+})
+
+it('lists registered containers once and uses the generic click and drag payloads', async () => {
+  mocks.blocks = ['loop', 'parallel'].map((type) => ({
+    type,
+    name: type === 'loop' ? 'Loop' : 'Parallel',
+    description: 'Container',
+    category: 'blocks',
+    bgColor: '#00ccff',
+    icon: () => null,
+  }))
+  mocks.canEdit = true
+  mocks.dispatch.mockClear()
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => ({ ok: true, json: async () => ({}) }))
+  )
+  const container = document.createElement('div')
+  const root = createRoot(container)
+  await act(async () =>
+    root.render(<WorkflowToolbar workspaceId='workspace-1' toolbarScopeId='scope-1' />)
+  )
+
+  const entries = [...container.querySelectorAll<HTMLDivElement>('[draggable="true"]')]
+  expect(entries.map((element) => element.textContent)).toEqual(['Loop', 'Parallel'])
+  for (const [index, type] of ['loop', 'parallel'].entries()) {
+    await act(async () => entries[index].dispatchEvent(new MouseEvent('click', { bubbles: true })))
+    expect(mocks.dispatch).toHaveBeenLastCalledWith({ type, enableTriggerMode: false }, 'scope-1')
+    const dataTransfer = { setData: vi.fn(), effectAllowed: '' }
+    const event = new Event('dragstart', { bubbles: true })
+    Object.defineProperty(event, 'dataTransfer', { value: dataTransfer })
+    entries[index].dispatchEvent(event)
+    expect(dataTransfer.setData).toHaveBeenCalledExactlyOnceWith(
+      'application/json',
+      JSON.stringify({ type, enableTriggerMode: false })
+    )
+  }
+  act(() => root.unmount())
+  mocks.blocks = []
   vi.unstubAllGlobals()
 })

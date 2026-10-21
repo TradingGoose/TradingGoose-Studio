@@ -1,8 +1,23 @@
-import { describe, expect, it, vi } from 'vitest'
-import { checkTagTrigger } from '@/components/ui/tag-dropdown'
+/** @vitest-environment jsdom */
+
+import { act } from 'react'
+import { createRoot, type Root } from 'react-dom/client'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { extractFieldsFromSchema, parseResponseFormatSafely } from '@/lib/response-format'
+import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
+import {
+  useWorkflowBlocks,
+  useWorkflowEdges,
+  useWorkflowLoops,
+  useWorkflowParallels,
+} from '@/lib/yjs/use-workflow-doc'
+import { LoopBlock } from '@/blocks/blocks/loop'
+import { ParallelContainerBlock } from '@/blocks/blocks/parallel_container'
 import type { BlockState } from '@/stores/workflows/workflow/types'
-import { generateLoopBlocks } from '@/stores/workflows/workflow/utils'
+import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/workflow/utils'
+
+vi.unmock('@/blocks/registry')
 
 // Mock getTool function for testing tool output types
 vi.mock('@/lib/get-tool', () => ({
@@ -766,186 +781,118 @@ describe('TagDropdown Trigger Output Parsing', () => {
   })
 })
 
-describe('TagDropdown Loop Suggestions', () => {
-  it.concurrent('should generate correct loop suggestions for forEach loops', () => {
-    const blocks: Record<string, BlockState> = {
-      loop1: {
-        id: 'loop1',
-        type: 'loop',
-        name: 'Test Loop',
+describe('TagDropdown container references', () => {
+  let container: HTMLDivElement
+  let root: Root
+  beforeEach(() => {
+    vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+  })
+  afterEach(() => {
+    act(() => root.unmount())
+    container.remove()
+    vi.unstubAllGlobals()
+  })
+
+  it.each([
+    ['for', LoopBlock, 'function', 'for'],
+    ['forEach', LoopBlock, 'function', 'for'],
+    ['count', ParallelContainerBlock, 'function', 'for'],
+    ['collection', ParallelContainerBlock, 'function', 'for'],
+    ['forEach', LoopBlock, 'loop', 'forEach'],
+    ['for', LoopBlock, 'loop', 'while'],
+    ['for', LoopBlock, 'loop', 'doWhile'],
+  ] as const)(
+    'keeps %s context separate from completed outputs',
+    (mode, config, childType, childMode) => {
+      const child: BlockState = {
+        id: 'child',
+        type: childType,
+        name: 'Child',
         position: { x: 0, y: 0 },
-        subBlocks: {},
+        subBlocks: buildInitialSubBlockStates(childType === 'loop' ? LoopBlock.subBlocks : [], {
+          loopType: childMode,
+        }) as BlockState['subBlocks'],
         outputs: {},
         enabled: true,
-        data: {
-          loopType: 'forEach',
-          collection: '["item1", "item2", "item3"]',
-        },
-      },
-      function1: {
-        id: 'function1',
-        type: 'function',
-        name: 'Function 1',
-        position: { x: 0, y: 0 },
-        subBlocks: {},
-        outputs: {},
-        enabled: true,
-        data: {
-          parentId: 'loop1',
-        },
-      },
-    }
-
-    const loops = generateLoopBlocks(blocks)
-
-    // Verify loop was generated correctly
-    expect(loops.loop1).toBeDefined()
-    expect(loops.loop1.loopType).toBe('forEach')
-    expect(loops.loop1.forEachItems).toEqual(['item1', 'item2', 'item3'])
-    expect(loops.loop1.nodes).toContain('function1')
-
-    // Simulate the tag generation logic from TagDropdown
-    const loopTags: string[] = []
-    const containingLoop = Object.entries(loops).find(([_, loop]) =>
-      loop.nodes.includes('function1')
-    )
-
-    if (containingLoop) {
-      const [_loopId, loop] = containingLoop
-      const loopType = loop.loopType || 'for'
-
-      // Add loop.index for all loop types
-      loopTags.push('loop.index')
-
-      // Add forEach specific properties
-      if (loopType === 'forEach') {
-        loopTags.push('loop.currentItem')
-        loopTags.push('loop.items')
+        data: { parentId: 'container' },
       }
-    }
-
-    // Verify all loop tags are present
-    expect(loopTags).toContain('loop.index')
-    expect(loopTags).toContain('loop.currentItem')
-    expect(loopTags).toContain('loop.items')
-    expect(loopTags).toHaveLength(3)
-  })
-
-  it.concurrent('should only generate loop.index for regular for loops', () => {
-    const blocks: Record<string, BlockState> = {
-      loop1: {
-        id: 'loop1',
-        type: 'loop',
-        name: 'Test Loop',
-        position: { x: 0, y: 0 },
-        subBlocks: {},
-        outputs: {},
-        enabled: true,
-        data: {
-          loopType: 'for',
-          count: 5,
-          collection: '',
+      const blocks = {
+        container: {
+          ...child,
+          id: 'container',
+          type: config.type,
+          name: 'Container',
+          subBlocks: buildInitialSubBlockStates(config.subBlocks, {
+            [config.type === 'loop' ? 'loopType' : 'parallelType']: mode,
+          }) as BlockState['subBlocks'],
+          data: {},
         },
-      },
-      function1: {
-        id: 'function1',
-        type: 'function',
-        name: 'Function 1',
-        position: { x: 0, y: 0 },
-        subBlocks: {},
-        outputs: {},
-        enabled: true,
-        data: {
-          parentId: 'loop1',
-        },
-      },
-    }
-
-    const loops = generateLoopBlocks(blocks)
-
-    // Simulate the tag generation logic
-    const loopTags: string[] = []
-    const containingLoop = Object.entries(loops).find(([_, loop]) =>
-      loop.nodes.includes('function1')
-    )
-
-    if (containingLoop) {
-      const [_loopId, loop] = containingLoop
-      const loopType = loop.loopType || 'for'
-
-      loopTags.push('loop.index')
-
-      if (loopType === 'forEach') {
-        loopTags.push('loop.currentItem')
-        loopTags.push('loop.items')
+        child,
+        after: { ...child, id: 'after', name: 'After', data: {} },
       }
+      vi.mocked(useWorkflowBlocks).mockReturnValue(blocks)
+      vi.mocked(useWorkflowEdges).mockReturnValue([
+        { id: 'inside', source: 'container', target: 'child' },
+        { id: 'outside', source: 'container', target: 'after' },
+      ])
+      vi.mocked(useWorkflowLoops).mockReturnValue(generateLoopBlocks(blocks))
+      vi.mocked(useWorkflowParallels).mockReturnValue(generateParallelBlocks(blocks))
+
+      const onSelect = vi.fn()
+      const render = (
+        blockId: string,
+        activeSourceBlockId: string | null = null,
+        allowContextualTags = true,
+        inputValue = '<'
+      ) => {
+        act(() =>
+          root.render(
+            <TagDropdown
+              visible
+              onSelect={onSelect}
+              blockId={blockId}
+              activeSourceBlockId={activeSourceBlockId}
+              inputValue={inputValue}
+              cursorPosition={
+                inputValue.includes('>') ? inputValue.indexOf('>') : inputValue.length
+              }
+              allowContextualTags={allowContextualTags}
+            />
+          )
+        )
+        return container.innerHTML
+      }
+
+      const selfContext = childType === 'loop' && (childMode === 'while' || childMode === 'doWhile')
+      const collectionContext = !selfContext && (mode === 'forEach' || mode === 'collection')
+      for (const source of [null, 'container']) {
+        const inside = render('child', source)
+        expect(
+          inside.match(new RegExp(`>${selfContext ? 'Child' : 'Container'}<`, 'g'))
+        ).toHaveLength(1)
+        if (selfContext) expect(inside).not.toContain('>Container<')
+        expect(inside).toContain('>index<')
+        expect(inside.includes('>currentItem<')).toBe(collectionContext)
+        expect(inside.includes('>items<')).toBe(collectionContext)
+        expect(inside).not.toContain('>currentIteration<')
+        expect(inside).not.toContain('>results<')
+        expect(render('child', source, false)).not.toContain('>Container<')
+        expect(render('after', source)).toContain('>results<')
+      }
+      expect(render('child', 'child')).not.toContain('>results<')
+
+      act(() =>
+        container.querySelector('button')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      )
+      expect(onSelect).toHaveBeenLastCalledWith(`<${config.type}.index>`)
+      render(selfContext ? 'after' : 'child', null, true, `Use <${config.type}.> after`)
+      act(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })))
+      expect(onSelect).toHaveBeenLastCalledWith(`Use <${config.type}.index> after`)
     }
-
-    // For regular loops, should only have loop.index
-    expect(loopTags).toContain('loop.index')
-    expect(loopTags).not.toContain('loop.currentItem')
-    expect(loopTags).not.toContain('loop.items')
-    expect(loopTags).toHaveLength(1)
-  })
-})
-
-describe('TagDropdown Parallel Suggestions', () => {
-  it.concurrent('should generate correct parallel suggestions', () => {
-    const blocks: Record<string, BlockState> = {
-      parallel1: {
-        id: 'parallel1',
-        type: 'parallel',
-        name: 'Test Parallel',
-        position: { x: 0, y: 0 },
-        subBlocks: {},
-        outputs: {},
-        enabled: true,
-        data: {
-          collection: '["item1", "item2", "item3"]',
-        },
-      },
-      function1: {
-        id: 'function1',
-        type: 'function',
-        name: 'Function 1',
-        position: { x: 0, y: 0 },
-        subBlocks: {},
-        outputs: {},
-        enabled: true,
-        data: {
-          parentId: 'parallel1',
-        },
-      },
-    }
-
-    // Simulate parallel blocks structure (similar to loops)
-    const parallels = {
-      parallel1: {
-        nodes: ['function1'],
-        collection: '["item1", "item2", "item3"]',
-      },
-    }
-
-    // Simulate the tag generation logic for parallel blocks
-    const parallelTags: string[] = []
-    const containingParallel = Object.entries(parallels).find(([_, parallel]) =>
-      parallel.nodes.includes('function1')
-    )
-
-    if (containingParallel) {
-      // Add parallel.index for all parallel blocks
-      parallelTags.push('parallel.index')
-      // Add parallel.currentItem and parallel.items
-      parallelTags.push('parallel.currentItem')
-      parallelTags.push('parallel.items')
-    }
-
-    // Verify all parallel tags are present
-    expect(parallelTags).toContain('parallel.index')
-    expect(parallelTags).toContain('parallel.currentItem')
-    expect(parallelTags).toContain('parallel.items')
-    expect(parallelTags).toHaveLength(3)
-  })
+  )
 })
 
 describe('TagDropdown Variable Suggestions', () => {
@@ -1229,120 +1176,6 @@ describe('TagDropdown Tag Ordering', () => {
     expect(tagIndexMap.get('loop.index')).toBe(1)
     expect(tagIndexMap.get('block.data')).toBe(2)
     expect(tagIndexMap.get('nonexistent')).toBeUndefined()
-  })
-})
-
-describe('TagDropdown Tag Selection Logic', () => {
-  it.concurrent('should handle existing closing bracket correctly when editing tags', () => {
-    const testCases = [
-      {
-        description: 'should remove existing closing bracket from incomplete tag',
-        inputValue: 'Hello <start.>',
-        cursorPosition: 13, // cursor after the dot
-        tag: 'start.input',
-        expectedResult: 'Hello <start.input>',
-      },
-      {
-        description: 'should remove existing closing bracket when replacing tag content',
-        inputValue: 'Hello <start.input>',
-        cursorPosition: 12, // cursor after 'start.'
-        tag: 'start.data',
-        expectedResult: 'Hello <start.data>',
-      },
-      {
-        description: 'should preserve content after closing bracket',
-        inputValue: 'Hello <start.> world',
-        cursorPosition: 13,
-        tag: 'start.input',
-        expectedResult: 'Hello <start.input> world',
-      },
-      {
-        description:
-          'should not affect closing bracket if text between contains invalid characters',
-        inputValue: 'Hello <start.input> and <other>',
-        cursorPosition: 12,
-        tag: 'start.data',
-        expectedResult: 'Hello <start.data> and <other>',
-      },
-      {
-        description: 'should handle case with no existing closing bracket',
-        inputValue: 'Hello <start',
-        cursorPosition: 12,
-        tag: 'start.input',
-        expectedResult: 'Hello <start.input>',
-      },
-    ]
-
-    testCases.forEach(({ description, inputValue, cursorPosition, tag, expectedResult }) => {
-      // Simulate the handleTagSelect logic
-      const textBeforeCursor = inputValue.slice(0, cursorPosition)
-      const textAfterCursor = inputValue.slice(cursorPosition)
-      const lastOpenBracket = textBeforeCursor.lastIndexOf('<')
-
-      // Apply the new logic for handling existing closing brackets
-      const nextCloseBracket = textAfterCursor.indexOf('>')
-      let remainingTextAfterCursor = textAfterCursor
-
-      if (nextCloseBracket !== -1) {
-        const textBetween = textAfterCursor.slice(0, nextCloseBracket)
-        if (/^[a-zA-Z0-9._]*$/.test(textBetween)) {
-          remainingTextAfterCursor = textAfterCursor.slice(nextCloseBracket + 1)
-        }
-      }
-
-      const newValue = `${textBeforeCursor.slice(0, lastOpenBracket)}<${tag}>${remainingTextAfterCursor}`
-
-      expect(newValue).toBe(expectedResult)
-    })
-  })
-
-  it.concurrent('should validate tag-like character regex correctly', () => {
-    const regex = /^[a-zA-Z0-9._]*$/
-
-    // Valid tag-like text
-    expect(regex.test('')).toBe(true) // empty string
-    expect(regex.test('input')).toBe(true)
-    expect(regex.test('content.data')).toBe(true)
-    expect(regex.test('user_name')).toBe(true)
-    expect(regex.test('item123')).toBe(true)
-    expect(regex.test('content.data.item_1')).toBe(true)
-
-    // Invalid tag-like text (should not remove closing bracket)
-    expect(regex.test('input> and more')).toBe(false)
-    expect(regex.test('content data')).toBe(false) // space
-    expect(regex.test('user-name')).toBe(false) // hyphen
-    expect(regex.test('data[')).toBe(false) // bracket
-    expect(regex.test('content.data!')).toBe(false) // exclamation
-  })
-
-  it.concurrent('should find correct position of last open bracket', () => {
-    const testCases = [
-      { input: 'Hello <start', expected: 6 },
-      { input: 'Hello <var> and <start', expected: 16 },
-      { input: 'No brackets here', expected: -1 },
-      { input: '<start', expected: 0 },
-      { input: 'Multiple < < < <last', expected: 15 },
-    ]
-
-    testCases.forEach(({ input, expected }) => {
-      const lastOpenBracket = input.lastIndexOf('<')
-      expect(lastOpenBracket).toBe(expected)
-    })
-  })
-
-  it.concurrent('should find correct position of next closing bracket', () => {
-    const testCases = [
-      { input: 'input>', expected: 5 },
-      { input: 'content.data> more text', expected: 12 },
-      { input: 'no closing bracket', expected: -1 },
-      { input: '>', expected: 0 },
-      { input: 'multiple > > > >last', expected: 9 },
-    ]
-
-    testCases.forEach(({ input, expected }) => {
-      const nextCloseBracket = input.indexOf('>')
-      expect(nextCloseBracket).toBe(expected)
-    })
   })
 })
 

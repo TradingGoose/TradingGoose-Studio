@@ -3463,6 +3463,8 @@
           "watchlist": "Lista de seguimiento"
         },
         "blockDescriptions": {
+          "loop": "Repite secuencialmente los bloques dentro de un contenedor del flujo de trabajo.",
+          "parallel": "Ejecuta copias de un contenedor del flujo de trabajo de forma simultánea.",
           "response": "Envía una respuesta de API estructurada",
           "variables": "Establece variables de ámbito de flujo de trabajo",
           "wait": "Pausa la ejecución del flujo de trabajo durante un tiempo específico",
@@ -3720,6 +3722,69 @@
           }
         },
         "subBlocks": {
+          "loop": {
+            "loopType": {
+              "title": "Tipo de bucle",
+              "description": "Elige un número fijo de iteraciones, una colección o una condición evaluada antes o después de cada iteración.",
+              "options": [
+                {
+                  "id": "for",
+                  "label": "Número de iteraciones"
+                },
+                {
+                  "id": "forEach",
+                  "label": "Por cada elemento"
+                },
+                {
+                  "id": "while",
+                  "label": "Mientras se cumpla"
+                },
+                {
+                  "id": "doWhile",
+                  "label": "Repetir mientras se cumpla"
+                }
+              ]
+            },
+            "iterations": {
+              "title": "Iteraciones",
+              "description": "Número de iteraciones secuenciales en el modo de número fijo; entero entre 1 y 100."
+            },
+            "forEachItems": {
+              "title": "Colección",
+              "description": "Array u objeto no vacío. Acepta valores literales, texto JSON o una referencia exacta como <function.result>. Cada entrada de un objeto se convierte en un par de clave y valor.",
+              "placeholder": "Introduce un array, un objeto o una referencia a un bloque anterior"
+            },
+            "whileCondition": {
+              "title": "Condición",
+              "description": "Expresión booleana para los modos de condición. <loop.index> es el índice de base cero de la iteración evaluada. Admite referencias a bloques anteriores y variables del flujo; proporciona una condición que termine el bucle.",
+              "placeholder": "Introduce una expresión booleana"
+            }
+          },
+          "parallel": {
+            "parallelType": {
+              "title": "Tipo de ejecución en paralelo",
+              "description": "Elige un número fijo de ejecuciones o una ejecución por cada elemento de la colección.",
+              "options": [
+                {
+                  "id": "count",
+                  "label": "Número de ejecuciones"
+                },
+                {
+                  "id": "collection",
+                  "label": "Por cada elemento"
+                }
+              ]
+            },
+            "count": {
+              "title": "Ejecuciones",
+              "description": "Número de ejecuciones en paralelo en el modo de número fijo; entero entre 1 y 20."
+            },
+            "distribution": {
+              "title": "Colección",
+              "description": "Array u objeto en el modo de colección. Acepta valores literales, texto JSON o una referencia exacta como <function.result>. Cada elemento inicia una ejecución; las entradas de un objeto se convierten en pares de clave y valor.",
+              "placeholder": "Introduce un array, un objeto o una referencia a un bloque anterior"
+            }
+          },
           "response": {
             "dataMode": {
               "title": "Modo de datos de Response",
@@ -20215,23 +20280,6 @@
         "renameNode": "Renombrar nodo",
         "locked": "Bloqueado",
         "disabled": "Deshabilitado",
-        "loopTypeLabel": "Tipo de bucle",
-        "parallelTypeLabel": "Tipo en paralelo",
-        "selectType": "Selecciona un tipo",
-        "forLoop": "Bucle for",
-        "forEachLoop": "Bucle for each",
-        "whileLoop": "Bucle while",
-        "doWhileLoop": "Bucle do while",
-        "parallelCount": "Conteo paralelo",
-        "parallelEach": "Cada elemento en paralelo",
-        "loopIterations": "Iteraciones del bucle",
-        "parallelExecutions": "Ejecuciones en paralelo",
-        "whileCondition": "Condición while",
-        "whileConditionPlaceholder": "<counter.value> < 10",
-        "collectionItems": "Elementos de la colección",
-        "collectionItemsPlaceholder": "['item1', 'item2', 'item3']",
-        "parallelItems": "Elementos en paralelo",
-        "enterValueBetween": "Introduce un valor entre 1 y {max}",
         "hideAdditionalFields": "Ocultar campos adicionales",
         "showAdditionalFields": "Mostrar campos adicionales",
         "additionalFields": "Campos adicionales",
@@ -20246,8 +20294,6 @@
           "previousMonth": "Mes anterior",
           "nextMonth": "Mes siguiente"
         },
-        "loop": "Bucle",
-        "parallel": "Paralelo",
         "start": "Inicio",
         "end": "Fin",
         "controlBar": {

@@ -62,6 +62,7 @@ describe('ParallelBlockHandler', () => {
     const parallel: SerializedParallel = {
       id: 'parallel-1',
       nodes: ['agent-1', 'api-1'],
+      parallelType: 'collection',
       distribution: ['item1', 'item2', 'item3'],
     }
 
@@ -104,6 +105,7 @@ describe('ParallelBlockHandler', () => {
     const parallel: SerializedParallel = {
       id: 'parallel-1',
       nodes: ['agent-1'],
+      parallelType: 'collection',
       distribution: ['item1', 'item2'],
     }
 
@@ -149,6 +151,7 @@ describe('ParallelBlockHandler', () => {
     const parallel: SerializedParallel = {
       id: 'parallel-1',
       nodes: ['agent-1'],
+      parallelType: 'collection',
       distribution: ['item1', 'item2'],
     }
 
@@ -207,6 +210,7 @@ describe('ParallelBlockHandler', () => {
     const parallel: SerializedParallel = {
       id: 'parallel-1',
       nodes: ['agent-1'],
+      parallelType: 'collection',
       distribution: { key1: 'value1', key2: 'value2' },
     }
 
@@ -235,6 +239,7 @@ describe('ParallelBlockHandler', () => {
     const parallel: SerializedParallel = {
       id: 'parallel-1',
       nodes: ['agent-1'],
+      parallelType: 'collection',
       distribution: '["a", "b", "c"]',
     }
 
@@ -251,14 +256,15 @@ describe('ParallelBlockHandler', () => {
     expect(context.loopItems.get('parallel-1_items')).toEqual(['a', 'b', 'c'])
   })
 
-  it('should handle parallel without distribution', async () => {
+  it('uses the canonical count configuration', async () => {
     const handler = new ParallelBlockHandler(mockResolver as any)
     const block = createMockBlock('parallel-1')
-    // Ensure block.config.params doesn't have a count
-    block.config.params = {}
+    block.config.params = { count: 20 }
     const parallel: SerializedParallel = {
       id: 'parallel-1',
       nodes: ['agent-1'],
+      parallelType: 'count',
+      count: 1,
     }
 
     const context = createMockContext(parallel)
@@ -281,14 +287,11 @@ describe('ParallelBlockHandler', () => {
     it('should make results available to all downstream blocks', async () => {
       const handler = new ParallelBlockHandler()
       const parallelBlock = createMockBlock('parallel-1')
-      parallelBlock.config.params = {
-        parallelType: 'collection',
-        count: 3,
-      }
 
       const parallel: SerializedParallel = {
         id: 'parallel-1',
         nodes: ['agent-1'],
+        parallelType: 'collection',
         distribution: ['item1', 'item2', 'item3'],
       }
 
@@ -367,17 +370,9 @@ describe('ParallelBlockHandler', () => {
 
       // Create first parallel block
       const parallel1Block = createMockBlock('parallel-1')
-      parallel1Block.config.params = {
-        parallelType: 'collection',
-        count: 2,
-      }
 
       // Create second parallel block (even if not connected)
       const parallel2Block = createMockBlock('parallel-2')
-      parallel2Block.config.params = {
-        parallelType: 'collection',
-        collection: '<parallel.results>', // This references the first parallel
-      }
 
       // Set up context with both parallels
       const context: ExecutionContext = {
@@ -444,11 +439,13 @@ describe('ParallelBlockHandler', () => {
             'parallel-1': {
               id: 'parallel-1',
               nodes: ['agent-1'],
+              parallelType: 'collection',
               distribution: ['item1', 'item2'],
             },
             'parallel-2': {
               id: 'parallel-2',
               nodes: [],
+              parallelType: 'collection',
               distribution: '<parallel.results>',
             },
           },
@@ -493,9 +490,10 @@ describe('ParallelBlockHandler', () => {
     it('should activate children when in active path', async () => {
       const handler = new ParallelBlockHandler(mockResolver as any, mockPathTracker as any)
       const block = createMockBlock('parallel-1')
-      const parallel = {
+      const parallel: SerializedParallel = {
         id: 'parallel-1',
         nodes: ['agent-1'],
+        parallelType: 'collection',
         distribution: ['item1', 'item2'],
       }
 
@@ -521,9 +519,10 @@ describe('ParallelBlockHandler', () => {
     it('should not activate children when not in active path', async () => {
       const handler = new ParallelBlockHandler(mockResolver as any, mockPathTracker as any)
       const block = createMockBlock('parallel-1')
-      const parallel = {
+      const parallel: SerializedParallel = {
         id: 'parallel-1',
         nodes: ['agent-1'],
+        parallelType: 'collection',
         distribution: ['item1', 'item2'],
       }
 
@@ -549,9 +548,10 @@ describe('ParallelBlockHandler', () => {
     it('should handle PathTracker errors gracefully', async () => {
       const handler = new ParallelBlockHandler(mockResolver as any, mockPathTracker as any)
       const block = createMockBlock('parallel-1')
-      const parallel = {
+      const parallel: SerializedParallel = {
         id: 'parallel-1',
         nodes: ['agent-1'],
+        parallelType: 'collection',
         distribution: ['item1', 'item2'],
       }
 

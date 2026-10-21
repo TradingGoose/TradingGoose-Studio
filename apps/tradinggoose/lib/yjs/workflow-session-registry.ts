@@ -3,11 +3,9 @@
 import type * as Y from 'yjs'
 import {
   getVariablesSnapshot,
-  readWorkflowMap,
   readWorkflowSnapshot,
-  readWorkflowTextFieldValue,
+  readWorkflowSubBlockFieldValue,
   type WorkflowSnapshot,
-  YJS_KEYS,
 } from '@/lib/yjs/workflow-session'
 
 export interface RegisteredWorkflowSession {
@@ -85,13 +83,7 @@ export function readSubBlockValue(
 ): any {
   const session = getRegisteredWorkflowSession(workflowId)
   if (!session?.doc) return null
-  const liveTextValue = readWorkflowTextFieldValue(session.doc, blockId, subBlockId)
-  if (liveTextValue !== null) {
-    return liveTextValue
-  }
-  const wMap = readWorkflowMap(session.doc)
-  const blocks = wMap.get(YJS_KEYS.BLOCKS) as Record<string, any> | undefined
-  return blocks?.[blockId]?.subBlocks?.[subBlockId]?.value ?? null
+  return readWorkflowSubBlockFieldValue(session.doc, blockId, subBlockId) ?? null
 }
 
 /**

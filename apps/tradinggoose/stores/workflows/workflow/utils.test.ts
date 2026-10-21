@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
+import { LoopBlock } from '@/blocks/blocks/loop'
+import { ParallelContainerBlock } from '@/blocks/blocks/parallel_container'
 import type { BlockState } from '@/stores/workflows/workflow/types'
 import {
   buildExecutableWorkflowData,
   convertLoopBlockToLoop,
+  convertParallelBlockToParallel,
 } from '@/stores/workflows/workflow/utils'
 
 const block = (id: string, type = 'agent', extra: Partial<BlockState> = {}): BlockState => ({
@@ -10,7 +14,13 @@ const block = (id: string, type = 'agent', extra: Partial<BlockState> = {}): Blo
   type,
   name: id,
   position: { x: 0, y: 0 },
-  subBlocks: {},
+  subBlocks: buildInitialSubBlockStates(
+    type === 'loop'
+      ? LoopBlock.subBlocks
+      : type === 'parallel'
+        ? ParallelContainerBlock.subBlocks
+        : []
+  ) as BlockState['subBlocks'],
   outputs: {},
   enabled: true,
   ...extra,
@@ -39,130 +49,122 @@ describe('buildExecutableWorkflowData', () => {
   })
 })
 
+const configuredBlock = (id: string, type: string, values: Record<string, any>) => {
+  const configured = block(id, type)
+  for (const [key, value] of Object.entries(values)) configured.subBlocks[key].value = value
+  return configured
+}
+
 describe('convertLoopBlockToLoop', () => {
-  it.concurrent('should parse JSON array string for forEach loops', () => {
-    const blocks: Record<string, BlockState> = {
-      loop1: {
-        id: 'loop1',
-        type: 'loop',
-        name: 'Test Loop',
-        position: { x: 0, y: 0 },
-        subBlocks: {},
-        outputs: {},
-        enabled: true,
-        data: {
+  it.concurrent.each(
+    [
+      '["item1", "item2"]',
+      '{"key1": "value1"}',
+      '<blockName.items>',
+      '',
+      [1, 2],
+      { key: 'value' },
+    ].map((forEachItems) => ({ forEachItems }))
+  )(
+    'preserves the canonical collection $forEachItems for runtime evaluation',
+    ({ forEachItems }) => {
+      const blocks = {
+        loop1: configuredBlock('loop1', 'loop', {
           loopType: 'forEach',
-          count: 10,
-          collection: '["item1", "item2", "item3"]',
-        },
-      },
+          iterations: '10',
+          forEachItems,
+        }),
+        child: block('child', 'function', { data: { parentId: 'loop1' } }),
+      }
+
+      expect(convertLoopBlockToLoop('loop1', blocks)).toEqual({
+        id: 'loop1',
+        nodes: ['child'],
+        iterations: 10,
+        loopType: 'forEach',
+        forEachItems,
+      })
+    }
+  )
+
+  it.concurrent.each(['while', 'doWhile'])(
+    'reads %s condition from its canonical sub-block',
+    (loopType) => {
+      const blocks = {
+        loop1: configuredBlock('loop1', 'loop', {
+          loopType,
+          iterations: 8,
+          forEachItems: '["inactive"]',
+          whileCondition: '<counter.value> < 3',
+        }),
+      }
+
+      expect(convertLoopBlockToLoop('loop1', blocks)).toEqual({
+        id: 'loop1',
+        nodes: [],
+        iterations: 8,
+        loopType,
+        whileCondition: '<counter.value> < 3',
+      })
+    }
+  )
+
+  it.concurrent('projects initialized defaults and preserves the inactive collection', () => {
+    const blocks = {
+      loop1: configuredBlock('loop1', 'loop', { forEachItems: '["retained"]' }),
     }
 
-    const result = convertLoopBlockToLoop('loop1', blocks)
+    expect(convertLoopBlockToLoop('loop1', blocks)).toMatchObject({
+      loopType: 'for',
+      iterations: 5,
+      forEachItems: '["retained"]',
+    })
+  })
+})
 
-    expect(result).toBeDefined()
-    expect(result?.loopType).toBe('forEach')
-    expect(result?.forEachItems).toEqual(['item1', 'item2', 'item3'])
-    expect(result?.iterations).toBe(10)
+describe('convertParallelBlockToParallel', () => {
+  it.concurrent('reads count and direct child membership from canonical values', () => {
+    const blocks = {
+      parallel1: configuredBlock('parallel1', 'parallel', {
+        parallelType: 'count',
+        count: '12',
+        distribution: '["inactive"]',
+      }),
+      child: block('child', 'function', { data: { parentId: 'parallel1' } }),
+    }
+
+    expect(convertParallelBlockToParallel('parallel1', blocks)).toEqual({
+      id: 'parallel1',
+      nodes: ['child'],
+      parallelType: 'count',
+      count: 12,
+      distribution: '',
+    })
   })
 
-  it.concurrent('should parse JSON object string for forEach loops', () => {
-    const blocks: Record<string, BlockState> = {
-      loop1: {
-        id: 'loop1',
-        type: 'loop',
-        name: 'Test Loop',
-        position: { x: 0, y: 0 },
-        subBlocks: {},
-        outputs: {},
-        enabled: true,
-        data: {
-          loopType: 'forEach',
-          count: 5,
-          collection: '{"key1": "value1", "key2": "value2"}',
-        },
-      },
+  it.concurrent.each(
+    ['<source.items>', '[1,2]', [1, 2], { item: 1 }, ''].map((distribution) => ({ distribution }))
+  )(
+    'preserves collection-mode distribution $distribution for runtime evaluation',
+    ({ distribution }) => {
+      const blocks = {
+        parallel1: configuredBlock('parallel1', 'parallel', {
+          parallelType: 'collection',
+          distribution,
+        }),
+      }
+
+      expect(convertParallelBlockToParallel('parallel1', blocks)).toMatchObject({
+        parallelType: 'collection',
+        count: 5,
+        distribution,
+      })
     }
+  )
 
-    const result = convertLoopBlockToLoop('loop1', blocks)
-
-    expect(result).toBeDefined()
-    expect(result?.loopType).toBe('forEach')
-    expect(result?.forEachItems).toEqual({ key1: 'value1', key2: 'value2' })
-  })
-
-  it.concurrent('should keep string as-is if not valid JSON', () => {
-    const blocks: Record<string, BlockState> = {
-      loop1: {
-        id: 'loop1',
-        type: 'loop',
-        name: 'Test Loop',
-        position: { x: 0, y: 0 },
-        subBlocks: {},
-        outputs: {},
-        enabled: true,
-        data: {
-          loopType: 'forEach',
-          count: 5,
-          collection: '<blockName.items>',
-        },
-      },
-    }
-
-    const result = convertLoopBlockToLoop('loop1', blocks)
-
-    expect(result).toBeDefined()
-    expect(result?.forEachItems).toBe('<blockName.items>')
-  })
-
-  it.concurrent('should handle empty collection', () => {
-    const blocks: Record<string, BlockState> = {
-      loop1: {
-        id: 'loop1',
-        type: 'loop',
-        name: 'Test Loop',
-        position: { x: 0, y: 0 },
-        subBlocks: {},
-        outputs: {},
-        enabled: true,
-        data: {
-          loopType: 'forEach',
-          count: 5,
-          collection: '',
-        },
-      },
-    }
-
-    const result = convertLoopBlockToLoop('loop1', blocks)
-
-    expect(result).toBeDefined()
-    expect(result?.forEachItems).toBe('')
-  })
-
-  it.concurrent('should handle for loops without collection parsing', () => {
-    const blocks: Record<string, BlockState> = {
-      loop1: {
-        id: 'loop1',
-        type: 'loop',
-        name: 'Test Loop',
-        position: { x: 0, y: 0 },
-        subBlocks: {},
-        outputs: {},
-        enabled: true,
-        data: {
-          loopType: 'for',
-          count: 5,
-          collection: '["should", "not", "matter"]',
-        },
-      },
-    }
-
-    const result = convertLoopBlockToLoop('loop1', blocks)
-
-    expect(result).toBeDefined()
-    expect(result?.loopType).toBe('for')
-    expect(result?.iterations).toBe(5)
-    // For 'for' loops, the collection is still parsed in case it's later changed to forEach
-    expect(result?.forEachItems).toEqual(['should', 'not', 'matter'])
+  it.concurrent('projects initialized count-mode defaults', () => {
+    expect(
+      convertParallelBlockToParallel('parallel1', { parallel1: block('parallel1', 'parallel') })
+    ).toMatchObject({ parallelType: 'count', count: 5, distribution: '' })
   })
 })

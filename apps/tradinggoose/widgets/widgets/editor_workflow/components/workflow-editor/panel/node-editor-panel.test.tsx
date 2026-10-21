@@ -15,8 +15,6 @@ let mockSelectedBlock: any = {
   enabled: true,
   subBlocks: {},
 }
-let mockSelectedLoop: any = null
-let mockSelectedParallel: any = null
 let mockBlockProtection = false
 const mockCollaborativeUpdateBlockName = vi.fn(() => true)
 let mockBlockConfig: any = {
@@ -117,8 +115,6 @@ vi.mock('@/lib/ui/icon-colors', () => ({
 
 vi.mock('@/lib/yjs/use-workflow-doc', () => ({
   useBlock: () => mockSelectedBlock,
-  useLoop: () => mockSelectedLoop,
-  useParallel: () => mockSelectedParallel,
   useBlockProtection: () => mockBlockProtection,
 }))
 
@@ -134,16 +130,7 @@ vi.mock('@/hooks/workflow/use-workflow-editor-actions', () => ({
   useWorkflowEditorActions: () => ({
     collaborativeToggleBlockAdvancedMode: vi.fn(),
     collaborativeUpdateBlockName: mockCollaborativeUpdateBlockName,
-    collaborativeUpdateIterationCollection: vi.fn(),
-    collaborativeUpdateIterationCount: vi.fn(),
-    collaborativeUpdateLoopType: vi.fn(),
-    collaborativeUpdateParallelType: vi.fn(),
   }),
-}))
-
-vi.mock('@/widgets/widgets/editor_workflow/components/subflows/config', () => ({
-  getSubflowBlockConfig: () => undefined,
-  getSubflowPanelCopy: () => null,
 }))
 
 vi.mock('@/widgets/widgets/editor_workflow/components/workflow-render/sub-block-edit-rows', () => ({
@@ -198,8 +185,6 @@ describe('NodeEditorPanel', () => {
       enabled: true,
       subBlocks: {},
     }
-    mockSelectedLoop = null
-    mockSelectedParallel = null
     mockBlockProtection = false
     mockBlockConfig = {
       category: 'blocks',
@@ -381,6 +366,52 @@ describe('NodeEditorPanel', () => {
 
     expect(markup).toContain('No se encontró el nodo')
   })
+
+  it.each([
+    { type: 'loop', modeId: 'loopType', mode: 'forEach', fieldId: 'forEachItems' },
+    { type: 'parallel', modeId: 'parallelType', mode: 'collection', fieldId: 'distribution' },
+  ])(
+    'renders $type configuration through the shared sub-block rows',
+    ({ type, modeId, mode, fieldId }) => {
+      mockSelectedBlock = {
+        id: 'container-1',
+        type,
+        name: 'Research',
+        enabled: true,
+        subBlocks: {
+          [modeId]: { id: modeId, type: 'dropdown', value: mode },
+          [fieldId]: { id: fieldId, type: 'long-input', value: '{{symbols}}' },
+        },
+      }
+      mockBlockConfig = {
+        category: 'blocks',
+        name: 'Container',
+        subBlocks: [
+          { id: modeId, title: 'Mode', type: 'dropdown' },
+          {
+            id: fieldId,
+            title: 'Symbols',
+            type: 'long-input',
+            condition: { field: modeId, value: mode },
+          },
+          {
+            id: 'inactiveField',
+            title: 'Inactive',
+            type: 'short-input',
+            condition: { field: modeId, value: 'inactive' },
+          },
+        ],
+      }
+
+      const markup = renderToStaticMarkup(
+        createElement(NodeEditorPanel, { selectedNodeId: 'container-1' })
+      )
+
+      expect(markup).toContain('data-testid="rows"')
+      expect(markup).toContain('Colección')
+      expect(markup).not.toContain('Inactive')
+    }
+  )
 
   it('renders localized trigger empty-state copy instead of inline English fallback copy', () => {
     mockSelectedBlock = {

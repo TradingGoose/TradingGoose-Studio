@@ -7,8 +7,6 @@ describe('phase 1 add-block event guard', () => {
     const files = [
       'widgets/widgets/editor_workflow/components/workflow-editor/workflow-canvas.tsx',
       'widgets/widgets/editor_workflow/components/toolbar/toolbar-block/toolbar-block.tsx',
-      'widgets/widgets/editor_workflow/components/toolbar/toolbar-loop-block/toolbar-loop-block.tsx',
-      'widgets/widgets/editor_workflow/components/toolbar/toolbar-parallel-block/toolbar-parallel-block.tsx',
       'widgets/widgets/editor_workflow/components/workflow-toolbar/workflow-toolbar.tsx',
     ]
 

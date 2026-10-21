@@ -362,6 +362,7 @@ function buildContainerWorkflowExamples(
         name: params.blockName,
         x: 240,
         y: 120,
+        subBlocks: createTargetSubBlocks(params),
       }),
       [childId]: createBlockState({
         id: childId,
@@ -382,7 +383,7 @@ function buildContainerWorkflowExamples(
             [containerId]: {
               id: containerId,
               nodes: [childId],
-              iterations: 3,
+              iterations: 5,
               loopType: 'for',
             } satisfies Loop,
           } as Record<string, Loop>)
@@ -393,7 +394,7 @@ function buildContainerWorkflowExamples(
             [containerId]: {
               id: containerId,
               nodes: [childId],
-              count: 2,
+              count: 5,
               parallelType: 'count',
             } satisfies Parallel,
           } as Record<string, Parallel>)
@@ -416,6 +417,7 @@ function buildContainerWorkflowExamples(
         name: params.blockName,
         x: 260,
         y: 140,
+        subBlocks: createTargetSubBlocks(params),
       }),
       [childId]: createBlockState({
         id: childId,
@@ -471,7 +473,7 @@ function buildContainerWorkflowExamples(
             [containerId]: {
               id: containerId,
               nodes: [childId],
-              iterations: 3,
+              iterations: 5,
               loopType: 'for',
             } satisfies Loop,
           } as Record<string, Loop>)
@@ -482,7 +484,7 @@ function buildContainerWorkflowExamples(
             [containerId]: {
               id: containerId,
               nodes: [childId],
-              count: 2,
+              count: 5,
               parallelType: 'count',
             } satisfies Parallel,
           } as Record<string, Parallel>)

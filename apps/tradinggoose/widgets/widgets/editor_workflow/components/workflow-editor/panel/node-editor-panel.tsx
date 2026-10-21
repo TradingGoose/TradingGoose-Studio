@@ -2,22 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Panel } from '@xyflow/react'
 import { Check, ChevronDown, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
 import { getIconTileStyle } from '@/lib/ui/icon-colors'
-import { useBlock, useBlockProtection, useLoop, useParallel } from '@/lib/yjs/use-workflow-doc'
+import { useBlock, useBlockProtection } from '@/lib/yjs/use-workflow-doc'
 import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { getBlock } from '@/blocks'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
-import { getSubflowBlockConfig } from '@/widgets/widgets/editor_workflow/components/subflows/config'
 import { buildTriggerEditingLayout } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/trigger-editing-layout'
 import { SubBlockEditRows } from '@/widgets/widgets/editor_workflow/components/workflow-render/sub-block-edit-rows'
 import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
@@ -25,22 +14,6 @@ import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 interface NodeEditorPanelProps {
   selectedNodeId: string | null
 }
-
-type LoopType = 'for' | 'forEach' | 'while' | 'doWhile'
-type ParallelType = 'count' | 'collection'
-type SubflowNodeType = 'loop' | 'parallel'
-
-const LOOP_TYPE_OPTIONS: Array<{ value: LoopType; label: string }> = [
-  { value: 'for', label: 'For Loop' },
-  { value: 'forEach', label: 'For Each' },
-  { value: 'while', label: 'While Loop' },
-  { value: 'doWhile', label: 'Do While Loop' },
-]
-
-const PARALLEL_TYPE_OPTIONS: Array<{ value: ParallelType; label: string }> = [
-  { value: 'count', label: 'Parallel Count' },
-  { value: 'collection', label: 'Parallel Each' },
-]
 
 const panelClassName =
   'allow-scroll !m-2 max-h-[calc(100%-1rem)] min-w-0 w-[calc(100%-1rem)] max-w-96 overflow-y-auto rounded-lg border bg-card shadow-md'
@@ -54,48 +27,16 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
   const { workflowEditorCopy, workflowInspectorCopy } = useWorkflowI18n()
   const canEdit = useOptionalWorkflowSession()?.canEdit === true
   const selectedBlock = useBlock(selectedNodeId ?? '')
-  const selectedLoop = useLoop(selectedNodeId ?? '')
-  const selectedParallel = useParallel(selectedNodeId ?? '')
   const isSelectedBlockProtected = useBlockProtection(selectedNodeId ?? '')
-
-  const selectedSubflowState = useMemo(() => {
-    if (!selectedBlock) {
-      return {
-        blockData: undefined,
-        loop: undefined,
-        parallel: undefined,
-      }
-    }
-
-    return {
-      blockData: selectedBlock.data,
-      loop: selectedLoop ?? undefined,
-      parallel: selectedParallel ?? undefined,
-    }
-  }, [selectedBlock, selectedLoop, selectedParallel])
 
   const blockConfig = useMemo(
     () => (selectedBlock ? getBlock(selectedBlock.type) : undefined),
     [selectedBlock]
   )
 
-  const isSubflow = selectedBlock?.type === 'loop' || selectedBlock?.type === 'parallel'
-  const subflowConfig = useMemo(() => {
-    if (!selectedBlock) return null
-    return getSubflowBlockConfig(selectedBlock.type) ?? null
-  }, [selectedBlock])
-
   const shouldDisableWrite = !canEdit || isSelectedBlockProtected
-  const {
-    collaborativeToggleBlockAdvancedMode,
-    collaborativeUpdateBlockName,
-    collaborativeUpdateIterationCollection,
-    collaborativeUpdateIterationCount,
-    collaborativeUpdateLoopType,
-    collaborativeUpdateParallelType,
-  } = useWorkflowEditorActions()
-
-  const [tempIterationValue, setTempIterationValue] = useState<string | null>(null)
+  const { collaborativeToggleBlockAdvancedMode, collaborativeUpdateBlockName } =
+    useWorkflowEditorActions()
 
   const [isRenaming, setIsRenaming] = useState(false)
   const [editedName, setEditedName] = useState('')
@@ -157,180 +98,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     }
   }, [handleCancelRename, isRenaming, selectedBlock])
 
-  const subflowCurrentType = useMemo(() => {
-    if (!selectedBlock || !isSubflow) return null
-
-    if (selectedBlock.type === 'loop') {
-      return (
-        (selectedSubflowState.loop?.loopType as LoopType | undefined) ||
-        (selectedSubflowState.blockData?.loopType as LoopType | undefined) ||
-        'for'
-      )
-    }
-
-    return (
-      (selectedSubflowState.parallel?.parallelType as ParallelType | undefined) ||
-      (selectedSubflowState.blockData?.parallelType as ParallelType | undefined) ||
-      'count'
-    )
-  }, [
-    isSubflow,
-    selectedBlock,
-    selectedSubflowState.blockData,
-    selectedSubflowState.loop?.loopType,
-    selectedSubflowState.parallel?.parallelType,
-  ])
-
-  const isSubflowCountMode =
-    (selectedBlock?.type === 'loop' && subflowCurrentType === 'for') ||
-    (selectedBlock?.type === 'parallel' && subflowCurrentType === 'count')
-  const isSubflowConditionMode =
-    selectedBlock?.type === 'loop' &&
-    (subflowCurrentType === 'while' || subflowCurrentType === 'doWhile')
-
-  const subflowIterations = useMemo(() => {
-    if (!selectedBlock || !isSubflow) return 5
-
-    if (selectedBlock.type === 'loop') {
-      return selectedSubflowState.loop?.iterations ?? selectedSubflowState.blockData?.count ?? 5
-    }
-
-    return selectedSubflowState.parallel?.count ?? selectedSubflowState.blockData?.count ?? 5
-  }, [
-    isSubflow,
-    selectedBlock,
-    selectedSubflowState.blockData?.count,
-    selectedSubflowState.loop?.iterations,
-    selectedSubflowState.parallel?.count,
-  ])
-
-  const subflowEditorValue = useMemo(() => {
-    if (!selectedBlock || !isSubflow || !subflowCurrentType) return ''
-
-    if (selectedBlock.type === 'loop') {
-      const rawValue = isSubflowConditionMode
-        ? (selectedSubflowState.loop?.whileCondition ??
-          selectedSubflowState.blockData?.whileCondition)
-        : (selectedSubflowState.loop?.forEachItems ?? selectedSubflowState.blockData?.collection)
-
-      if (typeof rawValue === 'string') return rawValue
-      if (rawValue === null || rawValue === undefined) return ''
-      try {
-        return JSON.stringify(rawValue)
-      } catch {
-        return String(rawValue)
-      }
-    }
-
-    const rawValue =
-      selectedSubflowState.parallel?.distribution ?? selectedSubflowState.blockData?.collection
-    if (typeof rawValue === 'string') return rawValue
-    if (rawValue === null || rawValue === undefined) return ''
-    try {
-      return JSON.stringify(rawValue)
-    } catch {
-      return String(rawValue)
-    }
-  }, [
-    isSubflow,
-    isSubflowConditionMode,
-    selectedBlock,
-    selectedSubflowState.blockData?.collection,
-    selectedSubflowState.blockData?.whileCondition,
-    selectedSubflowState.loop?.forEachItems,
-    selectedSubflowState.loop?.whileCondition,
-    selectedSubflowState.parallel?.distribution,
-    subflowCurrentType,
-  ])
-
-  const subflowIterationInputValue = tempIterationValue ?? String(subflowIterations)
-  const subflowMaxIterations = selectedBlock?.type === 'loop' ? 100 : 20
   const selectedBlockDisplayName = selectedBlock ? selectedBlock.name : ''
-
-  const handleSubflowTypeChange = useCallback(
-    (newType: string) => {
-      if (!selectedBlock || !isSubflow || shouldDisableWrite) return
-
-      if (
-        selectedBlock.type === 'loop' &&
-        (newType === 'for' || newType === 'forEach' || newType === 'while' || newType === 'doWhile')
-      ) {
-        collaborativeUpdateLoopType(selectedBlock.id, newType)
-        return
-      }
-
-      if (selectedBlock.type === 'parallel' && (newType === 'count' || newType === 'collection')) {
-        collaborativeUpdateParallelType(selectedBlock.id, newType)
-      }
-    },
-    [
-      collaborativeUpdateLoopType,
-      collaborativeUpdateParallelType,
-      isSubflow,
-      selectedBlock,
-      shouldDisableWrite,
-    ]
-  )
-
-  const handleSubflowIterationsChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      if (shouldDisableWrite) return
-      const sanitizedValue = event.target.value.replace(/[^0-9]/g, '')
-      if (sanitizedValue.length === 0) {
-        setTempIterationValue('')
-        return
-      }
-
-      const parsedValue = Number.parseInt(sanitizedValue, 10)
-      if (Number.isNaN(parsedValue)) {
-        setTempIterationValue(sanitizedValue)
-        return
-      }
-
-      setTempIterationValue(String(Math.min(subflowMaxIterations, parsedValue)))
-    },
-    [shouldDisableWrite, subflowMaxIterations]
-  )
-
-  const handleSubflowIterationsSave = useCallback(() => {
-    if (!selectedBlock || !isSubflow || shouldDisableWrite) return
-
-    const parsedValue = Number.parseInt(subflowIterationInputValue, 10)
-    if (!Number.isNaN(parsedValue)) {
-      const clampedValue = Math.max(1, Math.min(subflowMaxIterations, parsedValue))
-      collaborativeUpdateIterationCount(
-        selectedBlock.id,
-        selectedBlock.type as SubflowNodeType,
-        clampedValue
-      )
-    }
-
-    setTempIterationValue(null)
-  }, [
-    collaborativeUpdateIterationCount,
-    isSubflow,
-    selectedBlock,
-    shouldDisableWrite,
-    subflowIterationInputValue,
-    subflowMaxIterations,
-  ])
-
-  const handleSubflowEditorChange = useCallback(
-    (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-      if (!selectedBlock || !isSubflow || shouldDisableWrite) return
-
-      collaborativeUpdateIterationCollection(
-        selectedBlock.id,
-        selectedBlock.type as SubflowNodeType,
-        event.target.value
-      )
-    },
-    [collaborativeUpdateIterationCollection, isSubflow, selectedBlock, shouldDisableWrite]
-  )
-
-  useEffect(() => {
-    setTempIterationValue(null)
-  }, [selectedBlock?.id, subflowCurrentType])
 
   const {
     regularRows,
@@ -379,7 +147,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
 
   if (selectedBlock.type === 'note') return null
 
-  if (!blockConfig && !isSubflow) {
+  if (!blockConfig) {
     return (
       <Panel
         position='top-right'
@@ -419,12 +187,12 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
                 className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-secondary text-foreground'
                 style={
                   isEnabled
-                    ? getIconTileStyle(isSubflow ? subflowConfig?.bgColor : blockConfig?.bgColor)
+                    ? getIconTileStyle(blockConfig.bgColor)
                     : { backgroundColor: 'gray', color: 'white' }
                 }
               >
                 {(() => {
-                  const Icon = isSubflow ? subflowConfig?.icon : blockConfig?.icon
+                  const Icon = blockConfig.icon
                   return Icon ? <Icon className='h-5 w-5' /> : null
                 })()}
               </div>
@@ -477,81 +245,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
         </div>
       </div>
       <div className='mt-3 space-y-4'>
-        {isSubflow ? (
-          <div className='space-y-4'>
-            <div className='space-y-1'>
-              <Label htmlFor='subflow-type' className='font-medium text-muted-foreground text-xs'>
-                {selectedBlock.type === 'loop' ? 'Loop Type' : 'Parallel Type'}
-              </Label>
-              <Select
-                value={subflowCurrentType ?? null}
-                items={selectedBlock.type === 'loop' ? LOOP_TYPE_OPTIONS : PARALLEL_TYPE_OPTIONS}
-                onValueChange={(value) => {
-                  if (value !== null) handleSubflowTypeChange(value)
-                }}
-                disabled={shouldDisableWrite}
-              >
-                <SelectTrigger id='subflow-type'>
-                  <SelectValue placeholder='Select type' />
-                </SelectTrigger>
-                <SelectContent>
-                  {(selectedBlock.type === 'loop' ? LOOP_TYPE_OPTIONS : PARALLEL_TYPE_OPTIONS).map(
-                    (option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    )
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {isSubflowCountMode ? (
-              <div className='space-y-1'>
-                <Label className='font-medium text-muted-foreground text-xs'>
-                  {selectedBlock.type === 'loop' ? 'Loop Iterations' : 'Parallel Executions'}
-                </Label>
-                <Input
-                  type='text'
-                  inputMode='numeric'
-                  value={subflowIterationInputValue}
-                  onChange={handleSubflowIterationsChange}
-                  onBlur={handleSubflowIterationsSave}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      handleSubflowIterationsSave()
-                    }
-                  }}
-                  disabled={shouldDisableWrite}
-                  placeholder='5'
-                />
-                <p className='text-[11px] text-muted-foreground'>
-                  Enter a value between 1 and {subflowMaxIterations}
-                </p>
-              </div>
-            ) : (
-              <div className='space-y-1'>
-                <Label className='font-medium text-muted-foreground text-xs'>
-                  {isSubflowConditionMode
-                    ? 'While Condition'
-                    : selectedBlock.type === 'loop'
-                      ? 'Collection Items'
-                      : 'Parallel Items'}
-                </Label>
-                <Textarea
-                  value={subflowEditorValue}
-                  onChange={handleSubflowEditorChange}
-                  disabled={shouldDisableWrite}
-                  rows={6}
-                  placeholder={
-                    isSubflowConditionMode ? '<counter.value> < 10' : "['item1', 'item2', 'item3']"
-                  }
-                  className='resize-y font-mono text-xs'
-                />
-              </div>
-            )}
-          </div>
-        ) : regularRows.length === 0 && (!displayAdvancedOptions || advancedRows.length === 0) ? (
+        {regularRows.length === 0 && (!displayAdvancedOptions || advancedRows.length === 0) ? (
           <div className='rounded-md border border-dashed p-3 text-muted-foreground text-xs'>
             {emptyStateMessage}
           </div>

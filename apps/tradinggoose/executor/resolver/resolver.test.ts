@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
+import { DatadogBlock } from '@/blocks/blocks/datadog'
 import { getBlock } from '@/blocks/index'
 import { BlockType } from '@/executor/consts'
 import { InputResolver } from '@/executor/resolver/resolver'
@@ -448,7 +449,8 @@ describe('InputResolver', () => {
       expect(result.regularParam).toBe('Base URL is: https://api.example.com')
     })
 
-    it('should resolve explicit environment variables', () => {
+    it('resolves explicit environment variables and interpolated numeric tool parameters', () => {
+      mockEnvironmentVars.EPOCH_PREFIX = '1700000'
       const block: SerializedBlock = {
         id: 'test-block',
         metadata: { id: 'generic', name: 'Test Block' },
@@ -457,6 +459,8 @@ describe('InputResolver', () => {
           tool: 'generic',
           params: {
             explicitEnv: '{{BASE_URL}}',
+            from: '{{EPOCH_PREFIX}}000',
+            to: '<variable.numberVar>000',
           },
         },
         inputs: {
@@ -469,6 +473,11 @@ describe('InputResolver', () => {
       const result = resolver.resolveInputs(block, mockContext)
 
       expect(result.explicitEnv).toBe('https://api.example.com')
+      expect(result.from).toBe('1700000000')
+      expect(result.to).toBe('42000')
+      expect(
+        DatadogBlock.tools.config!.params!({ operation: 'datadog_query_timeseries', ...result })
+      ).toMatchObject({ from: 1700000000, to: 42000 })
     })
 
     it('should resolve environment variables in all contexts', () => {
@@ -781,7 +790,7 @@ describe('InputResolver', () => {
       expect(resolvedInputs.item).toEqual(['item1']) // Current loop items
     })
 
-    it('should resolve direct loop.index reference without quotes', () => {
+    it('resolves child and nested-loop references in their evaluation scope', () => {
       const loopBlock: SerializedBlock = {
         id: 'loop-1',
         position: { x: 0, y: 0 },
@@ -821,6 +830,19 @@ describe('InputResolver', () => {
         },
       }
 
+      workflow.blocks.push({
+        ...loopBlock,
+        id: 'outer-loop',
+        metadata: { id: BlockType.LOOP, name: 'Renamed Outer' },
+      })
+      workflow.loops['outer-loop'] = {
+        id: 'outer-loop',
+        nodes: [loopBlock.id],
+        iterations: 10,
+        loopType: 'forEach',
+        forEachItems: [{ children: ['nested'] }],
+      }
+
       const resolver = createInputResolver(workflow)
       const context: ExecutionContext = {
         workflowId: 'test',
@@ -830,8 +852,11 @@ describe('InputResolver', () => {
         metadata: { duration: 0 },
         environmentVariables: {},
         decisions: { router: new Map(), condition: new Map() },
-        loopIterations: new Map([['loop-1', 3]]), // Iteration 3 (corresponds to 0-based index 2)
-        loopItems: new Map(),
+        loopIterations: new Map([
+          ['loop-1', 3],
+          ['outer-loop', 9],
+        ]),
+        loopItems: new Map([['outer-loop', { children: ['nested'] }]]),
         completedLoops: new Set(),
         executedBlocks: new Set(),
         activeExecutionPath: new Set(['function-1']),
@@ -841,6 +866,19 @@ describe('InputResolver', () => {
       const resolvedInputs = resolver.resolveInputs(functionBlock, context)
 
       expect(resolvedInputs.index).toBe(2) // Index 2 (adjusted from iteration 3)
+      expect(resolver.getContainingLoopId(loopBlock.id)).toBe('outer-loop')
+      loopBlock.config.params = { index: '<loop.index>' }
+      expect(resolver.resolveInputs(loopBlock, context).index).toBe(8)
+      for (const loopType of ['while', 'doWhile'] as const) {
+        workflow.loops['loop-1'].loopType = loopType
+        expect(resolver.resolveInputs(loopBlock, context).index).toBe(2)
+        expect(resolver.resolveBlockReferences('<loop.index> < 3', context, loopBlock)).toBe(
+          '2 < 3'
+        )
+      }
+      workflow.loops['loop-1'].loopType = 'forEach'
+      loopBlock.config.params = { items: '<loop.currentItem.children>' }
+      expect(resolver.resolveInputs(loopBlock, context).items).toEqual(['nested'])
     })
 
     it('should resolve direct loop.items reference for forEach loops', () => {
@@ -909,73 +947,10 @@ describe('InputResolver', () => {
       const resolvedInputs = resolver.resolveInputs(functionBlock, context)
 
       expect(resolvedInputs.allItems).toEqual(items) // Direct array, not stringified
-    })
-
-    it('uses loop configuration when cached loop items are absent', () => {
-      const loopBlock: SerializedBlock = {
-        id: 'loop-1',
-        position: { x: 0, y: 0 },
-        config: { tool: BlockType.LOOP, params: {} },
-        inputs: {},
-        outputs: {},
-        metadata: { id: BlockType.LOOP, name: 'Test Loop' },
-        enabled: true,
-      }
-
-      const functionBlock: SerializedBlock = {
-        id: 'function-1',
-        position: { x: 0, y: 0 },
-        config: {
-          tool: BlockType.FUNCTION,
-          params: {
-            allItems: '<loop.items>', // Direct reference to all items
-          },
-        },
-        inputs: {},
-        outputs: {},
-        metadata: { id: BlockType.FUNCTION, name: 'Process All Items' },
-        enabled: true,
-      }
-
-      const items = ['item1', 'item2', 'item3']
-      const workflow: SerializedWorkflow = {
-        version: '1.0',
-        blocks: [loopBlock, functionBlock],
-        connections: [],
-        loops: {
-          'loop-1': {
-            id: 'loop-1',
-            nodes: ['function-1'],
-            iterations: 3,
-            loopType: 'forEach',
-            forEachItems: items,
-          },
-        },
-      }
-
-      const resolver = createInputResolver(workflow)
-      const loopItemsMap = new Map<string, any>()
-      loopItemsMap.set('loop-1', 'item1')
-      const context: ExecutionContext = {
-        workflowId: 'test',
-        workspaceId: 'test-workspace-id',
-        blockStates: new Map(),
-        blockLogs: [],
-        metadata: { duration: 0 },
-        environmentVariables: {},
-        decisions: { router: new Map(), condition: new Map() },
-        loopIterations: new Map([['loop-1', 1]]),
-        loopItems: loopItemsMap,
-        completedLoops: new Set(),
-        executedBlocks: new Set(),
-        activeExecutionPath: new Set(['function-1']),
-        workflow,
-      }
-
-      const resolvedInputs = resolver.resolveInputs(functionBlock, context)
-
-      // Should fall back to the items from the loop configuration
-      expect(resolvedInputs.allItems).toEqual(items)
+      context.loopItems.delete('loop-1_items')
+      expect(() => resolver.resolveInputs(functionBlock, context)).toThrow(
+        'Evaluated items not found for loop loop-1'
+      )
     })
   })
 
@@ -996,7 +971,10 @@ describe('InputResolver', () => {
           {
             id: 'function-1',
             position: { x: 0, y: 0 },
-            config: { tool: BlockType.FUNCTION, params: { code: '<parallel.currentItem>' } },
+            config: {
+              tool: BlockType.FUNCTION,
+              params: { code: '<parallel.currentItem>', allItems: '<parallel.items>' },
+            },
             inputs: {},
             outputs: {},
             metadata: { id: BlockType.FUNCTION, name: 'Function 1' },
@@ -1009,6 +987,7 @@ describe('InputResolver', () => {
           'parallel-1': {
             id: 'parallel-1',
             nodes: ['function-1'],
+            parallelType: 'collection',
             distribution: ['item1', 'item2'],
           },
         },
@@ -1024,7 +1003,10 @@ describe('InputResolver', () => {
         environmentVariables: {},
         decisions: { router: new Map(), condition: new Map() },
         loopIterations: new Map([['parallel-1', 0]]),
-        loopItems: new Map([['parallel-1_iteration_0', ['test-item']]]),
+        loopItems: new Map([
+          ['parallel-1_iteration_0', ['test-item']],
+          ['parallel-1_items', ['test-item', 'other-item']],
+        ]),
         completedLoops: new Set(),
         executedBlocks: new Set(),
         activeExecutionPath: new Set(['function-1']),
@@ -1046,6 +1028,11 @@ describe('InputResolver', () => {
       const result = resolver.resolveInputs(block, context)
 
       expect(result.code).toEqual(['test-item'])
+      expect(result.allItems).toEqual(['test-item', 'other-item'])
+      context.loopItems.delete('parallel-1_items')
+      expect(() => resolver.resolveInputs(block, context)).toThrow(
+        'Evaluated items not found for parallel parallel-1'
+      )
     })
 
     it('should resolve parallel references by block name when multiple parallels exist', () => {

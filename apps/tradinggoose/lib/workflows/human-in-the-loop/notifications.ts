@@ -3,7 +3,6 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { workflowPauseLinks } from '@/lib/workflows/human-in-the-loop/links'
 import type { WorkflowPausePoint } from '@/lib/workflows/human-in-the-loop/types'
 import { type ExecutorCheckpoint, restoreExecutionContext } from '@/executor/checkpoint'
-import { LoopManager } from '@/executor/loops/loops'
 import { InputResolver } from '@/executor/resolver/resolver'
 import { executeTool } from '@/tools'
 
@@ -21,8 +20,7 @@ export async function dispatchWorkflowPauseNotifications(
     checkpoint.workflow,
     context.environmentVariables,
     context.workflowVariables ?? {},
-    paths,
-    new LoopManager(checkpoint.workflow.loops)
+    paths
   )
   for (const point of points) {
     const block = checkpoint.workflow.blocks.find((candidate) => candidate.id === point.blockId)

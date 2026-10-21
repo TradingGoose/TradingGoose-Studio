@@ -13,9 +13,10 @@ function matchesConditionValue(condition: SubBlockCondition, rawFieldValue: unkn
 }
 
 export function evaluateSubBlockCondition(
-  condition: SubBlockCondition | (() => SubBlockCondition) | undefined,
+  condition: boolean | SubBlockCondition | (() => SubBlockCondition) | undefined,
   getFieldValue: (field: string) => unknown
 ): boolean {
+  if (typeof condition === 'boolean') return condition
   if (!condition) return true
 
   const actualCondition = typeof condition === 'function' ? condition() : condition
@@ -32,7 +33,7 @@ export function evaluateSubBlockCondition(
 }
 
 export function evaluateSubBlockConditionValues(
-  condition: SubBlockCondition | (() => SubBlockCondition) | undefined,
+  condition: boolean | SubBlockCondition | (() => SubBlockCondition) | undefined,
   values: Record<string, unknown>
 ): boolean {
   return evaluateSubBlockCondition(condition, (field) => values[field])

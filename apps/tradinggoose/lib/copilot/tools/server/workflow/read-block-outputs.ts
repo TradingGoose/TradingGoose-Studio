@@ -6,7 +6,6 @@ import {
   computeBlockOutputReferences,
   extractSubBlockValuesFromBlocks,
   getSubflowInsideOutputReferences,
-  getSubflowOutsideOutputReferences,
   readWorkflowVariableOutputs,
 } from '@/lib/copilot/workflow/block-output-utils'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -34,7 +33,7 @@ export const readBlockOutputsServerTool: BaseServerTool<
     const parallels = snapshot.parallels || {}
     const subBlockValues = extractSubBlockValuesFromBlocks(blocks)
     const variableOutputs = readWorkflowVariableOutputs(variables)
-    const ctx = { blocks, loops, parallels, subBlockValues }
+    const ctx = { blocks, subBlockValues }
     const targetBlockIds =
       args.blockIds && args.blockIds.length > 0 ? args.blockIds : Object.keys(blocks)
 
@@ -49,20 +48,16 @@ export const readBlockOutputsServerTool: BaseServerTool<
         blockId,
         blockName,
         blockType: block.type,
-        outputs: [],
+        outputs: computeBlockOutputReferences(block, ctx, variableOutputs),
       }
 
       if (block.type === 'loop' || block.type === 'parallel') {
         blockOutput.insideSubflowOutputs = getSubflowInsideOutputReferences(
           block.type,
           blockId,
-          blockName,
           loops,
           parallels
         )
-        blockOutput.outsideSubflowOutputs = getSubflowOutsideOutputReferences(blockName)
-      } else {
-        blockOutput.outputs = computeBlockOutputReferences(block, ctx, variableOutputs)
       }
 
       blockOutputs.push(blockOutput)

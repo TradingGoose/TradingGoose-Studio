@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import { Handle, type NodeProps, Position } from '@xyflow/react'
 import { cn } from '@/lib/utils'
-import { getSubflowBlockConfig } from '@/widgets/widgets/editor_workflow/components/subflows/config'
+import { getBlock } from '@/blocks'
 import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 import { getPreviewDiffClasses } from './preview-diff'
 import type { PreviewCanvasSubflowNode, PreviewSubflowData } from './preview-payload-adapter'
@@ -23,7 +23,7 @@ function PreviewSubflowCard({
 }) {
   const { width, height, enabled, kind } = data
   const isLoop = kind === 'loop'
-  const subflowConfig = getSubflowBlockConfig(kind)
+  const subflowConfig = getBlock(kind)!
   const BlockIcon = subflowConfig.icon
   const startHandleId = isLoop ? 'loop-start-source' : 'parallel-start-source'
   const endHandleId = isLoop ? 'loop-end-source' : 'parallel-end-source'

@@ -67,11 +67,12 @@ function resolveSelectedBlockOutput(params: {
 }
 
 function resolveSelectedChatOutput(result: ExecutionResult, selectedOutputs: string[]) {
+  const logs = result.logs?.slice().reverse()
   return selectedOutputs
     .map((outputId) => {
       const blockId = extractBlockIdFromOutputId(outputId)
       const path = extractPathFromOutputId(outputId, blockId)
-      const log = result.logs?.find((entry: BlockLog) => entry.blockId === blockId)
+      const log = logs?.find((entry: BlockLog) => entry.blockId === blockId)
       if (!log) return ''
 
       const value = path ? resolveChatOutputPath(log.output, path) : log.output

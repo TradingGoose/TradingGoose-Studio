@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { GitHubBlock } from '@/blocks/blocks/github'
 import { GmailBlock } from '@/blocks/blocks/gmail'
+import { LoopBlock } from '@/blocks/blocks/loop'
+import { ParallelContainerBlock } from '@/blocks/blocks/parallel_container'
 import { InputTriggerBlock } from '@/triggers/blocks/input_trigger'
 import { PortfolioStateTriggerBlock } from '@/triggers/blocks/portfolio_state_trigger'
 import { apiTrigger } from '@/triggers/core/api'
@@ -111,6 +113,25 @@ function collectNonArrayOptionOverridePaths(
 }
 
 describe('block-editor i18n helpers', () => {
+  it.each(['es', 'zh'] as const)('localizes canonical container fields in %s', (locale) => {
+    for (const block of [LoopBlock, ParallelContainerBlock]) {
+      for (const config of block.subBlocks) {
+        const localized = localizeWorkflowSubBlockConfig(locale, config, block.type)
+        for (const key of ['title', 'description', 'placeholder'] as const) {
+          if (typeof config[key] !== 'string') continue
+          expect(localized[key]).toEqual(expect.any(String))
+          expect(localized[key]).not.toBe(config[key])
+        }
+        if (Array.isArray(config.options)) {
+          expect(
+            Array.isArray(localized.options) && localized.options.map((option) => option.id)
+          ).toEqual(config.options.map((option) => option.id))
+          expect(localized.options).not.toEqual(config.options)
+        }
+      }
+    }
+  })
+
   it('translates workflow labels by canonical key', () => {
     expect(translateWorkflowLabel('zh', 'tools')).toBe('工具')
     expect(translateWorkflowLabel('zh', 'responseFormat')).toBe('响应格式')

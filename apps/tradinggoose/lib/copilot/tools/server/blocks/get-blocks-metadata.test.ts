@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getBlocksMetadataServerTool } from '@/lib/copilot/tools/server/blocks/get-blocks-metadata'
+import { GetBlocksMetadataResult } from '@/lib/copilot/tools/shared/schemas'
 
 const mockGetOAuthProviderAvailability = vi.hoisted(() => vi.fn())
 
@@ -7,8 +8,12 @@ vi.mock('@/lib/oauth/oauth.server', () => ({
   getOAuthProviderAvailability: mockGetOAuthProviderAvailability,
 }))
 
-vi.mock('@/blocks/registry', () => {
+vi.mock('@/blocks/registry', async () => {
+  const { LoopBlock } = await import('@/blocks/blocks/loop')
+  const { ParallelContainerBlock } = await import('@/blocks/blocks/parallel_container')
   const registry = {
+    loop: LoopBlock,
+    parallel: ParallelContainerBlock,
     github: {
       name: 'GitHub',
       longDescription: 'Interact with GitHub repositories.',
@@ -245,5 +250,90 @@ describe('getBlocksMetadataServerTool', () => {
         }),
       ])
     )
+  })
+
+  it('exposes every canonical container parameter through standard block metadata', async () => {
+    const result = GetBlocksMetadataResult.parse(
+      await getBlocksMetadataServerTool.execute({ blockTypes: ['loop', 'parallel'] })
+    )
+    const loop = result.metadata.loop
+    const parallel = result.metadata.parallel
+
+    expect(loop?.subBlocks?.map((field) => field.id)).toEqual([
+      'loopType',
+      'iterations',
+      'forEachItems',
+      'whileCondition',
+    ])
+    expect(loop?.subBlocks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'loopType',
+          defaultValue: 'for',
+          options: [
+            { id: 'for', label: 'For Loop' },
+            { id: 'forEach', label: 'For Each' },
+            { id: 'while', label: 'While' },
+            { id: 'doWhile', label: 'Do While' },
+          ],
+        }),
+        expect.objectContaining({
+          id: 'iterations',
+          inputType: 'number',
+          supportsReferences: false,
+          integer: true,
+          min: 1,
+          max: 100,
+          defaultValue: 5,
+          condition: { field: 'loopType', value: 'for' },
+        }),
+        expect.objectContaining({
+          id: 'forEachItems',
+          defaultValue: '',
+          description: expect.stringContaining('array, object, JSON text'),
+          condition: { field: 'loopType', value: 'forEach' },
+        }),
+        expect.objectContaining({
+          id: 'whileCondition',
+          defaultValue: '',
+          condition: { field: 'loopType', value: ['while', 'doWhile'] },
+        }),
+      ])
+    )
+    expect(parallel?.subBlocks?.map((field) => field.id)).toEqual([
+      'parallelType',
+      'count',
+      'distribution',
+    ])
+    expect(parallel?.subBlocks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'parallelType',
+          defaultValue: 'count',
+          options: [
+            { id: 'count', label: 'Parallel Count' },
+            { id: 'collection', label: 'Parallel Each' },
+          ],
+        }),
+        expect.objectContaining({
+          id: 'count',
+          inputType: 'number',
+          supportsReferences: false,
+          integer: true,
+          min: 1,
+          max: 20,
+          defaultValue: 5,
+          condition: { field: 'parallelType', value: 'count' },
+        }),
+        expect.objectContaining({
+          id: 'distribution',
+          defaultValue: '',
+          description: expect.stringContaining('array, object, JSON text'),
+          condition: { field: 'parallelType', value: 'collection' },
+        }),
+      ])
+    )
+    expect(loop?.inputReferenceGrammar?.hardRequirement).toBe(true)
+    expect(parallel?.inputReferenceGrammar?.hardRequirement).toBe(true)
   })
 })

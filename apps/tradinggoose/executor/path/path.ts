@@ -309,7 +309,7 @@ export class PathTracker {
       if (conn.sourceHandle === 'loop-start-source') {
         context.activeExecutionPath.add(conn.target)
       }
-      // loop-end-source connections will be activated by the loop manager
+      // Loop end paths are activated when the handler completes.
     }
   }
 

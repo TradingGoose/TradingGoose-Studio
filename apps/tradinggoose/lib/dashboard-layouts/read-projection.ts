@@ -1,3 +1,4 @@
+import { isEnvironmentReference } from '@/lib/workflows/references'
 import {
   collectDashboardTopologyReferences,
   DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
@@ -15,8 +16,6 @@ export const DASHBOARD_CREDENTIAL_PLACEHOLDER = '[redacted]'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
-
-const isEnvironmentReference = (value: string) => /^\s*\{\{[^{}]+\}\}\s*$/.test(value)
 
 function alignArrayItem(items: unknown[], item: unknown, index: number): unknown {
   if (isRecord(item) && typeof item.id === 'string') {

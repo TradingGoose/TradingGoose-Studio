@@ -1,19 +1,19 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { VariableManager } from '@/lib/variables/variable-manager'
-import { extractReferencePrefixes, SYSTEM_REFERENCE_PREFIXES } from '@/lib/workflows/references'
+import {
+  extractEnvironmentReferences,
+  extractReferencePrefixes,
+  getLoopContextId,
+  SYSTEM_REFERENCE_PREFIXES,
+} from '@/lib/workflows/references'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { getBlock } from '@/blocks/index'
-import type { LoopManager } from '@/executor/loops/loops'
 import type { ExecutionContext } from '@/executor/types'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 import type { VariableType } from '@/stores/variables/types'
 import { normalizeBlockName } from '@/stores/workflows/utils'
 
 const logger = createLogger('InputResolver')
-
-function resolvePropertyAccess(obj: any, property: string): any {
-  return obj[property]
-}
 
 export class InputResolver {
   private blockById: Map<string, SerializedBlock>
@@ -25,8 +25,7 @@ export class InputResolver {
     private workflow: SerializedWorkflow,
     private environmentVariables: Record<string, string>,
     private workflowVariables: Record<string, any>,
-    public accessibleBlocksMap: Map<string, Set<string>>,
-    private loopManager?: LoopManager
+    public accessibleBlocksMap: Map<string, Set<string>>
   ) {
     // Create maps for efficient lookups
     this.blockById = new Map(workflow.blocks.map((block) => [block.id, block]))
@@ -34,7 +33,7 @@ export class InputResolver {
     // Initialize the normalized name map
     this.blockByNormalizedName = new Map(
       workflow.blocks.map((block) => [
-        block.metadata?.name ? this.normalizeBlockName(block.metadata.name) : block.id,
+        block.metadata?.name ? normalizeBlockName(block.metadata.name) : block.id,
         block,
       ])
     )
@@ -159,29 +158,22 @@ export class InputResolver {
         // Check for direct loop reference pattern: <loop.property>
         const directLoopMatch = trimmedValue.match(/^<loop\.([^>]+)>$/)
         if (directLoopMatch) {
-          // Find which loop this block belongs to using efficient lookup
-          const containingLoopId = this.loopsByBlockId.get(block.id)
+          const loopValue = this.resolveLoopReference(
+            directLoopMatch[1].split('.'),
+            context,
+            block,
+            false
+          )
 
-          if (containingLoopId) {
-            const pathParts = directLoopMatch[1].split('.')
-            const loopValue = this.resolveLoopReference(
-              containingLoopId,
-              pathParts,
-              context,
-              block,
-              false
-            )
-
-            if (loopValue !== null) {
-              // Parse the value if it's a JSON string
-              try {
-                result[key] = JSON.parse(loopValue)
-              } catch {
-                // If it's not valid JSON, use as is
-                result[key] = loopValue
-              }
-              continue
+          if (loopValue !== null) {
+            // Parse the value if it's a JSON string
+            try {
+              result[key] = JSON.parse(loopValue)
+            } catch {
+              // If it's not valid JSON, use as is
+              result[key] = loopValue
             }
+            continue
           }
 
           logger.warn(`Direct loop reference <loop.${directLoopMatch[1]}> could not be resolved.`)
@@ -453,7 +445,7 @@ export class InputResolver {
               if (Array.isArray(replacementValue)) {
                 throw new Error(`Array path "${path}" in trigger block must use an explicit index.`)
               }
-              replacementValue = resolvePropertyAccess(replacementValue, part)
+              replacementValue = replacementValue[part]
             }
 
             if (replacementValue === undefined) {
@@ -535,22 +527,16 @@ export class InputResolver {
 
       // Special case for "loop" references - allows accessing loop properties
       if (blockRef.toLowerCase() === 'loop') {
-        // Find which loop this block belongs to using efficient lookup
-        const containingLoopId = this.loopsByBlockId.get(currentBlock.id)
+        const formattedValue = this.resolveLoopReference(
+          pathParts,
+          context,
+          currentBlock,
+          isInTemplateLiteral
+        )
 
-        if (containingLoopId) {
-          const formattedValue = this.resolveLoopReference(
-            containingLoopId,
-            pathParts,
-            context,
-            currentBlock,
-            isInTemplateLiteral
-          )
-
-          if (formattedValue !== null) {
-            resolvedValue = resolvedValue.replace(raw, formattedValue)
-            continue
-          }
+        if (formattedValue !== null) {
+          resolvedValue = resolvedValue.replace(raw, formattedValue)
+          continue
         }
       }
 
@@ -665,7 +651,7 @@ export class InputResolver {
               `Array path "${path}" in block "${sourceBlock.metadata?.name || sourceBlock.id}" must use an explicit index.`
             )
           }
-          replacementValue = resolvePropertyAccess(replacementValue, part)
+          replacementValue = replacementValue[part]
         }
 
         if (replacementValue === undefined) {
@@ -739,8 +725,8 @@ export class InputResolver {
    */
   resolveEnvVariables(value: any): any {
     if (typeof value === 'string') {
-      const envMatches = value.match(/\{\{([^}]+)\}\}/g)
-      if (envMatches) {
+      const envMatches = extractEnvironmentReferences(value)
+      if (envMatches.length > 0) {
         let resolvedValue = value
         for (const match of envMatches) {
           const envKey = match.slice(2, -2)
@@ -867,7 +853,7 @@ export class InputResolver {
     let rest = part
     if (propMatch) {
       const prop = propMatch[1]
-      value = resolvePropertyAccess(value, prop)
+      value = value[prop]
       rest = part.slice(prop.length)
       if (value === undefined) {
         throw new Error(`No value found at path "${fullPath}" in block "${sourceName}".`)
@@ -895,17 +881,6 @@ export class InputResolver {
     }
 
     return value
-  }
-
-  /**
-   * Normalizes block name for consistent lookups.
-   * Converts to lowercase and removes whitespace.
-   *
-   * @param name - Block name to normalize
-   * @returns Normalized block name
-   */
-  private normalizeBlockName(name: string): string {
-    return name.toLowerCase().replace(/\s+/g, '')
   }
 
   /**
@@ -962,23 +937,8 @@ export class InputResolver {
     currentBlockId: string
   ): { isValid: boolean; resolvedBlockId?: string; errorMessage?: string } {
     // Check if block exists
-    let sourceBlock = this.blockById.get(blockRef)
-    if (!sourceBlock) {
-      const normalizedRef = this.normalizeBlockName(blockRef)
-      sourceBlock = this.blockByNormalizedName.get(normalizedRef)
-
-      if (!sourceBlock) {
-        for (const candidate of this.workflow.blocks) {
-          const candidateName = candidate.metadata?.name
-          if (!candidateName) continue
-          const normalizedName = this.normalizeBlockName(candidateName)
-          if (normalizedName === normalizedRef) {
-            sourceBlock = candidate
-            break
-          }
-        }
-      }
-    }
+    const sourceBlock =
+      this.blockById.get(blockRef) ?? this.blockByNormalizedName.get(normalizeBlockName(blockRef))
 
     if (!sourceBlock) {
       const accessibleNames = this.getAccessibleBlockNamesForError(currentBlockId)
@@ -1002,65 +962,6 @@ export class InputResolver {
     }
 
     return { isValid: true, resolvedBlockId: sourceBlock.id }
-  }
-
-  /**
-   * Gets the items for a forEach loop.
-   * The items can be stored directly in loop.forEachItems or may need to be evaluated.
-   *
-   * @param loop - The loop configuration
-   * @param context - Current execution context
-   * @returns The items to iterate over (array or object)
-   */
-  private getLoopItems(loop: any, context: ExecutionContext): any[] | Record<string, any> | null {
-    if (!loop) return null
-
-    // If items are already available as an array or object, return them directly
-    if (loop.forEachItems) {
-      if (
-        Array.isArray(loop.forEachItems) ||
-        (typeof loop.forEachItems === 'object' && loop.forEachItems !== null)
-      ) {
-        return loop.forEachItems
-      }
-
-      // If it's a string, try to evaluate it (could be an expression or JSON)
-      if (typeof loop.forEachItems === 'string') {
-        try {
-          // Check if it's valid JSON
-          const trimmedExpression = loop.forEachItems.trim()
-          if (trimmedExpression.startsWith('[') || trimmedExpression.startsWith('{')) {
-            try {
-              // Try to parse as JSON first
-              // Handle both JSON format (double quotes) and JS format (single quotes)
-              const normalizedExpression = trimmedExpression
-                .replace(/'/g, '"') // Replace all single quotes with double quotes
-                .replace(/(\w+):/g, '"$1":') // Convert property names to double-quoted strings
-                .replace(/,\s*]/g, ']') // Remove trailing commas before closing brackets
-                .replace(/,\s*}/g, '}') // Remove trailing commas before closing braces
-
-              return JSON.parse(normalizedExpression)
-            } catch (jsonError) {
-              logger.error('Error parsing JSON for loop:', jsonError)
-              // If JSON parsing fails, continue with expression evaluation
-            }
-          }
-
-          // If not valid JSON or JSON parsing failed, try to evaluate as an expression
-          if (trimmedExpression && !trimmedExpression.startsWith('//')) {
-            const result = new Function('context', `return ${loop.forEachItems}`)(context)
-            if (Array.isArray(result) || (typeof result === 'object' && result !== null)) {
-              return result
-            }
-          }
-        } catch (e) {
-          logger.error('Error evaluating forEach items:', e)
-        }
-      }
-    }
-
-    // Default to empty array if no valid items found
-    return []
   }
 
   /**
@@ -1179,7 +1080,6 @@ export class InputResolver {
    * Resolves a loop reference (<loop.property>).
    * Handles currentItem, items, and index references.
    *
-   * @param loopId - ID of the loop
    * @param pathParts - Parts of the reference path after 'loop'
    * @param context - Current execution context
    * @param currentBlock - Block containing the reference
@@ -1187,12 +1087,18 @@ export class InputResolver {
    * @returns Formatted value or null if reference is invalid
    */
   private resolveLoopReference(
-    loopId: string,
     pathParts: string[],
     context: ExecutionContext,
     currentBlock: SerializedBlock,
     isInTemplateLiteral: boolean
   ): string | null {
+    const loopId = getLoopContextId(
+      currentBlock.id,
+      context.workflow?.loops ?? {},
+      this.loopsByBlockId.get(currentBlock.id)
+    )
+    if (!loopId) return null
+
     const loop = context.workflow?.loops[loopId]
     if (!loop) return null
 
@@ -1256,20 +1162,15 @@ export class InputResolver {
           return null
         }
 
-        // Get all items - prefer stored items from context
-        const items = context.loopItems.get(`${loopId}_items`) || this.getLoopItems(loop, context)
-        if (!items) {
-          return '[]'
-        }
+        const items = context.loopItems.get(`${loopId}_items`)
+        if (!items) throw new Error(`Evaluated items not found for loop ${loopId}`)
 
         return this.formatValueForCodeContext(items, currentBlock, isInTemplateLiteral)
       }
 
       case 'index': {
-        // Get the current iteration index
-        const index = context.loopIterations.get(loopId) || 0
-        // Adjust for the fact that the loop handler increments after setting up the iteration
-        const adjustedIndex = Math.max(0, index - 1)
+        // The manager advances the one-based counter after each completed body.
+        const adjustedIndex = (context.loopIterations.get(loopId) ?? 1) - 1
         return this.formatValueForCodeContext(adjustedIndex, currentBlock, isInTemplateLiteral)
       }
 
@@ -1370,13 +1271,10 @@ export class InputResolver {
       }
 
       case 'items': {
-        // Get all items for the parallel distribution
-        const items =
-          context.loopItems.get(`${parallelId}_items`) ||
-          (parallel.distribution && this.getParallelItems(parallel, context))
-        if (!items) {
-          return '[]'
-        }
+        if (parallel.parallelType !== 'collection') return null
+
+        const items = context.loopItems.get(`${parallelId}_items`)
+        if (!items) throw new Error(`Evaluated items not found for parallel ${parallelId}`)
 
         return this.formatValueForCodeContext(items, currentBlock, isInTemplateLiteral)
       }
@@ -1400,56 +1298,6 @@ export class InputResolver {
       default:
         return null
     }
-  }
-
-  /**
-   * Gets the items for a parallel distribution.
-   * Similar to getLoopItems but for parallel blocks.
-   *
-   * @param parallel - The parallel configuration
-   * @param context - Current execution context
-   * @returns The items to distribute (array or object)
-   */
-  private getParallelItems(
-    parallel: any,
-    context: ExecutionContext
-  ): any[] | Record<string, any> | null {
-    if (!parallel || !parallel.distribution) return null
-
-    // If items are already available as an array or object, return them directly
-    if (
-      Array.isArray(parallel.distribution) ||
-      (typeof parallel.distribution === 'object' && parallel.distribution !== null)
-    ) {
-      return parallel.distribution
-    }
-
-    // If it's a string, try to evaluate it (could be an expression or JSON)
-    if (typeof parallel.distribution === 'string') {
-      try {
-        // Check if it's valid JSON
-        const trimmedExpression = parallel.distribution.trim()
-        if (trimmedExpression.startsWith('[') || trimmedExpression.startsWith('{')) {
-          try {
-            return JSON.parse(trimmedExpression)
-          } catch {
-            // Continue with expression evaluation
-          }
-        }
-
-        // Try to evaluate as an expression
-        if (trimmedExpression && !trimmedExpression.startsWith('//')) {
-          const result = new Function('context', `return ${parallel.distribution}`)(context)
-          if (Array.isArray(result) || (typeof result === 'object' && result !== null)) {
-            return result
-          }
-        }
-      } catch (e) {
-        logger.error('Error evaluating parallel distribution items:', e)
-      }
-    }
-
-    return []
   }
 
   /**

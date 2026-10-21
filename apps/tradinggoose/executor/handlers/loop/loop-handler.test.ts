@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { Executor } from '@/executor'
 import { BlockType } from '@/executor/consts'
 import { LoopBlockHandler } from '@/executor/handlers/loop/loop-handler'
 import type { ExecutionContext } from '@/executor/types'
@@ -80,6 +81,81 @@ describe('LoopBlockHandler', () => {
   })
 
   describe('execute', () => {
+    it.each([
+      ['for', '', [0], ''],
+      ['for', '', [0, 1, 2], ''],
+      ['forEach', '', [0], '["single"]'],
+      ['forEach', '', [0, 1, 2], '["a","b","c"]'],
+      ['forEach', '', [0, 1], '{"a":1,"b":2}'],
+      ['while', '<loop.index> < 3', [0, 1, 2], ''],
+      ['doWhile', '<loop.index> < 3', [0, 1, 2], ''],
+      ['while', 'false', [], ''],
+      ['doWhile', 'false', [0], ''],
+    ] as const)(
+      'executes %s with complete iteration outputs (case %#)',
+      async (loopType, condition, expected, collection) => {
+        const workflow = mockContext.workflow!
+        const aggregatesResults = loopType === 'for' || loopType === 'forEach'
+        workflow.loops[mockBlock.id] = {
+          ...workflow.loops[mockBlock.id],
+          loopType,
+          iterations: loopType === 'for' ? expected.length : 0,
+          forEachItems: collection,
+          whileCondition: condition,
+        }
+        mockBlock.config.params = {
+          loopType,
+          iterations: workflow.loops[mockBlock.id].iterations,
+          forEachItems: collection,
+          whileCondition: condition,
+        }
+        workflow.blocks.push(
+          {
+            ...mockBlock,
+            id: 'trigger',
+            metadata: { id: 'input_trigger', name: 'Start', category: 'triggers' },
+            config: { tool: 'input_trigger', params: {} },
+          },
+          {
+            ...mockBlock,
+            id: 'inner-block',
+            metadata: { id: BlockType.RESPONSE, name: 'Body' },
+            config: {
+              tool: 'response',
+              params: { dataMode: 'json', data: '{"index":<loop.index>}' },
+            },
+          },
+          {
+            ...mockBlock,
+            id: 'after-loop',
+            metadata: { id: BlockType.RESPONSE, name: 'After' },
+            config: {
+              tool: 'response',
+              params: {
+                dataMode: 'json',
+                data: aggregatesResults
+                  ? '{"done":true,"results":<testloop.results>}'
+                  : '{"done":true}',
+              },
+            },
+          }
+        )
+        workflow.connections.unshift({ source: 'trigger', target: mockBlock.id })
+        const result = await new Executor({
+          workflow,
+          contextExtensions: { workspaceId: 'test-workspace-id' },
+        }).execute('test-workflow', 'trigger')
+
+        expect(result.success).toBe(true)
+        const bodyLogs = result.logs!.filter((log) => log.blockId === 'inner-block')
+        expect(bodyLogs.map((log) => log.output?.response?.data.index)).toEqual(expected)
+        expect(result.output.response?.data.done).toBe(true)
+        if (aggregatesResults) {
+          expect(result.output.response?.data.results).toEqual(bodyLogs.map((log) => log.output))
+        }
+      }
+    )
+
     it('should initialize loop on first execution', async () => {
       const result = await handler.execute(mockBlock, {}, mockContext)
 
@@ -95,19 +171,24 @@ describe('LoopBlockHandler', () => {
     })
 
     it('should activate loop-end-source when iterations complete', async () => {
+      mockContext.blockStates.set('loop-1', {
+        output: await handler.execute(mockBlock, {}, mockContext),
+        executed: true,
+        executionTime: 0,
+      })
       mockContext.loopIterations.set('loop-1', 4)
 
       const result = await handler.execute(mockBlock, {}, mockContext)
 
-      expect(mockContext.completedLoops.has('loop-1')).toBe(false)
-      expect(mockContext.activeExecutionPath.has('after-loop')).toBe(false)
+      expect(mockContext.completedLoops.has('loop-1')).toBe(true)
+      expect(mockContext.activeExecutionPath.has('after-loop')).toBe(true)
       expect(mockContext.activeExecutionPath.has('inner-block')).toBe(false)
-
-      if (typeof result === 'object' && result !== null) {
-        const response = result as any
-        expect(response.completed).toBe(false)
-        expect(response.message).toContain('Final iteration')
-      }
+      expect(result).toMatchObject({
+        completed: true,
+        currentIteration: 2,
+        maxIterations: 3,
+        results: [],
+      })
     })
 
     it('should handle forEach loops with array items', async () => {
@@ -147,7 +228,7 @@ describe('LoopBlockHandler', () => {
       expect((currentItem as any)[1]).toBe('value1')
     })
 
-    it('should limit forEach loops by collection size, not iterations parameter', async () => {
+    it('finishes forEach at the last evaluated collection bound', async () => {
       mockContext.workflow!.loops['loop-1'] = {
         id: 'loop-1',
         nodes: ['inner-block'],
@@ -160,11 +241,7 @@ describe('LoopBlockHandler', () => {
       expect(mockContext.loopIterations.get('loop-1')).toBe(1)
       expect(mockContext.loopItems.get('loop-1')).toBe('a')
 
-      if (typeof result === 'object' && result !== null) {
-        const response = result as any
-        expect(response.maxIterations).toBe(2)
-        expect(response.completed).toBe(false)
-      }
+      expect(result).toMatchObject({ maxIterations: 2, completed: false })
 
       mockContext.loopIterations.set('loop-1', 2)
 
@@ -172,18 +249,32 @@ describe('LoopBlockHandler', () => {
       expect(mockContext.loopIterations.get('loop-1')).toBe(2)
       expect(mockContext.loopItems.get('loop-1')).toBe('b')
 
-      if (typeof result === 'object' && result !== null) {
-        const response = result as any
-        expect(response.completed).toBe(false)
-      }
-
-      // Manually increment iteration for third execution (exceeds max)
+      expect(result).toMatchObject({ completed: false })
+      mockContext.blockStates.set('loop-1', {
+        output: result,
+        executed: true,
+        executionTime: 0,
+      })
+      mockContext.workflow!.loops['loop-1'].forEachItems = []
+      mockContext.loopExecutions = new Map([
+        [
+          'loop-1',
+          new Map([
+            ['iteration_1', { result: 'b' }],
+            ['iteration_0', { result: 'a' }],
+          ]),
+        ],
+      ])
       mockContext.loopIterations.set('loop-1', 3)
 
-      // Third execution should exceed the loop limit
       result = await handler.execute(mockBlock, {}, mockContext)
-      // The loop handler no longer marks loops as completed - that's handled by the loop manager
-      expect(mockContext.completedLoops.has('loop-1')).toBe(false)
+      expect(mockContext.completedLoops.has('loop-1')).toBe(true)
+      expect(result).toMatchObject({
+        completed: true,
+        currentIteration: 1,
+        maxIterations: 2,
+        results: [{ result: 'a' }, { result: 'b' }],
+      })
     })
 
     it('should throw error for forEach loops without collection', async () => {
