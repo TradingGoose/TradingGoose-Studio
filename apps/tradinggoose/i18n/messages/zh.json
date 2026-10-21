@@ -3772,6 +3772,18 @@
               "placeholder": "输入数组、对象或上游引用"
             }
           },
+          "knowledge": {
+            "content": {
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"upload_chunk\"},\"type\":\"long-input\"}": {
+                  "title": "片段内容"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_document\"]},\"type\":\"long-input\"}": {
+                  "title": "文档内容"
+                }
+              }
+            }
+          },
           "response": {
             "dataMode": {
               "title": "响应数据模式",
@@ -4007,14 +4019,49 @@
               ]
             },
             "target": {
-              "placeholder": "example.com 或 https://example.com/page",
-              "title": "目标域名/URL"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"ahrefs_domain_rating\"},\"type\":\"short-input\"}": {
+                  "placeholder": "example.com",
+                  "title": "目标域名"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"ahrefs_backlinks\"},\"type\":\"short-input\"}": {
+                  "placeholder": "example.com 或 https://example.com/page",
+                  "title": "目标域名/URL"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"ahrefs_backlinks_stats\"},\"type\":\"short-input\"}": {
+                  "placeholder": "example.com",
+                  "title": "目标域名/URL"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"ahrefs_referring_domains\"},\"type\":\"short-input\"}": {
+                  "placeholder": "example.com",
+                  "title": "目标域名/URL"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"ahrefs_organic_keywords\"},\"type\":\"short-input\"}": {
+                  "placeholder": "example.com",
+                  "title": "目标域名/URL"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"ahrefs_top_pages\"},\"type\":\"short-input\"}": {
+                  "placeholder": "example.com",
+                  "title": "目标域名"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"ahrefs_broken_backlinks\"},\"type\":\"short-input\"}": {
+                  "placeholder": "example.com",
+                  "title": "目标域名/URL"
+                }
+              }
             }
           },
           "airtable": {
             "baseId": {
-              "placeholder": "输入你的 Base ID（例如：appXXXXXXXXXXXXXX）",
-              "title": "基础 ID"
+              "title": "基础 ID",
+              "variants": {
+                "{\"type\":\"short-input\"}": {
+                  "placeholder": "输入你的 Base ID（例如：appXXXXXXXXXXXXXX）"
+                },
+                "{\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "appXXXXXXXXXXXXXX"
+                }
+              }
             },
             "credential": {
               "placeholder": "选择 Airtable 账户",
@@ -4061,8 +4108,15 @@
               "title": "记录（JSON数组）"
             },
             "tableId": {
-              "placeholder": "输入表ID（例如：tblXXXXXXXXXXXXXX）",
-              "title": "表ID"
+              "title": "表ID",
+              "variants": {
+                "{\"type\":\"short-input\"}": {
+                  "placeholder": "输入表 ID（例如：tblXXXXXXXXXXXXXX）"
+                },
+                "{\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "tblXXXXXXXXXXXXXX"
+                }
+              }
             }
           },
           "apify": {
@@ -4125,8 +4179,15 @@
               "title": "账户阶段 ID"
             },
             "accounts": {
-              "placeholder": "[{\"id\": \"account_id_1\", \"name\": \"Updated Company Name\"}]",
-              "title": "账户 (JSON 数组)"
+              "title": "账户 (JSON 数组)",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"account_bulk_create\"},\"type\":\"code\"}": {
+                  "placeholder": "[{\"name\": \"Company A\", \"website_url\": \"https://companya.com\", \"phone\": \"+1234567890\"}]"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"account_bulk_update\"},\"type\":\"code\"}": {
+                  "placeholder": "[{\"id\": \"account_id_1\", \"name\": \"Updated Company Name\"}]"
+                }
+              }
             },
             "active": {
               "title": "仅活跃"
@@ -4159,8 +4220,15 @@
               "title": "联系人阶段 ID"
             },
             "contacts": {
-              "placeholder": "[{\"id\": \"contact_id_1\", \"first_name\": \"John\", \"last_name\": \"Doe\"}]",
-              "title": "联系人（JSON 数组）"
+              "title": "联系人（JSON 数组）",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"contact_bulk_create\"},\"type\":\"code\"}": {
+                  "placeholder": "[{\"first_name\": \"John\", \"last_name\": \"Doe\", \"email\": \"john@example.com\", \"title\": \"CEO\"}]"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"contact_bulk_update\"},\"type\":\"code\"}": {
+                  "placeholder": "[{\"id\": \"contact_id_1\", \"first_name\": \"John\", \"last_name\": \"Doe\"}]"
+                }
+              }
             },
             "description": {
               "placeholder": "商机描述",
@@ -4568,8 +4636,15 @@
               "title": "搜索文本"
             },
             "taskGid": {
-              "placeholder": "输入 Asana 任务 GID",
-              "title": "任务 GID"
+              "title": "任务 GID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_task\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "留空以使用下方筛选条件获取全部任务"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"update_task\",\"add_comment\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "输入 Asana 任务 GID"
+                }
+              }
             },
             "workspace": {
               "placeholder": "输入 Asana 工作区 GID",
@@ -4736,8 +4811,24 @@
               ]
             },
             "organization": {
-              "placeholder": "按组织 URI 筛选（可选）",
-              "title": "组织 URI"
+              "title": "组织 URI",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"calendly_list_event_types\",\"calendly_list_scheduled_events\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "按组织 URI 筛选（可选）"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"calendly_invitee_created\"},\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "https://api.calendly.com/organizations/XXXXXX"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"calendly_invitee_canceled\"},\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "https://api.calendly.com/organizations/XXXXXX"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"calendly_routing_form_submitted\"},\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "https://api.calendly.com/organizations/XXXXXX"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"calendly_webhook\"},\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "https://api.calendly.com/organizations/XXXXXX"
+                }
+              }
             },
             "pageToken": {
               "placeholder": "用于分页的令牌",
@@ -5253,8 +5344,15 @@
               "title": "文件扩展名"
             },
             "fromPath": {
-              "placeholder": "/old-location/document.pdf",
-              "title": "源路径"
+              "title": "源路径",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"dropbox_copy\"},\"type\":\"short-input\"}": {
+                  "placeholder": "/source/document.pdf"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"dropbox_move\"},\"type\":\"short-input\"}": {
+                  "placeholder": "/old-location/document.pdf"
+                }
+              }
             },
             "includeMediaInfo": {
               "title": "包含媒体信息"
@@ -5327,8 +5425,40 @@
               ]
             },
             "path": {
-              "placeholder": "/（搜索全部）或 /文件夹",
-              "title": "在文件夹中搜索"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"dropbox_upload\"},\"type\":\"short-input\"}": {
+                  "placeholder": "/folder/document.pdf",
+                  "title": "目标路径"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"dropbox_download\"},\"type\":\"short-input\"}": {
+                  "placeholder": "/folder/document.pdf",
+                  "title": "文件路径"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"dropbox_list_folder\"},\"type\":\"short-input\"}": {
+                  "placeholder": "/（根目录）或 /folder",
+                  "title": "文件夹路径"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"dropbox_create_folder\"},\"type\":\"short-input\"}": {
+                  "placeholder": "/new-folder",
+                  "title": "文件夹路径"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"dropbox_delete\"},\"type\":\"short-input\"}": {
+                  "placeholder": "/folder/file.txt",
+                  "title": "要删除的路径"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"dropbox_get_metadata\"},\"type\":\"short-input\"}": {
+                  "placeholder": "/folder/document.pdf",
+                  "title": "文件/文件夹路径"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"dropbox_create_shared_link\"},\"type\":\"short-input\"}": {
+                  "placeholder": "/folder/document.pdf",
+                  "title": "文件/文件夹路径"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"dropbox_search\"},\"type\":\"short-input\"}": {
+                  "placeholder": "/（搜索全部）或 /folder",
+                  "title": "在文件夹中搜索"
+                }
+              }
             },
             "query": {
               "placeholder": "输入搜索词..."
@@ -5354,8 +5484,15 @@
               "title": "可见性"
             },
             "toPath": {
-              "placeholder": "/new-location/document.pdf",
-              "title": "目标路径"
+              "title": "目标路径",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"dropbox_copy\"},\"type\":\"short-input\"}": {
+                  "placeholder": "/destination/document.pdf"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"dropbox_move\"},\"type\":\"short-input\"}": {
+                  "placeholder": "/new-location/document.pdf"
+                }
+              }
             }
           },
           "duckduckgo": {
@@ -5396,8 +5533,18 @@
               "title": "表达式属性名称（JSON）"
             },
             "expressionAttributeValues": {
-              "placeholder": "{\n  \":name\": \"Jane Doe\"\n}",
-              "title": "表达式属性值（JSON）"
+              "title": "表达式属性值（JSON）",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"query\"},\"type\":\"code\"}": {
+                  "placeholder": "{\n  \":pk\": \"user#123\",\n  \":name\": \"Jane\"\n}"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"scan\"},\"type\":\"code\"}": {
+                  "placeholder": "{\n  \":status\": \"active\"\n}"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"update\"},\"type\":\"code\"}": {
+                  "placeholder": "{\n  \":name\": \"Jane Doe\"\n}"
+                }
+              }
             },
             "filterExpression": {
               "placeholder": "attribute_exists(email)",
@@ -5502,12 +5649,27 @@
               "title": "部署类型"
             },
             "document": {
-              "placeholder": "{ \"field_to_update\": \"new_value\" }",
-              "title": "部分文档"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"elasticsearch_index_document\"},\"type\":\"code\"}": {
+                  "placeholder": "{ \"field\": \"value\", \"another_field\": 123 }",
+                  "title": "文档"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"elasticsearch_update_document\"},\"type\":\"code\"}": {
+                  "placeholder": "{ \"field_to_update\": \"new_value\" }",
+                  "title": "部分文档"
+                }
+              }
             },
             "documentId": {
-              "placeholder": "留空以自动生成ID",
-              "title": "文档ID"
+              "title": "文档ID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"elasticsearch_get_document\",\"elasticsearch_update_document\",\"elasticsearch_delete_document\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "unique-document-id"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"elasticsearch_index_document\"},\"type\":\"short-input\"}": {
+                  "placeholder": "留空以自动生成 ID"
+                }
+              }
             },
             "from": {
               "title": "偏移量"
@@ -5585,8 +5747,16 @@
               "title": "密码"
             },
             "query": {
-              "placeholder": "{ \"match\": { \"field\": \"value\" } }",
-              "title": "查询"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"elasticsearch_search\"},\"type\":\"code\"}": {
+                  "placeholder": "{ \"match\": { \"field\": \"search term\" } }",
+                  "title": "搜索查询"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"elasticsearch_count\"},\"type\":\"code\"}": {
+                  "placeholder": "{ \"match\": { \"field\": \"value\" } }",
+                  "title": "查询"
+                }
+              }
             },
             "refresh": {
               "options": [
@@ -5720,8 +5890,20 @@
               ]
             },
             "query": {
-              "placeholder": "输入您的研究主题或问题...",
-              "title": "研究查询"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"exa_search\"},\"type\":\"long-input\"}": {
+                  "placeholder": "输入搜索查询...",
+                  "title": "搜索查询"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"exa_answer\"},\"type\":\"long-input\"}": {
+                  "placeholder": "输入你的问题...",
+                  "title": "问题"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"exa_research\"},\"type\":\"long-input\"}": {
+                  "placeholder": "输入研究主题或问题...",
+                  "title": "研究查询"
+                }
+              }
             },
             "summaryQuery": {
               "placeholder": "输入查询以引导摘要生成...",
@@ -6510,20 +6692,52 @@
               "title": "文件引用"
             },
             "fileName": {
-              "placeholder": "新文件夹的名称",
-              "title": "文件夹名称"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_file\",\"upload\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "文件名（例如：document.txt）",
+                  "title": "文件名"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"create_folder\"},\"type\":\"short-input\"}": {
+                  "placeholder": "新文件夹名称",
+                  "title": "文件夹名称"
+                }
+              }
             },
             "fileUpload": {
               "placeholder": "将文件上传到 Google Drive",
               "title": "上传文件"
             },
             "folderSelector": {
-              "placeholder": "选择一个文件夹以列出其中的文件",
-              "title": "选择文件夹"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_file\",\"upload\"]},\"mode\":\"basic\",\"type\":\"file-selector\"}": {
+                  "placeholder": "选择父文件夹",
+                  "title": "选择父文件夹"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"create_folder\"},\"mode\":\"basic\",\"type\":\"file-selector\"}": {
+                  "placeholder": "选择父文件夹",
+                  "title": "选择父文件夹"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"list\"},\"mode\":\"basic\",\"type\":\"file-selector\"}": {
+                  "placeholder": "选择要列出文件的文件夹",
+                  "title": "选择文件夹"
+                }
+              }
             },
             "manualFolderId": {
-              "placeholder": "输入文件夹 ID（留空表示根文件夹）",
-              "title": "文件夹 ID"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_file\",\"upload\"]},\"mode\":\"advanced\",\"type\":\"short-input\"}": {
+                  "placeholder": "输入父文件夹 ID（留空表示根文件夹）",
+                  "title": "父文件夹 ID"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"create_folder\"},\"mode\":\"advanced\",\"type\":\"short-input\"}": {
+                  "placeholder": "输入父文件夹 ID（留空表示根文件夹）",
+                  "title": "父文件夹 ID"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"list\"},\"mode\":\"advanced\",\"type\":\"short-input\"}": {
+                  "placeholder": "输入文件夹 ID（留空表示根文件夹）",
+                  "title": "文件夹 ID"
+                }
+              }
             },
             "mimeType": {
               "options": [
@@ -6593,8 +6807,15 @@
               "title": "Google 账号"
             },
             "formId": {
-              "placeholder": "输入 Google 表单 ID",
-              "title": "表单 ID"
+              "title": "表单 ID",
+              "variants": {
+                "{\"type\":\"short-input\"}": {
+                  "placeholder": "输入 Google 表单 ID"
+                },
+                "{\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "1FAIpQLSd...（Google 表单 ID）"
+                }
+              }
             },
             "pageSize": {
               "placeholder": "要获取的最大回复数（默认 5000）",
@@ -7060,8 +7281,15 @@
               "title": "保留名称"
             },
             "matterId": {
-              "placeholder": "输入事项ID（可选，用于获取特定事项）",
-              "title": "事项ID"
+              "title": "事项ID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_matters_export\",\"list_matters_export\",\"download_export_file\",\"create_matters_holds\",\"list_matters_holds\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "输入事项 ID"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"list_matters\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入事项 ID（可选，用于获取特定事项）"
+                }
+              }
             },
             "name": {
               "placeholder": "输入事项名称",
@@ -7179,8 +7407,15 @@
               "title": "文件夹标题"
             },
             "folderUid": {
-              "placeholder": "告警规则的文件夹UID",
-              "title": "文件夹UID"
+              "title": "文件夹UID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"grafana_create_dashboard\",\"grafana_update_dashboard\",\"grafana_create_alert_rule\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "可选：用于创建仪表板的文件夹"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"grafana_create_alert_rule\",\"grafana_update_alert_rule\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "告警规则的文件夹 UID"
+                }
+              }
             },
             "folderUidNew": {
               "placeholder": "可选 - 未提供时自动生成",
@@ -7349,7 +7584,29 @@
               "title": "起始日期"
             },
             "apiKey": {
-              "placeholder": "输入您的 Grain API 密钥"
+              "variants": {
+                "{\"type\":\"short-input\"}": {
+                  "placeholder": "输入你的 Grain API 密钥"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"grain_recording_created\"},\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "输入你的 Grain API 密钥（个人访问令牌）"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"grain_recording_updated\"},\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "输入你的 Grain API 密钥（个人访问令牌）"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"grain_highlight_created\"},\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "输入你的 Grain API 密钥（个人访问令牌）"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"grain_highlight_updated\"},\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "输入你的 Grain API 密钥（个人访问令牌）"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"grain_story_created\"},\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "输入你的 Grain API 密钥（个人访问令牌）"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"grain_webhook\"},\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "输入你的 Grain API 密钥（个人访问令牌）"
+                }
+              }
             },
             "beforeDatetime": {
               "placeholder": "ISO8601 时间戳（例如：2024-01-01T00:00:00Z）",
@@ -7521,7 +7778,7 @@
           },
           "historical_data": {
             "apiKey": {
-              "placeholder": "ALPHAVANTAGE_API_KEY"
+              "placeholder": "输入 API 密钥"
             },
             "apiSecret": {
               "placeholder": "APCA-API-SECRET-KEY",
@@ -7648,12 +7905,26 @@
               "title": "关联"
             },
             "companyId": {
-              "placeholder": "数字 ID 或域名（需要下面的 ID 属性）",
-              "title": "公司 ID 或域名"
+              "title": "公司 ID 或域名",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"get_companies\"},\"type\":\"short-input\"}": {
+                  "placeholder": "留空以列出全部公司"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"update_company\"},\"type\":\"short-input\"}": {
+                  "placeholder": "数字 ID 或域名（需要下面的 ID 属性）"
+                }
+              }
             },
             "contactId": {
-              "placeholder": "数字 ID 或邮箱（需要下面的 ID 属性）",
-              "title": "联系人 ID 或邮箱"
+              "title": "联系人 ID 或邮箱",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"get_contacts\"},\"type\":\"short-input\"}": {
+                  "placeholder": "留空以列出全部联系人"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"update_contact\"},\"type\":\"short-input\"}": {
+                  "placeholder": "数字 ID 或邮箱（需要下面的 ID 属性）"
+                }
+              }
             },
             "credential": {
               "placeholder": "选择 HubSpot 账户",
@@ -7819,8 +8090,28 @@
               "title": "部门"
             },
             "domain": {
-              "placeholder": "输入公司域名",
-              "title": "域名筛选"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"hunter_domain_search\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入域名（例如：stripe.com）",
+                  "title": "域名"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"hunter_email_finder\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入域名（例如：stripe.com）",
+                  "title": "域名"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"hunter_discover\"},\"type\":\"short-input\"}": {
+                  "placeholder": "按域名筛选",
+                  "title": "域名筛选"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"hunter_companies_find\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入公司域名",
+                  "title": "域名"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"hunter_email_count\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入域名",
+                  "title": "域名"
+                }
+              }
             },
             "email": {
               "placeholder": "输入要验证的电子邮件地址",
@@ -8050,12 +8341,26 @@
               "placeholder": "输入ID..."
             },
             "idempotency_key": {
-              "placeholder": "输入唯一键（例如UUID）...",
-              "title": "幂等键"
+              "title": "幂等键",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"incidentio_incidents_create\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入唯一键（例如：UUID）"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"incidentio_escalations_create\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入唯一键（例如：UUID）..."
+                }
+              }
             },
             "incident_id": {
-              "placeholder": "输入事件ID（可选 - 留空获取所有事件）...",
-              "title": "事件ID"
+              "title": "事件ID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"incidentio_actions_list\",\"incidentio_follow_ups_list\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "按事件 ID 筛选..."
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"incidentio_incident_updates_list\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入事件 ID（可选：留空以获取全部事件）..."
+                }
+              }
             },
             "incident_status_id": {
               "placeholder": "输入事件状态ID...",
@@ -8069,8 +8374,24 @@
               "placeholder": "输入角色的指令..."
             },
             "name": {
-              "placeholder": "输入名称（更新时可留空）...",
-              "title": "名称"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"incidentio_incidents_create\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入事件名称...",
+                  "title": "事件名称"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"incidentio_schedules_create\",\"incidentio_custom_fields_create\",\"incidentio_custom_fields_update\",\"incidentio_incident_roles_create\",\"incidentio_incident_roles_update\",\"incidentio_escalation_paths_create\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "输入名称...",
+                  "title": "名称"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"incidentio_escalation_paths_update\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入名称（更新时可留空）...",
+                  "title": "名称"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"incidentio_incidents_update\",\"incidentio_workflows_update\",\"incidentio_schedules_update\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "输入名称...",
+                  "title": "名称"
+                }
+              }
             },
             "notify_incident_channel": {
               "title": "通知事件频道"
@@ -8259,8 +8580,15 @@
               "title": "每页大小"
             },
             "path": {
-              "placeholder": "升级层级的 JSON 数组（更新时可选）：[{\"targets\": [{\"id\": \"...\", \"type\": \"...\", \"urgency\": \"...\"}], \"time_to_ack_seconds\": 300}]",
-              "title": "路径配置"
+              "title": "路径配置",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"incidentio_escalation_paths_create\"},\"type\":\"long-input\"}": {
+                  "placeholder": "升级层级的 JSON 数组：[{\"targets\": [{\"id\": \"...\", \"type\": \"...\", \"urgency\": \"...\"}], \"time_to_ack_seconds\": 300}]"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"incidentio_escalation_paths_update\"},\"type\":\"long-input\"}": {
+                  "placeholder": "升级层级的 JSON 数组（更新时可选）：[{\"targets\": [{\"id\": \"...\", \"type\": \"...\", \"urgency\": \"...\"}], \"time_to_ack_seconds\": 300}]"
+                }
+              }
             },
             "rotation_id": {
               "placeholder": "输入轮换 ID...",
@@ -10462,8 +10790,16 @@
               "title": "选择频道"
             },
             "chatId": {
-              "placeholder": "选择聊天",
-              "title": "选择聊天"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"read_chat\",\"write_chat\"]},\"mode\":\"basic\",\"type\":\"file-selector\"}": {
+                  "placeholder": "选择聊天",
+                  "title": "选择聊天"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"microsoftteams_chat_subscription\"},\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "输入聊天 ID",
+                  "title": "聊天 ID"
+                }
+              }
             },
             "content": {
               "title": "消息"
@@ -10576,8 +10912,15 @@
               "title": "文档（JSON数组）"
             },
             "filter": {
-              "placeholder": "{\"status\": \"inactive\"}",
-              "title": "筛选条件（JSON）"
+              "title": "筛选条件（JSON）",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"update\"},\"type\":\"code\"}": {
+                  "placeholder": "{\"name\": \"Alice Test\"}"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"delete\"},\"type\":\"code\"}": {
+                  "placeholder": "{\"status\": \"inactive\"}"
+                }
+              }
             },
             "host": {
               "placeholder": "localhost 或 your.mongodb.host",
@@ -10597,7 +10940,14 @@
                   "label": "True"
                 }
               ],
-              "title": "批量删除"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"update\"},\"type\":\"dropdown\"}": {
+                  "title": "批量更新"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"delete\"},\"type\":\"dropdown\"}": {
+                  "title": "批量删除"
+                }
+              }
             },
             "operation": {
               "options": [
@@ -10679,8 +11029,16 @@
           },
           "mysql": {
             "data": {
-              "placeholder": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\"\n}",
-              "title": "更新数据 (JSON)"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"insert\"},\"type\":\"code\"}": {
+                  "placeholder": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"active\": true\n}",
+                  "title": "数据（JSON）"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"update\"},\"type\":\"code\"}": {
+                  "placeholder": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\"\n}",
+                  "title": "更新数据（JSON）"
+                }
+              }
             },
             "database": {
               "placeholder": "your_database",
@@ -10722,8 +11080,15 @@
               "title": "端口"
             },
             "query": {
-              "placeholder": "SELECT * FROM 表名",
-              "title": "SQL 查询"
+              "title": "SQL 查询",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"query\"},\"type\":\"code\"}": {
+                  "placeholder": "SELECT * FROM users WHERE active = true"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"execute\"},\"type\":\"code\"}": {
+                  "placeholder": "SELECT * FROM table_name"
+                }
+              }
             },
             "ssl": {
               "options": [
@@ -10753,8 +11118,32 @@
           },
           "neo4j": {
             "cypherQuery": {
-              "placeholder": "MATCH (n:Person {name: \"Alice\"}) DETACH DELETE n",
-              "title": "Cypher DELETE 语句"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"query\"},\"type\":\"code\"}": {
+                  "placeholder": "MATCH (n:Person) WHERE n.age > 21 RETURN n LIMIT 10",
+                  "title": "Cypher 查询"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"create\"},\"type\":\"code\"}": {
+                  "placeholder": "CREATE (n:Person {name: \"Alice\", age: 30})",
+                  "title": "Cypher CREATE 语句"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"merge\"},\"type\":\"code\"}": {
+                  "placeholder": "MERGE (n:Person {email: \"alice@example.com\"}) ON CREATE SET n.created = timestamp() RETURN n",
+                  "title": "Cypher MERGE 语句"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"update\"},\"type\":\"code\"}": {
+                  "placeholder": "MATCH (n:Person {name: \"Alice\"}) SET n.age = 31, n.updated = timestamp()",
+                  "title": "Cypher UPDATE 语句"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"delete\"},\"type\":\"code\"}": {
+                  "placeholder": "MATCH (n:Person {name: \"Alice\"}) DETACH DELETE n",
+                  "title": "Cypher DELETE 语句"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"execute\"},\"type\":\"code\"}": {
+                  "placeholder": "MATCH (n:Person) RETURN n LIMIT 10",
+                  "title": "Cypher 查询"
+                }
+              }
             },
             "database": {
               "placeholder": "neo4j",
@@ -10891,8 +11280,15 @@
               "title": "页面大小"
             },
             "parentId": {
-              "placeholder": "将在其中创建数据库的父页面ID",
-              "title": "父页面ID"
+              "title": "父页面ID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"notion_create_page\"},\"type\":\"short-input\"}": {
+                  "placeholder": "父页面 ID"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"notion_create_database\"},\"type\":\"short-input\"}": {
+                  "placeholder": "将在其中创建数据库的父页面 ID"
+                }
+              }
             },
             "properties": {
               "placeholder": "以JSON对象输入数据库属性",
@@ -10906,8 +11302,16 @@
               "title": "排序条件（JSON）"
             },
             "title": {
-              "placeholder": "新数据库的标题",
-              "title": "数据库标题"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"notion_create_page\"},\"type\":\"short-input\"}": {
+                  "placeholder": "新页面的标题",
+                  "title": "页面标题"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"notion_create_database\"},\"type\":\"short-input\"}": {
+                  "placeholder": "新数据库的标题",
+                  "title": "数据库标题"
+                }
+              }
             }
           },
           "onedrive": {
@@ -10936,12 +11340,36 @@
               "title": "文件夹名"
             },
             "folderSelector": {
-              "placeholder": "选择要列出文件的文件夹",
-              "title": "选择文件夹"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_file\",\"upload\"]},\"mode\":\"basic\",\"type\":\"file-selector\"}": {
+                  "placeholder": "选择父文件夹",
+                  "title": "选择父文件夹"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"create_folder\"},\"mode\":\"basic\",\"type\":\"file-selector\"}": {
+                  "placeholder": "选择父文件夹",
+                  "title": "选择父文件夹"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"list\"},\"mode\":\"basic\",\"type\":\"file-selector\"}": {
+                  "placeholder": "选择要列出文件的文件夹",
+                  "title": "选择文件夹"
+                }
+              }
             },
             "manualFolderId": {
-              "placeholder": "输入文件夹 ID（根文件夹留空）",
-              "title": "文件夹 ID"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_file\",\"upload\"]},\"mode\":\"advanced\",\"type\":\"short-input\"}": {
+                  "placeholder": "输入父文件夹 ID（留空表示根文件夹）",
+                  "title": "父文件夹 ID"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"create_folder\"},\"mode\":\"advanced\",\"type\":\"short-input\"}": {
+                  "placeholder": "输入父文件夹 ID（留空表示根文件夹）",
+                  "title": "父文件夹 ID"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"list\"},\"mode\":\"advanced\",\"type\":\"short-input\"}": {
+                  "placeholder": "输入文件夹 ID（留空表示根文件夹）",
+                  "title": "文件夹 ID"
+                }
+              }
             },
             "mimeType": {
               "options": [
@@ -11165,8 +11593,21 @@
               ]
             },
             "namespace": {
-              "placeholder": "default",
-              "title": "命名空间"
+              "title": "命名空间",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"upsert_text\"},\"type\":\"short-input\"}": {
+                  "placeholder": "default"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"search_text\"},\"type\":\"short-input\"}": {
+                  "placeholder": "default"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"fetch\"},\"type\":\"short-input\"}": {
+                  "placeholder": "命名空间"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"search_vector\"},\"type\":\"short-input\"}": {
+                  "placeholder": "default"
+                }
+              }
             },
             "operation": {
               "options": [
@@ -11254,8 +11695,18 @@
               "title": "游标"
             },
             "deal_id": {
-              "placeholder": "按交易ID筛选",
-              "title": "交易ID"
+              "title": "交易ID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_deal\",\"update_deal\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "输入交易 ID"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_files\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "按交易 ID 筛选 "
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_activities\",\"create_activity\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "按交易 ID 筛选 "
+                }
+              }
             },
             "description": {
               "placeholder": "项目描述",
@@ -11276,7 +11727,14 @@
                   "label": "全部"
                 }
               ],
-              "title": "标记为已完成"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_activities\"]},\"type\":\"dropdown\"}": {
+                  "title": "完成状态"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"update_activity\"]},\"type\":\"dropdown\"}": {
+                  "title": "标记为已完成"
+                }
+              }
             },
             "due_date": {
               "placeholder": "YYYY-MM-DD",
@@ -11295,8 +11753,15 @@
               "title": "结束日期"
             },
             "expected_close_date": {
-              "placeholder": "YYYY-MM-DD",
-              "title": "预计关闭日期"
+              "title": "预计关闭日期",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_deal\",\"update_deal\"]},\"type\":\"datetime-input\"}": {
+                  "placeholder": "YYYY-MM-DD "
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_lead\",\"update_lead\"]},\"type\":\"datetime-input\"}": {
+                  "placeholder": "YYYY-MM-DD"
+                }
+              }
             },
             "folder": {
               "options": [
@@ -11337,8 +11802,33 @@
               "title": "线索ID"
             },
             "limit": {
-              "placeholder": "结果数量（默认100）",
-              "title": "限制"
+              "title": "限制",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_all_deals\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "结果数量（默认 100，最多 500）"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_files\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "结果数量（默认 100，最多 500）"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_mail_messages\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "结果数量（默认 50）"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_pipelines\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "结果数量（默认 100，最多 500）"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_pipeline_deals\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "结果数量（默认 100，最多 500）"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_projects\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "结果数量（默认 100，最多 500）"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_activities\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "结果数量（默认 100，最多 500）"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_leads\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "结果数量（默认 100）"
+                }
+              }
             },
             "note": {
               "placeholder": "活动备注",
@@ -11421,8 +11911,21 @@
               ]
             },
             "org_id": {
-              "placeholder": "关联的组织ID",
-              "title": "组织ID"
+              "title": "组织ID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_all_deals\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "按组织 ID 筛选"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_deal\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "关联的组织 ID "
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_files\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "按组织 ID 筛选 "
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_activities\",\"create_activity\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "按组织 ID 筛选 "
+                }
+              }
             },
             "organization_id": {
               "placeholder": "要关联线索的组织ID",
@@ -11433,12 +11936,38 @@
               "title": "所有者ID"
             },
             "person_id": {
-              "placeholder": "要关联线索的人员ID",
-              "title": "人员ID"
+              "title": "人员ID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_all_deals\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "按人员 ID 筛选"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_deal\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "关联的人员 ID "
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_files\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "按人员 ID 筛选 "
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_activities\",\"create_activity\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "按人员 ID 筛选 "
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_lead\",\"update_lead\",\"get_leads\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "要关联线索的人员 ID"
+                }
+              }
             },
             "pipeline_id": {
-              "placeholder": "输入管道ID",
-              "title": "管道ID"
+              "title": "管道ID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_all_deals\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "按销售管道 ID 筛选 "
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_deal\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "销售管道 ID "
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_pipeline_deals\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "输入销售管道 ID"
+                }
+              }
             },
             "project_id": {
               "placeholder": "项目ID",
@@ -11471,8 +12000,15 @@
               "title": "排序方向"
             },
             "stage_id": {
-              "placeholder": "按阶段ID筛选",
-              "title": "阶段ID"
+              "title": "阶段ID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_deal\",\"update_deal\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "阶段 ID "
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_pipeline_deals\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "按阶段 ID 筛选 "
+                }
+              }
             },
             "start_date": {
               "placeholder": "YYYY-MM-DD",
@@ -11495,13 +12031,35 @@
                 {
                   "id": "completed",
                   "label": "已完成"
-                },
-                {
-                  "id": "",
-                  "label": "全部"
                 }
               ],
-              "title": "状态"
+              "title": "状态",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_all_deals\"]},\"type\":\"dropdown\"}": {
+                  "options": [
+                    {
+                      "id": "",
+                      "label": "全部（未删除）"
+                    }
+                  ]
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_pipeline_deals\"]},\"type\":\"dropdown\"}": {
+                  "options": [
+                    {
+                      "id": "",
+                      "label": "全部"
+                    }
+                  ]
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_projects\"]},\"type\":\"dropdown\"}": {
+                  "options": [
+                    {
+                      "id": "",
+                      "label": "全部"
+                    }
+                  ]
+                }
+              }
             },
             "subject": {
               "placeholder": "活动主题/标题",
@@ -11512,8 +12070,28 @@
               "title": "线程ID"
             },
             "title": {
-              "placeholder": "新线索标题",
-              "title": "新标题"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_deal\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "输入交易标题",
+                  "title": "标题"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"update_deal\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "新交易标题 ",
+                  "title": "新标题"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_project\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "输入项目标题",
+                  "title": "标题"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_lead\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "输入线索标题",
+                  "title": "标题"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"update_lead\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "新线索标题",
+                  "title": "新标题"
+                }
+              }
             },
             "type": {
               "options": [
@@ -11831,14 +12409,29 @@
               "title": "令牌 ID"
             },
             "user": {
-              "placeholder": "钱包地址（可选筛选）",
-              "title": "用户钱包地址"
+              "title": "用户钱包地址",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_positions\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "钱包地址"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_trades\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "钱包地址（可选筛选）"
+                }
+              }
             }
           },
           "postgresql": {
             "data": {
-              "placeholder": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\"\n}",
-              "title": "更新数据 (JSON)"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"insert\"},\"type\":\"code\"}": {
+                  "placeholder": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"active\": true\n}",
+                  "title": "数据（JSON）"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"update\"},\"type\":\"code\"}": {
+                  "placeholder": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\"\n}",
+                  "title": "更新数据（JSON）"
+                }
+              }
             },
             "database": {
               "placeholder": "your_database",
@@ -11880,8 +12473,15 @@
               "title": "端口"
             },
             "query": {
-              "placeholder": "SELECT * FROM 表名",
-              "title": "SQL 查询"
+              "title": "SQL 查询",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"query\"},\"type\":\"code\"}": {
+                  "placeholder": "SELECT * FROM users WHERE active = true"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"execute\"},\"type\":\"code\"}": {
+                  "placeholder": "SELECT * FROM table_name"
+                }
+              }
             },
             "ssl": {
               "options": [
@@ -11995,8 +12595,16 @@
               "title": "分组属性（JSON）"
             },
             "groups": {
-              "placeholder": "[{\"properties\": [...]}]",
-              "title": "分组（JSON数组）"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"posthog_evaluate_flags\"},\"type\":\"long-input\"}": {
+                  "placeholder": "{\"company\": \"company_id_in_your_db\"}",
+                  "title": "分组（JSON）"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"posthog_create_cohort\"},\"type\":\"long-input\"}": {
+                  "placeholder": "[{\"properties\": [...]}]",
+                  "title": "分组（JSON 数组）"
+                }
+              }
             },
             "insightId": {
               "placeholder": "洞察ID",
@@ -12460,8 +13068,16 @@
               "title": "条件（JSON）"
             },
             "data": {
-              "placeholder": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\"\n}",
-              "title": "更新数据（JSON）"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"insert\"},\"type\":\"code\"}": {
+                  "placeholder": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"active\": true\n}",
+                  "title": "数据（JSON）"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"update\"},\"type\":\"code\"}": {
+                  "placeholder": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\"\n}",
+                  "title": "更新数据（JSON）"
+                }
+              }
             },
             "database": {
               "placeholder": "your_database",
@@ -12492,8 +13108,15 @@
               ]
             },
             "query": {
-              "placeholder": "SELECT * FROM 表名",
-              "title": "SQL 查询"
+              "title": "SQL 查询",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"query\"},\"type\":\"code\"}": {
+                  "placeholder": "SELECT * FROM users WHERE active = true"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"execute\"},\"type\":\"code\"}": {
+                  "placeholder": "SELECT * FROM table_name"
+                }
+              }
             },
             "region": {
               "placeholder": "us-east-1",
@@ -13369,21 +13992,50 @@
               "title": "事件 ID"
             },
             "isBookmarked": {
-              "title": "收藏项目"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_issues_update\"},\"type\":\"switch\"}": {
+                  "title": "收藏问题"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_projects_update\"},\"type\":\"switch\"}": {
+                  "title": "收藏项目"
+                }
+              }
             },
             "isSubscribed": {
               "title": "订阅更新"
             },
             "issueId": {
-              "placeholder": "按特定问题过滤（可选）",
-              "title": "问题 ID"
+              "title": "问题 ID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_issues_get\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入问题 ID"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_issues_update\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入问题 ID"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_events_list\"},\"type\":\"short-input\"}": {
+                  "placeholder": "按特定问题筛选（可选）"
+                }
+              }
             },
             "limit": {
               "title": "限制"
             },
             "name": {
-              "placeholder": "可选部署名称",
-              "title": "部署名称"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_projects_create\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入项目名称",
+                  "title": "项目名称"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_projects_update\"},\"type\":\"short-input\"}": {
+                  "placeholder": "留空以保持当前名称",
+                  "title": "新名称"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_releases_deploy\"},\"type\":\"short-input\"}": {
+                  "placeholder": "可选的部署名称",
+                  "title": "部署名称"
+                }
+              }
             },
             "operation": {
               "options": [
@@ -13442,26 +14094,75 @@
               "title": "组织 Slug"
             },
             "platform": {
-              "placeholder": "留空以保持当前平台",
-              "title": "平台"
+              "title": "平台",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_projects_create\"},\"type\":\"short-input\"}": {
+                  "placeholder": "javascript、python、node 等"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_projects_update\"},\"type\":\"short-input\"}": {
+                  "placeholder": "留空以保持当前平台"
+                }
+              }
             },
             "projects": {
               "placeholder": "逗号分隔的项目 slug"
             },
             "projectSlug": {
-              "placeholder": "输入项目 slug",
-              "title": "项目 ID 或 Slug"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_issues_list\"},\"type\":\"short-input\"}": {
+                  "placeholder": "按项目筛选（可选）",
+                  "title": "项目 Slug"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_projects_get\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入项目 ID 或 Slug",
+                  "title": "项目 ID 或 Slug"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_projects_update\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入项目 Slug",
+                  "title": "项目 Slug"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_events_list\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入项目 Slug",
+                  "title": "项目 Slug"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_events_get\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入项目 Slug",
+                  "title": "项目 Slug"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_releases_list\"},\"type\":\"short-input\"}": {
+                  "placeholder": "按项目筛选（可选）",
+                  "title": "项目 Slug"
+                }
+              }
             },
             "query": {
-              "placeholder": "搜索特定版本"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_issues_list\"},\"type\":\"long-input\"}": {
+                  "placeholder": "例如：is:unresolved, level:error"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_events_list\"},\"type\":\"long-input\"}": {
+                  "placeholder": "例如：user.email:*@example.com"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_releases_list\"},\"type\":\"long-input\"}": {
+                  "placeholder": "搜索特定发布版本"
+                }
+              }
             },
             "ref": {
               "placeholder": "提交 SHA、标签或分支",
               "title": "Git 引用"
             },
             "slug": {
-              "placeholder": "留空以保持当前 slug",
-              "title": "新 Slug"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_projects_create\"},\"type\":\"short-input\"}": {
+                  "placeholder": "未提供时自动生成",
+                  "title": "项目 Slug"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_projects_update\"},\"type\":\"short-input\"}": {
+                  "placeholder": "留空以保持当前 Slug",
+                  "title": "新 Slug"
+                }
+              }
             },
             "sort": {
               "options": [
@@ -13489,8 +14190,15 @@
               "title": "排序方式"
             },
             "statsPeriod": {
-              "placeholder": "24h, 7d, 30d, 90d",
-              "title": "统计周期"
+              "title": "统计周期",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_issues_list\"},\"type\":\"short-input\"}": {
+                  "placeholder": "24h, 7d, 30d"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_events_list\"},\"type\":\"short-input\"}": {
+                  "placeholder": "24h, 7d, 30d, 90d"
+                }
+              }
             },
             "status": {
               "options": [
@@ -13513,25 +14221,55 @@
                 {
                   "id": "resolvedInNextRelease",
                   "label": "下个版本已解决"
-                },
-                {
-                  "id": "",
-                  "label": "无变更"
                 }
               ],
-              "title": "新状态"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_issues_list\"},\"type\":\"dropdown\"}": {
+                  "options": [
+                    {
+                      "id": "",
+                      "label": "全部"
+                    }
+                  ],
+                  "title": "状态"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_issues_update\"},\"type\":\"dropdown\"}": {
+                  "options": [
+                    {
+                      "id": "",
+                      "label": "不更改"
+                    }
+                  ],
+                  "title": "新状态"
+                }
+              }
             },
             "teamSlug": {
               "placeholder": "拥有该项目的团队",
               "title": "团队标识"
             },
             "url": {
-              "placeholder": "CI/CD 流水线或部署的 URL",
-              "title": "部署 URL"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_releases_create\"},\"type\":\"long-input\"}": {
+                  "placeholder": "发布版本页面的 URL（例如：GitHub 发布页面）",
+                  "title": "发布版本 URL"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_releases_deploy\"},\"type\":\"long-input\"}": {
+                  "placeholder": "CI/CD 流水线或部署的 URL",
+                  "title": "部署 URL"
+                }
+              }
             },
             "version": {
-              "placeholder": "要部署的发布版本",
-              "title": "版本"
+              "title": "版本",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_releases_create\"},\"type\":\"short-input\"}": {
+                  "placeholder": "例如：2.0.0 或 my-app@1.0.0"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_releases_deploy\"},\"type\":\"short-input\"}": {
+                  "placeholder": "要部署的发布版本"
+                }
+              }
             }
           },
           "serper": {
@@ -13618,9 +14356,21 @@
           },
           "servicenow": {
             "fields": {
-              "description": "字段的逗号分隔列表",
-              "placeholder": "number,short_description,priority",
-              "title": "要更新的字段 (JSON)"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"servicenow_create_record\"},\"type\":\"code\"}": {
+                  "placeholder": "{\n  \"short_description\": \"Issue description\",\n  \"priority\": \"1\"\n}",
+                  "title": "字段（JSON）"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"servicenow_read_record\"},\"type\":\"short-input\"}": {
+                  "description": "以逗号分隔的字段列表",
+                  "placeholder": "number,short_description,priority",
+                  "title": "返回字段"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"servicenow_update_record\"},\"type\":\"code\"}": {
+                  "placeholder": "{\n  \"state\": \"2\",\n  \"assigned_to\": \"user.sys_id\"\n}",
+                  "title": "要更新的字段（JSON）"
+                }
+              }
             },
             "instanceUrl": {
               "description": "您的 ServiceNow 实例 URL（例如 https://yourcompany.service-now.com）",
@@ -13665,8 +14415,18 @@
               "title": "查询字符串"
             },
             "sysId": {
-              "placeholder": "要删除的记录 sys_id",
-              "title": "记录 sys_id"
+              "title": "记录 sys_id",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"servicenow_read_record\"},\"type\":\"short-input\"}": {
+                  "placeholder": "特定记录的 sys_id（可选）"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"servicenow_update_record\"},\"type\":\"short-input\"}": {
+                  "placeholder": "要更新的记录 sys_id"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"servicenow_delete_record\"},\"type\":\"short-input\"}": {
+                  "placeholder": "要删除的记录 sys_id"
+                }
+              }
             },
             "tableName": {
               "description": "ServiceNow 表名",
@@ -15273,8 +16033,15 @@
               "title": "Metadata（JSON）"
             },
             "name": {
-              "placeholder": "客户或 产品名称",
-              "title": "Name"
+              "title": "Name",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_product\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "产品名称"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_customer\",\"update_customer\",\"update_product\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "客户或产品名称"
+                }
+              }
             },
             "operation": {
               "options": [
@@ -15760,8 +16527,21 @@
               "title": "Data"
             },
             "filter": {
-              "placeholder": "status=eq.active",
-              "title": "筛选器(PostgREST syntax)"
+              "title": "筛选器(PostgREST syntax)",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"get_row\"},\"type\":\"short-input\"}": {
+                  "placeholder": "id=eq.123"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"update\"},\"type\":\"short-input\"}": {
+                  "placeholder": "id=eq.123"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"delete\"},\"type\":\"short-input\"}": {
+                  "placeholder": "id=eq.123"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"query\"},\"type\":\"short-input\"}": {
+                  "placeholder": "status=eq.active"
+                }
+              }
             },
             "functionName": {
               "placeholder": "match_documents",
@@ -15877,9 +16657,17 @@
               "title": "Audio"
             },
             "botToken": {
-              "description": "获取 Bot Token：\n1. 如果您还没有这样做，请向 @BotFather 发送“/newbot”\n2. 为您的机器人选择一个名称\n3. 复制它提供的令牌并粘贴到这里",
-              "placeholder": "输入您的Telegram Bot 令牌",
-              "title": "Bot Token"
+              "title": "Bot Token",
+              "variants": {
+                "{\"type\":\"short-input\"}": {
+                  "description": "获取机器人令牌：\n1. 如果尚未创建机器人，请向 @BotFather 发送“/newbot”\n2. 为机器人选择一个名称\n3. 复制其提供的令牌并粘贴到这里",
+                  "placeholder": "输入你的 Telegram 机器人令牌"
+                },
+                "{\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "description": "来自 BotFather 的 Telegram 机器人令牌",
+                  "placeholder": "123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
+                }
+              }
             },
             "caption": {
               "description": "媒体说明文字（可选）",
@@ -16076,12 +16864,40 @@
           },
           "trello": {
             "boardId": {
-              "placeholder": "输入看板 ID to 获取看板 actions",
-              "title": "看板 ID"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_list_lists\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入看板 ID",
+                  "title": "看板"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_list_cards\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入看板 ID 或搜索看板",
+                  "title": "看板"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_create_card\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入看板 ID 或搜索看板",
+                  "title": "看板"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_get_actions\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入看板 ID 以获取看板操作",
+                  "title": "看板 ID"
+                }
+              }
             },
             "cardId": {
-              "placeholder": "输入卡片 ID to 获取卡片 actions",
-              "title": "卡片 ID"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_update_card\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入卡片 ID 或搜索卡片",
+                  "title": "卡片"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_get_actions\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入卡片 ID 以获取卡片操作",
+                  "title": "卡片 ID"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_add_comment\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入卡片 ID 或搜索卡片",
+                  "title": "卡片"
+                }
+              }
             },
             "closed": {
               "title": "归档卡片"
@@ -16091,8 +16907,16 @@
               "title": "Trello 账户"
             },
             "desc": {
-              "placeholder": "输入新描述(leave empty to keep current)",
-              "title": "新描述"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_create_card\"},\"type\":\"long-input\"}": {
+                  "placeholder": "输入卡片描述（可选）",
+                  "title": "描述"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_update_card\"},\"type\":\"long-input\"}": {
+                  "placeholder": "输入新描述（留空以保持当前描述）",
+                  "title": "新描述"
+                }
+              }
             },
             "due": {
               "placeholder": "YYYY-MM-DD or YYYY-MM-DDTHH:mm:ssZ",
@@ -16116,12 +16940,28 @@
               "title": "限制"
             },
             "listId": {
-              "placeholder": "输入列出 ID 或搜索 for a 列出",
-              "title": "List"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_list_cards\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入列表 ID 以筛选该列表的卡片",
+                  "title": "列表（可选）"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_create_card\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入列表 ID 或搜索列表",
+                  "title": "列表"
+                }
+              }
             },
             "name": {
-              "placeholder": "输入新卡片名称(leave empty to keep current)",
-              "title": "新卡片名称"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_create_card\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入卡片名称/标题",
+                  "title": "卡片名称"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_update_card\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入新卡片名称（留空以保持当前名称）",
+                  "title": "新卡片名称"
+                }
+              }
             },
             "operation": {
               "options": [
@@ -16373,7 +17213,11 @@
               ]
             },
             "style": {
-              "placeholder": "例如：cheerful, sad, angry"
+              "variants": {
+                "{\"condition\":{\"field\":\"provider\",\"value\":\"azure\"},\"type\":\"short-input\"}": {
+                  "placeholder": "例如：cheerful, sad, angry"
+                }
+              }
             },
             "text": {
               "placeholder": "输入文本 to convert to speech..."
@@ -16469,10 +17313,27 @@
                   "label": "Zeus"
                 }
               ],
-              "placeholder": "语音 ID 或 manifest URL"
+              "variants": {
+                "{\"condition\":{\"field\":\"provider\",\"value\":\"cartesia\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入 Cartesia 语音 ID"
+                },
+                "{\"condition\":{\"field\":\"provider\",\"value\":\"playht\"},\"type\":\"short-input\"}": {
+                  "placeholder": "语音 ID 或清单 URL"
+                }
+              }
             },
             "voiceId": {
-              "placeholder": "例如：en-US-JennyNeural"
+              "variants": {
+                "{\"condition\":{\"field\":\"provider\",\"value\":\"elevenlabs\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入 ElevenLabs 语音 ID"
+                },
+                "{\"condition\":{\"field\":\"provider\",\"value\":\"google\"},\"type\":\"short-input\"}": {
+                  "placeholder": "例如：en-US-Neural2-A"
+                },
+                "{\"condition\":{\"field\":\"provider\",\"value\":\"azure\"},\"type\":\"short-input\"}": {
+                  "placeholder": "例如：en-US-JennyNeural"
+                }
+              }
             }
           },
           "twilio_sms": {
@@ -16729,10 +17590,6 @@
                   "label": "Veo 3 Fast"
                 },
                 {
-                  "id": "veo-3.1",
-                  "label": "Google Veo 3.1"
-                },
-                {
                   "id": "ray-2",
                   "label": "Ray 2"
                 },
@@ -16768,7 +17625,25 @@
                   "id": "ltxv-0.9.8",
                   "label": "LTXV 0.9.8"
                 }
-              ]
+              ],
+              "variants": {
+                "{\"condition\":{\"field\":\"provider\",\"value\":\"veo\"},\"type\":\"dropdown\"}": {
+                  "options": [
+                    {
+                      "id": "veo-3.1",
+                      "label": "Veo 3.1"
+                    }
+                  ]
+                },
+                "{\"condition\":{\"field\":\"provider\",\"value\":\"falai\"},\"type\":\"dropdown\"}": {
+                  "options": [
+                    {
+                      "id": "veo-3.1",
+                      "label": "Google Veo 3.1"
+                    }
+                  ]
+                }
+              }
             },
             "prompt": {
               "placeholder": "Describe the video you want to generate..."
@@ -16923,8 +17798,24 @@
           },
           "webflow": {
             "collectionId": {
-              "placeholder": "输入集合 ID",
-              "title": "集合 ID"
+              "variants": {
+                "{\"type\":\"short-input\"}": {
+                  "placeholder": "输入集合 ID",
+                  "title": "集合 ID"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"webflow_collection_item_created\"},\"mode\":\"trigger\",\"type\":\"dropdown\"}": {
+                  "placeholder": "选择集合（可选）",
+                  "title": "集合"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"webflow_collection_item_changed\"},\"mode\":\"trigger\",\"type\":\"dropdown\"}": {
+                  "placeholder": "选择集合（可选）",
+                  "title": "集合"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"webflow_collection_item_deleted\"},\"mode\":\"trigger\",\"type\":\"dropdown\"}": {
+                  "placeholder": "选择集合（可选）",
+                  "title": "集合"
+                }
+              }
             },
             "credential": {
               "placeholder": "选择Webflow 账户",
@@ -17011,8 +17902,15 @@
               ]
             },
             "pageTitle": {
-              "placeholder": "输入Wikipedia page 标题...",
-              "title": "Page 标题"
+              "title": "Page 标题",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"wikipedia_summary\"},\"type\":\"long-input\"}": {
+                  "placeholder": "输入维基百科页面标题（例如：“Python programming language”）..."
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"wikipedia_content\"},\"type\":\"long-input\"}": {
+                  "placeholder": "输入维基百科页面标题..."
+                }
+              }
             },
             "query": {
               "placeholder": "输入搜索 terms..."
@@ -17551,8 +18449,15 @@
               "title": "频道用户名"
             },
             "videoId": {
-              "placeholder": "输入YouTube video ID",
-              "title": "Video ID"
+              "title": "Video ID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"youtube_video_details\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入 YouTube 视频 ID（例如：dQw4w9WgXcQ）"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"youtube_comments\"},\"type\":\"short-input\"}": {
+                  "placeholder": "输入 YouTube 视频 ID"
+                }
+              }
             }
           },
           "zendesk": {

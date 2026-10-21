@@ -1,5 +1,6 @@
 import { LISTING_IDENTITY_JSON_SCHEMA, LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
+import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import type {
   BlockConfig,
   SubBlockCondition as ComponentCondition,
@@ -108,9 +109,10 @@ const resolveDependsOn = (dependsOn: SubBlockConfig['dependsOn']): string[] | un
 
 const matchesConditionValue = (condition: ComponentCondition, value?: string): boolean => {
   if (!value) return false
-  return Array.isArray(condition.value)
-    ? condition.value.includes(value)
-    : condition.value === value
+  return evaluateSubBlockConditionValues(
+    { field: condition.field, value: condition.value, not: condition.not },
+    { [condition.field]: value }
+  )
 }
 
 const getOperationIdForTool = (blockConfig: BlockConfig, toolId: string): string | undefined => {
@@ -131,7 +133,7 @@ const getOperationIdForTool = (blockConfig: BlockConfig, toolId: string): string
 export function getToolParametersConfig(
   toolId: string,
   blockConfig?: BlockConfig,
-  _contextValues?: Record<string, any>
+  contextValues?: Record<string, any>
 ): ToolWithParameters | null {
   try {
     const toolConfig = getTool(toolId)
@@ -147,6 +149,8 @@ export function getToolParametersConfig(
     }
 
     const baseParamEntries = Object.entries(toolConfig.params)
+    const operationId = blockConfig ? getOperationIdForTool(blockConfig, toolId) : undefined
+    const conditionValues = { ...contextValues, operation: operationId ?? toolId }
 
     // Convert tool params to our standard format with UI component info
     const allParameters: ToolParameterConfig[] = baseParamEntries.map(([paramId, param]) => {
@@ -161,9 +165,7 @@ export function getToolParametersConfig(
 
       // Add UI component information from block config if available
       if (blockConfig) {
-        // For multi-operation tools, find the subblock that matches both the parameter ID
-        // and the current tool operation
-        let subBlock = blockConfig.subBlocks?.find((sb: SubBlockConfig) => {
+        const candidates = blockConfig.subBlocks.filter((sb) => {
           if (getCanonicalSubBlockParamId(sb) !== paramId) return false
 
           const condition = resolveSubBlockCondition(sb.condition)
@@ -171,9 +173,14 @@ export function getToolParametersConfig(
 
           return (
             matchesConditionValue(condition, toolId) ||
-            matchesConditionValue(condition, getOperationIdForTool(blockConfig, toolId))
+            matchesConditionValue(condition, operationId)
           )
         })
+        // Retain inactive metadata so the renderer can still apply its visibility condition.
+        let subBlock =
+          candidates.find((candidate) =>
+            evaluateSubBlockConditionValues(candidate.condition, conditionValues)
+          ) ?? candidates[0]
 
         // Special case: Check if this boolean parameter is part of a checkbox-list
         if (!subBlock && param.type === 'boolean' && blockConfig) {
@@ -204,6 +211,7 @@ export function getToolParametersConfig(
             condition: resolveSubBlockCondition(subBlock.condition),
             fetchOptionsCondition: resolveSubBlockCondition(subBlock.fetchOptionsCondition),
             title: subBlock.title,
+            mode: subBlock.mode,
             layout: subBlock.layout,
             value: subBlock.value,
             provider: subBlock.provider,

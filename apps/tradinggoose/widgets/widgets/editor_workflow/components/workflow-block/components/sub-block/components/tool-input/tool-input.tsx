@@ -630,8 +630,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
     toolIndex: number,
     currentToolParams: Record<string, any>,
     currentToolContext: Record<string, any>,
-    toolId: string,
-    blockType?: string
+    toolId: string
   ) => {
     const uiComponent = param.uiComponent
     const providerType =
@@ -692,14 +691,12 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
         : undefined,
     }
 
-    const localizedSubBlock = localizeWorkflowSubBlockConfig(locale, subBlock, blockType)
-
     return (
       <ToolSubBlockRenderer
         blockId={blockId}
         subBlockId={subBlockId}
         toolIndex={toolIndex}
-        subBlock={localizedSubBlock}
+        subBlock={subBlock}
         effectiveParamId={param.id}
         toolParams={currentToolParams}
         contextValues={currentToolContext}
@@ -1032,8 +1029,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
                                   toolIndex,
                                   currentToolParams,
                                   currentToolContext,
-                                  currentToolId,
-                                  tool.type
+                                  currentToolId
                                 )}
                               </div>
                             </div>

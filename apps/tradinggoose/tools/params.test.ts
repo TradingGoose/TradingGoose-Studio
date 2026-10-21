@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
+import { ImageGeneratorBlock } from '@/blocks/blocks/image_generator'
+import type { BlockConfig } from '@/blocks/types'
 import {
   createExecutionToolSchema,
   createLLMToolSchema,
@@ -14,6 +16,7 @@ import {
   type ValidationResult,
   validateToolParameters,
 } from '@/tools/params'
+import { tools } from '@/tools/registry'
 import type { HttpMethod, ParameterVisibility, ToolConfig } from '@/tools/types'
 
 const mockToolConfig: ToolConfig = {
@@ -60,7 +63,7 @@ vi.mock('@/tools/utils', () => ({
     if (toolId === 'test_tool') {
       return mockToolConfig
     }
-    return null
+    return tools[toolId] ?? null
   }),
 }))
 
@@ -80,6 +83,100 @@ describe('Tool Parameters Utils', () => {
     it.concurrent('should return null for non-existent tool', () => {
       const result = getToolParametersConfig('non_existent_tool')
       expect(result).toBeNull()
+    })
+
+    it.concurrent('selects Image Generator size options when the model changes', () => {
+      for (const model of ['dall-e-3', 'gpt-image-1', 'dall-e-3']) {
+        const size = getToolParametersConfig('openai_image', ImageGeneratorBlock, {
+          model,
+        })?.allParameters.find((param) => param.id === 'size')?.uiComponent
+
+        expect(size?.condition).toEqual({ field: 'model', value: model })
+        expect(size?.options?.map((option) => option.id)).toEqual(
+          model === 'gpt-image-1'
+            ? ['auto', '1024x1024', '1536x1024', '1024x1536']
+            : ['1024x1024', '1024x1792', '1792x1024']
+        )
+      }
+    })
+
+    it.concurrent('selects active canonical variants while retaining inactive metadata', () => {
+      const block: BlockConfig = {
+        ...ImageGeneratorBlock,
+        tools: {
+          access: ['test_tool'],
+          config: { tool: ({ operation }) => (operation === 'send' ? 'test_tool' : 'other_tool') },
+        },
+        subBlocks: [
+          {
+            id: 'operation',
+            type: 'dropdown',
+            options: [
+              { id: 'send', label: 'Send' },
+              { id: 'other', label: 'Other' },
+            ],
+          },
+          {
+            id: 'otherMessage',
+            canonicalParamId: 'message',
+            type: 'short-input',
+            placeholder: 'Other operation',
+            condition: { field: 'operation', value: 'other' },
+          },
+          {
+            id: 'firstMessage',
+            canonicalParamId: 'message',
+            type: 'short-input',
+            placeholder: 'First provider',
+            mode: 'basic',
+            condition: {
+              field: 'operation',
+              value: 'send',
+              and: { field: 'provider', value: 'first' },
+            },
+          },
+          {
+            id: 'secondMessage',
+            canonicalParamId: 'message',
+            type: 'long-input',
+            placeholder: 'Other provider',
+            mode: 'advanced',
+            condition: () => ({
+              field: 'operation',
+              value: 'send',
+              and: {
+                field: 'provider',
+                value: 'first',
+                not: true,
+                and: { field: 'enabled', value: true },
+              },
+            }),
+          },
+        ],
+      }
+      for (const [context, subBlockId] of [
+        [{ provider: 'first', enabled: true }, 'firstMessage'],
+        [{ provider: 'second', enabled: true, operation: 'other' }, 'secondMessage'],
+        [{ provider: 'second', enabled: false }, 'firstMessage'],
+        [undefined, 'firstMessage'],
+      ] as const) {
+        const config = getToolParametersConfig('test_tool', block, context)
+        const message = config?.allParameters.find((param) => param.id === 'message')?.uiComponent
+        const expected = block.subBlocks.find((subBlock) => subBlock.id === subBlockId)!
+
+        expect(message).toMatchObject({
+          subBlockId,
+          type: expected.type,
+          placeholder: expected.placeholder,
+          mode: expected.mode,
+          condition:
+            typeof expected.condition === 'function' ? expected.condition() : expected.condition,
+        })
+        expect(config?.allParameters.find((param) => param.id === 'apiKey')).toMatchObject({
+          id: 'apiKey',
+          description: 'API key for authentication',
+        })
+      }
     })
 
     it.concurrent('keeps checkbox-list-backed booleans as one renderable control', () => {

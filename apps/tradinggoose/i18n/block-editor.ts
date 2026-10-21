@@ -24,7 +24,6 @@ import {
   getWorkflowEditorCopyFromInspector,
   getWorkflowLabelCopyFromInspector,
   localizeToolParameterWithCopy,
-  localizeWorkflowOptionsWithCopy,
   localizeWorkflowSubBlockConfigWithCopy,
   resolveWorkflowDisplayValueWithCopy,
   translateWorkflowLabelWithCopy,
@@ -48,22 +47,6 @@ export function getTriggerSubBlockCopy(locale: LocaleCode, triggerId: string, su
     getWorkflowInspectorCopy(locale),
     triggerId,
     subBlockId
-  )
-}
-
-export function localizeWorkflowOptions(
-  locale: LocaleCode,
-  options: SubBlockConfig['options'],
-  blockType?: string,
-  subBlockId?: string,
-  triggerId?: string
-) {
-  return localizeWorkflowOptionsWithCopy(
-    getWorkflowInspectorCopy(locale),
-    options,
-    blockType,
-    subBlockId,
-    triggerId
   )
 }
 
@@ -216,7 +199,7 @@ export function localizeWorkflowSubBlockConfig(
 
 export function resolveWorkflowDisplayValue(
   locale: LocaleCode,
-  config: Pick<SubBlockConfig, 'id' | 'options'>,
+  config: Parameters<typeof resolveWorkflowDisplayValueWithCopy>[1],
   value: unknown,
   blockType?: string
 ): unknown {
