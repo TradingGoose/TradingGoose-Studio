@@ -170,16 +170,17 @@ export const getMarketSeriesRangePresets = (
       (preset.window.mode === 'all' && interval !== capabilities.allInterval)
     )
       continue
+    const intervalMs = intervalToMs(interval)!
     const window = normalizeWindow(
       preset.window,
-      intervalToMs(interval),
+      intervalMs,
       resolveRetention(providerId!, interval)
     )
     if (
       !window ||
       (window.mode === 'range' &&
         preset.window.mode === 'range' &&
-        window.rangeMs !== rangeToMs(preset.window.range))
+        (window.rangeMs < intervalMs || window.rangeMs !== rangeToMs(preset.window.range)))
     )
       continue
     presets.push({ id: preset.id, window: preset.window, interval })

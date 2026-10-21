@@ -23,7 +23,10 @@ describe('getMarketSeriesRangePresets', () => {
     ['yahoo-finance', '1m', ['1d', '5d', '1w']],
     ['alpha-vantage', '1m', ['1d', '5d', '1w', '1m']],
     ['finnhub', '1m', ['1d', '5d', '1w', '1m', '3m', '6m', '1y']],
-  ])('filters %s ranges using selected %s retention', (provider, interval, ids) => {
+    ['yahoo-finance', '1mo', ['1m', '3m', '6m', '1y', '5y']],
+    ['yahoo-finance', '3mo', ['3m', '6m', '1y', '5y', 'all']],
+    ['alpaca', '12mo', ['1y', '5y']],
+  ])('filters %s ranges for selected %s candles', (provider, interval, ids) => {
     const presets = getMarketSeriesRangePresets(provider, interval)
     expect(presets.map((preset) => preset.id)).toEqual(ids)
     expect(presets.every((preset) => preset.interval === interval)).toBe(true)
