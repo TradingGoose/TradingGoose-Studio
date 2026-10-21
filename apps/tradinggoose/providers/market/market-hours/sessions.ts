@@ -183,15 +183,15 @@ export const resolveSeriesBoundsMs = (
     return { startMs, endMs }
   }
 
-  const bars = Array.isArray(series.bars) ? series.bars : []
-  if (!bars.length) return null
-  const times = bars.map((bar) => Date.parse(bar.timeStamp)).filter((ts) => Number.isFinite(ts))
-  if (!times.length) return null
-  const min = Math.min(...times)
-  const max = Math.max(...times)
-  return Number.isFinite(min) && Number.isFinite(max) && min < max
-    ? { startMs: min, endMs: max }
-    : null
+  let min = Number.POSITIVE_INFINITY
+  let max = Number.NEGATIVE_INFINITY
+  for (const bar of Array.isArray(series.bars) ? series.bars : []) {
+    const timestamp = Date.parse(bar.timeStamp)
+    if (!Number.isFinite(timestamp)) continue
+    min = Math.min(min, timestamp)
+    max = Math.max(max, timestamp)
+  }
+  return min < max ? { startMs: min, endMs: max } : null
 }
 
 const buildSessionRanges = (
