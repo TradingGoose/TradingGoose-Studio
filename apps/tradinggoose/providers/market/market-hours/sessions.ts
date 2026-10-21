@@ -5,7 +5,7 @@ import type {
   MarketSessionWindow,
 } from '@/providers/market/types'
 import { MARKET_DAY_MS, MAX_SESSION_LOOKAHEAD_DAYS } from './constants'
-import { addDays, parseDateKey, toDate, toDateKey } from './date-utils'
+import { addDays, parseDateKey, toDate } from './date-utils'
 import { resolveMarketHours, resolveMarketHoursRange } from './market-hours-api'
 import { parseTime } from './time-utils'
 import type { MarketHoursResponse, MarketSession } from './types'
@@ -99,37 +99,12 @@ export const resolveMarketSessionsForRange = async (
     new Date(startMs - MARKET_DAY_MS),
     new Date(endMs + MARKET_DAY_MS)
   )
-  if (rangeMap && rangeMap.size === 0) return []
-
-  const dateKeys = rangeMap ? Array.from(rangeMap.keys()).sort() : []
-
-  const fallbackStartDate = new Date(startMs)
-  const fallbackStartDayMs = Date.UTC(
-    fallbackStartDate.getUTCFullYear(),
-    fallbackStartDate.getUTCMonth(),
-    fallbackStartDate.getUTCDate()
-  )
-  const fallbackEndDate = new Date(endMs)
-  const fallbackEndDayMs = Date.UTC(
-    fallbackEndDate.getUTCFullYear(),
-    fallbackEndDate.getUTCMonth(),
-    fallbackEndDate.getUTCDate()
-  )
-  const fallbackDayCount =
-    Number.isFinite(fallbackStartDayMs) && Number.isFinite(fallbackEndDayMs)
-      ? Math.floor((fallbackEndDayMs - fallbackStartDayMs) / MARKET_DAY_MS) + 1
-      : 0
+  if (!rangeMap) return null
 
   const sessions: MarketSessionWindow[] = []
-  const totalDays = dateKeys.length || fallbackDayCount
-  for (let i = 0; i < totalDays; i += 1) {
-    const dateKey = dateKeys.length
-      ? dateKeys[i]
-      : toDateKey(new Date(fallbackStartDayMs + i * MARKET_DAY_MS))
-    const dateCursor = parseDateKey(dateKey) ?? new Date(dateKey)
-    const hoursResponse =
-      rangeMap?.get(dateKey) ?? (await resolveMarketHours(listingId, listingType, dateCursor))
-    if (!hoursResponse || hoursResponse.isHoliday || !hoursResponse.marketHours) continue
+  for (const [dateKey, hoursResponse] of rangeMap) {
+    const dateCursor = parseDateKey(dateKey)
+    if (!dateCursor || hoursResponse.isHoliday || !hoursResponse.marketHours) continue
 
     const offset = hoursResponse.timeZone?.utcOffset ?? '+00:00'
     let offsetMinutes = 0
@@ -165,7 +140,6 @@ export const resolveMarketSessionsForRange = async (
     }
   }
 
-  if (!sessions.length) return []
   sessions.sort((a, b) => a.start.localeCompare(b.start))
   return sessions
 }

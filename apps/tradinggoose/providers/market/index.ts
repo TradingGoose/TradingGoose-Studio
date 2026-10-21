@@ -177,6 +177,7 @@ export async function executeProviderRequest(
       const response = await provider.fetchMarketSeries(adjustedRequest)
       let marketSessions: MarketSessionWindow[] | null = null
       if (
+        isIntradayInterval(sessionInterval) &&
         listingId &&
         normalizedRequest.listing?.listing_type === 'default' &&
         (sessionPref === 'regular' || sessionPref === 'extended')
@@ -193,11 +194,8 @@ export async function executeProviderRequest(
       }
       const sessionMode =
         sessionPref === 'regular' || sessionPref === 'extended' ? sessionPref : null
-      const shouldFilterSessions = Boolean(
-        marketSessions && sessionMode && isIntradayInterval(sessionInterval)
-      )
       const filteredResponse =
-        shouldFilterSessions && marketSessions && sessionMode
+        marketSessions && sessionMode
           ? filterSeriesBySessions(response, marketSessions, sessionMode)
           : response
       let applyWindow = window
