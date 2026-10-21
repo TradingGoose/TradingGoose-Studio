@@ -4,7 +4,7 @@ import type {
   MarketSeriesRequest,
   MarketSessionWindow,
 } from '@/providers/market/types'
-import { MARKET_DAY_MS, MAX_SESSION_LOOKAHEAD_DAYS, MAX_SESSION_RANGE_DAYS } from './constants'
+import { MARKET_DAY_MS, MAX_SESSION_LOOKAHEAD_DAYS } from './constants'
 import { addDays, parseDateKey, toDate, toDateKey } from './date-utils'
 import { resolveMarketHours, resolveMarketHoursRange } from './market-hours-api'
 import { parseTime } from './time-utils'
@@ -92,10 +92,6 @@ export const resolveMarketSessionsForRange = async (
   endMs: number
 ): Promise<MarketSessionWindow[] | null> => {
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) return null
-
-  const dayCount = Math.floor((endMs - startMs) / MARKET_DAY_MS) + 1
-  if (dayCount <= 0) return null
-  if (dayCount > MAX_SESSION_RANGE_DAYS) return null
 
   const rangeMap = await resolveMarketHoursRange(
     listingId,

@@ -3,20 +3,33 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { executeProviderRequest } from '@/providers/market'
 import { fetchAlpacaLiveSnapshot } from '@/providers/market/alpaca/live'
 import { fetchAlpacaSeries } from '@/providers/market/alpaca/series'
 import { resolveSeriesBoundsMs } from '@/providers/market/market-hours/sessions'
+import type { MarketHoursResponse } from '@/providers/market/market-hours/types'
 import { applySeriesWindow, planMarketSeriesRequest } from '@/providers/market/series-planner'
 
-const { fetchMock, mockResolveListingContext, mockResolveProviderSymbol } = vi.hoisted(() => ({
+const {
+  fetchMock,
+  mockResolveListingContext,
+  mockResolveProviderSymbol,
+  mockResolveMarketHoursRange,
+} = vi.hoisted(() => ({
   fetchMock: vi.fn(),
   mockResolveListingContext: vi.fn(),
   mockResolveProviderSymbol: vi.fn(),
+  mockResolveMarketHoursRange: vi.fn(),
 }))
 
 vi.mock('@/providers/market/utils', () => ({
   resolveListingContext: mockResolveListingContext,
   resolveProviderSymbol: mockResolveProviderSymbol,
+}))
+
+vi.mock('@/providers/market/market-hours/market-hours-api', () => ({
+  resolveMarketHours: vi.fn(),
+  resolveMarketHoursRange: mockResolveMarketHoursRange,
 }))
 
 afterEach(() => {
@@ -267,6 +280,68 @@ describe('fetchAlpacaSeries bounds', () => {
       expect(normalized.bars).toHaveLength(200_000)
       expect(normalized.start).toBe(start)
       expect(normalized.end).toBe(end)
+    }
+  )
+
+  it.each(['regular', 'extended'] as const)(
+    'filters %s sessions across multi-year continuation pages',
+    async (marketSession) => {
+      mockResolveListingContext.mockResolvedValue({ listing: stockListing, assetClass: 'stock' })
+      mockResolveProviderSymbol.mockReturnValue('AAPL')
+      mockResolveMarketHoursRange.mockResolvedValue(
+        new Map<string, MarketHoursResponse>(
+          [
+            ['2021-11-26', '-05:00', '13:00'],
+            ['2026-10-19', '-04:00', '16:00'],
+          ].map(([date, utcOffset, end]) => [
+            date,
+            {
+              timeZone: { utcOffset },
+              marketHours: {
+                premarket: { start: '04:00', end: '09:30' },
+                market: { start: '09:30', end },
+                postmarket: { start: end, end: '20:00' },
+              },
+            },
+          ])
+        ).set('2022-07-04', { isHoliday: true })
+      )
+      const pages = [
+        [
+          '2021-11-26T14:00:00.000Z',
+          '2021-11-26T14:30:00.000Z',
+          '2021-11-26T18:30:00.000Z',
+          '2022-07-04T14:30:00.000Z',
+        ],
+        ['2026-10-19T12:00:00.000Z', '2026-10-19T13:30:00.000Z', '2026-10-19T20:30:00.000Z'],
+      ]
+      for (const [index, page] of pages.entries()) {
+        fetchMock.mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              bars: { AAPL: page.map((t) => ({ t, c: 100 })) },
+              next_page_token: index === 0 ? 'next' : null,
+            })
+          )
+        )
+      }
+
+      const series = await executeProviderRequest('alpaca', {
+        kind: 'series',
+        listing: stockListing,
+        auth: { apiKey: 'request-key', apiSecret: 'request-secret' },
+        interval: '3m',
+        windows: [{ mode: 'absolute', start: '2021-11-26', end: '2026-10-19T23:59:00Z' }],
+        providerParams: { marketSession },
+      })
+
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(new URL(fetchMock.mock.calls[1][0]).searchParams.get('page_token')).toBe('next')
+      expect('bars' in series && series.bars.map((bar) => bar.timeStamp)).toEqual(
+        marketSession === 'regular'
+          ? [pages[0][1], pages[1][1]]
+          : [...pages[0].slice(0, 3), ...pages[1]]
+      )
     }
   )
 
