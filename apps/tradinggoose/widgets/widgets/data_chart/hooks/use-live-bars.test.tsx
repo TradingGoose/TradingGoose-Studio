@@ -4,6 +4,7 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getPublicCopy } from '@/i18n/public-copy'
+import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import { planMarketSeriesRequest } from '@/providers/market/series-planner'
 import { resolveSeriesWindow } from '@/widgets/widgets/data_chart/series-window'
 import type { DataChartDataContext } from '@/widgets/widgets/data_chart/types'
@@ -188,6 +189,82 @@ describe('useLiveBars', () => {
     expect(fetchSeries).toHaveBeenCalledTimes(2)
     for (const [, init] of fetchSeries.mock.calls) {
       expect(JSON.parse(init.body)).toMatchObject({ interval: '3mo', windows: [{ mode: 'all' }] })
+    }
+  })
+
+  it.each([2, 3])('stops backfill at the retained cap after loading %i candles', async (count) => {
+    vi.useFakeTimers()
+    const retention = alpacaProviderConfig.capabilities!.series!.retention!.default!
+    const previousMaxBars = retention.maxBars
+    retention.maxBars = 3
+    const scheduleTimeout = vi.spyOn(window, 'setTimeout')
+    const fetchSeries = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          bars: Array.from({ length: count }, (_, index) => ({
+            timeStamp: new Date(openTime + index * 60_000).toISOString(),
+            close: 11,
+          })),
+        }),
+      })
+      .mockImplementation(async (_url, init) => ({
+        ok: true,
+        json: async () => ({
+          bars: [
+            {
+              timeStamp: new Date(
+                Date.parse(JSON.parse(init.body).windows[0].end) - 60_000
+              ).toISOString(),
+              close: 10,
+            },
+          ],
+        }),
+      }))
+    vi.stubGlobal('fetch', fetchSeries)
+    let onRangeChange: (range: { from: number; to: number }) => Promise<void>
+    let visibleRange = { from: 0, to: count - 1 }
+    const args = loaderArgs({
+      providerId: 'alpaca',
+      seriesWindow: resolveSeriesWindow({ view: { interval: '1m' } }, 'alpaca'),
+      dataParams: { data: { live: { enabled: false } } },
+      chartRef: {
+        current: {
+          clearCrosshairPosition: vi.fn(),
+          timeScale: () => ({
+            subscribeVisibleLogicalRangeChange: (handler: typeof onRangeChange) => {
+              onRangeChange = handler
+            },
+            unsubscribeVisibleLogicalRangeChange: vi.fn(),
+            getVisibleLogicalRange: () => visibleRange,
+            setVisibleLogicalRange: (range: typeof visibleRange) => {
+              visibleRange = range
+            },
+          }),
+        } as any,
+      },
+    })
+    try {
+      await act(async () => root.render(<LoaderHarness args={args} />))
+      vi.setSystemTime(Date.now() + 200)
+      await act(async () => onRangeChange!(visibleRange))
+      expect(fetchSeries).toHaveBeenCalledTimes(count === 2 ? 2 : 1)
+      expect(dataContext.barsMsRef.current).toHaveLength(3)
+      const retainedBars = dataContext.barsMsRef.current
+      expect(retainedBars[0].openTime).toBe(openTime - (count === 2 ? 60_000 : 0))
+      visibleRange = { from: 0, to: 2 }
+      await act(async () => {
+        await onRangeChange!(visibleRange)
+        await vi.advanceTimersByTimeAsync(600)
+        await onRangeChange!(visibleRange)
+      })
+      expect(fetchSeries).toHaveBeenCalledTimes(count === 2 ? 2 : 1)
+      expect(dataContext.barsMsRef.current).toBe(retainedBars)
+      expect(scheduleTimeout.mock.calls.filter(([, delay]) => delay === 150)).toHaveLength(1)
+    } finally {
+      retention.maxBars = previousMaxBars
+      scheduleTimeout.mockRestore()
     }
   })
 

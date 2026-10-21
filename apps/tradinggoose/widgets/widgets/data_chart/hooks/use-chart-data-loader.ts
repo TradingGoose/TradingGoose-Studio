@@ -533,6 +533,13 @@ export const useChartDataLoader = ({
       totalBars: number
     ) => {
       if (totalBars <= 0 || !hasMoreHistoricalDataRef.current) return 0
+      if (
+        retentionRule?.maxBars &&
+        retentionRule.maxBars > 0 &&
+        totalBars >= retentionRule.maxBars
+      ) {
+        return 0
+      }
 
       const visibleBars = resolveVisibleBars(visibleRange)
       const targetBars = resolvePrefetchTargetBars(visibleRange)
