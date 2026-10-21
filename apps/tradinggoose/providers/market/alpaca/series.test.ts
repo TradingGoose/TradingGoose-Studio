@@ -4,7 +4,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fetchAlpacaSeries, resolveCredentials } from '@/providers/market/alpaca/series'
-import { planMarketSeriesRequest } from '@/providers/market/series-planner'
+import { resolveSeriesBoundsMs } from '@/providers/market/market-hours/sessions'
+import { applySeriesWindow, planMarketSeriesRequest } from '@/providers/market/series-planner'
 
 const { fetchMock, mockResolveListingContext, mockResolveProviderSymbol } = vi.hoisted(() => ({
   fetchMock: vi.fn(),
@@ -165,6 +166,48 @@ describe('fetchAlpacaSeries bounds', () => {
       }
       expect(fetchMock).toHaveBeenCalledTimes(100)
       expect(new URL(fetchMock.mock.calls[99][0]).searchParams.get('page_token')).toBe('page-99')
+    }
+  )
+
+  it.each(['asc', 'desc'] as const)(
+    'resolves large paginated %s bounds before sorting',
+    async (sort) => {
+      const startMs = Date.parse('2026-01-01T00:00:00.000Z')
+      const rows = Array.from({ length: 200_000 }, (_, index) => ({
+        t: new Date(startMs + index * 60_000).toISOString(),
+        c: 100,
+      }))
+      const start = rows[0].t
+      const end = rows[rows.length - 1].t
+      const endMs = Date.parse(end)
+      if (sort === 'desc') rows.reverse()
+      let page = 0
+      fetchMock.mockImplementation(async () => {
+        const bars = rows.slice(page * 10_000, (page + 1) * 10_000)
+        page++
+        return new Response(
+          JSON.stringify({
+            bars: { 'BTC/USD': bars },
+            next_page_token: page < 20 ? `page-${page}` : null,
+          })
+        )
+      })
+
+      const series = await fetchAlpacaSeries({
+        kind: 'series',
+        listing: cryptoListing,
+        interval: '1m',
+        start,
+        end,
+        providerParams: { sort, limit: 10_000 },
+      })
+
+      expect(fetchMock).toHaveBeenCalledTimes(20)
+      expect(resolveSeriesBoundsMs(series)).toEqual({ startMs, endMs })
+      const normalized = applySeriesWindow(series, { mode: 'absolute', startMs, endMs })
+      expect(normalized.bars).toHaveLength(200_000)
+      expect(normalized.start).toBe(start)
+      expect(normalized.end).toBe(end)
     }
   )
 
