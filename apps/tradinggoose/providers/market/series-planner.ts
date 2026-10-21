@@ -144,7 +144,10 @@ const normalizeWindow = (
   return null
 }
 
-export const getMarketSeriesRangePresets = (providerId?: string | null) => {
+export const getMarketSeriesRangePresets = (
+  providerId?: string | null,
+  selectedInterval?: string | null
+) => {
   const capabilities = providerId ? getMarketSeriesCapabilities(providerId) : null
   const presets: {
     id: string
@@ -153,15 +156,18 @@ export const getMarketSeriesRangePresets = (providerId?: string | null) => {
   }[] = []
   for (const preset of DEFAULT_RANGE_PRESETS) {
     const interval =
-      preset.window.mode === 'all'
-        ? capabilities?.allInterval
-        : 'interval' in preset
-          ? preset.interval
-          : undefined
+      selectedInterval === undefined
+        ? preset.window.mode === 'all'
+          ? capabilities?.allInterval
+          : 'interval' in preset
+            ? preset.interval
+            : undefined
+        : capabilities?.intervals?.find((interval) => interval === selectedInterval)
     if (
       !interval ||
       !capabilities?.intervals?.includes(interval) ||
-      !capabilities.windowModes?.includes(preset.window.mode)
+      !capabilities.windowModes?.includes(preset.window.mode) ||
+      (preset.window.mode === 'all' && interval !== capabilities.allInterval)
     )
       continue
     const window = normalizeWindow(

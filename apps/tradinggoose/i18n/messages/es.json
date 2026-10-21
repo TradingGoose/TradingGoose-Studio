@@ -7589,12 +7589,24 @@
               ],
               "title": "Data Provider"
             },
-            "rangePresetId": {
+            "rangeMode": {
+              "description": "Selecciona \"custom\" para indicar las fechas de inicio y fin o \"latest\" para un rango reciente.",
               "options": [
                 {
                   "id": "custom",
                   "label": "Fechas personalizadas"
                 },
+                {
+                  "id": "latest",
+                  "label": "Rango reciente"
+                }
+              ],
+              "placeholder": "Selecciona el tipo de rango",
+              "title": "Tipo de rango"
+            },
+            "rangePresetId": {
+              "description": "Rango reciente disponible para el proveedor de datos y el intervalo seleccionados.",
+              "options": [
                 {
                   "id": "1d",
                   "label": "Último día"
@@ -7632,8 +7644,8 @@
                   "label": "Todo lo disponible"
                 }
               ],
-              "placeholder": "Selecciona un rango de datos",
-              "title": "Rango de datos"
+              "placeholder": "Selecciona un rango reciente",
+              "title": "Rango reciente"
             },
             "start": {
               "placeholder": "Iniciar hora"

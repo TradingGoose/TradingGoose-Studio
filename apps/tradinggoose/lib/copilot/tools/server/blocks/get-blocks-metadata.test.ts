@@ -145,21 +145,26 @@ describe('getBlocksMetadataServerTool', () => {
     )
   })
 
-  it('serializes historical range choices and exact provider-specific accepted IDs', async () => {
+  it('serializes historical range modes and latest range choices', async () => {
     const result = await getBlocksMetadataServerTool.execute({ blockTypes: ['historical_data'] })
-    const range = result.metadata.historical_data?.subBlocks?.find(
-      (subBlock) => subBlock.id === 'rangePresetId'
-    )
+    const subBlocks = result.metadata.historical_data?.subBlocks
 
-    expect(range).toMatchObject({
-      title: 'Data Range',
+    expect(subBlocks?.find((subBlock) => subBlock.id === 'rangeMode')).toMatchObject({
+      title: 'Range Mode',
       required: true,
-      description: expect.stringContaining('Select "custom" for explicit start/end dates'),
+      options: [
+        { id: 'custom', label: 'Custom dates' },
+        { id: 'latest', label: 'Latest range' },
+      ],
     })
-    expect(range?.options).toContainEqual({ id: 'custom', label: 'Custom dates' })
-    expect(range?.description).toContain('yahoo-finance: custom, 1d, 5d, 1m, 1y, 5y, all')
-    expect(range?.description).toContain('alpaca: custom, 1d, 5d, 1w, 1m, 3m, 1y, 5y;')
-    expect(range?.options).toContainEqual({ id: '1m', label: 'Latest 1 month' })
+    const range = subBlocks?.find((subBlock) => subBlock.id === 'rangePresetId')
+    expect(range).toMatchObject({
+      title: 'Latest Range',
+      required: true,
+      description: 'Latest range available from the selected data provider and interval.',
+    })
+    expect(range?.options).not.toContainEqual(expect.objectContaining({ id: 'custom' }))
+    expect(range?.options).toContainEqual({ id: '1m', label: 'Last 1 month' })
   })
 
   it('returns Mermaid profiles and operation variants instead of schema-shaped metadata', async () => {

@@ -73,13 +73,22 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "description": "Se muestra cuando el proveedor es 'alpaca'."
         },
         {
-            "id": "rangePresetId",
+            "id": "rangeMode",
             "type": "dropdown",
-            "title": "Rango de datos",
+            "title": "Tipo de rango",
             "layout": "full",
-            "placeholder": "Selecciona un rango de datos",
+            "placeholder": "Selecciona el tipo de rango",
             "required": true,
-            "description": "Los rangos disponibles dependen del proveedor seleccionado."
+            "options": [
+                {
+                    "id": "custom",
+                    "label": "Fechas personalizadas"
+                },
+                {
+                    "id": "latest",
+                    "label": "Rango reciente"
+                }
+            ]
         },
         {
             "id": "interval",
@@ -87,7 +96,17 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Intervalo",
             "layout": "full",
             "placeholder": "Seleccionar intervalo",
-            "description": "Se muestra solo para Fechas personalizadas si el proveedor seleccionado admite intervalos."
+            "required": true,
+            "description": "Obligatorio en ambos modos si el proveedor seleccionado admite intervalos."
+        },
+        {
+            "id": "rangePresetId",
+            "type": "dropdown",
+            "title": "Rango reciente",
+            "layout": "full",
+            "placeholder": "Selecciona un rango reciente",
+            "required": true,
+            "description": "Se muestra para Rango reciente. Los rangos disponibles dependen del proveedor y del intervalo seleccionados."
         },
         {
             "id": "normalizationMode",
@@ -154,7 +173,8 @@ Obtiene y normaliza series de mercado de proveedores de mercado registrados.
 
 ## Instrucciones de uso
 
-Elige un proveedor de datos de mercado, un listado canónico y un Rango de datos (`rangePresetId`). Los preajustes disponibles dependen del proveedor y seleccionan el intervalo automáticamente. Para Fechas personalizadas (`custom`), configura un intervalo admitido y las fechas de inicio y fin obligatorias, en formato ISO o como timestamps UNIX.
+Elige un proveedor de datos de mercado, un listado canónico y un intervalo admitido. En Tipo de rango (`rangeMode`), elige Fechas personalizadas (`custom`) e introduce las fechas de inicio y fin obligatorias como cadenas ISO o timestamps UNIX, o elige Rango reciente (`latest`) y selecciona un rango (`rangePresetId`). Los rangos disponibles dependen del proveedor y del intervalo; elegir un rango no cambia el intervalo. Todo lo disponible se ofrece solo con el intervalo que el proveedor admite para el historial completo.
+
 
 ## Notas
 

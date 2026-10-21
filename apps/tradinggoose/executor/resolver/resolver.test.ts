@@ -319,11 +319,13 @@ describe('InputResolver', () => {
 
   describe('Block Reference Resolution', () => {
     it.each([
-      ['custom', 1704067200, 1704153600],
-      ['<variable.stringVar>', 1704067200000, 1704153600000],
-    ])('preserves historical bounds for range %s', (rangePresetId, start, end) => {
+      ['custom', 'custom', 1704067200, 1704153600],
+      ['<variable.stringVar>', 'custom', 1704067200000, 1704153600000],
+      ['<variable.stringVar>', 'latest', 1704067200, 1704153600],
+      ['latest', 'latest', 1704067200, 1704153600],
+    ])('preserves historical mode %s selecting %s', (rangeMode, selected, start, end) => {
       mockContext.blockStates.get('function-block').output = { start, end }
-      mockWorkflowVars.stringVar.value = 'custom'
+      mockWorkflowVars.stringVar.value = selected
       vi.mocked(getBlock).mockReturnValueOnce(HistoricalDataBlock)
       const block: SerializedBlock = {
         ...sampleWorkflow.blocks[1],
@@ -334,21 +336,37 @@ describe('InputResolver', () => {
           params: {
             provider: 'alpaca',
             listing: { listing_id: 'AAPL', base_id: '', quote_id: '', listing_type: 'default' },
-            rangePresetId,
-            start: '<function.start>',
-            end: '<function.end>',
+            rangeMode,
+            rangePresetId: '1d',
+            interval: '15m',
+            start: rangeMode === 'latest' ? '<disabled-block.result>' : '<function.start>',
+            end: rangeMode === 'latest' ? '<disabled-block.result>' : '<function.end>',
           },
         },
       }
       const inputs = resolver.resolveInputs(block, mockContext)
-      expect([inputs.start, inputs.end]).toEqual([String(start), String(end)])
+      if (rangeMode === 'latest') {
+        expect(inputs).not.toHaveProperty('start')
+        expect(inputs).not.toHaveProperty('end')
+      } else {
+        expect([inputs.start, inputs.end]).toEqual([String(start), String(end)])
+      }
       const params = HistoricalDataBlock.tools.config!.params!(inputs)
       const body = historicalDataTool.request.body!(params as MarketSeriesParams)
       const planned = planMarketSeriesRequest('alpaca', body as MarketSeriesRequest)
 
-      expect(planned.request.windows).toEqual([
-        { mode: 'absolute', start: '2024-01-01T00:00:00.000Z', end: '2024-01-02T00:00:00.000Z' },
-      ])
+      expect(planned.request.interval).toBe('15m')
+      expect(planned.request.windows).toEqual(
+        selected === 'custom'
+          ? [
+              {
+                mode: 'absolute',
+                start: '2024-01-01T00:00:00.000Z',
+                end: '2024-01-02T00:00:00.000Z',
+              },
+            ]
+          : [{ mode: 'range', range: { value: 1, unit: 'day' } }]
+      )
     })
 
     it('should resolve references to other blocks', () => {

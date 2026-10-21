@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { HistoricalDataBlock } from '@/blocks/blocks/historical_data'
 import { planMarketSeriesRequest } from '@/providers/market/series-planner'
-import { DEFAULT_RANGE_PRESETS } from '@/providers/market/series-window'
 import type { MarketSeriesRequest } from '@/providers/market/types'
 import { historicalDataTool, type MarketSeriesParams } from '@/tools/market_data/series'
 import { getToolParametersConfig } from '@/tools/params'
@@ -21,136 +20,139 @@ if (!mapParams || !buildRequestBody) {
 }
 
 const buildParams = (params: Record<string, unknown>) =>
-  mapParams({ provider: 'alpaca', listing, ...params })
+  mapParams({ provider: 'alpaca', listing, rangeMode: 'latest', interval: '1h', ...params })
 
 const requestBody = (params: Record<string, unknown>) =>
   buildRequestBody(buildParams(params) as MarketSeriesParams) as Record<string, unknown>
 
 describe('historical data range selection', () => {
-  it('refreshes required range options when the selected provider changes', () => {
-    const range = HistoricalDataBlock.subBlocks.find((subBlock) => subBlock.id === 'rangePresetId')
-
-    expect(range).toMatchObject({
+  it('separates date mode from provider and interval dependent latest ranges', () => {
+    expect(HistoricalDataBlock.subBlocks.find((field) => field.id === 'rangeMode')).toMatchObject({
       type: 'dropdown',
-      dependsOn: ['provider'],
       required: true,
+      options: [
+        { id: 'custom', label: 'Custom dates' },
+        { id: 'latest', label: 'Latest range' },
+      ],
+    })
+    expect(HistoricalDataBlock.subBlocks.find((field) => field.id === 'interval')).toMatchObject({
+      required: true,
+      dependsOn: ['provider'],
+    })
+    expect(
+      HistoricalDataBlock.subBlocks.find((field) => field.id === 'rangePresetId')
+    ).toMatchObject({
+      type: 'dropdown',
+      required: true,
+      dependsOn: ['provider', 'interval'],
       fetchOptions: expect.any(Function),
     })
   })
 
   it.each([
-    ['alpaca', ['custom', '1d', '5d', '1w', '1m', '3m', '1y', '5y']],
-    ['yahoo-finance', ['custom', '1d', '5d', '1m', '1y', '5y', 'all']],
-  ])('limits %s ranges by supported intervals and retention', async (provider, expectedIds) => {
-    const range = HistoricalDataBlock.subBlocks.find((subBlock) => subBlock.id === 'rangePresetId')
-    expect(range?.fetchOptions).toBeTypeOf('function')
+    ['alpaca', '1h', ['1d', '5d', '1w', '1m', '3m', '6m', '1y', '5y']],
+    ['yahoo-finance', '1m', ['1d', '5d', '1w']],
+    ['yahoo-finance', '30m', ['1d', '5d', '1w', '1m']],
+    ['yahoo-finance', '3mo', ['1d', '5d', '1w', '1m', '3m', '6m', '1y', '5y', 'all']],
+  ])(
+    'limits %s latest ranges at %s to provider availability',
+    async (provider, interval, expectedIds) => {
+      const range = HistoricalDataBlock.subBlocks.find((field) => field.id === 'rangePresetId')
+      const options = await range?.fetchOptions?.('block-1', 'rangePresetId', {
+        channelId: 'main',
+        workflowId: null,
+        contextValues: { provider, interval },
+      })
 
+      expect(options?.map((option) => option.id)).toEqual(expectedIds)
+    }
+  )
+
+  it('reads provider and interval from wrapped workflow context', async () => {
+    const range = HistoricalDataBlock.subBlocks.find((field) => field.id === 'rangePresetId')
     const options = await range?.fetchOptions?.('block-1', 'rangePresetId', {
       channelId: 'main',
       workflowId: null,
-      contextValues: { provider },
+      contextValues: { provider: { value: 'alpaca' }, interval: { value: '1h' } },
     })
 
-    expect(options?.map((option) => option.id)).toEqual(expectedIds)
-    expect(options?.some((option) => /^\d+h$/.test(option.id))).toBe(false)
+    expect(options).toContainEqual({ id: '6m', label: 'Last 6 months' })
   })
 
-  it('reads provider values from wrapped workflow context', async () => {
-    const range = HistoricalDataBlock.subBlocks.find((subBlock) => subBlock.id === 'rangePresetId')
-    const options = await range?.fetchOptions?.('block-1', 'rangePresetId', {
-      channelId: 'main',
-      workflowId: null,
-      contextValues: { provider: { value: 'alpaca' } },
-    })
-
-    expect(options?.map((option) => option.id)).toContain('1w')
-  })
-
-  it.each(['start', 'end'])('shows %s for custom dates and hides it for latest ranges', (id) => {
+  it.each([
+    ['start', 'custom', 'latest'],
+    ['end', 'custom', 'latest'],
+    ['rangePresetId', 'latest', 'custom'],
+  ])('shows %s for its date mode and preserves runtime mode references', (id, active, inactive) => {
     const field = HistoricalDataBlock.subBlocks.find((subBlock) => subBlock.id === id)
     expect(field).toBeDefined()
+    expect(evaluateSubBlockConditionValues(field?.condition, { rangeMode: active })).toBe(true)
+    expect(evaluateSubBlockConditionValues(field?.condition, { rangeMode: inactive })).toBe(false)
     expect(
-      evaluateSubBlockConditionValues(field?.condition, {
-        provider: 'alpaca',
-        rangePresetId: 'custom',
-      })
+      evaluateSubBlockConditionValues(field?.condition, { rangeMode: '<variable.mode>' })
     ).toBe(true)
-    expect(
-      evaluateSubBlockConditionValues(field?.condition, {
-        provider: 'alpaca',
-        rangePresetId: '1d',
-      })
-    ).toBe(false)
   })
 
-  it('keeps the Agent interval visible while workflow presets select their interval', () => {
+  it('keeps the interval available independently of date mode for blocks and Agent tools', () => {
     const params = getToolParametersConfig(
       'historical_data_fetch',
       HistoricalDataBlock
     )?.userInputParameters
     const condition = params?.find((param) => param.id === 'interval')?.uiComponent?.condition
-    const visible = (values: Record<string, unknown>) =>
-      evaluateSubBlockConditionValues(condition, { provider: 'alpaca', ...values })
-
     expect(params?.map((param) => param.id)).toEqual(expect.arrayContaining(['window', 'interval']))
+    expect(params?.map((param) => param.id)).not.toContain('rangeMode')
     expect(params?.map((param) => param.id)).not.toContain('rangePresetId')
     expect(condition).toBeDefined()
-    expect(visible({})).toBe(true)
-    expect(visible({ provider: 'unknown' })).toBe(false)
-    expect(visible({ rangePresetId: 'custom' })).toBe(true)
-    for (const preset of DEFAULT_RANGE_PRESETS) {
-      expect(visible({ rangePresetId: preset.id })).toBe(false)
+    for (const rangeMode of [undefined, 'custom', 'latest']) {
+      expect(evaluateSubBlockConditionValues(condition, { provider: 'alpaca', rangeMode })).toBe(
+        true
+      )
     }
+    expect(evaluateSubBlockConditionValues(condition, { provider: 'unknown' })).toBe(false)
   })
 
   it.each([
-    ['1d', { value: 1, unit: 'day' }, '1m'],
-    ['1w', { value: 1, unit: 'week' }, '10m'],
-    ['1m', { value: 1, unit: 'month' }, '30m'],
-  ])('passes latest %s to the provider as a rolling window', (rangePresetId, range, interval) => {
-    const body = requestBody({
-      rangePresetId,
-      start: '2025-01-01T00:00:00.000Z',
-      end: '2025-01-02T00:00:00.000Z',
-    })
+    ['1d', { value: 1, unit: 'day' }, '15m'],
+    ['1w', { value: 1, unit: 'week' }, '1h'],
+    ['1m', { value: 1, unit: 'month' }, '1d'],
+  ])(
+    'requests latest %s without changing the selected interval',
+    (rangePresetId, range, interval) => {
+      const body = requestBody({ rangePresetId, interval, start: '2025-01-01', end: '2025-01-02' })
+      expect(body).toMatchObject({
+        provider: 'alpaca',
+        listing,
+        interval,
+        windows: [{ mode: 'range', range }],
+      })
+      expect(body).not.toHaveProperty('start')
+      expect(body).not.toHaveProperty('end')
+    }
+  )
 
-    expect(body).toMatchObject({
-      provider: 'alpaca',
-      listing,
-      interval,
-      windows: [{ mode: 'range', range }],
-    })
-    expect(body).not.toHaveProperty('start')
-    expect(body).not.toHaveProperty('end')
-  })
-
-  it('uses the preset interval to preserve a full latest month despite a stale interval', () => {
-    const body = requestBody({
-      provider: 'yahoo-finance',
-      rangePresetId: '1m',
-      interval: '1m',
-    })
-
+  it('rejects a latest month beyond selected interval retention instead of changing the interval', () => {
+    expect(
+      buildParams({ provider: 'yahoo-finance', rangePresetId: '1m', interval: '1m' }).window
+    ).toBeUndefined()
+    const body = requestBody({ provider: 'yahoo-finance', rangePresetId: '1m', interval: '30m' })
     expect(body).toMatchObject({
       interval: '30m',
       windows: [{ mode: 'range', range: { value: 1, unit: 'month' } }],
     })
-
     const planned = planMarketSeriesRequest('yahoo-finance', body as unknown as MarketSeriesRequest)
     expect(planned.window).toEqual({ mode: 'range', rangeMs: 30 * 24 * 60 * 60 * 1000 })
-    expect(planned.request.windows).toEqual([{ mode: 'range', range: { value: 30, unit: 'day' } }])
   })
 
   it.each([
     ['yahoo-finance', '3mo'],
     ['alpha-vantage', '1mo'],
   ])(
-    'requests all available %s history without date or bar-count cutoffs',
+    'requests all available %s history at the explicitly selected native interval',
     (provider, interval) => {
       const body = requestBody({
         provider,
         rangePresetId: 'all',
-        interval: '1m',
+        interval,
         start: '1976-01-01',
         end: '2026-01-01',
       })
@@ -163,19 +165,12 @@ describe('historical data range selection', () => {
     }
   )
 
-  it('uses the preset interval when the saved interval is unsupported by the provider', () => {
-    expect(requestBody({ rangePresetId: '1d', interval: '4h' })).toMatchObject({
-      interval: '1m',
-      windows: [{ mode: 'range', range: { value: 1, unit: 'day' } }],
-    })
-  })
-
-  it('passes custom dates through the tool window contract', () => {
+  it('passes custom dates and their selected interval while ignoring a stale latest preset', () => {
     const start = '2026-09-01T00:00:00.000Z'
     const end = '2026-09-02T00:00:00.000Z'
-
     const body = requestBody({
-      rangePresetId: 'custom',
+      rangeMode: 'custom',
+      rangePresetId: 'all',
       interval: '1h',
       start,
       end,
@@ -195,23 +190,21 @@ describe('historical data range selection', () => {
   })
 
   it.each([
+    { rangeMode: undefined, rangePresetId: '1d' },
+    { rangeMode: '', rangePresetId: '1d' },
+    { rangeMode: 'unknown', rangePresetId: '1d' },
     { rangePresetId: undefined },
     { rangePresetId: '' },
+    { rangePresetId: 'custom' },
     { rangePresetId: 'unknown' },
-    { rangePresetId: '1h' },
-    { provider: 'yahoo-finance', rangePresetId: '1w' },
-    { provider: 'yahoo-finance', rangePresetId: '3m' },
-    { provider: 'alpaca', rangePresetId: '6m' },
+    { provider: 'alpaca', interval: '4h', rangePresetId: '1d' },
+    { provider: 'yahoo-finance', interval: '1h', rangePresetId: '3m' },
+    { provider: 'yahoo-finance', interval: '1h', rangePresetId: 'all' },
     { provider: 'alpaca', rangePresetId: 'all' },
     { provider: 'finnhub', rangePresetId: 'all' },
     { provider: 'robinhood', rangePresetId: 'all' },
-  ])('does not substitute dates for an invalid range selection: %j', (selection) => {
-    const params = buildParams({
-      ...selection,
-      start: '2026-09-01T00:00:00.000Z',
-      end: '2026-09-02T00:00:00.000Z',
-    })
-
+  ])('does not infer a mode or substitute dates for invalid latest selections: %j', (selection) => {
+    const params = buildParams({ ...selection, start: '2026-09-01', end: '2026-09-02' })
     expect(params.window).toBeUndefined()
     expect(historicalDataTool.params.window.required).toBe(true)
   })

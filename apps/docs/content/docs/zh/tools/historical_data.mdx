@@ -73,13 +73,22 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "description": "当提供商为 'alpaca' 时显示。"
         },
         {
-            "id": "rangePresetId",
+            "id": "rangeMode",
             "type": "dropdown",
-            "title": "数据范围",
+            "title": "范围模式",
             "layout": "full",
-            "placeholder": "选择数据范围",
+            "placeholder": "选择范围模式",
             "required": true,
-            "description": "可用范围取决于所选提供商。"
+            "options": [
+                {
+                    "id": "custom",
+                    "label": "自定义日期"
+                },
+                {
+                    "id": "latest",
+                    "label": "最近数据范围"
+                }
+            ]
         },
         {
             "id": "interval",
@@ -87,7 +96,17 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "时间间隔",
             "layout": "full",
             "placeholder": "选择时间间隔",
-            "description": "仅在选择自定义日期且所选提供商支持时间间隔时显示。"
+            "required": true,
+            "description": "当所选提供商支持时间间隔时，两种模式下均为必填。"
+        },
+        {
+            "id": "rangePresetId",
+            "type": "dropdown",
+            "title": "最近数据范围",
+            "layout": "full",
+            "placeholder": "选择最近数据范围",
+            "required": true,
+            "description": "仅在选择最近数据范围时显示。可用范围取决于所选提供商和时间间隔。"
         },
         {
             "id": "normalizationMode",
@@ -154,7 +173,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 ## 使用说明
 
-选择市场数据提供商、规范标的以及数据范围（`rangePresetId`）。可用预设由提供商决定，并自动选择时间间隔。使用自定义日期（`custom`）时，设置受支持的时间间隔及必填的开始和结束时间；日期支持 ISO 字符串或 UNIX 时间戳。
+选择市场数据提供商、规范标的和受支持的时间间隔。在范围模式（`rangeMode`）中，选择自定义日期（`custom`）并填写必填的开始和结束时间，支持 ISO 字符串或 UNIX 时间戳；或选择最近数据范围（`latest`），再选择所需范围（`rangePresetId`）。可用范围取决于提供商和时间间隔；选择范围不会改变时间间隔。仅当所选时间间隔支持提供商的完整历史时，才会提供全部可用数据选项。
+
 
 ## 说明
 

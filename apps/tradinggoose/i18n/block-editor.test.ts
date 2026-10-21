@@ -280,12 +280,17 @@ describe('block-editor i18n helpers', () => {
   it.each(['en', 'es', 'zh'] as const)(
     'localizes historical data range options and display values in %s',
     async (locale) => {
+      const blockCopy =
+        getPublicCopy(locale).workspace.widgets.blockEditor.subBlocks.historical_data
+      const mode = HistoricalDataBlock.subBlocks.find((subBlock) => subBlock.id === 'rangeMode')!
+      expect(localizeWorkflowSubBlockConfig(locale, mode, 'historical_data')).toMatchObject(
+        blockCopy.rangeMode
+      )
       const config = HistoricalDataBlock.subBlocks.find(
         (subBlock) => subBlock.id === 'rangePresetId'
       )!
       const localizedConfig = localizeWorkflowSubBlockConfig(locale, config, 'historical_data')
-      const copy =
-        getPublicCopy(locale).workspace.widgets.blockEditor.subBlocks.historical_data.rangePresetId
+      const copy = blockCopy.rangePresetId
 
       expect(localizedConfig.title).toBe(copy.title)
       expect(localizedConfig.placeholder).toBe(copy.placeholder)
@@ -293,7 +298,7 @@ describe('block-editor i18n helpers', () => {
       const context = {
         channelId: 'test-channel',
         workflowId: null,
-        contextValues: { provider: 'alpaca' },
+        contextValues: { provider: 'alpaca', interval: '1d', rangeMode: 'latest' },
       }
       const available = await config.fetchOptions!('block', config.id, context)
       const localized = await localizedConfig.fetchOptions!('block', config.id, context)

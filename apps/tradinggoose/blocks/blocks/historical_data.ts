@@ -34,6 +34,7 @@ const RESERVED_PARAM_IDS = new Set([
   'provider',
   'listing',
   'interval',
+  'rangeMode',
   'rangePresetId',
   'window',
   'start',
@@ -108,28 +109,24 @@ const formatIntervalLabel = (interval: string): string => {
 }
 
 const customDateCondition = {
-  field: 'rangePresetId',
-  value: DEFAULT_RANGE_PRESETS.map((preset) => preset.id),
+  field: 'rangeMode',
+  value: 'latest',
   not: true,
 }
 
-const rangeOptions = [
-  { id: 'custom', label: 'Custom dates' },
-  ...DEFAULT_RANGE_PRESETS.map((preset) => ({
-    id: preset.id,
-    label:
-      preset.window.mode === 'all'
-        ? 'All available'
-        : `Latest ${preset.window.range.value} ${preset.window.range.unit}${preset.window.range.value === 1 ? '' : 's'}`,
-  })),
-]
+const rangeOptions = DEFAULT_RANGE_PRESETS.map((preset) => ({
+  id: preset.id,
+  label:
+    preset.window.mode === 'all'
+      ? 'All available'
+      : `Last ${preset.window.range.value} ${preset.window.range.unit}${preset.window.range.value === 1 ? '' : 's'}`,
+}))
 
-const getRangeOptions = (provider: string) => {
-  const presetIds = new Set(getMarketSeriesRangePresets(provider).map((preset) => preset.id))
-  const supportsCustom = getMarketSeriesCapabilities(provider)?.windowModes?.includes('absolute')
-  return rangeOptions.filter((option) =>
-    option.id === 'custom' ? supportsCustom : presetIds.has(option.id)
+const getRangeOptions = (provider: string, interval?: string) => {
+  const presetIds = new Set(
+    getMarketSeriesRangePresets(provider, interval ?? null).map((preset) => preset.id)
   )
+  return rangeOptions.filter((option) => presetIds.has(option.id))
 }
 
 const resolveParamInputType = (paramId: string): SubBlockConfig['type'] => {
@@ -199,17 +196,9 @@ const providerParamSubBlocks = buildProviderParamSubBlocks()
 
 const seriesProviders = getMarketProvidersByKind('series')
 
-const rangeDescription = [
-  'Select "custom" for explicit start/end dates and an optional interval. Other IDs request the latest available range using its matching interval.',
-  `Allowed IDs by provider: ${seriesProviders
-    .map(
-      (provider) =>
-        `${provider.id}: ${getRangeOptions(provider.id)
-          .map((option) => option.id)
-          .join(', ')}`
-    )
-    .join('; ')}.`,
-].join(' ')
+const rangeModeDescription =
+  'Select "custom" for explicit start/end dates or "latest" for a latest range.'
+const rangeDescription = 'Latest range available from the selected data provider and interval.'
 
 const providersWithIntervals = seriesProviders
   .filter((provider) => {
@@ -233,7 +222,7 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
   name: 'Historical Data',
   description: 'Fetch historical market series from registered providers.',
   longDescription:
-    'Choose a market data provider, select a canonical listing, and fetch series bars that include open, high, low, close, volume, and timestamps. Select a latest data range available from the provider or custom start and end dates. Custom dates can be ISO strings or UNIX timestamps.',
+    'Choose a market data provider, listing, and interval, then select custom start/end dates or a latest range available from the provider. Custom dates can be ISO strings or UNIX timestamps.',
   category: 'tools',
   authMode: AuthMode.ApiKey,
   bgColor: '#0EA5E9',
@@ -257,20 +246,17 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
     },
     ...providerParamSubBlocks,
     {
-      id: 'rangePresetId',
-      title: 'Data Range',
+      id: 'rangeMode',
+      title: 'Range Mode',
       type: 'dropdown',
       layout: 'full',
-      placeholder: 'Select data range',
+      placeholder: 'Select range mode',
       required: true,
-      description: rangeDescription,
-      options: rangeOptions,
-      dependsOn: ['provider'],
-      fetchOptions: async (_blockId, _subBlockId, context) => {
-        const provider = resolveContextValue(context.contextValues, 'provider')
-        if (!provider) return []
-        return getRangeOptions(provider)
-      },
+      description: rangeModeDescription,
+      options: [
+        { id: 'custom', label: 'Custom dates' },
+        { id: 'latest', label: 'Latest range' },
+      ],
     },
     {
       id: 'interval',
@@ -278,13 +264,9 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
       type: 'dropdown',
       layout: 'full',
       placeholder: 'Select interval',
-      required: false,
+      required: true,
       condition: providersWithIntervals.length
-        ? {
-            field: 'provider',
-            value: providersWithIntervals,
-            and: customDateCondition,
-          }
+        ? { field: 'provider', value: providersWithIntervals }
         : undefined,
       dependsOn: ['provider'],
       fetchOptions: async (_blockId, _subBlockId, context) => {
@@ -296,6 +278,24 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
           label: formatIntervalLabel(interval),
           id: interval,
         }))
+      },
+    },
+    {
+      id: 'rangePresetId',
+      title: 'Latest Range',
+      type: 'dropdown',
+      layout: 'full',
+      placeholder: 'Select latest range',
+      required: true,
+      description: rangeDescription,
+      options: rangeOptions,
+      condition: { field: 'rangeMode', value: 'custom', not: true },
+      dependsOn: ['provider', 'interval'],
+      fetchOptions: async (_blockId, _subBlockId, context) => {
+        const provider = resolveContextValue(context.contextValues, 'provider')
+        const interval = resolveContextValue(context.contextValues, 'interval')
+        if (!provider) return []
+        return getRangeOptions(provider, interval)
       },
     },
     {
@@ -345,20 +345,21 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
     config: {
       tool: () => 'historical_data_fetch',
       params: (params) => {
-        const rangePreset = getMarketSeriesRangePresets(params.provider).find(
-          (preset) => preset.id === params.rangePresetId
-        )
+        const rangePreset =
+          params.rangeMode === 'latest'
+            ? getMarketSeriesRangePresets(params.provider, params.interval ?? null).find(
+                (preset) => preset.id === params.rangePresetId
+              )
+            : undefined
         const window: MarketSeriesWindow | undefined =
-          params.rangePresetId === 'custom' &&
+          params.rangeMode === 'custom' &&
           getMarketSeriesCapabilities(params.provider)?.windowModes?.includes('absolute')
             ? { mode: 'absolute', start: params.start, end: params.end }
-            : rangePreset
-              ? rangePreset.window
-              : undefined
+            : rangePreset?.window
         return {
           provider: params.provider,
           listing: params.listing,
-          interval: rangePreset?.interval ?? params.interval,
+          interval: params.interval,
           window,
           normalizationMode: params.normalizationMode,
           ...Object.fromEntries(providerParamIds.map((id) => [id, params[id]])),
@@ -369,7 +370,8 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
   inputs: {
     provider: { type: 'string', description: 'Market provider id' },
     listing: { type: LISTING_IDENTITY_VALUE_TYPE, description: 'Structured listing payload' },
-    interval: { type: 'string', description: 'Series interval/timeframe for custom dates' },
+    interval: { type: 'string', description: 'Series interval/timeframe for either date mode' },
+    rangeMode: { type: 'string', description: rangeModeDescription },
     rangePresetId: {
       type: 'string',
       description: rangeDescription,

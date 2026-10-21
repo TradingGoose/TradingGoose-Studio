@@ -7589,51 +7589,63 @@
               ],
               "title": "Data Provider"
             },
-            "rangePresetId": {
+            "rangeMode": {
+              "description": "Select \"custom\" for explicit start/end dates or \"latest\" for a latest range.",
               "options": [
                 {
                   "id": "custom",
                   "label": "Custom dates"
                 },
                 {
+                  "id": "latest",
+                  "label": "Latest range"
+                }
+              ],
+              "placeholder": "Select range mode",
+              "title": "Range Mode"
+            },
+            "rangePresetId": {
+              "description": "Latest range available from the selected data provider and interval.",
+              "options": [
+                {
                   "id": "1d",
-                  "label": "Latest 1 day"
+                  "label": "Last 1 day"
                 },
                 {
                   "id": "5d",
-                  "label": "Latest 5 days"
+                  "label": "Last 5 days"
                 },
                 {
                   "id": "1w",
-                  "label": "Latest 1 week"
+                  "label": "Last 1 week"
                 },
                 {
                   "id": "1m",
-                  "label": "Latest 1 month"
+                  "label": "Last 1 month"
                 },
                 {
                   "id": "3m",
-                  "label": "Latest 3 months"
+                  "label": "Last 3 months"
                 },
                 {
                   "id": "6m",
-                  "label": "Latest 6 months"
+                  "label": "Last 6 months"
                 },
                 {
                   "id": "1y",
-                  "label": "Latest 1 year"
+                  "label": "Last 1 year"
                 },
                 {
                   "id": "5y",
-                  "label": "Latest 5 years"
+                  "label": "Last 5 years"
                 },
                 {
                   "id": "all",
                   "label": "All available"
                 }
               ],
-              "placeholder": "Select data range",
-              "title": "Data Range"
+              "placeholder": "Select latest range",
+              "title": "Latest Range"
             },
             "start": {
               "placeholder": "Start time"

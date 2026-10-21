@@ -7576,12 +7576,24 @@
               ],
               "title": "数据提供商"
             },
-            "rangePresetId": {
+            "rangeMode": {
+              "description": "选择“custom”指定开始和结束日期，或选择“latest”使用最近数据范围。",
               "options": [
                 {
                   "id": "custom",
                   "label": "自定义日期"
                 },
+                {
+                  "id": "latest",
+                  "label": "最近数据范围"
+                }
+              ],
+              "placeholder": "选择范围模式",
+              "title": "范围模式"
+            },
+            "rangePresetId": {
+              "description": "所选数据提供商和时间间隔支持的最近数据范围。",
+              "options": [
                 {
                   "id": "1d",
                   "label": "最近 1 天"
@@ -7619,8 +7631,8 @@
                   "label": "全部可用数据"
                 }
               ],
-              "placeholder": "选择数据范围",
-              "title": "数据范围"
+              "placeholder": "选择最近数据范围",
+              "title": "最近数据范围"
             },
             "start": {
               "placeholder": "开始时间"
