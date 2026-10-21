@@ -83,14 +83,11 @@ describe('historical data range selection', () => {
     ['start', 'custom', 'latest'],
     ['end', 'custom', 'latest'],
     ['rangePresetId', 'latest', 'custom'],
-  ])('shows %s for its date mode and preserves runtime mode references', (id, active, inactive) => {
+  ])('shows %s only for its selected date mode', (id, active, inactive) => {
     const field = HistoricalDataBlock.subBlocks.find((subBlock) => subBlock.id === id)
     expect(field).toBeDefined()
     expect(evaluateSubBlockConditionValues(field?.condition, { rangeMode: active })).toBe(true)
     expect(evaluateSubBlockConditionValues(field?.condition, { rangeMode: inactive })).toBe(false)
-    expect(
-      evaluateSubBlockConditionValues(field?.condition, { rangeMode: '<variable.mode>' })
-    ).toBe(true)
   })
 
   it('keeps the interval available independently of date mode for blocks and Agent tools', () => {

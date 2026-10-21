@@ -28,7 +28,7 @@ export function evaluateSubBlockCondition(
 
   return (
     matchesConditionValue(actualCondition, getFieldValue(actualCondition.field)) &&
-    andConditions.every((entry) => matchesConditionValue(entry, getFieldValue(entry.field)))
+    andConditions.every((entry) => evaluateSubBlockCondition(entry, getFieldValue))
   )
 }
 

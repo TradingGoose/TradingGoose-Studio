@@ -110,8 +110,7 @@ const formatIntervalLabel = (interval: string): string => {
 
 const customDateCondition = {
   field: 'rangeMode',
-  value: 'latest',
-  not: true,
+  value: 'custom',
 }
 
 const rangeOptions = DEFAULT_RANGE_PRESETS.map((preset) => ({
@@ -289,7 +288,7 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
       required: true,
       description: rangeDescription,
       options: rangeOptions,
-      condition: { field: 'rangeMode', value: 'custom', not: true },
+      condition: { field: 'rangeMode', value: 'latest' },
       dependsOn: ['provider', 'interval'],
       fetchOptions: async (_blockId, _subBlockId, context) => {
         const provider = resolveContextValue(context.contextValues, 'provider')

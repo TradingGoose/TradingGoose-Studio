@@ -6,7 +6,7 @@ import {
   getLoopContextId,
   SYSTEM_REFERENCE_PREFIXES,
 } from '@/lib/workflows/references'
-import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
+import { evaluateSubBlockCondition } from '@/lib/workflows/sub-block-conditions'
 import { getBlock } from '@/blocks/index'
 import type { ExecutionContext } from '@/executor/types'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
@@ -55,187 +55,120 @@ export class InputResolver {
     }
   }
 
-  /**
-   * Filters inputs based on sub-block conditions
-   * @param block - Block to filter inputs for
-   * @param inputs - All input parameters
-   * @returns Filtered input parameters that should be processed
-   */
-  private filterInputsByConditions(
-    block: SerializedBlock,
-    inputs: Record<string, any>
-  ): Record<string, any> {
-    const blockType = block.metadata?.id
-    if (!blockType) return inputs
+  /** Resolves condition controllers before processing their active dependent inputs. */
+  resolveInputs(block: SerializedBlock, context: ExecutionContext): Record<string, any> {
+    const inputs = { ...block.config.params }
+    const subBlocks = block.metadata?.id ? (getBlock(block.metadata.id)?.subBlocks ?? []) : []
+    const result: Record<string, any> = {}
+    const resolved = new Map<string, unknown>()
+    const resolving = new Set<string>()
 
-    const blockConfig = getBlock(blockType)
-    if (!blockConfig || !blockConfig.subBlocks) return inputs
-
-    // Filter inputs based on conditions
-    const filteredInputs: Record<string, any> = {}
-    for (const [key, value] of Object.entries(inputs)) {
-      // Check if this input should be included based on subBlock conditions
-      let shouldInclude = false
-
-      // Find all subBlocks with this ID
-      const matchingSubBlocks = blockConfig.subBlocks.filter((sb) => sb.id === key)
-
-      if (matchingSubBlocks.length === 0) {
-        // No subBlock config found for this input - include it
-        shouldInclude = true
-      } else {
-        // Check if any of the matching subBlocks should be active
-        for (const subBlock of matchingSubBlocks) {
-          if (!subBlock.condition || evaluateSubBlockConditionValues(subBlock.condition, inputs)) {
-            shouldInclude = true
-            break
-          }
-        }
+    const resolveField = (key: string): unknown => {
+      if (!Object.hasOwn(inputs, key)) return undefined
+      if (resolved.has(key)) return resolved.get(key)
+      if (resolving.has(key)) {
+        throw new Error(`Circular input condition dependency: ${[...resolving, key].join(' -> ')}`)
       }
-
-      if (shouldInclude) {
-        filteredInputs[key] = value
+      resolving.add(key)
+      try {
+        const matchingSubBlocks = subBlocks.filter((subBlock) => subBlock.id === key)
+        let value: unknown
+        if (
+          !matchingSubBlocks.length ||
+          matchingSubBlocks.some((subBlock) =>
+            evaluateSubBlockCondition(subBlock.condition, resolveField)
+          )
+        ) {
+          value = this.resolveInputValue(key, inputs[key], block, context)
+          result[key] = value
+        }
+        resolved.set(key, value)
+        return value
+      } finally {
+        resolving.delete(key)
       }
     }
 
-    return filteredInputs
+    Object.keys(inputs).forEach(resolveField)
+    return result
   }
 
-  /**
-   * Resolves all inputs for a block based on current context.
-   * Handles block references, environment variables, and JSON parsing.
-   *
-   * @param block - Block to resolve inputs for
-   * @param context - Current execution context
-   * @returns Resolved input parameters
-   */
-  resolveInputs(block: SerializedBlock, context: ExecutionContext): Record<string, any> {
-    const allInputs = { ...block.config.params }
-    // Filter inputs based on sub-block conditions to only process active fields
-    const inputs = this.filterInputsByConditions(block, allInputs)
-    const result: Record<string, any> = {}
-    const isConditionBlock = block.metadata?.id === 'condition'
+  private resolveInputValue(
+    key: string,
+    value: any,
+    block: SerializedBlock,
+    context: ExecutionContext
+  ): any {
+    // Resolve notifications after persistence, when this block's review URL exists.
+    if (block.metadata?.id === 'human_in_the_loop' && key === 'notification') return value
+    if (block.metadata?.id === 'condition' && key === 'conditions') return value
+    if (value === null || value === undefined) return value
 
-    // Process each input parameter
-    for (const [key, value] of Object.entries(inputs)) {
-      // Resolve notifications after persistence, when this block's review URL exists.
-      if (block.metadata?.id === 'human_in_the_loop' && key === 'notification') {
-        result[key] = value
-        continue
-      }
-      if (isConditionBlock && key === 'conditions') {
-        result.conditions = value
-        continue
-      }
-      // Skip null or undefined values
-      if (value === null || value === undefined) {
-        result[key] = value
-        continue
+    if (typeof value === 'string') {
+      const trimmedValue = value.trim()
+      const directVariableMatch = trimmedValue.match(/^<variable\.([^>]+)>$/)
+      if (directVariableMatch) {
+        const variableName = directVariableMatch[1]
+        const variable = this.findVariableByName(variableName)
+        if (variable) return this.getTypedVariableValue(variable)
+        logger.warn(
+          `Direct variable reference <variable.${variableName}> not found. Treating as literal.`
+        )
+        return value
       }
 
-      // Handle string values that may contain references
-      if (typeof value === 'string') {
-        const trimmedValue = value.trim()
-
-        // Check for direct variable reference pattern: <variable.name>
-        const directVariableMatch = trimmedValue.match(/^<variable\.([^>]+)>$/)
-        if (directVariableMatch) {
-          const variableName = directVariableMatch[1]
-          const variable = this.findVariableByName(variableName)
-
-          if (variable) {
-            // Return the typed value directly
-            result[key] = this.getTypedVariableValue(variable)
-            continue
+      const directLoopMatch = trimmedValue.match(/^<loop\.([^>]+)>$/)
+      if (directLoopMatch) {
+        const loopValue = this.resolveLoopReference(
+          directLoopMatch[1].split('.'),
+          context,
+          block,
+          false
+        )
+        if (loopValue !== null) {
+          try {
+            return JSON.parse(loopValue)
+          } catch {
+            return loopValue
           }
-          logger.warn(
-            `Direct variable reference <variable.${variableName}> not found. Treating as literal.`
-          )
-          result[key] = value
-          continue
         }
+        logger.warn(`Direct loop reference <loop.${directLoopMatch[1]}> could not be resolved.`)
+        return value
+      }
 
-        // Check for direct loop reference pattern: <loop.property>
-        const directLoopMatch = trimmedValue.match(/^<loop\.([^>]+)>$/)
-        if (directLoopMatch) {
-          const loopValue = this.resolveLoopReference(
-            directLoopMatch[1].split('.'),
+      const directParallelMatch = trimmedValue.match(/^<parallel\.([^>]+)>$/)
+      if (directParallelMatch) {
+        let containingParallelId: string | undefined
+        for (const [parallelId, parallel] of Object.entries(context.workflow?.parallels || {})) {
+          if (parallel.nodes.includes(block.id)) {
+            containingParallelId = parallelId
+            break
+          }
+        }
+        if (containingParallelId) {
+          const parallelValue = this.resolveParallelReference(
+            containingParallelId,
+            directParallelMatch[1].split('.'),
             context,
             block,
             false
           )
-
-          if (loopValue !== null) {
-            // Parse the value if it's a JSON string
+          if (parallelValue !== null) {
             try {
-              result[key] = JSON.parse(loopValue)
+              return JSON.parse(parallelValue)
             } catch {
-              // If it's not valid JSON, use as is
-              result[key] = loopValue
+              return parallelValue
             }
-            continue
           }
-
-          logger.warn(`Direct loop reference <loop.${directLoopMatch[1]}> could not be resolved.`)
-          result[key] = value
-          continue
         }
-
-        // Check for direct parallel reference pattern: <parallel.property>
-        const directParallelMatch = trimmedValue.match(/^<parallel\.([^>]+)>$/)
-        if (directParallelMatch) {
-          // Find which parallel this block belongs to
-          let containingParallelId: string | undefined
-          for (const [parallelId, parallel] of Object.entries(context.workflow?.parallels || {})) {
-            if (parallel.nodes.includes(block.id)) {
-              containingParallelId = parallelId
-              break
-            }
-          }
-
-          if (containingParallelId) {
-            const pathParts = directParallelMatch[1].split('.')
-            const parallelValue = this.resolveParallelReference(
-              containingParallelId,
-              pathParts,
-              context,
-              block,
-              false
-            )
-
-            if (parallelValue !== null) {
-              // Parse the value if it's a JSON string
-              try {
-                result[key] = JSON.parse(parallelValue)
-              } catch {
-                // If it's not valid JSON, use as is
-                result[key] = parallelValue
-              }
-              continue
-            }
-          }
-
-          logger.warn(
-            `Direct parallel reference <parallel.${directParallelMatch[1]}> could not be resolved.`
-          )
-          result[key] = value
-          continue
-        }
-
-        // Process string with potential interpolations and references
-        result[key] = this.processStringValue(value, key, context, block)
+        logger.warn(
+          `Direct parallel reference <parallel.${directParallelMatch[1]}> could not be resolved.`
+        )
+        return value
       }
-      // Handle objects and arrays recursively
-      else if (typeof value === 'object') {
-        result[key] = this.processObjectValue(value, context, block)
-      }
-      // Pass through other value types
-      else {
-        result[key] = value
-      }
+      return this.processStringValue(value, key, context, block)
     }
-
-    return result
+    return typeof value === 'object' ? this.processObjectValue(value, context, block) : value
   }
   /**
    * Retrieves the correctly typed value of a variable based on its stored type.
