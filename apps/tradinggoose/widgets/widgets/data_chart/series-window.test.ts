@@ -1,8 +1,29 @@
 import { describe, expect, it } from 'vitest'
+import { dataChartWidgetContract } from './contract'
 import { resolveSeriesWindow } from './series-window'
 import { resolveExpectedBars } from './utils/series-loader'
 
 describe('chart range windows', () => {
+  it.each([
+    ['yahoo-finance', '1d'],
+    ['alpha-vantage', '1d'],
+    ['yahoo-finance', '1h'],
+    ['alpha-vantage', '1h'],
+  ])('validates Copilot %s presets against configured %s candles', (provider, interval) => {
+    const params = dataChartWidgetContract.mergeCopilotParams(null, {
+      data: { provider },
+      view: { rangePresetId: '3m', interval },
+    })
+    const result = resolveSeriesWindow(params!, provider)
+
+    expect(result.window).toEqual(
+      interval === '1d'
+        ? { mode: 'range', range: { value: 3, unit: 'month' } }
+        : { mode: 'bars', barCount: 500 }
+    )
+    expect(result.requestInterval).toBe(interval)
+  })
+
   it.each([
     ['yahoo-finance', '3mo'],
     ['alpha-vantage', '1mo'],

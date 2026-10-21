@@ -123,9 +123,11 @@ export const resolveSeriesWindow = (params: DataChartWidgetParams, providerId?: 
   const fallbackRange = DEFAULT_RANGE_PRESETS[0].window.range
   const rangePresetId =
     typeof viewParams.rangePresetId === 'string' ? viewParams.rangePresetId.trim() : ''
-  const rangePreset = getMarketSeriesRangePresets(providerId).find(
-    (preset) => preset.id === rangePresetId
-  )
+  const requestedInterval = normalizeInterval(viewParams.interval, providerIntervals)
+  const rangePreset = getMarketSeriesRangePresets(
+    providerId,
+    rangePresetId === 'all' ? undefined : requestedInterval
+  ).find((preset) => preset.id === rangePresetId)
   const allowedIntervals =
     rangePreset?.window.mode === 'all' ? [rangePreset.interval] : providerIntervals
 
@@ -138,10 +140,7 @@ export const resolveSeriesWindow = (params: DataChartWidgetParams, providerId?: 
     window = resolveDefaultWindow(allowedWindowModes, fallbackRange)
   }
 
-  let interval =
-    rangePreset?.window.mode === 'all'
-      ? rangePreset.interval
-      : normalizeInterval(viewParams.interval, allowedIntervals)
+  let interval = rangePreset?.window.mode === 'all' ? rangePreset.interval : requestedInterval
   if (!interval && window && window.mode === 'range') {
     const rangeMs = rangeToMs(window.range)
     interval = rangeMs ? chooseIntervalForRange(rangeMs, allowedIntervals) : undefined
