@@ -50,6 +50,8 @@ describe('historical data range selection', () => {
   })
 
   it.each([
+    ['alpaca', '1m', ['1d', '5d', '1w', '1m', '3m', '6m', '1y']],
+    ['alpaca', '3m', ['1d', '5d', '1w', '1m', '3m', '6m', '1y', '5y']],
     ['alpaca', '1h', ['1d', '5d', '1w', '1m', '3m', '6m', '1y', '5y']],
     ['yahoo-finance', '1m', ['1d', '5d', '1w']],
     ['yahoo-finance', '30m', ['1d', '5d', '1w', '1m']],
@@ -139,6 +141,14 @@ describe('historical data range selection', () => {
     })
     const planned = planMarketSeriesRequest('yahoo-finance', body as unknown as MarketSeriesRequest)
     expect(planned.window).toEqual({ mode: 'range', rangeMs: 30 * 24 * 60 * 60 * 1000 })
+  })
+
+  it('rejects an Alpaca preset beyond the bar budget without changing the selected interval', () => {
+    expect(buildParams({ rangePresetId: '5y', interval: '1m' }).window).toBeUndefined()
+    expect(requestBody({ rangePresetId: '5y', interval: '3m' })).toMatchObject({
+      interval: '3m',
+      windows: [{ mode: 'range', range: { value: 5, unit: 'year' } }],
+    })
   })
 
   it.each([

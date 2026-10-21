@@ -25,6 +25,9 @@ describe('getMarketSeriesRangePresets', () => {
     ['finnhub', '1m', ['1d', '5d', '1w', '1m', '3m', '6m', '1y']],
     ['yahoo-finance', '1mo', ['1m', '3m', '6m', '1y', '5y']],
     ['yahoo-finance', '3mo', ['3m', '6m', '1y', '5y', 'all']],
+    ['alpaca', '1m', ['1d', '5d', '1w', '1m', '3m', '6m', '1y']],
+    ['alpaca', '2m', ['1d', '5d', '1w', '1m', '3m', '6m', '1y']],
+    ['alpaca', '3m', ['1d', '5d', '1w', '1m', '3m', '6m', '1y', '5y']],
     ['alpaca', '12mo', ['1y', '5y']],
   ])('filters %s ranges for selected %s candles', (provider, interval, ids) => {
     const presets = getMarketSeriesRangePresets(provider, interval)
@@ -49,6 +52,33 @@ describe('getMarketSeriesRangePresets', () => {
 })
 
 describe('planMarketSeriesRequest', () => {
+  it.each([
+    [
+      { mode: 'bars', barCount: 2_000_000 },
+      { mode: 'bars', barCount: 1_000_000 },
+    ],
+    [
+      { mode: 'range', range: { value: 5, unit: 'year' } },
+      { mode: 'range', rangeMs: 60_000_000_000 },
+    ],
+    [
+      { mode: 'absolute', start: '2020-01-01', end: '2026-01-01' },
+      {
+        mode: 'absolute',
+        startMs: Date.parse('2026-01-01') - 60_000_000_000,
+        endMs: Date.parse('2026-01-01'),
+      },
+    ],
+  ] as const)('applies the Alpaca bar budget to %j', (window, expected) => {
+    const result = planMarketSeriesRequest('alpaca', {
+      kind: 'series',
+      listing,
+      interval: '1m',
+      windows: [window],
+    })
+    expect(result.window).toEqual(expected)
+  })
+
   it.each([0, '0', -1, '-1'] as const)('accepts Unix bounds around the epoch: %s', (start) => {
     const startMs = Number(start) * 1000
     const end = Date.parse('1974-07-11T13:30:00.000Z')

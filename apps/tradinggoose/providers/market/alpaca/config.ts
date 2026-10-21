@@ -5,6 +5,9 @@ import type {
 } from '@/providers/market/providers'
 import type { AssetClass } from '@/providers/market/types'
 
+export const ALPACA_MAX_BARS = 1_000_000
+export const ALPACA_PAGE_SIZE = 10_000
+
 const availableAssetClasses: AssetClass[] = ['stock', 'etf', 'crypto']
 
 const supportsCrypto = availableAssetClasses.includes('crypto')
@@ -183,6 +186,7 @@ export const alpacaProviderConfig: MarketProviderConfig = {
       windowModes: ['range', 'bars', 'absolute'],
       normalizationModes: ['raw', 'adjusted', 'split_adjusted'],
       marketSessions: ['regular', 'extended'],
+      retention: { default: { maxBars: ALPACA_MAX_BARS } },
     },
     live: {
       channels: ['bars', 'trades', 'quotes'],

@@ -3,7 +3,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fetchAlpacaSeries, resolveCredentials } from '@/providers/market/alpaca/series'
+import { fetchAlpacaLiveSnapshot } from '@/providers/market/alpaca/live'
+import { fetchAlpacaSeries } from '@/providers/market/alpaca/series'
 import { resolveSeriesBoundsMs } from '@/providers/market/market-hours/sessions'
 import { applySeriesWindow, planMarketSeriesRequest } from '@/providers/market/series-planner'
 
@@ -18,12 +19,7 @@ vi.mock('@/providers/market/utils', () => ({
   resolveProviderSymbol: mockResolveProviderSymbol,
 }))
 
-const originalAlpacaApiKeyId = process.env.ALPACA_API_KEY_ID
-const originalAlpacaApiSecretKey = process.env.ALPACA_API_SECRET_KEY
-
 afterEach(() => {
-  process.env.ALPACA_API_KEY_ID = originalAlpacaApiKeyId
-  process.env.ALPACA_API_SECRET_KEY = originalAlpacaApiSecretKey
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
@@ -83,7 +79,7 @@ describe('fetchAlpacaSeries bounds', () => {
       expect(url.pathname).toBe('/v1beta3/crypto/us/bars')
       expect(url.searchParams.get('start')).toBe('2026-09-19T12:00:00.000Z')
       expect(url.searchParams.get('end')).toBe(now)
-      expect(url.searchParams.get('limit')).toBe('1440')
+      expect(url.searchParams.get('limit')).toBe('10000')
       expect(url.searchParams.get('page_token')).toBe(token)
     }
   })
@@ -96,6 +92,10 @@ describe('fetchAlpacaSeries bounds', () => {
       assetClass: 'stock',
     })
     mockResolveProviderSymbol.mockReturnValue('AAPL')
+    await expect(fetchAlpacaSeries({ kind: 'series', listing: stockListing })).rejects.toThrow(
+      'Alpaca API key ID and secret key are required for stock market data'
+    )
+    expect(fetchMock).not.toHaveBeenCalled()
     fetchMock
       .mockResolvedValueOnce(new Response(JSON.stringify({ bars: { AAPL: { t: latest } } })))
       .mockResolvedValueOnce(barsResponse('AAPL', '2026-10-12T19:59:00.000Z', 'stock-page-2'))
@@ -112,6 +112,12 @@ describe('fetchAlpacaSeries bounds', () => {
 
     expect(result.end).toBe(latest)
     expect(fetchMock).toHaveBeenCalledTimes(3)
+    for (const [, init] of fetchMock.mock.calls) {
+      expect(init.headers).toMatchObject({
+        'APCA-API-KEY-ID': 'request-key',
+        'APCA-API-SECRET-KEY': 'request-secret',
+      })
+    }
     const latestUrl = new URL(fetchMock.mock.calls[0][0])
     expect(latestUrl.pathname).toBe('/v2/stocks/bars/latest')
     expect(latestUrl.searchParams.get('feed')).toBe('iex')
@@ -120,6 +126,59 @@ describe('fetchAlpacaSeries bounds', () => {
     expect(url.searchParams.get('end')).toBe(latest)
     expect(new URL(fetchMock.mock.calls[2][0]).searchParams.get('page_token')).toBe('stock-page-2')
   })
+
+  it.each([
+    [2, [1, 3], 2, undefined],
+    ['2.9', [3], 2, 'asc'],
+    [50_000, [10_001], 10_000, undefined],
+  ] as const)(
+    'stops an unbounded limit %s at the total count',
+    async (limit, pages, expected, sort) => {
+      let returned = 0
+      fetchMock.mockImplementation(async () => {
+        const count = pages[fetchMock.mock.calls.length - 1]
+        if (count === undefined) throw new Error('Unexpected continuation after the count limit')
+        return new Response(
+          JSON.stringify({
+            bars: { 'BTC/USD': Array.from({ length: count }, () => ({ t: now, c: returned++ })) },
+            next_page_token: 'next',
+          })
+        )
+      })
+
+      const result = await fetchAlpacaSeries({
+        kind: 'series',
+        listing: cryptoListing,
+        providerParams: { limit, sort },
+      })
+
+      expect(result.bars).toHaveLength(expected)
+      expect(result.bars.at(-1)?.close).toBe(expected - 1)
+      expect(fetchMock).toHaveBeenCalledTimes(pages.length)
+      const url = new URL(fetchMock.mock.calls[0][0])
+      expect(url.searchParams.get('limit')).toBe(String(expected))
+      expect(url.searchParams.get('sort')).toBe(sort ?? 'desc')
+    }
+  )
+
+  it.each([undefined, 0, -1, Number.NaN, Number.POSITIVE_INFINITY, 'invalid'])(
+    'omits invalid unbounded limit %s',
+    async (limit) => {
+      fetchMock
+        .mockResolvedValueOnce(barsResponse('BTC/USD', now, 'next'))
+        .mockResolvedValueOnce(barsResponse('BTC/USD'))
+      const result = await fetchAlpacaSeries({
+        kind: 'series',
+        listing: cryptoListing,
+        providerParams: { limit },
+      })
+      expect(result.bars).toHaveLength(2)
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      const url = new URL(fetchMock.mock.calls[0][0])
+      expect(url.searchParams.has('limit')).toBe(false)
+      expect(url.searchParams.has('sort')).toBe(false)
+    }
+  )
 
   it.each(['failure', 'repeated token'] as const)(
     'rejects pagination %s without partial success',
@@ -144,8 +203,8 @@ describe('fetchAlpacaSeries bounds', () => {
       let page = 0
       fetchMock.mockImplementation(async () => {
         page++
-        if (page > 100) throw new Error('Unexpected request beyond the page budget')
-        const token = page < 100 || completion !== 'complete' ? `page-${page}` : null
+        if (page > 101) throw new Error('Unexpected request beyond the page budget')
+        const token = page < 101 || completion !== 'complete' ? `page-${page}` : null
         return completion === 'empty'
           ? new Response(JSON.stringify({ bars: {}, next_page_token: token }))
           : barsResponse('BTC/USD', now, token)
@@ -158,14 +217,14 @@ describe('fetchAlpacaSeries bounds', () => {
       })
 
       if (completion === 'complete') {
-        expect((await result).bars).toHaveLength(100)
+        expect((await result).bars).toHaveLength(101)
       } else {
         await expect(result).rejects.toThrow(
-          'Alpaca pagination reached the 100-page limit. Narrow the range or use a larger interval.'
+          'Alpaca pagination reached the 101-page limit. Narrow the range or use a larger interval.'
         )
       }
-      expect(fetchMock).toHaveBeenCalledTimes(100)
-      expect(new URL(fetchMock.mock.calls[99][0]).searchParams.get('page_token')).toBe('page-99')
+      expect(fetchMock).toHaveBeenCalledTimes(101)
+      expect(new URL(fetchMock.mock.calls[100][0]).searchParams.get('page_token')).toBe('page-100')
     }
   )
 
@@ -211,9 +270,11 @@ describe('fetchAlpacaSeries bounds', () => {
     }
   )
 
-  it('preserves explicit bounds on a range window', async () => {
-    const start = '2026-10-14T13:30:00.000Z'
-    const end = '2026-10-16T20:00:00.000Z'
+  it.each([
+    ['2026-10-14T13:30:00.000Z', '2026-10-16T20:00:00.000Z'],
+    [0, 86_400],
+    [-1, 0],
+  ])('preserves explicit bounds %s–%s on a range window', async (start, end) => {
     const { request } = planMarketSeriesRequest('alpaca', {
       kind: 'series',
       listing: cryptoListing,
@@ -226,31 +287,47 @@ describe('fetchAlpacaSeries bounds', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const url = new URL(fetchMock.mock.calls[0][0])
-    expect(url.searchParams.get('start')).toBe(start)
-    expect(url.searchParams.get('end')).toBe(end)
-  })
-})
-
-describe('resolveCredentials', () => {
-  it('does not fall back to deployment env when request auth is missing', () => {
-    process.env.ALPACA_API_KEY_ID = 'deployment-key'
-    process.env.ALPACA_API_SECRET_KEY = 'deployment-secret'
-
-    expect(resolveCredentials()).toEqual({
-      keyId: undefined,
-      secretKey: undefined,
-    })
+    expect(url.searchParams.get('start')).toBe(
+      typeof start === 'number' ? new Date(start * 1000).toISOString() : start
+    )
+    expect(url.searchParams.get('end')).toBe(
+      typeof end === 'number' ? new Date(end * 1000).toISOString() : end
+    )
   })
 
-  it('uses explicit request auth when provided', () => {
-    expect(
-      resolveCredentials({
-        apiKey: 'request-key',
-        apiSecret: 'request-secret',
-      })
-    ).toEqual({
-      keyId: 'request-key',
-      secretKey: 'request-secret',
+  it.each(['1Min', 'invalid'])('rejects unsupported interval %s', async (interval) => {
+    await expect(
+      fetchAlpacaSeries({ kind: 'series', listing: cryptoListing, interval })
+    ).rejects.toThrow(`Unsupported Alpaca interval: ${interval}`)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('aggregates native live trades using the configured crypto region and trade limit', async () => {
+    const trades = [
+      { t: 0, p: 95, s: 1 },
+      { t: 30, p: 100, s: 2 },
+    ]
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ trades: { 'BTC/USD': trades[1] } })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ trades: { 'BTC/USD': trades } })))
+
+    const snapshot = await fetchAlpacaLiveSnapshot({
+      kind: 'live',
+      listing: cryptoListing,
+      interval: '1m',
+      providerParams: { cryptoRegion: 'eu-1', tradeLimit: 2 },
     })
+
+    expect(snapshot.bar).toEqual({
+      timeStamp: '1970-01-01T00:00:00.000Z',
+      open: 95,
+      high: 100,
+      low: 95,
+      close: 100,
+      volume: 3,
+    })
+    const url = new URL(fetchMock.mock.calls[1][0])
+    expect(url.pathname).toBe('/v1beta3/crypto/eu-1/trades')
+    expect(url.searchParams.get('limit')).toBe('2')
   })
 })

@@ -1,10 +1,14 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
+import {
+  ALPACA_MAX_BARS,
+  ALPACA_PAGE_SIZE,
+  alpacaProviderConfig,
+} from '@/providers/market/alpaca/config'
+import { toDate } from '@/providers/market/market-hours/date-utils'
 import { rangeToMs } from '@/providers/market/series-window'
 import type {
   MarketBar,
   MarketInterval,
-  MarketRequestBase,
   MarketSeries,
   MarketSeriesRequest,
   NormalizationMode,
@@ -12,7 +16,8 @@ import type {
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 
 const logger = createLogger('MarketProvider:Alpaca')
-const MAX_PAGES = 100
+// Inclusive window endpoints can add one bar beyond the configured interval count.
+const MAX_PAGES = Math.ceil(ALPACA_MAX_BARS / ALPACA_PAGE_SIZE) + 1
 
 const ALPACA_INTERVAL_MAP: Partial<Record<MarketInterval, string>> = {
   '1m': '1Min',
@@ -34,44 +39,6 @@ const ALPACA_INTERVAL_MAP: Partial<Record<MarketInterval, string>> = {
   '6mo': '6Month',
   '12mo': '12Month',
 }
-const ALPACA_TIMEFRAMES = new Set(Object.values(ALPACA_INTERVAL_MAP))
-const DEFAULT_TIMEFRAME = ALPACA_INTERVAL_MAP['1d'] ?? '1Day'
-
-function toIsoString(value?: string | number): string | undefined {
-  if (value === undefined || value === null) return undefined
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    const date = new Date(value > 1e12 ? value : value * 1000)
-    return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
-  }
-  if (typeof value === 'string') {
-    const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
-  }
-  return undefined
-}
-
-function resolveTimeRange(request: MarketSeriesRequest): { start?: string; end?: string } {
-  const start = toIsoString(request.start)
-  const end = toIsoString(request.end)
-
-  if (start && end) {
-    const startMs = Date.parse(start)
-    const endMs = Date.parse(end)
-    if (Number.isFinite(startMs) && Number.isFinite(endMs) && startMs >= endMs) {
-      return { start, end: undefined }
-    }
-  }
-
-  return { start, end }
-}
-
-function resolveTimeframe(interval?: string): string {
-  if (!interval) return DEFAULT_TIMEFRAME
-  const mapped = ALPACA_INTERVAL_MAP[interval as MarketInterval]
-  if (mapped) return mapped
-  if (ALPACA_TIMEFRAMES.has(interval)) return interval
-  return DEFAULT_TIMEFRAME
-}
 
 const NORMALIZATION_TO_ADJUSTMENT: Partial<Record<NormalizationMode, string>> = {
   raw: 'raw',
@@ -79,44 +46,6 @@ const NORMALIZATION_TO_ADJUSTMENT: Partial<Record<NormalizationMode, string>> = 
   split_adjusted: 'split',
   adjusted: 'all',
   total_return: 'all',
-}
-
-function resolveAdjustment(
-  mode: NormalizationMode | undefined,
-  override?: string
-): string | undefined {
-  if (override) return override
-  if (!mode) return undefined
-  return NORMALIZATION_TO_ADJUSTMENT[mode]
-}
-
-export function resolveMarket(
-  request: MarketRequestBase,
-  assetClass?: string
-): 'stocks' | 'crypto' {
-  const override = String(
-    request.providerParams?.market ??
-      request.providerParams?.alpacaMarket ??
-      request.providerParams?.assetClass ??
-      request.providerParams?.endpoint ??
-      ''
-  ).toLowerCase()
-
-  if (override === 'crypto') return 'crypto'
-  if (override === 'stocks' || override === 'stock' || override === 'equity') return 'stocks'
-
-  if (assetClass === 'crypto') return 'crypto'
-  return 'stocks'
-}
-
-export function resolveCredentials(auth?: { apiKey?: string; apiSecret?: string }): {
-  keyId?: string
-  secretKey?: string
-} {
-  return {
-    keyId: auth?.apiKey,
-    secretKey: auth?.apiSecret,
-  }
 }
 
 async function fetchLatestBarTimestamp(
@@ -136,32 +65,13 @@ async function fetchLatestBarTimestamp(
 
   const payload = (await response.json()) as {
     bars?: Record<string, any>
-    bar?: any
   }
-
-  const bars = payload?.bars
-  const bar =
-    (bars && (bars[symbol] || bars[symbol.toUpperCase()] || bars[symbol.toLowerCase()])) ||
-    payload?.bar
-  const timeValue = bar?.t ?? bar?.timestamp ?? bar?.time
-  return toIsoString(timeValue)
-}
-
-function resolveBars(payload: any, symbol: string): any[] {
-  const bars = payload?.bars
-  if (Array.isArray(bars)) return bars
-  if (bars && typeof bars === 'object') {
-    return (bars[symbol] ||
-      bars[symbol.toUpperCase()] ||
-      bars[symbol.toLowerCase()] ||
-      Object.values(bars)[0]) as any[]
-  }
-  return []
+  return toDate(payload?.bars?.[symbol]?.t)?.toISOString()
 }
 
 export async function fetchAlpacaSeries(request: MarketSeriesRequest): Promise<MarketSeries> {
   const context = await resolveListingContext(request.listing)
-  const market = resolveMarket(request, context.assetClass)
+  const market = context.assetClass === 'crypto' ? 'crypto' : 'stocks'
 
   if (market === 'crypto' && !context.quote) {
     throw new Error('Crypto listings require a quote currency for Alpaca symbols')
@@ -169,41 +79,32 @@ export async function fetchAlpacaSeries(request: MarketSeriesRequest): Promise<M
 
   const symbol = resolveProviderSymbol(alpacaProviderConfig, context)
 
-  const timeframe = resolveTimeframe(
-    request.interval || (request.providerParams?.interval as string | undefined)
-  )
+  const interval = request.interval || request.providerParams?.interval || '1d'
+  const timeframe = ALPACA_INTERVAL_MAP[interval as MarketInterval]
+  if (!timeframe) throw new Error(`Unsupported Alpaca interval: ${interval}`)
 
-  const { keyId, secretKey } = resolveCredentials(request.auth)
+  const { apiKey, apiSecret } = request.auth ?? {}
 
-  if (market === 'stocks' && (!keyId || !secretKey)) {
+  if (market === 'stocks' && (!apiKey || !apiSecret)) {
     throw new Error('Alpaca API key ID and secret key are required for stock market data')
   }
 
-  const cryptoRegion = String(
-    request.providerParams?.region ?? request.providerParams?.cryptoRegion ?? 'us'
-  ).toLowerCase()
+  const cryptoRegion = String(request.providerParams?.cryptoRegion ?? 'us').toLowerCase()
 
   const headers: Record<string, string> = {
     Accept: 'application/json',
   }
 
-  if (keyId && secretKey) {
-    headers['APCA-API-KEY-ID'] = keyId
-    headers['APCA-API-SECRET-KEY'] = secretKey
+  if (apiKey && apiSecret) {
+    headers['APCA-API-KEY-ID'] = apiKey
+    headers['APCA-API-SECRET-KEY'] = apiSecret
   }
 
-  const limit = request.providerParams?.limit as string | number | undefined
-  const sort = request.providerParams?.sort as string | undefined
   const feed =
-    market === 'stocks'
-      ? (request.providerParams?.feed as string | undefined) ||
-        (request.providerParams?.dataFeed as string | undefined) ||
-        'iex'
-      : undefined
+    market === 'stocks' ? (request.providerParams?.feed as string | undefined) || 'iex' : undefined
 
-  const { start: explicitStart, end: explicitEnd } = resolveTimeRange(request)
-  let start = explicitStart
-  let end = explicitEnd
+  let start = toDate(request.start)?.toISOString()
+  let end = toDate(request.end)?.toISOString()
   const window = request.windows?.[0]
 
   if (!start && !end && window?.mode === 'range') {
@@ -218,6 +119,16 @@ export async function fetchAlpacaSeries(request: MarketSeriesRequest): Promise<M
     }
   }
 
+  const limit = Number(request.providerParams?.limit)
+  const bounded = Boolean(start || end || request.windows?.length)
+  const countLimit =
+    !bounded && Number.isFinite(limit) && limit > 0
+      ? Math.min(Math.max(1, Math.floor(limit)), ALPACA_PAGE_SIZE)
+      : undefined
+  const pageLimit = bounded ? ALPACA_PAGE_SIZE : countLimit
+  const sort =
+    (request.providerParams?.sort as string | undefined) || (countLimit ? 'desc' : undefined)
+
   const url =
     market === 'crypto'
       ? new URL(`https://data.alpaca.markets/v1beta3/crypto/${cryptoRegion}/bars`)
@@ -228,14 +139,10 @@ export async function fetchAlpacaSeries(request: MarketSeriesRequest): Promise<M
   if (start) url.searchParams.set('start', start)
   if (end) url.searchParams.set('end', end)
 
-  if (limit) url.searchParams.set('limit', String(Math.min(Number(limit), 10_000)))
+  if (pageLimit) url.searchParams.set('limit', String(pageLimit))
+  if (sort) url.searchParams.set('sort', sort)
 
-  const shouldDefaultSort = !sort && limit && !start && !end
-  if (sort || shouldDefaultSort) {
-    url.searchParams.set('sort', sort ?? 'desc')
-  }
-
-  const asof = toIsoString(request.providerParams?.asof as string | number | undefined)
+  const asof = toDate(request.providerParams?.asof as string | number | undefined)?.toISOString()
   if (asof) url.searchParams.set('asof', asof)
 
   const currency = request.providerParams?.currency as string | undefined
@@ -244,10 +151,11 @@ export async function fetchAlpacaSeries(request: MarketSeriesRequest): Promise<M
   if (market === 'stocks') {
     if (feed) url.searchParams.set('feed', feed)
 
-    const adjustment = resolveAdjustment(
-      request.normalizationMode,
-      request.providerParams?.adjustment as string | undefined
-    )
+    const adjustment =
+      (request.providerParams?.adjustment as string | undefined) ||
+      (request.normalizationMode
+        ? NORMALIZATION_TO_ADJUSTMENT[request.normalizationMode]
+        : undefined)
     if (adjustment) url.searchParams.set('adjustment', adjustment)
   }
 
@@ -258,8 +166,8 @@ export async function fetchAlpacaSeries(request: MarketSeriesRequest): Promise<M
     timeframe,
     start,
     end,
-    limit,
-    sort: sort ?? (limit && !start && !end ? 'desc' : undefined),
+    limit: pageLimit,
+    sort,
     feed: market === 'stocks' ? url.searchParams.get('feed') : undefined,
   })
 
@@ -272,11 +180,15 @@ export async function fetchAlpacaSeries(request: MarketSeriesRequest): Promise<M
       throw new Error(errorText || `Alpaca request failed with status ${response.status}`)
     }
     const payload = (await response.json()) as {
-      bars?: Record<string, any[]> | any[]
+      bars?: Record<string, any[]>
       next_page_token?: string | null
     }
-    const pageBars = resolveBars(payload, symbol)
+    const pageBars = payload?.bars?.[symbol]
     if (Array.isArray(pageBars)) rawBars.push(...pageBars)
+    if (countLimit && rawBars.length >= countLimit) {
+      rawBars.length = countLimit
+      break
+    }
     const token = payload.next_page_token
     if (!token) break
     if (pageTokens.has(token)) {
@@ -297,22 +209,19 @@ export async function fetchAlpacaSeries(request: MarketSeriesRequest): Promise<M
   const bars: MarketBar[] = []
 
   rawBars.forEach((bar) => {
-    const close = bar?.c ?? bar?.close
+    const close = bar?.c
     if (close == null) return
 
-    const timeValue = bar?.t ?? bar?.timestamp ?? bar?.time
-    if (!timeValue) return
-
-    const timeStamp = toIsoString(timeValue)
+    const timeStamp = toDate(bar.t)?.toISOString()
     if (!timeStamp) return
 
     bars.push({
       timeStamp,
-      open: bar?.o ?? bar?.open,
-      high: bar?.h ?? bar?.high,
-      low: bar?.l ?? bar?.low,
+      open: bar.o,
+      high: bar.h,
+      low: bar.l,
       close,
-      volume: bar?.v ?? bar?.volume,
+      volume: bar.v,
     })
   })
 
