@@ -137,6 +137,37 @@ describe('fetchAlpacaSeries bounds', () => {
     }
   )
 
+  it.each(['complete', 'continuing', 'empty'] as const)(
+    'enforces the page budget for a %s response at the boundary',
+    async (completion) => {
+      let page = 0
+      fetchMock.mockImplementation(async () => {
+        page++
+        if (page > 100) throw new Error('Unexpected request beyond the page budget')
+        const token = page < 100 || completion !== 'complete' ? `page-${page}` : null
+        return completion === 'empty'
+          ? new Response(JSON.stringify({ bars: {}, next_page_token: token }))
+          : barsResponse('BTC/USD', now, token)
+      })
+      const result = fetchAlpacaSeries({
+        kind: 'series',
+        listing: cryptoListing,
+        start: '2026-09-19',
+        end: now,
+      })
+
+      if (completion === 'complete') {
+        expect((await result).bars).toHaveLength(100)
+      } else {
+        await expect(result).rejects.toThrow(
+          'Alpaca pagination reached the 100-page limit. Narrow the range or use a larger interval.'
+        )
+      }
+      expect(fetchMock).toHaveBeenCalledTimes(100)
+      expect(new URL(fetchMock.mock.calls[99][0]).searchParams.get('page_token')).toBe('page-99')
+    }
+  )
+
   it('preserves explicit bounds on a range window', async () => {
     const start = '2026-10-14T13:30:00.000Z'
     const end = '2026-10-16T20:00:00.000Z'

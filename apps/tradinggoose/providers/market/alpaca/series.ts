@@ -12,6 +12,7 @@ import type {
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 
 const logger = createLogger('MarketProvider:Alpaca')
+const MAX_PAGES = 100
 
 const ALPACA_INTERVAL_MAP: Partial<Record<MarketInterval, string>> = {
   '1m': '1Min',
@@ -282,6 +283,11 @@ export async function fetchAlpacaSeries(request: MarketSeriesRequest): Promise<M
       throw new Error('Alpaca returned a repeated pagination token')
     }
     pageTokens.add(token)
+    if (pageTokens.size >= MAX_PAGES) {
+      throw new Error(
+        `Alpaca pagination reached the ${MAX_PAGES}-page limit. Narrow the range or use a larger interval.`
+      )
+    }
     url.searchParams.set('page_token', token)
   }
   if (!rawBars.length && request.providerParams?.allowEmpty !== true) {
