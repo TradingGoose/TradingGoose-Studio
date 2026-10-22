@@ -4,10 +4,18 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { fetchMock, mockResolveListingContext, mockResolveProviderSymbol } = vi.hoisted(() => ({
+const {
+  fetchMock,
+  mockResolveListingContext,
+  mockResolveProviderSymbol,
+  mockResolveMarketHours,
+  mockResolveMarketHoursRange,
+} = vi.hoisted(() => ({
   fetchMock: vi.fn(),
   mockResolveListingContext: vi.fn(),
   mockResolveProviderSymbol: vi.fn(),
+  mockResolveMarketHours: vi.fn(),
+  mockResolveMarketHoursRange: vi.fn(),
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -25,9 +33,17 @@ vi.mock('@/providers/market/utils', () => ({
 }))
 
 vi.mock('@/providers/market/market-hours/market-hours-api', () => ({
-  resolveMarketHours: vi.fn(),
-  resolveMarketHoursRange: vi.fn(
-    async () =>
+  resolveMarketHours: mockResolveMarketHours,
+  resolveMarketHoursRange: mockResolveMarketHoursRange,
+}))
+
+const originalAlphaVantageApiKey = process.env.ALPHAVANTAGE_API_KEY
+
+describe('fetchAlphaVantageSeries', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.stubGlobal('fetch', fetchMock)
+    mockResolveMarketHoursRange.mockResolvedValue(
       new Map([
         [
           '2026-01-02',
@@ -37,15 +53,7 @@ vi.mock('@/providers/market/market-hours/market-hours-api', () => ({
           },
         ],
       ])
-  ),
-}))
-
-const originalAlphaVantageApiKey = process.env.ALPHAVANTAGE_API_KEY
-
-describe('fetchAlphaVantageSeries', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    vi.stubGlobal('fetch', fetchMock)
+    )
     mockResolveListingContext.mockResolvedValue({
       listing: {
         listing_id: 'AAPL',
@@ -86,6 +94,24 @@ describe('fetchAlphaVantageSeries', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it('does not retry each day of full history when bulk market hours are unavailable', async () => {
+    const { resolveMarketSessionsForRange } = await import('../market-hours/sessions')
+    mockResolveMarketHoursRange.mockResolvedValueOnce(null)
+
+    const sessions = await resolveMarketSessionsForRange(
+      'AAPL',
+      'default',
+      Date.parse('1962-01-01'),
+      Date.parse('2026-10-01')
+    )
+
+    expect(mockResolveMarketHoursRange).toHaveBeenCalledTimes(1)
+    expect({ sessions, dailyRequests: mockResolveMarketHours.mock.calls.length }).toEqual({
+      sessions: null,
+      dailyRequests: 0,
+    })
+  })
+
   it.each([
     ['1d', 'Time Series (Daily)'],
     ['1w', 'Weekly Time Series'],
@@ -105,7 +131,7 @@ describe('fetchAlphaVantageSeries', () => {
           [seriesKey]:
             interval === '1m'
               ? { '2026-01-02 13:30:00': candle, '2026-01-02 14:30:00': candle }
-              : { '2026-01-02': candle },
+              : { '2026-01-02': candle, '2026-01-05': candle },
         }),
         {
           status: 200,
@@ -134,19 +160,21 @@ describe('fetchAlphaVantageSeries', () => {
         {
           mode: 'absolute',
           start: '2026-01-02T00:00:00.000Z',
-          end: '2026-01-02T16:00:00.000Z',
+          end: interval === '1m' ? '2026-01-02T16:00:00.000Z' : '2026-01-05T16:00:00.000Z',
         },
       ],
     })
 
     expect(response).toMatchObject({
-      bars: [
-        {
-          timeStamp: interval === '1m' ? '2026-01-02T14:30:00.000Z' : '2026-01-02T00:00:00.000Z',
-          close: 101,
-        },
-      ],
+      bars: (interval === '1m'
+        ? ['2026-01-02T14:30:00.000Z']
+        : ['2026-01-02T00:00:00.000Z', '2026-01-05T00:00:00.000Z']
+      ).map((timeStamp) => ({ timeStamp, close: 101 })),
     })
+    if (interval !== '1m') {
+      expect(mockResolveMarketHoursRange).not.toHaveBeenCalled()
+      expect(mockResolveMarketHours).not.toHaveBeenCalled()
+    }
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining('apikey=request-key'),
       expect.objectContaining({

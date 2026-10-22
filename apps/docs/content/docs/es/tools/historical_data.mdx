@@ -40,7 +40,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "short-input",
             "title": "Clave API",
             "layout": "full",
-            "placeholder": "ALPHAVANTAGE_API_KEY",
+            "placeholder": "Introduce tu clave API",
             "password": true,
             "description": "Se muestra cuando el proveedor es uno de 'alpha-vantage', 'alpaca', 'finnhub'."
         },
@@ -73,12 +73,40 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "description": "Se muestra cuando el proveedor es 'alpaca'."
         },
         {
+            "id": "rangeMode",
+            "type": "dropdown",
+            "title": "Tipo de rango",
+            "layout": "full",
+            "placeholder": "Selecciona el tipo de rango",
+            "required": true,
+            "options": [
+                {
+                    "id": "custom",
+                    "label": "Fechas personalizadas"
+                },
+                {
+                    "id": "latest",
+                    "label": "Rango reciente"
+                }
+            ]
+        },
+        {
             "id": "interval",
             "type": "dropdown",
             "title": "Intervalo",
             "layout": "full",
             "placeholder": "Seleccionar intervalo",
-            "description": "Se muestra cuando el proveedor es uno de 'alpha-vantage', 'alpaca', 'yahoo-finance', 'finnhub'."
+            "required": true,
+            "description": "Obligatorio en ambos modos si el proveedor seleccionado admite intervalos."
+        },
+        {
+            "id": "rangePresetId",
+            "type": "dropdown",
+            "title": "Rango reciente",
+            "layout": "full",
+            "placeholder": "Selecciona un rango reciente",
+            "required": true,
+            "description": "Se muestra para Rango reciente. Los rangos disponibles dependen del proveedor y del intervalo seleccionados."
         },
         {
             "id": "normalizationMode",
@@ -94,7 +122,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Inicio",
             "layout": "full",
             "placeholder": "Hora de inicio",
-            "required": true
+            "required": true,
+            "description": "Solo se muestra y es obligatorio para Fechas personalizadas."
         },
         {
             "id": "end",
@@ -102,7 +131,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Fin",
             "layout": "full",
             "placeholder": "Hora de fin",
-            "required": true
+            "required": true,
+            "description": "Solo se muestra y es obligatorio para Fechas personalizadas."
         }
     ]}
   />
@@ -120,13 +150,12 @@ Obtiene y normaliza series de mercado de proveedores de mercado registrados.
 | --------- | ---- | -------- | ----------- |
 | `provider` | string | Sí | Id del proveedor de datos de mercado \(p. ej., alpaca, finnhub, yahoo-finance\). |
 | `listing` | listingIdentity | Sí | Carga útil estructurada del listado de TradingGoose Market. |
-| `apiKey` | string | Sí | Clave API de Alpha Vantage. |
+| `apiKey` | string | Sí | Clave API del proveedor seleccionado. |
 | `apiSecret` | string | Sí | Clave secreta de API de Alpaca. |
 | `feed` | string | Sí | Feed de datos de Alpaca \(obligatorio para barras de acciones\). |
 | `interval` | string | No | Intervalo/periodo de la serie admitido por el proveedor. |
 | `normalizationMode` | string | No | Modo de normalización admitido por el proveedor \(opcional\). |
-| `window` | json | Sí | Ventana de serie principal \(rango, barras o absoluta\). |
-| `fallbackWindow` | json | No | Ventana de serie de respaldo si la principal no es compatible o no es válida. |
+| `window` | json | Sí | Ventana de serie \(rango, barras, absoluta o todo el historial si es compatible\). |
 | `providerParams` | json | No | Parámetros opcionales específicos del proveedor. |
 
 #### Salida
@@ -144,7 +173,8 @@ Obtiene y normaliza series de mercado de proveedores de mercado registrados.
 
 ## Instrucciones de uso
 
-Elige un proveedor de datos de mercado, selecciona un listado canónico y recupera barras de series que incluyan apertura, máximo, mínimo, cierre, volumen y marcas de tiempo. El inicio y el fin pueden ser cadenas ISO o timestamps UNIX.
+Elige un proveedor de datos de mercado, un listado canónico y un intervalo admitido. En Tipo de rango (`rangeMode`), elige Fechas personalizadas (`custom`) e introduce las fechas de inicio y fin obligatorias como cadenas ISO o timestamps UNIX, o elige Rango reciente (`latest`) y selecciona un rango (`rangePresetId`). Los rangos disponibles dependen del proveedor y del intervalo; elegir un rango no cambia el intervalo. Todo lo disponible se ofrece solo con el intervalo que el proveedor admite para el historial completo.
+
 
 ## Notas
 

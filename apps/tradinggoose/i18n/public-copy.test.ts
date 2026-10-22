@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import { registry } from '@/blocks/registry'
+import { DEFAULT_RANGE_PRESETS } from '@/providers/market/series-window'
 import {
   DRAW_ACTION_ICONS,
   DRAW_TOOL_ICONS,
 } from '@/widgets/widgets/data_chart/components/draw-tool-icon-registry'
 import { CANDLE_TYPE_OPTIONS } from '@/widgets/widgets/data_chart/options'
-import { DEFAULT_RANGE_PRESETS } from '@/widgets/widgets/data_chart/series-data'
 import { getLocalizedBlockMetadata } from './block-editor'
 import { getClientMessages, getPublicCopy } from './public-copy'
 import { formatTemplate } from './utils'

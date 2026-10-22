@@ -5,11 +5,11 @@ import type { ISeriesApi } from 'lightweight-charts'
 import type { Socket } from 'socket.io-client'
 import type { ListingIdentity } from '@/lib/listing/identity'
 import { getMarketLiveCapabilities } from '@/providers/market/providers'
+import { intervalToMs } from '@/providers/market/series-planner'
 import type { MarketBar, NormalizationMode } from '@/providers/market/types'
 import {
   type BarMs,
   buildIndexMaps,
-  intervalToMs,
   mapBarMsToSeriesDatum,
   mapBarsMsToSeriesData,
   mapMarketBarToBarMs,

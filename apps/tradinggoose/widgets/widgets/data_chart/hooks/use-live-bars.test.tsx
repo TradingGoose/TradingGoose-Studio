@@ -4,6 +4,8 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getPublicCopy } from '@/i18n/public-copy'
+import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
+import { planMarketSeriesRequest } from '@/providers/market/series-planner'
 import { resolveSeriesWindow } from '@/widgets/widgets/data_chart/series-window'
 import type { DataChartDataContext } from '@/widgets/widgets/data_chart/types'
 import { useChartDataLoader } from './use-chart-data-loader'
@@ -23,6 +25,30 @@ const series = { seriesType: () => 'Candlestick', update: vi.fn(), setData: vi.f
 const onDataUpdated = vi.fn()
 let controls: ReturnType<typeof useLiveBars>
 let dataContext: DataChartDataContext
+let loader: ReturnType<typeof useChartDataLoader>
+
+type LoaderArgs = Parameters<typeof useChartDataLoader>[0]
+const loaderArgs = (overrides: Partial<LoaderArgs> = {}): LoaderArgs => ({
+  chartRef: { current: { timeScale: () => null } as any },
+  chartContainerRef: { current: null },
+  mainSeriesRef: { current: series as any },
+  chartReady: 1,
+  socket: socket as any,
+  workspaceId: 'workspace-1',
+  providerId: 'robinhood',
+  listing,
+  seriesWindow: resolveSeriesWindow({ view: { interval: '1m' } }, 'robinhood'),
+  dataParams: { data: { providerParams } },
+  dataContext,
+  onDataUpdated,
+  errorCopy: getPublicCopy('en').workspace.widgets.dataChart.errors,
+  ...overrides,
+})
+
+function LoaderHarness({ args }: { args: LoaderArgs }) {
+  loader = useChartDataLoader(args)
+  return null
+}
 
 function Harness({ providerId, enabled = true }: { providerId: string; enabled?: boolean }) {
   controls = useLiveBars({
@@ -74,6 +100,7 @@ describe('useLiveBars', () => {
 
   afterEach(() => {
     act(() => root.unmount())
+    vi.useRealTimers()
     vi.unstubAllGlobals()
     ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = false
   })
@@ -84,27 +111,7 @@ describe('useLiveBars', () => {
       json: async () => ({ bars: [{ timeStamp, close: 11 }] }),
     })
     vi.stubGlobal('fetch', fetchSeries)
-    const args: Parameters<typeof useChartDataLoader>[0] = {
-      chartRef: { current: { timeScale: () => null } as any },
-      chartContainerRef: { current: null },
-      mainSeriesRef: { current: series as any },
-      chartReady: 1,
-      socket: socket as any,
-      workspaceId: 'workspace-1',
-      providerId: 'robinhood',
-      listing,
-      seriesWindow: resolveSeriesWindow({ view: { interval: '1m' } }, 'robinhood'),
-      dataParams: { data: { providerParams } },
-      dataContext,
-      onDataUpdated,
-      errorCopy: getPublicCopy('en').workspace.widgets.dataChart.errors,
-    }
-    let loader: ReturnType<typeof useChartDataLoader>
-    function LoaderHarness() {
-      loader = useChartDataLoader(args)
-      return null
-    }
-    await act(async () => root.render(<LoaderHarness />))
+    await act(async () => root.render(<LoaderHarness args={loaderArgs()} />))
     const loadedBars = dataContext.barsMsRef.current
     const { clientSubscriptionId } = socket.emit.mock.calls[0][1]
     act(() => {
@@ -119,6 +126,147 @@ describe('useLiveBars', () => {
     expect(onDataUpdated).not.toHaveBeenCalled()
     expect(fetchSeries).toHaveBeenCalledOnce()
     expect(socket.emit).toHaveBeenCalledOnce()
+  })
+
+  it.each([
+    ['1970-02-01T00:00:00.000Z', '1971-07-01T00:00:00.000Z'],
+    ['1970-01-01T00:00:00.000Z', '1970-01-02T00:00:00.000Z'],
+    ['1969-12-31T23:59:59.999Z', '1970-01-01T00:00:00.001Z'],
+  ])('preserves chart millisecond bounds through provider planning: %s', async (start, end) => {
+    const fetchSeries = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ bars: [{ timeStamp: end, close: 11 }] }),
+    })
+    vi.stubGlobal('fetch', fetchSeries)
+    const args = loaderArgs({
+      seriesWindow: resolveSeriesWindow({ view: { interval: '1h' } }, 'robinhood'),
+      dataParams: { view: { start: Date.parse(start), end: Date.parse(end) } },
+    })
+    await act(async () => root.render(<LoaderHarness args={args} />))
+    args.listing = { ...listing, listing_id: 'MSFT' }
+    await act(async () => root.render(<LoaderHarness args={args} />))
+
+    const request = JSON.parse(fetchSeries.mock.calls[1][1].body)
+    expect(planMarketSeriesRequest('robinhood', request).window).toEqual({
+      mode: 'absolute',
+      startMs: Date.parse(start),
+      endMs: Date.parse(end),
+    })
+    expect(request.windows).toEqual([{ mode: 'absolute', start, end }])
+  })
+
+  it('keeps All unbounded across listing changes and stops historical backfill', async () => {
+    vi.useFakeTimers()
+    const fetchSeries = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ bars: [{ timeStamp, close: 11 }] }),
+    })
+    vi.stubGlobal('fetch', fetchSeries)
+    let onRangeChange: (range: { from: number; to: number }) => Promise<void>
+    const args = loaderArgs({
+      providerId: 'yahoo-finance',
+      seriesWindow: resolveSeriesWindow({ view: { rangePresetId: 'all' } }, 'yahoo-finance'),
+      dataParams: { view: { start: openTime - 86_400_000, end: openTime } },
+      chartRef: {
+        current: {
+          timeScale: () => ({
+            subscribeVisibleLogicalRangeChange: (handler: typeof onRangeChange) => {
+              onRangeChange = handler
+            },
+            unsubscribeVisibleLogicalRangeChange: vi.fn(),
+            getVisibleLogicalRange: () => ({ from: -10, to: 10 }),
+          }),
+        } as any,
+      },
+    })
+    await act(async () => root.render(<LoaderHarness args={args} />))
+    args.listing = { ...listing, listing_id: 'MSFT' }
+    await act(async () => root.render(<LoaderHarness args={args} />))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300)
+      await onRangeChange!({ from: -10, to: 10 })
+    })
+
+    expect(fetchSeries).toHaveBeenCalledTimes(2)
+    for (const [, init] of fetchSeries.mock.calls) {
+      expect(JSON.parse(init.body)).toMatchObject({ interval: '3mo', windows: [{ mode: 'all' }] })
+    }
+  })
+
+  it.each([2, 3])('stops backfill at the retained cap after loading %i candles', async (count) => {
+    vi.useFakeTimers()
+    const retention = alpacaProviderConfig.capabilities!.series!.retention!.default!
+    const previousMaxBars = retention.maxBars
+    retention.maxBars = 3
+    const scheduleTimeout = vi.spyOn(window, 'setTimeout')
+    const fetchSeries = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          bars: Array.from({ length: count }, (_, index) => ({
+            timeStamp: new Date(openTime + index * 60_000).toISOString(),
+            close: 11,
+          })),
+        }),
+      })
+      .mockImplementation(async (_url, init) => ({
+        ok: true,
+        json: async () => ({
+          bars: [
+            {
+              timeStamp: new Date(
+                Date.parse(JSON.parse(init.body).windows[0].end) - 60_000
+              ).toISOString(),
+              close: 10,
+            },
+          ],
+        }),
+      }))
+    vi.stubGlobal('fetch', fetchSeries)
+    let onRangeChange: (range: { from: number; to: number }) => Promise<void>
+    let visibleRange = { from: 0, to: count - 1 }
+    const args = loaderArgs({
+      providerId: 'alpaca',
+      seriesWindow: resolveSeriesWindow({ view: { interval: '1m' } }, 'alpaca'),
+      dataParams: { data: { live: { enabled: false } } },
+      chartRef: {
+        current: {
+          clearCrosshairPosition: vi.fn(),
+          timeScale: () => ({
+            subscribeVisibleLogicalRangeChange: (handler: typeof onRangeChange) => {
+              onRangeChange = handler
+            },
+            unsubscribeVisibleLogicalRangeChange: vi.fn(),
+            getVisibleLogicalRange: () => visibleRange,
+            setVisibleLogicalRange: (range: typeof visibleRange) => {
+              visibleRange = range
+            },
+          }),
+        } as any,
+      },
+    })
+    try {
+      await act(async () => root.render(<LoaderHarness args={args} />))
+      vi.setSystemTime(Date.now() + 200)
+      await act(async () => onRangeChange!(visibleRange))
+      expect(fetchSeries).toHaveBeenCalledTimes(count === 2 ? 2 : 1)
+      expect(dataContext.barsMsRef.current).toHaveLength(3)
+      const retainedBars = dataContext.barsMsRef.current
+      expect(retainedBars[0].openTime).toBe(openTime - (count === 2 ? 60_000 : 0))
+      visibleRange = { from: 0, to: 2 }
+      await act(async () => {
+        await onRangeChange!(visibleRange)
+        await vi.advanceTimersByTimeAsync(600)
+        await onRangeChange!(visibleRange)
+      })
+      expect(fetchSeries).toHaveBeenCalledTimes(count === 2 ? 2 : 1)
+      expect(dataContext.barsMsRef.current).toBe(retainedBars)
+      expect(scheduleTimeout.mock.calls.filter(([, delay]) => delay === 150)).toHaveLength(1)
+    } finally {
+      retention.maxBars = previousMaxBars
+      scheduleTimeout.mockRestore()
+    }
   })
 
   it.each(['robinhood', 'alpaca', 'finnhub'])(

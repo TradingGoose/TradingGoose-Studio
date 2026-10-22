@@ -1,6 +1,7 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
-import { intervalToMs, resolveCredentials, resolveMarket } from '@/providers/market/alpaca/series'
+import { toDate } from '@/providers/market/market-hours/date-utils'
+import { intervalToMs } from '@/providers/market/series-planner'
 import type { MarketBar, MarketLiveRequest, MarketLiveSnapshot } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 
@@ -23,64 +24,18 @@ function toNumber(value: unknown): number | undefined {
   return undefined
 }
 
-function toTimestampMs(value: unknown): number | undefined {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value > 1e12 ? value : value * 1000
-  }
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    if (!trimmed) return undefined
-    const numeric = Number(trimmed)
-    if (Number.isFinite(numeric)) {
-      return numeric > 1e12 ? numeric : numeric * 1000
-    }
-    const parsed = Date.parse(trimmed)
-    if (Number.isFinite(parsed)) return parsed
-  }
-  return undefined
-}
-
-function resolveFeed(request: MarketLiveRequest, market: 'stocks' | 'crypto'): string | undefined {
-  if (market === 'crypto') return undefined
-  return (
-    (request.providerParams?.feed as string | undefined) ||
-    (request.providerParams?.dataFeed as string | undefined) ||
-    'iex'
-  )
-}
-
-function resolveCryptoRegion(request: MarketLiveRequest): string {
-  const region = String(
-    request.providerParams?.region ?? request.providerParams?.cryptoRegion ?? 'us'
-  ).toLowerCase()
-  if (region === 'us-1' || region === 'eu-1') return region
-  return 'us'
-}
-
 function resolveTradeLimit(request: MarketLiveRequest): number {
-  const value = toNumber(request.providerParams?.tradeLimit ?? request.providerParams?.tickLimit)
+  const value = toNumber(request.providerParams?.tradeLimit)
   if (value === undefined) return DEFAULT_TRADE_LIMIT
   const rounded = Math.floor(value)
   return Math.min(Math.max(1, rounded), MAX_TRADE_LIMIT)
 }
 
-function resolveSymbolPayload(payload: unknown, symbol: string): any | null {
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null
-  const table = payload as Record<string, any>
-  return (
-    table[symbol] ??
-    table[symbol.toUpperCase()] ??
-    table[symbol.toLowerCase()] ??
-    Object.values(table)[0] ??
-    null
-  )
-}
-
 function parseTrade(trade: any): ParsedTrade | null {
-  const price = toNumber(trade?.p ?? trade?.price)
-  const timeMs = toTimestampMs(trade?.t ?? trade?.timestamp ?? trade?.time)
+  const price = toNumber(trade?.p)
+  const timeMs = toDate(trade?.t)?.getTime()
   if (price === undefined || timeMs === undefined) return null
-  const size = toNumber(trade?.s ?? trade?.size)
+  const size = toNumber(trade?.s)
   return { price, timeMs, size }
 }
 
@@ -169,28 +124,29 @@ export async function fetchAlpacaLiveSnapshot(
   request: MarketLiveRequest
 ): Promise<MarketLiveSnapshot> {
   const context = await resolveListingContext(request.listing)
-  const market = resolveMarket(request, context.assetClass)
+  const market = context.assetClass === 'crypto' ? 'crypto' : 'stocks'
 
   if (market === 'crypto' && !context.quote) {
     throw new Error('Crypto listings require a quote currency for Alpaca symbols')
   }
 
   const symbol = resolveProviderSymbol(alpacaProviderConfig, context)
-  const { keyId, secretKey } = resolveCredentials(request.auth)
-  if (market === 'stocks' && (!keyId || !secretKey)) {
+  const { apiKey, apiSecret } = request.auth ?? {}
+  if (market === 'stocks' && (!apiKey || !apiSecret)) {
     throw new Error('Alpaca API key ID and secret key are required for stock market data')
   }
 
   const headers: Record<string, string> = { Accept: 'application/json' }
-  if (keyId && secretKey) {
-    headers['APCA-API-KEY-ID'] = keyId
-    headers['APCA-API-SECRET-KEY'] = secretKey
+  if (apiKey && apiSecret) {
+    headers['APCA-API-KEY-ID'] = apiKey
+    headers['APCA-API-SECRET-KEY'] = apiSecret
   }
 
-  const interval = request.interval || (request.providerParams?.interval as string | undefined)
+  const interval = request.interval || request.providerParams?.interval
   const intervalMs = intervalToMs(interval)
-  const feed = resolveFeed(request, market)
-  const cryptoRegion = resolveCryptoRegion(request)
+  const feed =
+    market === 'stocks' ? (request.providerParams?.feed as string | undefined) || 'iex' : undefined
+  const cryptoRegion = String(request.providerParams?.cryptoRegion ?? 'us').toLowerCase()
   const tradeLimit = resolveTradeLimit(request)
 
   logger.info('Fetching Alpaca live snapshot', {
@@ -209,7 +165,7 @@ export async function fetchAlpacaLiveSnapshot(
   if (market === 'stocks' && feed) latestUrl.searchParams.set('feed', feed)
 
   const latestPayload = await fetchJson(latestUrl, headers, 'Alpaca latest trade request')
-  const latestTrade = resolveSymbolPayload(latestPayload?.trades, symbol) ?? latestPayload?.trade
+  const latestTrade = latestPayload?.trades?.[symbol]
   const parsedLatestTrade = parseTrade(latestTrade)
   if (!parsedLatestTrade) {
     throw new Error('No valid live trade data returned')
@@ -233,7 +189,7 @@ export async function fetchAlpacaLiveSnapshot(
     if (market === 'stocks' && feed) tradesUrl.searchParams.set('feed', feed)
 
     const tradesPayload = await fetchJson(tradesUrl, headers, 'Alpaca trade range request')
-    const tradeRows = resolveSymbolPayload(tradesPayload?.trades, symbol)
+    const tradeRows = tradesPayload?.trades?.[symbol]
     const aggregatedBar = Array.isArray(tradeRows)
       ? aggregateTradesToBar(tradeRows, bucketStartMs, intervalMs, tradeLimit, symbol)
       : null

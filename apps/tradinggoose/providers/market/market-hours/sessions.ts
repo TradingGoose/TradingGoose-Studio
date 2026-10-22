@@ -4,8 +4,8 @@ import type {
   MarketSeriesRequest,
   MarketSessionWindow,
 } from '@/providers/market/types'
-import { MARKET_DAY_MS, MAX_SESSION_LOOKAHEAD_DAYS, MAX_SESSION_RANGE_DAYS } from './constants'
-import { addDays, parseDateKey, toDate, toDateKey } from './date-utils'
+import { MARKET_DAY_MS, MAX_SESSION_LOOKAHEAD_DAYS } from './constants'
+import { addDays, parseDateKey, toDate } from './date-utils'
 import { resolveMarketHours, resolveMarketHoursRange } from './market-hours-api'
 import { parseTime } from './time-utils'
 import type { MarketHoursResponse, MarketSession } from './types'
@@ -93,47 +93,18 @@ export const resolveMarketSessionsForRange = async (
 ): Promise<MarketSessionWindow[] | null> => {
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) return null
 
-  const dayCount = Math.floor((endMs - startMs) / MARKET_DAY_MS) + 1
-  if (dayCount <= 0) return null
-  if (dayCount > MAX_SESSION_RANGE_DAYS) return null
-
   const rangeMap = await resolveMarketHoursRange(
     listingId,
     listingType,
     new Date(startMs - MARKET_DAY_MS),
     new Date(endMs + MARKET_DAY_MS)
   )
-  if (rangeMap && rangeMap.size === 0) return []
-
-  const dateKeys = rangeMap ? Array.from(rangeMap.keys()).sort() : []
-
-  const fallbackStartDate = new Date(startMs)
-  const fallbackStartDayMs = Date.UTC(
-    fallbackStartDate.getUTCFullYear(),
-    fallbackStartDate.getUTCMonth(),
-    fallbackStartDate.getUTCDate()
-  )
-  const fallbackEndDate = new Date(endMs)
-  const fallbackEndDayMs = Date.UTC(
-    fallbackEndDate.getUTCFullYear(),
-    fallbackEndDate.getUTCMonth(),
-    fallbackEndDate.getUTCDate()
-  )
-  const fallbackDayCount =
-    Number.isFinite(fallbackStartDayMs) && Number.isFinite(fallbackEndDayMs)
-      ? Math.floor((fallbackEndDayMs - fallbackStartDayMs) / MARKET_DAY_MS) + 1
-      : 0
+  if (!rangeMap) return null
 
   const sessions: MarketSessionWindow[] = []
-  const totalDays = dateKeys.length || fallbackDayCount
-  for (let i = 0; i < totalDays; i += 1) {
-    const dateKey = dateKeys.length
-      ? dateKeys[i]
-      : toDateKey(new Date(fallbackStartDayMs + i * MARKET_DAY_MS))
-    const dateCursor = parseDateKey(dateKey) ?? new Date(dateKey)
-    const hoursResponse =
-      rangeMap?.get(dateKey) ?? (await resolveMarketHours(listingId, listingType, dateCursor))
-    if (!hoursResponse || hoursResponse.isHoliday || !hoursResponse.marketHours) continue
+  for (const [dateKey, hoursResponse] of rangeMap) {
+    const dateCursor = parseDateKey(dateKey)
+    if (!dateCursor || hoursResponse.isHoliday || !hoursResponse.marketHours) continue
 
     const offset = hoursResponse.timeZone?.utcOffset ?? '+00:00'
     let offsetMinutes = 0
@@ -169,7 +140,6 @@ export const resolveMarketSessionsForRange = async (
     }
   }
 
-  if (!sessions.length) return []
   sessions.sort((a, b) => a.start.localeCompare(b.start))
   return sessions
 }
@@ -183,15 +153,15 @@ export const resolveSeriesBoundsMs = (
     return { startMs, endMs }
   }
 
-  const bars = Array.isArray(series.bars) ? series.bars : []
-  if (!bars.length) return null
-  const times = bars.map((bar) => Date.parse(bar.timeStamp)).filter((ts) => Number.isFinite(ts))
-  if (!times.length) return null
-  const min = Math.min(...times)
-  const max = Math.max(...times)
-  return Number.isFinite(min) && Number.isFinite(max) && min < max
-    ? { startMs: min, endMs: max }
-    : null
+  let min = Number.POSITIVE_INFINITY
+  let max = Number.NEGATIVE_INFINITY
+  for (const bar of Array.isArray(series.bars) ? series.bars : []) {
+    const timestamp = Date.parse(bar.timeStamp)
+    if (!Number.isFinite(timestamp)) continue
+    min = Math.min(min, timestamp)
+    max = Math.max(max, timestamp)
+  }
+  return min < max ? { startMs: min, endMs: max } : null
 }
 
 const buildSessionRanges = (

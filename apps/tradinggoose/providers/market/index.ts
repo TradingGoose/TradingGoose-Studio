@@ -11,6 +11,7 @@ import {
   resolveListingId,
   resolveMarketSessionsForRange,
   resolveSeriesBoundsMs,
+  toDate,
 } from '@/providers/market/market-hours'
 import type { MarketProviderRequest, MarketProviderResponse } from '@/providers/market/providers'
 import { getMarketProviderDefinition } from '@/providers/market/providers'
@@ -32,18 +33,6 @@ const providers = {
   alpaca: alpacaProvider,
   finnhub: finnhubProvider,
   'yahoo-finance': YahooFinanceProvider,
-}
-
-const toEpochMs = (value?: string | number): number | null => {
-  if (value === undefined || value === null) return null
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value > 1e12 ? value : value * 1000
-  }
-  if (typeof value === 'string') {
-    const parsed = Date.parse(value)
-    return Number.isFinite(parsed) ? parsed : null
-  }
-  return null
 }
 
 export function getProvider(providerId: string) {
@@ -188,6 +177,7 @@ export async function executeProviderRequest(
       const response = await provider.fetchMarketSeries(adjustedRequest)
       let marketSessions: MarketSessionWindow[] | null = null
       if (
+        isIntradayInterval(sessionInterval) &&
         listingId &&
         normalizedRequest.listing?.listing_type === 'default' &&
         (sessionPref === 'regular' || sessionPref === 'extended')
@@ -204,18 +194,15 @@ export async function executeProviderRequest(
       }
       const sessionMode =
         sessionPref === 'regular' || sessionPref === 'extended' ? sessionPref : null
-      const shouldFilterSessions = Boolean(
-        marketSessions && sessionMode && isIntradayInterval(sessionInterval)
-      )
       const filteredResponse =
-        shouldFilterSessions && marketSessions && sessionMode
+        marketSessions && sessionMode
           ? filterSeriesBySessions(response, marketSessions, sessionMode)
           : response
       let applyWindow = window
       if (window?.mode === 'range') {
-        const startMs = toEpochMs(adjustedRequest.start)
-        const endMs = toEpochMs(adjustedRequest.end)
-        if (startMs !== null && endMs !== null && startMs < endMs) {
+        const startMs = toDate(adjustedRequest.start)?.getTime()
+        const endMs = toDate(adjustedRequest.end)?.getTime()
+        if (startMs !== undefined && endMs !== undefined && startMs < endMs) {
           applyWindow = { mode: 'absolute', startMs, endMs }
         }
       }

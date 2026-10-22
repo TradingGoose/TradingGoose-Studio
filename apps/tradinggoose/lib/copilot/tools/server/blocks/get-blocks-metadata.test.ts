@@ -9,9 +9,11 @@ vi.mock('@/lib/oauth/oauth.server', () => ({
 }))
 
 vi.mock('@/blocks/registry', async () => {
+  const { HistoricalDataBlock } = await import('@/blocks/blocks/historical_data')
   const { LoopBlock } = await import('@/blocks/blocks/loop')
   const { ParallelContainerBlock } = await import('@/blocks/blocks/parallel_container')
   const registry = {
+    historical_data: HistoricalDataBlock,
     loop: LoopBlock,
     parallel: ParallelContainerBlock,
     github: {
@@ -141,6 +143,28 @@ describe('getBlocksMetadataServerTool', () => {
     mockGetOAuthProviderAvailability.mockImplementation(async (providerIds: string[]) =>
       Object.fromEntries(providerIds.map((providerId) => [providerId, false]))
     )
+  })
+
+  it('serializes historical range modes and latest range choices', async () => {
+    const result = await getBlocksMetadataServerTool.execute({ blockTypes: ['historical_data'] })
+    const subBlocks = result.metadata.historical_data?.subBlocks
+
+    expect(subBlocks?.find((subBlock) => subBlock.id === 'rangeMode')).toMatchObject({
+      title: 'Range Mode',
+      required: true,
+      options: [
+        { id: 'custom', label: 'Custom dates' },
+        { id: 'latest', label: 'Latest range' },
+      ],
+    })
+    const range = subBlocks?.find((subBlock) => subBlock.id === 'rangePresetId')
+    expect(range).toMatchObject({
+      title: 'Latest Range',
+      required: true,
+      description: 'Latest range available from the selected data provider and interval.',
+    })
+    expect(range?.options).not.toContainEqual(expect.objectContaining({ id: 'custom' }))
+    expect(range?.options).toContainEqual({ id: '1m', label: 'Last 1 month' })
   })
 
   it('returns Mermaid profiles and operation variants instead of schema-shaped metadata', async () => {

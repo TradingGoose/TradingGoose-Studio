@@ -1,3 +1,4 @@
+import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { getBlock } from '@/blocks'
 import type { BlockConfig, SubBlockConfig, SubBlockOption } from '@/blocks/types'
 import {
@@ -42,7 +43,7 @@ type BlockEditorOptionOverride = {
 type BlockEditorOptionOverrides = BlockEditorOptionOverride[]
 type BlockEditorOptionOverrideMap = Record<string, Omit<BlockEditorOptionOverride, 'id'>>
 
-type BlockEditorSubBlockOverride = Partial<
+type BlockEditorSubBlockCopy = Partial<
   Pick<
     SubBlockConfig,
     | 'title'
@@ -56,8 +57,21 @@ type BlockEditorSubBlockOverride = Partial<
 > & {
   options?: BlockEditorOptionOverrides
 }
-type MergedBlockEditorSubBlockOverride = Omit<BlockEditorSubBlockOverride, 'options'> & {
+type BlockEditorSubBlockOverride = BlockEditorSubBlockCopy & {
+  variants?: Record<string, BlockEditorSubBlockCopy>
+}
+type MergedBlockEditorSubBlockOverride = Omit<BlockEditorSubBlockCopy, 'options'> & {
   options?: BlockEditorOptionOverrideMap
+}
+
+type SubBlockVariantIdentity = Pick<SubBlockConfig, 'mode' | 'condition'> & { type?: string }
+
+export function getWorkflowSubBlockVariantKey(config: SubBlockVariantIdentity): string {
+  return stableStringifyJsonValue({
+    type: config.type,
+    mode: config.mode,
+    condition: typeof config.condition === 'function' ? config.condition() : config.condition,
+  })
 }
 
 type BlockEditorTriggerSubBlockOverride = BlockEditorSubBlockOverride & {
@@ -250,13 +264,22 @@ function mergeSubBlockOverrides(
 function getSubBlockOverride(
   copy: WorkflowInspectorCopy,
   blockType: string | undefined,
-  subBlockId: string
-): BlockEditorSubBlockOverride | undefined {
+  subBlockId: string,
+  config?: SubBlockVariantIdentity
+): BlockEditorSubBlockCopy | undefined {
   if (!blockType) {
     return undefined
   }
 
-  return getBlockSubBlockOverrides(copy)[blockType]?.[subBlockId]
+  const override = getBlockSubBlockOverrides(copy)[blockType]?.[subBlockId]
+  const variant = config && override?.variants?.[getWorkflowSubBlockVariantKey(config)]
+  if (!variant) return override
+
+  return {
+    ...override,
+    ...variant,
+    options: [...(override?.options ?? []), ...(variant.options ?? [])],
+  }
 }
 
 function getTriggerOverride(
@@ -416,59 +439,35 @@ function localizeWorkflowOption<T extends WorkflowOption>(
   }
 }
 
-export function localizeWorkflowOptionsWithCopy(
+function localizeOptionsWithCopy(
   inspectorCopy: WorkflowInspectorCopy,
   options: SubBlockConfig['options'],
-  blockType?: string,
-  subBlockId?: string,
-  triggerId?: string
+  optionOverrides?: BlockEditorOptionOverrideMap,
+  subBlockId?: string
 ): SubBlockConfig['options'] {
   if (!options) {
     return options
   }
 
-  const blockOverride =
-    blockType && subBlockId ? getSubBlockOverride(inspectorCopy, blockType, subBlockId) : undefined
-  const triggerOverride = getTriggerSubBlockCopyFromInspector(
-    inspectorCopy,
-    triggerId,
-    subBlockId ?? ''
-  )
-  const optionOverrides = mergeOptionOverrides(blockOverride?.options, triggerOverride?.options)
-
   if (typeof options === 'function') {
     return () =>
-      options().map((option) =>
-        localizeWorkflowOption(inspectorCopy, option, optionOverrides, subBlockId)
-      )
+      getLocalizedWorkflowOptionsWithCopy(inspectorCopy, options, optionOverrides, subBlockId)
   }
 
-  return options.map((option) =>
-    localizeWorkflowOption(inspectorCopy, option, optionOverrides, subBlockId)
-  )
+  return getLocalizedWorkflowOptionsWithCopy(inspectorCopy, options, optionOverrides, subBlockId)
 }
 
 function getLocalizedWorkflowOptionsWithCopy(
   inspectorCopy: WorkflowInspectorCopy,
   options: SubBlockConfig['options'],
-  blockType?: string,
-  subBlockId?: string,
-  triggerId?: string
+  optionOverrides?: BlockEditorOptionOverrideMap,
+  subBlockId?: string
 ): WorkflowOption[] {
   if (!options) {
     return []
   }
 
   const resolvedOptions = typeof options === 'function' ? options() : options
-  const blockOverride =
-    blockType && subBlockId ? getSubBlockOverride(inspectorCopy, blockType, subBlockId) : undefined
-  const triggerOverride = getTriggerSubBlockCopyFromInspector(
-    inspectorCopy,
-    triggerId,
-    subBlockId ?? ''
-  )
-  const optionOverrides = mergeOptionOverrides(blockOverride?.options, triggerOverride?.options)
-
   return resolvedOptions.map((option) =>
     localizeWorkflowOption(inspectorCopy, option, optionOverrides, subBlockId)
   )
@@ -596,34 +595,37 @@ export function getLocalizedToolParameterLabelWithCopy(
   )
 }
 
-function localizeToolUiComponentOptionsWithCopy(
+function localizeSubBlockFieldsWithCopy<
+  T extends Omit<BlockEditorSubBlockCopy, 'options'> &
+    Pick<SubBlockConfig, 'options' | 'fetchOptions'>,
+>(
   inspectorCopy: WorkflowInspectorCopy,
-  param: ToolParameterConfig,
-  blockType?: string,
-  toolId?: string
-): ToolParameterConfig['uiComponent'] {
-  if (!param.uiComponent) {
-    return param.uiComponent
-  }
-
-  const subBlockId = param.uiComponent.subBlockId ?? param.id
-  const subBlockOverride = getSubBlockOverride(inspectorCopy, blockType, subBlockId)
-  const toolParameterOverride = toolId
-    ? getToolParameterOverride(inspectorCopy, blockType, toolId, param.id)
-    : undefined
-  const override = mergeSubBlockOverrides(subBlockOverride, toolParameterOverride)
-
+  config: T,
+  override: MergedBlockEditorSubBlockOverride | undefined,
+  subBlockId: string
+): T {
+  const fetchOptions = config.fetchOptions
   return {
-    ...param.uiComponent,
-    title: override?.title ?? param.uiComponent.title,
-    placeholder: override?.placeholder ?? param.uiComponent.placeholder,
-    searchPlaceholder: override?.searchPlaceholder ?? param.uiComponent.searchPlaceholder,
-    description: override?.description ?? param.uiComponent.description,
-    tooltip: override?.tooltip ?? param.uiComponent.tooltip,
-    options: param.uiComponent.options?.map((option) =>
-      localizeWorkflowOption(inspectorCopy, option as WorkflowOption, override?.options)
-    ),
-    columns: override?.columns ?? param.uiComponent.columns,
+    ...config,
+    title:
+      override?.title ??
+      getOptionalWorkflowLabel(getWorkflowLabelCopyFromInspector(inspectorCopy), subBlockId) ??
+      config.title,
+    placeholder: override?.placeholder ?? config.placeholder,
+    searchPlaceholder: override?.searchPlaceholder ?? config.searchPlaceholder,
+    description: override?.description ?? config.description,
+    tooltip: override?.tooltip ?? config.tooltip,
+    columns: override?.columns ?? config.columns,
+    options: localizeOptionsWithCopy(inspectorCopy, config.options, override?.options, subBlockId),
+    fetchOptions: fetchOptions
+      ? async (...args: Parameters<NonNullable<SubBlockConfig['fetchOptions']>>) =>
+          getLocalizedWorkflowOptionsWithCopy(
+            inspectorCopy,
+            await fetchOptions(...args),
+            override?.options,
+            subBlockId
+          )
+      : undefined,
   }
 }
 
@@ -634,7 +636,12 @@ export function localizeToolParameterWithCopy(
   toolId?: string
 ): ToolParameterConfig {
   const subBlockId = param.uiComponent?.subBlockId ?? param.id
-  const subBlockOverride = getSubBlockOverride(inspectorCopy, blockType, subBlockId)
+  const subBlockOverride = getSubBlockOverride(
+    inspectorCopy,
+    blockType,
+    subBlockId,
+    param.uiComponent
+  )
   const toolParameterOverride = toolId
     ? getToolParameterOverride(inspectorCopy, blockType, toolId, param.id)
     : undefined
@@ -643,7 +650,9 @@ export function localizeToolParameterWithCopy(
   return {
     ...param,
     description: override?.description ?? param.description,
-    uiComponent: localizeToolUiComponentOptionsWithCopy(inspectorCopy, param, blockType, toolId),
+    uiComponent: param.uiComponent
+      ? localizeSubBlockFieldsWithCopy(inspectorCopy, param.uiComponent, override, subBlockId)
+      : undefined,
   }
 }
 
@@ -683,49 +692,36 @@ export function localizeWorkflowSubBlockConfigWithCopy(
   blockType?: string,
   triggerId?: string
 ): SubBlockConfig {
-  const blockOverride = getSubBlockOverride(inspectorCopy, blockType, config.id)
+  const blockOverride = getSubBlockOverride(inspectorCopy, blockType, config.id, config)
   const triggerOverride = getTriggerSubBlockCopyFromInspector(inspectorCopy, triggerId, config.id)
   const override = mergeSubBlockOverrides(blockOverride, triggerOverride)
-  const workflowLabelTitle = getOptionalWorkflowLabel(
-    getWorkflowLabelCopyFromInspector(inspectorCopy),
-    config.id
-  )
   const defaultValue =
     config.type === 'text'
       ? triggerOverride?.steps?.length
         ? formatTriggerInstructionSteps(triggerOverride.steps)
         : (override?.defaultValue ?? config.defaultValue)
       : config.defaultValue
-
-  return {
-    ...config,
-    title: override?.title ?? workflowLabelTitle ?? config.title,
-    placeholder: override?.placeholder ?? config.placeholder,
-    searchPlaceholder: override?.searchPlaceholder ?? config.searchPlaceholder,
-    description: override?.description ?? config.description,
-    tooltip: override?.tooltip ?? config.tooltip,
-    columns: override?.columns ?? config.columns,
-    defaultValue,
-    options: localizeWorkflowOptionsWithCopy(
-      inspectorCopy,
-      config.options,
-      blockType,
-      config.id,
-      triggerId
-    ),
-  }
+  return localizeSubBlockFieldsWithCopy(
+    inspectorCopy,
+    { ...config, defaultValue },
+    override,
+    config.id
+  )
 }
 
 export function resolveWorkflowDisplayValueWithCopy(
   inspectorCopy: WorkflowInspectorCopy,
-  config: Pick<SubBlockConfig, 'id' | 'options'>,
+  config: Pick<SubBlockConfig, 'id' | 'options'> & SubBlockVariantIdentity,
   value: unknown,
   blockType?: string
 ): unknown {
   const localizedOptions = getLocalizedWorkflowOptionsWithCopy(
     inspectorCopy,
     config.options,
-    blockType,
+    mergeOptionOverrides(
+      getSubBlockOverride(inspectorCopy, blockType, config.id, config)?.options,
+      undefined
+    ),
     config.id
   )
 

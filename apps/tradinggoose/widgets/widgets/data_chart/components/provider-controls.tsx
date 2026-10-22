@@ -48,22 +48,13 @@ export const DataChartProviderControls = ({
   const handleProviderChange = (nextProvider: string) => {
     if (!nextProvider || nextProvider === providerId) return
 
-    const {
-      window: _window,
-      fallbackWindow: _fallbackWindow,
-      auth: _auth,
-      providerParams: _providerParams,
-      ...nextDataBase
-    } = (params.data ?? {}) as Record<string, unknown>
-    const nextData = { ...nextDataBase, provider: nextProvider }
-
     const { rangePresetId: _rangePresetId, ...nextView } = (params.view ?? {}) as Record<
       string,
       unknown
     >
 
     patchWidgetParams({
-      data: nextData,
+      data: { provider: nextProvider, live: params.data?.live },
       view: nextView,
     })
   }
@@ -77,10 +68,9 @@ export const DataChartProviderControls = ({
       authParams={authParams}
       workspaceId={workspaceId}
       onSettingsSave={({ providerParams: nextProviderParams, auth }) => {
-        const { ...nextDataBase } = (params.data ?? {}) as Record<string, unknown>
         patchWidgetParams({
           data: {
-            ...nextDataBase,
+            ...params.data,
             providerParams: nextProviderParams,
             auth,
           },

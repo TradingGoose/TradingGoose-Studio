@@ -1,11 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
+import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { DatadogBlock } from '@/blocks/blocks/datadog'
+import { GmailBlock } from '@/blocks/blocks/gmail'
+import { HistoricalDataBlock } from '@/blocks/blocks/historical_data'
+import { McpBlock } from '@/blocks/blocks/mcp'
+import { TradingActionBlock } from '@/blocks/blocks/trading_action'
 import { getBlock } from '@/blocks/index'
 import { BlockType } from '@/executor/consts'
 import { InputResolver } from '@/executor/resolver/resolver'
 import type { ExecutionContext } from '@/executor/types'
+import { planMarketSeriesRequest } from '@/providers/market/series-planner'
+import type { MarketSeriesRequest } from '@/providers/market/types'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
+import { historicalDataTool, type MarketSeriesParams } from '@/tools/market_data/series'
 
 const createInputResolver = (
   workflow: SerializedWorkflow,
@@ -314,6 +322,58 @@ describe('InputResolver', () => {
   })
 
   describe('Block Reference Resolution', () => {
+    it.each([
+      ['custom', 'custom', 1704067200, 1704153600],
+      ['<variable.stringVar>', 'custom', 1704067200000, 1704153600000],
+      ['<variable.stringVar>', 'latest', 1704067200, 1704153600],
+      ['latest', 'latest', 1704067200, 1704153600],
+    ])('preserves historical mode %s selecting %s', (rangeMode, selected, start, end) => {
+      mockContext.blockStates.get('function-block').output = { start, end }
+      mockWorkflowVars.stringVar.value = selected
+      vi.mocked(getBlock).mockReturnValueOnce(HistoricalDataBlock)
+      const block: SerializedBlock = {
+        ...sampleWorkflow.blocks[1],
+        id: 'test-block',
+        metadata: { id: 'historical_data' },
+        config: {
+          tool: 'historical_data_fetch',
+          params: {
+            provider: 'alpaca',
+            listing: { listing_id: 'AAPL', base_id: '', quote_id: '', listing_type: 'default' },
+            rangeMode,
+            rangePresetId: selected === 'custom' ? '<disabled-block.result>' : '1d',
+            interval: '15m',
+            start: selected === 'latest' ? '<disabled-block.result>' : '<function.start>',
+            end: selected === 'latest' ? '<disabled-block.result>' : '<function.end>',
+          },
+        },
+      }
+      const inputs = resolver.resolveInputs(block, mockContext)
+      if (selected === 'latest') {
+        expect(inputs).not.toHaveProperty('start')
+        expect(inputs).not.toHaveProperty('end')
+      } else {
+        expect(inputs).not.toHaveProperty('rangePresetId')
+        expect([inputs.start, inputs.end]).toEqual([String(start), String(end)])
+      }
+      const params = HistoricalDataBlock.tools.config!.params!(inputs)
+      const body = historicalDataTool.request.body!(params as MarketSeriesParams)
+      const planned = planMarketSeriesRequest('alpaca', body as MarketSeriesRequest)
+
+      expect(planned.request.interval).toBe('15m')
+      expect(planned.request.windows).toEqual(
+        selected === 'custom'
+          ? [
+              {
+                mode: 'absolute',
+                start: '2024-01-01T00:00:00.000Z',
+                end: '2024-01-02T00:00:00.000Z',
+              },
+            ]
+          : [{ mode: 'range', range: { value: 1, unit: 'day' } }]
+      )
+    })
+
     it('should resolve references to other blocks', () => {
       const block: SerializedBlock = {
         id: 'test-block',
@@ -1913,6 +1973,166 @@ describe('InputResolver', () => {
 
     afterEach(() => {
       mockGetBlock.mockReset()
+    })
+
+    const staleMcpInputs = { arguments: { value: '<disabled-block.result>' }, tool: 'stale-tool' }
+    const activeMcpInputs = {
+      ...staleMcpInputs,
+      arguments: { value: '<variable.stringVar>' },
+      server: 'server',
+    }
+    const tradierInputs = { quantity: 5, provider: 'tradier' }
+    it.each([
+      ['missing MCP server', McpBlock, staleMcpInputs, {}],
+      ['empty MCP server', McpBlock, { ...staleMcpInputs, server: '' }, { server: '' }],
+      [
+        'active MCP tool',
+        McpBlock,
+        activeMcpInputs,
+        { ...activeMcpInputs, arguments: { value: 'Hello' } },
+      ],
+      ['omitted Tradier sizing', TradingActionBlock, tradierInputs, tradierInputs],
+      [
+        'inactive Tradier sizing',
+        TradingActionBlock,
+        { ...tradierInputs, orderSizingMode: 'quantity' },
+        tradierInputs,
+      ],
+    ] as const)('resolves inputs for %s', (_, block, params, expected) => {
+      mockGetBlock.mockReturnValue(block)
+      expect(
+        resolver.resolveInputs(
+          {
+            ...sampleWorkflow.blocks[1],
+            metadata: { id: block.type },
+            config: { tool: block.type, params },
+          },
+          mockContext
+        )
+      ).toEqual(expected)
+    })
+
+    it.each([
+      [undefined, false],
+      [{ id: undefined }, false],
+      ['', false],
+      [null, true],
+      [false, true],
+      [0, true],
+    ])(
+      'normalizes only undefined condition controllers to an empty selection: %s',
+      (server, expected) => {
+        expect(evaluateSubBlockConditionValues(McpBlock.subBlocks[1].condition, { server })).toBe(
+          expected
+        )
+        expect(
+          evaluateSubBlockConditionValues(
+            GmailBlock.subBlocks.find((entry) => entry.id === 'messageId')!.condition,
+            { operation: 'read_gmail', folder: server }
+          )
+        ).toBe(!expected)
+      }
+    )
+
+    it.each(['update', 'skip'])('resolves out-of-order condition chains for %s', (operation) => {
+      mockWorkflowVars.stringVar.value = operation
+      mockGetBlock.mockReturnValue({
+        subBlocks: [
+          { id: 'payload', condition: { field: 'enabled', value: true } },
+          { id: 'enabled', condition: { field: 'operation', value: 'update' } },
+        ],
+      })
+      const result = resolver.resolveInputs(
+        {
+          ...sampleWorkflow.blocks[1],
+          metadata: { id: 'test-block' },
+          config: {
+            tool: 'test-block',
+            params: {
+              payload: operation === 'update' ? 'content' : '<disabled-block.result>',
+              enabled: operation === 'update' ? '<variable.boolVar>' : '<disabled-block.result>',
+              operation: '<variable.stringVar>',
+            },
+          },
+        },
+        mockContext
+      )
+
+      expect(result).toEqual(
+        operation === 'update' ? { operation, enabled: true, payload: 'content' } : { operation }
+      )
+    })
+
+    it.each([true, false])('short-circuits nested AND conditions with enabled=%s', (enabled) => {
+      mockGetBlock.mockReturnValue({
+        subBlocks: [
+          {
+            id: 'payload',
+            condition: {
+              field: 'operation',
+              value: 'update',
+              and: { field: 'enabled', value: true, and: { field: 'confirmed', value: true } },
+            },
+          },
+          { id: 'confirmed', condition: { field: 'enabled', value: true } },
+        ],
+      })
+      const result = resolver.resolveInputs(
+        {
+          ...sampleWorkflow.blocks[1],
+          metadata: { id: 'test-block' },
+          config: {
+            tool: 'test-block',
+            params: {
+              payload: '<disabled-block.result>',
+              confirmed: enabled ? false : '<disabled-block.result>',
+              enabled,
+              operation: 'update',
+            },
+          },
+        },
+        mockContext
+      )
+
+      expect(result).toEqual(
+        enabled
+          ? { operation: 'update', enabled, confirmed: false }
+          : { operation: 'update', enabled }
+      )
+    })
+
+    it('propagates errors from active condition controllers', () => {
+      mockGetBlock.mockReturnValue({
+        subBlocks: [{ id: 'payload', condition: { field: 'operation', value: 'update' } }],
+      })
+      const block = {
+        ...sampleWorkflow.blocks[1],
+        metadata: { id: 'test-block' },
+        config: {
+          tool: 'test-block',
+          params: { payload: 'content', operation: '<disabled-block.result>' },
+        },
+      }
+
+      expect(() => resolver.resolveInputs(block, mockContext)).toThrow('Disabled Block')
+    })
+
+    it('reports condition dependency cycles', () => {
+      mockGetBlock.mockReturnValue({
+        subBlocks: [
+          { id: 'first', condition: { field: 'second', value: true } },
+          { id: 'second', condition: { field: 'first', value: true } },
+        ],
+      })
+      const block = {
+        ...sampleWorkflow.blocks[1],
+        metadata: { id: 'test-block' },
+        config: { tool: 'test-block', params: { first: true, second: true } },
+      }
+
+      expect(() => resolver.resolveInputs(block, mockContext)).toThrow(
+        'Circular input condition dependency: first -> second -> first'
+      )
     })
 
     it('should filter inputs based on operation conditions for Knowledge block', () => {

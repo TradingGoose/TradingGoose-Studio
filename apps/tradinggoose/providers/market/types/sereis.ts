@@ -4,11 +4,12 @@
 import type { ListingIdentity } from '@/lib/listing/identity'
 import type { MarketRangeUnit, MarketRequestBase } from './base'
 
-export type MarketSeriesWindowMode = 'bars' | 'range' | 'absolute'
+export type MarketSeriesWindowMode = 'bars' | 'range' | 'absolute' | 'all'
 
 export type MarketSeriesRange = { value: number; unit: MarketRangeUnit }
 
 export type MarketSeriesWindow =
+  | { mode: 'all' }
   | { mode: 'bars'; barCount: number }
   | { mode: 'range'; range: MarketSeriesRange }
   | { mode: 'absolute'; start: string | number; end?: string | number }

@@ -86,7 +86,9 @@ function buildChartUrl(symbol: string, request: MarketSeriesRequest): string {
   const rangeOverride = request.providerParams?.range as string | undefined
   const marketSession = String(request.providerParams?.marketSession ?? '').toLowerCase()
 
-  if (period1 && period2) {
+  if (request.windows?.[0]?.mode === 'all') {
+    params.set('range', 'max')
+  } else if (period1 && period2) {
     params.set('period1', String(period1))
     params.set('period2', String(period2))
   } else if (rangeOverride) {

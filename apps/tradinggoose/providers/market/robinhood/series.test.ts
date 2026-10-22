@@ -2,8 +2,12 @@ import { StreamableHTTPError } from '@modelcontextprotocol/sdk/client/streamable
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildMarketQuoteSnapshot } from '@/lib/market/quote-snapshots'
-import { ROBINHOOD_MCP_URL } from '@/providers/market/robinhood/config'
-import { planMarketSeriesRequest } from '@/providers/market/series-planner'
+import { ROBINHOOD_MAX_REQUESTS, ROBINHOOD_MCP_URL } from '@/providers/market/robinhood/config'
+import {
+  getMarketSeriesRangePresets,
+  planMarketSeriesRequest,
+} from '@/providers/market/series-planner'
+import { rangeToMs } from '@/providers/market/series-window'
 import type { MarketSeriesRequest } from '@/providers/market/types'
 import { callRobinhoodTool } from './client'
 import { robinhoodProvider } from './index'
@@ -207,6 +211,27 @@ describe('Robinhood market provider and MCP boundary', () => {
     ])
     expect(sdk.callTool).toHaveBeenCalledTimes(2)
   })
+
+  it.each(['1m', '5m', '10m', '30m', '1h', '4h'])(
+    'executes every admitted %s range within its request budget',
+    async (interval) => {
+      sdk.callTool.mockResolvedValue(mcpResult(history([])))
+      for (const preset of getMarketSeriesRangePresets('robinhood', interval)) {
+        sdk.callTool.mockClear()
+        const plan = planMarketSeriesRequest('robinhood', {
+          ...request,
+          interval,
+          windows: [preset.window],
+        })
+        expect(plan.window).toEqual({
+          mode: 'range',
+          rangeMs: rangeToMs('range' in preset.window ? preset.window.range : undefined),
+        })
+        await fetchRobinhoodSeries(plan.request)
+        expect(sdk.callTool.mock.calls.length).toBeLessThanOrEqual(ROBINHOOD_MAX_REQUESTS)
+      }
+    }
+  )
 
   it.each(['before', 'between', 'during', 'during-rejection'])(
     'rejects the entire history request when its deadline expires %s pages',

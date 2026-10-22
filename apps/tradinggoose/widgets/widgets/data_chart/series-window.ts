@@ -3,7 +3,8 @@ import {
   getMarketProviderParamDefinitions,
   getMarketSeriesCapabilities,
 } from '@/providers/market/providers'
-import { rangeToMs as resolveRangeMs, seriesWindowKey } from '@/providers/market/series-window'
+import { getMarketSeriesRangePresets, intervalToMs } from '@/providers/market/series-planner'
+import { DEFAULT_RANGE_PRESETS, rangeToMs, seriesWindowKey } from '@/providers/market/series-window'
 import {
   MARKET_INTERVALS,
   type MarketInterval,
@@ -13,13 +14,7 @@ import {
   type NormalizationMode,
 } from '@/providers/market/types'
 import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
-import {
-  DEFAULT_BAR_COUNT,
-  DEFAULT_RANGE_PRESETS,
-  intervalToMs,
-} from '@/widgets/widgets/data_chart/series-data'
-
-export const rangeToMs = (range?: MarketSeriesRange) => resolveRangeMs(range)
+import { DEFAULT_BAR_COUNT } from '@/widgets/widgets/data_chart/series-data'
 
 export const chooseIntervalForRange = (
   rangeMs: number,
@@ -93,11 +88,11 @@ const resolveDefaultWindow = (
   allowedModes: MarketSeriesWindowMode[],
   fallbackRange?: MarketSeriesRange
 ): MarketSeriesWindow | null => {
-  if (allowedModes.includes('range') && fallbackRange) {
-    return { mode: 'range', range: fallbackRange }
-  }
   if (allowedModes.includes('bars')) {
     return { mode: 'bars', barCount: DEFAULT_BAR_COUNT }
+  }
+  if (allowedModes.includes('range') && fallbackRange) {
+    return { mode: 'range', range: fallbackRange }
   }
   if (allowedModes.includes('absolute') && fallbackRange) {
     const spanMs = rangeToMs(fallbackRange)
@@ -116,7 +111,7 @@ const resolveDefaultWindow = (
 export const resolveSeriesWindow = (params: DataChartWidgetParams, providerId?: string | null) => {
   const capabilities = providerId ? getMarketSeriesCapabilities(providerId) : null
   const supportsInterval = capabilities?.supportsInterval !== false
-  const allowedIntervals = capabilities?.intervals?.length
+  const providerIntervals = capabilities?.intervals?.length
     ? capabilities.intervals
     : [...MARKET_INTERVALS]
   const allowedWindowModes =
@@ -125,50 +120,44 @@ export const resolveSeriesWindow = (params: DataChartWidgetParams, providerId?: 
       : (['range'] as MarketSeriesWindowMode[])
 
   const viewParams = params.view ?? {}
-  const fallbackRange = DEFAULT_RANGE_PRESETS[0]?.range
+  const fallbackRange = DEFAULT_RANGE_PRESETS[0].window.range
   const rangePresetId =
     typeof viewParams.rangePresetId === 'string' ? viewParams.rangePresetId.trim() : ''
-  const rangePreset = rangePresetId
-    ? (DEFAULT_RANGE_PRESETS.find((preset) => preset.id === rangePresetId) ?? null)
-    : null
+  const fallbackWindow = resolveDefaultWindow(allowedWindowModes, fallbackRange)
+  const requestedPreset = capabilities
+    ? DEFAULT_RANGE_PRESETS.find((preset) => preset.id === rangePresetId)
+    : undefined
+  const candidateWindow = requestedPreset?.window ?? fallbackWindow
 
-  let window: MarketSeriesWindow | null = null
-  if (rangePreset && allowedWindowModes.includes('range')) {
-    window = { mode: 'range', range: rangePreset.range }
-  } else if (allowedWindowModes.includes('bars')) {
-    window = { mode: 'bars', barCount: DEFAULT_BAR_COUNT }
-  } else {
-    window = resolveDefaultWindow(allowedWindowModes, fallbackRange)
-  }
-
-  const viewInterval = normalizeInterval(viewParams.interval, allowedIntervals)
-  let interval = viewInterval
-  if (!interval && window && window.mode === 'range') {
-    const rangeMs = rangeToMs(window.range)
-    interval = rangeMs ? chooseIntervalForRange(rangeMs, allowedIntervals) : undefined
+  let interval = normalizeInterval(viewParams.interval, providerIntervals)
+  if (!interval && candidateWindow?.mode === 'range') {
+    const rangeMs = rangeToMs(candidateWindow.range)
+    interval = rangeMs ? chooseIntervalForRange(rangeMs, providerIntervals) : undefined
   }
   if (!interval) {
-    interval = resolveDefaultInterval(allowedIntervals)
+    interval = resolveDefaultInterval(providerIntervals)
+  }
+
+  const rangePreset = getMarketSeriesRangePresets(
+    providerId,
+    rangePresetId === 'all' ? undefined : interval
+  ).find((preset) => preset.id === rangePresetId)
+  const allowedIntervals =
+    rangePreset?.window.mode === 'all' ? [rangePreset.interval] : providerIntervals
+  const window = rangePreset?.window ?? fallbackWindow
+  if (rangePreset?.window.mode === 'all') {
+    interval = rangePreset.interval
   }
 
   const requestInterval = supportsInterval ? interval : undefined
-  const windows: MarketSeriesWindow[] = []
-  if (window) {
-    if (window.mode === 'absolute') {
-      windows.push({ mode: 'absolute', start: window.start, end: window.end })
-    } else if (window.mode === 'range') {
-      windows.push({ mode: 'range', range: window.range })
-    } else {
-      windows.push({ mode: 'bars', barCount: window.barCount })
-    }
-  }
+  const windows = window ? [window] : []
   const windowKey = seriesWindowKey(windows)
 
   return {
+    rangePreset,
     interval,
     requestInterval,
     window,
-    fallbackWindow: null,
     windows,
     windowKey,
     supportsInterval,

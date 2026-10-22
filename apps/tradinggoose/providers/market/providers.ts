@@ -46,6 +46,7 @@ export interface MarketSeriesInputCapabilities {
   supportsInterval?: boolean
   intervals?: MarketInterval[]
   windowModes?: MarketSeriesWindowMode[]
+  allInterval?: MarketInterval
   normalizationModes?: NormalizationMode[]
   retention?: MarketSeriesRetentionPolicy
   marketSessions?: MarketSessionMode[]
@@ -408,9 +409,9 @@ function mergeParamDefinition(
 ): MarketProviderParamDefinition {
   const merged: MarketProviderParamDefinition = {
     ...current,
-    description: current.description || next.description,
-    title: current.title || next.title,
-    placeholder: current.placeholder || next.placeholder,
+    description: current.description === next.description ? current.description : undefined,
+    title: current.title === next.title ? current.title : undefined,
+    placeholder: current.placeholder === next.placeholder ? current.placeholder : undefined,
     inputType: current.inputType || next.inputType,
     options: current.options?.length ? current.options : next.options,
     password: current.password ?? next.password,
@@ -458,6 +459,11 @@ export function getMarketProviderParamCatalog(kind: MarketDataType): MarketProvi
       existing.definition = mergeParamDefinition(existing.definition, param)
     })
   })
+
+  if (registry.apiKey) {
+    registry.apiKey.definition.description = 'API key for the selected market provider.'
+    registry.apiKey.definition.placeholder = 'Enter API key'
+  }
 
   return { order, registry }
 }

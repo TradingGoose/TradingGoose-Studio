@@ -348,7 +348,8 @@ export const YahooFinanceProviderConfig: MarketProviderConfig = {
     series: {
       supportsInterval: true,
       intervals: ['1m', '2m', '5m', '15m', '30m', '1h', '1d', '1w', '1mo', '3mo'],
-      windowModes: ['range', 'bars', 'absolute'],
+      windowModes: ['range', 'bars', 'absolute', 'all'],
+      allInterval: '3mo',
       normalizationModes: ['raw', 'adjusted'],
       marketSessions: ['regular', 'extended'],
       retention: {
