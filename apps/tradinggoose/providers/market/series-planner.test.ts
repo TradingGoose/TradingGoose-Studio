@@ -72,11 +72,11 @@ describe('planMarketSeriesRequest', () => {
       { mode: 'absolute', start: '2020-01-01', end: '2026-01-01' },
       {
         mode: 'absolute',
-        startMs: Date.parse('2026-01-01') - 60_000_000_000,
+        startMs: Date.parse('2020-01-01'),
         endMs: Date.parse('2026-01-01'),
       },
     ],
-  ] as const)('applies the Alpaca bar budget to %j', (window, expected) => {
+  ] as const)('caps Alpaca counts/ranges while preserving custom dates: %j', (window, expected) => {
     const result = planMarketSeriesRequest('alpaca', {
       kind: 'series',
       listing,
@@ -117,6 +117,10 @@ describe('planMarketSeriesRequest', () => {
     [
       { mode: 'range', range: { value: 2, unit: 'week' } },
       { mode: 'range', range: { value: 7, unit: 'day' } },
+    ],
+    [
+      { mode: 'absolute', start: '2026-01-01', end: '2026-01-15' },
+      { mode: 'absolute', start: '2026-01-08T00:00:00.000Z', end: '2026-01-15T00:00:00.000Z' },
     ],
   ] as const)('passes the retention-limited window to the adapter: %j', (window, expected) => {
     const result = planMarketSeriesRequest('yahoo-finance', {

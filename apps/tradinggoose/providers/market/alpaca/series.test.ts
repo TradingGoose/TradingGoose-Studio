@@ -413,7 +413,7 @@ describe('fetchAlpacaSeries bounds', () => {
   )
 
   it.each(['regular', 'extended'] as const)(
-    'filters %s sessions across multi-year continuation pages',
+    'preserves multi-year custom dates while filtering %s one-minute sessions',
     async (marketSession) => {
       mockResolveListingContext.mockResolvedValue({ listing: stockListing, assetClass: 'stock' })
       mockResolveProviderSymbol.mockReturnValue('AAPL')
@@ -459,7 +459,7 @@ describe('fetchAlpacaSeries bounds', () => {
         kind: 'series',
         listing: stockListing,
         auth: { apiKey: 'request-key', apiSecret: 'request-secret' },
-        interval: '3m',
+        interval: '1m',
         windows: [{ mode: 'absolute', start: '2021-11-26', end: '2026-10-19T23:59:00Z' }],
         providerParams: { marketSession },
       })

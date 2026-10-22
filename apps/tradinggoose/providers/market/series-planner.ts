@@ -130,13 +130,6 @@ const normalizeWindow = (
       }
     }
 
-    if (intervalMs && retention?.maxBars && retention.maxBars > 0) {
-      const maxRangeByBars = retention.maxBars * intervalMs
-      if (resolvedEnd - resolvedStart > maxRangeByBars) {
-        resolvedStart = resolvedEnd - maxRangeByBars
-      }
-    }
-
     if (resolvedStart >= resolvedEnd) return null
     return { mode: 'absolute', startMs: resolvedStart, endMs: resolvedEnd }
   }
