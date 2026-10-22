@@ -88,11 +88,11 @@ const resolveDefaultWindow = (
   allowedModes: MarketSeriesWindowMode[],
   fallbackRange?: MarketSeriesRange
 ): MarketSeriesWindow | null => {
-  if (allowedModes.includes('range') && fallbackRange) {
-    return { mode: 'range', range: fallbackRange }
-  }
   if (allowedModes.includes('bars')) {
     return { mode: 'bars', barCount: DEFAULT_BAR_COUNT }
+  }
+  if (allowedModes.includes('range') && fallbackRange) {
+    return { mode: 'range', range: fallbackRange }
   }
   if (allowedModes.includes('absolute') && fallbackRange) {
     const spanMs = rangeToMs(fallbackRange)
@@ -123,30 +123,30 @@ export const resolveSeriesWindow = (params: DataChartWidgetParams, providerId?: 
   const fallbackRange = DEFAULT_RANGE_PRESETS[0].window.range
   const rangePresetId =
     typeof viewParams.rangePresetId === 'string' ? viewParams.rangePresetId.trim() : ''
-  const requestedInterval = normalizeInterval(viewParams.interval, providerIntervals)
+  const fallbackWindow = resolveDefaultWindow(allowedWindowModes, fallbackRange)
+  const requestedPreset = capabilities
+    ? DEFAULT_RANGE_PRESETS.find((preset) => preset.id === rangePresetId)
+    : undefined
+  const candidateWindow = requestedPreset?.window ?? fallbackWindow
+
+  let interval = normalizeInterval(viewParams.interval, providerIntervals)
+  if (!interval && candidateWindow?.mode === 'range') {
+    const rangeMs = rangeToMs(candidateWindow.range)
+    interval = rangeMs ? chooseIntervalForRange(rangeMs, providerIntervals) : undefined
+  }
+  if (!interval) {
+    interval = resolveDefaultInterval(providerIntervals)
+  }
+
   const rangePreset = getMarketSeriesRangePresets(
     providerId,
-    rangePresetId === 'all' ? undefined : requestedInterval
+    rangePresetId === 'all' ? undefined : interval
   ).find((preset) => preset.id === rangePresetId)
   const allowedIntervals =
     rangePreset?.window.mode === 'all' ? [rangePreset.interval] : providerIntervals
-
-  let window: MarketSeriesWindow | null = null
-  if (rangePreset) {
-    window = rangePreset.window
-  } else if (allowedWindowModes.includes('bars')) {
-    window = { mode: 'bars', barCount: DEFAULT_BAR_COUNT }
-  } else {
-    window = resolveDefaultWindow(allowedWindowModes, fallbackRange)
-  }
-
-  let interval = rangePreset?.window.mode === 'all' ? rangePreset.interval : requestedInterval
-  if (!interval && window && window.mode === 'range') {
-    const rangeMs = rangeToMs(window.range)
-    interval = rangeMs ? chooseIntervalForRange(rangeMs, allowedIntervals) : undefined
-  }
-  if (!interval) {
-    interval = resolveDefaultInterval(allowedIntervals)
+  const window = rangePreset?.window ?? fallbackWindow
+  if (rangePreset?.window.mode === 'all') {
+    interval = rangePreset.interval
   }
 
   const requestInterval = supportsInterval ? interval : undefined

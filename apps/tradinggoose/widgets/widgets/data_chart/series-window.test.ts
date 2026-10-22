@@ -5,6 +5,44 @@ import { resolveExpectedBars } from './utils/series-loader'
 
 describe('chart range windows', () => {
   it.each([
+    ['yahoo-finance', '1w', '30m', { value: 1, unit: 'week' }],
+    ['alpha-vantage', '1w', '30m', { value: 1, unit: 'week' }],
+    ['finnhub', '1w', '30m', { value: 1, unit: 'week' }],
+    ['yahoo-finance', '3m', '1d', { value: 3, unit: 'month' }],
+    ['alpha-vantage', '3m', '1d', { value: 3, unit: 'month' }],
+  ])(
+    'preserves Copilot %s %s presets without an interval',
+    (provider, rangePresetId, interval, range) => {
+      const params = dataChartWidgetContract.mergeCopilotParams(null, {
+        data: { provider },
+        view: { rangePresetId },
+      })
+      const result = resolveSeriesWindow(params!, provider)
+
+      expect(params?.view).not.toHaveProperty('interval')
+      expect(result.window).toEqual({ mode: 'range', range })
+      expect(result.requestInterval).toBe(interval)
+    }
+  )
+
+  it.each([undefined, 'yahoo-finance'])(
+    'keeps default windows for absent or unknown presets with provider %s',
+    (provider) => {
+      const result = resolveSeriesWindow({}, provider)
+
+      expect(resolveSeriesWindow({ view: { rangePresetId: 'unknown' } }, provider)).toEqual(result)
+      expect(result).toMatchObject(
+        provider
+          ? { window: { mode: 'bars', barCount: 500 }, interval: '1d' }
+          : { window: { mode: 'range', range: { value: 1, unit: 'day' } }, interval: '3m' }
+      )
+      if (!provider) {
+        expect(resolveSeriesWindow({ view: { rangePresetId: '1w' } })).toEqual(result)
+      }
+    }
+  )
+
+  it.each([
     ['yahoo-finance', '1d'],
     ['alpha-vantage', '1d'],
     ['yahoo-finance', '1h'],
