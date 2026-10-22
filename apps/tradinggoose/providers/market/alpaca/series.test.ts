@@ -276,74 +276,121 @@ describe('fetchAlpacaSeries bounds', () => {
     }
   )
 
-  it.each(['complete', 'continuing', 'empty'] as const)(
-    'enforces the page budget for a %s response at the boundary',
+  it.each(['complete', 'empty terminal', 'overflow', 'continuing overflow'] as const)(
+    'enforces the bar budget for a %s response at the inclusive boundary',
     async (completion) => {
       let page = 0
+      const overflow = completion.includes('overflow')
+      const pages = completion === 'empty terminal' ? 102 : 101
+      const fullPage = Array.from({ length: 10_000 }, () => ({ t: now, c: 100 }))
       fetchMock.mockImplementation(async () => {
         page++
-        if (page > 101) throw new Error('Unexpected request beyond the page budget')
-        const token = page < 101 || completion !== 'complete' ? `page-${page}` : null
-        return completion === 'empty'
-          ? new Response(JSON.stringify({ bars: {}, next_page_token: token }))
-          : barsResponse('BTC/USD', now, token)
+        if (page > pages) throw new Error('Unexpected request beyond the bar budget')
+        const token = page < pages || completion === 'continuing overflow' ? `page-${page}` : null
+        return {
+          ok: true,
+          json: async () => ({
+            bars: {
+              'BTC/USD':
+                page < 101 ? fullPage : page === 101 ? fullPage.slice(0, overflow ? 2 : 1) : [],
+            },
+            next_page_token: token,
+          }),
+        }
       })
       const result = fetchAlpacaSeries({
         kind: 'series',
         listing: cryptoListing,
         start: '2026-09-19',
         end: now,
-      })
+      }).then(({ bars }) => bars.length)
 
-      if (completion === 'complete') {
-        expect((await result).bars).toHaveLength(101)
+      if (!overflow) {
+        expect(await result).toBe(1_000_001)
       } else {
-        await expect(result).rejects.toThrow(
-          'Alpaca pagination reached the 101-page limit. Narrow the range or use a larger interval.'
-        )
+        await expect(result).rejects.toThrow(/bar limit/)
       }
-      expect(fetchMock).toHaveBeenCalledTimes(101)
+      expect(fetchMock).toHaveBeenCalledTimes(pages)
       expect(new URL(fetchMock.mock.calls[100][0]).searchParams.get('page_token')).toBe('page-100')
     }
   )
 
-  it.each(['asc', 'desc'] as const)(
+  it.each(['empty', 'missing', 'recovering'] as const)(
+    'bounds consecutive %s continuation pages without rejecting recovery',
+    async (mode) => {
+      let page = 0
+      fetchMock.mockImplementation(async () => {
+        page++
+        if (page > (mode === 'recovering' ? 200 : 100)) {
+          throw new Error('Unexpected request beyond the empty-page budget')
+        }
+        return {
+          ok: true,
+          json: async () => ({
+            bars: {
+              'BTC/USD':
+                mode === 'missing'
+                  ? undefined
+                  : mode === 'recovering' && page === 100
+                    ? [{ t: now, c: 100 }]
+                    : [],
+            },
+            next_page_token: page < 200 ? `page-${page}` : null,
+          }),
+        }
+      })
+
+      const result = fetchAlpacaSeries({ kind: 'series', listing: cryptoListing })
+      if (mode === 'recovering') expect((await result).bars).toHaveLength(1)
+      else await expect(result).rejects.toThrow(/empty pages/)
+      expect(fetchMock).toHaveBeenCalledTimes(mode === 'recovering' ? 200 : 100)
+    }
+  )
+
+  it.each([
+    ['asc', 20, 10_000],
+    ['desc', 102, 3_384],
+  ] as const)(
     'resolves large paginated %s bounds before sorting',
-    async (sort) => {
-      const startMs = Date.parse('2026-01-01T00:00:00.000Z')
-      const rows = Array.from({ length: 200_000 }, (_, index) => ({
-        t: new Date(startMs + index * 60_000).toISOString(),
+    async (sort, pages, pageSize) => {
+      const count = pages * pageSize
+      const endMs = Date.parse(now)
+      const startMs = endMs - (count - 1) * 180_000
+      const rows = Array.from({ length: count }, (_, index) => ({
+        t: new Date(startMs + index * 180_000).toISOString(),
         c: 100,
       }))
       const start = rows[0].t
       const end = rows[rows.length - 1].t
-      const endMs = Date.parse(end)
       if (sort === 'desc') rows.reverse()
       let page = 0
       fetchMock.mockImplementation(async () => {
-        const bars = rows.slice(page * 10_000, (page + 1) * 10_000)
+        const bars = rows.slice(page * pageSize, (page + 1) * pageSize)
         page++
         return new Response(
           JSON.stringify({
             bars: { 'BTC/USD': bars },
-            next_page_token: page < 20 ? `page-${page}` : null,
+            next_page_token: page < pages ? `page-${page}` : null,
           })
         )
       })
 
-      const series = await fetchAlpacaSeries({
+      const { request } = planMarketSeriesRequest('alpaca', {
         kind: 'series',
         listing: cryptoListing,
-        interval: '1m',
-        start,
-        end,
+        interval: '3m',
+        windows: [{ mode: 'range', range: { value: 2, unit: 'year' } }],
         providerParams: { sort, limit: 10_000 },
       })
+      const series = await fetchAlpacaSeries(request)
 
-      expect(fetchMock).toHaveBeenCalledTimes(20)
+      expect(fetchMock).toHaveBeenCalledTimes(pages)
+      expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get('start')).toBe(
+        new Date(endMs - 730 * 86_400_000).toISOString()
+      )
       expect(resolveSeriesBoundsMs(series)).toEqual({ startMs, endMs })
       const normalized = applySeriesWindow(series, { mode: 'absolute', startMs, endMs })
-      expect(normalized.bars).toHaveLength(200_000)
+      expect(normalized.bars).toHaveLength(count)
       expect(normalized.start).toBe(start)
       expect(normalized.end).toBe(end)
     }

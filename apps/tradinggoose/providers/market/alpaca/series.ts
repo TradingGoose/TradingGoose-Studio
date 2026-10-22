@@ -17,8 +17,7 @@ import type {
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 
 const logger = createLogger('MarketProvider:Alpaca')
-// Inclusive window endpoints can add one bar beyond the configured interval count.
-const MAX_PAGES = Math.ceil(ALPACA_MAX_BARS / ALPACA_PAGE_SIZE) + 1
+const MAX_EMPTY_PAGES = 100
 
 const ALPACA_INTERVAL_MAP: Partial<Record<MarketInterval, string>> = {
   '1m': '1Min',
@@ -179,6 +178,7 @@ export async function fetchAlpacaSeries(request: MarketSeriesRequest): Promise<M
 
   const rawBars: any[] = []
   const pageTokens = new Set<string>()
+  let emptyPages = 0
   while (true) {
     const response = await fetch(url.toString(), { headers })
     if (!response.ok) {
@@ -190,10 +190,17 @@ export async function fetchAlpacaSeries(request: MarketSeriesRequest): Promise<M
       next_page_token?: string | null
     }
     const pageBars = payload?.bars?.[symbol]
-    if (Array.isArray(pageBars)) rawBars.push(...pageBars)
+    const hasBars = Array.isArray(pageBars) && pageBars.length > 0
+    if (hasBars) rawBars.push(...pageBars)
     if (countLimit && rawBars.length >= countLimit) {
       rawBars.length = countLimit
       break
+    }
+    // Inclusive window endpoints can add one bar beyond the configured interval count.
+    if (rawBars.length > ALPACA_MAX_BARS + 1) {
+      throw new Error(
+        `Alpaca pagination reached the ${ALPACA_MAX_BARS}-bar limit. Narrow the range or use a larger interval.`
+      )
     }
     const token = payload.next_page_token
     if (!token) break
@@ -201,9 +208,10 @@ export async function fetchAlpacaSeries(request: MarketSeriesRequest): Promise<M
       throw new Error('Alpaca returned a repeated pagination token')
     }
     pageTokens.add(token)
-    if (pageTokens.size >= MAX_PAGES) {
+    emptyPages = hasBars ? 0 : emptyPages + 1
+    if (emptyPages >= MAX_EMPTY_PAGES) {
       throw new Error(
-        `Alpaca pagination reached the ${MAX_PAGES}-page limit. Narrow the range or use a larger interval.`
+        `Alpaca pagination returned ${MAX_EMPTY_PAGES} consecutive empty pages. Narrow the range or use a larger interval.`
       )
     }
     url.searchParams.set('page_token', token)
