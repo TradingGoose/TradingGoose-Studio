@@ -141,8 +141,34 @@ describe('fetchAlpacaSeries bounds', () => {
   })
 
   it.each([
-    [2, [1, 3], 2, undefined, '1d', '2026-10-17T12:00:00.000Z'],
-    ['2.9', [3], 2, 'asc', '1d', '2026-10-17T12:00:00.000Z'],
+    ['1m', '2026-10-19T12:00:30.000Z', '2026-10-19T11:59:00.000Z'],
+    ['1m', now, '2026-10-19T11:59:00.000Z'],
+    ['5m', '2026-10-19T12:03:30.000Z', '2026-10-19T11:55:00.000Z'],
+  ] as const)('includes the latest completed %s candle at %s', async (interval, clock, candle) => {
+    vi.mocked(Date.now).mockReturnValue(Date.parse(clock))
+    fetchMock.mockImplementation(async (input: string) => {
+      const query = new URL(input).searchParams
+      const timestamp = Date.parse(candle)
+      return timestamp >= Date.parse(query.get('start')!) &&
+        timestamp <= Date.parse(query.get('end')!)
+        ? barsResponse('BTC/USD', candle)
+        : new Response(JSON.stringify({ bars: {} }))
+    })
+
+    const result = await fetchAlpacaSeries({
+      kind: 'series',
+      listing: cryptoListing,
+      interval,
+      providerParams: { limit: 1 },
+    })
+
+    expect(result.bars.map((bar) => bar.timeStamp)).toEqual([candle])
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    [2, [1, 3], 2, undefined, '1d', '2026-10-16T12:00:00.000Z'],
+    ['2.9', [3], 2, 'asc', '1d', '2026-10-16T12:00:00.000Z'],
     [50_000, [10_001], 10_000, undefined, '12mo', '1970-01-01T00:00:00.000Z'],
   ] as const)(
     'stops an unbounded limit %s at the total count',
@@ -206,7 +232,7 @@ describe('fetchAlpacaSeries bounds', () => {
     expect(new URL(fetchMock.mock.calls[0][0]).pathname).toBe('/v2/stocks/bars/latest')
     for (const [input] of fetchMock.mock.calls.slice(1)) {
       const url = new URL(input)
-      expect(url.searchParams.get('start')).toBe('2026-10-06T19:59:00.000Z')
+      expect(url.searchParams.get('start')).toBe('2026-10-05T19:59:00.000Z')
       expect(url.searchParams.get('end')).toBe(latest)
       expect(url.searchParams.get('limit')).toBe('10')
       expect(url.searchParams.get('sort')).toBe('desc')

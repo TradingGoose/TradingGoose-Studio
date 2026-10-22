@@ -117,7 +117,7 @@ export async function fetchAlpacaSeries(request: MarketSeriesRequest): Promise<M
     window?.mode === 'range'
       ? rangeToMs(window.range)
       : countLimit
-        ? countLimit * intervalToMs(interval)!
+        ? (countLimit + 1) * intervalToMs(interval)!
         : null
 
   if (!start && !end && rangeMs) {
