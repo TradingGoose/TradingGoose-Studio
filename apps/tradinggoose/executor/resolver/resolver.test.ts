@@ -6,6 +6,7 @@ import { DatadogBlock } from '@/blocks/blocks/datadog'
 import { GmailBlock } from '@/blocks/blocks/gmail'
 import { HistoricalDataBlock } from '@/blocks/blocks/historical_data'
 import { McpBlock } from '@/blocks/blocks/mcp'
+import { ResponseBlock } from '@/blocks/blocks/response'
 import { TradingActionBlock } from '@/blocks/blocks/trading_action'
 import { getBlock } from '@/blocks/index'
 import { BlockType } from '@/executor/consts'
@@ -2192,6 +2193,44 @@ describe('InputResolver', () => {
 
     afterEach(() => {
       mockGetBlock.mockReset()
+    })
+
+    it.each(['json', 'structured'])('resolves Response mode references to %s', async (mode) => {
+      mockGetBlock.mockReturnValue(ResponseBlock)
+      mockWorkflowVars.stringVar.value = mode
+      const output = { symbol: 'A"\\B\n$&', quantity: 0, details: { accountId: '123' } }
+      mockContext.blockStates.get('trigger-block').output = output
+      const builderData = Object.keys(output).map((name) => ({
+        id: name,
+        name,
+        type: 'string' as const,
+        value: `<start.${name}>`,
+      }))
+      const block: SerializedBlock = {
+        ...sampleWorkflow.blocks[1],
+        metadata: { id: BlockType.RESPONSE },
+        config: {
+          tool: BlockType.RESPONSE,
+          params: {
+            data:
+              mode === 'json'
+                ? ResponseBlockHandler.convertBuilderDataToJsonString(builderData)
+                : '<disabled-block.result>',
+            builderData:
+              mode === 'structured'
+                ? builderData
+                : [{ ...builderData[0], value: '<disabled-block.result>' }],
+            dataMode: '<variable.stringVar>',
+          },
+        },
+      }
+
+      const inputs = resolver.resolveInputs(block, mockContext)
+      expect(inputs.dataMode).toBe(mode)
+      expect(inputs).not.toHaveProperty(mode === 'json' ? 'builderData' : 'data')
+      const { response } = await new ResponseBlockHandler().execute(block, inputs)
+      expect(response.status).toBe(200)
+      expect(response.data).toStrictEqual(output)
     })
 
     const staleMcpInputs = { arguments: { value: '<disabled-block.result>' }, tool: 'stale-tool' }

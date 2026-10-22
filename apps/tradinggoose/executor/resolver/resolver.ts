@@ -991,9 +991,7 @@ export class InputResolver {
     block: SerializedBlock
   ): any {
     const referenceContext =
-      block.metadata?.id === 'response' && key === 'data' && block.config.params.dataMode === 'json'
-        ? { json: true }
-        : undefined
+      block.metadata?.id === 'response' && key === 'data' ? { json: true } : undefined
     const resolvedEnv = this.resolveNestedStructure(value, context, block, referenceContext)
 
     // Special handling for different block types
