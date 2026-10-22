@@ -23,6 +23,7 @@ import { isUtcOffset, normalizeUtcOffset } from '@/lib/time-format'
 import { cn } from '@/lib/utils'
 import { getMarketSeriesCapabilities } from '@/providers/market/providers'
 import { getMarketSeriesRangePresets } from '@/providers/market/series-planner'
+import { DEFAULT_RANGE_PRESETS } from '@/providers/market/series-window'
 import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
 import {
   formatDataChartIntervalLabel,
@@ -35,6 +36,7 @@ import {
   useDataChartCopy,
 } from '@/widgets/widgets/data_chart/copy'
 import { useDataChartParamsPatch } from '@/widgets/widgets/data_chart/hooks/use-data-chart-params-patch'
+import { resolveSeriesWindow } from '@/widgets/widgets/data_chart/series-window'
 
 type TimeZoneOption = Awaited<ReturnType<typeof fetchTimeZoneOptions>>[number]
 
@@ -472,12 +474,13 @@ export const DataChartFooter = ({
 }) => {
   const copy = useDataChartCopy()
   const patchWidgetParams = useDataChartParamsPatch()
-  const availablePresets = getMarketSeriesRangePresets(params.data?.provider)
-  const storedRangeId =
-    typeof params.view?.rangePresetId === 'string' ? params.view.rangePresetId.trim() : ''
-  const selectedRangeId = storedRangeId
-    ? (availablePresets.find((preset) => preset.id === storedRangeId)?.id ?? null)
-    : null
+  const { rangePreset } = resolveSeriesWindow(params, params.data?.provider)
+  const defaultPresets = getMarketSeriesRangePresets(params.data?.provider)
+  const availablePresets = DEFAULT_RANGE_PRESETS.flatMap(({ id }) => {
+    const preset =
+      rangePreset?.id === id ? rangePreset : defaultPresets.find((preset) => preset.id === id)
+    return preset ? [preset] : []
+  })
 
   const handleRangeSelect = (presetId: string) => {
     const preset = availablePresets.find((range) => range.id === presetId)
@@ -510,7 +513,7 @@ export const DataChartFooter = ({
           <div className='flex h-8 flex-grow basis-0 items-center justify-start gap-2 whitespace-nowrap pl-1 text-left'>
             <div className='w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'>
               <Tabs
-                value={selectedRangeId ?? ''}
+                value={rangePreset?.id ?? ''}
                 onValueChange={handleRangeSelect}
                 className='w-max'
               >

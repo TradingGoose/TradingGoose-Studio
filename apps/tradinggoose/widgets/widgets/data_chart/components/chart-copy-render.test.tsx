@@ -112,6 +112,33 @@ describe('data chart localized component copy', () => {
     }
   )
 
+  it.each([
+    ['yahoo-finance', '3m', '1d', true],
+    ['alpha-vantage', '3m', '1d', true],
+    ['yahoo-finance', '3m', undefined, true],
+    ['alpha-vantage', '3m', undefined, true],
+    ['yahoo-finance', '3m', '1h', false],
+    ['alpha-vantage', '3m', '1h', false],
+    ['yahoo-finance', '1d', '1mo', false],
+  ] as const)(
+    'validates the active %s %s footer range at %s',
+    async (provider, rangePresetId, interval, valid) => {
+      await act(async () => {
+        renderWithLocale(
+          <DataChartFooter params={{ data: { provider }, view: { rangePresetId, interval } }} />,
+          'en'
+        )
+      })
+      const labels = [...container.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent)
+      expect(labels).toContain('1D')
+      expect(labels.includes('3M')).toBe(valid)
+      expect(
+        container.querySelector('[role="tab"][aria-selected="true"]')?.textContent ?? null
+      ).toBe(valid ? '3M' : null)
+      if (valid) expect(labels).toEqual(['1D', '5D', '1M', '3M', '1Y', '5Y', 'ALL'])
+    }
+  )
+
   it.each(['interval', 'range'])(
     'clears the previous viewport when selecting a new %s',
     async (control) => {

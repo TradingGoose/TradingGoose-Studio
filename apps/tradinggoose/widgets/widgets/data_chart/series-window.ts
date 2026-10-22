@@ -154,6 +154,7 @@ export const resolveSeriesWindow = (params: DataChartWidgetParams, providerId?: 
   const windowKey = seriesWindowKey(windows)
 
   return {
+    rangePreset,
     interval,
     requestInterval,
     window,
