@@ -206,6 +206,8 @@ describe('historical data range selection', () => {
     { rangePresetId: 'custom' },
     { rangePresetId: 'unknown' },
     { provider: 'alpaca', interval: '4h', rangePresetId: '1d' },
+    { provider: 'robinhood', interval: '1m', rangePresetId: '1m' },
+    { provider: 'robinhood', interval: '1h', rangePresetId: '5y' },
     { provider: 'yahoo-finance', interval: '1mo', rangePresetId: '1d' },
     { provider: 'yahoo-finance', interval: '1mo', rangePresetId: '1m' },
     { provider: 'yahoo-finance', interval: '3mo', rangePresetId: '3m' },

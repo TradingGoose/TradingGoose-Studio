@@ -5,7 +5,6 @@ import {
   alpacaProviderConfig,
 } from '@/providers/market/alpaca/config'
 import { toDate } from '@/providers/market/market-hours/date-utils'
-import { intervalToMs } from '@/providers/market/series-planner'
 import { rangeToMs } from '@/providers/market/series-window'
 import type {
   MarketBar,
@@ -112,12 +111,8 @@ export async function fetchAlpacaSeries(request: MarketSeriesRequest): Promise<M
     !bounded && Number.isFinite(limit) && limit > 0
       ? Math.min(Math.max(1, Math.floor(limit)), ALPACA_PAGE_SIZE)
       : undefined
-  const rangeMs =
-    window?.mode === 'range'
-      ? rangeToMs(window.range)
-      : countLimit
-        ? (countLimit + 1) * intervalToMs(interval)!
-        : null
+  const rangeMs = window?.mode === 'range' ? rangeToMs(window.range) : null
+  if (countLimit) start = new Date(0).toISOString()
 
   if (!start && !end && rangeMs) {
     const endMs =

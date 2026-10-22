@@ -141,38 +141,55 @@ describe('fetchAlpacaSeries bounds', () => {
   })
 
   it.each([
-    ['1m', '2026-10-19T12:00:30.000Z', '2026-10-19T11:59:00.000Z'],
-    ['1m', now, '2026-10-19T11:59:00.000Z'],
-    ['5m', '2026-10-19T12:03:30.000Z', '2026-10-19T11:55:00.000Z'],
-  ] as const)('includes the latest completed %s candle at %s', async (interval, clock, candle) => {
-    vi.mocked(Date.now).mockReturnValue(Date.parse(clock))
-    fetchMock.mockImplementation(async (input: string) => {
-      const query = new URL(input).searchParams
-      const timestamp = Date.parse(candle)
-      return timestamp >= Date.parse(query.get('start')!) &&
-        timestamp <= Date.parse(query.get('end')!)
-        ? barsResponse('BTC/USD', candle)
-        : new Response(JSON.stringify({ bars: {} }))
-    })
+    ['1m', '2026-10-19T12:00:30.000Z', ['2026-10-19T11:59:00.000Z']],
+    ['1m', '2026-10-19T12:00:30.000Z', ['2026-10-19T11:57:00.000Z']],
+    ['1m', '2026-10-19T00:02:30.000Z', ['2026-10-18T23:57:00.000Z']],
+    ['1m', now, ['2026-10-19T11:59:00.000Z']],
+    ['5m', '2026-10-19T12:03:30.000Z', ['2026-10-19T11:55:00.000Z']],
+    [
+      '1m',
+      now,
+      ['2026-10-19T11:57:00.000Z', '2026-10-16T12:00:00.000Z', '2026-09-01T00:00:00.000Z'],
+    ],
+  ] as const)(
+    'retrieves available %s candles across gaps at %s',
+    async (interval, clock, candles) => {
+      vi.mocked(Date.now).mockReturnValue(Date.parse(clock))
+      fetchMock.mockImplementation(async (input: string) => {
+        const query = new URL(input).searchParams
+        const available = candles.filter(
+          (candle) =>
+            Date.parse(candle) >= Date.parse(query.get('start')!) &&
+            Date.parse(candle) <= Date.parse(query.get('end') ?? clock)
+        )
+        const page = Number(query.get('page_token') ?? 0)
+        return new Response(
+          JSON.stringify({
+            bars: { 'BTC/USD': available[page] ? [{ t: available[page], c: 100 }] : [] },
+            next_page_token: page + 1 < available.length ? String(page + 1) : null,
+          })
+        )
+      })
 
-    const result = await fetchAlpacaSeries({
-      kind: 'series',
-      listing: cryptoListing,
-      interval,
-      providerParams: { limit: 1 },
-    })
+      const result = await fetchAlpacaSeries({
+        kind: 'series',
+        listing: cryptoListing,
+        interval,
+        providerParams: { limit: candles.length },
+      })
 
-    expect(result.bars.map((bar) => bar.timeStamp)).toEqual([candle])
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-  })
+      expect(result.bars.map((bar) => bar.timeStamp)).toEqual(candles)
+      expect(fetchMock).toHaveBeenCalledTimes(candles.length)
+    }
+  )
 
   it.each([
-    [2, [1, 3], 2, undefined, '1d', '2026-10-16T12:00:00.000Z'],
-    ['2.9', [3], 2, 'asc', '1d', '2026-10-16T12:00:00.000Z'],
-    [50_000, [10_001], 10_000, undefined, '12mo', '1970-01-01T00:00:00.000Z'],
+    [2, [1, 3], 2, undefined, '1d'],
+    ['2.9', [3], 2, 'asc', '1d'],
+    [50_000, [10_001], 10_000, undefined, '12mo'],
   ] as const)(
     'stops an unbounded limit %s at the total count',
-    async (limit, pages, expected, sort, interval, start) => {
+    async (limit, pages, expected, sort, interval) => {
       let returned = 0
       fetchMock.mockImplementation(async () => {
         const count = pages[fetchMock.mock.calls.length - 1]
@@ -198,16 +215,15 @@ describe('fetchAlpacaSeries bounds', () => {
       const url = new URL(fetchMock.mock.calls[0][0])
       expect(url.searchParams.get('limit')).toBe(String(expected))
       expect(url.searchParams.get('sort')).toBe(sort ?? 'desc')
-      expect(url.searchParams.get('start')).toBe(start)
-      expect(url.searchParams.get('end')).toBe(now)
+      expect(url.searchParams.get('start')).toBe('1970-01-01T00:00:00.000Z')
+      expect(url.searchParams.has('end')).toBe(false)
     }
   )
 
-  it('anchors stock daily counts before paginating to the total limit', async () => {
+  it('paginates stock daily counts across closures to the total limit', async () => {
     const latest = '2026-10-16T19:59:00.000Z'
     mockResolveListingContext.mockResolvedValue({ listing: stockListing, assetClass: 'stock' })
     mockResolveProviderSymbol.mockReturnValue('AAPL')
-    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ bars: { AAPL: { t: latest } } })))
     for (const count of [4, 8]) {
       fetchMock.mockResolvedValueOnce(
         new Response(
@@ -228,16 +244,16 @@ describe('fetchAlpacaSeries bounds', () => {
     })
 
     expect(result.bars).toHaveLength(10)
-    expect(fetchMock).toHaveBeenCalledTimes(3)
-    expect(new URL(fetchMock.mock.calls[0][0]).pathname).toBe('/v2/stocks/bars/latest')
-    for (const [input] of fetchMock.mock.calls.slice(1)) {
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    for (const [input] of fetchMock.mock.calls) {
       const url = new URL(input)
-      expect(url.searchParams.get('start')).toBe('2026-10-05T19:59:00.000Z')
-      expect(url.searchParams.get('end')).toBe(latest)
+      expect(url.pathname).toBe('/v2/stocks/bars')
+      expect(url.searchParams.get('start')).toBe('1970-01-01T00:00:00.000Z')
+      expect(url.searchParams.has('end')).toBe(false)
       expect(url.searchParams.get('limit')).toBe('10')
       expect(url.searchParams.get('sort')).toBe('desc')
     }
-    expect(new URL(fetchMock.mock.calls[2][0]).searchParams.get('page_token')).toBe('next')
+    expect(new URL(fetchMock.mock.calls[1][0]).searchParams.get('page_token')).toBe('next')
   })
 
   it.each([undefined, 0, -1, Number.NaN, Number.POSITIVE_INFINITY, 'invalid'])(

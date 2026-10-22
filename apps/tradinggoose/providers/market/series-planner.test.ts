@@ -30,6 +30,12 @@ describe('getMarketSeriesRangePresets', () => {
     ['alpaca', '3m', ['1d', '5d', '1w', '1m', '3m', '6m', '1y', '5y']],
     ['alpaca', '6mo', ['1y', '5y']],
     ['alpaca', '12mo', ['5y']],
+    ['robinhood', '1m', ['1d', '5d', '1w']],
+    ['robinhood', '5m', ['1d', '5d', '1w', '1m', '3m']],
+    ['robinhood', '10m', ['1d', '5d', '1w', '1m', '3m', '6m']],
+    ['robinhood', '30m', ['1d', '5d', '1w', '1m', '3m', '6m', '1y']],
+    ['robinhood', '1h', ['1d', '5d', '1w', '1m', '3m', '6m', '1y']],
+    ['robinhood', '4h', ['1d', '5d', '1w', '1m', '3m', '6m', '1y', '5y']],
   ])('filters %s ranges for selected %s candles', (provider, interval, ids) => {
     const presets = getMarketSeriesRangePresets(provider, interval)
     expect(presets.map((preset) => preset.id)).toEqual(ids)

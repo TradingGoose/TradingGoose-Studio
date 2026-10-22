@@ -2,6 +2,8 @@ import type { MarketProviderConfig } from '@/providers/market/providers'
 import type { MarketInterval } from '@/providers/market/types'
 
 export const ROBINHOOD_MCP_URL = 'https://agent.robinhood.com/mcp/trading'
+export const ROBINHOOD_MAX_REQUESTS = 20
+export const ROBINHOOD_BARS_PER_REQUEST = 2_000
 
 // Fixed intervals exposed by Robinhood's get_equity_historicals tool.
 // Discovery reference: github.com/alphillips-lab/robinhoodmcp/blob/main/src/robinhoodmcp/client.py
@@ -49,6 +51,7 @@ export const robinhoodProviderConfig: MarketProviderConfig = {
       windowModes: ['bars', 'range', 'absolute'],
       normalizationModes: ['raw', 'split_adjusted'],
       marketSessions: ['regular', 'extended'],
+      retention: { default: { maxBars: ROBINHOOD_MAX_REQUESTS * ROBINHOOD_BARS_PER_REQUEST } },
     },
     live: { channels: ['bars'], pollingIntervalMs: 30_000 },
   },

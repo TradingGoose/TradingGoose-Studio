@@ -139,6 +139,7 @@ describe('useLiveBars', () => {
     })
     vi.stubGlobal('fetch', fetchSeries)
     const args = loaderArgs({
+      seriesWindow: resolveSeriesWindow({ view: { interval: '1h' } }, 'robinhood'),
       dataParams: { view: { start: Date.parse(start), end: Date.parse(end) } },
     })
     await act(async () => root.render(<LoaderHarness args={args} />))
