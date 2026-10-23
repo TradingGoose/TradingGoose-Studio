@@ -576,13 +576,11 @@ export class InputResolver {
 
     let value = base
 
-    // Extract leading property name if present
-    const propMatch = part.match(/^([^[\]]+)/)
-    let rest = part
-    if (propMatch) {
-      const prop = propMatch[1]
+    // Extract the property name before any numeric indices.
+    const prop = part.split(/\[\d+\]/, 1)[0]
+    let rest = part.slice(prop.length)
+    if (prop) {
       value = Object.hasOwn(value, prop) ? value[prop] : undefined
-      rest = part.slice(prop.length)
       if (value === undefined) {
         return undefined
       }

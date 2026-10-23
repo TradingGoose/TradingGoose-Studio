@@ -433,6 +433,48 @@ describe('InputResolver', () => {
     })
 
     it.each(['start', 'trigger-block'])(
+      'preserves literal bracketed output keys through <%s.*>',
+      async (source) => {
+        for (const sibling of [{}, { account: { USD: 'wrong' } }]) {
+          mockContext.blockStates.get('trigger-block').output = {
+            ...sibling,
+            'account[USD]': 123,
+            nested: { 'account[USD]': 0 },
+            'balances[USD]': [456],
+          }
+          const block: SerializedBlock = {
+            ...sampleWorkflow.blocks[1],
+            metadata: { id: BlockType.RESPONSE },
+            config: {
+              tool: BlockType.RESPONSE,
+              params: {
+                dataMode: 'structured',
+                builderData: ['account[USD]', 'nested.account[USD]', 'balances[USD][0]'].map(
+                  (path) => ({ id: path, name: path, type: 'string', value: `<${source}.${path}>` })
+                ),
+              },
+            },
+          }
+          expect(
+            resolver.resolveBlockReferences(`<${source}.account[USD]>`, mockContext, block)
+          ).toBe('123')
+          expect(
+            resolver.resolveBlockReferences(`<${source}.missing[USD]>`, mockContext, block)
+          ).toBe('')
+          vi.mocked(getBlock).mockReturnValueOnce(ResponseBlock)
+          const inputs = resolver.resolveInputs(block, mockContext)
+          const { response } = await new ResponseBlockHandler().execute(block, inputs)
+          expect(response.status).toBe(200)
+          expect(response.data).toStrictEqual({
+            'account[USD]': 123,
+            'nested.account[USD]': 0,
+            'balances[USD][0]': 456,
+          })
+        }
+      }
+    )
+
+    it.each(['start', 'trigger-block'])(
       'omits missing properties and array items through <%s.*> in nested inputs',
       (source) => {
         mockContext.blockStates.get('trigger-block').output.items = [{ value: 2 }]
