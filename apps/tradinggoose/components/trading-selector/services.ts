@@ -2,6 +2,7 @@
 
 import { getServiceByProviderAndId } from '@/lib/oauth'
 import { useOAuthConnections } from '@/hooks/queries/oauth-connections'
+import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import {
   getTradingProviderDefinition,
   getTradingProviderOAuthServiceIds,
@@ -43,11 +44,15 @@ export function useTradingServices({
   const providerDefinition = trimmedProviderId
     ? getTradingProviderDefinition(trimmedProviderId)
     : undefined
-  const serviceIds = providerDefinition
+  const providerServiceIds = providerDefinition
     ? getTradingProviderOAuthServiceIds(providerDefinition.id)
     : []
   const isQueryEnabled = enabled && Boolean(trimmedProviderId)
+  const availabilityQuery = useOAuthProviderAvailability(providerServiceIds, isQueryEnabled)
   const connectionsQuery = useOAuthConnections({ enabled: isQueryEnabled })
+  const serviceIds = providerServiceIds.filter(
+    (serviceId) => availabilityQuery.data?.[serviceId] === true
+  )
   const connections = isQueryEnabled ? (connectionsQuery.data ?? []) : []
   const connectedServiceIds = serviceIds.filter((serviceId) =>
     connections.some((service) => service.providerId === serviceId && service.isConnected)
@@ -56,15 +61,16 @@ export function useTradingServices({
     serviceId,
     connectedServiceIds,
   })
+  const error = availabilityQuery.error ?? connectionsQuery.error
 
   return {
     serviceIds,
     connectedServiceIds,
     activeServiceId,
-    isLoading: isQueryEnabled ? connectionsQuery.isLoading : false,
-    error:
-      isQueryEnabled && connectionsQuery.error instanceof Error ? connectionsQuery.error : null,
+    isLoading: isQueryEnabled && (availabilityQuery.isLoading || connectionsQuery.isLoading),
+    error: isQueryEnabled && error instanceof Error ? error : null,
     refetch: () => {
+      void availabilityQuery.refetch()
       void connectionsQuery.refetch()
     },
   }

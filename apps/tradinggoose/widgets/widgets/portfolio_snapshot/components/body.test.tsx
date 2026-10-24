@@ -217,7 +217,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     })
   })
 
-  it('derives the connected service and ignores a stale saved account', async () => {
+  it.each([false, true])('ignores inactive saved service: %s', async (connected) => {
     const connectedPaperIdentity = {
       ...selectedPortfolioIdentity,
       credentialId: 'oauth-account-paper',
@@ -225,9 +225,17 @@ describe('PortfolioSnapshotWidgetBody', () => {
       accountId: 'paper-acct',
       accountName: 'Paper Account',
     }
+    mockUseOAuthProviderAvailability.mockReturnValue(
+      createQueryResult({
+        data: { 'alpaca-live': !connected, 'alpaca-paper': true },
+      })
+    )
     mockUseOAuthConnections.mockReturnValue(
       createQueryResult({
-        data: [{ providerId: 'alpaca-paper', isConnected: true }],
+        data: [
+          { providerId: 'alpaca-live', isConnected: connected },
+          { providerId: 'alpaca-paper', isConnected: true },
+        ],
       })
     )
     mockUsePortfolioIdentities.mockReturnValue(
