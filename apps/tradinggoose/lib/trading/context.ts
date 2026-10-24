@@ -1,5 +1,6 @@
 import { resolveOAuthConnectionAccountForUser } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getOAuthProviderAvailability } from '@/lib/oauth/provider-availability.server'
 import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 import { TradingServiceError } from '@/lib/trading/errors'
 import { listPortfolioIdentities } from '@/providers/trading/portfolio'
@@ -19,7 +20,7 @@ type ProviderRequestData = {
   serviceId: string
 }
 
-type PreflightContext = {
+export type TradingProviderContext = {
   requestId: string
   providerId: string
   credentialId: string
@@ -30,9 +31,7 @@ type PreflightContext = {
   sessionUserId: string
 }
 
-export type TradingProviderContext = PreflightContext
-
-export type TradingAccountContext = PreflightContext & {
+export type TradingAccountContext = TradingProviderContext & {
   accountId: string
   portfolioIdentity: PortfolioIdentity
 }
@@ -82,7 +81,7 @@ export async function resolveTradingProviderContext({
   connectionOwnerUserId: string
   tokenAccountId: string
   accountProviderId: string
-}): Promise<PreflightContext> {
+}): Promise<TradingProviderContext> {
   const providerId = requireStringField(requestData.provider, 'provider')
 
   const providerDefinition = getTradingProviderDefinition(providerId)
@@ -102,6 +101,12 @@ export async function resolveTradingProviderContext({
     throw new TradingServiceError('Trading provider connection does not match requested service')
   }
 
+  const availability = await getOAuthProviderAvailability([serviceId])
+  const environment = getTradingProviderOAuthEnvironment(providerId, serviceId)
+  if (!environment || availability[serviceId] !== true) {
+    throw new TradingServiceError('Trading provider connection is not configured')
+  }
+
   const resolvedAccessToken = await refreshAccessTokenIfNeeded(
     resolvedTokenAccountId,
     connectionOwnerUserId,
@@ -110,17 +115,12 @@ export async function resolveTradingProviderContext({
   if (!resolvedAccessToken) {
     throw new TradingServiceError('Trading provider connection not found', 404)
   }
-  const environment = getTradingProviderOAuthEnvironment(providerId, serviceId)
-  if (!environment) {
-    throw new TradingServiceError('Trading provider connection is not configured')
-  }
-
   return {
     requestId,
     providerId,
     credentialId,
     tokenAccountId: resolvedTokenAccountId,
-    serviceId: serviceId,
+    serviceId,
     environment,
     accessToken: resolvedAccessToken,
     sessionUserId: userId,
