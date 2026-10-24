@@ -35,7 +35,6 @@ const createPortfolioDetail = () => ({
   asOf: '2026-04-25T12:00:00.000Z',
   cashBalances: [],
   positions: [],
-  orders: [],
   summary: {
     totalPortfolioValue: 1000,
     totalCashValue: 62.77,

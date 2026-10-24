@@ -1,5 +1,6 @@
 import { extractFieldsFromSchema, parseResponseFormatSafely } from '@/lib/response-format'
 import { getBlock } from '@/blocks'
+import { getTradingPortfolioOutputFields } from '@/providers/trading/providers'
 import { getTrigger } from '@/triggers'
 import { resolveTriggerIdFromSubBlocks } from '@/triggers/resolution'
 
@@ -131,6 +132,9 @@ export function getBlockOutputPaths(
   }
 
   collectPaths(outputs)
+  if (blockType === 'portfolio_detail') {
+    paths.push(...Object.keys(getTradingPortfolioOutputFields(subBlocks?.provider?.value)))
+  }
   return paths
 }
 
@@ -143,6 +147,13 @@ export function getBlockOutputType(
   subBlocks?: Record<string, any>,
   triggerMode?: boolean
 ): string {
+  if (blockType === 'portfolio_detail' && outputPath.startsWith('portfolioDetail.')) {
+    return (
+      getTradingPortfolioOutputFields(subBlocks?.provider?.value)[
+        outputPath.replace(/\[\d+\]/g, '[0]')
+      ]?.type ?? 'any'
+    )
+  }
   const outputs = readBlockOutputs(blockType, subBlocks, triggerMode)
 
   const arrayIndexRegex = /\[(\d+)\]/g

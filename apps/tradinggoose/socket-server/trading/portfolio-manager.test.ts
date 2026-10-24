@@ -95,7 +95,6 @@ const portfolioDetail = {
       quantity: 2,
     },
   ],
-  orders: [],
   summary: {
     totalPortfolioValue: 1000,
     totalCashValue: 100,

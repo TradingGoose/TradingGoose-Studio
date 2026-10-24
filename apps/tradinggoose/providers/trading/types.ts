@@ -1,8 +1,35 @@
-import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
+import {
+  LISTING_IDENTITY_VALUE_TYPE,
+  type ListingIdentity,
+  type ListingInputValue,
+} from '@/lib/listing/identity'
 import type { OAuthService } from '@/lib/oauth/oauth'
 import type { AssetClass } from '@/providers/market/types'
 import type { PortfolioDetail } from '@/providers/trading/portfolio-identity'
-import type { HttpMethod } from '@/tools/types'
+import type { HttpMethod, OutputProperty } from '@/tools/types'
+
+export const BASE_PORTFOLIO_OUTPUTS = {
+  cashBalances: {
+    currency: { type: 'string' },
+    currencySymbol: { type: 'string' },
+    amount: { type: 'number' },
+  },
+  positions: {
+    listingIdentity: { type: LISTING_IDENTITY_VALUE_TYPE },
+    quantity: { type: 'number' },
+    side: { type: 'string' },
+    averagePrice: { type: 'number' },
+    currencySymbol: { type: 'string' },
+    costBasis: { type: 'number' },
+  },
+  summary: {
+    totalPortfolioValue: { type: 'number' },
+    totalCashValue: { type: 'number' },
+    totalHoldingsValue: { type: 'number' },
+    buyingPower: { type: 'number' },
+    equity: { type: 'number' },
+  },
+} as const satisfies Record<string, Record<string, OutputProperty>>
 
 export type TradingProviderId = 'alpaca' | 'tradier' | 'robinhood' | (string & {})
 
@@ -150,16 +177,6 @@ export type UnifiedTradingSymbolAssetClass =
   | 'mutualfund'
   | 'stock'
 
-export interface UnifiedTradingSymbol {
-  base: string
-  quote: string
-  listing?: ListingIdentity
-  name?: string | null
-  assetClass: UnifiedTradingSymbolAssetClass
-  active: boolean
-  rank: number
-}
-
 export type UnifiedTradingPositionSide = 'long' | 'short' | 'flat' | 'unknown'
 
 export interface UnifiedTradingPosition {
@@ -175,52 +192,7 @@ export interface UnifiedTradingPosition {
   unrealizedPnlPercent?: number
   costBasis?: number
   multiplier?: number
-  leverage?: number
   openedAt?: string
-  updatedAt?: string
-}
-
-export type UnifiedTradingOrderType =
-  | 'Market'
-  | 'Limit'
-  | 'StopMarket'
-  | 'StopLimit'
-  | 'TrailingStop'
-  | 'MarketOnOpen'
-  | 'MarketOnClose'
-  | 'Other'
-
-export type UnifiedTradingOrderStatus =
-  | 'New'
-  | 'Submitted'
-  | 'PartiallyFilled'
-  | 'Filled'
-  | 'Canceled'
-  | 'Invalid'
-  | 'Expired'
-  | 'Rejected'
-
-export interface UnifiedTradingOrder {
-  id: string
-  clientOrderId?: string
-  brokerIds?: string[]
-  symbol: UnifiedTradingSymbol
-  type: UnifiedTradingOrderType
-  status: UnifiedTradingOrderStatus
-  quantity: number
-  filledQuantity?: number
-  remainingQuantity?: number
-  limitPrice?: number
-  stopPrice?: number
-  trailingAmount?: number
-  trailingAsPercentage?: boolean
-  priceCurrency?: string
-  timeInForce?: string
-  tag?: string
-  createdTime: string
-  lastUpdateTime?: string
-  lastFillTime?: string
-  averageFillPrice?: number
 }
 
 export interface UnifiedTradingAccountSummary {
@@ -229,12 +201,9 @@ export interface UnifiedTradingAccountSummary {
   totalHoldingsValue?: number
   totalUnrealizedPnl?: number
   totalRealizedPnl?: number
-  totalFees?: number
   marginUsed?: number
-  marginRemaining?: number
   buyingPower?: number
   equity?: number
-  freePortfolioValue?: number
 }
 
 export const TRADING_PORTFOLIO_MONITOR_METRICS = [
