@@ -486,6 +486,7 @@ function PortfolioMonitorFields({
               disabled={saving}
               toolName={portfolioTriggerToolName}
               variant='form'
+              clearInvalidSelection
               onAccountSelect={(selection) => {
                 const account = selection.portfolioIdentity
                 onUpdateDraft({

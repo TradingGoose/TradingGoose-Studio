@@ -72,6 +72,7 @@ describe('useTradingServices', () => {
 
   it.each([
     [{ 'alpaca-live': true, 'alpaca-paper': false }, ['alpaca-live'], false],
+    [{ 'alpaca-live': false, 'alpaca-paper': true }, ['alpaca-paper'], false],
     [{ 'alpaca-live': false, 'alpaca-paper': false }, [], false],
     [undefined, [], true],
   ] as const)('filters connections by service availability %j', (data, expected, isLoading) => {

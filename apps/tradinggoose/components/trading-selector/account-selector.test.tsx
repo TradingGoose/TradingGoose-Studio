@@ -33,6 +33,13 @@ describe('TradingAccountSelector', () => {
     serviceId: 'alpaca-live',
     accountId: 'acct-1',
   }
+  const queryState = { isLoading: false, isFetching: false, error: null, refetch: vi.fn() }
+  const services = {
+    ...queryState,
+    serviceIds: ['alpaca-live', 'alpaca-paper'],
+    connectedServiceIds: ['alpaca-live'],
+    activeServiceId: 'alpaca-live',
+  }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -43,15 +50,9 @@ describe('TradingAccountSelector', () => {
     document.body.appendChild(container)
     root = createRoot(container)
 
-    mockUseTradingServices.mockReturnValue({
-      serviceIds: ['alpaca-live', 'alpaca-paper'],
-      connectedServiceIds: ['alpaca-live'],
-      activeServiceId: 'alpaca-live',
-      isLoading: false,
-      error: null,
-      refetch: vi.fn(),
-    })
+    mockUseTradingServices.mockReturnValue(services)
     mockUsePortfolioIdentities.mockReturnValue({
+      ...queryState,
       data: [
         {
           ...selectedPortfolioIdentity,
@@ -71,10 +72,6 @@ describe('TradingAccountSelector', () => {
           baseCurrency: 'USD',
         },
       ],
-      isLoading: false,
-      isFetching: false,
-      error: null,
-      refetch: vi.fn(),
     })
   })
 
@@ -205,6 +202,50 @@ describe('TradingAccountSelector', () => {
     const button = container.querySelector(`button[aria-label="${copy.ariaLabel}"]`)
     expect(button?.textContent).toContain(copy.placeholder)
     expect(button?.textContent).not.toContain('stale-account-id')
+  })
+
+  it.each([
+    ['valid account', {}, {}, {}, false],
+    ['missing account', {}, { data: [] }, {}, true],
+    [
+      'unavailable service',
+      { connectedServiceIds: [], activeServiceId: undefined },
+      { data: undefined },
+      {},
+      true,
+    ],
+    ['opted out', {}, { data: [] }, { clearInvalidSelection: false }, false],
+    ['disabled', {}, { data: [] }, { disabled: true }, false],
+    ['service loading', { isLoading: true }, { data: [] }, {}, false],
+    ['service fetching', { isFetching: true }, { data: [] }, {}, false],
+    ['service error', { error: new Error('connections failed') }, { data: [] }, {}, false],
+    ['account loading', {}, { data: undefined, isLoading: true }, {}, false],
+    ['account fetching', {}, { data: [], isFetching: true }, {}, false],
+    ['account error', {}, { data: [], error: new Error('accounts failed') }, {}, false],
+    ['account unresolved', {}, { data: undefined }, {}, false],
+  ] as const)('reconciles selection for %s', (_, servicePatch, accountPatch, props, invalid) => {
+    const onAccountSelect = vi.fn()
+    mockUseTradingServices.mockReturnValue({ ...services, ...servicePatch })
+    mockUsePortfolioIdentities.mockReturnValue({
+      ...queryState,
+      data: [selectedPortfolioIdentity],
+      ...accountPatch,
+    })
+    renderWithLocale(
+      'en',
+      <TradingAccountSelector
+        providerId='alpaca'
+        serviceId='alpaca-live'
+        portfolioIdentity={selectedPortfolioIdentity}
+        clearInvalidSelection
+        onAccountSelect={onAccountSelect}
+        {...props}
+      />
+    )
+    expect(onAccountSelect).toHaveBeenCalledTimes(invalid ? 1 : 0)
+    if (invalid) {
+      expect(onAccountSelect).toHaveBeenCalledWith({ serviceId: null, portfolioIdentity: null })
+    }
   })
 
   it('uses form input styling when requested', () => {

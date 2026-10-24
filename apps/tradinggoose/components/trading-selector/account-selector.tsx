@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { Check, ChevronDown, Plus, RefreshCw } from 'lucide-react'
 import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
 import {
@@ -45,6 +45,7 @@ type TradingAccountSelectorProps = {
   tooltipText?: string
   toolName?: string
   onAccountSelect?: (selection: TradingAccountSelection) => void
+  clearInvalidSelection?: boolean
   variant?: ProviderSelectorVariant
 }
 
@@ -76,6 +77,7 @@ export function TradingAccountSelector({
   tooltipText,
   toolName = 'Trading',
   onAccountSelect,
+  clearInvalidSelection = false,
   variant = 'widget',
 }: TradingAccountSelectorProps) {
   const copy = useWorkspaceWidgetsMessages().providerControls.accountSelector
@@ -112,20 +114,33 @@ export function TradingAccountSelector({
     ) ?? null
   const isLoadingAccounts =
     services.isLoading || accountsQuery.isLoading || accountsQuery.isFetching
-  const providerConnectionBusy = services.isLoading
+  const shouldReconcile =
+    clearInvalidSelection &&
+    isEnabled &&
+    !isLoadingAccounts &&
+    !services.isFetching &&
+    !services.error &&
+    !accountsQuery.error &&
+    Boolean(
+      (requestedServiceId && !services.connectedServiceIds.includes(requestedServiceId)) ||
+        (selectedPortfolioIdentity && accountsQuery.data !== undefined && !selectedOption)
+    )
+  useEffect(() => {
+    if (shouldReconcile) onAccountSelect?.({ serviceId: null, portfolioIdentity: null })
+  }, [shouldReconcile, onAccountSelect])
   const accountBusy = hasConnection && (accountsQuery.isLoading || accountsQuery.isFetching)
   const accountFailure = hasConnection ? accountsQuery.error : null
   const feedbackKind =
     services.error || accountFailure
       ? 'error'
-      : providerConnectionBusy || accountBusy
+      : services.isLoading || accountBusy
         ? 'loading'
         : null
   const feedbackMessage = services.error
     ? copy.unableToLoadProviderConnection
     : accountFailure
       ? copy.unableToLoadBrokerAccounts
-      : providerConnectionBusy
+      : services.isLoading
         ? copy.loadingProviderConnection
         : accountBusy
           ? copy.loadingBrokerAccounts
@@ -204,7 +219,7 @@ export function TradingAccountSelector({
             variant === 'widget' ? 'w-[300px]' : undefined
           )}
         >
-          {providerConnectionBusy ? (
+          {services.isLoading ? (
             <div className='flex items-center gap-2 px-3 py-2 text-muted-foreground text-xs'>
               <RefreshCw className='h-3.5 w-3.5 animate-spin' />
               {copy.loadingProviderConnection}

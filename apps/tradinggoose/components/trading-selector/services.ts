@@ -13,6 +13,7 @@ export type TradingServiceState = {
   connectedServiceIds: string[]
   activeServiceId?: string
   isLoading: boolean
+  isFetching: boolean
   error: Error | null
   refetch: () => void
 }
@@ -68,6 +69,7 @@ export function useTradingServices({
     connectedServiceIds,
     activeServiceId,
     isLoading: isQueryEnabled && (availabilityQuery.isLoading || connectionsQuery.isLoading),
+    isFetching: isQueryEnabled && (availabilityQuery.isFetching || connectionsQuery.isFetching),
     error: isQueryEnabled && error instanceof Error ? error : null,
     refetch: () => {
       void availabilityQuery.refetch()
