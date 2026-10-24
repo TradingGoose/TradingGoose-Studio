@@ -585,7 +585,7 @@ export function ResponseFormat(
     | 'variant'
   >
 ) {
-  return <FieldFormat {...props} variant='response' showType={false} showValue={true} />
+  return <FieldFormat {...props} variant='response' showValue={true} />
 }
 
 export type { Field as InputField, Field as ResponseField }
