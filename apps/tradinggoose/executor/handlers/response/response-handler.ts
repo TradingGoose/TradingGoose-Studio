@@ -1,5 +1,6 @@
 import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
+import { extractEnvironmentReferences, extractReferencePrefixes } from '@/lib/workflows/references'
 import { BlockType } from '@/executor/consts'
 import type { BlockHandler, NormalizedBlockOutput } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
@@ -20,6 +21,8 @@ interface JSONProperty {
   value: any
   collapsed?: boolean
 }
+
+const JSON_PROPERTY_TYPES = new Set(['object', 'array', 'files', LISTING_IDENTITY_VALUE_TYPE])
 
 export class ResponseBlockHandler implements BlockHandler {
   canHandle(block: SerializedBlock): boolean {
@@ -109,68 +112,51 @@ export class ResponseBlockHandler implements BlockHandler {
 
   // Static method for UI conversion from Builder to Editor mode
   static convertBuilderDataToJsonString(builderData: JSONProperty[]): string {
-    if (!Array.isArray(builderData) || builderData.length === 0) {
-      return '{\n  \n}'
-    }
-
-    const result: any = {}
+    const converter = new ResponseBlockHandler()
+    const result: Record<string, string> = {}
 
     for (const prop of builderData) {
-      if (!prop.name || !prop.name.trim()) {
-        continue
-      }
+      if (!prop.name || !prop.name.trim()) continue
 
-      // For UI display, keep variable references as-is without processing
-      result[prop.name] = prop.value
+      const references = typeof prop.value === 'string' ? extractReferencePrefixes(prop.value) : []
+      const rawJson =
+        typeof prop.value === 'string' &&
+        prop.value.trim().length > 0 &&
+        (JSON_PROPERTY_TYPES.has(prop.type) ||
+          (references.length === 1 && references[0].raw === prop.value.trim()) ||
+          (prop.type !== 'string' &&
+            (references.length > 0 || extractEnvironmentReferences(prop.value).length > 0)))
+      const value = rawJson ? prop.value : converter.convertPropertyValue(prop)
+      if (value !== undefined) result[prop.name] = rawJson ? value : JSON.stringify(value, null, 2)
     }
 
-    // Convert to JSON string, then replace quoted variable references with unquoted ones
-    let jsonString = JSON.stringify(result, null, 2)
-
-    // Replace quoted variable references with unquoted ones
-    // Pattern: "<variable.name>" -> <variable.name>
-    jsonString = jsonString.replace(/"(<[^>]+>)"/g, '$1')
-
-    return jsonString
+    return `{\n${Object.entries(result)
+      .map(([name, value]) => `  ${JSON.stringify(name)}: ${value}`)
+      .join(',\n')}\n}`
   }
 
   private convertPropertyValue(prop: JSONProperty): any {
     const { type, value } = prop
+    const text = typeof value === 'string' ? value.trim() : undefined
     if (
       type !== 'string' &&
-      (value == null ||
-        (typeof value === 'string' && (!value.trim() || this.isVariableReference(value))))
+      (value == null || text === '' || (text?.startsWith('<') && text.includes('>')))
     ) {
       return undefined
     }
+    if (JSON_PROPERTY_TYPES.has(type)) return typeof value === 'string' ? JSON.parse(value) : value
     switch (type) {
-      case 'object':
-      case LISTING_IDENTITY_VALUE_TYPE:
-      case 'array':
-      case 'files':
-        return typeof value === 'string' ? JSON.parse(value) : value
-      case 'number':
-        return this.convertNumberValue(value)
+      case 'number': {
+        const number = Number(value)
+        return Number.isFinite(number) ? number : undefined
+      }
       case 'boolean':
-        return this.convertBooleanValue(value)
+        if (value === 'true' || value === true) return true
+        if (value === 'false' || value === false) return false
+        return undefined
       default:
         return value
     }
-  }
-
-  private convertNumberValue(value: any): any {
-    const numValue = Number(value)
-    return Number.isFinite(numValue) ? numValue : undefined
-  }
-
-  private convertBooleanValue(value: any): any {
-    if (value === 'true' || value === true) return true
-    if (value === 'false' || value === false) return false
-    return undefined
-  }
-
-  private isVariableReference(value: any): boolean {
-    return typeof value === 'string' && value.trim().startsWith('<') && value.trim().includes('>')
   }
 
   private parseStatus(status?: string): number {

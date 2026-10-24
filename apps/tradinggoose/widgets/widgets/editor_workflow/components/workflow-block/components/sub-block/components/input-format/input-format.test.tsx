@@ -126,11 +126,21 @@ describe('ResponseFormat Builder literals', () => {
         outputs: {},
         enabled: true,
       }
-      const { response } = await new ResponseBlockHandler().execute(block, {
-        builderData: saved.fields,
-      })
-      expect(response.status).toBe(200)
-      expect(response.data).toStrictEqual({ result: expected })
+      for (const inputs of [
+        { builderData: saved.fields },
+        {
+          dataMode: 'json',
+          data: ResponseBlockHandler.convertBuilderDataToJsonString(
+            saved.fields as Parameters<
+              typeof ResponseBlockHandler.convertBuilderDataToJsonString
+            >[0]
+          ),
+        },
+      ]) {
+        const { response } = await new ResponseBlockHandler().execute(block, inputs)
+        expect(response.status).toBe(200)
+        expect(response.data).toStrictEqual({ result: expected })
+      }
     }
   )
 })

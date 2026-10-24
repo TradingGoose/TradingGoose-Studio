@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { extractReferencePrefixes, isEnvironmentReference } from '@/lib/workflows/references'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import type { SubBlockConfig, SubBlockOption } from '@/blocks/types'
@@ -351,29 +352,46 @@ export function Dropdown({
     dependencyValues,
   ])
 
-  // Helper function to normalize variable references in JSON strings
-  const normalizeVariableReferences = (jsonString: string): string => {
-    // Replace unquoted variable references with quoted ones
-    // Pattern: <variable.name> -> "<variable.name>"
-    return jsonString.replace(/([^"]<[^>]+>)/g, '"$1"')
-  }
-
   // Helper function to convert JSON string to builder data format
-  const convertJsonToBuilderData = (jsonString: string): any[] => {
+  const convertJsonToBuilderData = (jsonString: string): any[] | undefined => {
     try {
-      // Always normalize variable references first
-      const normalizedJson = normalizeVariableReferences(jsonString)
+      const references = new Map<string, string>()
+      const normalizedJson = jsonString.replace(
+        /"(?:[^"\\]|\\.)*"|<[^>]+>|\{\{[^{}]+\}\}/g,
+        (token) => {
+          if (
+            token.startsWith('"') ||
+            (!extractReferencePrefixes(token).length && !isEnvironmentReference(token))
+          ) {
+            return token
+          }
+          const placeholder = crypto.randomUUID()
+          references.set(placeholder, token)
+          return JSON.stringify(placeholder)
+        }
+      )
       const parsed = JSON.parse(normalizedJson)
 
       if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
         return Object.entries(parsed).map(([key, value]) => {
-          const fieldType = inferType(value)
+          const fieldType = Array.isArray(value)
+            ? 'array'
+            : value === null
+              ? 'string'
+              : typeof value
           const fieldValue =
-            fieldType === 'object' || fieldType === 'array' ? JSON.stringify(value, null, 2) : value
+            fieldType === 'object' || fieldType === 'array'
+              ? JSON.stringify(value, null, 2).replace(
+                  /"(?:[^"\\]|\\.)*"/g,
+                  (token) => references.get(JSON.parse(token)) ?? token
+                )
+              : typeof value === 'string'
+                ? (references.get(value) ?? value)
+                : value
 
           return {
             id: crypto.randomUUID(),
-            name: key,
+            name: references.get(key) ?? key,
             type: fieldType,
             value: fieldValue,
             collapsed: false,
@@ -381,19 +399,10 @@ export function Dropdown({
         })
       }
 
-      return []
+      return undefined
     } catch {
-      return []
+      return undefined
     }
-  }
-
-  // Helper function to infer field type from value
-  const inferType = (value: any): 'string' | 'number' | 'boolean' | 'object' | 'array' => {
-    if (typeof value === 'boolean') return 'boolean'
-    if (typeof value === 'number') return 'number'
-    if (Array.isArray(value)) return 'array'
-    if (typeof value === 'object' && value !== null) return 'object'
-    return 'string'
   }
 
   // Handle data conversion when dataMode changes
@@ -422,7 +431,7 @@ export function Dropdown({
         const currentData = dataRef.current
         if (currentData && typeof currentData === 'string' && currentData.trim().length > 0) {
           const builderArray = convertJsonToBuilderData(currentData)
-          setBuilderData(builderArray)
+          if (builderArray) setBuilderData(builderArray)
         }
       }
     }
