@@ -75,22 +75,12 @@ export function Dropdown({
   const copy = useWorkflowBlockEditorCopy().dropdown
   const [storeValue, setStoreValue] = useSubBlockValue<any>(blockId, subBlockId)
   const [storeInitialized, setStoreInitialized] = useState(false)
-  const previousModeRef = useRef<string | null>(null)
   const previousDependencyValuesRef = useRef<string>('')
   const blockAutoDefaultRef = useRef(false)
 
   // For response dataMode conversion - get builderData and data sub-blocks
   const [builderData, setBuilderData] = useSubBlockValue<any[]>(blockId, 'builderData')
   const [data, setData] = useSubBlockValue<string>(blockId, 'data')
-
-  // Keep refs with latest values to avoid stale closures
-  const builderDataRef = useRef(builderData)
-  const dataRef = useRef(data)
-
-  useEffect(() => {
-    builderDataRef.current = builderData
-    dataRef.current = data
-  }, [builderData, data])
 
   const resolvedConfig: SubBlockConfig = config ?? {
     id: subBlockId,
@@ -353,7 +343,8 @@ export function Dropdown({
   ])
 
   // Helper function to convert JSON string to builder data format
-  const convertJsonToBuilderData = (jsonString: string): any[] | undefined => {
+  const convertJsonToBuilderData = (jsonString: string | null): any[] | undefined => {
+    if (!jsonString?.trim()) return []
     try {
       const references = new Map<string, string>()
       const normalizedJson = jsonString.replace(
@@ -411,44 +402,22 @@ export function Dropdown({
     }
   }
 
-  // Handle data conversion when dataMode changes
-  useEffect(() => {
-    if (subBlockId !== 'dataMode' || disabled) return
-
-    const currentMode = storeValue
-    const previousMode = previousModeRef.current
-
-    // Only convert if the mode actually changed
-    if (previousMode !== null && previousMode !== currentMode) {
-      // Builder to Editor mode (structured → json)
-      if (currentMode === 'json' && previousMode === 'structured') {
-        const currentBuilderData = builderDataRef.current
-        if (
-          currentBuilderData &&
-          Array.isArray(currentBuilderData) &&
-          currentBuilderData.length > 0
-        ) {
-          const jsonString = ResponseBlockHandler.convertBuilderDataToJsonString(currentBuilderData)
-          setData(jsonString)
-        }
-      }
-      // Editor to Builder mode (json → structured)
-      else if (currentMode === 'structured' && previousMode === 'json') {
-        const currentData = dataRef.current
-        if (currentData && typeof currentData === 'string' && currentData.trim().length > 0) {
-          const builderArray = convertJsonToBuilderData(currentData)
-          if (builderArray) setBuilderData(builderArray)
-        }
-      }
-    }
-
-    // Update the previous mode ref
-    previousModeRef.current = currentMode
-  }, [storeValue, subBlockId, disabled, setData, setBuilderData])
-
   // Event handlers
   const handleSelect = (selectedValue: any) => {
     if (!finalDisabled && useStore) {
+      if (
+        subBlockId === 'dataMode' &&
+        selectedValue !== storeValue &&
+        (storeValue === 'structured' || storeValue === 'json')
+      ) {
+        const converted =
+          selectedValue === 'json'
+            ? ResponseBlockHandler.convertBuilderDataToJsonString(builderData ?? [])
+            : convertJsonToBuilderData(data)
+        if (converted === undefined) return
+        if (typeof converted === 'string') setData(converted)
+        else setBuilderData(converted)
+      }
       setStoreValue(selectedValue)
     }
     if (onChange) {

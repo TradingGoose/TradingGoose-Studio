@@ -112,7 +112,7 @@ export class ResponseBlockHandler implements BlockHandler {
   }
 
   // Static method for UI conversion from Builder to Editor mode
-  static convertBuilderDataToJsonString(builderData: JSONProperty[]): string {
+  static convertBuilderDataToJsonString(builderData: JSONProperty[]): string | undefined {
     const converter = new ResponseBlockHandler()
     const result: Record<string, string> = {}
 
@@ -120,15 +120,21 @@ export class ResponseBlockHandler implements BlockHandler {
       if (!prop.name || !prop.name.trim()) continue
 
       const references = typeof prop.value === 'string' ? extractReferencePrefixes(prop.value) : []
+      const exactReference = references.length === 1 && references[0].raw === prop.value.trim()
+      if (
+        prop.type !== 'string' &&
+        (exactReference ||
+          ((prop.type === 'number' || prop.type === 'boolean') &&
+            typeof prop.value === 'string' &&
+            (references.length > 0 || extractEnvironmentReferences(prop.value).length > 0)))
+      ) {
+        return undefined
+      }
       const rawJson =
         typeof prop.value === 'string' &&
         prop.value.trim().length > 0 &&
         prop.referenceQuoted !== true &&
-        (prop.referenceQuoted === false ||
-          JSON_PROPERTY_TYPES.has(prop.type) ||
-          (references.length === 1 && references[0].raw === prop.value.trim()) ||
-          (prop.type !== 'string' &&
-            (references.length > 0 || extractEnvironmentReferences(prop.value).length > 0)))
+        (prop.referenceQuoted === false || JSON_PROPERTY_TYPES.has(prop.type) || exactReference)
       const value = rawJson ? prop.value : converter.convertPropertyValue(prop)
       if (value !== undefined) result[prop.name] = rawJson ? value : JSON.stringify(value, null, 2)
     }

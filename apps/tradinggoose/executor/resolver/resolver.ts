@@ -23,6 +23,15 @@ interface ReferenceContext {
   json?: boolean
 }
 
+const isInsideJsonString = (value: string, position: number): boolean => {
+  let inString = false
+  for (let index = 0; index < position; index++) {
+    if (value[index] === '\\') index++
+    else if (value[index] === '"') inString = !inString
+  }
+  return inString
+}
+
 export class InputResolver {
   private blockById: Map<string, SerializedBlock>
   private blockByNormalizedName: Map<string, SerializedBlock>
@@ -375,14 +384,8 @@ export class InputResolver {
       if (currentBlock.metadata?.id === 'condition') {
         formattedValue = this.stringifyForCondition(replacementValue)
       } else if (referenceContext.json) {
-        const prefix = resolvedValue.slice(0, resolvedIndex)
-        let inString = false
-        for (let index = 0; index < prefix.length; index++) {
-          if (prefix[index] === '\\') index++
-          else if (prefix[index] === '"') inString = !inString
-        }
         const jsonValue = replacementValue === undefined ? '' : replacementValue
-        formattedValue = inString
+        formattedValue = isInsideJsonString(resolvedValue, resolvedIndex)
           ? JSON.stringify(this.formatValueForCodeContext(jsonValue, currentBlock)).slice(1, -1)
           : JSON.stringify(jsonValue)
       } else if (replacementValue === undefined) {
@@ -423,35 +426,41 @@ export class InputResolver {
    * @returns Value with environment variables resolved
    * @throws Error if referenced environment variable is not found
    */
-  resolveEnvVariables(value: any): any {
+  resolveEnvVariables(value: any, json = false): any {
     if (typeof value === 'string') {
-      const envMatches = extractEnvironmentReferences(value)
-      if (envMatches.length > 0) {
-        let resolvedValue = value
-        for (const match of envMatches) {
-          const envKey = match.slice(2, -2)
-          const envValue = this.environmentVariables[envKey]
+      let resolvedValue = value
+      let referenceCursor = 0
+      for (const match of extractEnvironmentReferences(value)) {
+        const envKey = match.slice(2, -2)
+        const envValue = this.environmentVariables[envKey]
 
-          if (envValue === undefined) {
-            throw new Error(`Environment variable "${envKey}" was not found.`)
-          }
-
-          resolvedValue = resolvedValue.replace(match, envValue)
+        if (envValue === undefined) {
+          throw new Error(`Environment variable "${envKey}" was not found.`)
         }
-        return resolvedValue
+
+        const resolvedIndex = resolvedValue.indexOf(match, referenceCursor)
+        const formattedValue =
+          json && isInsideJsonString(resolvedValue, resolvedIndex)
+            ? JSON.stringify(envValue).slice(1, -1)
+            : envValue
+        resolvedValue =
+          resolvedValue.slice(0, resolvedIndex) +
+          formattedValue +
+          resolvedValue.slice(resolvedIndex + match.length)
+        referenceCursor = resolvedIndex + formattedValue.length
       }
-      return value
+      return resolvedValue
     }
 
     if (Array.isArray(value)) {
-      return value.map((item) => this.resolveEnvVariables(item))
+      return value.map((item) => this.resolveEnvVariables(item, json))
     }
 
     if (value && typeof value === 'object') {
       return Object.entries(value).reduce(
         (acc, [k, v]) => ({
           ...acc,
-          [k]: this.resolveEnvVariables(v),
+          [k]: this.resolveEnvVariables(v, json),
         }),
         {}
       )
@@ -499,7 +508,7 @@ export class InputResolver {
       if (references.length === 1 && references[0].raw === value.trim()) return resolvedReferences
 
       // Then resolve environment variables
-      return this.resolveEnvVariables(resolvedReferences)
+      return this.resolveEnvVariables(resolvedReferences, referenceContext?.json)
     }
 
     // Handle arrays
