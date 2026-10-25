@@ -74,6 +74,15 @@ describe('workflow Dropdown', () => {
   let root: Root
 
   beforeEach(() => {
+    mocks.setValue.mockImplementation((value) => {
+      mocks.dataMode = value
+    })
+    mocks.setData.mockImplementation((value) => {
+      mocks.data = value
+    })
+    mocks.setBuilderData.mockImplementation((value) => {
+      mocks.builderData = value
+    })
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -107,6 +116,91 @@ describe('workflow Dropdown', () => {
     })
   }
 
+  async function selectResponseMode(mode: 'structured' | 'json') {
+    await act(async () => container.querySelector('button')!.click())
+    const label = mode === 'structured' ? 'Builder' : 'Editor'
+    const item = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]')).find(
+      (item) => item.textContent === label
+    )!
+    await act(async () => item.click())
+    await renderResponseMode()
+  }
+
+  it.each(['<start.details>', '[{"current":1}]', 'null', '"text"', '{bad JSON'])(
+    'keeps unrepresentable Editor data in Editor: %s',
+    async (data) => {
+      mocks.data = data
+      mocks.builderData = [{ id: 'stale', name: 'stale', type: 'string', value: 'old' }]
+      mocks.dataMode = 'json'
+      await renderResponseMode()
+      await selectResponseMode('structured')
+      expect(mocks.setValue).not.toHaveBeenCalled()
+      expect(mocks.setBuilderData).not.toHaveBeenCalled()
+      await selectResponseMode('json')
+      expect(mocks.data).toBe(data)
+      expect(mocks.setData).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each([
+    ['number', '<variable.amount>', 42],
+    ['boolean', '{{ENABLED}}', false],
+    ['object', '<start.details>', { cash: 1 }],
+  ] as const)('keeps a dynamic %s cast in Builder', async (type, value, expected) => {
+    const rows = [{ id: 'cast', name: 'cast', type, value }]
+    mocks.builderData = rows
+    mocks.data = '{"previous":1}'
+    mocks.dataMode = 'structured'
+    await renderResponseMode()
+    await selectResponseMode('json')
+    expect(mocks.setValue).not.toHaveBeenCalled()
+    expect(mocks.setData).not.toHaveBeenCalled()
+    expect(mocks.builderData).toBe(rows)
+    const workflow = createMinimalWorkflow()
+    const block = workflow.blocks[1]
+    block.metadata = { id: 'response' }
+    block.config.params = { dataMode: mocks.dataMode, builderData: mocks.builderData }
+    const context = { ...createMockContext({ workflow }), triggerBlockId: 'trigger' }
+    context.blockStates.set('trigger', { output: { details: '{"cash":1}' } })
+    const resolver = new InputResolver(
+      workflow,
+      { ENABLED: 'false' },
+      { amount: { name: 'amount', type: 'plain', value: '42' } },
+      new Map()
+    )
+    const { response } = await new ResponseBlockHandler().execute(
+      block,
+      resolver.resolveInputs(block, context)
+    )
+    expect(response).toMatchObject({ status: 200, data: { cast: expected } })
+  })
+
+  it.each(['', '{}'])('clears stale rows for empty Editor data: %s', async (data) => {
+    mocks.data = data
+    mocks.builderData = [{ id: 'stale', name: 'stale', type: 'string', value: 'old' }]
+    mocks.dataMode = 'json'
+    await renderResponseMode()
+    await selectResponseMode('structured')
+    expect(mocks.builderData).toEqual([])
+    await selectResponseMode('json')
+    expect(JSON.parse(mocks.data)).toEqual({})
+  })
+
+  it.each(['json', '<variable.mode>'])(
+    'preserves data when the mode is set externally: %s',
+    async (mode) => {
+      mocks.data = '[{"current":1}]'
+      mocks.builderData = [{ id: 'stale', name: 'stale', type: 'string', value: 'old' }]
+      mocks.dataMode = 'structured'
+      await renderResponseMode()
+      mocks.dataMode = mode
+      await renderResponseMode()
+      await selectResponseMode('json')
+      expect(mocks.setData).not.toHaveBeenCalled()
+      expect(mocks.data).toBe('[{"current":1}]')
+    }
+  )
+
   it('renders and opens through the native Base UI menu portal', async () => {
     await act(async () => {
       root.render(
@@ -139,12 +233,10 @@ describe('workflow Dropdown', () => {
     mocks.builderData = [{ id: 'invalid', name: 'invalid', type: 'object', value: '{bad JSON' }]
     mocks.dataMode = 'structured'
     await renderResponseMode()
-    mocks.dataMode = 'json'
-    await renderResponseMode()
-    mocks.data = mocks.setData.mock.calls.at(-1)![0]
+    await selectResponseMode('json')
     expect(mocks.data).toContain('"invalid": {bad JSON')
-    mocks.dataMode = 'structured'
-    await renderResponseMode()
+    await selectResponseMode('structured')
+    expect(mocks.dataMode).toBe('json')
     expect(mocks.setBuilderData).not.toHaveBeenCalled()
   })
 
@@ -164,6 +256,7 @@ describe('workflow Dropdown', () => {
   "quotedNull": "<variable.nullable>",
   "environment": {{LIMIT}},
   "quotedEnvironment": "{{LIMIT}}",
+  "escapedEnvironment": "{{TEXT}}",
   "environmentArray": {{ITEMS}}
 }`
     const workflow = createMinimalWorkflow()
@@ -175,7 +268,7 @@ describe('workflow Dropdown', () => {
     })
     const resolver = new InputResolver(
       workflow,
-      { LIMIT: '42', ITEMS: '[1,2]' },
+      { LIMIT: '42', ITEMS: '[1,2]', TEXT: 'Say "go"\\next\n$&' },
       {
         quantity: { name: 'quantity', type: 'number', value: 0 },
         nullable: { name: 'nullable', type: 'object', value: null },
@@ -186,12 +279,8 @@ describe('workflow Dropdown', () => {
     mocks.dataMode = 'json'
     await renderResponseMode()
     expect(mocks.setBuilderData).not.toHaveBeenCalled()
-    mocks.dataMode = 'structured'
-    await renderResponseMode()
-    mocks.builderData = mocks.setBuilderData.mock.calls.at(-1)![0]
-    await renderResponseMode()
-    mocks.dataMode = 'json'
-    await renderResponseMode()
+    await selectResponseMode('structured')
+    await selectResponseMode('json')
     const converted = mocks.setData.mock.calls.at(-1)![0]
     expect(converted).toContain('"quoted": "<start.quantity>"')
     expect(converted).toContain('"sourceString": <start.accountId>')
@@ -220,6 +309,7 @@ describe('workflow Dropdown', () => {
         quotedNull: 'null',
         environment: 42,
         quotedEnvironment: '42',
+        escapedEnvironment: 'Say "go"\\next\n$&',
         environmentArray: [1, 2],
       })
     }
