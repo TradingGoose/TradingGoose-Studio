@@ -9,7 +9,10 @@ import { getPublicCopy } from '@/i18n/public-copy'
 import type { SerializedBlock } from '@/serializer/types'
 import { type ResponseField, ResponseFormat } from './input-format'
 
-const saved = vi.hoisted(() => ({ fields: [] as ResponseField[] }))
+const saved = vi.hoisted(() => ({
+  fields: [] as ResponseField[],
+  setFields: (_fields: ResponseField[]) => {},
+}))
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
@@ -22,6 +25,7 @@ vi.mock(
       useSubBlockValue: () => {
         const state = useState<ResponseField[]>([])
         saved.fields = state[0]
+        saved.setFields = state[1]
         return state
       },
     }
@@ -92,7 +96,11 @@ describe('ResponseFormat Builder literals', () => {
     async (type, value, expected) => {
       await click(container.querySelector('button')!)
       expect(saved.fields).toMatchObject([{ name: '', type: 'string', value: '' }])
+      act(() =>
+        saved.setFields([{ ...saved.fields[0], value: '<start.quantity>', referenceQuoted: true }])
+      )
       enter(container.querySelector('input[name="name"]')!, 'result')
+      expect(saved.fields[0].referenceQuoted).toBe(true)
       const typeTrigger = container.querySelector<HTMLButtonElement>('button[aria-haspopup="menu"]')
       expect(typeTrigger).not.toBeNull()
       await click(typeTrigger!)
@@ -101,6 +109,8 @@ describe('ResponseFormat Builder literals', () => {
           item.textContent?.endsWith(String(type))
         )!
       )
+      expect(saved.fields[0]).not.toHaveProperty('referenceQuoted')
+      act(() => saved.setFields([{ ...saved.fields[0], referenceQuoted: true }]))
       if (type === 'Boolean') {
         await click(container.querySelector('[role="combobox"]')!)
         const option = Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).find(
@@ -116,6 +126,7 @@ describe('ResponseFormat Builder literals', () => {
           String(value)
         )
       }
+      expect(saved.fields[0]).not.toHaveProperty('referenceQuoted')
 
       const block: SerializedBlock = {
         id: 'response',

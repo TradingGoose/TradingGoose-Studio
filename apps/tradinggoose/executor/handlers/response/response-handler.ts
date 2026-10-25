@@ -19,6 +19,7 @@ interface JSONProperty {
     | 'files'
     | typeof LISTING_IDENTITY_VALUE_TYPE
   value: any
+  referenceQuoted?: boolean
   collapsed?: boolean
 }
 
@@ -122,7 +123,9 @@ export class ResponseBlockHandler implements BlockHandler {
       const rawJson =
         typeof prop.value === 'string' &&
         prop.value.trim().length > 0 &&
-        (JSON_PROPERTY_TYPES.has(prop.type) ||
+        prop.referenceQuoted !== true &&
+        (prop.referenceQuoted === false ||
+          JSON_PROPERTY_TYPES.has(prop.type) ||
           (references.length === 1 && references[0].raw === prop.value.trim()) ||
           (prop.type !== 'string' &&
             (references.length > 0 || extractEnvironmentReferences(prop.value).length > 0)))

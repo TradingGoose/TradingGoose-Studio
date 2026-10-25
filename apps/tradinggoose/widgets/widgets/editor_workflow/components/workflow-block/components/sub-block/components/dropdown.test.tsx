@@ -3,7 +3,9 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ResponseBlockHandler } from '@/executor/handlers/response/response-handler'
+import { createMinimalWorkflow, createMockContext } from '@/executor/__test-utils__/executor-mocks'
+import { ResponseBlockHandler } from '@/executor/handlers/response/response-handler'
+import { InputResolver } from '@/executor/resolver/resolver'
 
 const mocks = vi.hoisted(() => ({
   dataMode: '',
@@ -133,76 +135,6 @@ describe('workflow Dropdown', () => {
     expect(container).not.toHaveTextContent('First option')
   })
 
-  it('preserves object and array JSON text when switching from Editor to Builder', async () => {
-    const data = {
-      details: { message: '<start.input>', accountId: '123', quantity: 0, active: false },
-      positions: ['<start.details>', { message: '<start.input>' }, 0, false, null],
-      native: '<start.details>',
-    }
-    mocks.data = JSON.stringify(data)
-    mocks.dataMode = 'json'
-    await renderResponseMode()
-    expect(mocks.setBuilderData).not.toHaveBeenCalled()
-    mocks.dataMode = 'structured'
-    await renderResponseMode()
-
-    expect(mocks.setBuilderData).toHaveBeenCalledExactlyOnceWith([
-      expect.objectContaining({
-        name: 'details',
-        type: 'object',
-        value: JSON.stringify(data.details, null, 2),
-      }),
-      expect.objectContaining({
-        name: 'positions',
-        type: 'array',
-        value: JSON.stringify(data.positions, null, 2),
-      }),
-      expect.objectContaining({ name: 'native', type: 'string', value: data.native }),
-    ])
-  })
-
-  it('preserves declared literals and quoted or bare templates through both mode changes', async () => {
-    mocks.builderData = [
-      { id: 'number', name: 'number', type: 'number', value: '42' },
-      { id: 'boolean', name: 'boolean', type: 'boolean', value: 'false' },
-      { id: 'object', name: 'object', type: 'object', value: '{"x":1}' },
-      { id: 'array', name: 'array', type: 'array', value: '[1,2]' },
-      { id: 'text', name: 'text', type: 'string', value: '{"x":1}' },
-      { id: 'native', name: 'native', type: 'string', value: '<start.quantity>' },
-      {
-        id: 'details',
-        name: 'details',
-        type: 'object',
-        value: '{"native":<start.positions>,"quoted":"<start.quantity>"}',
-      },
-      { id: 'environment', name: 'environment', type: 'number', value: '{{LIMIT}}' },
-    ]
-    mocks.dataMode = 'structured'
-    await renderResponseMode()
-    mocks.dataMode = 'json'
-    await renderResponseMode()
-    mocks.data = mocks.setData.mock.calls.at(-1)![0]
-    expect(mocks.data).toContain('"native": <start.quantity>')
-    expect(mocks.data).toContain('"environment": {{LIMIT}}')
-    mocks.dataMode = 'structured'
-    await renderResponseMode()
-    const rows = mocks.setBuilderData.mock.calls.at(-1)![0]
-    expect(rows).toEqual([
-      expect.objectContaining({ name: 'number', type: 'number', value: 42 }),
-      expect.objectContaining({ name: 'boolean', type: 'boolean', value: false }),
-      expect.objectContaining({ name: 'object', type: 'object', value: '{\n  "x": 1\n}' }),
-      expect.objectContaining({ name: 'array', type: 'array', value: '[\n  1,\n  2\n]' }),
-      expect.objectContaining({ name: 'text', type: 'string', value: '{"x":1}' }),
-      expect.objectContaining({ name: 'native', type: 'string', value: '<start.quantity>' }),
-      expect.objectContaining({
-        name: 'details',
-        type: 'object',
-        value: '{\n  "native": <start.positions>,\n  "quoted": "<start.quantity>"\n}',
-      }),
-      expect.objectContaining({ name: 'environment', value: '{{LIMIT}}' }),
-    ])
-  })
-
   it('keeps malformed authored JSON visible without clearing Builder rows', async () => {
     mocks.builderData = [{ id: 'invalid', name: 'invalid', type: 'object', value: '{bad JSON' }]
     mocks.dataMode = 'structured'
@@ -214,5 +146,82 @@ describe('workflow Dropdown', () => {
     mocks.dataMode = 'structured'
     await renderResponseMode()
     expect(mocks.setBuilderData).not.toHaveBeenCalled()
+  })
+
+  it('preserves literals and reference quoting through Editor → Builder → Editor', async () => {
+    const data = `{
+  "number": 42,
+  "boolean": false,
+  "text": "{\\"x\\":1}",
+  "details": {"native": <start.details>, "quoted": "<start.quantity>"},
+  "positions": ["<start.details>", <start.details>, 0, false, null],
+  "quoted": "<start.quantity>",
+  "native": <start.quantity>,
+  "sourceString": <start.accountId>,
+  "quotedObject": "<start.details>",
+  "quotedVariable": "<variable.quantity>",
+  "nativeVariable": <variable.quantity>,
+  "quotedNull": "<variable.nullable>",
+  "environment": {{LIMIT}},
+  "quotedEnvironment": "{{LIMIT}}",
+  "environmentArray": {{ITEMS}}
+}`
+    const workflow = createMinimalWorkflow()
+    const block = workflow.blocks[1]
+    block.metadata = { id: 'response' }
+    const context = { ...createMockContext({ workflow }), triggerBlockId: 'trigger' }
+    context.blockStates.set('trigger', {
+      output: { quantity: 0, accountId: '123', details: { text: 'Say "go"\\next\n' } },
+    })
+    const resolver = new InputResolver(
+      workflow,
+      { LIMIT: '42', ITEMS: '[1,2]' },
+      {
+        quantity: { name: 'quantity', type: 'number', value: 0 },
+        nullable: { name: 'nullable', type: 'object', value: null },
+      },
+      new Map([[block.id, new Set(['trigger'])]])
+    )
+    mocks.data = data
+    mocks.dataMode = 'json'
+    await renderResponseMode()
+    expect(mocks.setBuilderData).not.toHaveBeenCalled()
+    mocks.dataMode = 'structured'
+    await renderResponseMode()
+    mocks.builderData = mocks.setBuilderData.mock.calls.at(-1)![0]
+    await renderResponseMode()
+    mocks.dataMode = 'json'
+    await renderResponseMode()
+    const converted = mocks.setData.mock.calls.at(-1)![0]
+    expect(converted).toContain('"quoted": "<start.quantity>"')
+    expect(converted).toContain('"sourceString": <start.accountId>')
+    expect(converted).toContain('"environment": {{LIMIT}}')
+
+    for (const dataMode of ['json', 'structured']) {
+      block.config.params = { dataMode, data: converted, builderData: mocks.builderData }
+      const { response } = await new ResponseBlockHandler().execute(
+        block,
+        resolver.resolveInputs(block, context)
+      )
+      expect(response.status).toBe(200)
+      const details = context.blockStates.get('trigger')!.output.details
+      expect(response.data).toStrictEqual({
+        number: 42,
+        boolean: false,
+        text: '{"x":1}',
+        details: { native: details, quoted: '0' },
+        positions: [JSON.stringify(details), details, 0, false, null],
+        quoted: '0',
+        native: 0,
+        sourceString: '123',
+        quotedObject: JSON.stringify(details),
+        quotedVariable: '0',
+        nativeVariable: 0,
+        quotedNull: 'null',
+        environment: 42,
+        quotedEnvironment: '42',
+        environmentArray: [1, 2],
+      })
+    }
   })
 })

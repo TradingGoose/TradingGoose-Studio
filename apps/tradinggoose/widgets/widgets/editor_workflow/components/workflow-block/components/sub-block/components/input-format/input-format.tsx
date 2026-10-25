@@ -37,6 +37,7 @@ interface Field {
   type?: FieldType
   value?: unknown
   collapsed?: boolean
+  referenceQuoted?: boolean
 }
 
 interface FieldFormatProps {
@@ -158,9 +159,11 @@ export function FieldFormat({
       value = validateFieldName(value)
     }
 
-    const nextFields = (fields || []).map((f: Field) =>
-      f.id === id ? { ...f, [field]: value } : f
-    )
+    const nextFields = (fields || []).map((f: Field) => {
+      if (f.id !== id) return f
+      const { referenceQuoted: _referenceQuoted, ...unquoted } = f
+      return { ...(field === 'value' || field === 'type' ? unquoted : f), [field]: value }
+    })
     setStoreValue(nextFields)
   }
 

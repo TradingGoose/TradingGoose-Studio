@@ -394,6 +394,12 @@ export function Dropdown({
             name: references.get(key) ?? key,
             type: fieldType,
             value: fieldValue,
+            ...(typeof value === 'string' &&
+            (references.has(value) ||
+              extractReferencePrefixes(value).some((reference) => reference.raw === value.trim()) ||
+              isEnvironmentReference(value))
+              ? { referenceQuoted: !references.has(value) }
+              : {}),
             collapsed: false,
           }
         })

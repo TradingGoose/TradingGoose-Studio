@@ -5,6 +5,7 @@ import {
   extractEnvironmentReferences,
   extractReferencePrefixes,
   getLoopContextId,
+  isEnvironmentReference,
   SYSTEM_REFERENCE_PREFIXES,
 } from '@/lib/workflows/references'
 import { evaluateSubBlockCondition } from '@/lib/workflows/sub-block-conditions'
@@ -512,16 +513,30 @@ export class InputResolver {
     if (typeof value === 'object') {
       const result: Record<string, any> = {}
       for (const [k, v] of Object.entries(value)) {
+        const quoted = referenceContext?.native && k === 'value' && value.referenceQuoted === true
         const fieldContext =
           referenceContext?.native && k === 'value'
             ? {
-                native: true,
-                json: ['object', 'array', 'files', LISTING_IDENTITY_VALUE_TYPE].includes(
-                  value.type
-                ),
+                native: !quoted,
+                json:
+                  quoted ||
+                  ['object', 'array', 'files', LISTING_IDENTITY_VALUE_TYPE].includes(value.type),
               }
             : undefined
-        result[k] = this.resolveNestedStructure(v, context, currentBlock, fieldContext)
+        const resolved = this.resolveNestedStructure(
+          quoted ? JSON.stringify(v) : v,
+          context,
+          currentBlock,
+          fieldContext
+        )
+        result[k] =
+          quoted ||
+          (fieldContext &&
+            value.referenceQuoted === false &&
+            typeof v === 'string' &&
+            isEnvironmentReference(v))
+            ? JSON.parse(resolved)
+            : resolved
       }
       return result
     }
