@@ -5,11 +5,14 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import { PortfolioSnapshotWidgetBody } from '@/widgets/widgets/portfolio_snapshot/components/body'
+
+type QuoteQuery = ReturnType<typeof useMarketQuoteSnapshots>
 
 const mockUseOAuthProviderAvailability = vi.fn()
 const mockUseOAuthConnections = vi.fn()
-const mockUseMarketQuoteSnapshots = vi.fn()
+const mockUseMarketQuoteSnapshots = vi.fn<typeof useMarketQuoteSnapshots>()
 const mockUsePortfolioIdentities = vi.fn()
 const mockUsePortfolioDetail = vi.fn()
 const mockUsePortfolioPerformance = vi.fn()
@@ -25,6 +28,8 @@ const selectedPortfolioIdentity = {
   baseCurrency: 'USD',
   accountStatus: 'active' as const,
 }
+
+const quoteSnapshot = { lastPrice: 110, previousClose: 100, change: 10, changePercent: 10 }
 
 const createListing = (symbol: string) => ({
   listing_id: `TG_LSTG_${symbol}`,
@@ -78,7 +83,8 @@ vi.mock('@/hooks/queries/oauth-connections', () => ({
 }))
 
 vi.mock('@/hooks/queries/market-quote-snapshots', () => ({
-  useMarketQuoteSnapshots: (...args: unknown[]) => mockUseMarketQuoteSnapshots(...args),
+  useMarketQuoteSnapshots: (...args: Parameters<typeof useMarketQuoteSnapshots>) =>
+    mockUseMarketQuoteSnapshots(...args),
 }))
 
 vi.mock('@/hooks/queries/trading-portfolio', () => ({
@@ -138,14 +144,9 @@ describe('PortfolioSnapshotWidgetBody', () => {
       })
     )
     mockUseMarketQuoteSnapshots.mockReturnValue(
-      createQueryResult({
+      createQueryResult<QuoteQuery>({
         data: {
-          'default|TG_LSTG_AAPL||': {
-            lastPrice: 110,
-            previousClose: 100,
-            change: 10,
-            changePercent: 10,
-          },
+          'default|TG_LSTG_AAPL||': quoteSnapshot,
         },
       })
     )
@@ -575,14 +576,9 @@ describe('PortfolioSnapshotWidgetBody', () => {
       })
     )
     mockUseMarketQuoteSnapshots.mockReturnValue(
-      createQueryResult({
+      createQueryResult<QuoteQuery>({
         data: {
-          'default|TG_LSTG_TSLA||': {
-            lastPrice: 110,
-            previousClose: 100,
-            change: 10,
-            changePercent: 10,
-          },
+          'default|TG_LSTG_TSLA||': quoteSnapshot,
         },
       })
     )
@@ -609,35 +605,51 @@ describe('PortfolioSnapshotWidgetBody', () => {
     expect(container.textContent).toContain('-10.00%')
   })
 
-  it('keeps broker snapshot visible when market quotes fail', async () => {
-    mockUseMarketQuoteSnapshots.mockReturnValue(
-      createQueryResult({
-        error: new Error('quotes failed'),
-      })
+  it('reports quote failures and recovery while keeping the broker snapshot visible', async () => {
+    const widget = () => (
+      <PortfolioSnapshotWidgetBody
+        channelId='portfolio-snapshot-panel-1'
+        context={{ workspaceId: 'workspace-1' }}
+        widget={{ key: 'portfolio_snapshot' } as any}
+        panelId='panel-1'
+        onWidgetParamsPatch={mockOnWidgetParamsPatch}
+        params={{
+          provider: 'alpaca',
+          portfolioIdentity: selectedPortfolioIdentity,
+          selectedWindow: '1D',
+          marketProvider: 'alpaca',
+        }}
+      />
     )
-
-    await act(async () => {
-      root.render(
-        <PortfolioSnapshotWidgetBody
-          channelId='portfolio-snapshot-panel-1'
-          context={{ workspaceId: 'workspace-1' }}
-          widget={{ key: 'portfolio_snapshot' } as any}
-          panelId='panel-1'
-          onWidgetParamsPatch={mockOnWidgetParamsPatch}
-          params={{
-            provider: 'alpaca',
-            portfolioIdentity: selectedPortfolioIdentity,
-            selectedWindow: '1D',
-            marketProvider: 'alpaca',
-          }}
-        />
+    for (const failure of [
+      { error: new Error('quotes failed') },
+      {
+        data: {
+          'default|TG_LSTG_AAPL||': {
+            lastPrice: null,
+            previousClose: null,
+            change: null,
+            changePercent: null,
+            error: 'quotes failed',
+          },
+        },
+      },
+    ]) {
+      mockUseMarketQuoteSnapshots.mockReturnValue(
+        createQueryResult<QuoteQuery>({ data: {}, ...failure })
       )
-    })
-
-    expect(container.textContent).toContain('Performance')
-    expect(container.textContent).toContain('Current Summary')
-    expect(container.textContent).toContain('quotes failed')
-    expect(container.textContent).toContain('Quote Value')
+      await act(async () => root.render(widget()))
+      expect(container.textContent).toContain('Performance')
+      expect(container.textContent).toContain('Current Summary')
+      expect(container.textContent).toContain('quotes failed')
+      expect(container.textContent).toContain('Quote Value')
+    }
+    mockUseMarketQuoteSnapshots.mockReturnValue(
+      createQueryResult<QuoteQuery>({ data: { 'default|TG_LSTG_AAPL||': quoteSnapshot } })
+    )
+    await act(async () => root.render(widget()))
+    expect(container.textContent).not.toContain('quotes failed')
+    expect(container.textContent).toContain('$1,100.00')
   })
 
   it('renders the explicit performance unavailable state', async () => {

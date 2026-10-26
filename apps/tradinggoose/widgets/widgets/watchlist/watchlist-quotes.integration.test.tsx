@@ -131,7 +131,7 @@ describe('watchlist quote subscription to rendered rows', () => {
     expect(container.textContent).not.toContain('Loading quotes')
   })
 
-  it('displays errors on their own rows and clears them when quotes arrive', async () => {
+  it('keeps available prices visible with their own row errors and clears errors on recovery', async () => {
     await act(async () => root.render(widget('alpaca')))
     const requests = subscriptions()
     const aapl = requests.find((request) => request.listing.listing_id === apple.listing_id)
@@ -140,7 +140,7 @@ describe('watchlist quote subscription to rendered rows', () => {
       trigger('market-quote-snapshot', {
         ...aapl,
         snapshot: {
-          lastPrice: null,
+          lastPrice: 123.45,
           previousClose: null,
           change: null,
           changePercent: null,
@@ -151,7 +151,8 @@ describe('watchlist quote subscription to rendered rows', () => {
     })
     const appleRow = findRow(container, apple.listing_id)
     const microsoftRow = findRow(container, microsoft.listing_id)
-    expect(values(appleRow)).toEqual(['-', '-', '-'])
+    expect(values(appleRow)).toEqual(['123.45', '-', '-'])
+    expect(values(microsoftRow)).toEqual(['-', '-', '-'])
     expect(appleRow.querySelector('[role="alert"]')?.textContent).toBe('Apple snapshot failed')
     expect(appleRow.textContent).not.toContain('Microsoft subscription failed')
     expect(microsoftRow.querySelector('[role="alert"]')?.textContent).toBe(

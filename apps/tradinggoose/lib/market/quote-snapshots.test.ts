@@ -51,6 +51,7 @@ describe('market quote normalization', () => {
         volume: 20,
         volumeUsd: 2200,
         lastPriceTime: '2026-10-26T15:59:00Z',
+        timezone: 'America/New_York',
         regularSession: { start: session.start, end: session.end },
       })
       regular.bars[0].close = 112
@@ -70,7 +71,7 @@ describe('market quote normalization', () => {
         {
           interval: '1d',
           windows: [{ mode: 'range', range: { value: 14, unit: 'day' } }],
-          mode: 'raw',
+          mode: 'split_adjusted',
           session: 'regular',
         },
         {
@@ -145,21 +146,28 @@ describe('market quote normalization', () => {
     expect(await snapshot()).toMatchObject({ previousClose: 100, change: 10 })
   })
 
-  it('keeps crypto native updates within one UTC day', async () => {
-    daily.bars = [{ timeStamp: '2026-10-25T00:00:00Z', close: 100 }]
-    regular.bars = [{ timeStamp: '2026-10-26T00:30:00Z', close: 110 }]
-    regular.marketSessions = undefined
-    expect(
-      await buildMarketQuoteSnapshot({
+  it.each(['crypto', 'currency'] as const)(
+    'uses the UTC day for %s daily change',
+    async (listingType) => {
+      daily.bars = [{ timeStamp: '2026-10-25T00:00:00Z', close: 100 }]
+      regular.bars = [{ timeStamp: '2026-10-26T00:30:00Z', close: 110 }]
+      regular.marketSessions = undefined
+      const quote = await buildMarketQuoteSnapshot({
         provider: 'alpaca',
-        listing: { listing_id: '', base_id: 'BTC', quote_id: 'USD', listing_type: 'crypto' },
+        listing: { listing_id: '', base_id: 'BTC', quote_id: 'USD', listing_type: listingType },
       })
-    ).toMatchObject({
-      previousClose: 100,
-      change: 10,
-      regularSession: { start: '2026-10-26T00:00:00.000Z', end: '2026-10-27T00:00:00.000Z' },
-    })
-  })
+      expect(quote).toMatchObject({
+        previousClose: 100,
+        change: 10,
+        timezone: 'UTC',
+      })
+      expect(quote.regularSession).toBeUndefined()
+      expect(execute.mock.calls.map(([, request]) => request.normalizationMode)).toEqual([
+        'raw',
+        'raw',
+      ])
+    }
+  )
 
   it('constructs unavailable values and preserves zero without dividing by zero', () => {
     expect(createMarketQuoteSnapshot({ error: 'Unavailable' })).toEqual({

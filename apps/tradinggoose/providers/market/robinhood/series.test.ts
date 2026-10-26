@@ -104,11 +104,16 @@ describe('Robinhood market provider and MCP boundary', () => {
     )
   })
 
-  it.each([false, true])('normalizes authenticated MCP data (text=%s)', async (text) => {
+  it.each([
+    [false, 'raw', 'none'],
+    [true, 'raw', 'none'],
+    [false, 'split_adjusted', 'split'],
+    [true, 'split_adjusted', 'split'],
+  ] as const)('normalizes MCP data (text=%s, mode=%s)', async (text, mode, adjustment) => {
     sdk.callTool.mockResolvedValue(mcpResult(history([null, rawBar()]), text))
     const result = await fetchRobinhoodSeries({
       ...request,
-      normalizationMode: 'raw',
+      normalizationMode: mode,
       providerParams: { marketSession: 'extended' },
     })
     expect(sdk.transport).toHaveBeenCalledWith(
@@ -123,7 +128,7 @@ describe('Robinhood market provider and MCP boundary', () => {
         symbols: ['AAPL'],
         interval: 'minute',
         bounds: 'extended',
-        adjustment_type: 'none',
+        adjustment_type: adjustment,
         start_time: '2026-09-09T14:00:00.000Z',
         end_time: '2026-09-09T15:00:00.000Z',
       },
@@ -132,7 +137,7 @@ describe('Robinhood market provider and MCP boundary', () => {
       listing: request.listing,
       marketCode: 'NASDAQ',
       listingQuote: 'USD',
-      normalizationMode: 'raw',
+      normalizationMode: mode,
       bars: [
         {
           timeStamp: '2026-09-09T14:30:00.000Z',

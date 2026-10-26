@@ -1,11 +1,6 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { alphaVantageProviderConfig } from '@/providers/market/alpha-vantage/config'
-import type {
-  MarketBar,
-  MarketSeries,
-  MarketSeriesRequest,
-  NormalizationMode,
-} from '@/providers/market/types'
+import type { MarketBar, MarketSeries, MarketSeriesRequest } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 
 const logger = createLogger('MarketProvider:AlphaVantage')
@@ -29,8 +24,6 @@ const OUTPUTSIZE_FUNCTIONS = new Set([
   'CRYPTO_INTRADAY',
 ])
 
-type SeriesType = 'equity' | 'fx' | 'crypto' | 'digital'
-
 function resolveInterval(request: MarketSeriesRequest): string {
   return (
     request.interval || (request.providerParams?.interval as string | undefined) || DEFAULT_INTERVAL
@@ -39,10 +32,6 @@ function resolveInterval(request: MarketSeriesRequest): string {
 
 function isIntradayInterval(interval: string): interval is keyof typeof INTRADAY_INTERVAL_MAP {
   return Object.hasOwn(INTRADAY_INTERVAL_MAP, interval)
-}
-
-function shouldUseAdjusted(mode?: NormalizationMode): boolean {
-  return Boolean(mode && mode !== 'raw')
 }
 
 function resolveEquityFunction(
@@ -81,20 +70,18 @@ function resolveFxFunction(interval: string): { functionName: string; intervalPa
 function resolveCryptoFunction(interval: string): {
   functionName: string
   intervalParam?: string
-  type: SeriesType
 } {
   if (isIntradayInterval(interval)) {
     return {
       functionName: 'CRYPTO_INTRADAY',
       intervalParam: INTRADAY_INTERVAL_MAP[interval],
-      type: 'crypto',
     }
   }
 
-  if (interval === '1w') return { functionName: 'DIGITAL_CURRENCY_WEEKLY', type: 'digital' }
-  if (interval === '1mo') return { functionName: 'DIGITAL_CURRENCY_MONTHLY', type: 'digital' }
+  if (interval === '1w') return { functionName: 'DIGITAL_CURRENCY_WEEKLY' }
+  if (interval === '1mo') return { functionName: 'DIGITAL_CURRENCY_MONTHLY' }
 
-  return { functionName: 'DIGITAL_CURRENCY_DAILY', type: 'digital' }
+  return { functionName: 'DIGITAL_CURRENCY_DAILY' }
 }
 
 function extractSeries(payload: Record<string, any>): Record<string, any> | undefined {
@@ -139,27 +126,6 @@ function readField(entry: Record<string, any>, key: string): number | undefined 
   return parseNumber(entry[key])
 }
 
-function parseStandardBar(
-  entry: Record<string, any>,
-  useAdjusted: boolean
-): { open?: number; high?: number; low?: number; close?: number; volume?: number } {
-  const closeRaw = readField(entry, '4. close')
-  const adjustedClose = readField(entry, '5. adjusted close')
-  const close = useAdjusted ? (adjustedClose ?? closeRaw) : closeRaw
-
-  const volume = useAdjusted
-    ? (readField(entry, '6. volume') ?? readField(entry, '5. volume'))
-    : readField(entry, '5. volume')
-
-  return {
-    open: readField(entry, '1. open'),
-    high: readField(entry, '2. high'),
-    low: readField(entry, '3. low'),
-    close,
-    volume,
-  }
-}
-
 function parseDigitalBar(
   entry: Record<string, any>,
   market: string
@@ -200,36 +166,48 @@ function parseDigitalBar(
 
 function parseBars(
   series: Record<string, any>,
-  type: SeriesType,
-  useAdjusted: boolean,
+  functionName: string,
+  normalizationMode: MarketSeriesRequest['normalizationMode'],
   market: string,
   formatter: Intl.DateTimeFormat
 ): MarketBar[] {
   const bars: MarketBar[] = []
+  const adjusted = functionName.endsWith('_ADJUSTED')
+  const splitAdjusted = adjusted && normalizationMode === 'split_adjusted'
+  let splitRatio = 1
 
-  Object.entries(series).forEach(([timestamp, entry]) => {
+  for (const [timestamp, entry] of Object.entries(series).sort(([left], [right]) =>
+    right.localeCompare(left)
+  )) {
     const timeStamp = toIsoTimestamp(timestamp, formatter)
-    if (!timeStamp || !entry || typeof entry !== 'object') return
+    if (!timeStamp || !entry || typeof entry !== 'object') continue
 
-    const parsed =
-      type === 'digital'
-        ? parseDigitalBar(entry as Record<string, any>, market)
-        : parseStandardBar(entry as Record<string, any>, useAdjusted)
+    const parsed = functionName.startsWith('DIGITAL_CURRENCY_')
+      ? parseDigitalBar(entry, market)
+      : {
+          open: readField(entry, '1. open'),
+          high: readField(entry, '2. high'),
+          low: readField(entry, '3. low'),
+          close: readField(entry, adjusted && !splitAdjusted ? '5. adjusted close' : '4. close'),
+          volume: readField(entry, adjusted ? '6. volume' : '5. volume'),
+        }
 
-    if (parsed.close == null) return
+    if (splitAdjusted) {
+      const coefficient = readField(entry, '8. split coefficient')
+      if (coefficient === undefined || coefficient <= 0) {
+        throw new Error('Alpha Vantage daily data is missing a valid split coefficient')
+      }
+      for (const field of ['open', 'high', 'low', 'close'] as const) {
+        if (parsed[field] !== undefined) parsed[field] /= splitRatio
+      }
+      if (parsed.volume !== undefined) parsed.volume *= splitRatio
+      splitRatio *= coefficient
+    }
 
-    bars.push({
-      timeStamp,
-      open: parsed.open,
-      high: parsed.high,
-      low: parsed.low,
-      close: parsed.close,
-      volume: parsed.volume,
-    })
-  })
+    if (parsed.close !== undefined) bars.push({ ...parsed, timeStamp, close: parsed.close })
+  }
 
-  bars.sort((a, b) => new Date(a.timeStamp).getTime() - new Date(b.timeStamp).getTime())
-  return bars
+  return bars.reverse()
 }
 
 function filterBarsByRange(
@@ -259,11 +237,10 @@ export async function fetchAlphaVantageSeries(request: MarketSeriesRequest): Pro
   const context = await resolveListingContext(request.listing)
   const assetClass = context.assetClass
   const interval = resolveInterval(request)
-  const useAdjusted = shouldUseAdjusted(request.normalizationMode)
+  const useAdjusted = Boolean(request.normalizationMode && request.normalizationMode !== 'raw')
 
-  let functionName = ''
+  let functionName: string
   let intervalParam: string | undefined
-  let seriesType: SeriesType = 'equity'
   let symbolParam: Record<string, string> = {}
 
   if (assetClass === 'currency') {
@@ -273,7 +250,6 @@ export async function fetchAlphaVantageSeries(request: MarketSeriesRequest): Pro
     const resolved = resolveFxFunction(interval)
     functionName = resolved.functionName
     intervalParam = resolved.intervalParam
-    seriesType = 'fx'
     symbolParam = {
       from_symbol: context.base,
       to_symbol: context.quote,
@@ -285,22 +261,19 @@ export async function fetchAlphaVantageSeries(request: MarketSeriesRequest): Pro
     const resolved = resolveCryptoFunction(interval)
     functionName = resolved.functionName
     intervalParam = resolved.intervalParam
-    seriesType = resolved.type
     symbolParam = {
       symbol: context.base,
       market: context.quote,
     }
   } else {
+    if (request.normalizationMode === 'split_adjusted' && interval !== '1d') {
+      throw new Error('Alpha Vantage split-adjusted equity data requires the daily interval')
+    }
     const symbol = resolveProviderSymbol(alphaVantageProviderConfig, context)
     const resolved = resolveEquityFunction(interval, useAdjusted)
     functionName = resolved.functionName
     intervalParam = resolved.intervalParam
-    seriesType = 'equity'
     symbolParam = { symbol }
-  }
-
-  if (!functionName) {
-    throw new Error('Unsupported Alpha Vantage series request')
   }
 
   const seriesEndpoint =
@@ -320,6 +293,9 @@ export async function fetchAlphaVantageSeries(request: MarketSeriesRequest): Pro
 
   if (intervalParam) {
     url.searchParams.set('interval', intervalParam)
+  }
+  if (functionName === 'TIME_SERIES_INTRADAY') {
+    url.searchParams.set('adjusted', String(useAdjusted))
   }
 
   if (OUTPUTSIZE_FUNCTIONS.has(functionName)) {
@@ -365,7 +341,7 @@ export async function fetchAlphaVantageSeries(request: MarketSeriesRequest): Pro
     timeZone: timezone,
     timeZoneName: 'longOffset',
   })
-  const bars = parseBars(series, seriesType, useAdjusted, market, formatter)
+  const bars = parseBars(series, functionName, request.normalizationMode, market, formatter)
   const filteredBars = filterBarsByRange(bars, request.start, request.end)
 
   if (!filteredBars.length) {

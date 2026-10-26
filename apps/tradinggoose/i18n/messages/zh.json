@@ -21925,7 +21925,6 @@
           "failedToLoadTradingProviders": "无法加载交易提供商。",
           "failedToLoadBrokerAccounts": "无法加载券商账户。",
           "failedToLoadPortfolioSnapshot": "无法加载投资组合快照。",
-          "failedToLoadMarketQuotes": "无法加载市场报价。",
           "failedToLoadPerformanceHistory": "无法加载绩效历史。",
           "performance": "绩效",
           "performanceWindow": "绩效窗口",

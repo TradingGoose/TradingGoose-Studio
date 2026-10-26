@@ -151,11 +151,9 @@ export async function fetchAlpacaSeries(request: MarketSeriesRequest): Promise<M
   if (market === 'stocks') {
     if (feed) url.searchParams.set('feed', feed)
 
-    const adjustment =
-      (request.providerParams?.adjustment as string | undefined) ||
-      (request.normalizationMode
-        ? NORMALIZATION_TO_ADJUSTMENT[request.normalizationMode]
-        : undefined)
+    const adjustment = request.normalizationMode
+      ? NORMALIZATION_TO_ADJUSTMENT[request.normalizationMode]
+      : undefined
     if (adjustment) url.searchParams.set('adjustment', adjustment)
   }
 

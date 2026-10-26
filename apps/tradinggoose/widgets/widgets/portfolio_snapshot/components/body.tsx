@@ -369,25 +369,22 @@ export function PortfolioSnapshotWidgetBody({
   const currency = performance?.summary?.currency ?? snapshot.baseCurrency ?? 'USD'
   const activeWindows = supportedWindows
   const quoteErrorMessage =
-    quoteSnapshotsQuery.error instanceof Error
-      ? quoteSnapshotsQuery.error.message
-      : quoteSnapshotsQuery.error
-        ? copy.failedToLoadMarketQuotes
-        : null
+    quoteSnapshotsQuery.error?.message ??
+    Object.values(quoteSnapshotsQuery.data).find((quote) => quote.error)?.error ??
+    null
   const quoteSummary = cappedQuotePositions.reduce(
     (summary, position) => {
       const quote = quoteSnapshotsQuery.data?.[position.key]
       const lastPrice = quote?.lastPrice
       const previousClose = quote?.previousClose
       const change = quote?.change
-      if (!isFiniteNumber(lastPrice) || !isFiniteNumber(previousClose)) {
+      if (!isFiniteNumber(lastPrice) || !isFiniteNumber(previousClose) || !isFiniteNumber(change)) {
         return summary
       }
 
-      const perUnitDayChange = isFiniteNumber(change) ? change : lastPrice - previousClose
       summary.quoteValue += lastPrice * position.grossQuantity
       summary.previousValue += previousClose * position.grossQuantity
-      summary.dayChange += perUnitDayChange * position.signedQuantity
+      summary.dayChange += change * position.signedQuantity
       summary.quotedPositions += 1
       return summary
     },

@@ -2,6 +2,7 @@
  * @vitest-environment node
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createMarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
 
 const {
   getEffectiveDecryptedEnvMock,
@@ -156,6 +157,7 @@ const quoteSnapshot = {
 const regularSnapshot = {
   ...quoteSnapshot,
   lastPriceTime: '2026-10-26T15:00:00.000Z',
+  timezone: 'America/New_York',
   regularSession: {
     start: '2026-10-26T13:30:00.000Z',
     end: '2026-10-26T20:00:00.000Z',
@@ -273,6 +275,7 @@ describe('MarketStreamManager quote snapshots', () => {
       listing,
       base: 'AAPL',
       assetClass: 'stock',
+      timeZoneName: 'America/New_York',
     })
     resolveProviderSymbolMock.mockReturnValue('AAPL')
   })
@@ -477,18 +480,127 @@ describe('MarketStreamManager quote snapshots', () => {
       ).toHaveLength(3)
       await vi.advanceTimersByTimeAsync(15_000)
       expect(quote()).toMatchObject({ lastPrice: 132, previousClose: 120, change: 12 })
+      buildMarketQuoteSnapshotMock.mockRejectedValueOnce(new Error('Historical access denied'))
+      await vi.advanceTimersByTimeAsync(15_000)
+      expect(quote()).toMatchObject({ lastPrice: 132, previousClose: null })
+      socket.emit.mockClear()
+      trade(200, '2026-10-26T20:01:00Z')
+      expect(quote()).toBeUndefined()
+      trade(133, '2026-10-27T14:00:00Z')
+      expect(quote()).toMatchObject({ lastPrice: 133, previousClose: null, change: null })
       buildMarketQuoteSnapshotMock.mockResolvedValue({
         lastPrice: 130,
         previousClose: 129,
         change: 1,
         changePercent: 100 / 129,
         lastPriceTime: '2026-10-27T15:00:00Z',
+        timezone: 'America/New_York',
         regularSession: { start: '2026-10-27T13:30:00Z', end: '2026-10-27T20:00:00Z' },
       })
       await vi.advanceTimersByTimeAsync(15_000)
       trade(132, '2026-10-27T15:01:00Z')
       expect(quote()).toMatchObject({ lastPrice: 132, previousClose: 129, change: 3 })
       expect(executeProviderRequestMock).not.toHaveBeenCalled()
+      manager.removeSocket(socket.id)
+    }
+  )
+
+  it.each(['alpaca', 'finnhub'])(
+    'keeps %s live prices before seeding and through historical failures',
+    async (provider) => {
+      vi.useFakeTimers()
+      const manager = new MarketStreamManager()
+      const socket = createSocket('socket-1')
+      let rejectSeed!: (error: Error) => void
+      buildMarketQuoteSnapshotMock
+        .mockRejectedValue(new Error('Historical access denied'))
+        .mockReturnValueOnce(
+          new Promise((_, reject) => {
+            rejectSeed = reject
+          })
+        )
+      await manager.subscribe(socket, nativeQuotePayload(provider))
+      const stream = (provider === 'alpaca' ? alpacaStreamInstances : finnhubStreamInstances)[0]
+      const quote = () =>
+        socket.emit.mock.calls
+          .filter(([event]: [string]) => event === 'market-quote-snapshot')
+          .at(-1)![1].snapshot
+      const trade = (price: number, timeStamp: string) =>
+        stream.handlers.onTrade({ symbol: 'AAPL', trade: { price, timeStamp } })
+      trade(123.45, '2026-10-26T15:01:00Z')
+      expect(quote()).toMatchObject({ lastPrice: 123.45, previousClose: null, change: null })
+      rejectSeed(new Error('Historical access denied'))
+      await vi.advanceTimersByTimeAsync(0)
+      expect(quote()).toMatchObject({ lastPrice: 123.45, error: 'Historical access denied' })
+      trade(126, '2026-10-26T15:02:00Z')
+      await vi.advanceTimersByTimeAsync(15_000)
+      expect(quote()).toMatchObject({
+        lastPrice: 126,
+        previousClose: null,
+        change: null,
+        error: 'Historical access denied',
+      })
+      buildMarketQuoteSnapshotMock.mockResolvedValue(regularSnapshot)
+      await vi.advanceTimersByTimeAsync(15_000)
+      expect(quote()).toMatchObject({ lastPrice: 126, previousClose: 120, change: 6 })
+      expect(quote().error).toBeUndefined()
+      manager.removeSocket(socket.id)
+    }
+  )
+
+  it.each(['currency', 'crypto'] as const)(
+    'updates %s prices across UTC days without reusing an obsolete baseline',
+    async (listing_type) => {
+      vi.useFakeTimers()
+      const pair = { listing_id: '', base_id: 'EUR', quote_id: 'USD', listing_type }
+      resolveListingContextMock.mockResolvedValue({
+        listing: pair,
+        base: 'EUR',
+        quote: 'USD',
+        assetClass: listing_type,
+      })
+      const seed = createMarketQuoteSnapshot({
+        lastPrice: 1.08,
+        previousClose: 1.07,
+        lastPriceTime: '2026-10-26T23:58:00Z',
+        timezone: 'UTC',
+        volume: 100,
+      })
+      buildMarketQuoteSnapshotMock.mockResolvedValue(seed)
+      const manager = new MarketStreamManager()
+      const socket = createSocket('socket-1')
+      await manager.subscribe(socket, { ...nativeQuotePayload('finnhub'), listing: pair })
+      await vi.advanceTimersByTimeAsync(0)
+      const quote = () =>
+        socket.emit.mock.calls
+          .filter(([event]: [string]) => event === 'market-quote-snapshot')
+          .at(-1)![1].snapshot
+      const trade = (price: number, timeStamp: string) =>
+        finnhubStreamInstances[0].handlers.onTrade({ symbol: 'AAPL', trade: { price, timeStamp } })
+      trade(1.09, '2026-10-26T23:59:00Z')
+      expect(quote().lastPrice).toBe(1.09)
+      expect(quote().change).toBeCloseTo(0.02)
+      expect(quote().volumeUsd).toBeCloseTo(109)
+      trade(1.1, '2026-10-27T00:01:00Z')
+      await vi.advanceTimersByTimeAsync(15_000)
+      expect(quote()).toMatchObject({
+        lastPrice: 1.1,
+        previousClose: null,
+        change: null,
+        timezone: 'UTC',
+      })
+      expect(quote().volumeUsd).toBeUndefined()
+      buildMarketQuoteSnapshotMock.mockResolvedValue(
+        createMarketQuoteSnapshot({
+          lastPrice: 1.1,
+          previousClose: 1.09,
+          lastPriceTime: '2026-10-27T00:00:00Z',
+          timezone: 'UTC',
+        })
+      )
+      await vi.advanceTimersByTimeAsync(15_000)
+      expect(quote().previousClose).toBe(1.09)
+      expect(quote().change).toBeCloseTo(0.01)
       manager.removeSocket(socket.id)
     }
   )
@@ -569,7 +681,7 @@ describe('MarketStreamManager quote snapshots', () => {
       'market-quote-snapshot',
       expect.objectContaining({
         snapshot: {
-          lastPrice: null,
+          lastPrice: quoteSnapshot.lastPrice,
           previousClose: null,
           change: null,
           changePercent: null,

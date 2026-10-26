@@ -141,6 +141,28 @@ describe('fetchAlpacaSeries bounds', () => {
   })
 
   it.each([
+    ['raw', 'split', 'raw'],
+    ['split_adjusted', 'raw', 'split'],
+    [undefined, 'split', null],
+  ] as const)(
+    'uses canonical normalization %s despite an opaque adjustment parameter',
+    async (normalizationMode, adjustment, expected) => {
+      mockResolveListingContext.mockResolvedValue({ listing: stockListing, assetClass: 'stock' })
+      mockResolveProviderSymbol.mockReturnValue('AAPL')
+      fetchMock.mockResolvedValue(barsResponse('AAPL'))
+      await fetchAlpacaSeries({
+        kind: 'series',
+        listing: stockListing,
+        interval: '1d',
+        normalizationMode,
+        auth: { apiKey: 'key', apiSecret: 'secret' },
+        providerParams: { adjustment },
+      })
+      expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get('adjustment')).toBe(expected)
+    }
+  )
+
+  it.each([
     ['1m', '2026-10-19T12:00:30.000Z', ['2026-10-19T11:59:00.000Z']],
     ['1m', '2026-10-19T12:00:30.000Z', ['2026-10-19T11:57:00.000Z']],
     ['1m', '2026-10-19T00:02:30.000Z', ['2026-10-18T23:57:00.000Z']],

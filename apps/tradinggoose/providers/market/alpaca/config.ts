@@ -76,9 +76,10 @@ const feedParam: MarketProviderParamDefinition = {
   id: 'feed',
   type: 'string',
   title: 'Feed',
-  description: 'Alpaca data feed (required for stock bars).',
+  description: 'Alpaca stock data feed (defaults to IEX).',
   placeholder: 'Select feed',
   required: true,
+  defaultValue: 'iex',
   visibility: 'user-only',
   inputType: 'dropdown',
   options: [

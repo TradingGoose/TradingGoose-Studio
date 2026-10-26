@@ -10,15 +10,17 @@ describe('market provider settings helpers', () => {
     expect(getMissingMarketProviderSettings('alpaca', undefined, undefined)).toEqual([
       'API Key',
       'API Secret',
-      'Feed',
     ])
     expect(
       getMissingMarketProviderSettings(
         'alpaca',
         { apiKey: '{{ ALPACA_API_KEY }}', apiSecret: 'secret' },
-        { feed: 'iex' }
+        undefined
       )
     ).toEqual([])
+    expect(getMissingMarketProviderSettings('alpaca', { apiKey: 'key' }, { feed: 'sip' })).toEqual([
+      'API Secret',
+    ])
     expect(getMissingMarketProviderSettings('finnhub', { apiKey: ' ' }, {})).toEqual(['API Key'])
     expect(getMissingMarketProviderSettings('robinhood', undefined, {})).toEqual([
       'Robinhood connection',
@@ -57,10 +59,10 @@ describe('market provider settings helpers', () => {
       sanitizeMarketProviderParamsForWidget('alpaca', {
         apiKey: '{{ ALPACA_API_KEY }}',
         apiSecret: 'raw',
-        feed: 'iex',
+        feed: 'sip',
       })
     ).toEqual({
-      feed: 'iex',
+      feed: 'sip',
     })
   })
 

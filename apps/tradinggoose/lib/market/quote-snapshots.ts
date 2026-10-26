@@ -1,14 +1,11 @@
 import type { ListingIdentity } from '@/lib/listing/identity'
 import {
   createMarketQuoteSnapshot,
+  getMarketQuoteDate,
   type MarketQuoteSnapshot,
 } from '@/lib/market/quote-snapshot-contract'
 import { executeProviderRequest } from '@/providers/market'
-import type {
-  MarketBar,
-  MarketProviderRequestContext,
-  MarketSeries,
-} from '@/providers/market/types'
+import type { MarketProviderRequestContext, MarketSeries } from '@/providers/market/types'
 
 export const buildMarketQuoteSnapshot = async ({
   provider,
@@ -38,7 +35,8 @@ export const buildMarketQuoteSnapshot = async ({
             listing,
             interval,
             windows: [{ mode: 'range', range: { value: days, unit: 'day' } }],
-            normalizationMode: 'raw',
+            normalizationMode:
+              interval === '1d' && listing.listing_type === 'default' ? 'split_adjusted' : 'raw',
             auth,
             providerParams: { ...providerParams, marketSession: 'regular' },
           },
@@ -46,20 +44,8 @@ export const buildMarketQuoteSnapshot = async ({
         )) as MarketSeries
     )
   )
-  const timeZone = listing.listing_type === 'default' ? regular.timezone : 'UTC'
-  if (!timeZone) throw new Error('Market series timezone is required')
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  })
-  const tradingDate = (bar: MarketBar) => {
-    const parts = Object.fromEntries(
-      formatter.formatToParts(new Date(bar.timeStamp)).map(({ type, value }) => [type, value])
-    )
-    return `${parts.year}-${parts.month}-${parts.day}`
-  }
+  const timezone = listing.listing_type === 'default' ? regular.timezone : 'UTC'
+  if (!timezone) throw new Error('Market series timezone is required')
   const sessions = regular.marketSessions?.filter(({ type }) => type === 'market') ?? []
   const priceBar = regular.bars
     .filter(
@@ -72,26 +58,22 @@ export const buildMarketQuoteSnapshot = async ({
     )
     .at(-1)
   if (!priceBar) throw new Error('No regular-session price available')
-  const priceDate = tradingDate(priceBar)
+  const priceDate = getMarketQuoteDate(priceBar.timeStamp, timezone)
   const dailyBars = [...daily.bars].reverse()
-  const previousDaily = dailyBars.find((bar) => tradingDate(bar) < priceDate)
-  const volumeBar = dailyBars.find((bar) => tradingDate(bar) === priceDate)
+  const previousDaily = dailyBars.find(
+    (bar) => getMarketQuoteDate(bar.timeStamp, timezone) < priceDate
+  )
+  const volumeBar = dailyBars.find(
+    (bar) => getMarketQuoteDate(bar.timeStamp, timezone) === priceDate
+  )
   const session = sessions.find(({ date }) => date === priceDate)
-  const regularSession =
-    listing.listing_type === 'crypto'
-      ? {
-          start: `${priceDate}T00:00:00.000Z`,
-          end: new Date(Date.parse(`${priceDate}T00:00:00Z`) + 86_400_000).toISOString(),
-        }
-      : session
-        ? { start: session.start, end: session.end }
-        : undefined
   return createMarketQuoteSnapshot({
     lastPrice: priceBar.close,
     previousClose: previousDaily?.close,
     lastPriceTime: priceBar.timeStamp,
+    timezone,
     volume: volumeBar?.volume,
-    ...(regularSession ? { regularSession } : {}),
+    ...(session ? { regularSession: { start: session.start, end: session.end } } : {}),
     ...(!previousDaily ? { error: 'Previous regular-session close is unavailable' } : {}),
   })
 }

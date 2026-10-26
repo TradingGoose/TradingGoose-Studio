@@ -21938,7 +21938,6 @@
           "failedToLoadTradingProviders": "No se pudieron cargar los proveedores de trading.",
           "failedToLoadBrokerAccounts": "No se pudieron cargar las cuentas de broker.",
           "failedToLoadPortfolioSnapshot": "No se pudo cargar el resumen de cartera.",
-          "failedToLoadMarketQuotes": "No se pudieron cargar las cotizaciones de mercado.",
           "failedToLoadPerformanceHistory": "No se pudo cargar el historial de rendimiento.",
           "performance": "Rendimiento",
           "performanceWindow": "Ventana de rendimiento",

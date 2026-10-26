@@ -29,21 +29,6 @@ type HeatmapTreemapChartProps = {
   onListingSelect?: (listing: HeatmapTreemapInputItem['listing']) => void
 }
 
-const resolveQuoteChange = (quote: HeatmapTreemapInputItem['quote']) => {
-  if (typeof quote?.change === 'number' && Number.isFinite(quote.change)) {
-    return quote.change
-  }
-  if (
-    typeof quote?.lastPrice === 'number' &&
-    Number.isFinite(quote.lastPrice) &&
-    typeof quote.previousClose === 'number' &&
-    Number.isFinite(quote.previousClose)
-  ) {
-    return quote.lastPrice - quote.previousClose
-  }
-  return undefined
-}
-
 const resolveTileIconSize = (width: number, height: number) => {
   const minDimension = Math.min(width, height)
   if (minDimension < 24) return 0
@@ -188,7 +173,7 @@ const HeatmapTileButton = ({
   const sourceText = tile.sourceLabels?.length ? tile.sourceLabels.join(', ') : 'Source'
   const lastPriceText = formatHeatmapPrice(tile.quote?.lastPrice)
   const previousCloseText = formatHeatmapPrice(tile.quote?.previousClose)
-  const changeText = formatHeatmapChange(resolveQuoteChange(tile.quote))
+  const changeText = formatHeatmapChange(tile.quote?.change)
   const percentText = formatHeatmapPercent(tile.quote?.changePercent)
   const quoteText = tile.quote?.error
     ? tile.quote.error

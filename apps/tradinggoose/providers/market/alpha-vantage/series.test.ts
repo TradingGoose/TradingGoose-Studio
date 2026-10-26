@@ -157,6 +157,7 @@ describe('fetchAlphaVantageSeries', () => {
         apiKey: 'request-key',
       },
       interval,
+      normalizationMode: 'raw',
       windows: [
         {
           mode: 'absolute',
@@ -184,6 +185,9 @@ describe('fetchAlphaVantageSeries', () => {
         }),
       })
     )
+    if (interval === '1m') {
+      expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get('adjusted')).toBe('false')
+    }
   })
 
   it.each([
@@ -217,6 +221,75 @@ describe('fetchAlphaVantageSeries', () => {
           bars: [{ timeStamp: `${date}T${expected}:00.000Z`, close: 101 }],
         })
       }
+    }
+  )
+
+  it.each([
+    ['forward split', 2, 200, 100],
+    ['reverse split', 0.2, 20, 100],
+    ['cash dividend', 1, 100, 99],
+  ])(
+    'uses split-only prices across a %s, including events outside the requested range',
+    async (_event, coefficient, priorClose, currentClose) => {
+      const candle = (close: number, split: number) => ({
+        '1. open': String(close),
+        '2. high': String(close),
+        '3. low': String(close),
+        '4. close': String(close),
+        '5. adjusted close': '42',
+        '6. volume': '10',
+        '7. dividend amount': '1',
+        '8. split coefficient': String(split),
+      })
+      fetchMock.mockResolvedValue(
+        Response.json({
+          'Meta Data': { '5. Time Zone': 'US/Eastern' },
+          'Time Series (Daily)': {
+            '2026-10-23': candle(priorClose, 1),
+            '2026-10-26': candle(currentClose, coefficient),
+          },
+        })
+      )
+      const { fetchAlphaVantageSeries } = await import('./series')
+      const result = await fetchAlphaVantageSeries({
+        kind: 'series',
+        listing: { listing_id: 'AAPL', base_id: '', quote_id: '', listing_type: 'default' },
+        auth: { apiKey: 'key' },
+        interval: '1d',
+        normalizationMode: 'split_adjusted',
+        start: '2026-10-23T00:00:00Z',
+        end: '2026-10-24T00:00:00Z',
+      })
+      expect(result.bars).toEqual([
+        {
+          timeStamp: '2026-10-23T04:00:00.000Z',
+          open: 100,
+          high: 100,
+          low: 100,
+          close: 100,
+          volume: 10 * coefficient,
+        },
+      ])
+      expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get('function')).toBe(
+        'TIME_SERIES_DAILY_ADJUSTED'
+      )
+    }
+  )
+
+  it.each(['1m', '1w', '1mo'])(
+    'rejects unsupported split-only %s equity data',
+    async (interval) => {
+      const { fetchAlphaVantageSeries } = await import('./series')
+      await expect(
+        fetchAlphaVantageSeries({
+          kind: 'series',
+          listing: { listing_id: 'AAPL', base_id: '', quote_id: '', listing_type: 'default' },
+          auth: { apiKey: 'key' },
+          interval,
+          normalizationMode: 'split_adjusted',
+        })
+      ).rejects.toThrow('split-adjusted equity data requires the daily interval')
+      expect(fetchMock).not.toHaveBeenCalled()
     }
   )
 

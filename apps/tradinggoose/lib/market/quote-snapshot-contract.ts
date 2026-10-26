@@ -6,11 +6,26 @@ export type MarketQuoteSnapshot = {
   volume?: number | null
   volumeUsd?: number | null
   lastPriceTime?: string
+  timezone?: string
   regularSession?: { start: string; end: string }
   error?: string
 }
 
 export const MARKET_QUOTE_SNAPSHOT_REQUEST_CAP = 200
+
+export const getMarketQuoteDate = (timestamp: string, timezone: string) => {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+      .formatToParts(new Date(timestamp))
+      .map(({ type, value }) => [type, value])
+  )
+  return `${parts.year}-${parts.month}-${parts.day}`
+}
 
 export const createMarketQuoteSnapshot = ({
   lastPrice = null,

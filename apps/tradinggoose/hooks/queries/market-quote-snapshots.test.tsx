@@ -152,7 +152,7 @@ describe('useMarketQuoteSnapshots', () => {
     expect(latest.a.data.first).toEqual(quote)
   })
 
-  it('gates required configuration only for active requests and allows Yahoo without credentials', async () => {
+  it('gates active requests by required credentials and accepts provider defaults', async () => {
     for (const provider of ['alpaca', 'finnhub', 'alpha-vantage', 'robinhood']) {
       await render({ provider, auth: undefined, providerParams: undefined })
       expect(latest.a.error?.message).toContain('Configure market provider settings:')
@@ -163,8 +163,11 @@ describe('useMarketQuoteSnapshots', () => {
       expect(latest.a.isFetching).toBe(false)
     }
     expect(subscriptions()).toHaveLength(0)
-    await render({ provider: 'yahoo-finance', auth: undefined, providerParams: undefined })
+    await render({ providerParams: undefined })
+    expect(latest.a.error).toBeNull()
     expect(subscriptions()).toHaveLength(2)
+    await render({ provider: 'yahoo-finance', auth: undefined, providerParams: undefined })
+    expect(subscriptions()).toHaveLength(4)
   })
 
   it('places canonical subscription and provider errors on their own rows and replaces them on recovery', async () => {

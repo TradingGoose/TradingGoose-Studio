@@ -57,7 +57,10 @@ export const getMissingMarketProviderSettings = (
       const value =
         definition.id === 'apiKey' || definition.id === 'apiSecret'
           ? auth?.[definition.id]
-          : providerParams?.[definition.id]
+          : (providerParams?.[definition.id] ??
+            (isMarketProviderCredentialDefinition(definition)
+              ? undefined
+              : definition.defaultValue))
       return value == null || (typeof value === 'string' && value.trim() === '')
     })
     .map((definition) => definition.title || definition.id)

@@ -6,6 +6,7 @@ import { type ListingIdentity, ListingIdentitySchema } from '@/lib/listing/ident
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   createMarketQuoteSnapshot,
+  getMarketQuoteDate,
   type MarketQuoteSnapshot,
 } from '@/lib/market/quote-snapshot-contract'
 import { buildMarketQuoteSnapshot } from '@/lib/market/quote-snapshots'
@@ -717,15 +718,22 @@ export class MarketStreamManager {
     const subscribers = state.subscribersBySymbol.get(symbol)
     if (!subscribers || subscribers.size === 0) return
 
-    const previousSnapshot = state.quoteSnapshotCache.get(symbol)
-    const quoteSnapshot = previousSnapshot && updateSnapshotFromTrade(previousSnapshot, trade)
-    if (quoteSnapshot && quoteSnapshot !== previousSnapshot) {
-      state.quoteSnapshotCache.set(symbol, quoteSnapshot)
+    const hasQuoteSnapshots = Array.from(subscribers.values()).some(
+      (entry) => entry.channel === 'quote-snapshots'
+    )
+    let quoteSnapshot: MarketQuoteSnapshot | undefined
+    if (hasQuoteSnapshots) {
+      const previous = state.quoteSnapshotCache.get(symbol) ?? createMarketQuoteSnapshot({})
+      const next = updateSnapshotFromTrade(previous, trade)
+      if (next !== previous) {
+        state.quoteSnapshotCache.set(symbol, next)
+        quoteSnapshot = next
+      }
     }
 
     subscribers.forEach((record) => {
       if (record.channel === 'quote-snapshots') {
-        if (quoteSnapshot && quoteSnapshot !== previousSnapshot) {
+        if (quoteSnapshot) {
           this.emitQuoteSnapshot(record, quoteSnapshot, raw)
         }
         return
@@ -955,7 +963,14 @@ export class MarketStreamManager {
               if (next.type === 'quote-snapshot') {
                 const message =
                   error instanceof Error ? error.message : 'Failed to poll quote snapshot'
-                const snapshot = createMarketQuoteSnapshot({ error: message })
+                const cached = streamState.quoteSnapshotCache.get(next.symbol)
+                const snapshot = createMarketQuoteSnapshot({
+                  lastPrice: cached?.lastPrice,
+                  lastPriceTime: cached?.lastPriceTime,
+                  timezone: cached?.timezone,
+                  regularSession: cached?.regularSession,
+                  error: message,
+                })
                 streamState.quoteSnapshotCache.set(next.symbol, snapshot)
                 this.emitQuoteSnapshotToSymbolSubscribers(streamState, next.symbol, snapshot)
                 continue
@@ -1279,25 +1294,37 @@ function createSubscriptionId({
 function updateSnapshotFromTrade(previous: MarketQuoteSnapshot, trade: any): MarketQuoteSnapshot {
   const price = resolveFiniteNumber(trade?.price)
   const tradeTime = Date.parse(trade?.timeStamp ?? '')
-  const sessionStart = Date.parse(previous.regularSession?.start ?? '')
-  const sessionEnd = Date.parse(previous.regularSession?.end ?? '')
   const previousTime = Date.parse(previous.lastPriceTime ?? '')
   if (
     price === null ||
     !Number.isFinite(tradeTime) ||
-    !Number.isFinite(sessionStart) ||
-    !Number.isFinite(sessionEnd) ||
-    tradeTime < sessionStart ||
-    tradeTime >= sessionEnd ||
     (Number.isFinite(previousTime) && tradeTime <= previousTime)
   ) {
     return previous
   }
 
+  const sessionStart = Date.parse(previous.regularSession?.start ?? '')
+  const sessionEnd = Date.parse(previous.regularSession?.end ?? '')
+  const inSession = tradeTime >= sessionStart && tradeTime < sessionEnd
+  const sameDay =
+    inSession ||
+    (previous.timezone &&
+      Number.isFinite(previousTime) &&
+      getMarketQuoteDate(previous.lastPriceTime!, previous.timezone) ===
+        getMarketQuoteDate(trade.timeStamp, previous.timezone))
+  if (previous.regularSession && !inSession && sameDay) return previous
+  const previousClose = sameDay ? previous.previousClose : null
+
   return createMarketQuoteSnapshot({
-    ...previous,
     lastPrice: price,
     lastPriceTime: trade.timeStamp,
+    timezone: previous.timezone,
+    previousClose,
+    volume: sameDay ? previous.volume : undefined,
+    regularSession: inSession ? previous.regularSession : undefined,
+    error:
+      previous.error ??
+      (previousClose === null ? 'Previous regular-session close is unavailable' : undefined),
   })
 }
 
