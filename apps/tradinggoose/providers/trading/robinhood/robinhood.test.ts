@@ -209,6 +209,10 @@ describe('Robinhood trading accounts and portfolio', () => {
       expect(position.marketValue).toBeUndefined()
       expect(position.unrealizedPnl).toBeUndefined()
     }
+    const output = JSON.parse(JSON.stringify(snapshot))
+    expect(output.positions[1]).not.toHaveProperty('averagePrice')
+    expect(output.summary).not.toHaveProperty('totalUnrealizedPnl')
+    expect(output).not.toHaveProperty('orders')
     expect(sdk.callTool.mock.calls.map(([request]) => request.arguments)).toEqual([
       { account_number: context.accountId },
       { account_number: context.accountId },

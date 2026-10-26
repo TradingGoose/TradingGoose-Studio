@@ -4,7 +4,6 @@ import type {
   UnifiedTradingAccountSummary,
   UnifiedTradingAccountType,
   UnifiedTradingCashBalance,
-  UnifiedTradingOrder,
   UnifiedTradingPosition,
 } from '@/providers/trading/types'
 
@@ -27,7 +26,6 @@ export type PortfolioDetail = PortfolioIdentity & {
   asOf: string
   cashBalances: UnifiedTradingCashBalance[]
   positions: UnifiedTradingPosition[]
-  orders: UnifiedTradingOrder[]
   summary: UnifiedTradingAccountSummary
 }
 

@@ -2,14 +2,11 @@ import type { TradingPortfolioDetailRequest } from '@/lib/trading/portfolio-deta
 import type { TradingPortfolioDetailResponse } from '@/providers/trading/types'
 import type { ToolConfig } from '@/tools/types'
 
-export const tradingPortfolioDetailTool: ToolConfig<
-  TradingPortfolioDetailRequest,
-  TradingPortfolioDetailResponse
-> = {
+export const tradingPortfolioDetailTool = {
   id: 'trading_get_portfolio_detail',
   name: 'Trading: Get Portfolio Detail',
   description:
-    'Fetch account summary, cash, positions, and orders from a connected trading provider.',
+    'Fetch account summary, cash, and supported position fields from a connected trading provider.',
   version: '1.0.0',
   execution: {
     workspace: { required: true, access: 'read' },
@@ -48,7 +45,7 @@ export const tradingPortfolioDetailTool: ToolConfig<
     provider: { type: 'string', description: 'Broker/provider used for the request.' },
     portfolioDetail: {
       type: 'json',
-      description: 'Canonical portfolio detail with cash, positions, and summary.',
+      description: 'Portfolio fields supported by the selected broker.',
     },
   },
-}
+} satisfies ToolConfig<TradingPortfolioDetailRequest, TradingPortfolioDetailResponse>

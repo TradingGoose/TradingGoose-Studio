@@ -4,6 +4,7 @@ import { AuthMode } from '@/blocks/types'
 import { requiredUserOnlyInput } from '@/blocks/utils'
 import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
 import type { TradingPortfolioDetailResponse } from '@/providers/trading/types'
+import { tradingPortfolioDetailTool } from '@/tools/trading/portfolio-detail'
 
 export const TradingPortfolioDetailBlock: BlockConfig<TradingPortfolioDetailResponse> = {
   type: 'portfolio_detail',
@@ -11,7 +12,7 @@ export const TradingPortfolioDetailBlock: BlockConfig<TradingPortfolioDetailResp
   description: 'Fetch full portfolio detail from a selected broker account.',
   authMode: AuthMode.OAuth,
   longDescription:
-    'Portfolio detail block that returns account summary, cash, positions, and orders from a connected trading provider.',
+    'Returns account summary, cash, and position fields supported by the selected trading provider.',
   category: 'tools',
   bgColor: '#115e59',
   icon: DollarIcon,
@@ -56,9 +57,5 @@ export const TradingPortfolioDetailBlock: BlockConfig<TradingPortfolioDetailResp
       'Canonical portfolioIdentity selected by the broker account field.'
     ),
   },
-  outputs: {
-    summary: { type: 'string', description: 'Status of portfolio detail retrieval' },
-    provider: { type: 'string', description: 'Provider used' },
-    portfolioDetail: { type: 'json', description: 'Canonical portfolio detail payload' },
-  },
+  outputs: tradingPortfolioDetailTool.outputs,
 }

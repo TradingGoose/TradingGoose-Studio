@@ -1,4 +1,5 @@
 import type { TradingProviderConfig } from '@/providers/trading/providers'
+import { BASE_PORTFOLIO_OUTPUTS } from '@/providers/trading/types'
 
 export const ROBINHOOD_MCP_URL = 'https://agent.robinhood.com/mcp/trading'
 
@@ -33,16 +34,7 @@ export const robinhoodTradingProviderConfig: TradingProviderConfig = {
     },
     portfolioDetail: {
       performanceWindows: [],
-      monitorMetrics: [
-        'summary.totalPortfolioValue',
-        'summary.totalCashValue',
-        'summary.totalHoldingsValue',
-        'summary.buyingPower',
-        'summary.equity',
-        'positions.count',
-        'position.quantity',
-        'position.exists',
-      ],
+      outputs: BASE_PORTFOLIO_OUTPUTS,
     },
   },
   rulePrecedence: { default: ['currency', 'assetClass', 'country', 'listing'] },

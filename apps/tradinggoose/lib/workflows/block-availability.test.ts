@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { getProviderIdsForBlocks, isBlockAvailable } from '@/lib/workflows/block-availability'
+import { TradingPortfolioDetailBlock } from '@/blocks/blocks/portfolio_detail'
+import { TradingActionBlock } from '@/blocks/blocks/trading_action'
 import type { BlockConfig } from '@/blocks/types'
+
+const tradingServiceIds = ['alpaca-live', 'alpaca-paper', 'tradier-live', 'robinhood']
 
 const onedriveBlock = {
   id: 'onedrive-block',
@@ -119,4 +123,16 @@ describe('block availability', () => {
     expect(isBlockAvailable(multiServiceBlock, { slack: false, reddit: false })).toBe(false)
     expect(isBlockAvailable(multiServiceBlock, { reddit: true })).toBe(true)
   })
+
+  it.each([TradingPortfolioDetailBlock, TradingActionBlock])(
+    'uses canonical trading service availability for $name',
+    (block) => {
+      expect(getProviderIdsForBlocks([block])).toEqual(tradingServiceIds)
+      expect(isBlockAvailable(block, {})).toBe(false)
+      expect(isBlockAvailable(block, { alpaca: true, tradier: true })).toBe(false)
+      for (const serviceId of tradingServiceIds) {
+        expect(isBlockAvailable(block, { [serviceId]: true })).toBe(true)
+      }
+    }
+  )
 })

@@ -1,5 +1,10 @@
 import { getOAuthProviderSubjectId } from '@/lib/oauth/oauth'
 import type { BlockConfig } from '@/blocks/types'
+import {
+  getAvailableTradingProviders,
+  getTradingProviderOAuthServiceIds,
+  getTradingProvidersByKind,
+} from '@/providers/trading/providers'
 
 export type ProviderAvailability = Record<string, boolean>
 
@@ -33,9 +38,19 @@ const getBlockOAuthProviderGroups = (block: BlockConfig) =>
     .map(getOAuthProviderSubjectIds)
     .filter((providerIds) => providerIds.length > 0)
 
+const getBlockTradingProviderKinds = (block: BlockConfig) =>
+  block.subBlocks
+    .filter((subBlock) => subBlock.type === 'trading-provider-selector' && !subBlock.condition)
+    .map((subBlock) => subBlock.tradingProviderKind ?? 'order')
+
 export const isBlockAvailable = (block: BlockConfig, availability: ProviderAvailability) => {
-  return getBlockOAuthProviderGroups(block).every((providerIds) =>
-    providerIds.some((providerId) => availability[providerId] === true)
+  return (
+    getBlockOAuthProviderGroups(block).every((providerIds) =>
+      providerIds.some((providerId) => availability[providerId] === true)
+    ) &&
+    getBlockTradingProviderKinds(block).every(
+      (kind) => getAvailableTradingProviders(availability, kind).length > 0
+    )
   )
 }
 
@@ -45,6 +60,13 @@ export const getProviderIdsForBlocks = (blocks: BlockConfig[]) => {
   for (const block of blocks) {
     for (const providerIds of getBlockOAuthProviderGroups(block)) {
       providerIds.forEach((providerId) => providers.add(providerId))
+    }
+    for (const kind of getBlockTradingProviderKinds(block)) {
+      for (const provider of getTradingProvidersByKind(kind)) {
+        getTradingProviderOAuthServiceIds(provider.id).forEach((providerId) =>
+          providers.add(providerId)
+        )
+      }
     }
   }
 

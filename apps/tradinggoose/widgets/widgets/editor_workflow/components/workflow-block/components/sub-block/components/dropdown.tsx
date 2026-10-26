@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { extractReferencePrefixes, isEnvironmentReference } from '@/lib/workflows/references'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import type { SubBlockConfig, SubBlockOption } from '@/blocks/types'
@@ -74,22 +75,12 @@ export function Dropdown({
   const copy = useWorkflowBlockEditorCopy().dropdown
   const [storeValue, setStoreValue] = useSubBlockValue<any>(blockId, subBlockId)
   const [storeInitialized, setStoreInitialized] = useState(false)
-  const previousModeRef = useRef<string | null>(null)
   const previousDependencyValuesRef = useRef<string>('')
   const blockAutoDefaultRef = useRef(false)
 
   // For response dataMode conversion - get builderData and data sub-blocks
   const [builderData, setBuilderData] = useSubBlockValue<any[]>(blockId, 'builderData')
   const [data, setData] = useSubBlockValue<string>(blockId, 'data')
-
-  // Keep refs with latest values to avoid stale closures
-  const builderDataRef = useRef(builderData)
-  const dataRef = useRef(data)
-
-  useEffect(() => {
-    builderDataRef.current = builderData
-    dataRef.current = data
-  }, [builderData, data])
 
   const resolvedConfig: SubBlockConfig = config ?? {
     id: subBlockId,
@@ -351,89 +342,81 @@ export function Dropdown({
     dependencyValues,
   ])
 
-  // Helper function to normalize variable references in JSON strings
-  const normalizeVariableReferences = (jsonString: string): string => {
-    // Replace unquoted variable references with quoted ones
-    // Pattern: <variable.name> -> "<variable.name>"
-    return jsonString.replace(/([^"]<[^>]+>)/g, '"$1"')
-  }
-
   // Helper function to convert JSON string to builder data format
-  const convertJsonToBuilderData = (jsonString: string): any[] => {
+  const convertJsonToBuilderData = (jsonString: string | null): any[] | undefined => {
+    if (!jsonString?.trim()) return []
     try {
-      // Always normalize variable references first
-      const normalizedJson = normalizeVariableReferences(jsonString)
+      const references = new Map<string, string>()
+      const normalizedJson = jsonString.replace(
+        /"(?:[^"\\]|\\.)*"|<[^>]+>|\{\{[^{}]+\}\}/g,
+        (token) => {
+          if (
+            token.startsWith('"') ||
+            (!extractReferencePrefixes(token).length && !isEnvironmentReference(token))
+          ) {
+            return token
+          }
+          const placeholder = crypto.randomUUID()
+          references.set(placeholder, token)
+          return JSON.stringify(placeholder)
+        }
+      )
       const parsed = JSON.parse(normalizedJson)
 
       if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
         return Object.entries(parsed).map(([key, value]) => {
-          const fieldType = inferType(value)
+          const fieldType = Array.isArray(value)
+            ? 'array'
+            : value === null
+              ? 'string'
+              : typeof value
           const fieldValue =
-            fieldType === 'object' || fieldType === 'array' ? JSON.stringify(value, null, 2) : value
+            fieldType === 'object' || fieldType === 'array'
+              ? JSON.stringify(value, null, 2).replace(
+                  /"(?:[^"\\]|\\.)*"/g,
+                  (token) => references.get(JSON.parse(token)) ?? token
+                )
+              : typeof value === 'string'
+                ? (references.get(value) ?? value)
+                : value
 
           return {
             id: crypto.randomUUID(),
-            name: key,
+            name: references.get(key) ?? key,
             type: fieldType,
             value: fieldValue,
+            ...(typeof value === 'string' &&
+            (references.has(value) ||
+              extractReferencePrefixes(value).some((reference) => reference.raw === value.trim()) ||
+              isEnvironmentReference(value))
+              ? { referenceQuoted: !references.has(value) }
+              : {}),
             collapsed: false,
           }
         })
       }
 
-      return []
+      return undefined
     } catch {
-      return []
+      return undefined
     }
   }
-
-  // Helper function to infer field type from value
-  const inferType = (value: any): 'string' | 'number' | 'boolean' | 'object' | 'array' => {
-    if (typeof value === 'boolean') return 'boolean'
-    if (typeof value === 'number') return 'number'
-    if (Array.isArray(value)) return 'array'
-    if (typeof value === 'object' && value !== null) return 'object'
-    return 'string'
-  }
-
-  // Handle data conversion when dataMode changes
-  useEffect(() => {
-    if (subBlockId !== 'dataMode' || disabled) return
-
-    const currentMode = storeValue
-    const previousMode = previousModeRef.current
-
-    // Only convert if the mode actually changed
-    if (previousMode !== null && previousMode !== currentMode) {
-      // Builder to Editor mode (structured → json)
-      if (currentMode === 'json' && previousMode === 'structured') {
-        const currentBuilderData = builderDataRef.current
-        if (
-          currentBuilderData &&
-          Array.isArray(currentBuilderData) &&
-          currentBuilderData.length > 0
-        ) {
-          const jsonString = ResponseBlockHandler.convertBuilderDataToJsonString(currentBuilderData)
-          setData(jsonString)
-        }
-      }
-      // Editor to Builder mode (json → structured)
-      else if (currentMode === 'structured' && previousMode === 'json') {
-        const currentData = dataRef.current
-        if (currentData && typeof currentData === 'string' && currentData.trim().length > 0) {
-          const builderArray = convertJsonToBuilderData(currentData)
-          setBuilderData(builderArray)
-        }
-      }
-    }
-
-    // Update the previous mode ref
-    previousModeRef.current = currentMode
-  }, [storeValue, subBlockId, disabled, setData, setBuilderData])
 
   // Event handlers
   const handleSelect = (selectedValue: any) => {
     if (!finalDisabled && useStore) {
+      if (
+        subBlockId === 'dataMode' &&
+        selectedValue !== storeValue &&
+        (storeValue === 'structured' || storeValue === 'json')
+      ) {
+        const rows = selectedValue === 'json' ? (builderData ?? []) : convertJsonToBuilderData(data)
+        if (rows === undefined) return
+        const json = ResponseBlockHandler.convertBuilderDataToJsonString(rows)
+        if (json === undefined) return
+        if (selectedValue === 'json') setData(json)
+        else setBuilderData(rows)
+      }
       setStoreValue(selectedValue)
     }
     if (onChange) {

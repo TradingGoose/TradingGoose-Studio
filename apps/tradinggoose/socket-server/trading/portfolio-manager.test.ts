@@ -31,6 +31,10 @@ const {
 vi.mock('@/lib/oauth/tokens', () => ({
   refreshAccessTokenIfNeeded: (...args: unknown[]) => refreshAccessTokenIfNeededMock(...args),
 }))
+vi.mock('@/lib/oauth/provider-availability.server', () => ({
+  getOAuthProviderAvailability: async (serviceIds: string[]) =>
+    Object.fromEntries(serviceIds.map((serviceId) => [serviceId, true])),
+}))
 vi.mock('@/lib/credentials/oauth', () => ({
   resolveOAuthConnectionAccountForUser: (...args: unknown[]) =>
     resolveOAuthConnectionAccountForUserMock(...args),
@@ -95,7 +99,6 @@ const portfolioDetail = {
       quantity: 2,
     },
   ],
-  orders: [],
   summary: {
     totalPortfolioValue: 1000,
     totalCashValue: 100,

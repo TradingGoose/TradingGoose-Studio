@@ -3,11 +3,14 @@
  */
 
 import { act, type ReactNode } from 'react'
+import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TradingAccountSelector } from '@/components/trading-selector/account-selector'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { oauthConnectionsKeys } from '@/hooks/queries/oauth-connections'
+import { oauthProviderAvailabilityKeys } from '@/hooks/queries/oauth-provider-availability'
 import { getPublicCopy } from '@/i18n/public-copy'
 import { formatTemplate } from '@/i18n/utils'
 import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
@@ -27,11 +30,21 @@ vi.mock('@/components/trading-selector/services', () => ({
 describe('TradingAccountSelector', () => {
   let container: HTMLDivElement
   let root: Root
+  let queryClient: QueryClient | undefined
   const selectedPortfolioIdentity: PortfolioIdentity = {
     providerId: 'alpaca',
     credentialId: 'oauth-credential-1',
     serviceId: 'alpaca-live',
     accountId: 'acct-1',
+  }
+  const queryState = { isLoading: false, isFetching: false, error: null, refetch: vi.fn() }
+  const services = {
+    ...queryState,
+    isSuccess: true,
+    isPaused: false,
+    serviceIds: ['alpaca-live', 'alpaca-paper'],
+    connectedServiceIds: ['alpaca-live'],
+    activeServiceId: 'alpaca-live',
   }
 
   beforeEach(() => {
@@ -43,15 +56,9 @@ describe('TradingAccountSelector', () => {
     document.body.appendChild(container)
     root = createRoot(container)
 
-    mockUseTradingServices.mockReturnValue({
-      serviceIds: ['alpaca-live', 'alpaca-paper'],
-      connectedServiceIds: ['alpaca-live'],
-      activeServiceId: 'alpaca-live',
-      isLoading: false,
-      error: null,
-      refetch: vi.fn(),
-    })
+    mockUseTradingServices.mockReturnValue(services)
     mockUsePortfolioIdentities.mockReturnValue({
+      ...queryState,
       data: [
         {
           ...selectedPortfolioIdentity,
@@ -71,10 +78,6 @@ describe('TradingAccountSelector', () => {
           baseCurrency: 'USD',
         },
       ],
-      isLoading: false,
-      isFetching: false,
-      error: null,
-      refetch: vi.fn(),
     })
   })
 
@@ -82,6 +85,10 @@ describe('TradingAccountSelector', () => {
     act(() => {
       root.unmount()
     })
+    queryClient?.clear()
+    queryClient = undefined
+    onlineManager.setOnline(true)
+    vi.restoreAllMocks()
     container.remove()
   })
 
@@ -206,6 +213,125 @@ describe('TradingAccountSelector', () => {
     expect(button?.textContent).toContain(copy.placeholder)
     expect(button?.textContent).not.toContain('stale-account-id')
   })
+
+  it.each([
+    ['valid account', {}, {}, {}, false],
+    [
+      'partial account list from another connection',
+      {},
+      { data: [{ ...selectedPortfolioIdentity, credentialId: 'oauth-credential-2' }] },
+      {},
+      false,
+    ],
+    ['shared account absent from viewer list', {}, { data: [] }, {}, false],
+    [
+      'shared service absent from viewer connections',
+      { connectedServiceIds: [], activeServiceId: undefined },
+      { data: undefined },
+      {},
+      false,
+    ],
+    ['globally unavailable service', { serviceIds: [] }, {}, {}, true],
+    ['opted out', { serviceIds: [] }, {}, { clearInvalidSelection: undefined }, false],
+    ['disabled', { serviceIds: [] }, {}, { disabled: true }, false],
+    ['service loading', { serviceIds: [], isSuccess: false, isLoading: true }, {}, {}, false],
+    ['service fetching', { serviceIds: [], isFetching: true }, {}, {}, false],
+    ['availability error', { serviceIds: [], error: new Error('lookup failed') }, {}, {}, false],
+  ] as const)('reconciles selection for %s', (_, servicePatch, accountPatch, props, invalid) => {
+    const onAccountSelect = vi.fn()
+    mockUseTradingServices.mockReturnValue({ ...services, ...servicePatch })
+    mockUsePortfolioIdentities.mockReturnValue({
+      ...queryState,
+      data: [selectedPortfolioIdentity],
+      ...accountPatch,
+    })
+    renderWithLocale(
+      'en',
+      <TradingAccountSelector
+        providerId='alpaca'
+        serviceId='alpaca-live'
+        portfolioIdentity={selectedPortfolioIdentity}
+        clearInvalidSelection
+        onAccountSelect={onAccountSelect}
+        {...props}
+      />
+    )
+    expect(onAccountSelect).toHaveBeenCalledTimes(invalid ? 1 : 0)
+    if (invalid) {
+      expect(onAccountSelect).toHaveBeenCalledWith({ serviceId: null, portfolioIdentity: null })
+    }
+  })
+
+  it.each([
+    ['initial request', false, false],
+    ['retry', true, false],
+    ['cached refetch', false, true],
+    ['cached retry', true, true],
+  ] as const)(
+    'preserves a saved account when the availability %s pauses offline',
+    async (_, initiallyOnline, cached) => {
+      const { useTradingServices } = await vi.importActual<
+        typeof import('@/components/trading-selector/services')
+      >('@/components/trading-selector/services')
+      mockUseTradingServices.mockImplementation(useTradingServices)
+      queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: 1, retryDelay: 0 } },
+      })
+      queryClient.setQueryData(oauthConnectionsKeys.connections(), [
+        { providerId: 'alpaca-live', isConnected: true },
+      ])
+      const availabilityKey = oauthProviderAvailabilityKeys.list(['alpaca-live', 'alpaca-paper'])
+      const cachedAvailability = { 'alpaca-live': false, 'alpaca-paper': false }
+      if (cached) queryClient.setQueryData(availabilityKey, cachedAvailability, { updatedAt: 1 })
+      onlineManager.setOnline(initiallyOnline)
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+        onlineManager.setOnline(false)
+        throw new Error('connection dropped')
+      })
+      const onAccountSelect = vi.fn()
+      renderWithLocale(
+        'en',
+        <QueryClientProvider client={queryClient}>
+          <TradingAccountSelector
+            providerId='alpaca'
+            serviceId='alpaca-live'
+            portfolioIdentity={selectedPortfolioIdentity}
+            clearInvalidSelection
+            onAccountSelect={onAccountSelect}
+          />
+        </QueryClientProvider>
+      )
+      await act(async () => {
+        await vi.waitFor(() => {
+          expect(queryClient!.getQueryState(availabilityKey)).toMatchObject({
+            status: cached ? 'success' : 'pending',
+            fetchStatus: 'paused',
+            data: cached ? cachedAvailability : undefined,
+            error: null,
+          })
+        })
+        await new Promise((resolve) => setTimeout(resolve, 0))
+      })
+      expect(fetchSpy).toHaveBeenCalledTimes(initiallyOnline ? 1 : 0)
+      expect(onAccountSelect).not.toHaveBeenCalled()
+      if (cached) {
+        const freshAvailability = { 'alpaca-live': true, 'alpaca-paper': true }
+        fetchSpy.mockResolvedValue(Response.json(freshAvailability))
+        await act(async () => {
+          onlineManager.setOnline(true)
+          await vi.waitFor(() => {
+            expect(queryClient!.getQueryState(availabilityKey)).toMatchObject({
+              status: 'success',
+              fetchStatus: 'idle',
+              data: freshAvailability,
+            })
+          })
+          await new Promise((resolve) => setTimeout(resolve, 0))
+        })
+        expect(onAccountSelect).not.toHaveBeenCalled()
+      }
+    }
+  )
 
   it('uses form input styling when requested', () => {
     const copy = getPublicCopy('en').workspace.widgets.providerControls.accountSelector
