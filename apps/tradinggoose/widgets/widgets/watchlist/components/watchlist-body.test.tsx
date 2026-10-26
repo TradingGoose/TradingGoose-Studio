@@ -10,11 +10,9 @@ import { WatchlistWidgetBody } from '@/widgets/widgets/watchlist/components/watc
 import { createWatchlistListingSortableId } from '@/widgets/widgets/watchlist/components/watchlist-reorder'
 
 const mockWatchlistTable = vi.fn()
-const mockRefetchQuotes = vi.fn()
 const mockSetWatchlistItems = vi.fn()
 const mockUseMarketQuoteSnapshots = vi.fn((_request: unknown) => ({
   data: {},
-  refetch: mockRefetchQuotes,
 }))
 const mockPermissions = vi.hoisted(() => ({ canEdit: true, isLoading: false }))
 
@@ -400,7 +398,7 @@ describe('WatchlistWidgetBody', () => {
     })
   })
 
-  it('uses runtime.refreshAt as the shared quote refresh key without refetching quotes directly', async () => {
+  it('uses runtime.refreshAt as the shared quote refresh key', async () => {
     await act(async () => {
       renderWatchlist({ params: { provider: 'alpaca', runtime: { refreshAt: 100 } } })
     })
@@ -414,7 +412,6 @@ describe('WatchlistWidgetBody', () => {
         refreshKey: 200,
       })
     )
-    expect(mockRefetchQuotes).not.toHaveBeenCalled()
   })
 
   it('removes a section and its owned listings without affecting a matching root listing', async () => {

@@ -56,7 +56,6 @@ const marketToExchangeCodeMap: MarketProviderConfig['marketToExchangeCode'] = ma
 export const finnhubProviderConfig: MarketProviderConfig = {
   id: 'finnhub',
   name: 'Finnhub',
-  utcOffset: 0,
   availability,
   params,
   api_endpoints: {

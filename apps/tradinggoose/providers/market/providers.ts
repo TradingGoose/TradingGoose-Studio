@@ -15,7 +15,6 @@ import {
   YahooIcon,
 } from '@/components/icons/provider-icons'
 import type { ListingIdentity } from '@/lib/listing/identity'
-import type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
 import type { OAuthService } from '@/lib/oauth/oauth'
 import type { WorkflowProviderParamType } from '@/lib/workflows/value-types'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
@@ -29,7 +28,6 @@ import type {
   MarketInterval,
   MarketLiveRequest,
   MarketLiveSnapshot,
-  MarketQuoteRequest,
   MarketSeries,
   MarketSeriesRequest,
   MarketSeriesWindowMode,
@@ -40,7 +38,7 @@ import { YahooFinanceProviderConfig } from '@/providers/market/yahoo-finance/con
 
 export type { MarketProviderRequest } from '@/providers/market/types'
 
-export type MarketProviderResponse = MarketSeries | MarketLiveSnapshot | MarketQuoteSnapshot
+export type MarketProviderResponse = MarketSeries | MarketLiveSnapshot
 
 export interface MarketSeriesInputCapabilities {
   supportsInterval?: boolean
@@ -143,8 +141,6 @@ export interface MarketSymbolRule {
 export interface MarketProviderConfig {
   id: string
   name: string
-  // Source timestamp offset relative to UTC in hours (e.g., -5, 0, +3).
-  utcOffset?: number
   availability: MarketDataAvailability
   capabilities?: MarketProviderCapabilities
   params?: MarketProviderParamConfig
@@ -162,7 +158,6 @@ export interface MarketProvider {
   config: MarketProviderConfig
   fetchMarketSeries?: (request: MarketSeriesRequest) => Promise<MarketSeries>
   fetchMarketLive?: (request: MarketLiveRequest) => Promise<MarketLiveSnapshot>
-  fetchMarketQuote?: (request: MarketQuoteRequest) => Promise<MarketQuoteSnapshot>
 }
 
 export interface ListingContext {

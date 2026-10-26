@@ -10,10 +10,6 @@ import { resolveListingContext, resolveProviderSymbol } from '@/providers/market
 
 const logger = createLogger('MarketProvider:AlphaVantage')
 
-const PROVIDER_UTC_OFFSET = Number.isFinite(alphaVantageProviderConfig.utcOffset)
-  ? (alphaVantageProviderConfig.utcOffset ?? 0)
-  : 0
-
 const DEFAULT_INTERVAL = '1d'
 
 const INTRADAY_INTERVAL_MAP: Record<string, string> = {
@@ -118,38 +114,19 @@ function toMillis(value?: string | number): number | undefined {
   return undefined
 }
 
-const HAS_TZ_SUFFIX = /([zZ]|[+-]\d{2}:?\d{2})$/
-
-function formatUtcOffset(utcOffsetHours: number): string {
-  if (!Number.isFinite(utcOffsetHours)) return '+00:00'
-  const sign = utcOffsetHours >= 0 ? '+' : '-'
-  const absolute = Math.abs(utcOffsetHours)
-  const rawHours = Math.floor(absolute)
-  const rawMinutes = Math.round((absolute - rawHours) * 60)
-  const carryHours = rawMinutes >= 60 ? rawHours + 1 : rawHours
-  const minutes = rawMinutes >= 60 ? 0 : rawMinutes
-  const hours = String(carryHours).padStart(2, '0')
-  const mins = String(minutes).padStart(2, '0')
-  return `${sign}${hours}:${mins}`
-}
-
-function toIsoTimestamp(raw: string, utcOffsetHours: number): string | undefined {
-  if (!raw) return undefined
-  const trimmed = raw.trim()
-  if (!trimmed) return undefined
-  if (HAS_TZ_SUFFIX.test(trimmed)) {
-    const date = new Date(trimmed)
-    return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
+function toIsoTimestamp(raw: string, formatter: Intl.DateTimeFormat): string | undefined {
+  const local = raw.length === 10 ? `${raw}T00:00:00` : raw.replace(' ', 'T')
+  let timestamp = Date.parse(`${local}Z`)
+  if (!Number.isFinite(timestamp)) return undefined
+  // Resolve the source wall clock in its actual timezone, including daylight saving time.
+  for (let pass = 0; pass < 2; pass++) {
+    const zone = formatter
+      .formatToParts(new Date(timestamp))
+      .find(({ type }) => type === 'timeZoneName')!
+    const offset = zone.value.replace('GMT', '') || '+00:00'
+    timestamp = Date.parse(`${local}${offset}`)
   }
-
-  const normalized = trimmed.includes('T')
-    ? trimmed
-    : trimmed.includes(' ')
-      ? trimmed.replace(' ', 'T')
-      : `${trimmed}T00:00:00`
-  const offset = formatUtcOffset(utcOffsetHours)
-  const date = new Date(`${normalized}${offset}`)
-  return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
+  return new Date(timestamp).toISOString()
 }
 
 function parseNumber(value: unknown): number | undefined {
@@ -225,12 +202,13 @@ function parseBars(
   series: Record<string, any>,
   type: SeriesType,
   useAdjusted: boolean,
-  market: string
+  market: string,
+  formatter: Intl.DateTimeFormat
 ): MarketBar[] {
   const bars: MarketBar[] = []
 
   Object.entries(series).forEach(([timestamp, entry]) => {
-    const timeStamp = toIsoTimestamp(timestamp, PROVIDER_UTC_OFFSET)
+    const timeStamp = toIsoTimestamp(timestamp, formatter)
     if (!timeStamp || !entry || typeof entry !== 'object') return
 
     const parsed =
@@ -377,7 +355,17 @@ export async function fetchAlphaVantageSeries(request: MarketSeriesRequest): Pro
   }
 
   const market = context.quote || 'USD'
-  const bars = parseBars(series, seriesType, useAdjusted, market)
+  const timezone = Object.entries(payload['Meta Data'] ?? {}).find(([key]) =>
+    key.endsWith('Time Zone')
+  )?.[1]
+  if (typeof timezone !== 'string' || !timezone.trim()) {
+    throw new Error('Alpha Vantage response is missing its time zone')
+  }
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    timeZoneName: 'longOffset',
+  })
+  const bars = parseBars(series, seriesType, useAdjusted, market, formatter)
   const filteredBars = filterBarsByRange(bars, request.start, request.end)
 
   if (!filteredBars.length) {
@@ -391,7 +379,7 @@ export async function fetchAlphaVantageSeries(request: MarketSeriesRequest): Pro
     marketCode: context.marketCode,
     start: filteredBars[0]?.timeStamp,
     end: filteredBars[filteredBars.length - 1]?.timeStamp,
-    timezone: context.timeZoneName,
+    timezone,
     normalizationMode: request.normalizationMode,
     bars: filteredBars,
   }

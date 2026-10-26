@@ -1,94 +1,14 @@
 import type { ListingIdentity } from '@/lib/listing/identity'
 import {
-  createEmptyMarketQuoteSnapshot,
+  createMarketQuoteSnapshot,
   type MarketQuoteSnapshot,
 } from '@/lib/market/quote-snapshot-contract'
-import { executeProviderRequest, getProvider } from '@/providers/market'
-import type { MarketProviderRequestContext, MarketSeries } from '@/providers/market/types'
-
-export {
-  createEmptyMarketQuoteSnapshot,
-  type MarketQuoteSnapshot,
-} from '@/lib/market/quote-snapshot-contract'
-
-const normalizeSeries = (value: unknown): MarketSeries | null => {
-  if (!value || typeof value !== 'object') return null
-  const series = value as MarketSeries
-  if (!Array.isArray(series.bars)) return null
-  return series
-}
-
-const resolveNumber = (value: unknown) =>
-  typeof value === 'number' && Number.isFinite(value) ? value : null
-
-const buildDailyRequest = async ({
-  provider,
-  listing,
-  auth,
-  providerParams,
-  context,
-}: {
-  provider: string
-  listing: ListingIdentity
-  auth?: { apiKey?: string; apiSecret?: string }
-  providerParams?: Record<string, unknown>
-  context?: MarketProviderRequestContext
-}) => {
-  const response = await executeProviderRequest(
-    provider,
-    {
-      kind: 'series',
-      listing,
-      interval: '1d',
-      windows: [{ mode: 'bars', barCount: 2 }],
-      auth,
-      providerParams: {
-        ...(providerParams ?? {}),
-        marketSession: 'regular',
-      },
-    },
-    context
-  )
-
-  return normalizeSeries(response)
-}
-
-const buildRegularLastRequest = async ({
-  provider,
-  listing,
-  auth,
-  providerParams,
-  context,
-}: {
-  provider: string
-  listing: ListingIdentity
-  auth?: { apiKey?: string; apiSecret?: string }
-  providerParams?: Record<string, unknown>
-  context?: MarketProviderRequestContext
-}) => {
-  try {
-    const response = await executeProviderRequest(
-      provider,
-      {
-        kind: 'series',
-        listing,
-        interval: '1m',
-        windows: [{ mode: 'bars', barCount: 1 }],
-        auth,
-        providerParams: {
-          ...(providerParams ?? {}),
-          allowEmpty: true,
-          marketSession: 'regular',
-        },
-      },
-      context
-    )
-
-    return normalizeSeries(response)
-  } catch {
-    return null
-  }
-}
+import { executeProviderRequest } from '@/providers/market'
+import type {
+  MarketBar,
+  MarketProviderRequestContext,
+  MarketSeries,
+} from '@/providers/market/types'
 
 export const buildMarketQuoteSnapshot = async ({
   provider,
@@ -103,59 +23,75 @@ export const buildMarketQuoteSnapshot = async ({
   providerParams?: Record<string, unknown>
   context?: MarketProviderRequestContext
 }): Promise<MarketQuoteSnapshot> => {
-  try {
-    if (getProvider(provider)?.fetchMarketQuote) {
-      return (await executeProviderRequest(
-        provider,
-        { kind: 'quote', listing, auth, providerParams },
-        context
-      )) as MarketQuoteSnapshot
-    }
-    const daily = await buildDailyRequest({ provider, listing, auth, providerParams, context })
-    const dailyBars = daily?.bars ?? []
-    const latestDaily = dailyBars[dailyBars.length - 1]
-    const previousDaily = dailyBars[dailyBars.length - 2]
-    const latestDailyClose = resolveNumber(latestDaily?.close)
-    const latestDailyVolume = resolveNumber(latestDaily?.volume)
-    const previousDailyClose = resolveNumber(previousDaily?.close)
-    const previousClose =
-      previousDailyClose !== null
-        ? previousDailyClose
-        : latestDailyClose !== null
-          ? latestDailyClose
-          : null
-    const regular = await buildRegularLastRequest({
-      provider,
-      listing,
-      auth,
-      providerParams,
-      context,
-    })
-    const regularBar = regular?.bars?.[regular.bars.length - 1]
-    const regularLastPrice = resolveNumber(regularBar?.close)
-    const lastPrice = regularLastPrice ?? latestDailyClose
-    const volumeUsd =
-      latestDailyVolume !== null && lastPrice !== null ? latestDailyVolume * lastPrice : null
-    const change =
-      typeof lastPrice === 'number' && typeof previousClose === 'number'
-        ? lastPrice - previousClose
-        : null
-    const changePercent =
-      typeof change === 'number' && typeof previousClose === 'number' && previousClose !== 0
-        ? (change / previousClose) * 100
-        : null
-
-    return {
-      lastPrice,
-      change,
-      changePercent,
-      previousClose,
-      ...(latestDailyVolume !== null ? { volume: latestDailyVolume } : {}),
-      ...(volumeUsd !== null ? { volumeUsd } : {}),
-    }
-  } catch (error) {
-    return createEmptyMarketQuoteSnapshot(
-      error instanceof Error ? error.message : 'Failed to fetch snapshot'
+  const [daily, regular] = await Promise.all(
+    (
+      [
+        ['1d', 14],
+        ['1m', 1],
+      ] as const
+    ).map(
+      async ([interval, days]) =>
+        (await executeProviderRequest(
+          provider,
+          {
+            kind: 'series',
+            listing,
+            interval,
+            windows: [{ mode: 'range', range: { value: days, unit: 'day' } }],
+            normalizationMode: 'raw',
+            auth,
+            providerParams: { ...providerParams, marketSession: 'regular' },
+          },
+          context
+        )) as MarketSeries
     )
+  )
+  const timeZone = listing.listing_type === 'default' ? regular.timezone : 'UTC'
+  if (!timeZone) throw new Error('Market series timezone is required')
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+  const tradingDate = (bar: MarketBar) => {
+    const parts = Object.fromEntries(
+      formatter.formatToParts(new Date(bar.timeStamp)).map(({ type, value }) => [type, value])
+    )
+    return `${parts.year}-${parts.month}-${parts.day}`
   }
+  const sessions = regular.marketSessions?.filter(({ type }) => type === 'market') ?? []
+  const priceBar = regular.bars
+    .filter(
+      ({ timeStamp }) =>
+        !sessions.length ||
+        sessions.some(
+          ({ start, end }) =>
+            Date.parse(timeStamp) >= Date.parse(start) && Date.parse(timeStamp) < Date.parse(end)
+        )
+    )
+    .at(-1)
+  if (!priceBar) throw new Error('No regular-session price available')
+  const priceDate = tradingDate(priceBar)
+  const dailyBars = [...daily.bars].reverse()
+  const previousDaily = dailyBars.find((bar) => tradingDate(bar) < priceDate)
+  const volumeBar = dailyBars.find((bar) => tradingDate(bar) === priceDate)
+  const session = sessions.find(({ date }) => date === priceDate)
+  const regularSession =
+    listing.listing_type === 'crypto'
+      ? {
+          start: `${priceDate}T00:00:00.000Z`,
+          end: new Date(Date.parse(`${priceDate}T00:00:00Z`) + 86_400_000).toISOString(),
+        }
+      : session
+        ? { start: session.start, end: session.end }
+        : undefined
+  return createMarketQuoteSnapshot({
+    lastPrice: priceBar.close,
+    previousClose: previousDaily?.close,
+    lastPriceTime: priceBar.timeStamp,
+    volume: volumeBar?.volume,
+    ...(regularSession ? { regularSession } : {}),
+    ...(!previousDaily ? { error: 'Previous regular-session close is unavailable' } : {}),
+  })
 }

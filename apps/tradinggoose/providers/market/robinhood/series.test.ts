@@ -1,7 +1,6 @@
 import { StreamableHTTPError } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildMarketQuoteSnapshot } from '@/lib/market/quote-snapshots'
 import { ROBINHOOD_MAX_REQUESTS, ROBINHOOD_MCP_URL } from '@/providers/market/robinhood/config'
 import {
   getMarketSeriesRangePresets,
@@ -59,17 +58,6 @@ const mcpResult = (payload: unknown, text = false) =>
   text
     ? { content: [{ type: 'text', text: JSON.stringify(payload) }] }
     : { content: [], structuredContent: payload }
-const rawQuote = {
-  symbol: 'AAPL',
-  last_trade_price: '110',
-  venue_last_trade_time: '2026-09-24T20:00:00Z',
-  adjusted_previous_close: '100',
-  previous_close: '102',
-  last_non_reg_trade_price: '115',
-  venue_last_non_reg_trade_time: '2026-09-24T21:00:00Z',
-  has_traded: true,
-  state: 'active',
-}
 const request: MarketSeriesRequest = {
   kind: 'series',
   listing: { listing_id: 'us-aapl', base_id: '', quote_id: '', listing_type: 'default' },
@@ -97,26 +85,20 @@ beforeEach(() => {
 })
 
 describe('Robinhood market provider and MCP boundary', () => {
-  it('uses the newest trade and adjusted close through canonical OAuth', async () => {
-    sdk.callTool.mockResolvedValue(
-      mcpResult({
-        data: { results: [{ quote: rawQuote, close: { symbol: 'AAPL', price: '101' } }] },
-      })
-    )
-    await expect(
-      buildMarketQuoteSnapshot({
-        provider: 'robinhood',
-        listing: request.listing,
+  it('resolves canonical OAuth credentials for market series', async () => {
+    const { executeProviderRequest } = await import('@/providers/market')
+    await executeProviderRequest(
+      'robinhood',
+      {
+        ...request,
+        interval: '1d',
+        auth: undefined,
         providerParams: { credentialId: 'connection' },
-        context: { userId: 'owner', requestId: 'request' },
-      })
-    ).resolves.toEqual({ lastPrice: 115, previousClose: 100, change: 15, changePercent: 15 })
+      },
+      { userId: 'owner', requestId: 'request' }
+    )
     expect(sdk.token).toHaveBeenCalledExactlyOnceWith('connection', 'owner', 'request', 'robinhood')
-    expect(sdk.callTool).toHaveBeenCalledOnce()
-    expect(sdk.callTool.mock.calls[0][0]).toEqual({
-      name: 'get_equity_quotes',
-      arguments: { symbols: ['AAPL'] },
-    })
+    expect(sdk.callTool.mock.calls[0][0].name).toBe('get_equity_historicals')
     expect(sdk.transport.mock.calls[0][1].requestInit.headers.Authorization).toBe(
       'Bearer refreshed-token'
     )

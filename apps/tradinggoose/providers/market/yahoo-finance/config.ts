@@ -339,7 +339,6 @@ const marketToExchangeCodeMap: MarketProviderConfig['marketToExchangeCode'] = ma
 export const YahooFinanceProviderConfig: MarketProviderConfig = {
   id: 'yahoo-finance',
   name: 'YahooFinance',
-  utcOffset: 0,
   availability,
   api_endpoints: {
     default: 'https://query1.finance.yahoo.com/v8/finance/chart',

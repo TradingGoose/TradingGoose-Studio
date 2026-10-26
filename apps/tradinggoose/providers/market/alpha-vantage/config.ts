@@ -44,7 +44,6 @@ const marketToExchangeCodeMap: MarketProviderConfig['marketToExchangeCode'] = {}
 export const alphaVantageProviderConfig: MarketProviderConfig = {
   id: 'alpha-vantage',
   name: 'Alpha Vantage',
-  utcOffset: 0,
   availability,
   params,
   api_endpoints: {

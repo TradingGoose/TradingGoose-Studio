@@ -128,9 +128,10 @@ describe('fetchAlphaVantageSeries', () => {
     fetchMock.mockResolvedValue(
       new Response(
         JSON.stringify({
+          'Meta Data': { '5. Time Zone': 'US/Eastern' },
           [seriesKey]:
             interval === '1m'
-              ? { '2026-01-02 13:30:00': candle, '2026-01-02 14:30:00': candle }
+              ? { '2026-01-02 08:30:00': candle, '2026-01-02 09:30:00': candle }
               : { '2026-01-02': candle, '2026-01-05': candle },
         }),
         {
@@ -168,7 +169,7 @@ describe('fetchAlphaVantageSeries', () => {
     expect(response).toMatchObject({
       bars: (interval === '1m'
         ? ['2026-01-02T14:30:00.000Z']
-        : ['2026-01-02T00:00:00.000Z', '2026-01-05T00:00:00.000Z']
+        : ['2026-01-02T05:00:00.000Z', '2026-01-05T05:00:00.000Z']
       ).map((timeStamp) => ({ timeStamp, close: 101 })),
     })
     if (interval !== '1m') {
@@ -183,5 +184,53 @@ describe('fetchAlphaVantageSeries', () => {
         }),
       })
     )
+  })
+
+  it.each([
+    ['2026-01-02', '05:00', '14:30'],
+    ['2026-07-02', '04:00', '13:30'],
+  ])(
+    'normalizes source midnight and market open through the response timezone on %s',
+    async (date, midnight, open) => {
+      const { fetchAlphaVantageSeries } = await import('./series')
+      for (const [interval, raw, expected] of [
+        ['1d', date, midnight],
+        ['1m', `${date} 09:30:00`, open],
+      ]) {
+        fetchMock.mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              'Meta Data': { '5. Time Zone': 'US/Eastern' },
+              'Time Series': { [raw]: { '4. close': '101' } },
+            })
+          )
+        )
+        expect(
+          await fetchAlphaVantageSeries({
+            kind: 'series',
+            listing: { listing_id: 'AAPL', base_id: '', quote_id: '', listing_type: 'default' },
+            interval,
+            auth: { apiKey: 'key' },
+          })
+        ).toMatchObject({
+          timezone: 'US/Eastern',
+          bars: [{ timeStamp: `${date}T${expected}:00.000Z`, close: 101 }],
+        })
+      }
+    }
+  )
+
+  it('rejects responses without the source timezone instead of guessing UTC', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ 'Time Series': { '2026-01-02': { '4. close': '101' } } }))
+    )
+    const { fetchAlphaVantageSeries } = await import('./series')
+    await expect(
+      fetchAlphaVantageSeries({
+        kind: 'series',
+        listing: { listing_id: 'AAPL', base_id: '', quote_id: '', listing_type: 'default' },
+        auth: { apiKey: 'key' },
+      })
+    ).rejects.toThrow('missing its time zone')
   })
 })

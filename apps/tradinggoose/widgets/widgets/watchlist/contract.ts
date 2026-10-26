@@ -33,7 +33,14 @@ export const sanitizeWatchlistParams = (
 export const mergeWatchlistParams = (
   currentParams: Record<string, unknown> | null | undefined,
   incomingParams: Record<string, unknown>
-) => mergeParamsWithRuntime(sanitizeWatchlistParams, currentParams, incomingParams)
+) =>
+  mergeParamsWithRuntime(sanitizeWatchlistParams, currentParams, {
+    ...(Object.hasOwn(incomingParams, 'provider') &&
+    incomingParams.provider !== currentParams?.provider
+      ? { auth: undefined, providerParams: undefined }
+      : {}),
+    ...incomingParams,
+  })
 
 export const watchlistWidgetContract = defineWidgetContract({
   key: 'watchlist',

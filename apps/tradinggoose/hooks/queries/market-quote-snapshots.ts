@@ -1,59 +1,32 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { v4 as uuidv4 } from 'uuid'
+import { useEffect, useState } from 'react'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
+import type { ListingIdentity } from '@/lib/listing/identity'
+import { getMissingMarketProviderSettings } from '@/lib/market/market-provider-settings'
 import {
-  getListingIdentityKey,
-  type ListingIdentity,
-  ListingIdentitySchema,
-} from '@/lib/listing/identity'
-import type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
+  createMarketQuoteSnapshot,
+  type MarketQuoteSnapshot,
+} from '@/lib/market/quote-snapshot-contract'
 import { useSocket } from '@/contexts/socket-context'
-
-export type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
-
-type MarketQuoteSnapshotPayload = {
-  provider?: string
-  channel?: string
-  subscriptionId?: string
-  clientSubscriptionId?: string
-  listing?: ListingIdentity
-  snapshot?: MarketQuoteSnapshot
-}
-
-type MarketSubscribedPayload = {
-  provider?: string
-  channel?: string
-  subscriptionId?: string
-  clientSubscriptionId?: string
-  listing?: ListingIdentity
-}
-
-type MarketErrorPayload = {
-  provider?: string
-  channel?: string
-  subscriptionId?: string
-  clientSubscriptionId?: string
-  message?: string
-  error?: string
-}
-
-const getSnapshotCacheKey = (scopeKey: string, identityKey: string) => `${scopeKey}|${identityKey}`
 
 export type UseMarketQuoteSnapshotsArgs = {
   workspaceId?: string
   provider?: string
-  items: Array<{
-    key?: string
-    listing: ListingIdentity | null | undefined
-  }>
-  auth?: {
-    apiKey?: string
-    apiSecret?: string
-  }
+  items: Array<{ key: string; listing: ListingIdentity }>
+  auth?: { apiKey?: string; apiSecret?: string }
   providerParams?: Record<string, unknown>
   refreshKey?: number | string | null
   enabled?: boolean
 }
+
+type QuoteState = {
+  scope: string
+  data: Record<string, MarketQuoteSnapshot>
+  error: Error | null
+  pending: number
+}
+
+const EMPTY_QUOTES: Record<string, MarketQuoteSnapshot> = {}
+const QUOTE_RESPONSE_TIMEOUT_MS = 30_000
 
 export const useMarketQuoteSnapshots = ({
   workspaceId,
@@ -65,163 +38,91 @@ export const useMarketQuoteSnapshots = ({
   enabled = true,
 }: UseMarketQuoteSnapshotsArgs) => {
   const { socket } = useSocket()
-  const [snapshotsByIdentity, setSnapshotsByIdentity] = useState<
-    Record<string, MarketQuoteSnapshot>
-  >({})
-  const [error, setError] = useState<Error | null>(null)
-  const [pendingIdentityCount, setPendingIdentityCount] = useState(0)
-  const [refetchNonce, setRefetchNonce] = useState(0)
-
-  const normalizedItems = useMemo(() => {
-    const seenKeys = new Set<string>()
-    const listingByIdentity = new Map<string, ListingIdentity>()
-    const aliasesByIdentity = new Map<string, string[]>()
-
-    for (const entry of items) {
-      const listing = entry.listing
-      if (!listing) continue
-      const identityKey = getListingIdentityKey(listing)
-      const key = typeof entry.key === 'string' && entry.key.trim() ? entry.key.trim() : identityKey
-      if (seenKeys.has(key)) continue
-
-      seenKeys.add(key)
-      if (!listingByIdentity.has(identityKey)) {
-        listingByIdentity.set(identityKey, listing)
-      }
-      const aliases = aliasesByIdentity.get(identityKey) ?? []
-      aliases.push(key)
-      aliasesByIdentity.set(identityKey, aliases)
-    }
-
-    return {
-      subscriptions: Array.from(listingByIdentity.entries()).map(([identityKey, listing]) => ({
-        identityKey,
-        listing,
-      })),
-      aliasesByIdentity,
-    }
-  }, [items])
-
-  const subscriptionsKey = useMemo(
-    () => stableStringifyJsonValue(normalizedItems.subscriptions),
-    [normalizedItems.subscriptions]
-  )
-  const authKey = stableStringifyJsonValue(auth ?? null)
-  const providerParamsKey = stableStringifyJsonValue(providerParams ?? null)
-  const subscriptionScopeKey = stableStringifyJsonValue([
-    workspaceId ?? null,
-    provider ?? null,
-    auth ?? null,
-    providerParams ?? null,
-  ])
-  const shouldSubscribe =
-    enabled && Boolean(workspaceId) && Boolean(provider) && normalizedItems.subscriptions.length > 0
-  const activeSnapshotScopeKey = shouldSubscribe ? subscriptionScopeKey : null
+  const [state, setState] = useState<QuoteState>({
+    scope: '',
+    data: EMPTY_QUOTES,
+    error: null,
+    pending: 0,
+  })
+  const scope = stableStringifyJsonValue([workspaceId, provider, auth, providerParams, items])
+  const hasRequest = enabled && Boolean(workspaceId && provider) && items.length > 0
+  const missingSettings = hasRequest
+    ? getMissingMarketProviderSettings(provider, auth, providerParams)
+    : []
+  const configurationError = missingSettings.length
+    ? `Configure market provider settings: ${missingSettings.join(', ')}`
+    : null
 
   useEffect(() => {
-    if (!shouldSubscribe) {
-      setPendingIdentityCount(0)
-      setError(null)
+    if (!hasRequest || configurationError || !socket) {
+      setState({
+        scope,
+        data: EMPTY_QUOTES,
+        error: hasRequest
+          ? new Error(configurationError ?? 'Market data connection is unavailable')
+          : null,
+        pending: 0,
+      })
       return
     }
 
-    if (!socket) {
-      setPendingIdentityCount(normalizedItems.subscriptions.length)
-      return
-    }
+    const subscriptions = new Map(items.map((item) => [crypto.randomUUID(), item]))
+    const pending = new Set<string>()
+    let timeout: ReturnType<typeof setTimeout> | undefined
 
-    let disposed = false
-    const receivedIdentities = new Set<string>()
-    const subscriptionIds = new Set<string>()
-    const acknowledgedClientSubscriptionIds = new Set<string>()
-    const identityByClientSubscriptionId = new Map<string, string>()
-    const clientSubscriptionIds = normalizedItems.subscriptions.map((item) => {
-      const clientSubscriptionId = `market-quote:${uuidv4()}`
-      identityByClientSubscriptionId.set(clientSubscriptionId, item.identityKey)
-      return {
-        ...item,
-        clientSubscriptionId,
-      }
-    })
-
-    setPendingIdentityCount(clientSubscriptionIds.length)
-    setError(null)
-
-    const markReceived = (identityKey: string) => {
-      if (receivedIdentities.has(identityKey)) return
-      receivedIdentities.add(identityKey)
-      setPendingIdentityCount((current) => Math.max(0, current - 1))
-    }
-
-    const resolvePayloadIdentity = (payload: {
-      clientSubscriptionId?: string
-      listing?: ListingIdentity
-    }) => {
-      const byClientId = payload.clientSubscriptionId
-        ? identityByClientSubscriptionId.get(payload.clientSubscriptionId)
-        : undefined
-      if (byClientId) return byClientId
-
-      const listing = ListingIdentitySchema.safeParse(payload.listing)
-      return listing.success ? getListingIdentityKey(listing.data) : null
-    }
-
-    const isRelevantProvider = (payloadProvider?: string) =>
-      !payloadProvider || payloadProvider === provider
-
-    const handleSubscribed = (payload: MarketSubscribedPayload) => {
-      if (disposed) return
-      if (payload.channel !== 'quote-snapshots') return
-      if (!isRelevantProvider(payload.provider)) return
-      if (!payload.clientSubscriptionId) return
-      if (!identityByClientSubscriptionId.has(payload.clientSubscriptionId)) return
-      acknowledgedClientSubscriptionIds.add(payload.clientSubscriptionId)
-      if (payload.subscriptionId) {
-        subscriptionIds.add(payload.subscriptionId)
-      }
-    }
-
-    const handleSnapshot = (payload: MarketQuoteSnapshotPayload) => {
-      if (disposed) return
-      if (payload.channel !== 'quote-snapshots') return
-      if (!isRelevantProvider(payload.provider)) return
-      if (!payload.snapshot) return
-      const identityKey = resolvePayloadIdentity(payload)
-      if (!identityKey) return
-
-      setSnapshotsByIdentity((current) => ({
-        ...current,
-        [getSnapshotCacheKey(subscriptionScopeKey, identityKey)]:
-          payload.snapshot as MarketQuoteSnapshot,
+    const receive = (key: string, snapshot: MarketQuoteSnapshot) => {
+      pending.delete(key)
+      if (pending.size === 0) clearTimeout(timeout)
+      setState((current) => ({
+        scope,
+        data: { ...current.data, [key]: snapshot },
+        error: null,
+        pending: pending.size,
       }))
-      markReceived(identityKey)
     }
-
-    const handleError = (payload: MarketErrorPayload) => {
-      if (disposed) return
-      if (payload.channel && payload.channel !== 'quote-snapshots') return
-      if (!isRelevantProvider(payload.provider)) return
-      if (
-        payload.clientSubscriptionId &&
-        !identityByClientSubscriptionId.has(payload.clientSubscriptionId)
-      ) {
-        return
-      }
-
-      const message =
-        typeof payload.message === 'string' && payload.message.trim()
-          ? payload.message
-          : typeof payload.error === 'string' && payload.error.trim()
-            ? payload.error
-            : 'Failed to subscribe to market quotes'
-      setError(new Error(message))
-      const identityKey = resolvePayloadIdentity(payload)
-      if (identityKey) markReceived(identityKey)
+    const handleSnapshot = (payload: {
+      clientSubscriptionId: string
+      snapshot: MarketQuoteSnapshot
+    }) => {
+      const item = subscriptions.get(payload.clientSubscriptionId)
+      if (item) receive(item.key, payload.snapshot)
     }
-
-    const subscribeAll = () => {
-      subscriptionIds.clear()
-      for (const item of clientSubscriptionIds) {
+    const handleError = (payload: { clientSubscriptionId: string; message: string }) => {
+      const item = subscriptions.get(payload.clientSubscriptionId)
+      if (item) receive(item.key, createMarketQuoteSnapshot({ error: payload.message }))
+    }
+    const failConnection = (message: string) => {
+      clearTimeout(timeout)
+      pending.clear()
+      setState({ scope, data: EMPTY_QUOTES, error: new Error(message), pending: 0 })
+    }
+    const handleDisconnect = () => failConnection('Market data connection was lost')
+    const handleConnectError = () => failConnection('Market data connection failed')
+    const subscribe = () => {
+      clearTimeout(timeout)
+      pending.clear()
+      for (const item of items) pending.add(item.key)
+      setState({
+        scope,
+        data: EMPTY_QUOTES,
+        error: null,
+        pending: pending.size,
+      })
+      timeout = setTimeout(() => {
+        const failures = Object.fromEntries(
+          Array.from(pending, (key) => [
+            key,
+            createMarketQuoteSnapshot({ error: 'Market quote request timed out' }),
+          ])
+        )
+        pending.clear()
+        setState((current) => ({
+          ...current,
+          data: { ...current.data, ...failures },
+          pending: 0,
+        }))
+      }, QUOTE_RESPONSE_TIMEOUT_MS)
+      for (const [clientSubscriptionId, item] of subscriptions) {
         socket.emit('market-subscribe', {
           provider,
           workspaceId,
@@ -229,74 +130,41 @@ export const useMarketQuoteSnapshots = ({
           channel: 'quote-snapshots',
           auth,
           providerParams,
-          clientSubscriptionId: item.clientSubscriptionId,
+          clientSubscriptionId,
         })
       }
     }
 
-    socket.on('market-subscribed', handleSubscribed)
     socket.on('market-quote-snapshot', handleSnapshot)
     socket.on('market-error', handleError)
     socket.on('market-subscribe-error', handleError)
-    socket.on('connect', subscribeAll)
-    subscribeAll()
+    socket.on('connect', subscribe)
+    socket.on('disconnect', handleDisconnect)
+    socket.on('connect_error', handleConnectError)
+    if (socket.connected) subscribe()
+    else failConnection('Market data connection is unavailable')
 
     return () => {
-      disposed = true
-      socket.off('market-subscribed', handleSubscribed)
+      clearTimeout(timeout)
       socket.off('market-quote-snapshot', handleSnapshot)
       socket.off('market-error', handleError)
       socket.off('market-subscribe-error', handleError)
-      socket.off('connect', subscribeAll)
-      for (const subscriptionId of subscriptionIds) {
-        socket.emit('market-unsubscribe', { subscriptionId })
-      }
-      for (const item of clientSubscriptionIds) {
-        if (acknowledgedClientSubscriptionIds.has(item.clientSubscriptionId)) continue
-        socket.emit('market-unsubscribe', {
-          clientSubscriptionId: item.clientSubscriptionId,
-        })
+      socket.off('connect', subscribe)
+      socket.off('disconnect', handleDisconnect)
+      socket.off('connect_error', handleConnectError)
+      for (const clientSubscriptionId of subscriptions.keys()) {
+        socket.emit('market-unsubscribe', { clientSubscriptionId })
       }
     }
-  }, [
-    authKey,
-    enabled,
-    provider,
-    providerParamsKey,
-    refetchNonce,
-    refreshKey,
-    shouldSubscribe,
-    socket,
-    subscriptionScopeKey,
-    subscriptionsKey,
-    workspaceId,
-  ])
+  }, [scope, hasRequest, configurationError, socket, refreshKey])
 
-  const data = useMemo(() => {
-    if (!activeSnapshotScopeKey) return {}
-    const quotes: Record<string, MarketQuoteSnapshot> = {}
-    normalizedItems.aliasesByIdentity.forEach((aliases, identityKey) => {
-      const snapshot = snapshotsByIdentity[getSnapshotCacheKey(activeSnapshotScopeKey, identityKey)]
-      if (!snapshot) return
-      aliases.forEach((key) => {
-        quotes[key] = snapshot
-      })
-    })
-    return quotes
-  }, [activeSnapshotScopeKey, normalizedItems.aliasesByIdentity, snapshotsByIdentity])
-
-  const refetch = useCallback(async () => {
-    setRefetchNonce((current) => current + 1)
-    return { data }
-  }, [data])
-
-  const isFetching = shouldSubscribe && pendingIdentityCount > 0
-
+  const data =
+    hasRequest && !configurationError && state.scope === scope ? state.data : EMPTY_QUOTES
+  const isFetching = hasRequest && state.scope === scope && state.pending > 0
   return {
     data,
-    error,
+    error: hasRequest && state.scope === scope ? state.error : null,
     isLoading: isFetching && Object.keys(data).length === 0,
     isFetching,
-    refetch,
   }
 }

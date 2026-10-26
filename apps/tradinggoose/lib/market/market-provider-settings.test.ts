@@ -1,10 +1,34 @@
 import { describe, expect, it } from 'vitest'
 import {
+  getMissingMarketProviderSettings,
   sanitizeMarketProviderAuth,
   sanitizeMarketProviderParamsForWidget,
 } from '@/lib/market/market-provider-settings'
 
 describe('market provider settings helpers', () => {
+  it('requires each selected provider to have its own credentials and settings', () => {
+    expect(getMissingMarketProviderSettings('alpaca', undefined, undefined)).toEqual([
+      'API Key',
+      'API Secret',
+      'Feed',
+    ])
+    expect(
+      getMissingMarketProviderSettings(
+        'alpaca',
+        { apiKey: '{{ ALPACA_API_KEY }}', apiSecret: 'secret' },
+        { feed: 'iex' }
+      )
+    ).toEqual([])
+    expect(getMissingMarketProviderSettings('finnhub', { apiKey: ' ' }, {})).toEqual(['API Key'])
+    expect(getMissingMarketProviderSettings('robinhood', undefined, {})).toEqual([
+      'Robinhood connection',
+    ])
+    expect(
+      getMissingMarketProviderSettings('robinhood', undefined, { credentialId: 'connection' })
+    ).toEqual([])
+    expect(getMissingMarketProviderSettings('yahoo-finance', undefined, undefined)).toEqual([])
+  })
+
   it('keeps raw and env-var market auth credentials', () => {
     expect(
       sanitizeMarketProviderAuth({

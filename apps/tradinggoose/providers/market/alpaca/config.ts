@@ -158,7 +158,6 @@ const marketToExchangeCodeMap: MarketProviderConfig['marketToExchangeCode'] = {
 export const alpacaProviderConfig: MarketProviderConfig = {
   id: 'alpaca',
   name: 'Alpaca',
-  utcOffset: 0,
   availability,
   params,
   capabilities: {

@@ -171,13 +171,9 @@ export const useLiveBars = ({
       })
     }
 
-    const handleError = (payload: {
-      clientSubscriptionId?: string
-      error?: string
-      message?: string
-    }) => {
+    const handleError = (payload: { clientSubscriptionId?: string; message?: string }) => {
       if (payload.clientSubscriptionId !== clientSubscriptionId) return
-      const message = payload.error ?? payload.message
+      const message = payload.message
       if (typeof message === 'string' && message.trim()) {
         setLiveError(message)
       }

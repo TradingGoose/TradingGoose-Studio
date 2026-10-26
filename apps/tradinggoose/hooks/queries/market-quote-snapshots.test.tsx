@@ -1,262 +1,245 @@
-/**
- * @vitest-environment jsdom
- */
+/** @vitest-environment jsdom */
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  type MarketQuoteSnapshot,
+  type UseMarketQuoteSnapshotsArgs,
   useMarketQuoteSnapshots,
 } from '@/hooks/queries/market-quote-snapshots'
 
-const { socketMock } = vi.hoisted(() => ({
-  socketMock: {
+const { socket } = vi.hoisted(() => ({
+  socket: {
+    available: true,
+    connected: true,
     emit: vi.fn(),
     on: vi.fn(),
     off: vi.fn(),
     handlers: new Map<string, Set<(payload?: any) => void>>(),
   },
 }))
-
 vi.mock('@/contexts/socket-context', () => ({
-  useSocket: () => ({
-    socket: socketMock,
-    isConnected: true,
-    isConnecting: false,
-  }),
+  useSocket: () => ({ socket: socket.available ? socket : null }),
 }))
 
-const listing = {
-  listing_id: 'AAPL',
-  base_id: '',
-  quote_id: '',
-  listing_type: 'default' as const,
+const listing = { listing_id: 'AAPL', base_id: '', quote_id: '', listing_type: 'default' as const }
+const items = [
+  { key: 'first', listing },
+  { key: 'second', listing },
+]
+const quote = { lastPrice: 101, previousClose: 100, change: 1, changePercent: 1 }
+const request: UseMarketQuoteSnapshotsArgs = {
+  workspaceId: 'workspace',
+  provider: 'alpaca',
+  items,
+  auth: { apiKey: 'test-key', apiSecret: 'test-secret' },
+  providerParams: { feed: 'iex' },
 }
-
-const quoteSnapshot: MarketQuoteSnapshot = {
-  lastPrice: 101,
-  previousClose: 100,
-  change: 1,
-  changePercent: 1,
-}
-
-const triggerSocketEvent = (event: string, payload?: any) => {
-  socketMock.handlers.get(event)?.forEach((handler) => handler(payload))
-}
-
-const reactActEnvironment = globalThis as typeof globalThis & {
-  IS_REACT_ACT_ENVIRONMENT?: boolean
-}
-const previousActEnvironment = reactActEnvironment.IS_REACT_ACT_ENVIRONMENT
-
+type Result = ReturnType<typeof useMarketQuoteSnapshots>
+let latest: Record<string, Result>
 const Harness = ({
-  enabled = true,
-  onUpdate,
-  provider = 'alpaca',
+  id = 'a',
+  overrides = {},
 }: {
-  enabled?: boolean
-  onUpdate: (data: ReturnType<typeof useMarketQuoteSnapshots>) => void
-  provider?: string
+  id?: string
+  overrides?: Partial<UseMarketQuoteSnapshotsArgs>
 }) => {
-  const result = useMarketQuoteSnapshots({
-    workspaceId: 'workspace-1',
-    provider,
-    items: [
-      { key: 'row-1', listing },
-      { key: 'row-2', listing },
-    ],
-    enabled,
-  })
-
-  onUpdate(result)
+  latest[id] = useMarketQuoteSnapshots({ ...request, ...overrides })
   return null
 }
-
-describe('useMarketQuoteSnapshots', () => {
-  let container: HTMLDivElement
-  let root: Root
-  let unmounted: boolean
-
-  beforeAll(() => {
-    reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
+const subscriptions = () =>
+  socket.emit.mock.calls
+    .filter(([event]) => event === 'market-subscribe')
+    .map(([, payload]) => payload)
+const emit = async (event: string, payload?: unknown) => {
+  await act(async () => {
+    socket.handlers.get(event)?.forEach((handler) => handler(payload))
+  })
+}
+const receive = (subscription: { clientSubscriptionId: string }, snapshot = quote) =>
+  emit('market-quote-snapshot', {
+    clientSubscriptionId: subscription.clientSubscriptionId,
+    snapshot,
   })
 
-  beforeEach(() => {
-    socketMock.emit.mockReset()
-    socketMock.on.mockReset()
-    socketMock.off.mockReset()
-    socketMock.handlers.clear()
-    socketMock.on.mockImplementation((event: string, handler: (payload?: any) => void) => {
-      const handlers = socketMock.handlers.get(event) ?? new Set()
-      handlers.add(handler)
-      socketMock.handlers.set(event, handlers)
-      return socketMock
+describe('useMarketQuoteSnapshots', () => {
+  let root: Root
+  let container: HTMLDivElement
+  const render = async (overrides: Partial<UseMarketQuoteSnapshotsArgs> = {}) => {
+    await act(async () => {
+      root.render(<Harness overrides={overrides} />)
     })
-    socketMock.off.mockImplementation((event: string, handler: (payload?: any) => void) => {
-      socketMock.handlers.get(event)?.delete(handler)
-      return socketMock
+  }
+  beforeEach(() => {
+    vi.clearAllMocks()
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+    latest = {}
+    socket.available = socket.connected = true
+    socket.handlers.clear()
+    socket.on.mockImplementation((event, handler) => {
+      const handlers = socket.handlers.get(event) ?? new Set()
+      handlers.add(handler)
+      socket.handlers.set(event, handlers)
+    })
+    socket.off.mockImplementation((event, handler) => {
+      socket.handlers.get(event)?.delete(handler)
     })
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
-    unmounted = false
   })
-
   afterEach(() => {
-    if (!unmounted) {
-      act(() => {
-        root.unmount()
-      })
-    }
+    act(() => root.unmount())
     container.remove()
+    vi.useRealTimers()
   })
 
-  afterAll(() => {
-    reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment
+  it('uses each required item key directly, including repeated listings', async () => {
+    await render()
+    const [first, second] = subscriptions()
+    expect(subscriptions()).toHaveLength(2)
+    expect(first.clientSubscriptionId).not.toBe(second.clientSubscriptionId)
+    await receive(second)
+    expect(latest.a.data).toEqual({ second: quote })
+    expect(latest.a.isFetching).toBe(true)
+    await receive(first)
+    expect(latest.a.data).toEqual({ first: quote, second: quote })
+    expect(latest.a.isFetching).toBe(false)
   })
 
-  it('subscribes once per canonical listing and maps snapshots back to widget aliases', async () => {
-    const updates: Array<ReturnType<typeof useMarketQuoteSnapshots>> = []
-
-    await act(async () => {
-      root.render(<Harness onUpdate={(result) => updates.push(result)} />)
-    })
-
-    const subscribeCalls = socketMock.emit.mock.calls.filter(
-      ([event]) => event === 'market-subscribe'
-    )
-    expect(subscribeCalls).toHaveLength(1)
-    expect(subscribeCalls[0]?.[1]).toEqual(
-      expect.objectContaining({
-        provider: 'alpaca',
-        workspaceId: 'workspace-1',
-        listing,
-        channel: 'quote-snapshots',
-      })
-    )
-
-    const clientSubscriptionId = subscribeCalls[0]?.[1]?.clientSubscriptionId
-    await act(async () => {
-      triggerSocketEvent('market-quote-snapshot', {
-        provider: 'alpaca',
-        channel: 'quote-snapshots',
-        clientSubscriptionId,
-        listing,
-        snapshot: quoteSnapshot,
-      })
-    })
-
-    const latest = updates[updates.length - 1]
-    expect(latest?.data).toEqual({
-      'row-1': quoteSnapshot,
-      'row-2': quoteSnapshot,
-    })
-    expect(latest?.isLoading).toBe(false)
-  })
-
-  it('keeps same-scope snapshots on errors without reusing them across provider scopes', async () => {
-    const updates: Array<ReturnType<typeof useMarketQuoteSnapshots>> = []
-
-    await act(async () => {
-      root.render(<Harness onUpdate={(result) => updates.push(result)} />)
-    })
-
-    const alpacaSubscribePayload = socketMock.emit.mock.calls.find(
-      ([event]) => event === 'market-subscribe'
-    )?.[1]
-    await act(async () => {
-      triggerSocketEvent('market-quote-snapshot', {
-        provider: 'alpaca',
-        channel: 'quote-snapshots',
-        clientSubscriptionId: alpacaSubscribePayload.clientSubscriptionId,
-        listing,
-        snapshot: quoteSnapshot,
-      })
-      triggerSocketEvent('market-error', {
-        provider: 'alpaca',
-        channel: 'quote-snapshots',
-        clientSubscriptionId: alpacaSubscribePayload.clientSubscriptionId,
-        message: 'Provider unavailable',
-      })
-    })
-    const alpacaLatest = updates[updates.length - 1]
-    expect(alpacaLatest?.data).toEqual({
-      'row-1': quoteSnapshot,
-      'row-2': quoteSnapshot,
-    })
-    expect(alpacaLatest?.error?.message).toBe('Provider unavailable')
-
-    await act(async () => {
-      root.render(<Harness provider='tradier' onUpdate={(result) => updates.push(result)} />)
-    })
-
-    expect(updates[updates.length - 1]?.data).toEqual({})
-  })
-
-  it('uses server subscription ids for cleanup after subscribe ack', async () => {
-    await act(async () => {
-      root.render(<Harness onUpdate={() => undefined} />)
-    })
-
-    const subscribePayload = socketMock.emit.mock.calls.find(
-      ([event]) => event === 'market-subscribe'
-    )?.[1]
-    expect(subscribePayload?.clientSubscriptionId).toBeTruthy()
-
-    await act(async () => {
-      triggerSocketEvent('market-subscribed', {
-        provider: 'alpaca',
-        channel: 'quote-snapshots',
-        subscriptionId: 'server-subscription-1',
-        clientSubscriptionId: subscribePayload.clientSubscriptionId,
-      })
-    })
-
-    socketMock.emit.mockClear()
-    await act(async () => {
-      root.unmount()
-    })
-    unmounted = true
-
-    expect(socketMock.emit).toHaveBeenCalledWith('market-unsubscribe', {
-      subscriptionId: 'server-subscription-1',
-    })
-    expect(socketMock.emit).not.toHaveBeenCalledWith(
-      'market-unsubscribe',
-      expect.objectContaining({
-        clientSubscriptionId: subscribePayload.clientSubscriptionId,
-      })
-    )
-  })
-
-  it('isolates pending subscriptions across hook instances', async () => {
-    const renderProviders = async (providers: string[]) =>
+  it('isolates configured and unconfigured widgets and accepts only each widget own subscription', async () => {
+    const renderWidgets = async (configured: boolean) =>
       act(async () => {
         root.render(
           <>
-            {providers.map((provider) => (
-              <Harness key={provider} provider={provider} onUpdate={() => undefined} />
-            ))}
+            <Harness id='a' overrides={{ items: [items[0]] }} />
+            <Harness
+              id='b'
+              overrides={{
+                items: [items[0]],
+                ...(configured
+                  ? { providerParams: { feed: 'sip' } }
+                  : { auth: undefined, providerParams: undefined }),
+              }}
+            />
           </>
         )
       })
-    await renderProviders(['alpaca', 'tradier'])
+    await renderWidgets(false)
+    const first = subscriptions()[0]
+    expect(subscriptions()).toHaveLength(1)
+    await receive(first)
+    expect(latest.a.data.first).toEqual(quote)
+    expect(latest.b.data).toEqual({})
+    expect(latest.b.error?.message).toContain('API Key')
+    await renderWidgets(true)
+    const second = subscriptions().at(-1)
+    await receive(first)
+    expect(latest.b.data).toEqual({})
+    await receive(second)
+    expect(latest.b.data.first).toEqual(quote)
+  })
 
-    const subscribePayloads = socketMock.emit.mock.calls
-      .filter(([event]) => event === 'market-subscribe')
-      .map(([, payload]) => payload)
-    const first = subscribePayloads.find((payload) => payload.provider === 'alpaca')
-    const second = subscribePayloads.find((payload) => payload.provider === 'tradier')
-    expect(first.clientSubscriptionId).not.toBe(second.clientSubscriptionId)
+  it('clears prior scope data and ignores late or unowned responses after settings change', async () => {
+    await render({ items: [items[0]] })
+    const previous = subscriptions()[0]
+    await receive(previous)
+    await render({ items: [items[0]], providerParams: { feed: 'sip' } })
+    expect(latest.a.data).toEqual({})
+    await receive(previous)
+    await emit('market-quote-snapshot', { listing, snapshot: quote })
+    expect(latest.a.data).toEqual({})
+    await receive(subscriptions().at(-1))
+    expect(latest.a.data.first).toEqual(quote)
+  })
 
-    socketMock.emit.mockClear()
-    await renderProviders(['tradier'])
+  it('gates required configuration only for active requests and allows Yahoo without credentials', async () => {
+    for (const provider of ['alpaca', 'finnhub', 'alpha-vantage', 'robinhood']) {
+      await render({ provider, auth: undefined, providerParams: undefined })
+      expect(latest.a.error?.message).toContain('Configure market provider settings:')
+    }
+    for (const idle of [{ items: [] }, { enabled: false }, { workspaceId: '' }]) {
+      await render({ ...idle, auth: undefined, providerParams: undefined })
+      expect(latest.a.error).toBeNull()
+      expect(latest.a.isFetching).toBe(false)
+    }
+    expect(subscriptions()).toHaveLength(0)
+    await render({ provider: 'yahoo-finance', auth: undefined, providerParams: undefined })
+    expect(subscriptions()).toHaveLength(2)
+  })
 
-    expect(socketMock.emit).toHaveBeenCalledExactlyOnceWith('market-unsubscribe', {
-      clientSubscriptionId: first.clientSubscriptionId,
+  it('places canonical subscription and provider errors on their own rows and replaces them on recovery', async () => {
+    await render()
+    const [first, second] = subscriptions()
+    await receive(second)
+    for (const event of ['market-subscribe-error', 'market-error']) {
+      await emit(event, {
+        clientSubscriptionId: first.clientSubscriptionId,
+        message: 'Provider unavailable',
+      })
+      expect(latest.a.data.first).toMatchObject({
+        lastPrice: null,
+        change: null,
+        changePercent: null,
+        error: 'Provider unavailable',
+      })
+      expect(latest.a.data.second).toEqual(quote)
+      expect(latest.a.error).toBeNull()
+      await receive(first)
+      expect(latest.a.data.first).toEqual(quote)
+    }
+    expect(latest.a.isFetching).toBe(false)
+  })
+
+  it('times out only pending rows and uses refreshKey to start a clean request', async () => {
+    vi.useFakeTimers()
+    await render()
+    await receive(subscriptions()[0])
+    await act(async () => {
+      vi.advanceTimersByTime(30_000)
     })
-    expect(socketMock.emit).not.toHaveBeenCalledWith('market-unsubscribe', {
-      clientSubscriptionId: second.clientSubscriptionId,
-    })
+    expect(latest.a.data.first).toEqual(quote)
+    expect(latest.a.data.second.error).toBe('Market quote request timed out')
+    expect(latest.a.isFetching).toBe(false)
+    await render({ refreshKey: 1 })
+    expect(latest.a.data).toEqual({})
+    expect(latest.a.isLoading).toBe(true)
+    for (const subscription of subscriptions().slice(-2)) await receive(subscription)
+    expect(latest.a.isFetching).toBe(false)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('reports missing and disconnected sockets, then clears transport errors on reconnect', async () => {
+    socket.available = false
+    await render()
+    expect(latest.a.error?.message).toContain('unavailable')
+    socket.available = true
+    socket.connected = false
+    await render()
+    expect(latest.a.error?.message).toContain('unavailable')
+    expect(subscriptions()).toHaveLength(0)
+    socket.connected = true
+    await emit('connect')
+    await receive(subscriptions()[0])
+    for (const event of ['disconnect', 'connect_error']) {
+      await emit(event)
+      expect(latest.a.error).toBeInstanceOf(Error)
+      expect(latest.a.data).toEqual({})
+      expect(latest.a.isFetching).toBe(false)
+      await emit('connect')
+      expect(latest.a.error).toBeNull()
+      expect(latest.a.isLoading).toBe(true)
+    }
+  })
+
+  it('unsubscribes by client ID and removes listeners and response timers', async () => {
+    vi.useFakeTimers()
+    await render()
+    const requests = subscriptions()
+    await act(async () => root.unmount())
+    for (const { clientSubscriptionId } of requests) {
+      expect(socket.emit).toHaveBeenCalledWith('market-unsubscribe', { clientSubscriptionId })
+    }
+    expect(Array.from(socket.handlers.values()).every((handlers) => handlers.size === 0)).toBe(true)
+    expect(vi.getTimerCount()).toBe(0)
   })
 })

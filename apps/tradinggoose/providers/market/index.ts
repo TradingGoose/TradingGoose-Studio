@@ -56,12 +56,7 @@ export async function executeProviderRequest(
   }
 
   const availability = provider.config.availability
-  const supportsKind =
-    request.kind === 'quote'
-      ? Boolean(provider.fetchMarketQuote)
-      : (availability[request.kind] ?? false)
-
-  if (!supportsKind) {
+  if (!availability[request.kind]) {
     throw new MarketProviderError({
       code: 'INVALID REQUEST',
       message: `Provider ${providerId} does not support ${request.kind}`,
@@ -96,8 +91,6 @@ export async function executeProviderRequest(
   }
 
   switch (request.kind) {
-    case 'quote':
-      return provider.fetchMarketQuote!(request)
     case 'series': {
       if (!provider.fetchMarketSeries) {
         throw new MarketProviderError({

@@ -5,15 +5,32 @@ export type MarketQuoteSnapshot = {
   previousClose: number | null
   volume?: number | null
   volumeUsd?: number | null
+  lastPriceTime?: string
+  regularSession?: { start: string; end: string }
   error?: string
 }
 
 export const MARKET_QUOTE_SNAPSHOT_REQUEST_CAP = 200
 
-export const createEmptyMarketQuoteSnapshot = (error?: string): MarketQuoteSnapshot => ({
-  lastPrice: null,
-  change: null,
-  changePercent: null,
-  previousClose: null,
-  ...(error ? { error } : {}),
-})
+export const createMarketQuoteSnapshot = ({
+  lastPrice = null,
+  previousClose = null,
+  volume,
+  ...metadata
+}: Partial<
+  Omit<MarketQuoteSnapshot, 'change' | 'changePercent' | 'volumeUsd'>
+>): MarketQuoteSnapshot => {
+  const change = lastPrice !== null && previousClose !== null ? lastPrice - previousClose : null
+  return {
+    ...metadata,
+    lastPrice,
+    previousClose,
+    change,
+    changePercent:
+      change !== null && previousClose !== null && previousClose !== 0
+        ? (change / previousClose) * 100
+        : null,
+    ...(volume != null ? { volume } : {}),
+    ...(volume != null && lastPrice !== null ? { volumeUsd: volume * lastPrice } : {}),
+  }
+}
