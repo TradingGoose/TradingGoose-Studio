@@ -226,7 +226,7 @@ describe('TradingAccountSelector', () => {
     ['disabled', { serviceIds: [] }, {}, { disabled: true }, false],
     ['service loading', { serviceIds: [], isLoading: true }, {}, {}, false],
     ['service fetching', { serviceIds: [], isFetching: true }, {}, {}, false],
-    ['service error', { serviceIds: [], error: new Error('connections failed') }, {}, {}, false],
+    ['availability error', { serviceIds: [], error: new Error('lookup failed') }, {}, {}, false],
   ] as const)('reconciles selection for %s', (_, servicePatch, accountPatch, props, invalid) => {
     const onAccountSelect = vi.fn()
     mockUseTradingServices.mockReturnValue({ ...services, ...servicePatch })

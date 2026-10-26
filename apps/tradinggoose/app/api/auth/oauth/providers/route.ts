@@ -19,6 +19,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(await getOAuthProviderAvailability(providers))
   } catch (error) {
     logger.error('Failed to load OAuth provider availability', error)
-    return NextResponse.json({})
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

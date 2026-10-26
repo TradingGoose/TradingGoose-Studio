@@ -91,16 +91,18 @@ describe('useTradingServices', () => {
     })
   })
 
-  it('reports availability failures and refreshes both availability and connections', () => {
+  it('reports availability failures with cached connections and refreshes both queries', () => {
     const error = new Error('availability failed')
     mockUseOAuthProviderAvailability.mockReturnValue({
-      data: undefined,
+      data: {},
       isLoading: false,
       error,
       refetch: refetchAvailability,
     })
     const services = useTradingServices({ providerId: 'alpaca', serviceId: 'alpaca-paper' })
     expect(services.error).toBe(error)
+    expect(services.serviceIds).toEqual([])
+    expect(services.connectedServiceIds).toEqual([])
     expect(services.activeServiceId).toBeUndefined()
     services.refetch()
     expect(refetchAvailability).toHaveBeenCalledOnce()
