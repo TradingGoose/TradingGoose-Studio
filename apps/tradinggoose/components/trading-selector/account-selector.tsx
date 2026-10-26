@@ -117,7 +117,7 @@ export function TradingAccountSelector({
   const shouldReconcile =
     clearInvalidSelection &&
     isEnabled &&
-    !services.isLoading &&
+    services.isSuccess &&
     !services.isFetching &&
     !services.error &&
     Boolean(requestedServiceId && !services.serviceIds.includes(requestedServiceId))

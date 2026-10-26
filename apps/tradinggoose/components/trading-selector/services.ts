@@ -12,6 +12,7 @@ export type TradingServiceState = {
   serviceIds: string[]
   connectedServiceIds: string[]
   activeServiceId?: string
+  isSuccess: boolean
   isLoading: boolean
   isFetching: boolean
   error: Error | null
@@ -68,6 +69,7 @@ export function useTradingServices({
     serviceIds,
     connectedServiceIds,
     activeServiceId,
+    isSuccess: isQueryEnabled && availabilityQuery.isSuccess && connectionsQuery.isSuccess,
     isLoading: isQueryEnabled && (availabilityQuery.isLoading || connectionsQuery.isLoading),
     isFetching: isQueryEnabled && (availabilityQuery.isFetching || connectionsQuery.isFetching),
     error: isQueryEnabled && error instanceof Error ? error : null,

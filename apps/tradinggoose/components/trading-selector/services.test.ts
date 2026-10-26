@@ -64,21 +64,26 @@ describe('useTradingServices', () => {
         { providerId: 'alpaca-live', isConnected: true },
         { providerId: 'alpaca-paper', isConnected: true },
       ],
+      isSuccess: true,
       isLoading: false,
+      isFetching: false,
       error: null,
       refetch: refetchConnections,
     })
   })
 
   it.each([
-    [{ 'alpaca-live': true, 'alpaca-paper': false }, ['alpaca-live'], false],
-    [{ 'alpaca-live': false, 'alpaca-paper': true }, ['alpaca-paper'], false],
-    [{ 'alpaca-live': false, 'alpaca-paper': false }, [], false],
-    [undefined, [], true],
-  ] as const)('filters connections by service availability %j', (data, expected, isLoading) => {
+    [{ 'alpaca-live': true, 'alpaca-paper': false }, ['alpaca-live'], false, true],
+    [{ 'alpaca-live': false, 'alpaca-paper': true }, ['alpaca-paper'], false, true],
+    [{ 'alpaca-live': false, 'alpaca-paper': false }, [], false, true],
+    [undefined, [], true, false],
+    [undefined, [], false, false],
+  ] as const)('resolves availability %j', (data, expected, isLoading, isSuccess) => {
     mockUseOAuthProviderAvailability.mockReturnValue({
       data,
+      isSuccess,
       isLoading,
+      isFetching: isLoading,
       error: null,
       refetch: refetchAvailability,
     })
@@ -86,7 +91,9 @@ describe('useTradingServices', () => {
       serviceIds: expected,
       connectedServiceIds: expected,
       activeServiceId: expected[0],
+      isSuccess,
       isLoading,
+      isFetching: isLoading,
       error: null,
     })
   })
@@ -95,11 +102,14 @@ describe('useTradingServices', () => {
     const error = new Error('availability failed')
     mockUseOAuthProviderAvailability.mockReturnValue({
       data: {},
+      isSuccess: false,
       isLoading: false,
+      isFetching: false,
       error,
       refetch: refetchAvailability,
     })
     const services = useTradingServices({ providerId: 'alpaca', serviceId: 'alpaca-paper' })
+    expect(services.isSuccess).toBe(false)
     expect(services.error).toBe(error)
     expect(services.serviceIds).toEqual([])
     expect(services.connectedServiceIds).toEqual([])
