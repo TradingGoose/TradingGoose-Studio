@@ -191,6 +191,7 @@ export const alpacaProviderConfig: MarketProviderConfig = {
     live: {
       channels: ['bars', 'trades', 'quotes'],
       supportsInterval: false,
+      pollingIntervalMs: 60_000,
     },
   },
   rulePrecedence: {

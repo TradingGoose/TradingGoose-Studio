@@ -160,6 +160,12 @@ describe('watchlist quote subscription to rendered rows', () => {
     )
     expect(microsoftRow.textContent).not.toContain('Apple snapshot failed')
     await act(async () => {
+      trigger('market-quote-snapshot', { ...aapl, snapshot })
+      trigger('market-error', { ...aapl, message: 'Apple stream failed' })
+    })
+    expect(values(appleRow)).toEqual(['110.00', '5.00', '4.76%'])
+    expect(appleRow.querySelector('[role="alert"]')?.textContent).toBe('Apple stream failed')
+    await act(async () => {
       for (const request of subscriptions())
         trigger('market-quote-snapshot', { ...request, snapshot })
     })

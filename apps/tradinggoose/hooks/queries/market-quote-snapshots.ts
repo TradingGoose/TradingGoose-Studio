@@ -70,12 +70,15 @@ export const useMarketQuoteSnapshots = ({
     const pending = new Set<string>()
     let timeout: ReturnType<typeof setTimeout> | undefined
 
-    const receive = (key: string, snapshot: MarketQuoteSnapshot) => {
+    const receive = (
+      key: string,
+      update: (previous?: MarketQuoteSnapshot) => MarketQuoteSnapshot
+    ) => {
       pending.delete(key)
       if (pending.size === 0) clearTimeout(timeout)
       setState((current) => ({
         scope,
-        data: { ...current.data, [key]: snapshot },
+        data: { ...current.data, [key]: update(current.data[key]) },
         error: null,
         pending: pending.size,
       }))
@@ -85,11 +88,15 @@ export const useMarketQuoteSnapshots = ({
       snapshot: MarketQuoteSnapshot
     }) => {
       const item = subscriptions.get(payload.clientSubscriptionId)
-      if (item) receive(item.key, payload.snapshot)
+      if (item) receive(item.key, () => payload.snapshot)
     }
     const handleError = (payload: { clientSubscriptionId: string; message: string }) => {
       const item = subscriptions.get(payload.clientSubscriptionId)
-      if (item) receive(item.key, createMarketQuoteSnapshot({ error: payload.message }))
+      if (item)
+        receive(item.key, (previous) => ({
+          ...(previous ?? createMarketQuoteSnapshot({})),
+          error: payload.message,
+        }))
     }
     const failConnection = (message: string) => {
       clearTimeout(timeout)

@@ -83,6 +83,7 @@ export const finnhubProviderConfig: MarketProviderConfig = {
     live: {
       channels: ['trades', 'bars'],
       supportsInterval: false,
+      pollingIntervalMs: 60_000,
     },
   },
   rulePrecedence: {

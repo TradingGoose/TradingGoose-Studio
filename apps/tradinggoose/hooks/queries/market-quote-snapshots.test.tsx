@@ -146,6 +146,7 @@ describe('useMarketQuoteSnapshots', () => {
     await render({ items: [items[0]], providerParams: { feed: 'sip' } })
     expect(latest.a.data).toEqual({})
     await receive(previous)
+    await emit('market-error', { ...previous, message: 'Previous subscription failed' })
     await emit('market-quote-snapshot', { listing, snapshot: quote })
     expect(latest.a.data).toEqual({})
     await receive(subscriptions().at(-1))
@@ -170,19 +171,20 @@ describe('useMarketQuoteSnapshots', () => {
     expect(subscriptions()).toHaveLength(4)
   })
 
-  it('places canonical subscription and provider errors on their own rows and replaces them on recovery', async () => {
+  it('attaches row errors without discarding available quotes and replaces them on recovery', async () => {
     await render()
     const [first, second] = subscriptions()
     await receive(second)
-    for (const event of ['market-subscribe-error', 'market-error']) {
+    for (const [event, previous] of [
+      ['market-subscribe-error', { lastPrice: null, change: null, changePercent: null }],
+      ['market-error', quote],
+    ] as const) {
       await emit(event, {
         clientSubscriptionId: first.clientSubscriptionId,
         message: 'Provider unavailable',
       })
       expect(latest.a.data.first).toMatchObject({
-        lastPrice: null,
-        change: null,
-        changePercent: null,
+        ...previous,
         error: 'Provider unavailable',
       })
       expect(latest.a.data.second).toEqual(quote)

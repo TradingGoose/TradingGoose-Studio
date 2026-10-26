@@ -71,7 +71,7 @@ type OAuthConnection = NonNullable<Awaited<ReturnType<typeof resolveOAuthCredent
 export interface MarketSubscriptionInfo {
   subscriptionId: string
   clientSubscriptionId?: string
-  listing: ListingIdentity | null
+  listing: ListingIdentity
   symbol: string
   provider: string
   market: AlpacaMarket
@@ -99,16 +99,13 @@ type MarketStream = {
 interface StreamState {
   stream?: MarketStream
   provider: string
-  market: AlpacaMarket
-  feed?: AlpacaFeed
-  cryptoRegion?: AlpacaCryptoRegion
   auth?: MarketProviderAuth
   providerParams?: MarketProviderParams
   normalizationMode?: NormalizationMode
   pollingTimer?: ReturnType<typeof setInterval>
   pollingInFlight?: boolean
   pollingRequested?: boolean
-  quoteSnapshotCache: Map<string, MarketQuoteSnapshot>
+  quoteSnapshotCache: Map<string, { snapshot: MarketQuoteSnapshot; refreshAt: number }>
   marketBarCache: Map<string, MarketBar>
   subscribersBySymbol: Map<string, Map<string, MarketSubscriptionRecord>>
 }
@@ -282,8 +279,6 @@ export class MarketStreamManager {
       market,
       feed,
       cryptoRegion,
-      keyId,
-      secretKey,
       auth: {
         apiKey: keyId,
         apiSecret: secretKey,
@@ -382,7 +377,6 @@ export class MarketStreamManager {
     const streamState = this.getOrCreateStream(streamKey, {
       provider: 'finnhub',
       market,
-      apiKey,
       auth: { apiKey },
       providerParams: payload.providerParams,
     })
@@ -566,12 +560,9 @@ export class MarketStreamManager {
       streamState.subscribersBySymbol.get(record.symbol) ??
       new Map<string, MarketSubscriptionRecord>()
 
-    const hadUpstreamChannel =
-      record.upstreamChannel === undefined
-        ? true
-        : Array.from(symbolSubscribers.values()).some(
-            (existing) => existing.upstreamChannel === record.upstreamChannel
-          )
+    const hadUpstreamChannel = Array.from(symbolSubscribers.values()).some(
+      (existing) => existing.upstreamChannel === record.upstreamChannel
+    )
 
     if (!symbolSubscribers.has(record.subscriptionId)) {
       symbolSubscribers.set(record.subscriptionId, record)
@@ -587,7 +578,7 @@ export class MarketStreamManager {
     this.socketSubscriptions.set(record.socketId, socketMap)
 
     if (record.channel === 'quote-snapshots') {
-      const cached = streamState.quoteSnapshotCache.get(record.symbol)
+      const cached = streamState.quoteSnapshotCache.get(record.symbol)?.snapshot
       if (cached) {
         this.emitQuoteSnapshot(record, cached)
       }
@@ -614,10 +605,7 @@ export class MarketStreamManager {
       market: AlpacaMarket
       feed?: AlpacaFeed
       cryptoRegion?: AlpacaCryptoRegion
-      keyId?: string
-      secretKey?: string
-      apiKey?: string
-      auth?: MarketProviderAuth
+      auth: MarketProviderAuth
       providerParams?: MarketProviderParams
     }
   ): StreamState {
@@ -631,8 +619,8 @@ export class MarketStreamManager {
               market: config.market,
               feed: config.feed,
               cryptoRegion: config.cryptoRegion,
-              keyId: config.keyId,
-              secretKey: config.secretKey,
+              keyId: config.auth.apiKey,
+              secretKey: config.auth.apiSecret,
             },
             {
               onBar: ({ symbol, bar, raw }) => this.handleBar(streamKey, symbol, bar, raw),
@@ -644,7 +632,7 @@ export class MarketStreamManager {
           )
         : new FinnhubMarketStream(
             {
-              apiKey: config.apiKey,
+              apiKey: config.auth.apiKey,
             },
             {
               onBar: ({ symbol, bar, raw }) => this.handleBar(streamKey, symbol, bar, raw),
@@ -657,9 +645,6 @@ export class MarketStreamManager {
     const state: StreamState = {
       stream,
       provider: config.provider,
-      market: config.market,
-      feed: config.feed,
-      cryptoRegion: config.cryptoRegion,
       auth: config.auth,
       providerParams: config.providerParams,
       quoteSnapshotCache: new Map(),
@@ -685,7 +670,6 @@ export class MarketStreamManager {
 
     const state: StreamState = {
       provider: config.provider,
-      market: 'stocks',
       auth: config.auth,
       providerParams: config.providerParams,
       normalizationMode: config.normalizationMode,
@@ -723,10 +707,11 @@ export class MarketStreamManager {
     )
     let quoteSnapshot: MarketQuoteSnapshot | undefined
     if (hasQuoteSnapshots) {
-      const previous = state.quoteSnapshotCache.get(symbol) ?? createMarketQuoteSnapshot({})
+      const cached = state.quoteSnapshotCache.get(symbol)
+      const previous = cached?.snapshot ?? createMarketQuoteSnapshot({})
       const next = updateSnapshotFromTrade(previous, trade)
       if (next !== previous) {
-        state.quoteSnapshotCache.set(symbol, next)
+        state.quoteSnapshotCache.set(symbol, { snapshot: next, refreshAt: cached?.refreshAt ?? 0 })
         quoteSnapshot = next
       }
     }
@@ -784,18 +769,19 @@ export class MarketStreamManager {
     })
   }
 
-  private emitQuoteSnapshotToSymbolSubscribers(
+  private publishQuoteSnapshot(
     streamState: StreamState,
     symbol: string,
     snapshot: MarketQuoteSnapshot,
-    raw?: unknown
+    refreshAt: number
   ) {
     const subscribers = streamState.subscribersBySymbol.get(symbol)
     if (!subscribers) return
 
+    streamState.quoteSnapshotCache.set(symbol, { snapshot, refreshAt })
     subscribers.forEach((record) => {
       if (record.channel !== 'quote-snapshots') return
-      this.emitQuoteSnapshot(record, snapshot, raw)
+      this.emitQuoteSnapshot(record, snapshot)
     })
   }
 
@@ -843,15 +829,14 @@ export class MarketStreamManager {
     streamState: StreamState,
     symbol: string,
     interval: string,
-    bar: MarketBar,
-    raw?: unknown
+    bar: MarketBar
   ) {
     const subscribers = streamState.subscribersBySymbol.get(symbol)
     if (!subscribers) return
 
     subscribers.forEach((record) => {
       if (record.channel !== 'bars' || record.interval !== interval) return
-      this.emitMarketBar(record, bar, raw)
+      this.emitMarketBar(record, bar)
     })
   }
 
@@ -882,17 +867,20 @@ export class MarketStreamManager {
     }> = []
     streamState.subscribersBySymbol.forEach((subscribers, symbol) => {
       const quoteRecord = Array.from(subscribers.values()).find(
-        (subscriber) => subscriber.channel === 'quote-snapshots' && subscriber.listing
+        (subscriber) => subscriber.channel === 'quote-snapshots'
       )
 
-      if (quoteRecord) {
+      if (
+        quoteRecord &&
+        (streamState.quoteSnapshotCache.get(symbol)?.refreshAt ?? 0) <= Date.now()
+      ) {
         tasks.push({ type: 'quote-snapshot', symbol, record: quoteRecord })
       }
 
       if (streamState.stream) return
       const barRecordsByInterval = new Map<string, MarketSubscriptionRecord>()
       subscribers.forEach((subscriber) => {
-        if (subscriber.channel !== 'bars' || !subscriber.listing || !subscriber.interval) return
+        if (subscriber.channel !== 'bars' || !subscriber.interval) return
         if (!barRecordsByInterval.has(subscriber.interval)) {
           barRecordsByInterval.set(subscriber.interval, subscriber)
         }
@@ -904,6 +892,9 @@ export class MarketStreamManager {
 
     if (tasks.length === 0) return
 
+    const refreshAt =
+      Date.now() +
+      (getMarketProviderPollingIntervalMs(streamState.provider) ?? DEFAULT_POLLING_INTERVAL_MS)
     streamState.pollingInFlight = true
     try {
       let workspaceAccess: Promise<boolean> | undefined
@@ -935,7 +926,7 @@ export class MarketStreamManager {
               if (next.type === 'quote-snapshot') {
                 let snapshot = await buildMarketQuoteSnapshot({
                   provider: next.record.provider,
-                  listing: next.record.listing as ListingIdentity,
+                  listing: next.record.listing,
                   auth: streamState.auth,
                   providerParams: streamState.providerParams,
                   context: {
@@ -945,15 +936,14 @@ export class MarketStreamManager {
                   },
                 })
                 if (!isActive()) continue
-                const cached = streamState.quoteSnapshotCache.get(next.symbol)
+                const cached = streamState.quoteSnapshotCache.get(next.symbol)?.snapshot
                 if (cached && cached.lastPrice !== null && cached.lastPriceTime) {
                   snapshot = updateSnapshotFromTrade(snapshot, {
                     price: cached.lastPrice,
                     timeStamp: cached.lastPriceTime,
                   })
                 }
-                streamState.quoteSnapshotCache.set(next.symbol, snapshot)
-                this.emitQuoteSnapshotToSymbolSubscribers(streamState, next.symbol, snapshot)
+                this.publishQuoteSnapshot(streamState, next.symbol, snapshot, refreshAt)
                 continue
               }
 
@@ -964,15 +954,11 @@ export class MarketStreamManager {
                 const message =
                   error instanceof Error ? error.message : 'Failed to poll quote snapshot'
                 const cached = streamState.quoteSnapshotCache.get(next.symbol)
-                const snapshot = createMarketQuoteSnapshot({
-                  lastPrice: cached?.lastPrice,
-                  lastPriceTime: cached?.lastPriceTime,
-                  timezone: cached?.timezone,
-                  regularSession: cached?.regularSession,
+                const snapshot = {
+                  ...(cached?.snapshot ?? createMarketQuoteSnapshot({})),
                   error: message,
-                })
-                streamState.quoteSnapshotCache.set(next.symbol, snapshot)
-                this.emitQuoteSnapshotToSymbolSubscribers(streamState, next.symbol, snapshot)
+                }
+                this.publishQuoteSnapshot(streamState, next.symbol, snapshot, refreshAt)
                 continue
               }
 
@@ -1017,7 +1003,7 @@ export class MarketStreamManager {
       record.provider,
       {
         kind: 'series',
-        listing: record.listing as ListingIdentity,
+        listing: record.listing,
         interval,
         normalizationMode: streamState.normalizationMode,
         auth: streamState.auth,
@@ -1306,13 +1292,13 @@ function updateSnapshotFromTrade(previous: MarketQuoteSnapshot, trade: any): Mar
   const sessionStart = Date.parse(previous.regularSession?.start ?? '')
   const sessionEnd = Date.parse(previous.regularSession?.end ?? '')
   const inSession = tradeTime >= sessionStart && tradeTime < sessionEnd
+  if (previous.regularSession && !inSession) return previous
   const sameDay =
     inSession ||
     (previous.timezone &&
       Number.isFinite(previousTime) &&
       getMarketQuoteDate(previous.lastPriceTime!, previous.timezone) ===
         getMarketQuoteDate(trade.timeStamp, previous.timezone))
-  if (previous.regularSession && !inSession && sameDay) return previous
   const previousClose = sameDay ? previous.previousClose : null
 
   return createMarketQuoteSnapshot({
@@ -1321,7 +1307,7 @@ function updateSnapshotFromTrade(previous: MarketQuoteSnapshot, trade: any): Mar
     timezone: previous.timezone,
     previousClose,
     volume: sameDay ? previous.volume : undefined,
-    regularSession: inSession ? previous.regularSession : undefined,
+    regularSession: previous.regularSession,
     error:
       previous.error ??
       (previousClose === null ? 'Previous regular-session close is unavailable' : undefined),
