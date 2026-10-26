@@ -7,6 +7,7 @@ import {
 import { executeProviderRequest } from '@/providers/market'
 import { toZonedIsoTimestamp } from '@/providers/market/market-hours/date-utils'
 import type { MarketProviderRequestContext, MarketSeries } from '@/providers/market/types'
+import { resolveListingContext } from '@/providers/market/utils'
 
 export const buildMarketQuoteSnapshot = async ({
   provider,
@@ -21,35 +22,41 @@ export const buildMarketQuoteSnapshot = async ({
   providerParams?: Record<string, unknown>
   context?: MarketProviderRequestContext
 }): Promise<MarketQuoteSnapshot> => {
+  const dailyOnly =
+    listing.listing_type === 'default' &&
+    (await resolveListingContext(listing)).assetClass === 'mutualfund'
   const requestStartedAt = Date.now()
-  const [daily, regular] = await Promise.all(
+  const [daily, intraday] = await Promise.all(
     (
       [
         ['1d', 14],
         ['1m', 1],
       ] as const
-    ).map(
-      async ([interval, days]) =>
-        (await executeProviderRequest(
-          provider,
-          {
-            kind: 'series',
-            listing,
-            interval,
-            windows: [{ mode: 'range', range: { value: days, unit: 'day' } }],
-            normalizationMode:
-              interval === '1d' && listing.listing_type === 'default' ? 'split_adjusted' : 'raw',
-            auth,
-            providerParams: { ...providerParams, marketSession: 'regular' },
-          },
-          context
-        )) as MarketSeries
     )
+      .filter(([interval]) => !dailyOnly || interval === '1d')
+      .map(
+        async ([interval, days]) =>
+          (await executeProviderRequest(
+            provider,
+            {
+              kind: 'series',
+              listing,
+              interval,
+              windows: [{ mode: 'range', range: { value: days, unit: 'day' } }],
+              normalizationMode:
+                interval === '1d' && listing.listing_type === 'default' ? 'split_adjusted' : 'raw',
+              auth,
+              providerParams: { ...providerParams, marketSession: 'regular' },
+            },
+            context
+          )) as MarketSeries
+      )
   )
-  const timezone = listing.listing_type === 'default' ? regular.timezone : 'UTC'
+  const priceSeries = dailyOnly ? daily : intraday
+  const timezone = listing.listing_type === 'default' ? priceSeries.timezone : 'UTC'
   if (!timezone) throw new Error('Market series timezone is required')
-  const sessions = regular.marketSessions?.filter(({ type }) => type === 'market') ?? []
-  const priceBar = regular.bars
+  const sessions = priceSeries.marketSessions?.filter(({ type }) => type === 'market') ?? []
+  const priceBar = priceSeries.bars
     .filter(
       ({ timeStamp }) =>
         !sessions.length ||
@@ -70,10 +77,11 @@ export const buildMarketQuoteSnapshot = async ({
   )
   const session = sessions.find(({ date }) => date === priceDate)
   const completed =
-    listing.listing_type === 'default' &&
-    (session
-      ? Date.parse(session.end) <= requestStartedAt
-      : priceDate < getMarketQuoteDate(new Date(requestStartedAt).toISOString(), timezone))
+    dailyOnly ||
+    (listing.listing_type === 'default' &&
+      (session
+        ? Date.parse(session.end) <= requestStartedAt
+        : priceDate < getMarketQuoteDate(new Date(requestStartedAt).toISOString(), timezone)))
   const missingClose = completed && !sessionDaily
   const priceTime = Date.parse(priceBar.timeStamp)
   return createMarketQuoteSnapshot({

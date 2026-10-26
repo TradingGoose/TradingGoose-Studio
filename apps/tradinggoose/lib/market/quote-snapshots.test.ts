@@ -4,8 +4,12 @@ import { buildMarketQuoteSnapshot } from '@/lib/market/quote-snapshots'
 import type { MarketSeries } from '@/providers/market/types'
 
 const execute = vi.fn()
+const resolveContext = vi.fn()
 vi.mock('@/providers/market', () => ({
   executeProviderRequest: (...args: unknown[]) => execute(...args),
+}))
+vi.mock('@/providers/market/utils', () => ({
+  resolveListingContext: (...args: unknown[]) => resolveContext(...args),
 }))
 const listing = { listing_id: 'AAPL', base_id: '', quote_id: '', listing_type: 'default' as const }
 const session = {
@@ -22,6 +26,7 @@ describe('market quote normalization', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-10-26T16:00:00Z'))
+    resolveContext.mockReset().mockResolvedValue({ assetClass: 'stock' })
     execute
       .mockReset()
       .mockImplementation(async (_provider, request) =>
@@ -180,6 +185,46 @@ describe('market quote normalization', () => {
     regular.bars = []
     await expect(snapshot()).rejects.toThrow('No regular-session price available')
   })
+
+  it.each(['yahoo-finance', 'finnhub'])(
+    'prices mutual funds from their daily NAV with %s',
+    async (provider) => {
+      resolveContext.mockResolvedValue({ assetClass: 'mutualfund' })
+      regular.bars = []
+      for (const date of ['2026-10-23', '2026-10-26']) {
+        daily.bars = [
+          { timeStamp: '2026-10-22T13:30:00Z', close: 100 },
+          { timeStamp: `${date}T13:30:00Z`, close: 105, volume: 0 },
+        ]
+        execute.mockClear()
+        const quote = await snapshot(provider)
+        expect(quote).toMatchObject({
+          lastPrice: 105,
+          previousClose: 100,
+          change: 5,
+          changePercent: 5,
+          volume: 0,
+          volumeUsd: 0,
+          lastPriceTime: `${date}T13:30:00Z`,
+          lastPriceEndTime:
+            date === '2026-10-23' ? '2026-10-24T04:00:00.000Z' : '2026-10-27T04:00:00.000Z',
+          timezone: 'America/New_York',
+        })
+        expect(quote.error).toBeUndefined()
+        expect(quote.regularSession).toBeUndefined()
+        expect(execute.mock.calls.map(([, request]) => request.interval)).toEqual(['1d'])
+      }
+      daily.bars.shift()
+      expect(await snapshot(provider)).toMatchObject({
+        lastPrice: 105,
+        previousClose: null,
+        change: null,
+        error: 'Previous regular-session close is unavailable',
+      })
+      execute.mockRejectedValueOnce(new Error('Provider unavailable'))
+      await expect(snapshot(provider)).rejects.toThrow('Provider unavailable')
+    }
+  )
 
   it('excludes candles at the regular close boundary and after hours', async () => {
     vi.setSystemTime(new Date('2026-10-26T20:00:00Z'))
