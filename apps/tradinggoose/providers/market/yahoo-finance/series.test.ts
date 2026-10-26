@@ -63,6 +63,26 @@ const chartResponse = (
   })
 
 describe('Yahoo all history', () => {
+  it.each([undefined, { mode: 'bars', barCount: 2 }] as const)(
+    'uses the planner interval for parameter-only minute requests (%j)',
+    async (window) => {
+      fetchMock.mockResolvedValue(chartResponse(['2026-10-23T11:59:00Z'], [1.1]))
+      const { request } = planMarketSeriesRequest('yahoo-finance', {
+        kind: 'series',
+        listing: currency,
+        providerParams: { interval: '1m' },
+        windows: window ? [window] : undefined,
+      })
+      expect(request.interval).toBe('1m')
+      expect(request.providerParams).not.toHaveProperty('interval')
+      if (window)
+        expect(Date.parse(String(request.end)) - Date.parse(String(request.start))).toBe(120_000)
+      await fetchYahooFinanceSeries(request)
+      expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get('interval')).toBe('1m')
+      expect(marketClient.makeRequest).not.toHaveBeenCalled()
+    }
+  )
+
   it('requests native maximum history and preserves bars older than 50 years', async () => {
     const dates = ['1962-01-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z']
     fetchMock.mockResolvedValue(chartResponse(dates, [100, 200]))

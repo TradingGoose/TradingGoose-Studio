@@ -161,9 +161,7 @@ export async function executeProviderRequest(
           }
         }
       }
-      const sessionInterval =
-        sessionAdjustedRequest.interval ||
-        (sessionAdjustedRequest.providerParams?.interval as string | undefined)
+      const sessionInterval = sessionAdjustedRequest.interval
       const adjustedRequest = isIntradayInterval(sessionInterval)
         ? await clampToMarketSession(sessionAdjustedRequest)
         : sessionAdjustedRequest

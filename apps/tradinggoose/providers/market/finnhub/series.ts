@@ -123,7 +123,7 @@ export async function fetchFinnhubSeries(request: MarketSeriesRequest): Promise<
   if (from == null || to == null) {
     throw new Error('Finnhub series requests require explicit start and end times')
   }
-  const interval = request.interval || (request.providerParams?.interval as string | undefined)
+  const interval = request.interval
   const resolution = resolveResolution(interval)
 
   const apiKey = request.auth?.apiKey

@@ -78,7 +78,7 @@ export async function fetchAlpacaSeries(request: MarketSeriesRequest): Promise<M
 
   const symbol = resolveProviderSymbol(alpacaProviderConfig, context)
 
-  const interval = request.interval || request.providerParams?.interval || '1d'
+  const interval = request.interval || '1d'
   const timeframe = ALPACA_INTERVAL_MAP[interval as MarketInterval]
   if (!timeframe) throw new Error(`Unsupported Alpaca interval: ${interval}`)
 

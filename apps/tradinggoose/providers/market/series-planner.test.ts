@@ -3,6 +3,7 @@ import {
   getMarketSeriesRangePresets,
   planMarketSeriesRequest,
 } from '@/providers/market/series-planner'
+import type { MarketSeriesRequest } from '@/providers/market/types'
 
 const listing = {
   listing_id: 'TG_LSTG_822870',
@@ -59,6 +60,37 @@ describe('getMarketSeriesRangePresets', () => {
 })
 
 describe('planMarketSeriesRequest', () => {
+  it.each([
+    ['params only', undefined, '1m', undefined, '1m'],
+    ['top-level precedence', '5m', '1m', { mode: 'bars', barCount: 2 }, '5m'],
+    ['params with a window', undefined, '1m', { mode: 'bars', barCount: 2 }, '1m'],
+    ['daily default', undefined, undefined, undefined, '1d'],
+    ['All override', '5m', '1m', { mode: 'all' }, '3mo'],
+    ['invalid window', undefined, '1m', { mode: 'bars', barCount: 0 }, '1m'],
+  ] as const)(
+    'publishes one effective interval for %s',
+    (_case, interval, paramInterval, window, expected) => {
+      const request: MarketSeriesRequest = {
+        kind: 'series',
+        listing,
+        interval,
+        providerParams: { interval: paramInterval, marketSession: 'regular' },
+        windows: window ? [window] : undefined,
+        normalizationMode: 'adjusted',
+      }
+      const original = structuredClone(request)
+      const result = planMarketSeriesRequest('yahoo-finance', request)
+      expect(result.request.interval).toBe(expected)
+      expect(result.request.providerParams).not.toHaveProperty('interval')
+      expect(result.request.providerParams?.marketSession).toBe('regular')
+      expect(request).toEqual(original)
+      if (!window || (window.mode === 'bars' && window.barCount === 0)) {
+        expect(result.mode).toBeNull()
+        expect(result.request.normalizationMode).toBe('adjusted')
+      }
+    }
+  )
+
   it.each([
     ['1d', { mode: 'bars', barCount: 2 }, 'split_adjusted'],
     ['1w', { mode: 'bars', barCount: 2 }, undefined],
@@ -142,9 +174,10 @@ describe('planMarketSeriesRequest', () => {
     const result = planMarketSeriesRequest('yahoo-finance', {
       kind: 'series',
       listing,
-      interval: '1m',
+      providerParams: { interval: '1m' },
       windows: [window],
     })
+    expect(result.request.interval).toBe('1m')
     expect(result.request.windows).toEqual([expected])
   })
 })

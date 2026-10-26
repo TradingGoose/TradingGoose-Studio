@@ -8,8 +8,6 @@ import { resolveListingContext, resolveProviderSymbol } from '@/providers/market
 
 const logger = createLogger('MarketProvider:AlphaVantage')
 
-const DEFAULT_INTERVAL = '1d'
-
 const INTRADAY_INTERVAL_MAP: Record<string, string> = {
   '1m': '1min',
   '5m': '5min',
@@ -26,12 +24,6 @@ const OUTPUTSIZE_FUNCTIONS = new Set([
   'FX_DAILY',
   'CRYPTO_INTRADAY',
 ])
-
-function resolveInterval(request: MarketSeriesRequest): string {
-  return (
-    request.interval || (request.providerParams?.interval as string | undefined) || DEFAULT_INTERVAL
-  )
-}
 
 function isIntradayInterval(interval: string): interval is keyof typeof INTRADAY_INTERVAL_MAP {
   return Object.hasOwn(INTRADAY_INTERVAL_MAP, interval)
@@ -224,7 +216,7 @@ export async function fetchAlphaVantageSeries(request: MarketSeriesRequest): Pro
 
   const context = await resolveListingContext(request.listing)
   const assetClass = context.assetClass
-  const interval = resolveInterval(request)
+  const interval = request.interval || '1d'
   const useAdjusted = Boolean(request.normalizationMode && request.normalizationMode !== 'raw')
 
   let functionName: string
