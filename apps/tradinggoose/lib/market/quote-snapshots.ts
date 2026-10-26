@@ -5,6 +5,7 @@ import {
   type MarketQuoteSnapshot,
 } from '@/lib/market/quote-snapshot-contract'
 import { executeProviderRequest } from '@/providers/market'
+import { toZonedIsoTimestamp } from '@/providers/market/market-hours/date-utils'
 import type { MarketProviderRequestContext, MarketSeries } from '@/providers/market/types'
 
 export const buildMarketQuoteSnapshot = async ({
@@ -64,21 +65,38 @@ export const buildMarketQuoteSnapshot = async ({
   const previousDaily = dailyBars.find(
     (bar) => getMarketQuoteDate(bar.timeStamp, timezone) < priceDate
   )
-  const volumeBar = dailyBars.find(
+  const sessionDaily = dailyBars.find(
     (bar) => getMarketQuoteDate(bar.timeStamp, timezone) === priceDate
   )
   const session = sessions.find(({ date }) => date === priceDate)
+  const completed =
+    listing.listing_type === 'default' &&
+    (session
+      ? Date.parse(session.end) <= requestStartedAt
+      : priceDate < getMarketQuoteDate(new Date(requestStartedAt).toISOString(), timezone))
+  const missingClose = completed && !sessionDaily
   const priceTime = Date.parse(priceBar.timeStamp)
   return createMarketQuoteSnapshot({
-    lastPrice: priceBar.close,
-    previousClose: previousDaily?.close,
+    lastPrice: completed && sessionDaily ? sessionDaily.close : priceBar.close,
+    previousClose: missingClose ? undefined : previousDaily?.close,
     lastPriceTime: priceBar.timeStamp,
-    lastPriceEndTime: new Date(
-      Math.max(priceTime, Math.min(requestStartedAt, priceTime + 60_000))
-    ).toISOString(),
+    lastPriceEndTime:
+      completed && sessionDaily
+        ? (session?.end ??
+          toZonedIsoTimestamp(
+            new Date(Date.parse(priceDate) + 86_400_000).toISOString().slice(0, 10),
+            new Intl.DateTimeFormat('en-US', { timeZone: timezone, timeZoneName: 'longOffset' })
+          ))
+        : new Date(
+            Math.max(priceTime, Math.min(requestStartedAt, priceTime + 60_000))
+          ).toISOString(),
     timezone,
-    volume: volumeBar?.volume,
+    volume: sessionDaily?.volume,
     ...(session ? { regularSession: { start: session.start, end: session.end } } : {}),
-    ...(!previousDaily ? { error: 'Previous regular-session close is unavailable' } : {}),
+    error: missingClose
+      ? 'Current regular-session close is unavailable'
+      : !previousDaily
+        ? 'Previous regular-session close is unavailable'
+        : undefined,
   })
 }

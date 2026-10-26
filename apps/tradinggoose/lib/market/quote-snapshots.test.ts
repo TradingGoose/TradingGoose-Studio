@@ -21,7 +21,7 @@ const snapshot = (provider = 'alpaca') => buildMarketQuoteSnapshot({ provider, l
 describe('market quote normalization', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-10-28T00:00:00Z'))
+    vi.setSystemTime(new Date('2026-10-26T16:00:00Z'))
     execute
       .mockReset()
       .mockImplementation(async (_provider, request) =>
@@ -105,6 +105,7 @@ describe('market quote normalization', () => {
     ['2026-10-26', 100],
     ['2026-10-27', 100],
   ])('uses the prior completed session across closures for %s', async (date, close) => {
+    vi.setSystemTime(new Date(`${date}T16:00:00Z`))
     daily.bars.pop()
     regular = { timezone: regular.timezone, bars: [{ timeStamp: `${date}T15:59:00Z`, close: 110 }] }
     expect(await snapshot()).toMatchObject({ previousClose: close, change: 110 - close })
@@ -120,6 +121,49 @@ describe('market quote normalization', () => {
       error: 'Previous regular-session close is unavailable',
     })
   })
+
+  it.each([true, false])(
+    'keeps completed quotes on one split basis (session=%s)',
+    async (hasSession) => {
+      vi.setSystemTime(new Date('2026-10-26T12:00:00Z'))
+      daily.bars = [
+        { timeStamp: '2026-10-22T04:00:00Z', close: 50 },
+        { timeStamp: '2026-10-23T04:00:00Z', close: 51, volume: 20 },
+      ]
+      regular.bars = [{ timeStamp: '2026-10-23T19:00:00Z', close: 102 }]
+      regular.marketSessions = hasSession
+        ? [
+            {
+              ...session,
+              date: '2026-10-23',
+              start: '2026-10-23T13:30:00Z',
+              end: '2026-10-23T20:00:00Z',
+            },
+          ]
+        : undefined
+      expect(await snapshot()).toMatchObject({
+        lastPrice: 51,
+        previousClose: 50,
+        change: 1,
+        changePercent: 2,
+        volume: 20,
+        lastPriceEndTime: hasSession ? '2026-10-23T20:00:00Z' : '2026-10-24T04:00:00.000Z',
+      })
+      daily.bars.pop()
+      expect(await snapshot()).toMatchObject({
+        lastPrice: 102,
+        previousClose: null,
+        change: null,
+        lastPriceEndTime: '2026-10-23T19:01:00.000Z',
+        error: 'Current regular-session close is unavailable',
+      })
+      vi.setSystemTime(new Date('2026-10-26T16:00:00Z'))
+      daily.bars = [{ timeStamp: '2026-10-23T04:00:00Z', close: 100 }]
+      regular.bars = [{ timeStamp: '2026-10-26T15:59:00Z', close: 100 }]
+      regular.marketSessions = [session]
+      expect(await snapshot()).toMatchObject({ lastPrice: 100, previousClose: 100, change: 0 })
+    }
+  )
 
   it.each(['1d', '1m'])(
     'propagates %s request failures without substituting another data source',
@@ -138,6 +182,8 @@ describe('market quote normalization', () => {
   })
 
   it('excludes candles at the regular close boundary and after hours', async () => {
+    vi.setSystemTime(new Date('2026-10-26T20:00:00Z'))
+    daily.bars.at(-1)!.close = 110
     regular.bars = [
       { timeStamp: '2026-10-26T19:59:00Z', close: 110 },
       { timeStamp: '2026-10-26T20:00:00Z', close: 115 },
@@ -147,11 +193,12 @@ describe('market quote normalization', () => {
       lastPrice: 110,
       change: 10,
       lastPriceTime: '2026-10-26T19:59:00Z',
-      lastPriceEndTime: '2026-10-26T20:00:00.000Z',
+      lastPriceEndTime: session.end,
     })
   })
 
   it('matches exchange trading dates across UTC midnight', async () => {
+    vi.setSystemTime(new Date('2026-10-26T01:00:00Z'))
     daily = {
       timezone: 'Asia/Tokyo',
       bars: [
