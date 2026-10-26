@@ -82,6 +82,37 @@ describe('historical data range selection', () => {
     expect(options).toContainEqual({ id: '6m', label: 'Last 6 months' })
   })
 
+  it.each(['1m', '1d', '1w', '1mo'])(
+    'limits Alpha Vantage normalization options and request values at %s',
+    async (interval) => {
+      const normalization = HistoricalDataBlock.subBlocks.find(
+        (field) => field.id === 'normalizationMode'
+      )
+      expect(normalization?.dependsOn).toEqual(['provider', 'interval'])
+      const options = await normalization?.fetchOptions?.('block-1', 'normalizationMode', {
+        channelId: 'main',
+        workflowId: null,
+        contextValues: { provider: { value: 'alpha-vantage' }, interval: { value: interval } },
+      })
+      expect(options?.some(({ id }) => id === 'split_adjusted')).toBe(interval === '1d')
+      const body = requestBody({
+        provider: 'alpha-vantage',
+        interval,
+        rangeMode: 'custom',
+        start: '2026-10-01',
+        end: '2026-10-26',
+        normalizationMode: 'split_adjusted',
+      })
+      const planned = planMarketSeriesRequest(
+        'alpha-vantage',
+        body as unknown as MarketSeriesRequest
+      )
+      expect(planned.request.normalizationMode).toBe(
+        interval === '1d' ? 'split_adjusted' : undefined
+      )
+    }
+  )
+
   it.each([
     ['start', 'custom', 'latest'],
     ['end', 'custom', 'latest'],
@@ -185,14 +216,14 @@ describe('historical data range selection', () => {
       apiKey: 'request-key',
       apiSecret: 'request-secret',
       feed: 'iex',
-      normalizationMode: 'invalid',
+      normalizationMode: 'raw',
     })
     expect(body).toMatchObject({
       interval: '1h',
       windows: [{ mode: 'absolute', start, end }],
       auth: { apiKey: 'request-key', apiSecret: 'request-secret' },
       providerParams: { feed: 'iex' },
-      normalizationMode: undefined,
+      normalizationMode: 'raw',
     })
     expect(body.providerParams).not.toHaveProperty('apiKey')
   })

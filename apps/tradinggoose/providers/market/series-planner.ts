@@ -1,5 +1,8 @@
 import { toDate } from '@/providers/market/market-hours/date-utils'
-import { getMarketSeriesCapabilities } from '@/providers/market/providers'
+import {
+  getMarketSeriesCapabilities,
+  resolveMarketSeriesNormalizationMode,
+} from '@/providers/market/providers'
 import { DEFAULT_RANGE_PRESETS, rangeToMs } from '@/providers/market/series-window'
 import type {
   MarketBar,
@@ -250,6 +253,11 @@ export const planMarketSeriesRequest = (
 
   const planned: MarketSeriesRequest = {
     ...request,
+    normalizationMode: resolveMarketSeriesNormalizationMode(
+      providerId,
+      request.normalizationMode,
+      interval
+    ),
     providerParams: request.providerParams ? { ...request.providerParams } : undefined,
   }
   const intervalMs = intervalToMs(interval)

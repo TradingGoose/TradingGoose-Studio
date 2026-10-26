@@ -307,11 +307,12 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
       condition: providersWithNormalization.length
         ? { field: 'provider', value: providersWithNormalization }
         : undefined,
-      dependsOn: ['provider'],
+      dependsOn: ['provider', 'interval'],
       fetchOptions: async (_blockId, _subBlockId, context) => {
         const provider = resolveContextValue(context.contextValues, 'provider')
+        const interval = resolveContextValue(context.contextValues, 'interval')
         if (!provider) return []
-        const modes = getMarketSeriesCapabilities(provider)?.normalizationModes ?? []
+        const modes = getMarketSeriesCapabilities(provider, interval)?.normalizationModes ?? []
         return modes.map((mode) => ({
           label: mode.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()),
           id: mode,

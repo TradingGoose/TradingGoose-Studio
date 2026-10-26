@@ -46,6 +46,7 @@ export interface MarketSeriesInputCapabilities {
   windowModes?: MarketSeriesWindowMode[]
   allInterval?: MarketInterval
   normalizationModes?: NormalizationMode[]
+  normalizationIntervals?: Partial<Record<NormalizationMode, MarketInterval[]>>
   retention?: MarketSeriesRetentionPolicy
   marketSessions?: MarketSessionMode[]
 }
@@ -252,9 +253,29 @@ export function getMarketProviderCapabilities(
 }
 
 export function getMarketSeriesCapabilities(
-  providerId: string
+  providerId: string,
+  interval?: string
 ): MarketSeriesInputCapabilities | null {
-  return getMarketProviderCapabilities(providerId)?.series || null
+  const capabilities = getMarketProviderCapabilities(providerId)?.series
+  if (!capabilities) return null
+  if (!interval || !capabilities.normalizationIntervals) return capabilities
+  return {
+    ...capabilities,
+    normalizationModes: capabilities.normalizationModes?.filter((mode) => {
+      const intervals = capabilities.normalizationIntervals?.[mode]
+      return !intervals || intervals.some((supported) => supported === interval)
+    }),
+  }
+}
+
+export function resolveMarketSeriesNormalizationMode(
+  providerId: string,
+  mode?: string,
+  interval?: string
+): NormalizationMode | undefined {
+  return getMarketSeriesCapabilities(providerId, interval)?.normalizationModes?.find(
+    (supported) => supported === mode
+  )
 }
 
 export function getMarketLiveCapabilities(providerId: string): MarketLiveInputCapabilities | null {

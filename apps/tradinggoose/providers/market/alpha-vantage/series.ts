@@ -1,5 +1,6 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { alphaVantageProviderConfig } from '@/providers/market/alpha-vantage/config'
+import { resolveMarketSeriesNormalizationMode } from '@/providers/market/providers'
 import type { MarketBar, MarketSeries, MarketSeriesRequest } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 
@@ -266,8 +267,11 @@ export async function fetchAlphaVantageSeries(request: MarketSeriesRequest): Pro
       market: context.quote,
     }
   } else {
-    if (request.normalizationMode === 'split_adjusted' && interval !== '1d') {
-      throw new Error('Alpha Vantage split-adjusted equity data requires the daily interval')
+    if (
+      request.normalizationMode &&
+      !resolveMarketSeriesNormalizationMode('alpha-vantage', request.normalizationMode, interval)
+    ) {
+      throw new Error(`Alpha Vantage does not support ${request.normalizationMode} at ${interval}`)
     }
     const symbol = resolveProviderSymbol(alphaVantageProviderConfig, context)
     const resolved = resolveEquityFunction(interval, useAdjusted)

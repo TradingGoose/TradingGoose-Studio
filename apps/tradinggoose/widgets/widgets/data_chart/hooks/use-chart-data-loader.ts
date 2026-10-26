@@ -5,7 +5,10 @@ import type { IChartApi, ISeriesApi } from 'lightweight-charts'
 import type { Socket } from 'socket.io-client'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { getListingIdentityKey, type ListingIdentity } from '@/lib/listing/identity'
-import { getMarketSeriesCapabilities } from '@/providers/market/providers'
+import {
+  getMarketSeriesCapabilities,
+  resolveMarketSeriesNormalizationMode,
+} from '@/providers/market/providers'
 import { intervalToMs } from '@/providers/market/series-planner'
 import type {
   MarketInterval,
@@ -26,10 +29,7 @@ import {
   mergeBarsMs,
   sanitizeSeriesData,
 } from '@/widgets/widgets/data_chart/series-data'
-import {
-  coerceProviderParams,
-  sanitizeNormalizationMode,
-} from '@/widgets/widgets/data_chart/series-window'
+import { coerceProviderParams } from '@/widgets/widgets/data_chart/series-window'
 import type { DataChartDataContext } from '@/widgets/widgets/data_chart/types'
 import { resolveProviderErrorMessage } from '@/widgets/widgets/data_chart/utils/chart-errors'
 import { DEFAULT_RIGHT_OFFSET } from '@/widgets/widgets/data_chart/utils/chart-styles'
@@ -165,11 +165,12 @@ export const useChartDataLoader = ({
     if (!providerId) return undefined
     const rawMode = providerParams?.normalization_mode
     const trimmedMode = typeof rawMode === 'string' ? rawMode.trim() : ''
-    const capabilities = getMarketSeriesCapabilities(providerId)
-    const fallbackMode = capabilities?.normalizationModes?.[0] ?? 'raw'
-    const resolvedMode = trimmedMode || fallbackMode
-    return sanitizeNormalizationMode(providerId, resolvedMode)
-  }, [providerId, providerParams])
+    const capabilities = getMarketSeriesCapabilities(providerId, requestInterval)
+    return (
+      resolveMarketSeriesNormalizationMode(providerId, trimmedMode, requestInterval) ??
+      capabilities?.normalizationModes?.[0]
+    )
+  }, [providerId, providerParams, requestInterval])
 
   const liveEnabled = dataParams.data?.live?.enabled !== false
   const liveInterval = dataParams.data?.live?.interval ?? seriesWindow.interval ?? requestInterval

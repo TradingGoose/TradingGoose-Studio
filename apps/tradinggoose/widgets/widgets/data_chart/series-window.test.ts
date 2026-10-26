@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { resolveMarketSeriesNormalizationMode } from '@/providers/market/providers'
 import { dataChartWidgetContract } from './contract'
 import { resolveSeriesWindow } from './series-window'
 import { resolveExpectedBars } from './utils/series-loader'
@@ -76,6 +77,9 @@ describe('chart range windows', () => {
       allowedIntervals: [interval],
     })
     expect(resolveExpectedBars(result.window!, interval)).toBeNull()
+    expect(
+      resolveMarketSeriesNormalizationMode(provider, 'split_adjusted', result.requestInterval)
+    ).toBeUndefined()
   })
 
   it('rejects unsupported All and restores interval choices for finite ranges', () => {

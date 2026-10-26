@@ -288,7 +288,7 @@ describe('fetchAlphaVantageSeries', () => {
           interval,
           normalizationMode: 'split_adjusted',
         })
-      ).rejects.toThrow('split-adjusted equity data requires the daily interval')
+      ).rejects.toThrow(`does not support split_adjusted at ${interval}`)
       expect(fetchMock).not.toHaveBeenCalled()
     }
   )

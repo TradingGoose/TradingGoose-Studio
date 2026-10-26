@@ -17,7 +17,7 @@ export interface MarketSeriesParams {
   listing: ListingIdentity
   interval?: string
   window: MarketSeriesWindow
-  normalizationMode?: string
+  normalizationMode?: NormalizationMode
   apiKey?: string
   apiSecret?: string
   providerParams?: Record<string, any> | string
@@ -125,19 +125,6 @@ const sanitizeInterval = (provider: string, interval?: string): string | undefin
   return interval
 }
 
-const sanitizeNormalizationMode = (
-  provider: string,
-  mode?: string
-): NormalizationMode | undefined => {
-  if (!mode) return undefined
-  const capabilities = getMarketSeriesCapabilities(provider)
-  if (!capabilities || !('normalizationModes' in capabilities)) return mode as NormalizationMode
-  const modes = capabilities.normalizationModes ?? []
-  if (modes.length === 0) return undefined
-  if (!modes.includes(mode as NormalizationMode)) return undefined
-  return mode as NormalizationMode
-}
-
 export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = {
   id: 'historical_data_fetch',
   name: 'Market Series Fetch',
@@ -177,13 +164,9 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
       })
 
       const interval = sanitizeInterval(params.provider, params.interval)
-      const normalizationMode = sanitizeNormalizationMode(params.provider, params.normalizationMode)
 
       if (interval === undefined && 'interval' in providerParams) {
         Reflect.deleteProperty(providerParams, 'interval')
-      }
-      if (normalizationMode === undefined && 'normalizationMode' in providerParams) {
-        Reflect.deleteProperty(providerParams, 'normalizationMode')
       }
 
       return {
@@ -193,7 +176,7 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
         listing,
         interval,
         windows: [params.window],
-        normalizationMode,
+        normalizationMode: params.normalizationMode,
         auth: auth.apiKey || auth.apiSecret ? auth : undefined,
         providerParams: Object.keys(providerParams).length ? providerParams : undefined,
       }

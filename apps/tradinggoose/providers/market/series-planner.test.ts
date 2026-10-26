@@ -60,6 +60,22 @@ describe('getMarketSeriesRangePresets', () => {
 
 describe('planMarketSeriesRequest', () => {
   it.each([
+    ['1d', { mode: 'bars', barCount: 2 }, 'split_adjusted'],
+    ['1w', { mode: 'bars', barCount: 2 }, undefined],
+    ['1d', { mode: 'all' }, undefined],
+  ] as const)('validates normalization after resolving %s/%j', (interval, window, expected) => {
+    const result = planMarketSeriesRequest('alpha-vantage', {
+      kind: 'series',
+      listing,
+      interval,
+      windows: [window],
+      normalizationMode: 'split_adjusted',
+    })
+    expect(result.request.normalizationMode).toBe(expected)
+    if (window.mode === 'all') expect(result.request.interval).toBe('1mo')
+  })
+
+  it.each([
     [
       { mode: 'bars', barCount: 2_000_000 },
       { mode: 'bars', barCount: 1_000_000 },

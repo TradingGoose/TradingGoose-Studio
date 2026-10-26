@@ -21,7 +21,10 @@ import {
 } from '@/components/widget-header-control'
 import { isUtcOffset, normalizeUtcOffset } from '@/lib/time-format'
 import { cn } from '@/lib/utils'
-import { getMarketSeriesCapabilities } from '@/providers/market/providers'
+import {
+  getMarketSeriesCapabilities,
+  resolveMarketSeriesNormalizationMode,
+} from '@/providers/market/providers'
 import { getMarketSeriesRangePresets } from '@/providers/market/series-planner'
 import { DEFAULT_RANGE_PRESETS } from '@/providers/market/series-window'
 import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
@@ -372,19 +375,16 @@ const DataChartNormalizationDropdown = ({
   const copy = useDataChartCopy()
   const patchWidgetParams = useDataChartParamsPatch()
   const providerId = typeof params.data?.provider === 'string' ? params.data?.provider.trim() : ''
-  const supportedModes = useMemo(() => {
-    if (!providerId) return []
-    const modes = getMarketSeriesCapabilities(providerId)?.normalizationModes ?? []
-    return modes.length ? modes : ['raw']
-  }, [providerId])
-  const rawMode = useMemo(() => {
-    const raw = (params.data?.providerParams as Record<string, unknown> | undefined)
-      ?.normalization_mode
-    return typeof raw === 'string' ? raw.trim() : ''
-  }, [params.data?.providerParams])
-  const fallbackMode = supportedModes[0] ?? ''
-  const selectedMode = supportedModes.includes(rawMode) ? rawMode : ''
-  const effectiveMode = selectedMode || fallbackMode
+  const { requestInterval } = resolveSeriesWindow(params, providerId)
+  const supportedModes =
+    getMarketSeriesCapabilities(providerId, requestInterval)?.normalizationModes ?? []
+  const rawMode = params.data?.providerParams?.normalization_mode
+  const effectiveMode =
+    resolveMarketSeriesNormalizationMode(
+      providerId,
+      typeof rawMode === 'string' ? rawMode.trim() : undefined,
+      requestInterval
+    ) ?? supportedModes[0]
   const tooltipLabel = effectiveMode
     ? formatDataChartNormalizationTooltip(copy, getDataChartNormalizationLabel(copy, effectiveMode))
     : copy.footer.normalization.unavailable
