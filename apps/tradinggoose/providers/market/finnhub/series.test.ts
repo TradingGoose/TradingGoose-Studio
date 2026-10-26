@@ -4,7 +4,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { planMarketSeriesRequest } from '@/providers/market/series-planner'
-import type { MarketSeriesRequest } from '@/providers/market/types'
+import type { MarketLiveRequest, MarketSeriesRequest } from '@/providers/market/types'
 
 const { fetchMock, mockResolveListingContext, mockResolveProviderSymbol } = vi.hoisted(() => ({
   fetchMock: vi.fn(),
@@ -75,6 +75,65 @@ describe('fetchFinnhubSeries', () => {
 
     expect(fetchMock).not.toHaveBeenCalled()
   })
+
+  it.each([
+    ['parameter interval', undefined, '1m', '1m', '1', 5],
+    ['top-level precedence', '5m', '1m', '5m', '5', 10],
+    ['daily default', undefined, undefined, '1d', 'D', 1440],
+    ['monthly interval', undefined, '1mo', '1mo', 'M', 86_400],
+    ['explicit bounds', undefined, '1m', '1m', '1', 30],
+    ['currency interval', undefined, '1m', '1m', '1', 5],
+  ] as const)(
+    'keeps live lookback and delegated resolution consistent for %s',
+    async (label, interval, parameterInterval, expectedInterval, resolution, minutes) => {
+      const now = Date.parse('2026-10-26T16:00:00Z')
+      vi.spyOn(Date, 'now').mockReturnValue(now)
+      const end = label === 'explicit bounds' ? now - 30 * 60_000 : now
+      const start = end - minutes * 60_000
+      const liveRequest: MarketLiveRequest = {
+        kind: 'live',
+        listing,
+        interval,
+        auth: request.auth,
+        providerParams: { interval: parameterInterval },
+        ...(label === 'explicit bounds'
+          ? { start: new Date(start).toISOString(), end: new Date(end).toISOString() }
+          : {}),
+      }
+      if (label === 'currency interval') {
+        liveRequest.listing = {
+          listing_id: '',
+          base_id: 'EUR',
+          quote_id: 'USD',
+          listing_type: 'currency',
+        }
+        mockResolveListingContext.mockResolvedValue({
+          listing: liveRequest.listing,
+          base: 'EUR',
+          quote: 'USD',
+          assetClass: 'currency',
+        })
+      }
+      const original = structuredClone(liveRequest)
+      fetchMock.mockResolvedValue(Response.json({ s: 'ok', c: [101], t: [end / 1000 - 60] }))
+      const { executeProviderRequest } =
+        await vi.importActual<typeof import('@/providers/market')>('@/providers/market')
+      expect(await executeProviderRequest('finnhub', liveRequest)).toMatchObject({
+        interval: expectedInterval,
+        bar: { close: 101 },
+      })
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      const url = new URL(fetchMock.mock.calls[0][0])
+      expect(url.searchParams.get('resolution')).toBe(resolution)
+      expect(url.searchParams.get('from')).toBe(String(start / 1000))
+      expect(url.searchParams.get('to')).toBe(String(end / 1000))
+      expect(url.pathname).toBe(
+        label === 'currency interval' ? '/api/v1/forex/candle' : '/api/v1/stock/candle'
+      )
+      expect(fetchMock.mock.calls[0][1].headers['X-Finnhub-Token']).toBe('request-key')
+      expect(liveRequest).toEqual(original)
+    }
+  )
 
   it.each([
     ['absolute', 0, '2026-01-01T00:00:00.000Z', '2026-01-02T00:00:00.000Z'],
