@@ -1,7 +1,6 @@
 import { MARKET_API_VERSION } from '@/lib/market/client/constants'
 import { formatTimezoneLabel, normalizeUtcOffset } from '@/lib/time-format'
 import type { TimeZoneResponse } from '@/lib/timezone/timezone-resolver'
-import type { BlockOptionLoaderContext } from '@/blocks/types'
 
 export type TimeZoneOption = TimeZoneResponse & {
   id: string
@@ -30,19 +29,17 @@ const fetchWithTimeout = async (url: string, init: RequestInit) => {
 
 const formatTimeZoneNameForDisplay = (name: string) => name.replace(/_/g, ' ')
 
-const truncateTimeZoneName = (name: string, maxLength = DEFAULT_TZ_NAME_MAX_LENGTH) => {
-  if (maxLength <= 0) return ''
-  if (name.length <= maxLength) return name
-  if (maxLength <= 3) return name.slice(0, maxLength)
-  return `${name.slice(0, maxLength - 3)}...`
-}
+const truncateTimeZoneName = (name: string) =>
+  name.length <= DEFAULT_TZ_NAME_MAX_LENGTH
+    ? name
+    : `${name.slice(0, DEFAULT_TZ_NAME_MAX_LENGTH - 3)}...`
 
 const formatUtcOffsetLabel = (value: string) => {
   const normalized = normalizeUtcOffset(value)
   return normalized === '+00:00' ? 'UTC+00:00' : `UTC${normalized}`
 }
 
-const fetchMarketTimeZones = async (): Promise<TimeZoneResponse | TimeZoneResponse[]> => {
+const fetchMarketTimeZones = async (): Promise<TimeZoneResponse[]> => {
   const params = new URLSearchParams({ version: MARKET_API_VERSION })
 
   const response = await fetchWithTimeout(`/api/market/get/timezone?${params.toString()}`, {
@@ -67,31 +64,20 @@ const fetchMarketTimeZones = async (): Promise<TimeZoneResponse | TimeZoneRespon
     throw new Error(errorMessage)
   }
 
-  if (!payload || typeof payload !== 'object') {
+  if (!Array.isArray(payload)) {
     throw new Error('Invalid market timezone response')
   }
 
-  if ('error' in payload) {
-    throw new Error(String((payload as { error?: unknown }).error || 'Market timezone error'))
-  }
-
-  return payload as TimeZoneResponse | TimeZoneResponse[]
+  return payload as TimeZoneResponse[]
 }
 
-let cachedTimeZoneOptions: TimeZoneOption[] | null = null
 let timeZoneOptionsPromise: Promise<TimeZoneOption[]> | null = null
 
-export const fetchTimeZoneOptions = async (
-  _blockId?: string,
-  _subBlockId?: string,
-  _context?: BlockOptionLoaderContext
-): Promise<TimeZoneOption[]> => {
-  if (cachedTimeZoneOptions) return cachedTimeZoneOptions
+export const fetchTimeZoneOptions = (): Promise<TimeZoneOption[]> => {
   if (!timeZoneOptionsPromise) {
     timeZoneOptionsPromise = (async () => {
       const data = await fetchMarketTimeZones()
-      const list = Array.isArray(data) ? data : [data]
-      const options = list.map((entry) => {
+      return data.map((entry) => {
         const offsetLabel = formatUtcOffsetLabel(entry.utcOffset)
         const displayName = formatTimeZoneNameForDisplay(entry.name)
         return {
@@ -105,8 +91,6 @@ export const fetchTimeZoneOptions = async (
           observesDst: entry.observesDst,
         }
       })
-      cachedTimeZoneOptions = options
-      return options
     })().catch((error) => {
       timeZoneOptionsPromise = null
       throw error

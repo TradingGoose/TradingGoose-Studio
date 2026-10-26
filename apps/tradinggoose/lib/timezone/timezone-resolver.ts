@@ -14,48 +14,9 @@ export type ResolvedTimeZone = TimeZoneResponse & {
   utcOffsetMinutes: number
 }
 
-const fetchMarketTimeZones = async (
-  params: URLSearchParams
-): Promise<TimeZoneResponse | TimeZoneResponse[]> => {
-  if (!params.get('version')) {
-    params.set('version', MARKET_API_VERSION)
-  }
-
-  const response = await marketClient.makeRequest<TimeZoneResponse | TimeZoneResponse[]>(
-    `/api/get/timezone?${params.toString()}`
-  )
-
-  if (!response.success) {
-    throw new Error(response.error || 'Market timezone request failed')
-  }
-
-  const payload = response.data
-  if (!payload || typeof payload !== 'object') {
-    throw new Error('Invalid market timezone response')
-  }
-
-  if ('error' in (payload as { error?: unknown })) {
-    throw new Error(String((payload as { error?: unknown }).error || 'Market timezone error'))
-  }
-
-  return payload as TimeZoneResponse | TimeZoneResponse[]
-}
-
-const fetchTimeZoneByName = async (name: string): Promise<TimeZoneResponse> => {
-  const params = new URLSearchParams({ timezone_name: name })
-  const data = await fetchMarketTimeZones(params)
-  if (Array.isArray(data)) {
-    const match = data[0]
-    if (!match) {
-      throw new Error('Time zone not found')
-    }
-    return match
-  }
-  return data
-}
-
 export const resolveTimezoneState = async (value: string): Promise<ResolvedTimeZone> => {
   const trimmed = value.trim()
+  if (!trimmed) throw new Error('Time zone name is required')
   if (isUtcOffset(trimmed)) {
     const normalized = normalizeUtcOffset(trimmed)
     const utcOffsetMinutes = parseUtcOffsetMinutes(normalized)
@@ -69,7 +30,13 @@ export const resolveTimezoneState = async (value: string): Promise<ResolvedTimeZ
     }
   }
 
-  const data = await fetchTimeZoneByName(trimmed)
+  const params = new URLSearchParams({ timezone_name: trimmed, version: MARKET_API_VERSION })
+  const response = await marketClient.makeRequest<TimeZoneResponse>(`/api/get/timezone?${params}`)
+  if (!response.success) throw new Error(response.error || 'Market timezone request failed')
+  const data = response.data
+  if (!data?.name || typeof data.utcOffset !== 'string') {
+    throw new Error('Invalid market timezone response')
+  }
   return {
     ...data,
     storageValue: data.observesDst ? data.name : data.utcOffset,

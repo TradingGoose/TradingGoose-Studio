@@ -10,12 +10,18 @@ const {
   mockResolveProviderSymbol,
   mockResolveMarketHours,
   mockResolveMarketHoursRange,
+  marketRequestMock,
 } = vi.hoisted(() => ({
   fetchMock: vi.fn(),
   mockResolveListingContext: vi.fn(),
   mockResolveProviderSymbol: vi.fn(),
   mockResolveMarketHours: vi.fn(),
   mockResolveMarketHoursRange: vi.fn(),
+  marketRequestMock: vi.fn(),
+}))
+
+vi.mock('@/lib/market/client', () => ({
+  marketClient: { makeRequest: marketRequestMock },
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -43,6 +49,10 @@ describe('fetchAlphaVantageSeries', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.stubGlobal('fetch', fetchMock)
+    marketRequestMock.mockReset().mockResolvedValue({
+      success: true,
+      data: { name: 'America/New_York', utcOffset: '-04:00', dstOn: true, observesDst: true },
+    })
     mockResolveMarketHoursRange.mockResolvedValue(
       new Map([
         [
@@ -217,9 +227,12 @@ describe('fetchAlphaVantageSeries', () => {
             auth: { apiKey: 'key' },
           })
         ).toMatchObject({
-          timezone: 'US/Eastern',
+          timezone: 'America/New_York',
           bars: [{ timeStamp: `${date}T${expected}:00.000Z`, close: 101 }],
         })
+        expect(marketRequestMock).toHaveBeenLastCalledWith(
+          '/api/get/timezone?timezone_name=US%2FEastern&version=v1'
+        )
       }
     }
   )
@@ -293,17 +306,25 @@ describe('fetchAlphaVantageSeries', () => {
     }
   )
 
-  it('rejects responses without the source timezone instead of guessing UTC', async () => {
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ 'Time Series': { '2026-01-02': { '4. close': '101' } } }))
-    )
-    const { fetchAlphaVantageSeries } = await import('./series')
-    await expect(
-      fetchAlphaVantageSeries({
-        kind: 'series',
-        listing: { listing_id: 'AAPL', base_id: '', quote_id: '', listing_type: 'default' },
-        auth: { apiKey: 'key' },
-      })
-    ).rejects.toThrow('missing its time zone')
-  })
+  it.each([false, true])(
+    'requires the source timezone and its Market identity (unresolved=%s)',
+    async (unresolved) => {
+      fetchMock.mockResolvedValue(
+        Response.json({
+          'Meta Data': unresolved ? { '5. Time Zone': 'US/Eastern' } : {},
+          'Time Series': { '2026-01-02': { '4. close': '101' } },
+        })
+      )
+      marketRequestMock.mockResolvedValue({ success: false, error: 'Time zone not found' })
+      const { fetchAlphaVantageSeries } = await import('./series')
+      await expect(
+        fetchAlphaVantageSeries({
+          kind: 'series',
+          listing: { listing_id: 'AAPL', base_id: '', quote_id: '', listing_type: 'default' },
+          auth: { apiKey: 'key' },
+        })
+      ).rejects.toThrow(unresolved ? 'Time zone not found' : 'missing its time zone')
+      expect(marketRequestMock).toHaveBeenCalledTimes(unresolved ? 1 : 0)
+    }
+  )
 })

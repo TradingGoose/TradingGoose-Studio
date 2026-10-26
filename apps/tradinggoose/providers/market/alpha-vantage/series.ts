@@ -1,4 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import { resolveTimezoneState } from '@/lib/timezone/timezone-resolver'
 import { alphaVantageProviderConfig } from '@/providers/market/alpha-vantage/config'
 import { toZonedIsoTimestamp } from '@/providers/market/market-hours/date-utils'
 import { resolveMarketSeriesNormalizationMode } from '@/providers/market/providers'
@@ -321,12 +322,13 @@ export async function fetchAlphaVantageSeries(request: MarketSeriesRequest): Pro
   }
 
   const market = context.quote || 'USD'
-  const timezone = Object.entries(payload['Meta Data'] ?? {}).find(([key]) =>
+  const sourceTimezone = Object.entries(payload['Meta Data'] ?? {}).find(([key]) =>
     key.endsWith('Time Zone')
   )?.[1]
-  if (typeof timezone !== 'string' || !timezone.trim()) {
+  if (typeof sourceTimezone !== 'string' || !sourceTimezone.trim()) {
     throw new Error('Alpha Vantage response is missing its time zone')
   }
+  const { name: timezone } = await resolveTimezoneState(sourceTimezone)
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
     timeZoneName: 'longOffset',
