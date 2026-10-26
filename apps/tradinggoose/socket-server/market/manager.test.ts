@@ -684,30 +684,37 @@ describe('MarketStreamManager quote snapshots', () => {
     }
   )
 
-  it.each(['subscriber', 'stream'])(
-    'discards a removed %s response before publishing to its replacement',
+  it.each(['subscriber', 'stream', 'anchor'])(
+    'discards a removed %s response and keeps remaining subscribers refreshed',
     async (removed) => {
       vi.useFakeTimers()
       const manager = new MarketStreamManager()
       const socket = createSocket('socket-1')
       let resolveSnapshot!: (snapshot: typeof regularSnapshot) => void
-      buildMarketQuoteSnapshotMock.mockReturnValueOnce(
+      const pendingSnapshot = () =>
         new Promise((resolve) => {
           resolveSnapshot = resolve
         })
-      )
+      if (removed !== 'anchor') buildMarketQuoteSnapshotMock.mockImplementationOnce(pendingSnapshot)
       const first = await manager.subscribe(socket, nativeQuotePayload('alpaca'))
-      if (removed === 'subscriber') {
+      if (removed !== 'stream') {
         await manager.subscribe(socket, {
           ...nativeQuotePayload('alpaca'),
           clientSubscriptionId: 'anchor',
         })
       }
+      if (removed === 'anchor') {
+        await vi.advanceTimersByTimeAsync(0)
+        buildMarketQuoteSnapshotMock.mockImplementationOnce(pendingSnapshot)
+        await vi.advanceTimersByTimeAsync(60_000)
+      }
       manager.unsubscribe(socket, { subscriptionId: first.subscriptionId })
-      await manager.subscribe(socket, {
-        ...nativeQuotePayload('alpaca'),
-        clientSubscriptionId: 'replacement',
-      })
+      if (removed !== 'anchor') {
+        await manager.subscribe(socket, {
+          ...nativeQuotePayload('alpaca'),
+          clientSubscriptionId: 'replacement',
+        })
+      }
       resolveSnapshot({ ...regularSnapshot, lastPrice: 999 })
       await vi.advanceTimersByTimeAsync(0)
       expect(socket.emit).not.toHaveBeenCalledWith(
@@ -719,10 +726,13 @@ describe('MarketStreamManager quote snapshots', () => {
       expect(socket.emit).toHaveBeenCalledWith(
         'market-quote-snapshot',
         expect.objectContaining({
-          clientSubscriptionId: 'replacement',
+          clientSubscriptionId: removed === 'anchor' ? 'anchor' : 'replacement',
           snapshot: quoteSnapshot,
         })
       )
+      const calls = buildMarketQuoteSnapshotMock.mock.calls.length
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(buildMarketQuoteSnapshotMock).toHaveBeenCalledTimes(calls + 1)
       manager.removeSocket(socket.id)
     }
   )
@@ -781,8 +791,9 @@ describe('MarketStreamManager quote snapshots', () => {
     }
   )
 
-  it('reuses fresh quotes for new consumers and immediately seeds new symbols', async () => {
+  it('reuses fresh quotes and refreshes staggered symbols at their own deadlines', async () => {
     vi.useFakeTimers()
+    getMarketProviderPollingIntervalMsMock.mockReturnValue(15_000)
     const manager = new MarketStreamManager()
     const firstSocket = createSocket('socket-1')
     const secondSocket = createSocket('socket-2')
@@ -819,13 +830,7 @@ describe('MarketStreamManager quote snapshots', () => {
       )
     }
 
-    buildMarketQuoteSnapshotMock.mockClear()
-    vi.advanceTimersByTime(4_900)
-    await Promise.resolve()
-    await Promise.resolve()
-
-    expect(buildMarketQuoteSnapshotMock).toHaveBeenCalledTimes(1)
-
+    await vi.advanceTimersByTimeAsync(900)
     const newListing = { ...listing, listing_id: 'us-msft' }
     resolveProviderSymbolMock.mockReturnValueOnce('MSFT')
     await manager.subscribe(firstSocket, {
@@ -845,12 +850,24 @@ describe('MarketStreamManager quote snapshots', () => {
         snapshot: quoteSnapshot,
       })
     )
+    buildMarketQuoteSnapshotMock.mockClear()
+    await vi.advanceTimersByTimeAsync(14_000)
+    expect(
+      buildMarketQuoteSnapshotMock.mock.calls.map(([args]) => args.listing.listing_id)
+    ).toEqual([listing.listing_id])
+    await vi.advanceTimersByTimeAsync(999)
+    expect(buildMarketQuoteSnapshotMock).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(
+      buildMarketQuoteSnapshotMock.mock.calls.map(([args]) => args.listing.listing_id)
+    ).toEqual([listing.listing_id, newListing.listing_id])
 
     manager.removeSocket(firstSocket.id)
     manager.removeSocket(secondSocket.id)
+    expect(vi.getTimerCount()).toBe(0)
   })
 
-  it('uses one polling pull for duplicate polling-provider bar streams', async () => {
+  it('deduplicates polled bars and keeps their cadence through staggered quote refreshes', async () => {
     vi.useFakeTimers()
     const manager = new MarketStreamManager()
     const firstSocket = createSocket('socket-1')
@@ -904,17 +921,30 @@ describe('MarketStreamManager quote snapshots', () => {
         bar: expect.objectContaining({ close: 101 }),
       })
     )
+    await vi.advanceTimersByTimeAsync(1_000)
+    resolveProviderSymbolMock.mockReturnValueOnce('MSFT')
+    await manager.subscribe(firstSocket, {
+      ...nativeQuotePayload('yahoo-finance'),
+      listing: { ...listing, listing_id: 'us-msft' },
+      auth: undefined,
+      clientSubscriptionId: 'quote',
+    })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(executeProviderRequestMock).toHaveBeenCalledTimes(1)
 
     executeProviderRequestMock.mockClear()
     firstSocket.emit.mockClear()
     secondSocket.emit.mockClear()
-    vi.advanceTimersByTime(5_000)
+    vi.advanceTimersByTime(4_000)
     await Promise.resolve()
     await Promise.resolve()
 
     expect(executeProviderRequestMock).toHaveBeenCalledTimes(1)
     expect(firstSocket.emit).not.toHaveBeenCalled()
     expect(secondSocket.emit).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(buildMarketQuoteSnapshotMock).toHaveBeenCalledTimes(2)
+    expect(executeProviderRequestMock).toHaveBeenCalledTimes(1)
 
     manager.removeSocket(firstSocket.id)
     manager.removeSocket(secondSocket.id)

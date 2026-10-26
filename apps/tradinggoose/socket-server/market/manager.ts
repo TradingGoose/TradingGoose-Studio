@@ -102,7 +102,9 @@ interface StreamState {
   auth?: MarketProviderAuth
   providerParams?: MarketProviderParams
   normalizationMode?: NormalizationMode
-  pollingTimer?: ReturnType<typeof setInterval>
+  pollingTimer?: ReturnType<typeof setTimeout>
+  pollingAt?: number
+  barRefreshAt?: number
   pollingInFlight?: boolean
   pollingRequested?: boolean
   quoteSnapshotCache: Map<string, { snapshot: MarketQuoteSnapshot; refreshAt: number }>
@@ -594,7 +596,7 @@ export class MarketStreamManager {
     }
 
     if (!streamState.stream || record.channel === 'quote-snapshots') {
-      this.ensurePolling(streamState, record.channel === 'quote-snapshots')
+      void this.pollMarketData(streamState)
     }
   }
 
@@ -782,6 +784,7 @@ export class MarketStreamManager {
     if (!subscribers) return
 
     streamState.quoteSnapshotCache.set(symbol, { snapshot, refreshAt })
+    this.schedulePolling(streamState, refreshAt)
     subscribers.forEach((record) => {
       if (record.channel !== 'quote-snapshots') return
       this.emitQuoteSnapshot(record, snapshot)
@@ -843,17 +846,20 @@ export class MarketStreamManager {
     })
   }
 
-  private ensurePolling(streamState: StreamState, refresh = false) {
-    if (streamState.pollingTimer && !refresh) return
-    if (!streamState.pollingTimer) {
-      const intervalMs =
-        getMarketProviderPollingIntervalMs(streamState.provider) ?? DEFAULT_POLLING_INTERVAL_MS
-      streamState.pollingTimer = setInterval(() => {
+  private schedulePolling(streamState: StreamState, at: number) {
+    if (streamState.subscribersBySymbol.size === 0) return
+    if (streamState.pollingAt !== undefined && streamState.pollingAt <= at) return
+    clearTimeout(streamState.pollingTimer)
+    streamState.pollingAt = at
+    streamState.pollingTimer = setTimeout(
+      () => {
+        streamState.pollingTimer = undefined
+        streamState.pollingAt = undefined
         void this.pollMarketData(streamState)
-      }, intervalMs)
-      streamState.pollingTimer.unref?.()
-    }
-    void this.pollMarketData(streamState)
+      },
+      Math.max(0, at - Date.now())
+    )
+    streamState.pollingTimer.unref?.()
   }
 
   private async pollMarketData(streamState: StreamState) {
@@ -862,6 +868,7 @@ export class MarketStreamManager {
       return
     }
 
+    const now = Date.now()
     const tasks: Array<{
       type: 'quote-snapshot' | 'bar'
       symbol: string
@@ -873,11 +880,10 @@ export class MarketStreamManager {
         (subscriber) => subscriber.channel === 'quote-snapshots'
       )
 
-      if (
-        quoteRecord &&
-        (streamState.quoteSnapshotCache.get(symbol)?.refreshAt ?? 0) <= Date.now()
-      ) {
-        tasks.push({ type: 'quote-snapshot', symbol, record: quoteRecord })
+      if (quoteRecord) {
+        const refreshAt = streamState.quoteSnapshotCache.get(symbol)?.refreshAt ?? 0
+        if (refreshAt <= now) tasks.push({ type: 'quote-snapshot', symbol, record: quoteRecord })
+        else this.schedulePolling(streamState, refreshAt)
       }
 
       if (streamState.stream) return
@@ -889,15 +895,21 @@ export class MarketStreamManager {
         }
       })
       barRecordsByInterval.forEach((record, interval) => {
-        tasks.push({ type: 'bar', symbol, interval, record })
+        if ((streamState.barRefreshAt ?? 0) <= now) {
+          tasks.push({ type: 'bar', symbol, interval, record })
+        } else this.schedulePolling(streamState, streamState.barRefreshAt!)
       })
     })
 
     if (tasks.length === 0) return
 
     const refreshAt =
-      Date.now() +
+      now +
       (getMarketProviderPollingIntervalMs(streamState.provider) ?? DEFAULT_POLLING_INTERVAL_MS)
+    if (tasks.some((task) => task.type === 'bar')) {
+      streamState.barRefreshAt = refreshAt
+      this.schedulePolling(streamState, refreshAt)
+    }
     streamState.pollingInFlight = true
     try {
       let workspaceAccess: Promise<boolean> | undefined
@@ -1097,6 +1109,7 @@ export class MarketStreamManager {
 
     const streamState = this.streams.get(record.streamKey)
     if (!streamState) return
+    if (streamState.pollingInFlight) streamState.pollingRequested = true
 
     const symbolSubscribers = streamState.subscribersBySymbol.get(record.symbol)
     if (symbolSubscribers) {
@@ -1119,8 +1132,9 @@ export class MarketStreamManager {
 
     if (streamState.subscribersBySymbol.size === 0) {
       if (streamState.pollingTimer) {
-        clearInterval(streamState.pollingTimer)
+        clearTimeout(streamState.pollingTimer)
         streamState.pollingTimer = undefined
+        streamState.pollingAt = undefined
       }
       streamState.stream?.close()
       this.streams.delete(record.streamKey)
