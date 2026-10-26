@@ -1,5 +1,6 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
+import { toZonedIsoTimestamp } from '@/providers/market/market-hours/date-utils'
 import { rangeToMs } from '@/providers/market/series-window'
 import type {
   MarketBar,
@@ -131,6 +132,15 @@ export async function fetchFinnhubSeries(request: MarketSeriesRequest): Promise<
     throw new Error('Finnhub API key is required')
   }
 
+  const calendarStock = endpoint === 'stock' && ['D', 'W', 'M'].includes(resolution)
+  if (calendarStock && !context.timeZoneName) throw new Error('Finnhub stock timezone is required')
+  const formatter = calendarStock
+    ? new Intl.DateTimeFormat('en-US', {
+        timeZone: context.timeZoneName,
+        timeZoneName: 'longOffset',
+      })
+    : undefined
+
   const seriesEndpoint = resolveSeriesEndpointUrl(endpoint, context.assetClass)
   if (!seriesEndpoint) {
     throw new Error('Finnhub endpoint is not configured for series requests')
@@ -184,8 +194,13 @@ export async function fetchFinnhubSeries(request: MarketSeriesRequest): Promise<
     const close = payload.c?.[i]
     if (close == null) continue
 
+    let timeStamp = new Date(times[i] * 1000).toISOString()
+    // Calendar labels at UTC midnight represent a trading date, not an instant.
+    if (formatter && timeStamp.endsWith('T00:00:00.000Z')) {
+      timeStamp = toZonedIsoTimestamp(timeStamp.slice(0, 10), formatter)!
+    }
     bars.push({
-      timeStamp: new Date(times[i] * 1000).toISOString(),
+      timeStamp,
       open: payload.o?.[i],
       high: payload.h?.[i],
       low: payload.l?.[i],

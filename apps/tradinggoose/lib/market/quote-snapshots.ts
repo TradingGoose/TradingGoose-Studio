@@ -20,6 +20,7 @@ export const buildMarketQuoteSnapshot = async ({
   providerParams?: Record<string, unknown>
   context?: MarketProviderRequestContext
 }): Promise<MarketQuoteSnapshot> => {
+  const requestStartedAt = Date.now()
   const [daily, regular] = await Promise.all(
     (
       [
@@ -67,10 +68,14 @@ export const buildMarketQuoteSnapshot = async ({
     (bar) => getMarketQuoteDate(bar.timeStamp, timezone) === priceDate
   )
   const session = sessions.find(({ date }) => date === priceDate)
+  const priceTime = Date.parse(priceBar.timeStamp)
   return createMarketQuoteSnapshot({
     lastPrice: priceBar.close,
     previousClose: previousDaily?.close,
     lastPriceTime: priceBar.timeStamp,
+    lastPriceEndTime: new Date(
+      Math.max(priceTime, Math.min(requestStartedAt, priceTime + 60_000))
+    ).toISOString(),
     timezone,
     volume: volumeBar?.volume,
     ...(session ? { regularSession: { start: session.start, end: session.end } } : {}),

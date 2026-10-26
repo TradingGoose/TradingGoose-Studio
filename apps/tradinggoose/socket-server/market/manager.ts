@@ -709,7 +709,10 @@ export class MarketStreamManager {
     if (hasQuoteSnapshots) {
       const cached = state.quoteSnapshotCache.get(symbol)
       const previous = cached?.snapshot ?? createMarketQuoteSnapshot({})
-      const next = updateSnapshotFromTrade(previous, trade)
+      const next = updateSnapshotFromPrice(previous, {
+        lastPrice: trade?.price,
+        lastPriceTime: trade?.timeStamp,
+      })
       if (next !== previous) {
         state.quoteSnapshotCache.set(symbol, { snapshot: next, refreshAt: cached?.refreshAt ?? 0 })
         quoteSnapshot = next
@@ -937,12 +940,7 @@ export class MarketStreamManager {
                 })
                 if (!isActive()) continue
                 const cached = streamState.quoteSnapshotCache.get(next.symbol)?.snapshot
-                if (cached && cached.lastPrice !== null && cached.lastPriceTime) {
-                  snapshot = updateSnapshotFromTrade(snapshot, {
-                    price: cached.lastPrice,
-                    timeStamp: cached.lastPriceTime,
-                  })
-                }
+                if (cached) snapshot = updateSnapshotFromPrice(snapshot, cached)
                 this.publishQuoteSnapshot(streamState, next.symbol, snapshot, refreshAt)
                 continue
               }
@@ -1277,33 +1275,38 @@ function createSubscriptionId({
   )
 }
 
-function updateSnapshotFromTrade(previous: MarketQuoteSnapshot, trade: any): MarketQuoteSnapshot {
-  const price = resolveFiniteNumber(trade?.price)
-  const tradeTime = Date.parse(trade?.timeStamp ?? '')
-  const previousTime = Date.parse(previous.lastPriceTime ?? '')
+function updateSnapshotFromPrice(
+  previous: MarketQuoteSnapshot,
+  update: Pick<MarketQuoteSnapshot, 'lastPrice' | 'lastPriceTime' | 'lastPriceEndTime'>
+): MarketQuoteSnapshot {
+  const price = resolveFiniteNumber(update.lastPrice)
+  const priceTime = Date.parse(update.lastPriceTime ?? '')
+  const updateTime = Date.parse(update.lastPriceEndTime ?? update.lastPriceTime ?? '')
+  const previousTime = Date.parse(previous.lastPriceEndTime ?? previous.lastPriceTime ?? '')
   if (
     price === null ||
-    !Number.isFinite(tradeTime) ||
-    (Number.isFinite(previousTime) && tradeTime <= previousTime)
+    !Number.isFinite(priceTime) ||
+    (update.lastPriceEndTime ? updateTime <= previousTime : updateTime < previousTime)
   ) {
     return previous
   }
 
   const sessionStart = Date.parse(previous.regularSession?.start ?? '')
   const sessionEnd = Date.parse(previous.regularSession?.end ?? '')
-  const inSession = tradeTime >= sessionStart && tradeTime < sessionEnd
+  const inSession = priceTime >= sessionStart && priceTime < sessionEnd
   if (previous.regularSession && !inSession) return previous
   const sameDay =
     inSession ||
     (previous.timezone &&
-      Number.isFinite(previousTime) &&
-      getMarketQuoteDate(previous.lastPriceTime!, previous.timezone) ===
-        getMarketQuoteDate(trade.timeStamp, previous.timezone))
+      previous.lastPriceTime &&
+      getMarketQuoteDate(previous.lastPriceTime, previous.timezone) ===
+        getMarketQuoteDate(update.lastPriceTime!, previous.timezone))
   const previousClose = sameDay ? previous.previousClose : null
 
   return createMarketQuoteSnapshot({
     lastPrice: price,
-    lastPriceTime: trade.timeStamp,
+    lastPriceTime: update.lastPriceTime,
+    lastPriceEndTime: update.lastPriceEndTime,
     timezone: previous.timezone,
     previousClose,
     volume: sameDay ? previous.volume : undefined,

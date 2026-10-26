@@ -1,5 +1,6 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { alphaVantageProviderConfig } from '@/providers/market/alpha-vantage/config'
+import { toZonedIsoTimestamp } from '@/providers/market/market-hours/date-utils'
 import { resolveMarketSeriesNormalizationMode } from '@/providers/market/providers'
 import type { MarketBar, MarketSeries, MarketSeriesRequest } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
@@ -102,21 +103,6 @@ function toMillis(value?: string | number): number | undefined {
   return undefined
 }
 
-function toIsoTimestamp(raw: string, formatter: Intl.DateTimeFormat): string | undefined {
-  const local = raw.length === 10 ? `${raw}T00:00:00` : raw.replace(' ', 'T')
-  let timestamp = Date.parse(`${local}Z`)
-  if (!Number.isFinite(timestamp)) return undefined
-  // Resolve the source wall clock in its actual timezone, including daylight saving time.
-  for (let pass = 0; pass < 2; pass++) {
-    const zone = formatter
-      .formatToParts(new Date(timestamp))
-      .find(({ type }) => type === 'timeZoneName')!
-    const offset = zone.value.replace('GMT', '') || '+00:00'
-    timestamp = Date.parse(`${local}${offset}`)
-  }
-  return new Date(timestamp).toISOString()
-}
-
 function parseNumber(value: unknown): number | undefined {
   if (value === undefined || value === null) return undefined
   const parsed = Number(value)
@@ -180,7 +166,7 @@ function parseBars(
   for (const [timestamp, entry] of Object.entries(series).sort(([left], [right]) =>
     right.localeCompare(left)
   )) {
-    const timeStamp = toIsoTimestamp(timestamp, formatter)
+    const timeStamp = toZonedIsoTimestamp(timestamp, formatter)
     if (!timeStamp || !entry || typeof entry !== 'object') continue
 
     const parsed = functionName.startsWith('DIGITAL_CURRENCY_')

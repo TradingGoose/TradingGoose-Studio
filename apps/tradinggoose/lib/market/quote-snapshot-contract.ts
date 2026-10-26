@@ -6,6 +6,7 @@ export type MarketQuoteSnapshot = {
   volume?: number | null
   volumeUsd?: number | null
   lastPriceTime?: string
+  lastPriceEndTime?: string // Exclusive coverage end for candle-derived prices.
   timezone?: string
   regularSession?: { start: string; end: string }
   error?: string
