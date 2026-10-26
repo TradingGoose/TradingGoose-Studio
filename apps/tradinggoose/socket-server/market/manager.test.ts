@@ -157,6 +157,7 @@ const quoteSnapshot = {
 const regularSnapshot = {
   ...quoteSnapshot,
   lastPriceTime: '2026-10-26T15:00:00.000Z',
+  lastPriceEndTime: '2026-10-26T15:01:00.000Z',
   timezone: 'America/New_York',
   regularSession: {
     start: '2026-10-26T13:30:00.000Z',
@@ -456,6 +457,7 @@ describe('MarketStreamManager quote snapshots', () => {
       const trade = (price: number, timeStamp: string) =>
         stream.handlers.onTrade({ symbol: 'AAPL', trade: { price, timeStamp } })
       expect(quote()).toEqual(regularSnapshot)
+      trade(124, '2026-10-26T15:01:00.000Z')
       trade(126, '2026-10-26T15:01:00.000Z')
       expect(quote()).toMatchObject({
         lastPrice: 126,
@@ -463,6 +465,7 @@ describe('MarketStreamManager quote snapshots', () => {
         change: 6,
         changePercent: 5,
       })
+      expect(quote().lastPriceEndTime).toBeUndefined()
       trade(132, '2026-10-26T15:02:00.000Z')
       expect(quote()).toMatchObject({
         lastPrice: 132,
@@ -505,20 +508,50 @@ describe('MarketStreamManager quote snapshots', () => {
         change: 12,
         regularSession: regularSnapshot.regularSession,
       })
-      buildMarketQuoteSnapshotMock.mockResolvedValue({
+      const nextSessionSnapshot = {
         lastPrice: 130,
         previousClose: 129,
         change: 1,
         changePercent: 100 / 129,
         lastPriceTime: '2026-10-27T15:00:00Z',
+        lastPriceEndTime: '2026-10-27T15:01:00Z',
         timezone: 'America/New_York',
         regularSession: { start: '2026-10-27T13:30:00Z', end: '2026-10-27T20:00:00Z' },
-      })
+      }
+      buildMarketQuoteSnapshotMock.mockResolvedValue(nextSessionSnapshot)
       await vi.advanceTimersByTimeAsync(60_000)
       expect(quote()).toMatchObject({ lastPrice: 130, previousClose: 129, change: 1 })
       expect(quote().error).toBeUndefined()
       trade(132, '2026-10-27T15:01:00Z')
       expect(quote()).toMatchObject({ lastPrice: 132, previousClose: 129, change: 3 })
+      trade(125, '2026-10-27T19:59:10Z')
+      const completedSnapshot = {
+        ...nextSessionSnapshot,
+        lastPriceTime: '2026-10-27T19:59:00Z',
+        lastPriceEndTime: '2026-10-27T20:00:00Z',
+      }
+      for (const [lastPrice, lastPriceTime, lastPriceEndTime] of [
+        [130, '2026-10-27T19:59:00Z', '2026-10-27T20:00:00Z'],
+        [124, '2026-10-27T19:58:00Z', '2026-10-27T19:59:00Z'],
+        [124, '2026-10-27T19:59:00Z', '2026-10-27T19:59:30Z'],
+      ] as const) {
+        buildMarketQuoteSnapshotMock.mockResolvedValue(
+          createMarketQuoteSnapshot({
+            ...completedSnapshot,
+            lastPrice,
+            lastPriceTime,
+            lastPriceEndTime,
+          })
+        )
+        await vi.advanceTimersByTimeAsync(60_000)
+        expect(quote()).toEqual(completedSnapshot)
+        trade(125, '2026-10-27T19:59:59.999Z')
+        expect(quote()).toEqual(completedSnapshot)
+      }
+      const correctedSnapshot = createMarketQuoteSnapshot({ ...completedSnapshot, lastPrice: 131 })
+      buildMarketQuoteSnapshotMock.mockResolvedValue(correctedSnapshot)
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(quote()).toEqual(correctedSnapshot)
       expect(executeProviderRequestMock).not.toHaveBeenCalled()
       manager.removeSocket(socket.id)
     }
@@ -581,7 +614,8 @@ describe('MarketStreamManager quote snapshots', () => {
       const seed = createMarketQuoteSnapshot({
         lastPrice: 1.08,
         previousClose: 1.07,
-        lastPriceTime: '2026-10-26T23:58:00Z',
+        lastPriceTime: '2026-10-26T23:59:00Z',
+        lastPriceEndTime: '2026-10-27T00:00:00Z',
         timezone: 'UTC',
         volume: 100,
       })
@@ -597,10 +631,10 @@ describe('MarketStreamManager quote snapshots', () => {
       const trade = (price: number, timeStamp: string) =>
         finnhubStreamInstances[0].handlers.onTrade({ symbol: 'AAPL', trade: { price, timeStamp } })
       trade(1.09, '2026-10-26T23:59:00Z')
-      expect(quote().lastPrice).toBe(1.09)
-      expect(quote().change).toBeCloseTo(0.02)
-      expect(quote().volumeUsd).toBeCloseTo(109)
-      trade(1.1, '2026-10-27T00:01:00Z')
+      expect(quote().lastPrice).toBe(1.08)
+      expect(quote().change).toBeCloseTo(0.01)
+      expect(quote().volumeUsd).toBeCloseTo(108)
+      trade(1.1, '2026-10-27T00:00:00Z')
       await vi.advanceTimersByTimeAsync(60_000)
       expect(quote()).toMatchObject({
         lastPrice: 1.1,
@@ -609,17 +643,22 @@ describe('MarketStreamManager quote snapshots', () => {
         timezone: 'UTC',
       })
       expect(quote().volumeUsd).toBeUndefined()
+      expect(quote().lastPriceEndTime).toBeUndefined()
       buildMarketQuoteSnapshotMock.mockResolvedValue(
         createMarketQuoteSnapshot({
           lastPrice: 1.1,
           previousClose: 1.09,
           lastPriceTime: '2026-10-27T00:00:00Z',
+          lastPriceEndTime: '2026-10-27T00:01:00Z',
           timezone: 'UTC',
         })
       )
       await vi.advanceTimersByTimeAsync(60_000)
       expect(quote().previousClose).toBe(1.09)
       expect(quote().change).toBeCloseTo(0.01)
+      trade(1.11, '2026-10-27T00:01:00Z')
+      expect(quote().lastPrice).toBe(1.11)
+      expect(quote().change).toBeCloseTo(0.02)
       manager.removeSocket(socket.id)
     }
   )

@@ -4,6 +4,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { planMarketSeriesRequest } from '@/providers/market/series-planner'
+import type { MarketSeriesRequest } from '@/providers/market/types'
 
 const { fetchMock, mockResolveListingContext, mockResolveProviderSymbol } = vi.hoisted(() => ({
   fetchMock: vi.fn(),
@@ -25,6 +26,19 @@ vi.mock('@/providers/market/utils', () => ({
   resolveProviderSymbol: (...args: unknown[]) => mockResolveProviderSymbol(...args),
 }))
 
+vi.mock('@/providers/market', () => ({
+  executeProviderRequest: async (_provider: string, request: MarketSeriesRequest) =>
+    (await import('./series')).fetchFinnhubSeries(request),
+}))
+
+const listing = { listing_id: 'AAPL', base_id: '', quote_id: '', listing_type: 'default' } as const
+const request: MarketSeriesRequest = {
+  kind: 'series',
+  listing,
+  auth: { apiKey: 'request-key' },
+  start: '2026-01-01T00:00:00.000Z',
+  end: '2027-01-01T00:00:00.000Z',
+}
 const originalFinnhubApiKey = process.env.FINNHUB_API_KEY
 
 describe('fetchFinnhubSeries', () => {
@@ -32,12 +46,7 @@ describe('fetchFinnhubSeries', () => {
     vi.clearAllMocks()
     vi.stubGlobal('fetch', fetchMock)
     mockResolveListingContext.mockResolvedValue({
-      listing: {
-        listing_id: 'AAPL',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
-      },
+      listing,
       base: 'AAPL',
       assetClass: 'stock',
       timeZoneName: 'America/New_York',
@@ -58,16 +67,9 @@ describe('fetchFinnhubSeries', () => {
 
     await expect(
       fetchFinnhubSeries({
-        kind: 'series',
-        listing: {
-          listing_id: 'AAPL',
-          base_id: '',
-          quote_id: '',
-          listing_type: 'default',
-        },
+        ...request,
+        auth: undefined,
         interval: '1d',
-        start: '2026-01-01T00:00:00.000Z',
-        end: '2026-01-02T00:00:00.000Z',
       })
     ).rejects.toThrow('Finnhub API key is required')
 
@@ -103,17 +105,8 @@ describe('fetchFinnhubSeries', () => {
 
     const { fetchFinnhubSeries } = await import('./series')
 
-    const { request } = planMarketSeriesRequest('finnhub', {
-      kind: 'series',
-      listing: {
-        listing_id: 'AAPL',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
-      },
-      auth: {
-        apiKey: 'request-key',
-      },
+    const { request: planned } = planMarketSeriesRequest('finnhub', {
+      ...request,
       interval: '1m',
       windows: [
         days
@@ -121,8 +114,8 @@ describe('fetchFinnhubSeries', () => {
           : { mode: 'absolute', start, end },
       ],
     })
-    if (mode === 'session') Object.assign(request, { start, end })
-    await fetchFinnhubSeries(request)
+    if (mode === 'session') Object.assign(planned, { start, end })
+    await fetchFinnhubSeries(planned)
 
     const { searchParams } = new URL(fetchMock.mock.calls[0][0])
     expect(searchParams.get('from')).toBe(String(Date.parse(start) / 1000))
@@ -136,5 +129,57 @@ describe('fetchFinnhubSeries', () => {
         }),
       })
     )
+  })
+
+  it.each([
+    ['1d', 'America/New_York', '2026-01-02T00:00:00Z', '2026-01-02T05:00:00.000Z'],
+    ['1d', 'America/New_York', '2026-07-02T00:00:00Z', '2026-07-02T04:00:00.000Z'],
+    ['1d', 'America/New_York', '2026-01-02T05:00:00Z', '2026-01-02T05:00:00.000Z'],
+    ['1m', 'America/New_York', '2026-01-02T00:00:00Z', '2026-01-02T00:00:00.000Z'],
+    ['1w', 'America/New_York', '2026-07-06T00:00:00Z', '2026-07-06T04:00:00.000Z'],
+    ['1mo', 'America/New_York', '2026-07-01T00:00:00Z', '2026-07-01T04:00:00.000Z'],
+    ['1d', 'Pacific/Auckland', '2026-01-02T00:00:00Z', '2026-01-01T11:00:00.000Z'],
+    ['1d', 'Pacific/Auckland', '2026-01-01T21:00:00Z', '2026-01-01T21:00:00.000Z'],
+  ])('preserves %s trading dates in %s for %s', async (interval, timeZoneName, input, expected) => {
+    mockResolveListingContext.mockResolvedValue({ listing, assetClass: 'stock', timeZoneName })
+    fetchMock.mockResolvedValue(Response.json({ s: 'ok', c: [101], t: [Date.parse(input) / 1000] }))
+    const { fetchFinnhubSeries } = await import('./series')
+    const result = await fetchFinnhubSeries({ ...request, interval })
+    expect(result.bars[0].timeStamp).toBe(expected)
+  })
+
+  it('uses the prior Finnhub trading date for quote change and the current date for volume', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-10-26T17:00:00Z'))
+    fetchMock.mockImplementation(async (url: string) =>
+      Response.json(
+        new URL(url).searchParams.get('resolution') === 'D'
+          ? {
+              s: 'ok',
+              c: [150, 151.73],
+              t: ['2026-10-23T00:00:00Z', '2026-10-26T00:00:00Z'].map(
+                (time) => Date.parse(time) / 1000
+              ),
+              v: [10, 20],
+            }
+          : { s: 'ok', c: [151.73], t: [Date.parse('2026-10-26T15:59:00Z') / 1000] }
+      )
+    )
+    const { buildMarketQuoteSnapshot } = await import('@/lib/market/quote-snapshots')
+    const quote = await buildMarketQuoteSnapshot({
+      provider: 'finnhub',
+      listing,
+      auth: request.auth,
+    })
+    expect(quote).toMatchObject({ lastPrice: 151.73, previousClose: 150, volume: 20 })
+    expect(quote.change).toBeCloseTo(1.73)
+  })
+
+  it('requires the exchange timezone for stock calendar labels', async () => {
+    mockResolveListingContext.mockResolvedValue({ listing, assetClass: 'stock' })
+    const { fetchFinnhubSeries } = await import('./series')
+    await expect(fetchFinnhubSeries({ ...request, interval: '1d' })).rejects.toThrow(
+      'Finnhub stock timezone is required'
+    )
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })

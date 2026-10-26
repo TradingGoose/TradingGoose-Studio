@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
 import { buildMarketQuoteSnapshot } from '@/lib/market/quote-snapshots'
 import type { MarketSeries } from '@/providers/market/types'
@@ -20,6 +20,8 @@ const snapshot = (provider = 'alpaca') => buildMarketQuoteSnapshot({ provider, l
 
 describe('market quote normalization', () => {
   beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-28T00:00:00Z'))
     execute
       .mockReset()
       .mockImplementation(async (_provider, request) =>
@@ -39,6 +41,7 @@ describe('market quote normalization', () => {
       marketSessions: [session],
     }
   })
+  afterEach(() => vi.useRealTimers())
 
   it.each(['alpaca', 'finnhub', 'alpha-vantage', 'robinhood', 'yahoo-finance'])(
     'uses the same day-change calculation for %s',
@@ -51,14 +54,27 @@ describe('market quote normalization', () => {
         volume: 20,
         volumeUsd: 2200,
         lastPriceTime: '2026-10-26T15:59:00Z',
+        lastPriceEndTime: '2026-10-26T16:00:00.000Z',
         timezone: 'America/New_York',
         regularSession: { start: session.start, end: session.end },
       })
       regular.bars[0].close = 112
+      vi.setSystemTime(new Date('2026-10-26T15:59:30Z'))
+      execute.mockImplementation(async (_provider, request) => {
+        vi.setSystemTime(new Date(Date.now() + 15_000))
+        return request.interval === '1d' ? daily : regular
+      })
       expect(await snapshot(provider)).toMatchObject({
         previousClose: 100,
         change: 12,
         changePercent: 12,
+        lastPriceEndTime: '2026-10-26T15:59:30.000Z',
+      })
+      vi.setSystemTime(new Date('2026-10-26T15:59:59.900Z'))
+      regular.bars[0].timeStamp = '2026-10-26T16:00:00Z'
+      expect(await snapshot(provider)).toMatchObject({
+        lastPriceTime: '2026-10-26T16:00:00Z',
+        lastPriceEndTime: '2026-10-26T16:00:00.000Z',
       })
       expect(
         execute.mock.calls.slice(0, 2).map(([, request]) => ({
@@ -131,6 +147,7 @@ describe('market quote normalization', () => {
       lastPrice: 110,
       change: 10,
       lastPriceTime: '2026-10-26T19:59:00Z',
+      lastPriceEndTime: '2026-10-26T20:00:00.000Z',
     })
   })
 
@@ -149,8 +166,9 @@ describe('market quote normalization', () => {
   it.each(['crypto', 'currency'] as const)(
     'uses the UTC day for %s daily change',
     async (listingType) => {
+      vi.setSystemTime(new Date('2026-10-27T00:00:00Z'))
       daily.bars = [{ timeStamp: '2026-10-25T00:00:00Z', close: 100 }]
-      regular.bars = [{ timeStamp: '2026-10-26T00:30:00Z', close: 110 }]
+      regular.bars = [{ timeStamp: '2026-10-26T23:59:00Z', close: 110 }]
       regular.marketSessions = undefined
       const quote = await buildMarketQuoteSnapshot({
         provider: 'alpaca',
@@ -160,6 +178,8 @@ describe('market quote normalization', () => {
         previousClose: 100,
         change: 10,
         timezone: 'UTC',
+        lastPriceTime: '2026-10-26T23:59:00Z',
+        lastPriceEndTime: '2026-10-27T00:00:00.000Z',
       })
       expect(quote.regularSession).toBeUndefined()
       expect(execute.mock.calls.map(([, request]) => request.normalizationMode)).toEqual([
