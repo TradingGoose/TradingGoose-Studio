@@ -126,27 +126,32 @@ describe('workflow Dropdown', () => {
     await renderResponseMode()
   }
 
-  it.each(['<start.details>', '[{"current":1}]', 'null', '"text"', '{bad JSON'])(
-    'keeps unrepresentable Editor data in Editor: %s',
-    async (data) => {
-      mocks.data = data
-      mocks.builderData = [{ id: 'stale', name: 'stale', type: 'string', value: 'old' }]
-      mocks.dataMode = 'json'
-      await renderResponseMode()
-      await selectResponseMode('structured')
-      expect(mocks.setValue).not.toHaveBeenCalled()
-      expect(mocks.setBuilderData).not.toHaveBeenCalled()
-      await selectResponseMode('json')
-      expect(mocks.data).toBe(data)
-      expect(mocks.setData).not.toHaveBeenCalled()
-    }
-  )
+  it.each([
+    '<start.details>',
+    '[{"current":1}]',
+    '{"price":<Producer.optionalPrice>}',
+    'null',
+    '"text"',
+    '{bad JSON',
+  ])('keeps unrepresentable Editor data in Editor: %s', async (data) => {
+    mocks.data = data
+    mocks.builderData = [{ id: 'stale', name: 'stale', type: 'string', value: 'old' }]
+    mocks.dataMode = 'json'
+    await renderResponseMode()
+    await selectResponseMode('structured')
+    expect(mocks.setValue).not.toHaveBeenCalled()
+    expect(mocks.setBuilderData).not.toHaveBeenCalled()
+    await selectResponseMode('json')
+    expect(mocks.data).toBe(data)
+    expect(mocks.setData).not.toHaveBeenCalled()
+  })
 
   it.each([
     ['number', '<variable.amount>', 42],
     ['boolean', '{{ENABLED}}', false],
     ['object', '<start.details>', { cash: 1 }],
-  ] as const)('keeps a dynamic %s cast in Builder', async (type, value, expected) => {
+    ['string', '<Producer.optionalPrice>', undefined],
+  ] as const)('keeps an unrepresentable %s reference in Builder', async (type, value, expected) => {
     const rows = [{ id: 'cast', name: 'cast', type, value }]
     mocks.builderData = rows
     mocks.data = '{"previous":1}'
@@ -157,6 +162,7 @@ describe('workflow Dropdown', () => {
     expect(mocks.setData).not.toHaveBeenCalled()
     expect(mocks.builderData).toBe(rows)
     const workflow = createMinimalWorkflow()
+    workflow.blocks[0].metadata!.name = 'Producer'
     const block = workflow.blocks[1]
     block.metadata = { id: 'response' }
     block.config.params = { dataMode: mocks.dataMode, builderData: mocks.builderData }
@@ -166,13 +172,14 @@ describe('workflow Dropdown', () => {
       workflow,
       { ENABLED: 'false' },
       { amount: { name: 'amount', type: 'plain', value: '42' } },
-      new Map()
+      new Map([[block.id, new Set(['trigger'])]])
     )
     const { response } = await new ResponseBlockHandler().execute(
       block,
       resolver.resolveInputs(block, context)
     )
-    expect(response).toMatchObject({ status: 200, data: { cast: expected } })
+    expect(response.status).toBe(200)
+    expect(response.data).toStrictEqual(expected === undefined ? {} : { cast: expected })
   })
 
   it.each(['', '{}'])('clears stale rows for empty Editor data: %s', async (data) => {
@@ -248,11 +255,9 @@ describe('workflow Dropdown', () => {
   "details": {"native": <start.details>, "quoted": "<start.quantity>"},
   "positions": ["<start.details>", <start.details>, 0, false, null],
   "quoted": "<start.quantity>",
-  "native": <start.quantity>,
-  "sourceString": <start.accountId>,
   "quotedObject": "<start.details>",
   "quotedVariable": "<variable.quantity>",
-  "nativeVariable": <variable.quantity>,
+  "quotedMissing": "<start.optionalPrice>",
   "quotedNull": "<variable.nullable>",
   "environment": {{LIMIT}},
   "quotedEnvironment": "{{LIMIT}}",
@@ -283,7 +288,6 @@ describe('workflow Dropdown', () => {
     await selectResponseMode('json')
     const converted = mocks.setData.mock.calls.at(-1)![0]
     expect(converted).toContain('"quoted": "<start.quantity>"')
-    expect(converted).toContain('"sourceString": <start.accountId>')
     expect(converted).toContain('"environment": {{LIMIT}}')
 
     for (const dataMode of ['json', 'structured']) {
@@ -301,11 +305,9 @@ describe('workflow Dropdown', () => {
         details: { native: details, quoted: '0' },
         positions: [JSON.stringify(details), details, 0, false, null],
         quoted: '0',
-        native: 0,
-        sourceString: '123',
         quotedObject: JSON.stringify(details),
         quotedVariable: '0',
-        nativeVariable: 0,
+        quotedMissing: '',
         quotedNull: 'null',
         environment: 42,
         quotedEnvironment: '42',

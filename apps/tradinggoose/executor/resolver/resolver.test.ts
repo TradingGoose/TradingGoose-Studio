@@ -1622,7 +1622,7 @@ describe('InputResolver', () => {
     })
 
     it.each(['start', 'trigger-1', 'variable'])(
-      'preserves Response values through Builder-to-Editor conversion for <%s.*>',
+      'preserves native Response values in both modes for <%s.*>',
       async (source) => {
         const output = {
           symbol: 'AAPL',
@@ -1699,6 +1699,14 @@ describe('InputResolver', () => {
           },
           { id: 'nativeFiles', name: 'nativeFiles', type: 'files', value: output.files },
         ]
+        expect(ResponseBlockHandler.convertBuilderDataToJsonString(builderData)).toBeUndefined()
+        const data = `{
+          ${Object.keys(output)
+            .map((name) => `"${name}": <${source}.${name}>`)
+            .join(',')},
+          "nativeFiles": ${JSON.stringify(output.files)},
+          "greeting": ${JSON.stringify(`Say "<${source}.input>" for <${source}.symbol>`)}
+        }`
         for (const dataMode of ['structured', 'json']) {
           const block: SerializedBlock = {
             ...workflowWithConnections.blocks[2],
@@ -1709,7 +1717,7 @@ describe('InputResolver', () => {
               params: {
                 dataMode,
                 builderData,
-                data: ResponseBlockHandler.convertBuilderDataToJsonString(builderData),
+                data,
                 status: `<${source}.responseStatus>`,
                 headers: [{ id: 'symbol', cells: { Key: 'X-Symbol', Value: `<${source}.input>` } }],
               },
@@ -2256,7 +2264,7 @@ describe('InputResolver', () => {
           params: {
             data:
               mode === 'json'
-                ? ResponseBlockHandler.convertBuilderDataToJsonString(builderData)
+                ? '{"symbol": <start.symbol>, "quantity": <start.quantity>, "details": <start.details>}'
                 : '<disabled-block.result>',
             builderData:
               mode === 'structured'

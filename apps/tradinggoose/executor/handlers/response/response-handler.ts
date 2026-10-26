@@ -122,11 +122,10 @@ export class ResponseBlockHandler implements BlockHandler {
       const references = typeof prop.value === 'string' ? extractReferencePrefixes(prop.value) : []
       const exactReference = references.length === 1 && references[0].raw === prop.value.trim()
       if (
-        prop.type !== 'string' &&
-        (exactReference ||
-          ((prop.type === 'number' || prop.type === 'boolean') &&
-            typeof prop.value === 'string' &&
-            (references.length > 0 || extractEnvironmentReferences(prop.value).length > 0)))
+        (exactReference && prop.referenceQuoted !== true) ||
+        ((prop.type === 'number' || prop.type === 'boolean') &&
+          typeof prop.value === 'string' &&
+          (references.length > 0 || extractEnvironmentReferences(prop.value).length > 0))
       ) {
         return undefined
       }
@@ -134,7 +133,7 @@ export class ResponseBlockHandler implements BlockHandler {
         typeof prop.value === 'string' &&
         prop.value.trim().length > 0 &&
         prop.referenceQuoted !== true &&
-        (prop.referenceQuoted === false || JSON_PROPERTY_TYPES.has(prop.type) || exactReference)
+        (prop.referenceQuoted === false || JSON_PROPERTY_TYPES.has(prop.type))
       const value = rawJson ? prop.value : converter.convertPropertyValue(prop)
       if (value !== undefined) result[prop.name] = rawJson ? value : JSON.stringify(value, null, 2)
     }

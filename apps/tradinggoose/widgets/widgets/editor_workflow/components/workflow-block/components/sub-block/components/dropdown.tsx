@@ -410,13 +410,12 @@ export function Dropdown({
         selectedValue !== storeValue &&
         (storeValue === 'structured' || storeValue === 'json')
       ) {
-        const converted =
-          selectedValue === 'json'
-            ? ResponseBlockHandler.convertBuilderDataToJsonString(builderData ?? [])
-            : convertJsonToBuilderData(data)
-        if (converted === undefined) return
-        if (typeof converted === 'string') setData(converted)
-        else setBuilderData(converted)
+        const rows = selectedValue === 'json' ? (builderData ?? []) : convertJsonToBuilderData(data)
+        if (rows === undefined) return
+        const json = ResponseBlockHandler.convertBuilderDataToJsonString(rows)
+        if (json === undefined) return
+        if (selectedValue === 'json') setData(json)
+        else setBuilderData(rows)
       }
       setStoreValue(selectedValue)
     }
