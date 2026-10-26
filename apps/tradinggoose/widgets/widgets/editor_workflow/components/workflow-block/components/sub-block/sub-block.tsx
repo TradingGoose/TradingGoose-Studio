@@ -417,7 +417,6 @@ function SubBlockTradingAccountSelector({
         serviceId={requestedServiceId ?? portfolioIdentity?.serviceId}
         portfolioIdentity={portfolioIdentity}
         disabled={finalDisabled}
-        clearInvalidSelection
         placeholder={config.placeholder}
         tooltipText={config.tooltip ?? config.description ?? 'Select trading account'}
         toolName='Trading'
