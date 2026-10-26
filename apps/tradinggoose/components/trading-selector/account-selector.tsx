@@ -119,6 +119,7 @@ export function TradingAccountSelector({
     isEnabled &&
     services.isSuccess &&
     !services.isFetching &&
+    !services.isPaused &&
     !services.error &&
     Boolean(requestedServiceId && !services.serviceIds.includes(requestedServiceId))
   useEffect(() => {

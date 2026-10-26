@@ -67,23 +67,26 @@ describe('useTradingServices', () => {
       isSuccess: true,
       isLoading: false,
       isFetching: false,
+      isPaused: false,
       error: null,
       refetch: refetchConnections,
     })
   })
 
   it.each([
-    [{ 'alpaca-live': true, 'alpaca-paper': false }, ['alpaca-live'], false, true],
-    [{ 'alpaca-live': false, 'alpaca-paper': true }, ['alpaca-paper'], false, true],
-    [{ 'alpaca-live': false, 'alpaca-paper': false }, [], false, true],
-    [undefined, [], true, false],
-    [undefined, [], false, false],
-  ] as const)('resolves availability %j', (data, expected, isLoading, isSuccess) => {
+    [{ 'alpaca-live': true, 'alpaca-paper': false }, ['alpaca-live'], false, true, false],
+    [{ 'alpaca-live': false, 'alpaca-paper': true }, ['alpaca-paper'], false, true, false],
+    [{ 'alpaca-live': false, 'alpaca-paper': false }, [], false, true, false],
+    [undefined, [], true, false, false],
+    [undefined, [], false, false, true],
+    [{ 'alpaca-live': false, 'alpaca-paper': false }, [], false, true, true],
+  ] as const)('resolves availability %j', (data, expected, isLoading, isSuccess, isPaused) => {
     mockUseOAuthProviderAvailability.mockReturnValue({
       data,
       isSuccess,
       isLoading,
       isFetching: isLoading,
+      isPaused,
       error: null,
       refetch: refetchAvailability,
     })
@@ -94,6 +97,7 @@ describe('useTradingServices', () => {
       isSuccess,
       isLoading,
       isFetching: isLoading,
+      isPaused,
       error: null,
     })
   })
@@ -105,6 +109,7 @@ describe('useTradingServices', () => {
       isSuccess: false,
       isLoading: false,
       isFetching: false,
+      isPaused: false,
       error,
       refetch: refetchAvailability,
     })

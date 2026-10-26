@@ -15,6 +15,7 @@ export type TradingServiceState = {
   isSuccess: boolean
   isLoading: boolean
   isFetching: boolean
+  isPaused: boolean
   error: Error | null
   refetch: () => void
 }
@@ -72,6 +73,7 @@ export function useTradingServices({
     isSuccess: isQueryEnabled && availabilityQuery.isSuccess && connectionsQuery.isSuccess,
     isLoading: isQueryEnabled && (availabilityQuery.isLoading || connectionsQuery.isLoading),
     isFetching: isQueryEnabled && (availabilityQuery.isFetching || connectionsQuery.isFetching),
+    isPaused: isQueryEnabled && (availabilityQuery.isPaused || connectionsQuery.isPaused),
     error: isQueryEnabled && error instanceof Error ? error : null,
     refetch: () => {
       void availabilityQuery.refetch()

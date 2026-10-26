@@ -41,6 +41,7 @@ describe('TradingAccountSelector', () => {
   const services = {
     ...queryState,
     isSuccess: true,
+    isPaused: false,
     serviceIds: ['alpaca-live', 'alpaca-paper'],
     connectedServiceIds: ['alpaca-live'],
     activeServiceId: 'alpaca-live',
@@ -261,9 +262,14 @@ describe('TradingAccountSelector', () => {
     }
   })
 
-  it.each(['initial request', 'retry'])(
+  it.each([
+    ['initial request', false, false],
+    ['retry', true, false],
+    ['cached refetch', false, true],
+    ['cached retry', true, true],
+  ] as const)(
     'preserves a saved account when the availability %s pauses offline',
-    async (phase) => {
+    async (_, initiallyOnline, cached) => {
       const { useTradingServices } = await vi.importActual<
         typeof import('@/components/trading-selector/services')
       >('@/components/trading-selector/services')
@@ -274,7 +280,10 @@ describe('TradingAccountSelector', () => {
       queryClient.setQueryData(oauthConnectionsKeys.connections(), [
         { providerId: 'alpaca-live', isConnected: true },
       ])
-      onlineManager.setOnline(phase === 'retry')
+      const availabilityKey = oauthProviderAvailabilityKeys.list(['alpaca-live', 'alpaca-paper'])
+      const cachedAvailability = { 'alpaca-live': false, 'alpaca-paper': false }
+      if (cached) queryClient.setQueryData(availabilityKey, cachedAvailability, { updatedAt: 1 })
+      onlineManager.setOnline(initiallyOnline)
       const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
         onlineManager.setOnline(false)
         throw new Error('connection dropped')
@@ -294,21 +303,33 @@ describe('TradingAccountSelector', () => {
       )
       await act(async () => {
         await vi.waitFor(() => {
-          expect(
-            queryClient!.getQueryState(
-              oauthProviderAvailabilityKeys.list(['alpaca-live', 'alpaca-paper'])
-            )
-          ).toMatchObject({
-            status: 'pending',
+          expect(queryClient!.getQueryState(availabilityKey)).toMatchObject({
+            status: cached ? 'success' : 'pending',
             fetchStatus: 'paused',
-            data: undefined,
+            data: cached ? cachedAvailability : undefined,
             error: null,
           })
         })
         await new Promise((resolve) => setTimeout(resolve, 0))
       })
-      expect(fetchSpy).toHaveBeenCalledTimes(phase === 'retry' ? 1 : 0)
+      expect(fetchSpy).toHaveBeenCalledTimes(initiallyOnline ? 1 : 0)
       expect(onAccountSelect).not.toHaveBeenCalled()
+      if (cached) {
+        const freshAvailability = { 'alpaca-live': true, 'alpaca-paper': true }
+        fetchSpy.mockResolvedValue(Response.json(freshAvailability))
+        await act(async () => {
+          onlineManager.setOnline(true)
+          await vi.waitFor(() => {
+            expect(queryClient!.getQueryState(availabilityKey)).toMatchObject({
+              status: 'success',
+              fetchStatus: 'idle',
+              data: freshAvailability,
+            })
+          })
+          await new Promise((resolve) => setTimeout(resolve, 0))
+        })
+        expect(onAccountSelect).not.toHaveBeenCalled()
+      }
     }
   )
 
