@@ -350,6 +350,7 @@ export const YahooFinanceProviderConfig: MarketProviderConfig = {
       windowModes: ['range', 'bars', 'absolute', 'all'],
       allInterval: '3mo',
       normalizationModes: ['raw', 'adjusted'],
+      normalizationIntervals: { adjusted: ['1d', '1w', '1mo', '3mo'] },
       marketSessions: ['regular', 'extended'],
       retention: {
         byInterval: {
