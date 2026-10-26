@@ -117,14 +117,10 @@ export function TradingAccountSelector({
   const shouldReconcile =
     clearInvalidSelection &&
     isEnabled &&
-    !isLoadingAccounts &&
+    !services.isLoading &&
     !services.isFetching &&
     !services.error &&
-    !accountsQuery.error &&
-    Boolean(
-      (requestedServiceId && !services.connectedServiceIds.includes(requestedServiceId)) ||
-        (selectedPortfolioIdentity && accountsQuery.data !== undefined && !selectedOption)
-    )
+    Boolean(requestedServiceId && !services.serviceIds.includes(requestedServiceId))
   useEffect(() => {
     if (shouldReconcile) onAccountSelect?.({ serviceId: null, portfolioIdentity: null })
   }, [shouldReconcile, onAccountSelect])

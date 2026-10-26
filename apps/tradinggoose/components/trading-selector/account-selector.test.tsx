@@ -206,36 +206,27 @@ describe('TradingAccountSelector', () => {
 
   it.each([
     ['valid account', {}, {}, {}, false],
-    ['missing account', {}, { data: [] }, {}, true],
     [
-      'unavailable service',
-      { connectedServiceIds: [], activeServiceId: undefined },
-      { data: undefined },
+      'partial account list from another connection',
       {},
-      true,
-    ],
-    [
-      'shared account absent from viewer list',
+      { data: [{ ...selectedPortfolioIdentity, credentialId: 'oauth-credential-2' }] },
       {},
-      { data: [] },
-      { clearInvalidSelection: undefined },
       false,
     ],
+    ['shared account absent from viewer list', {}, { data: [] }, {}, false],
     [
       'shared service absent from viewer connections',
       { connectedServiceIds: [], activeServiceId: undefined },
       { data: undefined },
-      { clearInvalidSelection: undefined },
+      {},
       false,
     ],
-    ['disabled', {}, { data: [] }, { disabled: true }, false],
-    ['service loading', { isLoading: true }, { data: [] }, {}, false],
-    ['service fetching', { isFetching: true }, { data: [] }, {}, false],
-    ['service error', { error: new Error('connections failed') }, { data: [] }, {}, false],
-    ['account loading', {}, { data: undefined, isLoading: true }, {}, false],
-    ['account fetching', {}, { data: [], isFetching: true }, {}, false],
-    ['account error', {}, { data: [], error: new Error('accounts failed') }, {}, false],
-    ['account unresolved', {}, { data: undefined }, {}, false],
+    ['globally unavailable service', { serviceIds: [] }, {}, {}, true],
+    ['opted out', { serviceIds: [] }, {}, { clearInvalidSelection: undefined }, false],
+    ['disabled', { serviceIds: [] }, {}, { disabled: true }, false],
+    ['service loading', { serviceIds: [], isLoading: true }, {}, {}, false],
+    ['service fetching', { serviceIds: [], isFetching: true }, {}, {}, false],
+    ['service error', { serviceIds: [], error: new Error('connections failed') }, {}, {}, false],
   ] as const)('reconciles selection for %s', (_, servicePatch, accountPatch, props, invalid) => {
     const onAccountSelect = vi.fn()
     mockUseTradingServices.mockReturnValue({ ...services, ...servicePatch })
