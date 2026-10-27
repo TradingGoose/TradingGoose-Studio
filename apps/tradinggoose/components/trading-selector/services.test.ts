@@ -1,5 +1,19 @@
-import { describe, expect, it } from 'vitest'
-import { resolveActiveTradingServiceId } from '@/components/trading-selector/services'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  resolveActiveTradingServiceId,
+  useTradingServices,
+} from '@/components/trading-selector/services'
+
+const mockUseOAuthConnections = vi.fn()
+const mockUseOAuthProviderAvailability = vi.fn()
+
+vi.mock('@/hooks/queries/oauth-connections', () => ({
+  useOAuthConnections: (...args: unknown[]) => mockUseOAuthConnections(...args),
+}))
+
+vi.mock('@/hooks/queries/oauth-provider-availability', () => ({
+  useOAuthProviderAvailability: (...args: unknown[]) => mockUseOAuthProviderAvailability(...args),
+}))
 
 describe('resolveActiveTradingServiceId', () => {
   it('keeps a requested service only when it is connected', () => {
@@ -36,5 +50,77 @@ describe('resolveActiveTradingServiceId', () => {
         connectedServiceIds: [],
       })
     ).toBeUndefined()
+  })
+})
+
+describe('useTradingServices', () => {
+  const refetchConnections = vi.fn()
+  const refetchAvailability = vi.fn()
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockUseOAuthConnections.mockReturnValue({
+      data: [
+        { providerId: 'alpaca-live', isConnected: true },
+        { providerId: 'alpaca-paper', isConnected: true },
+      ],
+      isSuccess: true,
+      isLoading: false,
+      isFetching: false,
+      isPaused: false,
+      error: null,
+      refetch: refetchConnections,
+    })
+  })
+
+  it.each([
+    [{ 'alpaca-live': true, 'alpaca-paper': false }, ['alpaca-live'], false, true, false],
+    [{ 'alpaca-live': false, 'alpaca-paper': true }, ['alpaca-paper'], false, true, false],
+    [{ 'alpaca-live': false, 'alpaca-paper': false }, [], false, true, false],
+    [undefined, [], true, false, false],
+    [undefined, [], false, false, true],
+    [{ 'alpaca-live': false, 'alpaca-paper': false }, [], false, true, true],
+  ] as const)('resolves availability %j', (data, expected, isLoading, isSuccess, isPaused) => {
+    mockUseOAuthProviderAvailability.mockReturnValue({
+      data,
+      isSuccess,
+      isLoading,
+      isFetching: isLoading,
+      isPaused,
+      error: null,
+      refetch: refetchAvailability,
+    })
+    expect(useTradingServices({ providerId: 'alpaca', serviceId: 'alpaca-paper' })).toMatchObject({
+      serviceIds: expected,
+      connectedServiceIds: expected,
+      activeServiceId: expected[0],
+      isSuccess,
+      isLoading,
+      isFetching: isLoading,
+      isPaused,
+      error: null,
+    })
+  })
+
+  it('reports availability failures with cached connections and refreshes both queries', () => {
+    const error = new Error('availability failed')
+    mockUseOAuthProviderAvailability.mockReturnValue({
+      data: {},
+      isSuccess: false,
+      isLoading: false,
+      isFetching: false,
+      isPaused: false,
+      error,
+      refetch: refetchAvailability,
+    })
+    const services = useTradingServices({ providerId: 'alpaca', serviceId: 'alpaca-paper' })
+    expect(services.isSuccess).toBe(false)
+    expect(services.error).toBe(error)
+    expect(services.serviceIds).toEqual([])
+    expect(services.connectedServiceIds).toEqual([])
+    expect(services.activeServiceId).toBeUndefined()
+    services.refetch()
+    expect(refetchAvailability).toHaveBeenCalledOnce()
+    expect(refetchConnections).toHaveBeenCalledOnce()
   })
 })

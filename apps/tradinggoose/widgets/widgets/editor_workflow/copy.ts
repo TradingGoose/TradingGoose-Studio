@@ -20,7 +20,6 @@ import {
   getWorkflowEditorCopyFromInspector,
   getWorkflowLabelCopyFromInspector,
   localizeToolParameterWithCopy,
-  localizeWorkflowOptionsWithCopy,
   localizeWorkflowSubBlockConfigWithCopy,
   resolveWorkflowDisplayValueWithCopy,
   translateWorkflowLabelWithCopy,
@@ -121,13 +120,6 @@ export function useWorkflowI18n() {
         contextValues?: Parameters<typeof getLocalizedToolParametersConfigWithCopy>[3]
       ) =>
         getLocalizedToolParametersConfigWithCopy(inspectorCopy, toolId, blockConfig, contextValues),
-      localizeWorkflowOptions: (
-        options: Parameters<typeof localizeWorkflowOptionsWithCopy>[1],
-        blockType?: string,
-        subBlockId?: string,
-        triggerId?: string
-      ) =>
-        localizeWorkflowOptionsWithCopy(inspectorCopy, options, blockType, subBlockId, triggerId),
       localizeWorkflowSubBlockConfig: (
         config: Parameters<typeof localizeWorkflowSubBlockConfigWithCopy>[1],
         blockType?: string,

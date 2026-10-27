@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
-import { useWorkflowTextField } from '@/lib/yjs/use-workflow-doc'
+import { stringifySubBlockValue } from '@/lib/workflows/subblock-values'
+import { useWorkflowField } from '@/lib/yjs/use-workflow-doc'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useTagSelection } from '@/hooks/use-tag-selection'
 import { useWebhookManagement } from '@/hooks/use-webhook-management'
@@ -43,7 +44,7 @@ interface ShortInputProps {
   subBlockId: string
   isConnecting: boolean
   config: SubBlockConfig
-  value?: string
+  value?: unknown
   onChange?: (value: string) => void
   disabled?: boolean
   readOnly?: boolean
@@ -86,6 +87,8 @@ export function ShortInput({
 
   const resolvedWandConfig = config.wandConfig ?? { enabled: false, prompt: '' }
   const isWorkflowManaged = onChange === undefined
+  const isNumericInput = config.inputType === 'number'
+  const supportsReferences = config.supportsReferences !== false
 
   const [searchTerm, setSearchTerm] = useState('')
   const [cursorPosition, setCursorPosition] = useState(0)
@@ -101,28 +104,49 @@ export function ShortInput({
   // Get ReactFlow instance for zoom control (optional outside ReactFlow providers)
   const reactFlowInstance = useOptionalReactFlow()
 
-  const baseValueString = propValue?.toString() ?? ''
-  const { value: textFieldValue, setValue: setTextFieldValue } = useWorkflowTextField(
+  const baseValueString = stringifySubBlockValue(propValue)
+  const { value: fieldValue, setValue: setFieldValue } = useWorkflowField(
     blockId,
     subBlockId,
     baseValueString,
     {
       enabled: isWorkflowManaged,
-      autoCreate: isWorkflowManaged && !readOnly && !disabled,
-      mirrorDelayMs: isWorkflowManaged ? 300 : null,
+      collaborative: !isNumericInput,
     }
   )
-  const persistedValue = isWorkflowManaged ? textFieldValue : baseValueString
+  const persistedValue = isWorkflowManaged ? fieldValue : baseValueString
   const commitValue = useCallback(
     (nextValue: string) => {
+      if (isNumericInput) {
+        let number = Number(nextValue)
+        const isLiteral = nextValue.trim() !== '' && !Number.isNaN(number)
+        if (!supportsReferences && !isLiteral) return
+        if (isLiteral) {
+          if (config.integer) number = Math.round(number)
+          if (config.min !== undefined) number = Math.max(config.min, number)
+          if (config.max !== undefined) number = Math.min(config.max, number)
+          if (!Number.isFinite(number)) return
+          nextValue = String(number)
+        }
+      }
+
       if (isWorkflowManaged) {
-        setTextFieldValue(nextValue)
+        setFieldValue(nextValue)
         return
       }
 
       onChange?.(nextValue)
     },
-    [isWorkflowManaged, onChange, setTextFieldValue]
+    [
+      isNumericInput,
+      config.integer,
+      config.min,
+      config.max,
+      supportsReferences,
+      isWorkflowManaged,
+      onChange,
+      setFieldValue,
+    ]
   )
   const {
     value: localContent,
@@ -158,7 +182,6 @@ export function ShortInput({
   const effectiveValue =
     useWebhookUrl && webhookManagement.webhookUrl ? webhookManagement.webhookUrl : localContent
 
-  const isNumericInput = config.inputType === 'number'
   const numericStep = isNumericInput ? (config.step ?? (config.integer ? 1 : undefined)) : undefined
   const numericInputMode =
     isNumericInput && (config.integer || numericStep === 1 || numericStep === undefined)
@@ -222,6 +245,7 @@ export function ShortInput({
     setValueDebounced(newValue)
 
     setCursorPosition(newCursorPosition)
+    if (!supportsReferences) return
 
     // Check for environment variables trigger
     const envVarTrigger = checkEnvVarTrigger(newValue, newCursorPosition)
@@ -324,12 +348,12 @@ export function ShortInput({
 
   // Drag and Drop handlers
   const handleDragOver = (e: React.DragEvent<HTMLInputElement>) => {
-    if (config?.connectionDroppable === false) return
+    if (!supportsReferences || config?.connectionDroppable === false) return
     e.preventDefault()
   }
 
   const handleDrop = (e: React.DragEvent<HTMLInputElement>) => {
-    if (config?.connectionDroppable === false) return
+    if (!supportsReferences || config?.connectionDroppable === false) return
     e.preventDefault()
 
     try {
@@ -465,7 +489,8 @@ export function ShortInput({
           id={inputId}
           className={cn(
             'allow-scroll w-full overflow-auto text-transparent caret-foreground [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground/50 [&::-webkit-scrollbar]:hidden',
-            isConnecting &&
+            supportsReferences &&
+              isConnecting &&
               config?.connectionDroppable !== false &&
               'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500',
             showCopyButton && resolvedWandConfig.enabled
@@ -566,7 +591,7 @@ export function ShortInput({
           )}
         </div>
 
-        {!wandHook.isStreaming && (
+        {!wandHook.isStreaming && supportsReferences && (
           <>
             <EnvVarDropdown
               visible={showEnvVars}

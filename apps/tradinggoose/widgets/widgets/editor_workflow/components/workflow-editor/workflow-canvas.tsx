@@ -900,7 +900,7 @@ const WorkflowCanvas = React.memo(
           }
 
           const blockConfig = getBlock(data.type)
-          if (!blockConfig && data.type !== 'loop' && data.type !== 'parallel') {
+          if (!blockConfig) {
             logger.error('Invalid block type:', { data })
             return
           }

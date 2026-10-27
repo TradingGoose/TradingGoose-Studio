@@ -5,6 +5,9 @@ import type {
 } from '@/providers/market/providers'
 import type { AssetClass } from '@/providers/market/types'
 
+export const ALPACA_MAX_BARS = 1_000_000
+export const ALPACA_PAGE_SIZE = 10_000
+
 const availableAssetClasses: AssetClass[] = ['stock', 'etf', 'crypto']
 
 const supportsCrypto = availableAssetClasses.includes('crypto')
@@ -73,9 +76,10 @@ const feedParam: MarketProviderParamDefinition = {
   id: 'feed',
   type: 'string',
   title: 'Feed',
-  description: 'Alpaca data feed (required for stock bars).',
+  description: 'Alpaca stock data feed (defaults to IEX).',
   placeholder: 'Select feed',
   required: true,
+  defaultValue: 'iex',
   visibility: 'user-only',
   inputType: 'dropdown',
   options: [
@@ -153,9 +157,9 @@ const marketToExchangeCodeMap: MarketProviderConfig['marketToExchangeCode'] = {
 }
 
 export const alpacaProviderConfig: MarketProviderConfig = {
+  requestsPerMinute: 200,
   id: 'alpaca',
   name: 'Alpaca',
-  utcOffset: 0,
   availability,
   params,
   capabilities: {
@@ -183,10 +187,12 @@ export const alpacaProviderConfig: MarketProviderConfig = {
       windowModes: ['range', 'bars', 'absolute'],
       normalizationModes: ['raw', 'adjusted', 'split_adjusted'],
       marketSessions: ['regular', 'extended'],
+      retention: { default: { maxBars: ALPACA_MAX_BARS } },
     },
     live: {
       channels: ['bars', 'trades', 'quotes'],
       supportsInterval: false,
+      pollingIntervalMs: 60_000,
     },
   },
   rulePrecedence: {

@@ -14,7 +14,7 @@ import { createYjsUndoTrackedOrigins } from '@/lib/yjs/transaction-origins'
 import {
   getVariablesMap,
   readWorkflowMap,
-  readWorkflowTextFieldsMap,
+  readWorkflowSubBlockFieldsMap,
 } from '@/lib/yjs/workflow-session'
 import {
   type RegisteredWorkflowSession,
@@ -218,7 +218,7 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
     const undoManager = new Y.UndoManager(
       [
         readWorkflowMap(result.doc),
-        readWorkflowTextFieldsMap(result.doc),
+        readWorkflowSubBlockFieldsMap(result.doc),
         getVariablesMap(result.doc),
       ],
       {

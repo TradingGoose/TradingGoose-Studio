@@ -194,6 +194,7 @@ export interface SubBlockConfig {
   clearable?: boolean
   hideCalendarIcon?: boolean
   inputType?: 'text' | 'number'
+  supportsReferences?: boolean // Workflow and environment references are supported unless false.
   minDate?: string | Date
   maxDate?: string | Date
   hideTime?: boolean

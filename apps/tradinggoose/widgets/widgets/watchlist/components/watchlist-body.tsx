@@ -38,7 +38,7 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
     [viewItems]
   )
 
-  const { data: quotes = {} } = useMarketQuoteSnapshots({
+  const quotesQuery = useMarketQuoteSnapshots({
     workspaceId: workspaceId ?? undefined,
     provider: providerId || undefined,
     items: quoteItems,
@@ -152,7 +152,9 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
   return (
     <WatchlistTable
       watchlist={selectedWatchlist}
-      quotes={quotes}
+      quotes={quotesQuery.data}
+      quoteError={quotesQuery.error?.message}
+      isFetchingQuotes={quotesQuery.isFetching}
       providerId={providerId}
       onUpdateItemListing={handleUpdateItemListing}
       onMoveItem={handleMoveItem}

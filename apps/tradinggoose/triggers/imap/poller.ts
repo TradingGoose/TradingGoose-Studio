@@ -1,6 +1,5 @@
 import { MailServerIcon } from '@/components/icons/icons'
 import { createLogger } from '@/lib/logs/console/logger'
-import { readSubBlockValue } from '@/lib/yjs/workflow-session-registry'
 import type { TriggerConfig } from '@/triggers/types'
 
 const logger = createLogger('ImapPollingTrigger')
@@ -83,17 +82,13 @@ export const imapPollingTrigger: TriggerConfig = {
         'Choose which mailbox/folder(s) to monitor for new emails. Leave empty to monitor INBOX.',
       required: false,
       options: [],
-      fetchOptions: async (blockId: string, _subBlockId: string, context) => {
-        const host = readSubBlockValue(context.workflowId, blockId, 'host') as string | null
-        const port = readSubBlockValue(context.workflowId, blockId, 'port') as string | null
-        const secure = readSubBlockValue(context.workflowId, blockId, 'secure') as boolean | null
-        const rejectUnauthorized = readSubBlockValue(
-          context.workflowId,
-          blockId,
-          'rejectUnauthorized'
-        ) as boolean | null
-        const username = readSubBlockValue(context.workflowId, blockId, 'username') as string | null
-        const password = readSubBlockValue(context.workflowId, blockId, 'password') as string | null
+      fetchOptions: async (_blockId: string, _subBlockId: string, context) => {
+        const host = context.contextValues?.host as string | undefined
+        const port = context.contextValues?.port as string | undefined
+        const secure = context.contextValues?.secure as boolean | undefined
+        const rejectUnauthorized = context.contextValues?.rejectUnauthorized as boolean | undefined
+        const username = context.contextValues?.username as string | undefined
+        const password = context.contextValues?.password as string | undefined
 
         if (!host || !username || !password) {
           throw new Error('Please enter IMAP server, username, and password first')

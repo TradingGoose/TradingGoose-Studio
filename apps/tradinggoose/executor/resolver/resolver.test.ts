@@ -1,10 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
+import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
+import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
+import { DatadogBlock } from '@/blocks/blocks/datadog'
+import { GmailBlock } from '@/blocks/blocks/gmail'
+import { HistoricalDataBlock } from '@/blocks/blocks/historical_data'
+import { McpBlock } from '@/blocks/blocks/mcp'
+import { ResponseBlock } from '@/blocks/blocks/response'
+import { TradingActionBlock } from '@/blocks/blocks/trading_action'
 import { getBlock } from '@/blocks/index'
 import { BlockType } from '@/executor/consts'
+import { ResponseBlockHandler } from '@/executor/handlers/response/response-handler'
 import { InputResolver } from '@/executor/resolver/resolver'
 import type { ExecutionContext } from '@/executor/types'
+import { planMarketSeriesRequest } from '@/providers/market/series-planner'
+import type { MarketSeriesRequest } from '@/providers/market/types'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
+import { historicalDataTool, type MarketSeriesParams } from '@/tools/market_data/series'
 
 const createInputResolver = (
   workflow: SerializedWorkflow,
@@ -313,6 +325,58 @@ describe('InputResolver', () => {
   })
 
   describe('Block Reference Resolution', () => {
+    it.each([
+      ['custom', 'custom', 1704067200, 1704153600],
+      ['<variable.stringVar>', 'custom', 1704067200000, 1704153600000],
+      ['<variable.stringVar>', 'latest', 1704067200, 1704153600],
+      ['latest', 'latest', 1704067200, 1704153600],
+    ])('preserves historical mode %s selecting %s', (rangeMode, selected, start, end) => {
+      mockContext.blockStates.get('function-block').output = { start, end }
+      mockWorkflowVars.stringVar.value = selected
+      vi.mocked(getBlock).mockReturnValueOnce(HistoricalDataBlock)
+      const block: SerializedBlock = {
+        ...sampleWorkflow.blocks[1],
+        id: 'test-block',
+        metadata: { id: 'historical_data' },
+        config: {
+          tool: 'historical_data_fetch',
+          params: {
+            provider: 'alpaca',
+            listing: { listing_id: 'AAPL', base_id: '', quote_id: '', listing_type: 'default' },
+            rangeMode,
+            rangePresetId: selected === 'custom' ? '<disabled-block.result>' : '1d',
+            interval: '15m',
+            start: selected === 'latest' ? '<disabled-block.result>' : '<function.start>',
+            end: selected === 'latest' ? '<disabled-block.result>' : '<function.end>',
+          },
+        },
+      }
+      const inputs = resolver.resolveInputs(block, mockContext)
+      if (selected === 'latest') {
+        expect(inputs).not.toHaveProperty('start')
+        expect(inputs).not.toHaveProperty('end')
+      } else {
+        expect(inputs).not.toHaveProperty('rangePresetId')
+        expect([inputs.start, inputs.end]).toEqual([String(start), String(end)])
+      }
+      const params = HistoricalDataBlock.tools.config!.params!(inputs)
+      const body = historicalDataTool.request.body!(params as MarketSeriesParams)
+      const planned = planMarketSeriesRequest('alpaca', body as MarketSeriesRequest)
+
+      expect(planned.request.interval).toBe('15m')
+      expect(planned.request.windows).toEqual(
+        selected === 'custom'
+          ? [
+              {
+                mode: 'absolute',
+                start: '2024-01-01T00:00:00.000Z',
+                end: '2024-01-02T00:00:00.000Z',
+              },
+            ]
+          : [{ mode: 'range', range: { value: 1, unit: 'day' } }]
+      )
+    })
+
     it('should resolve references to other blocks', () => {
       const block: SerializedBlock = {
         id: 'test-block',
@@ -367,6 +431,92 @@ describe('InputResolver', () => {
       expect(result.startRef).toBe('Hello World')
       expect(result.startType).toBe('text')
     })
+
+    it.each(['start', 'trigger-block'])(
+      'preserves literal bracketed output keys through <%s.*>',
+      async (source) => {
+        for (const sibling of [{}, { account: { USD: 'wrong' } }]) {
+          mockContext.blockStates.get('trigger-block').output = {
+            ...sibling,
+            'account[USD]': 123,
+            nested: { 'account[USD]': 0 },
+            'balances[USD]': [456],
+          }
+          const block: SerializedBlock = {
+            ...sampleWorkflow.blocks[1],
+            metadata: { id: BlockType.RESPONSE },
+            config: {
+              tool: BlockType.RESPONSE,
+              params: {
+                dataMode: 'structured',
+                builderData: ['account[USD]', 'nested.account[USD]', 'balances[USD][0]'].map(
+                  (path) => ({ id: path, name: path, type: 'string', value: `<${source}.${path}>` })
+                ),
+              },
+            },
+          }
+          expect(
+            resolver.resolveBlockReferences(`<${source}.account[USD]>`, mockContext, block)
+          ).toBe('123')
+          expect(
+            resolver.resolveBlockReferences(`<${source}.missing[USD]>`, mockContext, block)
+          ).toBe('')
+          vi.mocked(getBlock).mockReturnValueOnce(ResponseBlock)
+          const inputs = resolver.resolveInputs(block, mockContext)
+          const { response } = await new ResponseBlockHandler().execute(block, inputs)
+          expect(response.status).toBe(200)
+          expect(response.data).toStrictEqual({
+            'account[USD]': 123,
+            'nested.account[USD]': 0,
+            'balances[USD][0]': 456,
+          })
+        }
+      }
+    )
+
+    it.each(['start', 'trigger-block'])(
+      'omits missing properties and array items through <%s.*> in nested inputs',
+      (source) => {
+        mockContext.blockStates.get('trigger-block').output.items = [{ value: 2 }]
+        const consumer = { ...sampleWorkflow.blocks[1], metadata: { id: 'generic' } }
+        for (const path of ['missing', 'missing[0].value', 'items[0].missing', 'items[99][0]']) {
+          const reference = `<${source}.${path}>`
+          consumer.config = { tool: 'generic', params: { payload: [{ value: reference }] } }
+          expect(resolver.resolveInputs(consumer, mockContext)).toEqual({
+            payload: [{ value: '' }],
+          })
+          expect(
+            resolver.resolveBlockReferences(`Value: ${reference}`, mockContext, consumer)
+          ).toBe('Value: ')
+        }
+      }
+    )
+
+    it.each(['start', 'trigger-block'])(
+      'preserves Function and Condition expressions for missing <%s.*> values',
+      (source) => {
+        const reference = `<${source}.missing[0].value>`
+        for (const blockType of ['function', 'condition']) {
+          const consumer = { ...sampleWorkflow.blocks[1], metadata: { id: blockType } }
+          expect(
+            resolver.resolveBlockReferences(`${reference} === undefined`, mockContext, consumer)
+          ).toBe('undefined === undefined')
+        }
+      }
+    )
+
+    it.each(['start', 'trigger-block'])(
+      'uses the shared missing-reference formatting without state through <%s.*>',
+      (source) => {
+        mockContext.blockStates.clear()
+        for (const blockType of ['generic', 'function', 'condition']) {
+          const consumer = { ...sampleWorkflow.blocks[1], metadata: { id: blockType } }
+          expect(resolver.resolveBlockReferences(`<${source}.input>`, mockContext, consumer)).toBe(
+            blockType === 'generic' ? '' : 'undefined'
+          )
+        }
+      }
+    )
 
     it('should throw an error for references to inactive blocks', () => {
       const block: SerializedBlock = {
@@ -448,7 +598,8 @@ describe('InputResolver', () => {
       expect(result.regularParam).toBe('Base URL is: https://api.example.com')
     })
 
-    it('should resolve explicit environment variables', () => {
+    it('resolves explicit environment variables and interpolated numeric tool parameters', () => {
+      mockEnvironmentVars.EPOCH_PREFIX = '1700000'
       const block: SerializedBlock = {
         id: 'test-block',
         metadata: { id: 'generic', name: 'Test Block' },
@@ -457,6 +608,8 @@ describe('InputResolver', () => {
           tool: 'generic',
           params: {
             explicitEnv: '{{BASE_URL}}',
+            from: '{{EPOCH_PREFIX}}000',
+            to: '<variable.numberVar>000',
           },
         },
         inputs: {
@@ -469,6 +622,11 @@ describe('InputResolver', () => {
       const result = resolver.resolveInputs(block, mockContext)
 
       expect(result.explicitEnv).toBe('https://api.example.com')
+      expect(result.from).toBe('1700000000')
+      expect(result.to).toBe('42000')
+      expect(
+        DatadogBlock.tools.config!.params!({ operation: 'datadog_query_timeseries', ...result })
+      ).toMatchObject({ from: 1700000000, to: 42000 })
     })
 
     it('should resolve environment variables in all contexts', () => {
@@ -781,7 +939,7 @@ describe('InputResolver', () => {
       expect(resolvedInputs.item).toEqual(['item1']) // Current loop items
     })
 
-    it('should resolve direct loop.index reference without quotes', () => {
+    it('resolves child and nested-loop references in their evaluation scope', () => {
       const loopBlock: SerializedBlock = {
         id: 'loop-1',
         position: { x: 0, y: 0 },
@@ -821,6 +979,19 @@ describe('InputResolver', () => {
         },
       }
 
+      workflow.blocks.push({
+        ...loopBlock,
+        id: 'outer-loop',
+        metadata: { id: BlockType.LOOP, name: 'Renamed Outer' },
+      })
+      workflow.loops['outer-loop'] = {
+        id: 'outer-loop',
+        nodes: [loopBlock.id],
+        iterations: 10,
+        loopType: 'forEach',
+        forEachItems: [{ children: ['nested'] }],
+      }
+
       const resolver = createInputResolver(workflow)
       const context: ExecutionContext = {
         workflowId: 'test',
@@ -830,8 +1001,11 @@ describe('InputResolver', () => {
         metadata: { duration: 0 },
         environmentVariables: {},
         decisions: { router: new Map(), condition: new Map() },
-        loopIterations: new Map([['loop-1', 3]]), // Iteration 3 (corresponds to 0-based index 2)
-        loopItems: new Map(),
+        loopIterations: new Map([
+          ['loop-1', 3],
+          ['outer-loop', 9],
+        ]),
+        loopItems: new Map([['outer-loop', { children: ['nested'] }]]),
         completedLoops: new Set(),
         executedBlocks: new Set(),
         activeExecutionPath: new Set(['function-1']),
@@ -841,6 +1015,19 @@ describe('InputResolver', () => {
       const resolvedInputs = resolver.resolveInputs(functionBlock, context)
 
       expect(resolvedInputs.index).toBe(2) // Index 2 (adjusted from iteration 3)
+      expect(resolver.getContainingLoopId(loopBlock.id)).toBe('outer-loop')
+      loopBlock.config.params = { index: '<loop.index>' }
+      expect(resolver.resolveInputs(loopBlock, context).index).toBe(8)
+      for (const loopType of ['while', 'doWhile'] as const) {
+        workflow.loops['loop-1'].loopType = loopType
+        expect(resolver.resolveInputs(loopBlock, context).index).toBe(2)
+        expect(resolver.resolveBlockReferences('<loop.index> < 3', context, loopBlock)).toBe(
+          '2 < 3'
+        )
+      }
+      workflow.loops['loop-1'].loopType = 'forEach'
+      loopBlock.config.params = { items: '<loop.currentItem.children>' }
+      expect(resolver.resolveInputs(loopBlock, context).items).toEqual(['nested'])
     })
 
     it('should resolve direct loop.items reference for forEach loops', () => {
@@ -909,73 +1096,10 @@ describe('InputResolver', () => {
       const resolvedInputs = resolver.resolveInputs(functionBlock, context)
 
       expect(resolvedInputs.allItems).toEqual(items) // Direct array, not stringified
-    })
-
-    it('uses loop configuration when cached loop items are absent', () => {
-      const loopBlock: SerializedBlock = {
-        id: 'loop-1',
-        position: { x: 0, y: 0 },
-        config: { tool: BlockType.LOOP, params: {} },
-        inputs: {},
-        outputs: {},
-        metadata: { id: BlockType.LOOP, name: 'Test Loop' },
-        enabled: true,
-      }
-
-      const functionBlock: SerializedBlock = {
-        id: 'function-1',
-        position: { x: 0, y: 0 },
-        config: {
-          tool: BlockType.FUNCTION,
-          params: {
-            allItems: '<loop.items>', // Direct reference to all items
-          },
-        },
-        inputs: {},
-        outputs: {},
-        metadata: { id: BlockType.FUNCTION, name: 'Process All Items' },
-        enabled: true,
-      }
-
-      const items = ['item1', 'item2', 'item3']
-      const workflow: SerializedWorkflow = {
-        version: '1.0',
-        blocks: [loopBlock, functionBlock],
-        connections: [],
-        loops: {
-          'loop-1': {
-            id: 'loop-1',
-            nodes: ['function-1'],
-            iterations: 3,
-            loopType: 'forEach',
-            forEachItems: items,
-          },
-        },
-      }
-
-      const resolver = createInputResolver(workflow)
-      const loopItemsMap = new Map<string, any>()
-      loopItemsMap.set('loop-1', 'item1')
-      const context: ExecutionContext = {
-        workflowId: 'test',
-        workspaceId: 'test-workspace-id',
-        blockStates: new Map(),
-        blockLogs: [],
-        metadata: { duration: 0 },
-        environmentVariables: {},
-        decisions: { router: new Map(), condition: new Map() },
-        loopIterations: new Map([['loop-1', 1]]),
-        loopItems: loopItemsMap,
-        completedLoops: new Set(),
-        executedBlocks: new Set(),
-        activeExecutionPath: new Set(['function-1']),
-        workflow,
-      }
-
-      const resolvedInputs = resolver.resolveInputs(functionBlock, context)
-
-      // Should fall back to the items from the loop configuration
-      expect(resolvedInputs.allItems).toEqual(items)
+      context.loopItems.delete('loop-1_items')
+      expect(() => resolver.resolveInputs(functionBlock, context)).toThrow(
+        'Evaluated items not found for loop loop-1'
+      )
     })
   })
 
@@ -996,7 +1120,10 @@ describe('InputResolver', () => {
           {
             id: 'function-1',
             position: { x: 0, y: 0 },
-            config: { tool: BlockType.FUNCTION, params: { code: '<parallel.currentItem>' } },
+            config: {
+              tool: BlockType.FUNCTION,
+              params: { code: '<parallel.currentItem>', allItems: '<parallel.items>' },
+            },
             inputs: {},
             outputs: {},
             metadata: { id: BlockType.FUNCTION, name: 'Function 1' },
@@ -1009,6 +1136,7 @@ describe('InputResolver', () => {
           'parallel-1': {
             id: 'parallel-1',
             nodes: ['function-1'],
+            parallelType: 'collection',
             distribution: ['item1', 'item2'],
           },
         },
@@ -1024,7 +1152,10 @@ describe('InputResolver', () => {
         environmentVariables: {},
         decisions: { router: new Map(), condition: new Map() },
         loopIterations: new Map([['parallel-1', 0]]),
-        loopItems: new Map([['parallel-1_iteration_0', ['test-item']]]),
+        loopItems: new Map([
+          ['parallel-1_iteration_0', ['test-item']],
+          ['parallel-1_items', ['test-item', 'other-item']],
+        ]),
         completedLoops: new Set(),
         executedBlocks: new Set(),
         activeExecutionPath: new Set(['function-1']),
@@ -1046,6 +1177,11 @@ describe('InputResolver', () => {
       const result = resolver.resolveInputs(block, context)
 
       expect(result.code).toEqual(['test-item'])
+      expect(result.allItems).toEqual(['test-item', 'other-item'])
+      context.loopItems.delete('parallel-1_items')
+      expect(() => resolver.resolveInputs(block, context)).toThrow(
+        'Evaluated items not found for parallel parallel-1'
+      )
     })
 
     it('should resolve parallel references by block name when multiple parallels exist', () => {
@@ -1482,73 +1618,254 @@ describe('InputResolver', () => {
         workflow.blocks.find((block) => block.id === 'function-1')!
       )
 
-      expect(result).toBe('return AAPL')
+      expect(result).toBe('return "AAPL"')
     })
 
-    it('should format start.input properly for different block types', () => {
-      // Test function block - should quote strings
-      const functionBlock: SerializedBlock = {
-        id: 'test-function',
-        metadata: { id: BlockType.FUNCTION, name: 'Test Function' },
-        position: { x: 100, y: 100 },
-        config: {
-          tool: BlockType.FUNCTION,
-          params: {
-            code: 'return <start.input>',
+    it.each(['start', 'trigger-1', 'variable'])(
+      'preserves native Response values in both modes for <%s.*>',
+      async (source) => {
+        const output = {
+          symbol: 'AAPL',
+          input: 'Say "go"\\next\n$&',
+          quantity: 0,
+          total: 123.5,
+          active: false,
+          nullable: null,
+          accountId: '123',
+          booleanText: 'true',
+          nullText: 'null',
+          arrayText: '[1,2]',
+          objectText: '{"id":1}',
+          details: { cash: 0, accountId: '123' },
+          positions: [{ quantity: 0, accountId: '123' }, null],
+          files: [
+            {
+              id: '123',
+              name: 'report.txt',
+              type: 'text/plain',
+              url: '/report.txt',
+              size: 0,
+              key: '123',
+              uploadedAt: '2026-10-19T00:00:00.000Z',
+              expiresAt: '2026-10-20T00:00:00.000Z',
+            },
+          ],
+          listingIdentity: {
+            listing_id: '123',
+            base_id: '',
+            quote_id: '',
+            listing_type: 'default',
           },
-        },
-        inputs: {},
-        outputs: {},
-        enabled: true,
-      }
-
-      // Test condition block - should quote strings
-      const conditionBlock: SerializedBlock = {
-        id: 'test-condition',
-        metadata: { id: BlockType.CONDITION, name: 'Test Condition' },
-        position: { x: 200, y: 100 },
-        config: {
-          tool: BlockType.CONDITION,
-          params: {
-            conditions: JSON.stringify([
-              { id: 'cond1', title: 'if', value: '<start.input> === "Hello World"' },
-            ]),
+        }
+        contextWithConnections.blockStates.get('trigger-1')!.output = {
+          ...output,
+          responseStatus: '201',
+        }
+        if (source === 'variable') {
+          connectionResolver = createInputResolver(
+            workflowWithConnections,
+            {},
+            Object.fromEntries(
+              Object.entries({ ...output, responseStatus: '201' }).map(([name, value]) => [
+                name,
+                {
+                  name,
+                  value,
+                  type:
+                    typeof value === 'string'
+                      ? 'plain'
+                      : Array.isArray(value)
+                        ? 'array'
+                        : typeof value,
+                },
+              ])
+            )
+          )
+        }
+        const builderData: Parameters<
+          typeof ResponseBlockHandler.convertBuilderDataToJsonString
+        >[0] = [
+          ...Object.keys(output).map((name) => ({
+            id: name,
+            name,
+            type: 'string' as const,
+            value: `<${source}.${name}>`,
+          })),
+          {
+            id: 'greeting',
+            name: 'greeting',
+            type: 'string',
+            value: `Say "<${source}.input>" for <${source}.symbol>`,
           },
-        },
-        inputs: {},
-        outputs: {},
-        enabled: true,
+          { id: 'nativeFiles', name: 'nativeFiles', type: 'files', value: output.files },
+        ]
+        expect(ResponseBlockHandler.convertBuilderDataToJsonString(builderData)).toBeUndefined()
+        const data = `{
+          ${Object.keys(output)
+            .map((name) => `"${name}": <${source}.${name}>`)
+            .join(',')},
+          "nativeFiles": ${JSON.stringify(output.files)},
+          "greeting": ${JSON.stringify(`Say "<${source}.input>" for <${source}.symbol>`)}
+        }`
+        for (const dataMode of ['structured', 'json']) {
+          const block: SerializedBlock = {
+            ...workflowWithConnections.blocks[2],
+            id: 'test-response-block',
+            metadata: { id: BlockType.RESPONSE },
+            config: {
+              tool: BlockType.RESPONSE,
+              params: {
+                dataMode,
+                builderData,
+                data,
+                status: `<${source}.responseStatus>`,
+                headers: [{ id: 'symbol', cells: { Key: 'X-Symbol', Value: `<${source}.input>` } }],
+              },
+            },
+          }
+          const inputs = connectionResolver.resolveInputs(block, contextWithConnections)
+          expect((await new ResponseBlockHandler().execute(block, inputs)).response).toMatchObject({
+            status: 201,
+            data: {
+              ...output,
+              nativeFiles: output.files,
+              greeting: `Say "${output.input}" for ${output.symbol}`,
+            },
+            headers: { 'X-Symbol': output.input },
+          })
+        }
       }
+    )
 
-      // Test response block - should use raw string
-      const responseBlock: SerializedBlock = {
-        id: 'test-response',
-        metadata: { id: BlockType.RESPONSE, name: 'Test Response' },
-        position: { x: 300, y: 100 },
+    it.each([
+      { averagePrice: undefined, expected: {} },
+      { averagePrice: null, expected: {} },
+      { averagePrice: '', expected: {} },
+      { averagePrice: '   ', expected: {} },
+      { averagePrice: 0, expected: { price: 0 } },
+      { averagePrice: '0', expected: { price: 0 } },
+      { averagePrice: 12.5, expected: { price: 12.5 } },
+    ])(
+      'preserves absent portfolio prices without inventing zero: $averagePrice',
+      async ({ averagePrice, expected }) => {
+        contextWithConnections.blockStates.get('trigger-1')!.output = {
+          portfolioDetail: { positions: [{ averagePrice, quantity: 0 }] },
+        }
+        const block: SerializedBlock = {
+          ...workflowWithConnections.blocks[2],
+          id: 'test-response-block',
+          metadata: { id: BlockType.RESPONSE },
+          config: {
+            tool: BlockType.RESPONSE,
+            params: {
+              builderData: [
+                {
+                  id: 'price',
+                  name: 'price',
+                  type: 'number',
+                  value: '<start.portfolioDetail.positions[0].averagePrice>',
+                },
+                {
+                  id: 'quantity',
+                  name: 'quantity',
+                  type: 'number',
+                  value: '<start.portfolioDetail.positions[0].quantity>',
+                },
+                ...(
+                  ['boolean', 'object', 'array', 'files', LISTING_IDENTITY_VALUE_TYPE] as const
+                ).map((type) => ({
+                  id: type,
+                  name: type,
+                  type,
+                  value: '<start.portfolioDetail.positions[0].missing>',
+                })),
+              ],
+            },
+          },
+        }
+        const inputs = connectionResolver.resolveInputs(block, contextWithConnections)
+        const { response } = await new ResponseBlockHandler().execute(block, inputs)
+        expect(response.status).toBe(200)
+        expect(response.data).toStrictEqual({ quantity: 0, ...expected })
+      }
+    )
+
+    it.each(['start', 'trigger-1'])(
+      'formats Builder object and array JSON using the same context as Editor for <%s.*>',
+      async (source) => {
+        const output = {
+          symbol: `A"\\B\n$&<${source}.quantity>`,
+          quantity: 0,
+          accountId: '123',
+          positions: [{ type: 'number', value: '123' }, null],
+        }
+        contextWithConnections.blockStates.get('trigger-1')!.output = output
+        const details = `{"symbol": <${source}.symbol>, "quantity": <${source}.quantity>, "quoted": "<${source}.quantity>", "accountId": <${source}.accountId>, "greeting": "Hello <${source}.symbol>!"}`
+        const positions = `[<${source}.positions>, {"symbol": <${source}.symbol>}, null]`
+        const block: SerializedBlock = {
+          ...workflowWithConnections.blocks[2],
+          id: 'test-response-block',
+          metadata: { id: BlockType.RESPONSE },
+          config: {
+            tool: BlockType.RESPONSE,
+            params: {
+              builderData: [
+                { id: 'details', name: 'details', type: 'object', value: details },
+                { id: 'positions', name: 'positions', type: 'array', value: positions },
+                { id: 'native', name: 'native', type: 'array', value: `<${source}.positions>` },
+              ],
+            },
+          },
+        }
+        const expected = {
+          details: {
+            symbol: output.symbol,
+            quantity: 0,
+            quoted: '0',
+            accountId: '123',
+            greeting: `Hello ${output.symbol}!`,
+          },
+          positions: [output.positions, { symbol: output.symbol }, null],
+          native: output.positions,
+        }
+        for (const params of [
+          block.config.params,
+          {
+            dataMode: 'json',
+            data: `{"details": ${details}, "positions": ${positions}, "native": <${source}.positions>}`,
+          },
+        ]) {
+          block.config.params = params
+          const inputs = connectionResolver.resolveInputs(block, contextWithConnections)
+          const { response } = await new ResponseBlockHandler().execute(block, inputs)
+          expect(response.status).toBe(200)
+          expect(response.data).toStrictEqual(expected)
+        }
+      }
+    )
+
+    it('keeps exact Builder reference payloads opaque to environment interpolation', async () => {
+      const payload = { text: '{{UPSTREAM_DATA}}', records: [{ type: 'number', value: '123' }] }
+      contextWithConnections.blockStates.get('trigger-1')!.output = { payload }
+      const block: SerializedBlock = {
+        ...workflowWithConnections.blocks[2],
+        id: 'test-response-block',
+        metadata: { id: BlockType.RESPONSE },
         config: {
           tool: BlockType.RESPONSE,
           params: {
-            content: '<start.input>',
+            builderData: [
+              { id: 'payload', name: 'payload', type: 'string', value: '<start.payload>' },
+            ],
           },
         },
-        inputs: {},
-        outputs: {},
-        enabled: true,
       }
-
-      const functionResult = connectionResolver.resolveInputs(functionBlock, contextWithConnections)
-      expect(functionResult.code).toBe('return "Hello World"') // Quoted for function
-
-      const conditionResult = connectionResolver.resolveInputs(
-        conditionBlock,
-        contextWithConnections
+      const { response } = await new ResponseBlockHandler().execute(
+        block,
+        connectionResolver.resolveInputs(block, contextWithConnections)
       )
-      expect(conditionResult.conditions).toBe(
-        JSON.stringify([{ id: 'cond1', title: 'if', value: '<start.input> === "Hello World"' }])
-      )
-
-      const responseResult = connectionResolver.resolveInputs(responseBlock, contextWithConnections)
-      expect(responseResult.content).toBe('Hello World') // Raw string for response
+      expect(response.status).toBe(200)
+      expect(response.data).toStrictEqual({ payload })
     })
 
     it('should properly format start.input when resolved directly via resolveBlockReferences', () => {
@@ -1926,6 +2243,204 @@ describe('InputResolver', () => {
 
     afterEach(() => {
       mockGetBlock.mockReset()
+    })
+
+    it.each(['json', 'structured'])('resolves Response mode references to %s', async (mode) => {
+      mockGetBlock.mockReturnValue(ResponseBlock)
+      mockWorkflowVars.stringVar.value = mode
+      const output = { symbol: 'A"\\B\n$&', quantity: 0, details: { accountId: '123' } }
+      mockContext.blockStates.get('trigger-block').output = output
+      const builderData = Object.keys(output).map((name) => ({
+        id: name,
+        name,
+        type: 'string' as const,
+        value: `<start.${name}>`,
+      }))
+      const block: SerializedBlock = {
+        ...sampleWorkflow.blocks[1],
+        metadata: { id: BlockType.RESPONSE },
+        config: {
+          tool: BlockType.RESPONSE,
+          params: {
+            data:
+              mode === 'json'
+                ? '{"symbol": <start.symbol>, "quantity": <start.quantity>, "details": <start.details>}'
+                : '<disabled-block.result>',
+            builderData:
+              mode === 'structured'
+                ? builderData
+                : [{ ...builderData[0], value: '<disabled-block.result>' }],
+            dataMode: '<variable.stringVar>',
+          },
+        },
+      }
+
+      const inputs = resolver.resolveInputs(block, mockContext)
+      expect(inputs.dataMode).toBe(mode)
+      expect(inputs).not.toHaveProperty(mode === 'json' ? 'builderData' : 'data')
+      const { response } = await new ResponseBlockHandler().execute(block, inputs)
+      expect(response.status).toBe(200)
+      expect(response.data).toStrictEqual(output)
+    })
+
+    const staleMcpInputs = { arguments: { value: '<disabled-block.result>' }, tool: 'stale-tool' }
+    const activeMcpInputs = {
+      ...staleMcpInputs,
+      arguments: { value: '<variable.stringVar>' },
+      server: 'server',
+    }
+    const tradierInputs = { quantity: 5, provider: 'tradier' }
+    it.each([
+      ['missing MCP server', McpBlock, staleMcpInputs, {}],
+      ['empty MCP server', McpBlock, { ...staleMcpInputs, server: '' }, { server: '' }],
+      [
+        'active MCP tool',
+        McpBlock,
+        activeMcpInputs,
+        { ...activeMcpInputs, arguments: { value: 'Hello' } },
+      ],
+      ['omitted Tradier sizing', TradingActionBlock, tradierInputs, tradierInputs],
+      [
+        'inactive Tradier sizing',
+        TradingActionBlock,
+        { ...tradierInputs, orderSizingMode: 'quantity' },
+        tradierInputs,
+      ],
+    ] as const)('resolves inputs for %s', (_, block, params, expected) => {
+      mockGetBlock.mockReturnValue(block)
+      expect(
+        resolver.resolveInputs(
+          {
+            ...sampleWorkflow.blocks[1],
+            metadata: { id: block.type },
+            config: { tool: block.type, params },
+          },
+          mockContext
+        )
+      ).toEqual(expected)
+    })
+
+    it.each([
+      [undefined, false],
+      [{ id: undefined }, false],
+      ['', false],
+      [null, true],
+      [false, true],
+      [0, true],
+    ])(
+      'normalizes only undefined condition controllers to an empty selection: %s',
+      (server, expected) => {
+        expect(evaluateSubBlockConditionValues(McpBlock.subBlocks[1].condition, { server })).toBe(
+          expected
+        )
+        expect(
+          evaluateSubBlockConditionValues(
+            GmailBlock.subBlocks.find((entry) => entry.id === 'messageId')!.condition,
+            { operation: 'read_gmail', folder: server }
+          )
+        ).toBe(!expected)
+      }
+    )
+
+    it.each(['update', 'skip'])('resolves out-of-order condition chains for %s', (operation) => {
+      mockWorkflowVars.stringVar.value = operation
+      mockGetBlock.mockReturnValue({
+        subBlocks: [
+          { id: 'payload', condition: { field: 'enabled', value: true } },
+          { id: 'enabled', condition: { field: 'operation', value: 'update' } },
+        ],
+      })
+      const result = resolver.resolveInputs(
+        {
+          ...sampleWorkflow.blocks[1],
+          metadata: { id: 'test-block' },
+          config: {
+            tool: 'test-block',
+            params: {
+              payload: operation === 'update' ? 'content' : '<disabled-block.result>',
+              enabled: operation === 'update' ? '<variable.boolVar>' : '<disabled-block.result>',
+              operation: '<variable.stringVar>',
+            },
+          },
+        },
+        mockContext
+      )
+
+      expect(result).toEqual(
+        operation === 'update' ? { operation, enabled: true, payload: 'content' } : { operation }
+      )
+    })
+
+    it.each([true, false])('short-circuits nested AND conditions with enabled=%s', (enabled) => {
+      mockGetBlock.mockReturnValue({
+        subBlocks: [
+          {
+            id: 'payload',
+            condition: {
+              field: 'operation',
+              value: 'update',
+              and: { field: 'enabled', value: true, and: { field: 'confirmed', value: true } },
+            },
+          },
+          { id: 'confirmed', condition: { field: 'enabled', value: true } },
+        ],
+      })
+      const result = resolver.resolveInputs(
+        {
+          ...sampleWorkflow.blocks[1],
+          metadata: { id: 'test-block' },
+          config: {
+            tool: 'test-block',
+            params: {
+              payload: '<disabled-block.result>',
+              confirmed: enabled ? false : '<disabled-block.result>',
+              enabled,
+              operation: 'update',
+            },
+          },
+        },
+        mockContext
+      )
+
+      expect(result).toEqual(
+        enabled
+          ? { operation: 'update', enabled, confirmed: false }
+          : { operation: 'update', enabled }
+      )
+    })
+
+    it('propagates errors from active condition controllers', () => {
+      mockGetBlock.mockReturnValue({
+        subBlocks: [{ id: 'payload', condition: { field: 'operation', value: 'update' } }],
+      })
+      const block = {
+        ...sampleWorkflow.blocks[1],
+        metadata: { id: 'test-block' },
+        config: {
+          tool: 'test-block',
+          params: { payload: 'content', operation: '<disabled-block.result>' },
+        },
+      }
+
+      expect(() => resolver.resolveInputs(block, mockContext)).toThrow('Disabled Block')
+    })
+
+    it('reports condition dependency cycles', () => {
+      mockGetBlock.mockReturnValue({
+        subBlocks: [
+          { id: 'first', condition: { field: 'second', value: true } },
+          { id: 'second', condition: { field: 'first', value: true } },
+        ],
+      })
+      const block = {
+        ...sampleWorkflow.blocks[1],
+        metadata: { id: 'test-block' },
+        config: { tool: 'test-block', params: { first: true, second: true } },
+      }
+
+      expect(() => resolver.resolveInputs(block, mockContext)).toThrow(
+        'Circular input condition dependency: first -> second -> first'
+      )
     })
 
     it('should filter inputs based on operation conditions for Knowledge block', () => {
@@ -2692,7 +3207,7 @@ describe('InputResolver', () => {
       expect(result.value4).toBe('row2col2')
     })
 
-    it.concurrent('should throw error for out of bounds 2D array access', () => {
+    it.concurrent('omits missing values for out of bounds 2D array access', () => {
       const block: SerializedBlock = {
         id: 'test-block',
         metadata: { id: 'generic', name: 'Test Block' },
@@ -2710,12 +3225,10 @@ describe('InputResolver', () => {
         enabled: true,
       }
 
-      expect(() => arrayResolver.resolveInputs(block, arrayContext)).toThrow(
-        /Array index 5 is out of bounds/
-      )
+      expect(arrayResolver.resolveInputs(block, arrayContext)).toEqual({ value: '' })
     })
 
-    it.concurrent('should throw error for out of bounds second dimension access', () => {
+    it.concurrent('omits missing values for out of bounds second dimension access', () => {
       const block: SerializedBlock = {
         id: 'test-block',
         metadata: { id: 'generic', name: 'Test Block' },
@@ -2733,9 +3246,7 @@ describe('InputResolver', () => {
         enabled: true,
       }
 
-      expect(() => arrayResolver.resolveInputs(block, arrayContext)).toThrow(
-        /Array index 5 is out of bounds/
-      )
+      expect(arrayResolver.resolveInputs(block, arrayContext)).toEqual({ value: '' })
     })
 
     it.concurrent('should throw error when accessing non-array as array', () => {
@@ -2777,9 +3288,7 @@ describe('InputResolver', () => {
         enabled: true,
       }
 
-      expect(() => arrayResolver.resolveInputs(block, arrayContext)).toThrow(
-        /No value found at path/
-      )
+      expect(() => arrayResolver.resolveInputs(block, arrayContext)).toThrow(/Invalid path/)
     })
 
     it.concurrent('should support single array indexing', () => {

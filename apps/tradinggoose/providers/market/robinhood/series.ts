@@ -11,14 +11,16 @@ import {
   resolveRobinhoodListing,
   robinhoodError,
 } from '@/providers/market/robinhood/client'
-import { ROBINHOOD_INTERVALS } from '@/providers/market/robinhood/config'
+import {
+  ROBINHOOD_BARS_PER_REQUEST,
+  ROBINHOOD_INTERVALS,
+  ROBINHOOD_MAX_REQUESTS,
+} from '@/providers/market/robinhood/config'
 import { intervalToMs } from '@/providers/market/series-planner'
 import { rangeToMs } from '@/providers/market/series-window'
 import type { MarketBar, MarketSeries, MarketSeriesRequest } from '@/providers/market/types'
 
 const DAY_MS = 86_400_000
-const MAX_REQUESTS = 20
-const BARS_PER_REQUEST = 2_000
 // Output schema captured from Robinhood's tools/list:
 // https://github.com/Slijeff/robinhood-rest2mcp/blob/d52abd068f98efdc6ec62b5670d04220615245a5/spec.json
 const barSchema = z.object({
@@ -101,10 +103,15 @@ export async function fetchRobinhoodSeries(request: MarketSeriesRequest): Promis
       : (toDate(request.start)?.getTime() ?? endMs - (rangeMs ?? 30 * DAY_MS))
   if (startMs >= endMs) invalidRequest('Robinhood start time must precede end time')
   const pageMs =
-    Math.min(BARS_PER_REQUEST, barCount ? Math.max(2, barCount * 2) : BARS_PER_REQUEST) * intervalMs
+    Math.min(
+      ROBINHOOD_BARS_PER_REQUEST,
+      barCount ? Math.max(2, barCount * 2) : ROBINHOOD_BARS_PER_REQUEST
+    ) * intervalMs
   // Count windows allow the existing request budget per batch of requested bars.
-  const requestLimit = MAX_REQUESTS * Math.ceil((barCount ?? BARS_PER_REQUEST) / BARS_PER_REQUEST)
-  if (!barCount && Math.ceil((endMs - startMs) / pageMs) > MAX_REQUESTS) {
+  const requestLimit =
+    ROBINHOOD_MAX_REQUESTS *
+    Math.ceil((barCount ?? ROBINHOOD_BARS_PER_REQUEST) / ROBINHOOD_BARS_PER_REQUEST)
+  if (!barCount && Math.ceil((endMs - startMs) / pageMs) > ROBINHOOD_MAX_REQUESTS) {
     invalidRequest(
       'Robinhood range is too large for this interval. Choose a coarser interval or shorter range.'
     )
@@ -115,7 +122,9 @@ export async function fetchRobinhoodSeries(request: MarketSeriesRequest): Promis
   let cursor = endMs
   for (let page = 0; page < requestLimit && cursor > startMs; page++) {
     // Continue through closures until the requested bars or request budget is reached.
-    const span = barCount ? Math.min(BARS_PER_REQUEST * intervalMs, pageMs * 2 ** page) : pageMs
+    const span = barCount
+      ? Math.min(ROBINHOOD_BARS_PER_REQUEST * intervalMs, pageMs * 2 ** page)
+      : pageMs
     const from = Math.max(startMs, cursor - span)
     const payload = await callRobinhoodTool(
       request.auth.accessToken,

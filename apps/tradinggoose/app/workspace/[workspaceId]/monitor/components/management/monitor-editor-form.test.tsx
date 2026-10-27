@@ -95,6 +95,7 @@ describe('MonitorEditorForm localized portfolio path', () => {
     async (locale) => {
       const copy = getPublicCopy(locale).workspace.monitor
       const blockEditorCopy = getPublicCopy(locale).workspace.widgets.blockEditor
+      const onUpdateDraft = vi.fn()
 
       await act(async () => {
         root.render(
@@ -117,7 +118,7 @@ describe('MonitorEditorForm localized portfolio path', () => {
               listingInstanceId={null}
               onCancel={vi.fn()}
               onSave={vi.fn()}
-              onUpdateDraft={vi.fn()}
+              onUpdateDraft={onUpdateDraft}
               onUpdateSecretValue={vi.fn()}
               onUpdateProviderParamValue={vi.fn()}
               onUpdateIndicatorInputs={vi.fn()}
@@ -147,9 +148,16 @@ describe('MonitorEditorForm localized portfolio path', () => {
       expect(tradingAccountSelectorProps).toMatchObject({
         toolName: blockEditorCopy.blockNames.portfolio_state_trigger,
         variant: 'form',
+        clearInvalidSelection: true,
       })
       expect(tradingAccountSelectorProps).not.toHaveProperty('placeholder')
       expect(tradingAccountSelectorProps).not.toHaveProperty('tooltipText')
+      tradingAccountSelectorProps.onAccountSelect({ serviceId: null, portfolioIdentity: null })
+      expect(onUpdateDraft).toHaveBeenCalledExactlyOnceWith({
+        serviceId: '',
+        credentialId: '',
+        accountId: '',
+      })
 
       await act(async () => {
         root.render(

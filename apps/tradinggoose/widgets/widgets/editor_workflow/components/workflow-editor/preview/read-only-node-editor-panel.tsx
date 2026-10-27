@@ -3,7 +3,6 @@ import { buildSubBlockPreviewRows } from '@/lib/workflows/sub-block-rows'
 import { getBlock } from '@/blocks'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import { resolveTriggerIdFromSubBlocks } from '@/triggers/resolution'
-import { getSubflowPreviewSubBlocks } from '@/widgets/widgets/editor_workflow/components/subflows/config'
 import { SubBlockSummaryRows } from '@/widgets/widgets/editor_workflow/components/workflow-render/sub-block-summary-rows'
 import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 
@@ -11,11 +10,6 @@ interface ReadOnlyNodeEditorPanelProps {
   selectedNodeId: string | null
   workflowState: WorkflowState
 }
-
-const toSubBlockState = (values: Record<string, unknown>) =>
-  Object.fromEntries(
-    Object.entries(values).map(([id, value]) => [id, { id, type: 'short-input', value }])
-  )
 
 export function ReadOnlyNodeEditorPanel({
   selectedNodeId,
@@ -58,45 +52,6 @@ export function ReadOnlyNodeEditorPanel({
   const blockConfig = getBlock(selectedBlock.type)
   const blockName = selectedBlock.name
   const previewConfig = (() => {
-    if (selectedBlock.type === 'loop') {
-      const loop = workflowState.loops?.[selectedBlock.id]
-      const loopType = loop?.loopType ?? selectedBlock.data?.loopType ?? 'for'
-      const stateToUse = toSubBlockState({
-        loopType,
-        iterations: loop?.iterations ?? selectedBlock.data?.count ?? 5,
-        collection: loop?.forEachItems ?? selectedBlock.data?.collection,
-        whileCondition: loop?.whileCondition ?? selectedBlock.data?.whileCondition,
-      })
-      return {
-        availableTriggerIds: undefined,
-        stateToUse,
-        subBlocks: buildSubBlockPreviewRows({
-          blockId: selectedBlock.id,
-          stateToUse,
-          subBlocks: getSubflowPreviewSubBlocks(copy, 'loop'),
-        }),
-      }
-    }
-
-    if (selectedBlock.type === 'parallel') {
-      const parallel = workflowState.parallels?.[selectedBlock.id]
-      const parallelType = parallel?.parallelType ?? selectedBlock.data?.parallelType ?? 'count'
-      const stateToUse = toSubBlockState({
-        parallelType,
-        count: parallel?.count ?? selectedBlock.data?.count ?? 5,
-        distribution: parallel?.distribution ?? selectedBlock.data?.collection,
-      })
-      return {
-        availableTriggerIds: undefined,
-        stateToUse,
-        subBlocks: buildSubBlockPreviewRows({
-          blockId: selectedBlock.id,
-          stateToUse,
-          subBlocks: getSubflowPreviewSubBlocks(copy, 'parallel'),
-        }),
-      }
-    }
-
     if (!blockConfig) {
       return {
         availableTriggerIds: undefined,

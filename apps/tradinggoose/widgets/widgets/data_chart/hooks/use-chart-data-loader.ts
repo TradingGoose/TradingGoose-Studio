@@ -5,7 +5,11 @@ import type { IChartApi, ISeriesApi } from 'lightweight-charts'
 import type { Socket } from 'socket.io-client'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { getListingIdentityKey, type ListingIdentity } from '@/lib/listing/identity'
-import { getMarketSeriesCapabilities } from '@/providers/market/providers'
+import {
+  getMarketSeriesCapabilities,
+  resolveMarketSeriesNormalizationMode,
+} from '@/providers/market/providers'
+import { intervalToMs } from '@/providers/market/series-planner'
 import type {
   MarketInterval,
   MarketSeries,
@@ -20,16 +24,12 @@ import {
   buildIndexMaps,
   DEFAULT_BAR_COUNT,
   findFirstInvalidSeriesDatum,
-  intervalToMs,
   mapBarsMsToSeriesData,
   mapMarketSeriesToBarsMs,
   mergeBarsMs,
   sanitizeSeriesData,
 } from '@/widgets/widgets/data_chart/series-data'
-import {
-  coerceProviderParams,
-  sanitizeNormalizationMode,
-} from '@/widgets/widgets/data_chart/series-window'
+import { coerceProviderParams } from '@/widgets/widgets/data_chart/series-window'
 import type { DataChartDataContext } from '@/widgets/widgets/data_chart/types'
 import { resolveProviderErrorMessage } from '@/widgets/widgets/data_chart/utils/chart-errors'
 import { DEFAULT_RIGHT_OFFSET } from '@/widgets/widgets/data_chart/utils/chart-styles'
@@ -165,11 +165,12 @@ export const useChartDataLoader = ({
     if (!providerId) return undefined
     const rawMode = providerParams?.normalization_mode
     const trimmedMode = typeof rawMode === 'string' ? rawMode.trim() : ''
-    const capabilities = getMarketSeriesCapabilities(providerId)
-    const fallbackMode = capabilities?.normalizationModes?.[0] ?? 'raw'
-    const resolvedMode = trimmedMode || fallbackMode
-    return sanitizeNormalizationMode(providerId, resolvedMode)
-  }, [providerId, providerParams])
+    const capabilities = getMarketSeriesCapabilities(providerId, requestInterval)
+    return (
+      resolveMarketSeriesNormalizationMode(providerId, trimmedMode, requestInterval) ??
+      capabilities?.normalizationModes?.[0]
+    )
+  }, [providerId, providerParams, requestInterval])
 
   const liveEnabled = dataParams.data?.live?.enabled !== false
   const liveInterval = dataParams.data?.live?.interval ?? seriesWindow.interval ?? requestInterval
@@ -230,7 +231,7 @@ export const useChartDataLoader = ({
         Number.isFinite(end) &&
         start < end
       ) {
-        const intervalMs = intervalToMs(seriesWindow.interval ?? requestInterval ?? null)
+        const intervalMs = intervalToMs(seriesWindow.interval ?? requestInterval)
         pendingRangeRef.current = clampPendingRange(start, end, intervalMs)
       } else {
         pendingRangeRef.current = null
@@ -362,7 +363,9 @@ export const useChartDataLoader = ({
       endMs: number,
       allowEmpty = false
     ): Promise<MarketSeries> => {
-      const request: MarketSeriesRequest = {
+      const start = new Date(startMs).toISOString()
+      const end = new Date(endMs).toISOString()
+      return fetchSeriesRequest({
         kind: 'series',
         listing,
         interval: requestInterval,
@@ -370,13 +373,12 @@ export const useChartDataLoader = ({
         providerParams: allowEmpty
           ? { ...(providerParams ?? {}), allowEmpty: true }
           : providerParams,
-        windows: [{ mode: 'absolute', start: startMs, end: endMs }],
-      }
-      return fetchSeriesRequest(request)
+        windows: [{ mode: 'absolute', start, end }],
+      })
     }
 
     const resolveIntervalMs = () =>
-      dataContext.intervalMs ?? intervalToMs(seriesWindow.interval ?? requestInterval ?? null)
+      dataContext.intervalMs ?? intervalToMs(seriesWindow.interval ?? requestInterval)
 
     const primaryWindow = seriesWindow.windows?.[0]
 
@@ -384,17 +386,15 @@ export const useChartDataLoader = ({
       setIsLoading(true)
       backfillArmedAtRef.current = Number.POSITIVE_INFINITY
       try {
-        const pendingRange = pendingRangeRef.current
-        const useExplicitRange = Boolean(pendingRange)
+        const pendingRange = primaryWindow?.mode === 'all' ? null : pendingRangeRef.current
+        pendingRangeRef.current = null
         if (pendingRange) {
-          pendingRangeRef.current = null
           expectedBarsRef.current = null
         }
         dataContext.marketSessionsRef.current = []
-        const seriesResponse =
-          useExplicitRange && pendingRange
-            ? await fetchSeriesRange(pendingRange.startMs, pendingRange.endMs)
-            : await fetchSeries()
+        const seriesResponse = pendingRange
+          ? await fetchSeriesRange(pendingRange.startMs, pendingRange.endMs)
+          : await fetchSeries()
         if (isStale()) return
         updateMarketSessions(seriesResponse.marketSessions)
         const barsMs = mapMarketSeriesToBarsMs(seriesResponse, dataContext.intervalMs)
@@ -419,7 +419,7 @@ export const useChartDataLoader = ({
           retentionStartMs === null
             ? true
             : typeof earliestTimestamp === 'number' && earliestTimestamp > retentionStartMs
-        hasMoreHistoricalDataRef.current = canLoadMore
+        hasMoreHistoricalDataRef.current = primaryWindow?.mode !== 'all' && canLoadMore
         historicalCursorRef.current = null
         const expectedBars =
           primaryWindow?.mode === 'range' && typeof expectedBarsRef.current === 'number'
@@ -534,6 +534,13 @@ export const useChartDataLoader = ({
       totalBars: number
     ) => {
       if (totalBars <= 0 || !hasMoreHistoricalDataRef.current) return 0
+      if (
+        retentionRule?.maxBars &&
+        retentionRule.maxBars > 0 &&
+        totalBars >= retentionRule.maxBars
+      ) {
+        return 0
+      }
 
       const visibleBars = resolveVisibleBars(visibleRange)
       const targetBars = resolvePrefetchTargetBars(visibleRange)

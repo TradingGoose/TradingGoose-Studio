@@ -494,7 +494,12 @@ describe('Socket Server Index Integration', () => {
       const { conn, doc: liveDoc } = await connectTestDocument('workflow-connected')
       setWorkflowState(
         liveDoc,
-        { blocks: { keep: { id: 'keep' } as any }, edges: [], loops: {}, parallels: {} },
+        {
+          blocks: { keep: { id: 'keep', subBlocks: {} } as any },
+          edges: [],
+          loops: {},
+          parallels: {},
+        },
         'test'
       )
 

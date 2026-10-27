@@ -22,7 +22,6 @@ import { IndicatorControl } from './indicator-control'
 
 vi.mock('@/components/timezone-selector/fetchers', () => ({
   fetchTimeZoneOptions: vi.fn(async () => []),
-  formatTimezoneLabel: (value: string) => value,
 }))
 
 vi.mock('@/lib/yjs/use-entity-fields', () => ({
@@ -92,8 +91,7 @@ describe('data chart localized component copy', () => {
     await act(async () => {
       renderWithLocale(
         <DataChartFooter
-          params={{ view: { rangePresetId: 'all' } }}
-          allowedIntervals={['1m', '1d', '1mo']}
+          params={{ data: { provider: 'yahoo-finance' }, view: { rangePresetId: 'all' } }}
         />
       )
     })
@@ -103,13 +101,51 @@ describe('data chart localized component copy', () => {
     expect(container.querySelector('[aria-label="Pie del widget"]')).toBeTruthy()
   })
 
+  it.each(['alpaca', 'robinhood', 'unknown'])(
+    'omits All when %s cannot fetch complete history',
+    async (provider) => {
+      await act(async () => {
+        renderWithLocale(<DataChartFooter params={{ data: { provider } }} />, 'en')
+      })
+      expect(container.textContent).not.toContain('ALL')
+    }
+  )
+
+  it.each([
+    ['yahoo-finance', '3m', '1d', true],
+    ['alpha-vantage', '3m', '1d', true],
+    ['yahoo-finance', '3m', undefined, true],
+    ['alpha-vantage', '3m', undefined, true],
+    ['yahoo-finance', '3m', '1h', false],
+    ['alpha-vantage', '3m', '1h', false],
+    ['yahoo-finance', '1d', '1mo', false],
+  ] as const)(
+    'validates the active %s %s footer range at %s',
+    async (provider, rangePresetId, interval, valid) => {
+      await act(async () => {
+        renderWithLocale(
+          <DataChartFooter params={{ data: { provider }, view: { rangePresetId, interval } }} />,
+          'en'
+        )
+      })
+      const labels = [...container.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent)
+      expect(labels).toContain('1D')
+      expect(labels.includes('3M')).toBe(valid)
+      expect(
+        container.querySelector('[role="tab"][aria-selected="true"]')?.textContent ?? null
+      ).toBe(valid ? '3M' : null)
+      if (valid) expect(labels).toEqual(['1D', '5D', '1M', '3M', '1Y', '5Y', 'ALL'])
+    }
+  )
+
   it.each(['interval', 'range'])(
     'clears the previous viewport when selecting a new %s',
     async (control) => {
       const params = {
+        data: { provider: 'yahoo-finance' },
         view: {
-          interval: '1d',
-          rangePresetId: '1y',
+          interval: control === 'range' ? '3mo' : '1d',
+          rangePresetId: control === 'range' ? 'all' : '1y',
           start: 1,
           end: 2,
           candleType: 'area' as const,
@@ -121,7 +157,7 @@ describe('data chart localized component copy', () => {
           control === 'interval' ? (
             <DataChartIntervalDropdown interval='1d' allowedIntervals={['1h']} supportsInterval />
           ) : (
-            <DataChartFooter params={params} allowedIntervals={['1m', '1d']} />
+            <DataChartFooter params={params} />
           ),
           'en'
         )

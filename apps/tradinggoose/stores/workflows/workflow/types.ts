@@ -9,35 +9,6 @@ export const SUBFLOW_TYPES = {
   PARALLEL: 'parallel',
 } as const
 
-export type SubflowType = (typeof SUBFLOW_TYPES)[keyof typeof SUBFLOW_TYPES]
-
-export function isValidSubflowType(type: string): type is SubflowType {
-  return Object.values(SUBFLOW_TYPES).includes(type as SubflowType)
-}
-
-export interface LoopConfig {
-  nodes: string[]
-  iterations: number
-  loopType: 'for' | 'forEach' | 'while' | 'doWhile'
-  forEachItems?: any[] | Record<string, any> | string
-  whileCondition?: string // JS expression that evaluates to boolean
-}
-
-export interface ParallelConfig {
-  nodes: string[]
-  distribution?: any[] | Record<string, any> | string
-  parallelType?: 'count' | 'collection'
-}
-
-export interface Subflow {
-  id: string
-  workflowId: string
-  type: SubflowType
-  config: LoopConfig | ParallelConfig
-  createdAt: Date
-  updatedAt: Date
-}
-
 export interface Position {
   x: number
   y: number
@@ -51,15 +22,6 @@ export interface BlockData {
   // Container dimensions
   width?: number
   height?: number
-
-  // Loop-specific properties
-  collection?: any // The items to iterate over in a forEach loop
-  count?: number // Number of iterations for numeric loops
-  loopType?: 'for' | 'forEach' | 'while' | 'doWhile' // Type of loop - must match Loop interface
-  whileCondition?: string // While/DoWhile loop condition (JS expression)
-
-  // Parallel-specific properties
-  parallelType?: 'collection' | 'count' // Type of parallel execution
 
   // Container node type (for ReactFlow node type determination)
   type?: string
@@ -92,34 +54,6 @@ export interface SubBlockState {
   id: string
   type: SubBlockType
   value: string | number | string[][] | null
-}
-
-export interface LoopBlock {
-  id: string
-  loopType: 'for' | 'forEach'
-  count: number
-  collection: string
-  width: number
-  height: number
-  executionState: {
-    currentIteration: number
-    isExecuting: boolean
-    startTime: null | number
-    endTime: null | number
-  }
-}
-
-export interface ParallelBlock {
-  id: string
-  collection: string
-  width: number
-  height: number
-  executionState: {
-    currentExecution: number
-    isExecuting: boolean
-    startTime: null | number
-    endTime: null | number
-  }
 }
 
 export interface Loop {
@@ -162,66 +96,3 @@ export interface WorkflowState {
   lastUpdate?: number
   dragStartPosition?: DragStartPosition | null
 }
-
-export interface WorkflowActions {
-  addBlock: (
-    id: string,
-    type: string,
-    name: string,
-    position: Position,
-    data?: Record<string, any>,
-    parentId?: string,
-    extent?: 'parent',
-    blockProperties?: {
-      enabled?: boolean
-      locked?: boolean
-      horizontalHandles?: boolean
-      isWide?: boolean
-      advancedMode?: boolean
-      triggerMode?: boolean
-      height?: number
-    }
-  ) => void
-  updateBlockPosition: (id: string, position: Position) => void
-  updateBlockPositions: (updates: Array<{ id: string; position: Position }>) => void
-  updateNodeDimensions: (id: string, dimensions: { width: number; height: number }) => void
-  updateParentId: (id: string, parentId: string, extent: 'parent') => void
-  updateParentIds: (updates: Array<{ id: string; parentId: string; extent: 'parent' }>) => void
-  removeBlock: (id: string) => void
-  addEdge: (edge: Edge) => void
-  removeEdge: (edgeId: string) => void
-  clear: () => Partial<WorkflowState>
-  updateLastSaved: () => void
-  triggerUpdate: () => void
-  toggleBlockEnabled: (id: string) => void
-  toggleBlockLocked: (id: string) => void
-  duplicateBlock: (id: string) => void
-  toggleBlockHandles: (id: string) => void
-  updateBlockName: (id: string, name: string) => boolean
-  toggleBlockWide: (id: string) => void
-  setBlockWide: (id: string, isWide: boolean) => void
-  setBlockAdvancedMode: (id: string, advancedMode: boolean) => void
-  setBlockTriggerMode: (id: string, triggerMode: boolean) => void
-  updateBlockLayoutMetrics: (id: string, dimensions: { width: number; height: number }) => void
-  updateLoopCount: (loopId: string, count: number) => void
-  updateLoopType: (loopId: string, loopType: 'for' | 'forEach' | 'while' | 'doWhile') => void
-  updateLoopCollection: (loopId: string, collection: string) => void
-  updateParallelCount: (parallelId: string, count: number) => void
-  updateParallelCollection: (parallelId: string, collection: string) => void
-  updateParallelType: (parallelId: string, parallelType: 'count' | 'collection') => void
-  replaceWorkflowState: (
-    workflowState: WorkflowState,
-    options?: { updateLastSaved?: boolean }
-  ) => void
-  generateLoopBlocks: () => Record<string, Loop>
-  generateParallelBlocks: () => Record<string, Parallel>
-  revertToDeployedState: (deployedState: WorkflowState) => void
-  toggleBlockAdvancedMode: (id: string) => void
-  toggleBlockTriggerMode: (id: string) => void
-  setNeedsRedeploymentFlag: (needsRedeployment: boolean) => void
-  setDragStartPosition: (position: DragStartPosition | null) => void
-  getDragStartPosition: () => DragStartPosition | null
-  readWorkflowState: () => WorkflowState
-}
-
-export type WorkflowStore = WorkflowState & WorkflowActions

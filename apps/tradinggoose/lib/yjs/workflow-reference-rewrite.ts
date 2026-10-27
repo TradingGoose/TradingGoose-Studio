@@ -1,87 +1,25 @@
-import * as Y from 'yjs'
-import { YJS_KEYS } from './workflow-session'
+import type * as Y from 'yjs'
+import {
+  readWorkflowSubBlockFieldsMap,
+  readWorkflowSubBlockFieldValueFromMap,
+  setWorkflowSubBlockValues,
+} from './workflow-session'
 
 export function rewriteWorkflowContentReferences(
-  workflowMap: Y.Map<any>,
-  textFields: Y.Map<any>,
+  doc: Y.Doc,
   regex: RegExp,
   replacement: string
 ): void {
-  rewriteWorkflowReferencesInBlocks(workflowMap, regex, replacement)
-  rewriteWorkflowReferencesInTextFields(textFields, regex, replacement)
-}
-
-function rewriteWorkflowReferencesInBlocks(
-  workflowMap: Y.Map<any>,
-  regex: RegExp,
-  replacement: string
-): void {
-  const blocks: Record<string, any> = workflowMap.get(YJS_KEYS.BLOCKS)
-  if (!blocks || typeof blocks !== 'object') return
-
-  let changed = false
-  const updatedBlocks: Record<string, any> = {}
-
-  for (const [blockId, block] of Object.entries(blocks)) {
-    if (!block || !block.subBlocks) {
-      updatedBlocks[blockId] = block
-      continue
-    }
-
-    let blockChanged = false
-    const updatedSubBlocks: Record<string, any> = {}
-
-    for (const [subBlockId, subBlock] of Object.entries(block.subBlocks as Record<string, any>)) {
-      if (!subBlock || subBlock.value === undefined || subBlock.value === null) {
-        updatedSubBlocks[subBlockId] = subBlock
-        continue
-      }
-
-      const updatedValue = rewriteWorkflowReferenceValue(subBlock.value, regex, replacement)
-      if (updatedValue !== subBlock.value) {
-        updatedSubBlocks[subBlockId] = { ...subBlock, value: updatedValue }
-        blockChanged = true
-      } else {
-        updatedSubBlocks[subBlockId] = subBlock
-      }
-    }
-
-    if (blockChanged) {
-      updatedBlocks[blockId] = { ...block, subBlocks: updatedSubBlocks }
-      changed = true
-    } else {
-      updatedBlocks[blockId] = block
+  const fields = readWorkflowSubBlockFieldsMap(doc)
+  const updates: Array<{ blockId: string; subBlockId: string; value: any }> = []
+  for (const [blockId, blockFields] of fields) {
+    for (const subBlockId of blockFields.keys()) {
+      const currentValue = readWorkflowSubBlockFieldValueFromMap(fields, blockId, subBlockId)
+      const updatedValue = rewriteWorkflowReferenceValue(currentValue, regex, replacement)
+      if (updatedValue !== currentValue) updates.push({ blockId, subBlockId, value: updatedValue })
     }
   }
-
-  if (changed) {
-    workflowMap.set(YJS_KEYS.BLOCKS, updatedBlocks)
-  }
-}
-
-function rewriteWorkflowReferencesInTextFields(
-  textFields: Y.Map<any>,
-  regex: RegExp,
-  replacement: string
-): void {
-  for (const value of textFields.values()) {
-    if (!(value instanceof Y.Text)) {
-      continue
-    }
-
-    const currentValue = value.toString()
-    const updatedValue = rewriteWorkflowReferenceValue(currentValue, regex, replacement)
-    if (updatedValue === currentValue) {
-      continue
-    }
-
-    if (value.length > 0) {
-      value.delete(0, value.length)
-    }
-    if (updatedValue) {
-      value.insert(0, updatedValue)
-    }
-  }
+  setWorkflowSubBlockValues(doc, updates)
 }
 
 function rewriteWorkflowReferenceValue(value: any, regex: RegExp, replacement: string): any {

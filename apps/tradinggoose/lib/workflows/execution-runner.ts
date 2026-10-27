@@ -19,6 +19,7 @@ import type {
   WorkflowCheckpointSnapshot,
   WorkflowPausePoint,
 } from '@/lib/workflows/human-in-the-loop/types'
+import { extractEnvironmentReferences } from '@/lib/workflows/references'
 import { TriggerUtils } from '@/lib/workflows/triggers'
 import { updateWorkflowRunCounts } from '@/lib/workflows/utils'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
@@ -162,21 +163,17 @@ function buildProcessedBlockStates(
     for (const [key, subBlock] of Object.entries(block.subBlocks)) {
       let value = (subBlock as { value?: unknown }).value
 
-      if (typeof value === 'string' && value.includes('{{') && value.includes('}}')) {
+      if (typeof value === 'string') {
         let stringValue = value
-        const matches = value.match(/{{([^}]+)}}/g)
+        for (const match of extractEnvironmentReferences(value)) {
+          const variableName = match.slice(2, -2)
+          const decryptedValue = decryptedEnvVars[variableName]
 
-        if (matches) {
-          for (const match of matches) {
-            const variableName = match.slice(2, -2)
-            const decryptedValue = decryptedEnvVars[variableName]
-
-            if (decryptedValue === undefined) {
-              throw new Error(`Environment variable "${variableName}" was not found`)
-            }
-
-            stringValue = stringValue.replace(match, decryptedValue)
+          if (decryptedValue === undefined) {
+            throw new Error(`Environment variable "${variableName}" was not found`)
           }
+
+          stringValue = stringValue.replace(match, decryptedValue)
         }
 
         value = stringValue

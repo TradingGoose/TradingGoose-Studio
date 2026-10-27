@@ -58,6 +58,7 @@ import { KnowledgeBlock } from '@/blocks/blocks/knowledge'
 import { LinearBlock } from '@/blocks/blocks/linear'
 import { LinkedInBlock } from '@/blocks/blocks/linkedin'
 import { LinkupBlock } from '@/blocks/blocks/linkup'
+import { LoopBlock } from '@/blocks/blocks/loop'
 import { MailchimpBlock } from '@/blocks/blocks/mailchimp'
 import { MailgunBlock } from '@/blocks/blocks/mailgun'
 import { McpBlock } from '@/blocks/blocks/mcp'
@@ -76,6 +77,7 @@ import { OneDriveBlock } from '@/blocks/blocks/onedrive'
 import { OpenAIBlock } from '@/blocks/blocks/openai'
 import { OutlookBlock } from '@/blocks/blocks/outlook'
 import { ParallelBlock } from '@/blocks/blocks/parallel'
+import { ParallelContainerBlock } from '@/blocks/blocks/parallel_container'
 import { PerplexityBlock } from '@/blocks/blocks/perplexity'
 import { PineconeBlock } from '@/blocks/blocks/pinecone'
 import { PipedriveBlock } from '@/blocks/blocks/pipedrive'
@@ -187,6 +189,7 @@ export const registry: Record<string, BlockConfig> = {
   knowledge: KnowledgeBlock,
   linear: LinearBlock,
   linkup: LinkupBlock,
+  loop: LoopBlock,
   mcp: McpBlock,
   mem0: Mem0Block,
   zep: ZepBlock,
@@ -200,6 +203,7 @@ export const registry: Record<string, BlockConfig> = {
   openai: OpenAIBlock,
   outlook: OutlookBlock,
   onedrive: OneDriveBlock,
+  parallel: ParallelContainerBlock,
   parallel_ai: ParallelBlock,
   portfolio_state_trigger: PortfolioStateTriggerBlock,
   perplexity: PerplexityBlock,

@@ -1,6 +1,6 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
-import { patchWorkflowBlock } from '@/lib/yjs/workflow-session'
+import { setWorkflowSubBlockValues } from '@/lib/yjs/workflow-session'
 import {
   getRegisteredWorkflowSession,
   readSubBlockValue,
@@ -92,7 +92,7 @@ export function populateTriggerFieldsFromConfig(
   if (!session?.doc) return
 
   // Collect all writes first, then apply in a single transaction
-  const writes: Array<{ subBlockId: string; value: any }> = []
+  const writes: Array<{ blockId: string; subBlockId: string; value: any }> = []
 
   triggerDef.subBlocks
     .filter((sb) => sb.mode === 'trigger' && !SYSTEM_SUBBLOCK_IDS.includes(sb.id))
@@ -120,25 +120,12 @@ export function populateTriggerFieldsFromConfig(
         }
 
         if (currentValue === null || currentValue === undefined || currentValue === '') {
-          writes.push({ subBlockId: subBlock.id, value: normalizedValue })
+          writes.push({ blockId, subBlockId: subBlock.id, value: normalizedValue })
         }
       }
     })
 
   if (writes.length === 0) return
 
-  patchWorkflowBlock(
-    session.doc,
-    blockId,
-    (block) => {
-      if (!block?.subBlocks) return block
-      let subBlocks = { ...block.subBlocks }
-      for (const { subBlockId, value } of writes) {
-        if (!subBlocks[subBlockId]) continue
-        subBlocks = { ...subBlocks, [subBlockId]: { ...subBlocks[subBlockId], value } }
-      }
-      return { ...block, subBlocks }
-    },
-    YJS_ORIGINS.SYSTEM
-  )
+  session.doc.transact(() => setWorkflowSubBlockValues(session.doc, writes), YJS_ORIGINS.SYSTEM)
 }

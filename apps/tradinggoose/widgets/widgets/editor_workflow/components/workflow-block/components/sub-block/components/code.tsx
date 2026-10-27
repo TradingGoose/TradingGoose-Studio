@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils'
 import { isLikelyReferenceSegment, SYSTEM_REFERENCE_PREFIXES } from '@/lib/workflows/references'
 import { resolveDisplayedSubBlockValue } from '@/lib/workflows/subblock-values'
 import {
-  useWorkflowTextField,
+  useWorkflowField,
   useSubBlockValue as useYjsSubBlockValue,
 } from '@/lib/yjs/use-workflow-doc'
 import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
@@ -199,10 +199,8 @@ Current code context: {context}
     value: textFieldValue,
     yText: sharedYText,
     setValue: setTextFieldValue,
-  } = useWorkflowTextField(blockId, subBlockId, fallbackValue, {
+  } = useWorkflowField(blockId, subBlockId, fallbackValue, {
     enabled: useSharedTextField,
-    autoCreate: useSharedTextField,
-    mirrorDelayMs: useSharedTextField ? 650 : null,
   })
 
   const yText = useSharedTextField ? sharedYText : null
@@ -293,6 +291,7 @@ Current code context: {context}
   const handleEditorChange = useCallback(
     (newCode: string) => {
       if (isCollapsed || isAiStreaming || isReadOnly) return
+      if (!yText) persistValue(newCode)
 
       const cursorPos = editorRef.current?.getCursorOffset() ?? 0
       setCursorPosition(cursorPos)
@@ -307,7 +306,7 @@ Current code context: {context}
       setShowEnvVars(envVarTrigger.show)
       setSearchTerm(envVarTrigger.show ? envVarTrigger.searchTerm : '')
     },
-    [isCollapsed, isAiStreaming, isReadOnly]
+    [isCollapsed, isAiStreaming, isReadOnly, persistValue, yText]
   )
 
   const handleCursorChange = useCallback(

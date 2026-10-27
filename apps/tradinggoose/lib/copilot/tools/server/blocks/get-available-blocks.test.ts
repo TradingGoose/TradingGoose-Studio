@@ -59,7 +59,9 @@ vi.mock('@/lib/workflows/block-mermaid-contract', () => ({
   },
 }))
 
-vi.mock('@/blocks/registry', () => {
+vi.mock('@/blocks/registry', async () => {
+  const { LoopBlock } = await import('@/blocks/blocks/loop')
+  const { ParallelContainerBlock } = await import('@/blocks/blocks/parallel_container')
   const baseBlock = {
     description: 'Mock block description',
     category: 'blocks',
@@ -68,6 +70,8 @@ vi.mock('@/blocks/registry', () => {
   }
 
   const registry = {
+    loop: LoopBlock,
+    parallel: ParallelContainerBlock,
     agent: {
       ...baseBlock,
       name: 'Agent',

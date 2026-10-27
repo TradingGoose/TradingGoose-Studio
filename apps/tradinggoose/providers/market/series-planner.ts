@@ -1,6 +1,9 @@
 import { toDate } from '@/providers/market/market-hours/date-utils'
-import { getMarketSeriesCapabilities } from '@/providers/market/providers'
-import { rangeToMs } from '@/providers/market/series-window'
+import {
+  getMarketSeriesCapabilities,
+  resolveMarketSeriesNormalizationMode,
+} from '@/providers/market/providers'
+import { DEFAULT_RANGE_PRESETS, rangeToMs } from '@/providers/market/series-window'
 import type {
   MarketBar,
   MarketInterval,
@@ -35,11 +38,12 @@ const INTERVAL_MS: Record<MarketInterval, number> = {
 }
 
 type PlannedSeriesWindow =
+  | { mode: 'all' }
   | { mode: 'bars'; barCount: number }
   | { mode: 'range'; rangeMs: number }
   | { mode: 'absolute'; startMs: number; endMs: number }
 
-export const intervalToMs = (interval?: string): number | null => {
+export const intervalToMs = (interval?: string | null): number | null => {
   if (!interval) return null
   if (interval in INTERVAL_MS) {
     return INTERVAL_MS[interval as MarketInterval]
@@ -72,6 +76,10 @@ const normalizeWindow = (
   retention?: { maxRangeDays?: number; maxBars?: number }
 ): PlannedSeriesWindow | null => {
   if (!window) return null
+
+  if (window.mode === 'all') {
+    return retention?.maxRangeDays || retention?.maxBars ? null : { mode: 'all' }
+  }
 
   if (window.mode === 'bars') {
     const rawBars = Number(window.barCount)
@@ -125,18 +133,58 @@ const normalizeWindow = (
       }
     }
 
-    if (intervalMs && retention?.maxBars && retention.maxBars > 0) {
-      const maxRangeByBars = retention.maxBars * intervalMs
-      if (resolvedEnd - resolvedStart > maxRangeByBars) {
-        resolvedStart = resolvedEnd - maxRangeByBars
-      }
-    }
-
     if (resolvedStart >= resolvedEnd) return null
     return { mode: 'absolute', startMs: resolvedStart, endMs: resolvedEnd }
   }
 
   return null
+}
+
+export const getMarketSeriesRangePresets = (
+  providerId?: string | null,
+  selectedInterval?: string | null
+) => {
+  const capabilities = providerId ? getMarketSeriesCapabilities(providerId) : null
+  const presets: {
+    id: string
+    window: Extract<MarketSeriesWindow, { mode: 'range' | 'all' }>
+    interval: MarketInterval
+  }[] = []
+  for (const preset of DEFAULT_RANGE_PRESETS) {
+    const interval =
+      selectedInterval === undefined
+        ? preset.window.mode === 'all'
+          ? capabilities?.allInterval
+          : 'interval' in preset
+            ? preset.interval
+            : undefined
+        : capabilities?.intervals?.find((interval) => interval === selectedInterval)
+    if (
+      !interval ||
+      !capabilities?.intervals?.includes(interval) ||
+      !capabilities.windowModes?.includes(preset.window.mode) ||
+      (preset.window.mode === 'all' && interval !== capabilities.allInterval)
+    )
+      continue
+    const intervalMs = intervalToMs(interval)!
+    const window = normalizeWindow(
+      preset.window,
+      intervalMs,
+      resolveRetention(providerId!, interval)
+    )
+    if (
+      !window ||
+      (window.mode === 'range' &&
+        preset.window.mode === 'range' &&
+        // Calendar candles may span longer than their nominal duration.
+        (window.rangeMs < intervalMs ||
+          (interval.endsWith('mo') && window.rangeMs === intervalMs) ||
+          window.rangeMs !== rangeToMs(preset.window.range)))
+    )
+      continue
+    presets.push({ id: preset.id, window: preset.window, interval })
+  }
+  return presets
 }
 
 const normalizeBars = (bars: MarketBar[]) => {
@@ -166,9 +214,8 @@ export const planMarketSeriesRequest = (
     capabilities?.windowModes && capabilities.windowModes.length > 0
       ? capabilities.windowModes
       : (['range'] as MarketSeriesWindowMode[])
-  const interval = request.interval || (request.providerParams?.interval as string | undefined)
-  const intervalMs = intervalToMs(interval)
-  const retention = resolveRetention(providerId, interval)
+  let interval =
+    request.interval || (request.providerParams?.interval as string | undefined) || '1d'
   // Windows are priority-ordered by the caller; pick the first supported+valid mode.
   const requestedWindows = Array.isArray(request.windows) ? request.windows : []
   let window: PlannedSeriesWindow | null = null
@@ -181,10 +228,17 @@ export const planMarketSeriesRequest = (
 
   for (const candidate of requestedWindows) {
     if (!candidate || !allowedModes.includes(candidate.mode)) continue
-    const normalized = normalizeWindow(candidate, intervalMs, retention)
+    const candidateInterval = candidate.mode === 'all' ? capabilities?.allInterval : interval
+    if (!candidateInterval) continue
+    const normalized = normalizeWindow(
+      candidate,
+      intervalToMs(candidateInterval),
+      resolveRetention(providerId, candidateInterval)
+    )
     if (normalized) {
       window = normalized
       resolvedMode = candidate.mode
+      interval = candidateInterval
       break
     }
   }
@@ -194,14 +248,21 @@ export const planMarketSeriesRequest = (
     reason = `Window mode ${requestedPrimaryMode} unsupported or invalid; used ${resolvedMode}`
   }
 
-  if (!window) {
-    return { request, window: null, mode: null, fallback: false }
-  }
-
   const planned: MarketSeriesRequest = {
     ...request,
+    interval,
     providerParams: request.providerParams ? { ...request.providerParams } : undefined,
   }
+  if (planned.providerParams) Reflect.deleteProperty(planned.providerParams, 'interval')
+  if (!window) {
+    return { request: planned, window: null, mode: null, fallback: false }
+  }
+  planned.normalizationMode = resolveMarketSeriesNormalizationMode(
+    providerId,
+    request.normalizationMode,
+    interval
+  )
+  const intervalMs = intervalToMs(interval)
 
   // Keep range windows as range; session-based anchoring happens in market-hours layer.
   if (window.mode === 'absolute') {
@@ -212,10 +273,14 @@ export const planMarketSeriesRequest = (
     Reflect.deleteProperty(planned, 'start')
     Reflect.deleteProperty(planned, 'end')
     planned.windows = [
-      window.mode === 'bars'
-        ? window
-        : { mode: 'range', range: { value: window.rangeMs / DAY_MS, unit: 'day' } },
+      window.mode === 'range'
+        ? { mode: 'range', range: { value: window.rangeMs / DAY_MS, unit: 'day' } }
+        : window,
     ]
+  }
+  if (window.mode === 'all' && planned.providerParams) {
+    Reflect.deleteProperty(planned.providerParams, 'range')
+    Reflect.deleteProperty(planned.providerParams, 'limit')
   }
 
   // Range param preserves "latest available" semantics for providers that support range windows.

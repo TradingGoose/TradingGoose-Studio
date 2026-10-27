@@ -19,11 +19,7 @@ export async function evaluateConditionExpression(
   resolver: InputResolver,
   providedEvalContext?: Record<string, any>
 ): Promise<boolean> {
-  // Build evaluation context - use provided context or just loop context
-  const evalContext = providedEvalContext || {
-    // Add loop context if applicable
-    ...(context.loopItems.get(block.id) || {}),
-  }
+  const evalContext = providedEvalContext ?? {}
 
   let resolvedConditionValue = conditionExpression
   try {
@@ -112,11 +108,8 @@ export class ConditionBlockHandler implements BlockHandler {
 
     const sourceOutput = sourceBlockId ? context.blockStates.get(sourceBlockId)?.output : undefined
 
-    // Build evaluation context (primarily for potential 'context' object in Function)
-    // We might not strictly need sourceKey here if references handle everything
     const evalContext = {
       ...(typeof sourceOutput === 'object' && sourceOutput !== null ? sourceOutput : {}),
-      ...(context.loopItems.get(block.id) || {}),
     }
     logger.info('Base eval context:', JSON.stringify(evalContext, null, 2))
 

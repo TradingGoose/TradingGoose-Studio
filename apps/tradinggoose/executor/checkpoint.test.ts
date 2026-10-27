@@ -24,17 +24,7 @@ describe('Executor checkpoint JSON round trip', () => {
       executedBlocks: new Set(['upstream']),
       activeExecutionPath: new Set(['approval']),
       completedLoops: new Set(['previous-loop']),
-      loopExecutions: new Map([
-        [
-          'loop',
-          {
-            maxIterations: 3,
-            loopType: 'for',
-            currentIteration: 2,
-            executionResults: new Map([['0', { result: 'first' }]]),
-          },
-        ],
-      ]),
+      loopExecutions: new Map([['loop', new Map([['iteration_0', { result: 'first' }]])]]),
       parallelExecutions: new Map([
         [
           'parallel',

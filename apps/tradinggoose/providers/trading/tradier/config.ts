@@ -1,6 +1,7 @@
 import type { AssetClass } from '@/providers/market/types'
 import type { TradingProviderConfig } from '@/providers/trading/providers'
 import { tradierTradingSymbolRules } from '@/providers/trading/tradier/rules'
+import { BASE_PORTFOLIO_OUTPUTS } from '@/providers/trading/types'
 
 const availableAssetClasses: AssetClass[] = ['stock', 'etf']
 
@@ -46,17 +47,24 @@ export const tradierTradingProviderConfig: TradingProviderConfig = {
     },
     portfolioDetail: {
       performanceWindows: ['1W', '1M', 'YTD', '1Y', 'MAX'],
-      monitorMetrics: [
-        'summary.totalPortfolioValue',
-        'summary.totalCashValue',
-        'summary.totalHoldingsValue',
-        'summary.totalUnrealizedPnl',
-        'summary.buyingPower',
-        'summary.equity',
-        'positions.count',
-        'position.quantity',
-        'position.exists',
-      ],
+      outputs: {
+        cashBalances: {
+          ...BASE_PORTFOLIO_OUTPUTS.cashBalances,
+          conversionRate: { type: 'number' },
+          amountInAccountCurrency: { type: 'number' },
+        },
+        positions: {
+          ...BASE_PORTFOLIO_OUTPUTS.positions,
+          conversionRate: { type: 'number' },
+          openedAt: { type: 'string' },
+        },
+        summary: {
+          ...BASE_PORTFOLIO_OUTPUTS.summary,
+          totalUnrealizedPnl: { type: 'number' },
+          totalRealizedPnl: { type: 'number' },
+          marginUsed: { type: 'number' },
+        },
+      },
     },
   },
   rulePrecedence: {

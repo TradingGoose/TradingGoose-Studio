@@ -400,24 +400,4 @@ describe('ConditionBlockHandler', () => {
     expect((result as any).selectedPath).toBeNull()
     expect((result as any).selectedOption).toBeNull()
   })
-
-  it('should use loop context during evaluation if available', async () => {
-    const conditions = [
-      { id: 'cond1', title: 'if', value: 'context.item === "apple"' },
-      { id: 'else1', title: 'else', value: '' },
-    ]
-    const inputs = { conditions: JSON.stringify(conditions) }
-
-    mockContext.loopItems.set(mockBlock.id, { item: 'apple' })
-
-    // Mock the full resolution pipeline
-    mockResolver.resolveVariableReferences.mockReturnValue('context.item === "apple"')
-    mockResolver.resolveBlockReferences.mockReturnValue('context.item === "apple"')
-    mockResolver.resolveEnvVariables.mockReturnValue('context.item === "apple"')
-
-    const result = await handler.execute(mockBlock, inputs, mockContext)
-
-    expect(mockContext.decisions.condition.get(mockBlock.id)).toBe('cond1')
-    expect((result as any).selectedOption).toBe('cond1')
-  })
 })

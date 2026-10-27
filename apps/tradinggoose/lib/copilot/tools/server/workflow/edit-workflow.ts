@@ -75,21 +75,8 @@ function buildDefaultBlock(
   const blockConfig = getBlock(blockType)
   const data = parentId ? { parentId, extent: 'parent' as const } : undefined
 
-  if (!blockConfig && blockType !== 'loop' && blockType !== 'parallel') {
-    throw new Error(`Unknown workflow block type "${blockType}" for new block "${blockId}".`)
-  }
-
   if (!blockConfig) {
-    return {
-      id: blockId,
-      type: blockType,
-      name: name?.trim() || (blockType === 'loop' ? 'Loop' : 'Parallel'),
-      position: getInitialPosition(parentId),
-      subBlocks: {},
-      outputs: {},
-      enabled: true,
-      ...(data ? { data } : {}),
-    }
+    throw new Error(`Unknown workflow block type "${blockType}" for new block "${blockId}".`)
   }
 
   const initialSubBlocks = buildInitialSubBlockStates(

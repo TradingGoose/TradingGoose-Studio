@@ -140,12 +140,6 @@ function validateBlockTypes(yamlWorkflow: YamlWorkflow): { errors: string[]; war
     // Check if block type exists
     const blockConfig = getBlock(block.type)
 
-    // Special handling for container blocks
-    if (block.type === 'loop' || block.type === 'parallel') {
-      // These are valid container types
-      return
-    }
-
     if (!blockConfig) {
       errors.push(`Unknown block type '${block.type}' for block '${blockId}'`)
       return
@@ -361,34 +355,11 @@ export function convertYamlToWorkflow(yamlWorkflow: YamlWorkflow): ImportResult 
 
     // Add container-specific data
     if (yamlBlock.type === 'loop' || yamlBlock.type === 'parallel') {
-      // For loop/parallel blocks, map the inputs to the data field since they don't use subBlocks
-      const inputs = yamlBlock.inputs || {}
-
-      // Apply defaults for loop blocks
-      if (yamlBlock.type === 'loop') {
-        importedBlock.data = {
-          width: 500,
-          height: 300,
-          type: 'subflowNode',
-          loopType: inputs.loopType || 'for',
-          count: inputs.iterations || inputs.count || 5,
-          collection: inputs.collection || '',
-          maxConcurrency: inputs.maxConcurrency || 1,
-          // Include any other inputs provided
-          ...inputs,
-        }
-      } else {
-        // Parallel blocks
-        importedBlock.data = {
-          width: 500,
-          height: 300,
-          type: 'subflowNode',
-          ...inputs,
-        }
+      importedBlock.data = {
+        width: 500,
+        height: 300,
+        type: 'subflowNode',
       }
-
-      // Clear inputs since they're now in data
-      importedBlock.inputs = {}
     }
 
     // Handle parent-child relationships for nested blocks

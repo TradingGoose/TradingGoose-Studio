@@ -229,8 +229,7 @@ export class Executor {
       this.actualWorkflow,
       this.environmentVariables,
       this.workflowVariables,
-      accessibleBlocksMap,
-      this.loopManager
+      accessibleBlocksMap
     )
     this.pathTracker = new PathTracker(this.actualWorkflow)
 
@@ -318,7 +317,7 @@ export class Executor {
           const outputs = await this.executeLayer(nextLayer, context)
 
           if (outputs.length > 0) {
-            finalOutput = outputs[outputs.length - 1] as NormalizedBlockOutput
+            finalOutput = this.selectFinalOutput(nextLayer, outputs, context)
           }
 
           if (await this.shouldStopExecution()) {
@@ -347,7 +346,7 @@ export class Executor {
             }
           }
 
-          // Process loop iterations - this will activate external paths when loops complete
+          // Schedule the next loop pass, including final completion.
           await this.loopManager.processLoopIterations(context)
 
           // Process parallel iterations - similar to loops but conceptually for parallel execution
@@ -484,7 +483,7 @@ export class Executor {
       const outputs = await this.executeLayer(blockIds, context)
 
       if (outputs.length > 0) {
-        finalOutput = outputs[outputs.length - 1]
+        finalOutput = this.selectFinalOutput(blockIds, outputs, context)
       }
       if (await this.shouldStopExecution()) {
         return {
@@ -605,7 +604,7 @@ export class Executor {
         }
       }
 
-      if (loop.iterations <= 0) {
+      if (loop.loopType === 'for' && loop.iterations <= 0) {
         throw new Error(`Loop ${loopId} must have a positive iterations value`)
       }
 
@@ -690,14 +689,6 @@ export class Executor {
         executionTime: 0,
       })
     })
-
-    // Initialize loop iterations
-    if (this.actualWorkflow.loops) {
-      for (const loopId of Object.keys(this.actualWorkflow.loops)) {
-        // Start all loops at iteration 0
-        context.loopIterations.set(loopId, 0)
-      }
-    }
 
     const initBlock = this.actualWorkflow.blocks.find((block) => block.id === triggerBlockId)
     if (!initBlock) {
@@ -1446,6 +1437,30 @@ export class Executor {
     })
   }
 
+  private selectFinalOutput(
+    blockIds: string[],
+    outputs: NormalizedBlockOutput[],
+    context: ExecutionContext
+  ): NormalizedBlockOutput {
+    const output = outputs[outputs.length - 1]
+    const blockId = blockIds[outputs.length - 1]
+    const isContainer = (id: string) =>
+      this.actualWorkflow.loops[id] || this.actualWorkflow.parallels?.[id]
+    const originalId = context.parallelBlockMapping?.get(blockId)?.originalBlockId ?? blockId
+    if (output.completed !== true || !isContainer(originalId)) return output
+
+    // Layer ordering determines the selected output, regardless of completion timing.
+    for (const id of [...context.executedBlocks].reverse()) {
+      const originalId = context.parallelBlockMapping?.get(id)?.originalBlockId ?? id
+      if (isContainer(originalId)) continue
+      const block = this.actualWorkflow.blocks.find((block) => block.id === originalId)
+      return block?.metadata?.id === BlockType.RESPONSE
+        ? context.blockStates.get(id)!.output
+        : output
+    }
+    return output
+  }
+
   /**
    * Executes a layer of blocks in parallel.
    * Updates execution paths based on router and condition decisions.
@@ -1606,10 +1621,8 @@ export class Executor {
     const blockType = block.metadata?.id || 'unknown'
     const blockName = block.metadata?.name || 'Unnamed Block'
     const isTriggerBlock = isSerializedTriggerBlock(block)
-    const shouldLogToConsole =
-      block.metadata?.id !== BlockType.LOOP &&
-      block.metadata?.id !== BlockType.PARALLEL &&
-      !isTriggerBlock
+    const isContainerBlock = blockType === BlockType.LOOP || blockType === BlockType.PARALLEL
+    const shouldLogToConsole = !isContainerBlock && !isTriggerBlock
     const resolveIterationContext = () => {
       let iterationCurrent: number | undefined
       let iterationTotal: number | undefined
@@ -1635,7 +1648,7 @@ export class Executor {
                   : Object.keys(forEachItems).length
               }
             } else if (loop.loopType === 'for') {
-              iterationTotal = loop.iterations || 5
+              iterationTotal = loop.iterations
             }
             iterationType = 'loop'
           }
@@ -1723,7 +1736,7 @@ export class Executor {
 
         context.blockLogs.push(blockLog)
 
-        if (shouldLogToConsole) {
+        if (shouldLogToConsole || (isContainerBlock && output.completed === true)) {
           await this.emitExecutionEvent({
             type: 'block:completed',
             data: {

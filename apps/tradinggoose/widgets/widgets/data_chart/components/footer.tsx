@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type WheelEvent } from 'react'
 import { ChartNetwork, Check, Clock, ClockFading, ClockPlus } from 'lucide-react'
-import { fetchTimeZoneOptions, formatTimezoneLabel } from '@/components/timezone-selector/fetchers'
+import { fetchTimeZoneOptions } from '@/components/timezone-selector/fetchers'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,10 +19,14 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
-import { isUtcOffset, normalizeUtcOffset } from '@/lib/time-format'
+import { formatTimezoneLabel, isUtcOffset, normalizeUtcOffset } from '@/lib/time-format'
 import { cn } from '@/lib/utils'
-import { getMarketSeriesCapabilities } from '@/providers/market/providers'
-import type { MarketInterval } from '@/providers/market/types'
+import {
+  getMarketSeriesCapabilities,
+  resolveMarketSeriesNormalizationMode,
+} from '@/providers/market/providers'
+import { getMarketSeriesRangePresets } from '@/providers/market/series-planner'
+import { DEFAULT_RANGE_PRESETS } from '@/providers/market/series-window'
 import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
 import {
   formatDataChartIntervalLabel,
@@ -35,8 +39,7 @@ import {
   useDataChartCopy,
 } from '@/widgets/widgets/data_chart/copy'
 import { useDataChartParamsPatch } from '@/widgets/widgets/data_chart/hooks/use-data-chart-params-patch'
-import { addRangeToDate, DEFAULT_RANGE_PRESETS } from '@/widgets/widgets/data_chart/series-data'
-import { chooseIntervalForRange } from '@/widgets/widgets/data_chart/series-window'
+import { resolveSeriesWindow } from '@/widgets/widgets/data_chart/series-window'
 
 type TimeZoneOption = Awaited<ReturnType<typeof fetchTimeZoneOptions>>[number]
 
@@ -372,19 +375,16 @@ const DataChartNormalizationDropdown = ({
   const copy = useDataChartCopy()
   const patchWidgetParams = useDataChartParamsPatch()
   const providerId = typeof params.data?.provider === 'string' ? params.data?.provider.trim() : ''
-  const supportedModes = useMemo(() => {
-    if (!providerId) return []
-    const modes = getMarketSeriesCapabilities(providerId)?.normalizationModes ?? []
-    return modes.length ? modes : ['raw']
-  }, [providerId])
-  const rawMode = useMemo(() => {
-    const raw = (params.data?.providerParams as Record<string, unknown> | undefined)
-      ?.normalization_mode
-    return typeof raw === 'string' ? raw.trim() : ''
-  }, [params.data?.providerParams])
-  const fallbackMode = supportedModes[0] ?? ''
-  const selectedMode = supportedModes.includes(rawMode) ? rawMode : ''
-  const effectiveMode = selectedMode || fallbackMode
+  const { requestInterval } = resolveSeriesWindow(params, providerId)
+  const supportedModes =
+    getMarketSeriesCapabilities(providerId, requestInterval)?.normalizationModes ?? []
+  const rawMode = params.data?.providerParams?.normalization_mode
+  const effectiveMode =
+    resolveMarketSeriesNormalizationMode(
+      providerId,
+      typeof rawMode === 'string' ? rawMode.trim() : undefined,
+      requestInterval
+    ) ?? supportedModes[0]
   const tooltipLabel = effectiveMode
     ? formatDataChartNormalizationTooltip(copy, getDataChartNormalizationLabel(copy, effectiveMode))
     : copy.footer.normalization.unavailable
@@ -465,39 +465,29 @@ export const DataChartFooter = ({
   params,
   widgetKey,
   panelId,
-  allowedIntervals,
   exchangeTimezone,
 }: {
   params: DataChartWidgetParams
   widgetKey?: string
   panelId?: string
-  allowedIntervals: MarketInterval[]
   exchangeTimezone?: string | null
 }) => {
   const copy = useDataChartCopy()
   const patchWidgetParams = useDataChartParamsPatch()
-  const availablePresets = DEFAULT_RANGE_PRESETS.filter(
-    (preset) => !preset.interval || allowedIntervals.includes(preset.interval)
-  )
-  const storedRangeId =
-    typeof params.view?.rangePresetId === 'string' ? params.view.rangePresetId.trim() : ''
-  const selectedRangeId = storedRangeId
-    ? (availablePresets.find((preset) => preset.id === storedRangeId)?.id ?? null)
-    : null
+  const { rangePreset } = resolveSeriesWindow(params, params.data?.provider)
+  const defaultPresets = getMarketSeriesRangePresets(params.data?.provider)
+  const availablePresets = DEFAULT_RANGE_PRESETS.flatMap(({ id }) => {
+    const preset =
+      rangePreset?.id === id ? rangePreset : defaultPresets.find((preset) => preset.id === id)
+    return preset ? [preset] : []
+  })
 
   const handleRangeSelect = (presetId: string) => {
     const preset = availablePresets.find((range) => range.id === presetId)
     if (!preset) return
 
-    const anchor = new Date(0)
-    const rangeEnd = addRangeToDate(anchor, preset.range)
-    const rangeMs = rangeEnd.getTime() - anchor.getTime()
-    const fallbackInterval = params.view?.interval
-    const presetInterval = preset.interval
-    const interval =
-      presetInterval ?? chooseIntervalForRange(rangeMs, allowedIntervals) ?? fallbackInterval
     patchWidgetParams({
-      view: { rangePresetId: preset.id, interval, start: null, end: null },
+      view: { rangePresetId: preset.id, interval: preset.interval, start: null, end: null },
     })
   }
 
@@ -523,7 +513,7 @@ export const DataChartFooter = ({
           <div className='flex h-8 flex-grow basis-0 items-center justify-start gap-2 whitespace-nowrap pl-1 text-left'>
             <div className='w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'>
               <Tabs
-                value={selectedRangeId ?? ''}
+                value={rangePreset?.id ?? ''}
                 onValueChange={handleRangeSelect}
                 className='w-max'
               >
@@ -544,25 +534,15 @@ export const DataChartFooter = ({
                         />
                         <TooltipContent side='top'>
                           {(() => {
-                            const anchor = new Date(0)
-                            const rangeEnd = addRangeToDate(anchor, preset.range)
-                            const rangeMs = rangeEnd.getTime() - anchor.getTime()
-                            const resolvedInterval =
-                              preset.interval ??
-                              chooseIntervalForRange(rangeMs, allowedIntervals) ??
-                              (typeof params.view?.interval === 'string'
-                                ? params.view.interval
-                                : null)
                             const rangeLabel =
-                              preset.id === 'all'
+                              preset.window.mode === 'all'
                                 ? copy.footer.range.allAvailableData
-                                : formatDataChartRangeLabel(copy, preset.range)
-                            const intervalLabel = resolvedInterval
-                              ? formatDataChartIntervalLabel(copy, resolvedInterval)
-                              : null
-                            return intervalLabel
-                              ? formatDataChartRangeIntervalTooltip(copy, rangeLabel, intervalLabel)
-                              : rangeLabel
+                                : formatDataChartRangeLabel(copy, preset.window.range)
+                            return formatDataChartRangeIntervalTooltip(
+                              copy,
+                              rangeLabel,
+                              formatDataChartIntervalLabel(copy, preset.interval)
+                            )
                           })()}
                         </TooltipContent>
                       </Tooltip>

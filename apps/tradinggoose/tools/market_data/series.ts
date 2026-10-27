@@ -9,34 +9,19 @@ import {
   getMarketProviderParamCatalog,
   getMarketSeriesCapabilities,
 } from '@/providers/market/providers'
-import type { MarketSeries, NormalizationMode } from '@/providers/market/types'
+import type { MarketSeries, MarketSeriesWindow, NormalizationMode } from '@/providers/market/types'
 import type { ToolConfig, ToolResponse } from '@/tools/types'
 
 export interface MarketSeriesParams {
   provider: string
   listing: ListingIdentity
   interval?: string
-  window?: {
-    mode: 'range' | 'bars' | 'absolute'
-    range?: { value: number; unit: 'day' | 'week' | 'month' | 'year' }
-    barCount?: number
-    start?: string | number
-    end?: string | number
-  }
-  fallbackWindow?: {
-    mode: 'range' | 'bars' | 'absolute'
-    range?: { value: number; unit: 'day' | 'week' | 'month' | 'year' }
-    barCount?: number
-    start?: string | number
-    end?: string | number
-  }
-  normalizationMode?: string
+  window: MarketSeriesWindow
+  normalizationMode?: NormalizationMode
   apiKey?: string
   apiSecret?: string
   providerParams?: Record<string, any> | string
 }
-
-export type MarketSeriesOutput = MarketSeries
 
 const logger = createLogger('MarketSeriesTool')
 
@@ -45,7 +30,6 @@ const RESERVED_PARAM_IDS = new Set([
   'listing',
   'interval',
   'window',
-  'fallbackWindow',
   'normalizationMode',
   'providerParams',
 ])
@@ -102,14 +86,7 @@ const buildToolParams = (): ToolConfig['params'] => {
     type: 'json',
     required: true,
     visibility: 'user-or-llm',
-    description: 'Primary series window (range, bars, or absolute).',
-  }
-
-  params.fallbackWindow = {
-    type: 'json',
-    required: false,
-    visibility: 'user-or-llm',
-    description: 'Fallback series window if the primary is unsupported or invalid.',
+    description: 'Series window (range, bars, absolute, or all where supported).',
   }
 
   params.providerParams = {
@@ -146,19 +123,6 @@ const sanitizeInterval = (provider: string, interval?: string): string | undefin
     return undefined
   }
   return interval
-}
-
-const sanitizeNormalizationMode = (
-  provider: string,
-  mode?: string
-): NormalizationMode | undefined => {
-  if (!mode) return undefined
-  const capabilities = getMarketSeriesCapabilities(provider)
-  if (!capabilities || !('normalizationModes' in capabilities)) return mode as NormalizationMode
-  const modes = capabilities.normalizationModes ?? []
-  if (modes.length === 0) return undefined
-  if (!modes.includes(mode as NormalizationMode)) return undefined
-  return mode as NormalizationMode
 }
 
 export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = {
@@ -199,27 +163,11 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
         }
       })
 
-      if (params.apiKey) auth.apiKey = params.apiKey
-      if (params.apiSecret) auth.apiSecret = params.apiSecret
-
       const interval = sanitizeInterval(params.provider, params.interval)
-      const normalizationMode = sanitizeNormalizationMode(params.provider, params.normalizationMode)
 
       if (interval === undefined && 'interval' in providerParams) {
         Reflect.deleteProperty(providerParams, 'interval')
       }
-      if (normalizationMode === undefined && 'normalizationMode' in providerParams) {
-        Reflect.deleteProperty(providerParams, 'normalizationMode')
-      }
-
-      const windowModes = getMarketSeriesCapabilities(params.provider)?.windowModes ?? []
-      const requestedWindows = [params.window, params.fallbackWindow].filter(
-        (window): window is NonNullable<MarketSeriesParams['window']> => Boolean(window)
-      )
-      const windows =
-        windowModes.length > 0
-          ? requestedWindows.filter((window) => windowModes.includes(window.mode))
-          : requestedWindows
 
       return {
         provider: params.provider,
@@ -227,8 +175,8 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
         kind: 'series',
         listing,
         interval,
-        windows,
-        normalizationMode,
+        windows: [params.window],
+        normalizationMode: params.normalizationMode,
         auth: auth.apiKey || auth.apiSecret ? auth : undefined,
         providerParams: Object.keys(providerParams).length ? providerParams : undefined,
       }
@@ -272,11 +220,7 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
         throw new Error('No data returned for the requested time range')
       }
       const listing = parseListingIdentityValueStrict(params.listing)
-      const seriesOutput = { ...series } as MarketSeries & { primaryMicCode?: string }
-      if ('primaryMicCode' in seriesOutput) {
-        Reflect.deleteProperty(seriesOutput, 'primaryMicCode')
-      }
-      const normalizedSeries = { ...seriesOutput, listing }
+      const normalizedSeries = { ...series, listing }
       return {
         success: true,
         output: {

@@ -1,5 +1,7 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
+import { toDate, toZonedIsoTimestamp } from '@/providers/market/market-hours/date-utils'
+import { fetchMarketProviderJson } from '@/providers/market/request'
 import { rangeToMs } from '@/providers/market/series-window'
 import type {
   MarketBar,
@@ -21,53 +23,24 @@ const FINNHUB_RESOLUTION_MAP: Partial<Record<MarketInterval, string>> = {
   '1w': 'W',
   '1mo': 'M',
 }
-const FINNHUB_RESOLUTIONS = new Set(['1', '5', '15', '30', '60', 'D', 'W', 'M'])
-
-function toUnixSeconds(value?: string | number): number | undefined {
-  if (value === undefined || value === null) return undefined
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value > 1e12 ? Math.floor(value / 1000) : Math.floor(value)
-  }
-  if (typeof value === 'string') {
-    const parsed = Date.parse(value)
-    if (Number.isFinite(parsed)) {
-      return Math.floor(parsed / 1000)
-    }
-  }
-  return undefined
-}
-
-function toIsoString(value?: string | number): string | undefined {
-  if (value === undefined || value === null) return undefined
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    const date = new Date(value > 1e12 ? value : value * 1000)
-    return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
-  }
-  if (typeof value === 'string') {
-    const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
-  }
-  return undefined
-}
-
-function resolveResolution(interval?: string): string {
-  const fallback = 'D'
-  if (!interval) return fallback
-  const mapped = FINNHUB_RESOLUTION_MAP[interval as MarketInterval]
-  if (mapped) return mapped
-  if (FINNHUB_RESOLUTIONS.has(interval)) return interval
-  return fallback
-}
 
 type FinnhubEndpoint = 'stock' | 'forex' | 'crypto'
 
 function resolveTimeRange(request: MarketSeriesRequest): { from?: number; to?: number } {
   const window = request.windows?.[0]
   const rangeMs = window?.mode === 'range' ? rangeToMs(window.range) : null
-  const to = toUnixSeconds(request.end) ?? (rangeMs ? Math.floor(Date.now() / 1000) : undefined)
-  const from =
-    toUnixSeconds(request.start) ??
-    (to != null && rangeMs ? Math.max(0, to - Math.ceil(rangeMs / 1000)) : undefined)
+  const start = toDate(request.start)
+  const end = toDate(request.end)
+  const to = end
+    ? Math.floor(end.getTime() / 1000)
+    : rangeMs
+      ? Math.floor(Date.now() / 1000)
+      : undefined
+  const from = start
+    ? Math.floor(start.getTime() / 1000)
+    : to != null && rangeMs
+      ? Math.max(0, to - Math.ceil(rangeMs / 1000))
+      : undefined
 
   if (from != null && to != null && from >= to) {
     return { from, to: undefined }
@@ -87,24 +60,6 @@ function resolveEndpoint(request: MarketSeriesRequest, assetClass?: string): Fin
   return 'stock'
 }
 
-function resolveSeriesEndpointUrl(
-  endpoint: FinnhubEndpoint,
-  assetClass?: string
-): string | undefined {
-  const mappedAssetClass =
-    endpoint === 'forex'
-      ? 'currency'
-      : endpoint === 'crypto'
-        ? 'crypto'
-        : (assetClass as string | undefined) || 'stock'
-
-  return (
-    finnhubProviderConfig.api_endpoints?.[
-      mappedAssetClass as keyof typeof finnhubProviderConfig.api_endpoints
-    ] || finnhubProviderConfig.api_endpoints?.default
-  )
-}
-
 export async function fetchFinnhubSeries(request: MarketSeriesRequest): Promise<MarketSeries> {
   const context = await resolveListingContext(request.listing)
   const endpoint = resolveEndpoint(request, context.assetClass)
@@ -122,8 +77,9 @@ export async function fetchFinnhubSeries(request: MarketSeriesRequest): Promise<
   if (from == null || to == null) {
     throw new Error('Finnhub series requests require explicit start and end times')
   }
-  const interval = request.interval || (request.providerParams?.interval as string | undefined)
-  const resolution = resolveResolution(interval)
+  const interval = request.interval ?? '1d'
+  const resolution = FINNHUB_RESOLUTION_MAP[interval as MarketInterval]
+  if (!resolution) throw new Error(`Unsupported Finnhub interval: ${interval}`)
 
   const apiKey = request.auth?.apiKey
 
@@ -131,7 +87,18 @@ export async function fetchFinnhubSeries(request: MarketSeriesRequest): Promise<
     throw new Error('Finnhub API key is required')
   }
 
-  const seriesEndpoint = resolveSeriesEndpointUrl(endpoint, context.assetClass)
+  const calendarStock = endpoint === 'stock' && ['D', 'W', 'M'].includes(resolution)
+  if (calendarStock && !context.timeZoneName) throw new Error('Finnhub stock timezone is required')
+  const formatter = calendarStock
+    ? new Intl.DateTimeFormat('en-US', {
+        timeZone: context.timeZoneName,
+        timeZoneName: 'longOffset',
+      })
+    : undefined
+
+  const endpointKey =
+    endpoint === 'stock' ? 'default' : endpoint === 'forex' ? 'currency' : 'crypto'
+  const seriesEndpoint = finnhubProviderConfig.api_endpoints?.[endpointKey]
   if (!seriesEndpoint) {
     throw new Error('Finnhub endpoint is not configured for series requests')
   }
@@ -150,19 +117,7 @@ export async function fetchFinnhubSeries(request: MarketSeriesRequest): Promise<
     to,
   })
 
-  const response = await fetch(url.toString(), {
-    headers: {
-      'X-Finnhub-Token': apiKey,
-      Accept: 'application/json',
-    },
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => '')
-    throw new Error(errorText || `Finnhub request failed with status ${response.status}`)
-  }
-
-  const payload = (await response.json()) as {
+  const payload = await fetchMarketProviderJson<{
     c?: number[]
     h?: number[]
     l?: number[]
@@ -171,7 +126,12 @@ export async function fetchFinnhubSeries(request: MarketSeriesRequest): Promise<
     v?: number[]
     s?: string
     error?: string
-  }
+  }>(finnhubProviderConfig, apiKey, url.toString(), {
+    headers: {
+      'X-Finnhub-Token': apiKey,
+      Accept: 'application/json',
+    },
+  })
 
   if (!payload || payload.s !== 'ok') {
     throw new Error(payload?.error || 'No candle data returned')
@@ -184,8 +144,13 @@ export async function fetchFinnhubSeries(request: MarketSeriesRequest): Promise<
     const close = payload.c?.[i]
     if (close == null) continue
 
+    let timeStamp = new Date(times[i] * 1000).toISOString()
+    // Calendar labels at UTC midnight represent a trading date, not an instant.
+    if (formatter && timeStamp.endsWith('T00:00:00.000Z')) {
+      timeStamp = toZonedIsoTimestamp(timeStamp.slice(0, 10), formatter)!
+    }
     bars.push({
-      timeStamp: new Date(times[i] * 1000).toISOString(),
+      timeStamp,
       open: payload.o?.[i],
       high: payload.h?.[i],
       low: payload.l?.[i],
@@ -194,8 +159,8 @@ export async function fetchFinnhubSeries(request: MarketSeriesRequest): Promise<
     })
   }
 
-  const start = bars[0]?.timeStamp ?? toIsoString(request.start)
-  const end = bars.length ? bars[bars.length - 1]?.timeStamp : toIsoString(request.end)
+  const start = bars[0]?.timeStamp ?? toDate(request.start)?.toISOString()
+  const end = bars.length ? bars[bars.length - 1]?.timeStamp : toDate(request.end)?.toISOString()
 
   return {
     listing: context.listing,

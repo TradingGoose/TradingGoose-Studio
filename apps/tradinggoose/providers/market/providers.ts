@@ -15,7 +15,6 @@ import {
   YahooIcon,
 } from '@/components/icons/provider-icons'
 import type { ListingIdentity } from '@/lib/listing/identity'
-import type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
 import type { OAuthService } from '@/lib/oauth/oauth'
 import type { WorkflowProviderParamType } from '@/lib/workflows/value-types'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
@@ -29,7 +28,6 @@ import type {
   MarketInterval,
   MarketLiveRequest,
   MarketLiveSnapshot,
-  MarketQuoteRequest,
   MarketSeries,
   MarketSeriesRequest,
   MarketSeriesWindowMode,
@@ -40,13 +38,15 @@ import { YahooFinanceProviderConfig } from '@/providers/market/yahoo-finance/con
 
 export type { MarketProviderRequest } from '@/providers/market/types'
 
-export type MarketProviderResponse = MarketSeries | MarketLiveSnapshot | MarketQuoteSnapshot
+export type MarketProviderResponse = MarketSeries | MarketLiveSnapshot
 
 export interface MarketSeriesInputCapabilities {
   supportsInterval?: boolean
   intervals?: MarketInterval[]
   windowModes?: MarketSeriesWindowMode[]
+  allInterval?: MarketInterval
   normalizationModes?: NormalizationMode[]
+  normalizationIntervals?: Partial<Record<NormalizationMode, MarketInterval[]>>
   retention?: MarketSeriesRetentionPolicy
   marketSessions?: MarketSessionMode[]
 }
@@ -142,8 +142,7 @@ export interface MarketSymbolRule {
 export interface MarketProviderConfig {
   id: string
   name: string
-  // Source timestamp offset relative to UTC in hours (e.g., -5, 0, +3).
-  utcOffset?: number
+  requestsPerMinute?: number
   availability: MarketDataAvailability
   capabilities?: MarketProviderCapabilities
   params?: MarketProviderParamConfig
@@ -161,7 +160,6 @@ export interface MarketProvider {
   config: MarketProviderConfig
   fetchMarketSeries?: (request: MarketSeriesRequest) => Promise<MarketSeries>
   fetchMarketLive?: (request: MarketLiveRequest) => Promise<MarketLiveSnapshot>
-  fetchMarketQuote?: (request: MarketQuoteRequest) => Promise<MarketQuoteSnapshot>
 }
 
 export interface ListingContext {
@@ -256,9 +254,29 @@ export function getMarketProviderCapabilities(
 }
 
 export function getMarketSeriesCapabilities(
-  providerId: string
+  providerId: string,
+  interval?: string
 ): MarketSeriesInputCapabilities | null {
-  return getMarketProviderCapabilities(providerId)?.series || null
+  const capabilities = getMarketProviderCapabilities(providerId)?.series
+  if (!capabilities) return null
+  if (!interval || !capabilities.normalizationIntervals) return capabilities
+  return {
+    ...capabilities,
+    normalizationModes: capabilities.normalizationModes?.filter((mode) => {
+      const intervals = capabilities.normalizationIntervals?.[mode]
+      return !intervals || intervals.some((supported) => supported === interval)
+    }),
+  }
+}
+
+export function resolveMarketSeriesNormalizationMode(
+  providerId: string,
+  mode?: string,
+  interval?: string
+): NormalizationMode | undefined {
+  return getMarketSeriesCapabilities(providerId, interval)?.normalizationModes?.find(
+    (supported) => supported === mode
+  )
 }
 
 export function getMarketLiveCapabilities(providerId: string): MarketLiveInputCapabilities | null {
@@ -267,10 +285,6 @@ export function getMarketLiveCapabilities(providerId: string): MarketLiveInputCa
 
 export function getMarketProviderIntervals(providerId: string): MarketInterval[] {
   return getMarketSeriesCapabilities(providerId)?.intervals ?? []
-}
-
-export function getMarketProviderPollingIntervalMs(providerId: string): number | undefined {
-  return getMarketLiveCapabilities(providerId)?.pollingIntervalMs
 }
 
 export function getMarketProviderExchangeCodes(providerId: string): string[] {
@@ -408,9 +422,9 @@ function mergeParamDefinition(
 ): MarketProviderParamDefinition {
   const merged: MarketProviderParamDefinition = {
     ...current,
-    description: current.description || next.description,
-    title: current.title || next.title,
-    placeholder: current.placeholder || next.placeholder,
+    description: current.description === next.description ? current.description : undefined,
+    title: current.title === next.title ? current.title : undefined,
+    placeholder: current.placeholder === next.placeholder ? current.placeholder : undefined,
     inputType: current.inputType || next.inputType,
     options: current.options?.length ? current.options : next.options,
     password: current.password ?? next.password,
@@ -458,6 +472,11 @@ export function getMarketProviderParamCatalog(kind: MarketDataType): MarketProvi
       existing.definition = mergeParamDefinition(existing.definition, param)
     })
   })
+
+  if (registry.apiKey) {
+    registry.apiKey.definition.description = 'API key for the selected market provider.'
+    registry.apiKey.definition.placeholder = 'Enter API key'
+  }
 
   return { order, registry }
 }

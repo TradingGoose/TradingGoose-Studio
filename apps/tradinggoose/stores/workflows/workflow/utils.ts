@@ -1,15 +1,6 @@
 import type { Edge } from '@xyflow/react'
 import type { BlockState, Loop, Parallel } from '@/stores/workflows/workflow/types'
 
-const DEFAULT_LOOP_ITERATIONS = 5
-
-/**
- * Convert UI loop block to executor Loop format
- *
- * @param loopBlockId - ID of the loop block to convert
- * @param blocks - Record of all blocks in the workflow
- * @returns Loop object for execution engine or undefined if not a valid loop
- */
 export function convertLoopBlockToLoop(
   loopBlockId: string,
   blocks: Record<string, BlockState>
@@ -17,47 +8,24 @@ export function convertLoopBlockToLoop(
   const loopBlock = blocks[loopBlockId]
   if (!loopBlock || loopBlock.type !== 'loop') return undefined
 
-  const loopType = loopBlock.data?.loopType || 'for'
+  const loopType = loopBlock.subBlocks.loopType.value as Loop['loopType']
 
   const loop: Loop = {
     id: loopBlockId,
     nodes: findChildNodes(loopBlockId, blocks),
-    iterations: loopBlock.data?.count || DEFAULT_LOOP_ITERATIONS,
+    iterations: Number(loopBlock.subBlocks.iterations.value),
     loopType,
   }
 
-  // Set the appropriate field based on loop type
   if (loopType === 'while' || loopType === 'doWhile') {
-    // For while and doWhile loops, use whileCondition
-    loop.whileCondition = loopBlock.data?.whileCondition || ''
+    loop.whileCondition = loopBlock.subBlocks.whileCondition.value as string
   } else {
-    // For for/forEach loops, read from collection (block data) and map to forEachItems (loops store)
-    // Parse collection if it's a string representation of an array/object
-    let forEachItems: any = loopBlock.data?.collection || ''
-    if (typeof forEachItems === 'string' && forEachItems.trim()) {
-      const trimmed = forEachItems.trim()
-      // Try to parse if it looks like JSON
-      if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
-        try {
-          forEachItems = JSON.parse(trimmed)
-        } catch {
-          // Keep as string if parsing fails - will be evaluated at runtime
-        }
-      }
-    }
-    loop.forEachItems = forEachItems
+    loop.forEachItems = loopBlock.subBlocks.forEachItems.value as Loop['forEachItems']
   }
 
   return loop
 }
 
-/**
- * Convert UI parallel block to executor Parallel format
- *
- * @param parallelBlockId - ID of the parallel block to convert
- * @param blocks - Record of all blocks in the workflow
- * @returns Parallel object for execution engine or undefined if not a valid parallel block
- */
 export function convertParallelBlockToParallel(
   parallelBlockId: string,
   blocks: Record<string, BlockState>
@@ -65,27 +33,17 @@ export function convertParallelBlockToParallel(
   const parallelBlock = blocks[parallelBlockId]
   if (!parallelBlock || parallelBlock.type !== 'parallel') return undefined
 
-  // Get the parallel type from block data, defaulting to 'count' for consistency
-  const parallelType = parallelBlock.data?.parallelType || 'count'
-
-  // Validate parallelType against allowed values
-  const validParallelTypes = ['collection', 'count'] as const
-  const validatedParallelType = validParallelTypes.includes(parallelType as any)
-    ? parallelType
-    : 'collection'
-
-  // Only set distribution if it's a collection-based parallel
-  const distribution =
-    validatedParallelType === 'collection' ? parallelBlock.data?.collection || '' : ''
-
-  const count = parallelBlock.data?.count || 5
+  const parallelType = parallelBlock.subBlocks.parallelType.value as Parallel['parallelType']
 
   return {
     id: parallelBlockId,
     nodes: findChildNodes(parallelBlockId, blocks),
-    distribution,
-    count,
-    parallelType: validatedParallelType,
+    distribution:
+      parallelType === 'collection'
+        ? (parallelBlock.subBlocks.distribution.value as Parallel['distribution'])
+        : '',
+    count: Number(parallelBlock.subBlocks.count.value),
+    parallelType,
   }
 }
 

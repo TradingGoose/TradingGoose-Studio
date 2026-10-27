@@ -24,32 +24,32 @@ describe('PortfolioConditionBuilder', () => {
     vi.unstubAllGlobals()
   })
 
-  it('keeps the current unsupported metric visible with supported provider options', async () => {
-    await act(async () => {
-      root.render(
-        <PortfolioConditionBuilder
-          tradingProviderId='robinhood'
-          condition={{
-            root: {
-              combinator: 'and',
-              rules: [{ metric: 'summary.totalUnrealizedPnl', operator: 'gt', value: 0 }],
-            },
-          }}
-          onChange={vi.fn()}
-        />
+  it('clears unsupported selections and options when the trading provider changes', async () => {
+    const render = (tradingProviderId: string) =>
+      act(async () =>
+        root.render(
+          <PortfolioConditionBuilder
+            tradingProviderId={tradingProviderId}
+            condition={{
+              root: {
+                combinator: 'and',
+                rules: [{ metric: 'summary.totalUnrealizedPnl', operator: 'gt', value: 0 }],
+              },
+            }}
+            onChange={vi.fn()}
+          />
+        )
       )
-    })
 
+    await render('alpaca')
     const trigger = container.querySelector<HTMLButtonElement>('[aria-label="Portfolio metric"]')
-    expect(trigger).toHaveTextContent('Unrealized P/L (Unsupported)')
+    expect(trigger).toHaveTextContent('Unrealized P/L')
+    await render('robinhood')
+    expect(trigger).not.toHaveTextContent('Unrealized P/L')
 
     await act(async () => trigger?.click())
 
     expect(document.body).toHaveTextContent('Total portfolio value')
-    expect(document.body).toHaveTextContent('Unrealized P/L (Unsupported)')
-    const unsupportedOption = Array.from(document.body.querySelectorAll('[role="option"]')).find(
-      (option) => option.textContent?.includes('Unrealized P/L (Unsupported)')
-    )
-    expect(unsupportedOption).toHaveAttribute('aria-disabled', 'true')
+    expect(document.body).not.toHaveTextContent('Unrealized P/L')
   })
 })

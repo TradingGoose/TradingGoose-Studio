@@ -78,6 +78,7 @@ describe('Parallel Handler Integration with PathTracker', () => {
         'parallel-2': {
           id: 'parallel-2',
           nodes: ['agent-2'],
+          parallelType: 'collection',
           distribution: ['item1', 'item2'],
         },
       },

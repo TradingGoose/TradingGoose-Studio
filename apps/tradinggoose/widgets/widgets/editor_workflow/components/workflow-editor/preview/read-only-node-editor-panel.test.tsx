@@ -26,7 +26,49 @@ vi.mock('@/blocks', () => ({
             },
           ],
         }
-      : undefined
+      : type === 'loop' || type === 'parallel'
+        ? {
+            category: 'blocks',
+            subBlocks:
+              type === 'loop'
+                ? [
+                    { id: 'loopType', title: 'Type', type: 'dropdown' },
+                    {
+                      id: 'iterations',
+                      title: 'Iterations',
+                      type: 'short-input',
+                      condition: { field: 'loopType', value: 'for' },
+                    },
+                    {
+                      id: 'forEachItems',
+                      title: 'Collection',
+                      type: 'long-input',
+                      condition: { field: 'loopType', value: 'forEach' },
+                    },
+                    {
+                      id: 'whileCondition',
+                      title: 'While Condition',
+                      type: 'long-input',
+                      condition: { field: 'loopType', value: ['while', 'doWhile'] },
+                    },
+                  ]
+                : [
+                    { id: 'parallelType', title: 'Type', type: 'dropdown' },
+                    {
+                      id: 'count',
+                      title: 'Count',
+                      type: 'short-input',
+                      condition: { field: 'parallelType', value: 'count' },
+                    },
+                    {
+                      id: 'distribution',
+                      title: 'Distribution',
+                      type: 'long-input',
+                      condition: { field: 'parallelType', value: 'collection' },
+                    },
+                  ],
+          }
+        : undefined
   ),
 }))
 
@@ -91,7 +133,12 @@ function createWorkflowState(): WorkflowState {
         type: 'loop',
         name: 'Loop One',
         position: { x: 0, y: 0 },
-        subBlocks: {},
+        subBlocks: {
+          loopType: { id: 'loopType', type: 'dropdown', value: 'forEach' },
+          iterations: { id: 'iterations', type: 'short-input', value: 12 },
+          forEachItems: { id: 'forEachItems', type: 'long-input', value: '{{items}}' },
+          whileCondition: { id: 'whileCondition', type: 'long-input', value: 'ready' },
+        },
         outputs: {} as any,
         enabled: true,
       },
@@ -101,8 +148,8 @@ function createWorkflowState(): WorkflowState {
       loop_1: {
         id: 'loop_1',
         nodes: [],
-        loopType: 'forEach',
-        forEachItems: '{{items}}',
+        loopType: 'for',
+        iterations: 3,
       } as any,
     },
     parallels: {},
@@ -164,5 +211,53 @@ describe('ReadOnlyNodeEditorPanel', () => {
     expect(markup).toContain('Collection')
     expect(markup).toContain('{{items}}')
     expect(markup).not.toContain('Iterations')
+  })
+
+  it.each(['while', 'doWhile'])('renders the canonical %s condition', (loopType) => {
+    const workflowState = createWorkflowState()
+    workflowState.blocks.loop_1.subBlocks.loopType.value = loopType
+    const markup = renderPreviewMarkup(
+      createElement(ReadOnlyNodeEditorPanel, {
+        selectedNodeId: 'loop_1',
+        workflowState,
+      })
+    )
+
+    expect(markup).toContain('While Condition')
+    expect(markup).toContain('ready')
+    expect(markup).not.toContain('Collection')
+    expect(markup).not.toContain('Iterations')
+  })
+
+  it('renders parallel collection configuration from canonical sub-block values', () => {
+    const workflowState = createWorkflowState()
+    workflowState.blocks.parallel_1 = {
+      ...workflowState.blocks.loop_1,
+      id: 'parallel_1',
+      type: 'parallel',
+      name: 'Parallel One',
+      subBlocks: {
+        parallelType: { id: 'parallelType', type: 'dropdown', value: 'collection' },
+        count: { id: 'count', type: 'short-input', value: 6 },
+        distribution: { id: 'distribution', type: 'long-input', value: '{{symbols}}' },
+      },
+    }
+    workflowState.parallels.parallel_1 = {
+      id: 'parallel_1',
+      nodes: [],
+      parallelType: 'count',
+      count: 2,
+    }
+
+    const markup = renderPreviewMarkup(
+      createElement(ReadOnlyNodeEditorPanel, {
+        selectedNodeId: 'parallel_1',
+        workflowState,
+      })
+    )
+
+    expect(markup).toContain('Distribution')
+    expect(markup).toContain('{{symbols}}')
+    expect(markup).not.toContain('Count')
   })
 })

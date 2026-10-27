@@ -1,12 +1,11 @@
 import { getBlockOutputPaths, getBlockOutputType } from '@/lib/workflows/block-outputs'
+import { getSubflowInsidePaths } from '@/lib/workflows/references'
 import type { Variable } from '@/stores/variables/types'
 import { normalizeBlockName } from '@/stores/workflows/utils'
 import type { BlockState, Loop, Parallel } from '@/stores/workflows/workflow/types'
 
 export interface WorkflowContext {
   blocks: Record<string, BlockState>
-  loops: Record<string, Loop>
-  parallels: Record<string, Parallel>
   subBlockValues: Record<string, Record<string, any>>
 }
 
@@ -84,27 +83,6 @@ export function readWorkflowVariableOutputs(
   }))
 }
 
-function getSubflowInsidePaths(
-  blockType: 'loop' | 'parallel',
-  blockId: string,
-  loops: Record<string, Loop>,
-  parallels: Record<string, Parallel>
-): string[] {
-  const paths = ['index']
-  if (blockType === 'loop') {
-    const loopType = loops[blockId]?.loopType || 'for'
-    if (loopType === 'forEach') {
-      paths.push('currentItem', 'items')
-    }
-  } else {
-    const parallelType = parallels[blockId]?.parallelType || 'count'
-    if (parallelType === 'collection') {
-      paths.push('currentItem', 'items')
-    }
-  }
-  return paths
-}
-
 function formatOutputReferencesWithPrefix(
   paths: string[],
   blockName: string,
@@ -119,26 +97,21 @@ function formatOutputReferencesWithPrefix(
 
 function resolveSubflowOutputType(path: string): string {
   if (path === 'index') return 'number'
-  if (path === 'results' || path === 'items') return 'json'
+  if (path === 'items') return 'json'
   return 'any'
 }
 
 export function getSubflowInsideOutputReferences(
   blockType: 'loop' | 'parallel',
   blockId: string,
-  blockName: string,
   loops: Record<string, Loop>,
   parallels: Record<string, Parallel>
 ): BlockOutputReference[] {
   return formatOutputReferencesWithPrefix(
     getSubflowInsidePaths(blockType, blockId, loops, parallels),
-    blockName,
+    blockType,
     resolveSubflowOutputType
   )
-}
-
-export function getSubflowOutsideOutputReferences(blockName: string): BlockOutputReference[] {
-  return formatOutputReferencesWithPrefix(['results'], blockName, resolveSubflowOutputType)
 }
 
 export function computeBlockOutputReferences(
@@ -146,16 +119,8 @@ export function computeBlockOutputReferences(
   ctx: WorkflowContext,
   workflowVariables: VariableOutput[] = []
 ): BlockOutputReference[] {
-  const { blocks, loops, parallels, subBlockValues } = ctx
+  const { blocks, subBlockValues } = ctx
   const blockName = block.name || block.type
-
-  if (block.type === 'loop' || block.type === 'parallel') {
-    return formatOutputReferencesWithPrefix(
-      ['results', ...getSubflowInsidePaths(block.type, block.id, loops, parallels)],
-      blockName,
-      resolveSubflowOutputType
-    )
-  }
 
   if (block.type === 'evaluator') {
     const metricsValue = getSubBlockValue(blocks, subBlockValues, block.id, 'metrics')

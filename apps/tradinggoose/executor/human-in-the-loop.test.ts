@@ -216,6 +216,46 @@ describe('Real executor durable Human in the Loop', () => {
     }
   )
 
+  it('preserves native references and quoted JSON in reviewer display data', async () => {
+    const values = {
+      quantity: 0,
+      active: false,
+      details: { cash: 0 },
+      items: ['123', 0, false],
+      numericText: '123',
+      booleanText: 'true',
+      message: 'Say "go"\\next\n$&',
+    }
+    const paused = await run(
+      linear([
+        block('before', 'effect', values),
+        approval('approval', {
+          builderData: [
+            ...Object.keys(values).map((name) => ({
+              id: name,
+              name,
+              type: 'string',
+              value: `<before.${name}>`,
+            })),
+            { id: 'missing', name: 'missing', type: 'number', value: '<before.missing>' },
+            {
+              id: 'json',
+              name: 'json',
+              type: 'object',
+              value:
+                '{"native":<before.quantity>,"quoted":"<before.quantity>","text":<before.numericText>,"message":"<before.message>"}',
+            },
+          ],
+        }),
+      ])
+    )
+    expect(paused.status).toBe('paused')
+    expect(paused.pausePoints?.[0].displayData).toEqual({
+      ...values,
+      json: { native: 0, quoted: '0', text: '123', message: values.message },
+    })
+  })
+
   it('pauses before downstream effects and resumes JSON state without replaying upstream effects', async () => {
     const workflow = linear([
       block('before', 'effect', { value: 12 }),

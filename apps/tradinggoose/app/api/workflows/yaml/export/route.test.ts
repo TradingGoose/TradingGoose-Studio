@@ -108,6 +108,37 @@ describe('Workflow YAML Export API Route', () => {
     expect(makeRequestMock).not.toHaveBeenCalled()
   })
 
+  it('exports canonical container sub-block values', async () => {
+    loadWorkflowStateMock.mockResolvedValue({
+      blocks: {
+        container: {
+          id: 'container',
+          type: 'loop',
+          name: 'Loop',
+          position: { x: 0, y: 0 },
+          subBlocks: {
+            loopType: { id: 'loopType', type: 'dropdown', value: 'while' },
+            whileCondition: { id: 'whileCondition', type: 'long-input', value: 'false' },
+          },
+          outputs: {},
+          enabled: true,
+        },
+      },
+      edges: [],
+      loops: {},
+      parallels: {},
+      variables: {},
+    })
+
+    const { GET } = await import('@/app/api/workflows/yaml/export/route')
+    const response = await GET(createRequest())
+    const payload = makeRequestMock.mock.calls[0][1].body
+
+    expect(response.status).toBe(200)
+    expect(payload.subBlockValues.container).toEqual({ loopType: 'while', whileCondition: 'false' })
+    expect(payload.workflowState.blocks.container.data).toBeUndefined()
+  })
+
   it(
     'uses the current workflow state and includes variables in the export payload',
     { timeout: 10_000 },

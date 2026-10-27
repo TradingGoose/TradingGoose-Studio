@@ -9,6 +9,7 @@ import { createMockRequest } from '@/app/api/__test-utils__/utils'
 
 const mockGetSession = vi.fn()
 const mockRefreshAccessTokenIfNeeded = vi.fn()
+const mockGetOAuthProviderAvailability = vi.fn()
 const mockListPortfolioIdentities = vi.fn()
 const mockCheckWorkspaceAccess = vi.fn()
 const mockResolveOAuthConnectionAccountForUser = vi.fn()
@@ -36,6 +37,10 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/lib/oauth/tokens', () => ({
   refreshAccessTokenIfNeeded: mockRefreshAccessTokenIfNeeded,
+}))
+
+vi.mock('@/lib/oauth/provider-availability.server', () => ({
+  getOAuthProviderAvailability: mockGetOAuthProviderAvailability,
 }))
 
 vi.mock('@/lib/credentials/oauth', () => ({
@@ -186,6 +191,9 @@ describe('Trading provider order route', () => {
         })
     )
     mockRefreshAccessTokenIfNeeded.mockResolvedValue('access-token')
+    mockGetOAuthProviderAvailability.mockImplementation(async (serviceIds: string[]) =>
+      Object.fromEntries(serviceIds.map((serviceId) => [serviceId, true]))
+    )
     mockCheckWorkspaceAccess.mockResolvedValue({
       exists: true,
       hasAccess: true,
@@ -288,8 +296,39 @@ describe('Trading provider order route', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Trading provider connection does not match requested service',
     })
+    expect(mockGetOAuthProviderAvailability).not.toHaveBeenCalled()
     expect(mockRefreshAccessTokenIfNeeded).not.toHaveBeenCalled()
     expectNoAccountDiscoveryOrBrokerCall()
+  })
+
+  it.each([false, undefined, true])('checks exact paper availability: %s', async (paper) => {
+    const { resolveTradingProviderContext } = await import('@/lib/trading/context')
+    mockGetOAuthProviderAvailability.mockResolvedValueOnce({
+      'alpaca-live': !paper,
+      'alpaca-paper': paper,
+    })
+    const result = resolveTradingProviderContext({
+      requestData: {
+        provider: 'alpaca',
+        credentialId: 'credential-paper',
+        serviceId: 'alpaca-paper',
+      },
+      requestId: 'request-1',
+      userId: 'user-1',
+      connectionOwnerUserId: 'owner-1',
+      tokenAccountId: 'token-account-1',
+      accountProviderId: 'alpaca-paper',
+    })
+    if (paper) {
+      await expect(result).resolves.toMatchObject({
+        serviceId: 'alpaca-paper',
+        environment: 'paper',
+      })
+    } else {
+      await expect(result).rejects.toThrow('Trading provider connection is not configured')
+    }
+    expect(mockGetOAuthProviderAvailability).toHaveBeenCalledExactlyOnceWith(['alpaca-paper'])
+    expect(mockRefreshAccessTokenIfNeeded).toHaveBeenCalledTimes(paper ? 1 : 0)
   })
 
   it('rejects invalid sides and numeric strings before auth or broker calls', async () => {

@@ -1,5 +1,6 @@
-import type { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
+import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
+import { extractEnvironmentReferences, extractReferencePrefixes } from '@/lib/workflows/references'
 import { BlockType } from '@/executor/consts'
 import type { BlockHandler, NormalizedBlockOutput } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
@@ -18,8 +19,11 @@ interface JSONProperty {
     | 'files'
     | typeof LISTING_IDENTITY_VALUE_TYPE
   value: any
+  referenceQuoted?: boolean
   collapsed?: boolean
 }
+
+const JSON_PROPERTY_TYPES = new Set(['object', 'array', 'files', LISTING_IDENTITY_VALUE_TYPE])
 
 export class ResponseBlockHandler implements BlockHandler {
   canHandle(block: SerializedBlock): boolean {
@@ -82,8 +86,7 @@ export class ResponseBlockHandler implements BlockHandler {
 
     if (dataMode === 'structured') {
       // Handle structured mode - convert builderData to JSON
-      const convertedData = this.convertBuilderDataToJson(inputs.builderData)
-      return this.parseObjectStrings(convertedData)
+      return this.convertBuilderDataToJson(inputs.builderData)
     }
 
     throw new Error(`Unsupported response data mode: ${dataMode}`)
@@ -102,145 +105,66 @@ export class ResponseBlockHandler implements BlockHandler {
       }
 
       const value = this.convertPropertyValue(prop)
-      result[prop.name] = value
+      if (value !== undefined) result[prop.name] = value
     }
 
     return result
   }
 
   // Static method for UI conversion from Builder to Editor mode
-  static convertBuilderDataToJsonString(builderData: JSONProperty[]): string {
-    if (!Array.isArray(builderData) || builderData.length === 0) {
-      return '{\n  \n}'
-    }
-
-    const result: any = {}
+  static convertBuilderDataToJsonString(builderData: JSONProperty[]): string | undefined {
+    const converter = new ResponseBlockHandler()
+    const result: Record<string, string> = {}
 
     for (const prop of builderData) {
-      if (!prop.name || !prop.name.trim()) {
-        continue
-      }
+      if (!prop.name || !prop.name.trim()) continue
 
-      // For UI display, keep variable references as-is without processing
-      result[prop.name] = prop.value
+      const references = typeof prop.value === 'string' ? extractReferencePrefixes(prop.value) : []
+      const exactReference = references.length === 1 && references[0].raw === prop.value.trim()
+      if (
+        (exactReference && prop.referenceQuoted !== true) ||
+        ((prop.type === 'number' || prop.type === 'boolean') &&
+          typeof prop.value === 'string' &&
+          (references.length > 0 || extractEnvironmentReferences(prop.value).length > 0))
+      ) {
+        return undefined
+      }
+      const rawJson =
+        typeof prop.value === 'string' &&
+        prop.value.trim().length > 0 &&
+        prop.referenceQuoted !== true &&
+        (prop.referenceQuoted === false || JSON_PROPERTY_TYPES.has(prop.type))
+      const value = rawJson ? prop.value : converter.convertPropertyValue(prop)
+      if (value !== undefined) result[prop.name] = rawJson ? value : JSON.stringify(value, null, 2)
     }
 
-    // Convert to JSON string, then replace quoted variable references with unquoted ones
-    let jsonString = JSON.stringify(result, null, 2)
-
-    // Replace quoted variable references with unquoted ones
-    // Pattern: "<variable.name>" -> <variable.name>
-    jsonString = jsonString.replace(/"(<[^>]+>)"/g, '$1')
-
-    return jsonString
+    return `{\n${Object.entries(result)
+      .map(([name, value]) => `  ${JSON.stringify(name)}: ${value}`)
+      .join(',\n')}\n}`
   }
 
   private convertPropertyValue(prop: JSONProperty): any {
-    switch (prop.type) {
-      case 'object':
-        return this.convertObjectValue(prop.value)
-      case 'array':
-        return this.convertArrayValue(prop.value)
-      case 'number':
-        return this.convertNumberValue(prop.value)
+    const { type, value } = prop
+    const text = typeof value === 'string' ? value.trim() : undefined
+    if (
+      type !== 'string' &&
+      (value == null || text === '' || (text?.startsWith('<') && text.includes('>')))
+    ) {
+      return undefined
+    }
+    if (JSON_PROPERTY_TYPES.has(type)) return typeof value === 'string' ? JSON.parse(value) : value
+    switch (type) {
+      case 'number': {
+        const number = Number(value)
+        return Number.isFinite(number) ? number : undefined
+      }
       case 'boolean':
-        return this.convertBooleanValue(prop.value)
-      case 'files':
-        // File values should be passed through as-is (UserFile objects)
-        return prop.value
+        if (value === 'true' || value === true) return true
+        if (value === 'false' || value === false) return false
+        return undefined
       default:
-        return prop.value
+        return value
     }
-  }
-
-  private convertObjectValue(value: any): any {
-    if (Array.isArray(value)) {
-      return this.convertBuilderDataToJson(value)
-    }
-
-    if (typeof value === 'string' && !this.isVariableReference(value)) {
-      return JSON.parse(value)
-    }
-
-    // Keep variable references or other values as-is (they'll be resolved later)
-    return value
-  }
-
-  private convertArrayValue(value: any): any {
-    if (Array.isArray(value)) {
-      return value.map((item: any) => this.convertArrayItem(item))
-    }
-
-    if (typeof value === 'string' && !this.isVariableReference(value)) {
-      const parsed = JSON.parse(value)
-      return Array.isArray(parsed) ? parsed : value
-    }
-
-    // Keep variable references or other values as-is
-    return value
-  }
-
-  private convertArrayItem(item: any): any {
-    if (typeof item !== 'object' || !item.type) {
-      return item
-    }
-
-    if (item.type === 'object' && Array.isArray(item.value)) {
-      return this.convertBuilderDataToJson(item.value)
-    }
-
-    if (item.type === 'array' && Array.isArray(item.value)) {
-      return item.value.map((subItem: any) =>
-        typeof subItem === 'object' && subItem.type ? subItem.value : subItem
-      )
-    }
-
-    return item.value
-  }
-
-  private convertNumberValue(value: any): any {
-    if (this.isVariableReference(value)) {
-      return value
-    }
-
-    const numValue = Number(value)
-    return Number.isNaN(numValue) ? value : numValue
-  }
-
-  private convertBooleanValue(value: any): any {
-    if (this.isVariableReference(value)) {
-      return value
-    }
-
-    return value === 'true' || value === true
-  }
-
-  private isVariableReference(value: any): boolean {
-    return typeof value === 'string' && value.trim().startsWith('<') && value.trim().includes('>')
-  }
-
-  private parseObjectStrings(data: any): any {
-    if (typeof data === 'string') {
-      // Try to parse strings that might be JSON objects
-      try {
-        const parsed = JSON.parse(data)
-        if (typeof parsed === 'object' && parsed !== null) {
-          return this.parseObjectStrings(parsed) // Recursively parse nested objects
-        }
-        return parsed
-      } catch {
-        return data // Return as string if not valid JSON
-      }
-    } else if (Array.isArray(data)) {
-      return data.map((item) => this.parseObjectStrings(item))
-    } else if (typeof data === 'object' && data !== null) {
-      const result: any = {}
-      for (const [key, value] of Object.entries(data)) {
-        result[key] = this.parseObjectStrings(value)
-      }
-      return result
-    }
-    return data
   }
 
   private parseStatus(status?: string): number {

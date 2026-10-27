@@ -46,6 +46,25 @@ export const sanitizeMarketProviderAuth = (
   return Object.keys(nextAuth).length > 0 ? nextAuth : undefined
 }
 
+export const getMissingMarketProviderSettings = (
+  providerId: string | undefined,
+  auth: { apiKey?: string; apiSecret?: string } | undefined,
+  providerParams: Record<string, unknown> | undefined
+): string[] =>
+  getMarketProviderParamDefinitions(trimProviderId(providerId), 'series')
+    .filter((definition) => {
+      if (!definition.required) return false
+      const value =
+        definition.id === 'apiKey' || definition.id === 'apiSecret'
+          ? auth?.[definition.id]
+          : (providerParams?.[definition.id] ??
+            (isMarketProviderCredentialDefinition(definition)
+              ? undefined
+              : definition.defaultValue))
+      return value == null || (typeof value === 'string' && value.trim() === '')
+    })
+    .map((definition) => definition.title || definition.id)
+
 export const sanitizeMarketProviderParamsForWidget = (
   providerId: string | undefined,
   providerParams: unknown

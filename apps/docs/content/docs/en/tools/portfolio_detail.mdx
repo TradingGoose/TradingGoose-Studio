@@ -48,7 +48,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 ### `trading_get_portfolio_detail`
 
-Fetch account summary, cash, positions, and orders from Alpaca or Tradier.
+Fetch account summary, cash, and supported position fields from a connected trading provider.
 
 #### Input
 
@@ -62,12 +62,12 @@ Fetch account summary, cash, positions, and orders from Alpaca or Tradier.
 | --------- | ---- | ----------- |
 | `summary` | string | Status message for portfolio detail retrieval. |
 | `provider` | string | Broker/provider used for the request. |
-| `portfolioDetail` | json | Canonical portfolio detail with cash, positions, and summary. |
+| `portfolioDetail` | json | Portfolio fields supported by the selected broker. |
 
 
 ## Usage Instructions
 
-Portfolio detail block that returns account summary, cash, positions, and orders from Alpaca or Tradier.
+Returns account summary, cash, and position fields supported by the selected trading provider.
 
 
 

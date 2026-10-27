@@ -3463,6 +3463,8 @@
           "watchlist": "Watchlist"
         },
         "blockDescriptions": {
+          "loop": "Repeat the blocks inside a workflow container sequentially.",
+          "parallel": "Execute copies of a workflow container concurrently.",
           "response": "Send structured API response",
           "variables": "Set workflow-scoped variables",
           "wait": "Pause workflow execution for a specified time delay",
@@ -3720,6 +3722,81 @@
           }
         },
         "subBlocks": {
+          "loop": {
+            "loopType": {
+              "title": "Loop Type",
+              "description": "Choose a fixed count, collection, pre-test condition, or post-test condition.",
+              "options": [
+                {
+                  "id": "for",
+                  "label": "For Loop"
+                },
+                {
+                  "id": "forEach",
+                  "label": "For Each"
+                },
+                {
+                  "id": "while",
+                  "label": "While"
+                },
+                {
+                  "id": "doWhile",
+                  "label": "Do While"
+                }
+              ]
+            },
+            "iterations": {
+              "title": "Iterations",
+              "description": "Number of sequential iterations in For Loop mode; integer from 1 to 100."
+            },
+            "forEachItems": {
+              "title": "Collection",
+              "description": "Non-empty array or object in For Each mode. Accepts an array, object, JSON text, or an exact upstream reference such as <function.result>. Object entries become key/value pairs.",
+              "placeholder": "Enter an array, object, or upstream reference"
+            },
+            "whileCondition": {
+              "title": "Condition",
+              "description": "Boolean expression for While or Do While. <loop.index> is the zero-based index of the iteration being tested. Supports upstream and workflow variable references; provide a terminating condition.",
+              "placeholder": "Enter a boolean expression"
+            }
+          },
+          "parallel": {
+            "parallelType": {
+              "title": "Parallel Type",
+              "description": "Choose a fixed execution count or one execution per collection item.",
+              "options": [
+                {
+                  "id": "count",
+                  "label": "Parallel Count"
+                },
+                {
+                  "id": "collection",
+                  "label": "Parallel Each"
+                }
+              ]
+            },
+            "count": {
+              "title": "Executions",
+              "description": "Number of parallel executions in count mode; integer from 1 to 20."
+            },
+            "distribution": {
+              "title": "Collection",
+              "description": "Array or object in collection mode. Accepts an array, object, JSON text, or an exact upstream reference such as <function.result>. Each item starts an execution; object entries become key/value pairs.",
+              "placeholder": "Enter an array, object, or upstream reference"
+            }
+          },
+          "knowledge": {
+            "content": {
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"upload_chunk\"},\"type\":\"long-input\"}": {
+                  "title": "Chunk Content"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_document\"]},\"type\":\"long-input\"}": {
+                  "title": "Document Content"
+                }
+              }
+            }
+          },
           "response": {
             "dataMode": {
               "title": "Response Data Mode",
@@ -3955,14 +4032,49 @@
               ]
             },
             "target": {
-              "placeholder": "example.com or https://example.com/page",
-              "title": "Target Domain/URL"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"ahrefs_domain_rating\"},\"type\":\"short-input\"}": {
+                  "placeholder": "example.com",
+                  "title": "Target Domain"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"ahrefs_backlinks\"},\"type\":\"short-input\"}": {
+                  "placeholder": "example.com or https://example.com/page",
+                  "title": "Target Domain/URL"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"ahrefs_backlinks_stats\"},\"type\":\"short-input\"}": {
+                  "placeholder": "example.com",
+                  "title": "Target Domain/URL"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"ahrefs_referring_domains\"},\"type\":\"short-input\"}": {
+                  "placeholder": "example.com",
+                  "title": "Target Domain/URL"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"ahrefs_organic_keywords\"},\"type\":\"short-input\"}": {
+                  "placeholder": "example.com",
+                  "title": "Target Domain/URL"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"ahrefs_top_pages\"},\"type\":\"short-input\"}": {
+                  "placeholder": "example.com",
+                  "title": "Target Domain"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"ahrefs_broken_backlinks\"},\"type\":\"short-input\"}": {
+                  "placeholder": "example.com",
+                  "title": "Target Domain/URL"
+                }
+              }
             }
           },
           "airtable": {
             "baseId": {
-              "placeholder": "Enter your base ID (e.g., appXXXXXXXXXXXXXX)",
-              "title": "Base ID"
+              "title": "Base ID",
+              "variants": {
+                "{\"type\":\"short-input\"}": {
+                  "placeholder": "Enter your base ID (e.g., appXXXXXXXXXXXXXX)"
+                },
+                "{\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "appXXXXXXXXXXXXXX"
+                }
+              }
             },
             "credential": {
               "placeholder": "Select Airtable account",
@@ -4009,8 +4121,15 @@
               "title": "Records (JSON Array)"
             },
             "tableId": {
-              "placeholder": "Enter table ID (e.g., tblXXXXXXXXXXXXXX)",
-              "title": "Table ID"
+              "title": "Table ID",
+              "variants": {
+                "{\"type\":\"short-input\"}": {
+                  "placeholder": "Enter table ID (e.g., tblXXXXXXXXXXXXXX)"
+                },
+                "{\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "tblXXXXXXXXXXXXXX"
+                }
+              }
             }
           },
           "apify": {
@@ -4073,8 +4192,15 @@
               "title": "Account Stage IDs"
             },
             "accounts": {
-              "placeholder": "[{\"id\": \"account_id_1\", \"name\": \"Updated Company Name\"}]",
-              "title": "Accounts (JSON Array)"
+              "title": "Accounts (JSON Array)",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"account_bulk_create\"},\"type\":\"code\"}": {
+                  "placeholder": "[{\"name\": \"Company A\", \"website_url\": \"https://companya.com\", \"phone\": \"+1234567890\"}]"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"account_bulk_update\"},\"type\":\"code\"}": {
+                  "placeholder": "[{\"id\": \"account_id_1\", \"name\": \"Updated Company Name\"}]"
+                }
+              }
             },
             "active": {
               "title": "Active Only"
@@ -4107,8 +4233,15 @@
               "title": "Contact Stage IDs"
             },
             "contacts": {
-              "placeholder": "[{\"id\": \"contact_id_1\", \"first_name\": \"John\", \"last_name\": \"Doe\"}]",
-              "title": "Contacts (JSON Array)"
+              "title": "Contacts (JSON Array)",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"contact_bulk_create\"},\"type\":\"code\"}": {
+                  "placeholder": "[{\"first_name\": \"John\", \"last_name\": \"Doe\", \"email\": \"john@example.com\", \"title\": \"CEO\"}]"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"contact_bulk_update\"},\"type\":\"code\"}": {
+                  "placeholder": "[{\"id\": \"contact_id_1\", \"first_name\": \"John\", \"last_name\": \"Doe\"}]"
+                }
+              }
             },
             "description": {
               "placeholder": "Opportunity description",
@@ -4516,8 +4649,15 @@
               "title": "Search Text"
             },
             "taskGid": {
-              "placeholder": "Enter Asana task GID",
-              "title": "Task GID"
+              "title": "Task GID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_task\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Leave empty to get all tasks with filters below"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"update_task\",\"add_comment\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter Asana task GID"
+                }
+              }
             },
             "workspace": {
               "placeholder": "Enter Asana workspace GID",
@@ -4684,8 +4824,24 @@
               ]
             },
             "organization": {
-              "placeholder": "Filter by organization URI (optional)",
-              "title": "Organization URI"
+              "title": "Organization URI",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"calendly_list_event_types\",\"calendly_list_scheduled_events\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Filter by organization URI (optional)"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"calendly_invitee_created\"},\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "https://api.calendly.com/organizations/XXXXXX"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"calendly_invitee_canceled\"},\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "https://api.calendly.com/organizations/XXXXXX"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"calendly_routing_form_submitted\"},\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "https://api.calendly.com/organizations/XXXXXX"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"calendly_webhook\"},\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "https://api.calendly.com/organizations/XXXXXX"
+                }
+              }
             },
             "pageToken": {
               "placeholder": "Token for pagination",
@@ -5201,8 +5357,15 @@
               "title": "File Extensions"
             },
             "fromPath": {
-              "placeholder": "/old-location/document.pdf",
-              "title": "Source Path"
+              "title": "Source Path",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"dropbox_copy\"},\"type\":\"short-input\"}": {
+                  "placeholder": "/source/document.pdf"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"dropbox_move\"},\"type\":\"short-input\"}": {
+                  "placeholder": "/old-location/document.pdf"
+                }
+              }
             },
             "includeMediaInfo": {
               "title": "Include Media Info"
@@ -5275,8 +5438,40 @@
               ]
             },
             "path": {
-              "placeholder": "/ (search all) or /folder",
-              "title": "Search in Folder"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"dropbox_upload\"},\"type\":\"short-input\"}": {
+                  "placeholder": "/folder/document.pdf",
+                  "title": "Destination Path"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"dropbox_download\"},\"type\":\"short-input\"}": {
+                  "placeholder": "/folder/document.pdf",
+                  "title": "File Path"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"dropbox_list_folder\"},\"type\":\"short-input\"}": {
+                  "placeholder": "/ (root) or /folder",
+                  "title": "Folder Path"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"dropbox_create_folder\"},\"type\":\"short-input\"}": {
+                  "placeholder": "/new-folder",
+                  "title": "Folder Path"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"dropbox_delete\"},\"type\":\"short-input\"}": {
+                  "placeholder": "/folder/file.txt",
+                  "title": "Path to Delete"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"dropbox_get_metadata\"},\"type\":\"short-input\"}": {
+                  "placeholder": "/folder/document.pdf",
+                  "title": "File/Folder Path"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"dropbox_create_shared_link\"},\"type\":\"short-input\"}": {
+                  "placeholder": "/folder/document.pdf",
+                  "title": "File/Folder Path"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"dropbox_search\"},\"type\":\"short-input\"}": {
+                  "placeholder": "/ (search all) or /folder",
+                  "title": "Search in Folder"
+                }
+              }
             },
             "query": {
               "placeholder": "Enter search term..."
@@ -5302,8 +5497,15 @@
               "title": "Visibility"
             },
             "toPath": {
-              "placeholder": "/new-location/document.pdf",
-              "title": "Destination Path"
+              "title": "Destination Path",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"dropbox_copy\"},\"type\":\"short-input\"}": {
+                  "placeholder": "/destination/document.pdf"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"dropbox_move\"},\"type\":\"short-input\"}": {
+                  "placeholder": "/new-location/document.pdf"
+                }
+              }
             }
           },
           "duckduckgo": {
@@ -5344,8 +5546,18 @@
               "title": "Expression Attribute Names (JSON)"
             },
             "expressionAttributeValues": {
-              "placeholder": "{\n  \":name\": \"Jane Doe\"\n}",
-              "title": "Expression Attribute Values (JSON)"
+              "title": "Expression Attribute Values (JSON)",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"query\"},\"type\":\"code\"}": {
+                  "placeholder": "{\n  \":pk\": \"user#123\",\n  \":name\": \"Jane\"\n}"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"scan\"},\"type\":\"code\"}": {
+                  "placeholder": "{\n  \":status\": \"active\"\n}"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"update\"},\"type\":\"code\"}": {
+                  "placeholder": "{\n  \":name\": \"Jane Doe\"\n}"
+                }
+              }
             },
             "filterExpression": {
               "placeholder": "attribute_exists(email)",
@@ -5450,12 +5662,27 @@
               "title": "Deployment Type"
             },
             "document": {
-              "placeholder": "{ \"field_to_update\": \"new_value\" }",
-              "title": "Partial Document"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"elasticsearch_index_document\"},\"type\":\"code\"}": {
+                  "placeholder": "{ \"field\": \"value\", \"another_field\": 123 }",
+                  "title": "Document"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"elasticsearch_update_document\"},\"type\":\"code\"}": {
+                  "placeholder": "{ \"field_to_update\": \"new_value\" }",
+                  "title": "Partial Document"
+                }
+              }
             },
             "documentId": {
-              "placeholder": "Leave empty for auto-generated ID",
-              "title": "Document ID"
+              "title": "Document ID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"elasticsearch_get_document\",\"elasticsearch_update_document\",\"elasticsearch_delete_document\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "unique-document-id"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"elasticsearch_index_document\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Leave empty for auto-generated ID"
+                }
+              }
             },
             "from": {
               "title": "Offset"
@@ -5533,8 +5760,16 @@
               "title": "Password"
             },
             "query": {
-              "placeholder": "{ \"match\": { \"field\": \"value\" } }",
-              "title": "Query"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"elasticsearch_search\"},\"type\":\"code\"}": {
+                  "placeholder": "{ \"match\": { \"field\": \"search term\" } }",
+                  "title": "Search Query"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"elasticsearch_count\"},\"type\":\"code\"}": {
+                  "placeholder": "{ \"match\": { \"field\": \"value\" } }",
+                  "title": "Query"
+                }
+              }
             },
             "refresh": {
               "options": [
@@ -5668,8 +5903,20 @@
               ]
             },
             "query": {
-              "placeholder": "Enter your research topic or question...",
-              "title": "Research Query"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"exa_search\"},\"type\":\"long-input\"}": {
+                  "placeholder": "Enter your search query...",
+                  "title": "Search Query"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"exa_answer\"},\"type\":\"long-input\"}": {
+                  "placeholder": "Enter your question...",
+                  "title": "Question"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"exa_research\"},\"type\":\"long-input\"}": {
+                  "placeholder": "Enter your research topic or question...",
+                  "title": "Research Query"
+                }
+              }
             },
             "summaryQuery": {
               "placeholder": "Enter a query to guide the summary generation...",
@@ -6458,20 +6705,52 @@
               "title": "File Reference"
             },
             "fileName": {
-              "placeholder": "Name for the new folder",
-              "title": "Folder Name"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_file\",\"upload\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Name of the file (e.g., document.txt)",
+                  "title": "File Name"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"create_folder\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Name for the new folder",
+                  "title": "Folder Name"
+                }
+              }
             },
             "fileUpload": {
               "placeholder": "Upload a file to Google Drive",
               "title": "Upload File"
             },
             "folderSelector": {
-              "placeholder": "Select a folder to list files from",
-              "title": "Select Folder"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_file\",\"upload\"]},\"mode\":\"basic\",\"type\":\"file-selector\"}": {
+                  "placeholder": "Select a parent folder",
+                  "title": "Select Parent Folder"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"create_folder\"},\"mode\":\"basic\",\"type\":\"file-selector\"}": {
+                  "placeholder": "Select a parent folder",
+                  "title": "Select Parent Folder"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"list\"},\"mode\":\"basic\",\"type\":\"file-selector\"}": {
+                  "placeholder": "Select a folder to list files from",
+                  "title": "Select Folder"
+                }
+              }
             },
             "manualFolderId": {
-              "placeholder": "Enter folder ID (leave empty for root folder)",
-              "title": "Folder ID"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_file\",\"upload\"]},\"mode\":\"advanced\",\"type\":\"short-input\"}": {
+                  "placeholder": "Enter parent folder ID (leave empty for root folder)",
+                  "title": "Parent Folder ID"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"create_folder\"},\"mode\":\"advanced\",\"type\":\"short-input\"}": {
+                  "placeholder": "Enter parent folder ID (leave empty for root folder)",
+                  "title": "Parent Folder ID"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"list\"},\"mode\":\"advanced\",\"type\":\"short-input\"}": {
+                  "placeholder": "Enter folder ID (leave empty for root folder)",
+                  "title": "Folder ID"
+                }
+              }
             },
             "mimeType": {
               "options": [
@@ -6541,8 +6820,15 @@
               "title": "Google Account"
             },
             "formId": {
-              "placeholder": "Enter the Google Form ID",
-              "title": "Form ID"
+              "title": "Form ID",
+              "variants": {
+                "{\"type\":\"short-input\"}": {
+                  "placeholder": "Enter the Google Form ID"
+                },
+                "{\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "1FAIpQLSd... (Google Form ID)"
+                }
+              }
             },
             "pageSize": {
               "placeholder": "Max responses to retrieve (default 5000)",
@@ -7008,8 +7294,15 @@
               "title": "Hold Name"
             },
             "matterId": {
-              "placeholder": "Enter Matter ID (optional to fetch a specific matter)",
-              "title": "Matter ID"
+              "title": "Matter ID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_matters_export\",\"list_matters_export\",\"download_export_file\",\"create_matters_holds\",\"list_matters_holds\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter Matter ID"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"list_matters\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter Matter ID (optional to fetch a specific matter)"
+                }
+              }
             },
             "name": {
               "placeholder": "Enter Matter name",
@@ -7127,8 +7420,15 @@
               "title": "Folder Title"
             },
             "folderUid": {
-              "placeholder": "Folder UID for the alert rule",
-              "title": "Folder UID"
+              "title": "Folder UID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"grafana_create_dashboard\",\"grafana_update_dashboard\",\"grafana_create_alert_rule\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Optional - folder to create dashboard in"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"grafana_create_alert_rule\",\"grafana_update_alert_rule\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Folder UID for the alert rule"
+                }
+              }
             },
             "folderUidNew": {
               "placeholder": "Optional - auto-generated if not provided",
@@ -7297,7 +7597,29 @@
               "title": "After Date"
             },
             "apiKey": {
-              "placeholder": "Enter your Grain API key"
+              "variants": {
+                "{\"type\":\"short-input\"}": {
+                  "placeholder": "Enter your Grain API key"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"grain_recording_created\"},\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "Enter your Grain API key (Personal Access Token)"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"grain_recording_updated\"},\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "Enter your Grain API key (Personal Access Token)"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"grain_highlight_created\"},\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "Enter your Grain API key (Personal Access Token)"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"grain_highlight_updated\"},\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "Enter your Grain API key (Personal Access Token)"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"grain_story_created\"},\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "Enter your Grain API key (Personal Access Token)"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"grain_webhook\"},\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "Enter your Grain API key (Personal Access Token)"
+                }
+              }
             },
             "beforeDatetime": {
               "placeholder": "ISO8601 timestamp (e.g., 2024-01-01T00:00:00Z)",
@@ -7469,7 +7791,7 @@
           },
           "historical_data": {
             "apiKey": {
-              "placeholder": "ALPHAVANTAGE_API_KEY"
+              "placeholder": "Enter API key"
             },
             "apiSecret": {
               "placeholder": "APCA-API-SECRET-KEY",
@@ -7524,6 +7846,64 @@
               ],
               "title": "Data Provider"
             },
+            "rangeMode": {
+              "description": "Select \"custom\" for explicit start/end dates or \"latest\" for a latest range.",
+              "options": [
+                {
+                  "id": "custom",
+                  "label": "Custom dates"
+                },
+                {
+                  "id": "latest",
+                  "label": "Latest range"
+                }
+              ],
+              "placeholder": "Select range mode",
+              "title": "Range Mode"
+            },
+            "rangePresetId": {
+              "description": "Latest range available from the selected data provider and interval.",
+              "options": [
+                {
+                  "id": "1d",
+                  "label": "Last 1 day"
+                },
+                {
+                  "id": "5d",
+                  "label": "Last 5 days"
+                },
+                {
+                  "id": "1w",
+                  "label": "Last 1 week"
+                },
+                {
+                  "id": "1m",
+                  "label": "Last 1 month"
+                },
+                {
+                  "id": "3m",
+                  "label": "Last 3 months"
+                },
+                {
+                  "id": "6m",
+                  "label": "Last 6 months"
+                },
+                {
+                  "id": "1y",
+                  "label": "Last 1 year"
+                },
+                {
+                  "id": "5y",
+                  "label": "Last 5 years"
+                },
+                {
+                  "id": "all",
+                  "label": "All available"
+                }
+              ],
+              "placeholder": "Select latest range",
+              "title": "Latest Range"
+            },
             "start": {
               "placeholder": "Start time"
             }
@@ -7538,12 +7918,26 @@
               "title": "Associations"
             },
             "companyId": {
-              "placeholder": "Numeric ID, or domain (requires ID Property below)",
-              "title": "Company ID or Domain"
+              "title": "Company ID or Domain",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"get_companies\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Leave empty to list all companies"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"update_company\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Numeric ID, or domain (requires ID Property below)"
+                }
+              }
             },
             "contactId": {
-              "placeholder": "Numeric ID, or email (requires ID Property below)",
-              "title": "Contact ID or Email"
+              "title": "Contact ID or Email",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"get_contacts\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Leave empty to list all contacts"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"update_contact\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Numeric ID, or email (requires ID Property below)"
+                }
+              }
             },
             "credential": {
               "placeholder": "Select HubSpot account",
@@ -7709,8 +8103,28 @@
               "title": "Department"
             },
             "domain": {
-              "placeholder": "Enter company domain",
-              "title": "Domain Filter"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"hunter_domain_search\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter domain name (e.g., stripe.com)",
+                  "title": "Domain"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"hunter_email_finder\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter domain name (e.g., stripe.com)",
+                  "title": "Domain"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"hunter_discover\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Filter by domain",
+                  "title": "Domain Filter"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"hunter_companies_find\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter company domain",
+                  "title": "Domain"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"hunter_email_count\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter domain name",
+                  "title": "Domain"
+                }
+              }
             },
             "email": {
               "placeholder": "Enter email address to verify",
@@ -7940,12 +8354,26 @@
               "placeholder": "Enter ID..."
             },
             "idempotency_key": {
-              "placeholder": "Enter unique key (e.g., UUID)...",
-              "title": "Idempotency Key"
+              "title": "Idempotency Key",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"incidentio_incidents_create\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter unique key (e.g., UUID)"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"incidentio_escalations_create\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter unique key (e.g., UUID)..."
+                }
+              }
             },
             "incident_id": {
-              "placeholder": "Enter incident ID (optional - leave blank for all incidents)...",
-              "title": "Incident ID"
+              "title": "Incident ID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"incidentio_actions_list\",\"incidentio_follow_ups_list\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Filter by incident ID..."
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"incidentio_incident_updates_list\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter incident ID (optional - leave blank for all incidents)..."
+                }
+              }
             },
             "incident_status_id": {
               "placeholder": "Enter incident status ID...",
@@ -7959,8 +8387,24 @@
               "placeholder": "Enter instructions for the role..."
             },
             "name": {
-              "placeholder": "Enter name (optional for update)...",
-              "title": "Name"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"incidentio_incidents_create\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter incident name...",
+                  "title": "Incident Name"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"incidentio_schedules_create\",\"incidentio_custom_fields_create\",\"incidentio_custom_fields_update\",\"incidentio_incident_roles_create\",\"incidentio_incident_roles_update\",\"incidentio_escalation_paths_create\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter name...",
+                  "title": "Name"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"incidentio_escalation_paths_update\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter name (optional for update)...",
+                  "title": "Name"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"incidentio_incidents_update\",\"incidentio_workflows_update\",\"incidentio_schedules_update\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter name...",
+                  "title": "Name"
+                }
+              }
             },
             "notify_incident_channel": {
               "title": "Notify Incident Channel"
@@ -8149,8 +8593,15 @@
               "title": "Page Size"
             },
             "path": {
-              "placeholder": "JSON array of escalation levels (optional for update): [{\"targets\": [{\"id\": \"...\", \"type\": \"...\", \"urgency\": \"...\"}], \"time_to_ack_seconds\": 300}]",
-              "title": "Path Configuration"
+              "title": "Path Configuration",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"incidentio_escalation_paths_create\"},\"type\":\"long-input\"}": {
+                  "placeholder": "JSON array of escalation levels: [{\"targets\": [{\"id\": \"...\", \"type\": \"...\", \"urgency\": \"...\"}], \"time_to_ack_seconds\": 300}]"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"incidentio_escalation_paths_update\"},\"type\":\"long-input\"}": {
+                  "placeholder": "JSON array of escalation levels (optional for update): [{\"targets\": [{\"id\": \"...\", \"type\": \"...\", \"urgency\": \"...\"}], \"time_to_ack_seconds\": 300}]"
+                }
+              }
             },
             "rotation_id": {
               "placeholder": "Enter rotation ID...",
@@ -10352,8 +10803,16 @@
               "title": "Select Channel"
             },
             "chatId": {
-              "placeholder": "Select a chat",
-              "title": "Select Chat"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"read_chat\",\"write_chat\"]},\"mode\":\"basic\",\"type\":\"file-selector\"}": {
+                  "placeholder": "Select a chat",
+                  "title": "Select Chat"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"microsoftteams_chat_subscription\"},\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "placeholder": "Enter chat ID",
+                  "title": "Chat ID"
+                }
+              }
             },
             "content": {
               "title": "Message"
@@ -10466,8 +10925,15 @@
               "title": "Documents (JSON Array)"
             },
             "filter": {
-              "placeholder": "{\"status\": \"inactive\"}",
-              "title": "Filter (JSON)"
+              "title": "Filter (JSON)",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"update\"},\"type\":\"code\"}": {
+                  "placeholder": "{\"name\": \"Alice Test\"}"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"delete\"},\"type\":\"code\"}": {
+                  "placeholder": "{\"status\": \"inactive\"}"
+                }
+              }
             },
             "host": {
               "placeholder": "localhost or your.mongodb.host",
@@ -10487,7 +10953,14 @@
                   "label": "True"
                 }
               ],
-              "title": "Delete Multiple"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"update\"},\"type\":\"dropdown\"}": {
+                  "title": "Update Multiple"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"delete\"},\"type\":\"dropdown\"}": {
+                  "title": "Delete Multiple"
+                }
+              }
             },
             "operation": {
               "options": [
@@ -10569,8 +11042,16 @@
           },
           "mysql": {
             "data": {
-              "placeholder": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\"\n}",
-              "title": "Update Data (JSON)"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"insert\"},\"type\":\"code\"}": {
+                  "placeholder": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"active\": true\n}",
+                  "title": "Data (JSON)"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"update\"},\"type\":\"code\"}": {
+                  "placeholder": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\"\n}",
+                  "title": "Update Data (JSON)"
+                }
+              }
             },
             "database": {
               "placeholder": "your_database",
@@ -10612,8 +11093,15 @@
               "title": "Port"
             },
             "query": {
-              "placeholder": "SELECT * FROM table_name",
-              "title": "SQL Query"
+              "title": "SQL Query",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"query\"},\"type\":\"code\"}": {
+                  "placeholder": "SELECT * FROM users WHERE active = true"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"execute\"},\"type\":\"code\"}": {
+                  "placeholder": "SELECT * FROM table_name"
+                }
+              }
             },
             "ssl": {
               "options": [
@@ -10643,8 +11131,32 @@
           },
           "neo4j": {
             "cypherQuery": {
-              "placeholder": "MATCH (n:Person {name: \"Alice\"}) DETACH DELETE n",
-              "title": "Cypher DELETE Statement"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"query\"},\"type\":\"code\"}": {
+                  "placeholder": "MATCH (n:Person) WHERE n.age > 21 RETURN n LIMIT 10",
+                  "title": "Cypher Query"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"create\"},\"type\":\"code\"}": {
+                  "placeholder": "CREATE (n:Person {name: \"Alice\", age: 30})",
+                  "title": "Cypher CREATE Statement"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"merge\"},\"type\":\"code\"}": {
+                  "placeholder": "MERGE (n:Person {email: \"alice@example.com\"}) ON CREATE SET n.created = timestamp() RETURN n",
+                  "title": "Cypher MERGE Statement"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"update\"},\"type\":\"code\"}": {
+                  "placeholder": "MATCH (n:Person {name: \"Alice\"}) SET n.age = 31, n.updated = timestamp()",
+                  "title": "Cypher UPDATE Statement"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"delete\"},\"type\":\"code\"}": {
+                  "placeholder": "MATCH (n:Person {name: \"Alice\"}) DETACH DELETE n",
+                  "title": "Cypher DELETE Statement"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"execute\"},\"type\":\"code\"}": {
+                  "placeholder": "MATCH (n:Person) RETURN n LIMIT 10",
+                  "title": "Cypher Query"
+                }
+              }
             },
             "database": {
               "placeholder": "neo4j",
@@ -10781,8 +11293,15 @@
               "title": "Page Size"
             },
             "parentId": {
-              "placeholder": "ID of parent page where database will be created",
-              "title": "Parent Page ID"
+              "title": "Parent Page ID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"notion_create_page\"},\"type\":\"short-input\"}": {
+                  "placeholder": "ID of parent page"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"notion_create_database\"},\"type\":\"short-input\"}": {
+                  "placeholder": "ID of parent page where database will be created"
+                }
+              }
             },
             "properties": {
               "placeholder": "Enter database properties as JSON object",
@@ -10796,8 +11315,16 @@
               "title": "Sort Criteria (JSON)"
             },
             "title": {
-              "placeholder": "Title for the new database",
-              "title": "Database Title"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"notion_create_page\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Title for the new page",
+                  "title": "Page Title"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"notion_create_database\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Title for the new database",
+                  "title": "Database Title"
+                }
+              }
             }
           },
           "onedrive": {
@@ -10826,12 +11353,36 @@
               "title": "Folder Name"
             },
             "folderSelector": {
-              "placeholder": "Select a folder to list files from",
-              "title": "Select Folder"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_file\",\"upload\"]},\"mode\":\"basic\",\"type\":\"file-selector\"}": {
+                  "placeholder": "Select a parent folder",
+                  "title": "Select Parent Folder"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"create_folder\"},\"mode\":\"basic\",\"type\":\"file-selector\"}": {
+                  "placeholder": "Select a parent folder",
+                  "title": "Select Parent Folder"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"list\"},\"mode\":\"basic\",\"type\":\"file-selector\"}": {
+                  "placeholder": "Select a folder to list files from",
+                  "title": "Select Folder"
+                }
+              }
             },
             "manualFolderId": {
-              "placeholder": "Enter folder ID (leave empty for root folder)",
-              "title": "Folder ID"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_file\",\"upload\"]},\"mode\":\"advanced\",\"type\":\"short-input\"}": {
+                  "placeholder": "Enter parent folder ID (leave empty for root folder)",
+                  "title": "Parent Folder ID"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"create_folder\"},\"mode\":\"advanced\",\"type\":\"short-input\"}": {
+                  "placeholder": "Enter parent folder ID (leave empty for root folder)",
+                  "title": "Parent Folder ID"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"list\"},\"mode\":\"advanced\",\"type\":\"short-input\"}": {
+                  "placeholder": "Enter folder ID (leave empty for root folder)",
+                  "title": "Folder ID"
+                }
+              }
             },
             "mimeType": {
               "options": [
@@ -11055,8 +11606,21 @@
               ]
             },
             "namespace": {
-              "placeholder": "default",
-              "title": "Namespace"
+              "title": "Namespace",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"upsert_text\"},\"type\":\"short-input\"}": {
+                  "placeholder": "default"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"search_text\"},\"type\":\"short-input\"}": {
+                  "placeholder": "default"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"fetch\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Namespace"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"search_vector\"},\"type\":\"short-input\"}": {
+                  "placeholder": "default"
+                }
+              }
             },
             "operation": {
               "options": [
@@ -11144,8 +11708,18 @@
               "title": "Cursor"
             },
             "deal_id": {
-              "placeholder": "Filter by deal ID ",
-              "title": "Deal ID"
+              "title": "Deal ID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_deal\",\"update_deal\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter deal ID"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_files\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Filter by deal ID "
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_activities\",\"create_activity\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Filter by deal ID "
+                }
+              }
             },
             "description": {
               "placeholder": "Project description ",
@@ -11166,7 +11740,14 @@
                   "label": "All"
                 }
               ],
-              "title": "Mark as Done"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_activities\"]},\"type\":\"dropdown\"}": {
+                  "title": "Completion Status"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"update_activity\"]},\"type\":\"dropdown\"}": {
+                  "title": "Mark as Done"
+                }
+              }
             },
             "due_date": {
               "placeholder": "YYYY-MM-DD",
@@ -11185,8 +11766,15 @@
               "title": "End Date"
             },
             "expected_close_date": {
-              "placeholder": "YYYY-MM-DD",
-              "title": "Expected Close Date"
+              "title": "Expected Close Date",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_deal\",\"update_deal\"]},\"type\":\"datetime-input\"}": {
+                  "placeholder": "YYYY-MM-DD "
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_lead\",\"update_lead\"]},\"type\":\"datetime-input\"}": {
+                  "placeholder": "YYYY-MM-DD"
+                }
+              }
             },
             "folder": {
               "options": [
@@ -11227,8 +11815,33 @@
               "title": "Lead ID"
             },
             "limit": {
-              "placeholder": "Number of results (default 100)",
-              "title": "Limit"
+              "title": "Limit",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_all_deals\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Number of results (default 100, max 500)"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_files\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Number of results (default 100, max 500)"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_mail_messages\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Number of results (default 50)"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_pipelines\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Number of results (default 100, max 500)"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_pipeline_deals\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Number of results (default 100, max 500)"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_projects\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Number of results (default 100, max 500)"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_activities\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Number of results (default 100, max 500)"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_leads\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Number of results (default 100)"
+                }
+              }
             },
             "note": {
               "placeholder": "Activity notes ",
@@ -11311,8 +11924,21 @@
               ]
             },
             "org_id": {
-              "placeholder": "Associated organization ID ",
-              "title": "Organization ID"
+              "title": "Organization ID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_all_deals\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Filter by organization ID"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_deal\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Associated organization ID "
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_files\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Filter by organization ID "
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_activities\",\"create_activity\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Filter by organization ID "
+                }
+              }
             },
             "organization_id": {
               "placeholder": "Organization ID to link lead to",
@@ -11323,12 +11949,38 @@
               "title": "Owner ID"
             },
             "person_id": {
-              "placeholder": "Person ID to link lead to",
-              "title": "Person ID"
+              "title": "Person ID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_all_deals\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Filter by person ID"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_deal\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Associated person ID "
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_files\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Filter by person ID "
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_activities\",\"create_activity\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Filter by person ID "
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_lead\",\"update_lead\",\"get_leads\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Person ID to link lead to"
+                }
+              }
             },
             "pipeline_id": {
-              "placeholder": "Enter pipeline ID",
-              "title": "Pipeline ID"
+              "title": "Pipeline ID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_all_deals\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Filter by pipeline ID "
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_deal\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Pipeline ID "
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_pipeline_deals\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter pipeline ID"
+                }
+              }
             },
             "project_id": {
               "placeholder": "Project ID",
@@ -11361,8 +12013,15 @@
               "title": "Sort Direction"
             },
             "stage_id": {
-              "placeholder": "Filter by stage ID ",
-              "title": "Stage ID"
+              "title": "Stage ID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_deal\",\"update_deal\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Stage ID "
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_pipeline_deals\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Filter by stage ID "
+                }
+              }
             },
             "start_date": {
               "placeholder": "YYYY-MM-DD ",
@@ -11385,13 +12044,35 @@
                 {
                   "id": "completed",
                   "label": "Completed"
-                },
-                {
-                  "id": "",
-                  "label": "All"
                 }
               ],
-              "title": "Status"
+              "title": "Status",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_all_deals\"]},\"type\":\"dropdown\"}": {
+                  "options": [
+                    {
+                      "id": "",
+                      "label": "All (not deleted)"
+                    }
+                  ]
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_pipeline_deals\"]},\"type\":\"dropdown\"}": {
+                  "options": [
+                    {
+                      "id": "",
+                      "label": "All"
+                    }
+                  ]
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_projects\"]},\"type\":\"dropdown\"}": {
+                  "options": [
+                    {
+                      "id": "",
+                      "label": "All"
+                    }
+                  ]
+                }
+              }
             },
             "subject": {
               "placeholder": "Activity subject/title",
@@ -11402,8 +12083,28 @@
               "title": "Thread ID"
             },
             "title": {
-              "placeholder": "New lead title",
-              "title": "New Title"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_deal\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter deal title",
+                  "title": "Title"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"update_deal\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "New deal title ",
+                  "title": "New Title"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_project\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter project title",
+                  "title": "Title"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_lead\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter lead title",
+                  "title": "Title"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"update_lead\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "New lead title",
+                  "title": "New Title"
+                }
+              }
             },
             "type": {
               "options": [
@@ -11721,14 +12422,29 @@
               "title": "Token ID"
             },
             "user": {
-              "placeholder": "Wallet address (optional filter)",
-              "title": "User Wallet Address"
+              "title": "User Wallet Address",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_positions\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Wallet address"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"get_trades\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Wallet address (optional filter)"
+                }
+              }
             }
           },
           "postgresql": {
             "data": {
-              "placeholder": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\"\n}",
-              "title": "Update Data (JSON)"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"insert\"},\"type\":\"code\"}": {
+                  "placeholder": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"active\": true\n}",
+                  "title": "Data (JSON)"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"update\"},\"type\":\"code\"}": {
+                  "placeholder": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\"\n}",
+                  "title": "Update Data (JSON)"
+                }
+              }
             },
             "database": {
               "placeholder": "your_database",
@@ -11770,8 +12486,15 @@
               "title": "Port"
             },
             "query": {
-              "placeholder": "SELECT * FROM table_name",
-              "title": "SQL Query"
+              "title": "SQL Query",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"query\"},\"type\":\"code\"}": {
+                  "placeholder": "SELECT * FROM users WHERE active = true"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"execute\"},\"type\":\"code\"}": {
+                  "placeholder": "SELECT * FROM table_name"
+                }
+              }
             },
             "ssl": {
               "options": [
@@ -11885,8 +12608,16 @@
               "title": "Group Properties (JSON)"
             },
             "groups": {
-              "placeholder": "[{\"properties\": [...]}]",
-              "title": "Groups (JSON Array)"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"posthog_evaluate_flags\"},\"type\":\"long-input\"}": {
+                  "placeholder": "{\"company\": \"company_id_in_your_db\"}",
+                  "title": "Groups (JSON)"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"posthog_create_cohort\"},\"type\":\"long-input\"}": {
+                  "placeholder": "[{\"properties\": [...]}]",
+                  "title": "Groups (JSON Array)"
+                }
+              }
             },
             "insightId": {
               "placeholder": "Insight ID",
@@ -12350,8 +13081,16 @@
               "title": "Conditions (JSON)"
             },
             "data": {
-              "placeholder": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\"\n}",
-              "title": "Update Data (JSON)"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"insert\"},\"type\":\"code\"}": {
+                  "placeholder": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"active\": true\n}",
+                  "title": "Data (JSON)"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"update\"},\"type\":\"code\"}": {
+                  "placeholder": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\"\n}",
+                  "title": "Update Data (JSON)"
+                }
+              }
             },
             "database": {
               "placeholder": "your_database",
@@ -12382,8 +13121,15 @@
               ]
             },
             "query": {
-              "placeholder": "SELECT * FROM table_name",
-              "title": "SQL Query"
+              "title": "SQL Query",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"query\"},\"type\":\"code\"}": {
+                  "placeholder": "SELECT * FROM users WHERE active = true"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"execute\"},\"type\":\"code\"}": {
+                  "placeholder": "SELECT * FROM table_name"
+                }
+              }
             },
             "region": {
               "placeholder": "us-east-1",
@@ -13259,21 +14005,50 @@
               "title": "Event ID"
             },
             "isBookmarked": {
-              "title": "Bookmark Project"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_issues_update\"},\"type\":\"switch\"}": {
+                  "title": "Bookmark Issue"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_projects_update\"},\"type\":\"switch\"}": {
+                  "title": "Bookmark Project"
+                }
+              }
             },
             "isSubscribed": {
               "title": "Subscribe to Updates"
             },
             "issueId": {
-              "placeholder": "Filter by specific issue (optional)",
-              "title": "Issue ID"
+              "title": "Issue ID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_issues_get\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter issue ID"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_issues_update\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter issue ID"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_events_list\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Filter by specific issue (optional)"
+                }
+              }
             },
             "limit": {
               "title": "Limit"
             },
             "name": {
-              "placeholder": "Optional deploy name",
-              "title": "Deploy Name"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_projects_create\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter project name",
+                  "title": "Project Name"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_projects_update\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Leave empty to keep current name",
+                  "title": "New Name"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_releases_deploy\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Optional deploy name",
+                  "title": "Deploy Name"
+                }
+              }
             },
             "operation": {
               "options": [
@@ -13332,26 +14107,75 @@
               "title": "Organization Slug"
             },
             "platform": {
-              "placeholder": "Leave empty to keep current platform",
-              "title": "Platform"
+              "title": "Platform",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_projects_create\"},\"type\":\"short-input\"}": {
+                  "placeholder": "javascript, python, node, etc."
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_projects_update\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Leave empty to keep current platform"
+                }
+              }
             },
             "projects": {
               "placeholder": "Comma-separated project slugs"
             },
             "projectSlug": {
-              "placeholder": "Enter project slug",
-              "title": "Project ID or Slug"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_issues_list\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Filter by project (optional)",
+                  "title": "Project Slug"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_projects_get\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter project ID or slug",
+                  "title": "Project ID or Slug"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_projects_update\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter project slug",
+                  "title": "Project Slug"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_events_list\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter project slug",
+                  "title": "Project Slug"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_events_get\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter project slug",
+                  "title": "Project Slug"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_releases_list\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Filter by project (optional)",
+                  "title": "Project Slug"
+                }
+              }
             },
             "query": {
-              "placeholder": "Search for specific release versions"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_issues_list\"},\"type\":\"long-input\"}": {
+                  "placeholder": "e.g., is:unresolved, level:error"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_events_list\"},\"type\":\"long-input\"}": {
+                  "placeholder": "e.g., user.email:*@example.com"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_releases_list\"},\"type\":\"long-input\"}": {
+                  "placeholder": "Search for specific release versions"
+                }
+              }
             },
             "ref": {
               "placeholder": "Commit SHA, tag, or branch",
               "title": "Git Reference"
             },
             "slug": {
-              "placeholder": "Leave empty to keep current slug",
-              "title": "New Slug"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_projects_create\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Auto-generated if not provided",
+                  "title": "Project Slug"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_projects_update\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Leave empty to keep current slug",
+                  "title": "New Slug"
+                }
+              }
             },
             "sort": {
               "options": [
@@ -13379,8 +14203,15 @@
               "title": "Sort By"
             },
             "statsPeriod": {
-              "placeholder": "24h, 7d, 30d, 90d",
-              "title": "Stats Period"
+              "title": "Stats Period",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_issues_list\"},\"type\":\"short-input\"}": {
+                  "placeholder": "24h, 7d, 30d"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_events_list\"},\"type\":\"short-input\"}": {
+                  "placeholder": "24h, 7d, 30d, 90d"
+                }
+              }
             },
             "status": {
               "options": [
@@ -13403,25 +14234,55 @@
                 {
                   "id": "resolvedInNextRelease",
                   "label": "Resolved in Next Release"
-                },
-                {
-                  "id": "",
-                  "label": "No Change"
                 }
               ],
-              "title": "New Status"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_issues_list\"},\"type\":\"dropdown\"}": {
+                  "options": [
+                    {
+                      "id": "",
+                      "label": "All"
+                    }
+                  ],
+                  "title": "Status"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_issues_update\"},\"type\":\"dropdown\"}": {
+                  "options": [
+                    {
+                      "id": "",
+                      "label": "No Change"
+                    }
+                  ],
+                  "title": "New Status"
+                }
+              }
             },
             "teamSlug": {
               "placeholder": "Team that will own the project",
               "title": "Team Slug"
             },
             "url": {
-              "placeholder": "URL to CI/CD pipeline or deploy",
-              "title": "Deploy URL"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_releases_create\"},\"type\":\"long-input\"}": {
+                  "placeholder": "URL to release page (e.g., GitHub release)",
+                  "title": "Release URL"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_releases_deploy\"},\"type\":\"long-input\"}": {
+                  "placeholder": "URL to CI/CD pipeline or deploy",
+                  "title": "Deploy URL"
+                }
+              }
             },
             "version": {
-              "placeholder": "Release version to deploy",
-              "title": "Version"
+              "title": "Version",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_releases_create\"},\"type\":\"short-input\"}": {
+                  "placeholder": "e.g., 2.0.0 or my-app@1.0.0"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"sentry_releases_deploy\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Release version to deploy"
+                }
+              }
             }
           },
           "serper": {
@@ -13508,9 +14369,21 @@
           },
           "servicenow": {
             "fields": {
-              "description": "Comma-separated list of fields",
-              "placeholder": "number,short_description,priority",
-              "title": "Fields to Update (JSON)"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"servicenow_create_record\"},\"type\":\"code\"}": {
+                  "placeholder": "{\n  \"short_description\": \"Issue description\",\n  \"priority\": \"1\"\n}",
+                  "title": "Fields (JSON)"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"servicenow_read_record\"},\"type\":\"short-input\"}": {
+                  "description": "Comma-separated list of fields",
+                  "placeholder": "number,short_description,priority",
+                  "title": "Fields to Return"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"servicenow_update_record\"},\"type\":\"code\"}": {
+                  "placeholder": "{\n  \"state\": \"2\",\n  \"assigned_to\": \"user.sys_id\"\n}",
+                  "title": "Fields to Update (JSON)"
+                }
+              }
             },
             "instanceUrl": {
               "description": "Your ServiceNow instance URL (e.g., https://yourcompany.service-now.com)",
@@ -13555,8 +14428,18 @@
               "title": "Query String"
             },
             "sysId": {
-              "placeholder": "Record sys_id to delete",
-              "title": "Record sys_id"
+              "title": "Record sys_id",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"servicenow_read_record\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Specific record sys_id (optional)"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"servicenow_update_record\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Record sys_id to update"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"servicenow_delete_record\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Record sys_id to delete"
+                }
+              }
             },
             "tableName": {
               "description": "ServiceNow table name",
@@ -15163,8 +16046,15 @@
               "title": "Metadata (JSON)"
             },
             "name": {
-              "placeholder": "Customer or Product Name",
-              "title": "Name"
+              "title": "Name",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_product\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Product Name"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":[\"create_customer\",\"update_customer\",\"update_product\"]},\"type\":\"short-input\"}": {
+                  "placeholder": "Customer or Product Name"
+                }
+              }
             },
             "operation": {
               "options": [
@@ -15650,8 +16540,21 @@
               "title": "Data"
             },
             "filter": {
-              "placeholder": "status=eq.active",
-              "title": "Filter (PostgREST syntax)"
+              "title": "Filter (PostgREST syntax)",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"get_row\"},\"type\":\"short-input\"}": {
+                  "placeholder": "id=eq.123"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"update\"},\"type\":\"short-input\"}": {
+                  "placeholder": "id=eq.123"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"delete\"},\"type\":\"short-input\"}": {
+                  "placeholder": "id=eq.123"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"query\"},\"type\":\"short-input\"}": {
+                  "placeholder": "status=eq.active"
+                }
+              }
             },
             "functionName": {
               "placeholder": "match_documents",
@@ -15767,9 +16670,17 @@
               "title": "Audio"
             },
             "botToken": {
-              "description": "Getting Bot Token:\n1. If you haven't already, message \"/newbot\" to @BotFather\n2. Choose a name for your bot\n3. Copy the token it provides and paste it here",
-              "placeholder": "Enter your Telegram Bot Token",
-              "title": "Bot Token"
+              "title": "Bot Token",
+              "variants": {
+                "{\"type\":\"short-input\"}": {
+                  "description": "Getting Bot Token:\n1. If you haven't already, message \"/newbot\" to @BotFather\n2. Choose a name for your bot\n3. Copy the token it provides and paste it here",
+                  "placeholder": "Enter your Telegram Bot Token"
+                },
+                "{\"mode\":\"trigger\",\"type\":\"short-input\"}": {
+                  "description": "Your Telegram Bot Token from BotFather",
+                  "placeholder": "123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
+                }
+              }
             },
             "caption": {
               "description": "Media caption (optional)",
@@ -15966,12 +16877,40 @@
           },
           "trello": {
             "boardId": {
-              "placeholder": "Enter board ID to get board actions",
-              "title": "Board ID"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_list_lists\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter board ID",
+                  "title": "Board"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_list_cards\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter board ID or search for a board",
+                  "title": "Board"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_create_card\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter board ID or search for a board",
+                  "title": "Board"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_get_actions\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter board ID to get board actions",
+                  "title": "Board ID"
+                }
+              }
             },
             "cardId": {
-              "placeholder": "Enter card ID to get card actions",
-              "title": "Card ID"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_update_card\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter card ID or search for a card",
+                  "title": "Card"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_get_actions\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter card ID to get card actions",
+                  "title": "Card ID"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_add_comment\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter card ID or search for a card",
+                  "title": "Card"
+                }
+              }
             },
             "closed": {
               "title": "Archive Card"
@@ -15981,8 +16920,16 @@
               "title": "Trello Account"
             },
             "desc": {
-              "placeholder": "Enter new description (leave empty to keep current)",
-              "title": "New Description"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_create_card\"},\"type\":\"long-input\"}": {
+                  "placeholder": "Enter card description (optional)",
+                  "title": "Description"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_update_card\"},\"type\":\"long-input\"}": {
+                  "placeholder": "Enter new description (leave empty to keep current)",
+                  "title": "New Description"
+                }
+              }
             },
             "due": {
               "placeholder": "YYYY-MM-DD or YYYY-MM-DDTHH:mm:ssZ",
@@ -16006,12 +16953,28 @@
               "title": "Limit"
             },
             "listId": {
-              "placeholder": "Enter list ID or search for a list",
-              "title": "List"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_list_cards\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter list ID to filter cards by list",
+                  "title": "List (Optional)"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_create_card\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter list ID or search for a list",
+                  "title": "List"
+                }
+              }
             },
             "name": {
-              "placeholder": "Enter new card name (leave empty to keep current)",
-              "title": "New Card Name"
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_create_card\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter card name/title",
+                  "title": "Card Name"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"trello_update_card\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter new card name (leave empty to keep current)",
+                  "title": "New Card Name"
+                }
+              }
             },
             "operation": {
               "options": [
@@ -16263,7 +17226,11 @@
               ]
             },
             "style": {
-              "placeholder": "e.g., cheerful, sad, angry"
+              "variants": {
+                "{\"condition\":{\"field\":\"provider\",\"value\":\"azure\"},\"type\":\"short-input\"}": {
+                  "placeholder": "e.g., cheerful, sad, angry"
+                }
+              }
             },
             "text": {
               "placeholder": "Enter the text to convert to speech..."
@@ -16359,10 +17326,27 @@
                   "label": "Zeus"
                 }
               ],
-              "placeholder": "Voice ID or manifest URL"
+              "variants": {
+                "{\"condition\":{\"field\":\"provider\",\"value\":\"cartesia\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter Cartesia voice ID"
+                },
+                "{\"condition\":{\"field\":\"provider\",\"value\":\"playht\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Voice ID or manifest URL"
+                }
+              }
             },
             "voiceId": {
-              "placeholder": "e.g., en-US-JennyNeural"
+              "variants": {
+                "{\"condition\":{\"field\":\"provider\",\"value\":\"elevenlabs\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter ElevenLabs voice ID"
+                },
+                "{\"condition\":{\"field\":\"provider\",\"value\":\"google\"},\"type\":\"short-input\"}": {
+                  "placeholder": "e.g., en-US-Neural2-A"
+                },
+                "{\"condition\":{\"field\":\"provider\",\"value\":\"azure\"},\"type\":\"short-input\"}": {
+                  "placeholder": "e.g., en-US-JennyNeural"
+                }
+              }
             }
           },
           "twilio_sms": {
@@ -16619,10 +17603,6 @@
                   "label": "Veo 3 Fast"
                 },
                 {
-                  "id": "veo-3.1",
-                  "label": "Google Veo 3.1"
-                },
-                {
                   "id": "ray-2",
                   "label": "Ray 2"
                 },
@@ -16658,7 +17638,25 @@
                   "id": "ltxv-0.9.8",
                   "label": "LTXV 0.9.8"
                 }
-              ]
+              ],
+              "variants": {
+                "{\"condition\":{\"field\":\"provider\",\"value\":\"veo\"},\"type\":\"dropdown\"}": {
+                  "options": [
+                    {
+                      "id": "veo-3.1",
+                      "label": "Veo 3.1"
+                    }
+                  ]
+                },
+                "{\"condition\":{\"field\":\"provider\",\"value\":\"falai\"},\"type\":\"dropdown\"}": {
+                  "options": [
+                    {
+                      "id": "veo-3.1",
+                      "label": "Google Veo 3.1"
+                    }
+                  ]
+                }
+              }
             },
             "prompt": {
               "placeholder": "Describe the video you want to generate..."
@@ -16813,8 +17811,24 @@
           },
           "webflow": {
             "collectionId": {
-              "placeholder": "Enter collection ID",
-              "title": "Collection ID"
+              "variants": {
+                "{\"type\":\"short-input\"}": {
+                  "placeholder": "Enter collection ID",
+                  "title": "Collection ID"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"webflow_collection_item_created\"},\"mode\":\"trigger\",\"type\":\"dropdown\"}": {
+                  "placeholder": "Select a collection (optional)",
+                  "title": "Collection"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"webflow_collection_item_changed\"},\"mode\":\"trigger\",\"type\":\"dropdown\"}": {
+                  "placeholder": "Select a collection (optional)",
+                  "title": "Collection"
+                },
+                "{\"condition\":{\"field\":\"selectedTriggerId\",\"value\":\"webflow_collection_item_deleted\"},\"mode\":\"trigger\",\"type\":\"dropdown\"}": {
+                  "placeholder": "Select a collection (optional)",
+                  "title": "Collection"
+                }
+              }
             },
             "credential": {
               "placeholder": "Select Webflow account",
@@ -16901,8 +17915,15 @@
               ]
             },
             "pageTitle": {
-              "placeholder": "Enter Wikipedia page title...",
-              "title": "Page Title"
+              "title": "Page Title",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"wikipedia_summary\"},\"type\":\"long-input\"}": {
+                  "placeholder": "Enter Wikipedia page title (e.g., \"Python programming language\")..."
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"wikipedia_content\"},\"type\":\"long-input\"}": {
+                  "placeholder": "Enter Wikipedia page title..."
+                }
+              }
             },
             "query": {
               "placeholder": "Enter search terms..."
@@ -17441,8 +18462,15 @@
               "title": "Channel Username"
             },
             "videoId": {
-              "placeholder": "Enter YouTube video ID",
-              "title": "Video ID"
+              "title": "Video ID",
+              "variants": {
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"youtube_video_details\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter YouTube video ID (e.g., dQw4w9WgXcQ)"
+                },
+                "{\"condition\":{\"field\":\"operation\",\"value\":\"youtube_comments\"},\"type\":\"short-input\"}": {
+                  "placeholder": "Enter YouTube video ID"
+                }
+              }
             }
           },
           "zendesk": {
@@ -20215,23 +21243,6 @@
         "renameNode": "Rename node",
         "locked": "Locked",
         "disabled": "Disabled",
-        "loopTypeLabel": "Loop Type",
-        "parallelTypeLabel": "Parallel Type",
-        "selectType": "Select type",
-        "forLoop": "For Loop",
-        "forEachLoop": "For Each",
-        "whileLoop": "While Loop",
-        "doWhileLoop": "Do While Loop",
-        "parallelCount": "Parallel Count",
-        "parallelEach": "Parallel Each",
-        "loopIterations": "Loop Iterations",
-        "parallelExecutions": "Parallel Executions",
-        "whileCondition": "While Condition",
-        "whileConditionPlaceholder": "<counter.value> < 10",
-        "collectionItems": "Collection Items",
-        "collectionItemsPlaceholder": "['item1', 'item2', 'item3']",
-        "parallelItems": "Parallel Items",
-        "enterValueBetween": "Enter a value between 1 and {max}",
         "hideAdditionalFields": "Hide additional fields",
         "showAdditionalFields": "Show additional fields",
         "additionalFields": "Additional fields",
@@ -20246,8 +21257,6 @@
           "previousMonth": "Previous month",
           "nextMonth": "Next month"
         },
-        "loop": "Loop",
-        "parallel": "Parallel",
         "start": "Start",
         "end": "End",
         "controlBar": {
@@ -20604,14 +21613,16 @@
           "selectWorkspace": "Select a workspace to use watchlists.",
           "loadingWatchlists": "Loading watchlists…",
           "failedToLoadWatchlists": "Failed to load watchlists.",
+          "loadingQuotes": "Loading quotes…",
+          "quoteUnavailable": "Quote unavailable",
           "createWatchlistToGetStarted": "Create a watchlist to get started.",
           "watchlistNotFound": "Watchlist not found.",
           "noItemsInThisWatchlist": "No items in this watchlist.",
           "symbol": "Symbol",
           "asset": "Asset",
           "last": "Last",
-          "change": "Change",
-          "changePercent": "Change %",
+          "change": "Day Change",
+          "changePercent": "Day %",
           "actions": "Actions",
           "cancelSymbolEdit": "Cancel symbol edit",
           "editSymbol": "Edit symbol",
@@ -20927,7 +21938,6 @@
           "failedToLoadTradingProviders": "Failed to load trading providers.",
           "failedToLoadBrokerAccounts": "Failed to load broker accounts.",
           "failedToLoadPortfolioSnapshot": "Failed to load portfolio snapshot.",
-          "failedToLoadMarketQuotes": "Failed to load market quotes.",
           "failedToLoadPerformanceHistory": "Failed to load performance history.",
           "performance": "Performance",
           "performanceWindow": "Performance window",
@@ -20987,8 +21997,7 @@
           "selectBrokerAccountToLoadPortfolioHoldings": "Select a broker account to load portfolio holdings.",
           "failedToLoadHoldings": "Failed to load holdings.",
           "noHoldingsListingsFoundForThisAccount": "No holdings listings found for this account.",
-          "noWatchlistListingsFound": "No watchlist listings found.",
-          "failedToLoadMarketQuotes": "Failed to load market quotes."
+          "noWatchlistListingsFound": "No watchlist listings found."
         }
       },
       "quickOrder": {

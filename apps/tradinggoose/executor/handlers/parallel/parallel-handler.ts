@@ -119,21 +119,7 @@ export class ParallelBlockHandler implements BlockHandler {
     if (!parallelState) {
       logger.info(`Initializing parallel block ${block.id}`)
 
-      // Get the parallel type from the parallel config (explicit type to avoid inference bugs)
-      // If no explicit parallelType is set, infer it based on whether distribution exists
-      let parallelType = parallel.parallelType
-      if (!parallelType) {
-        // If there's a distribution, default to 'collection', otherwise default to 'count'
-        parallelType = parallel.distribution ? 'collection' : 'count'
-      }
-      const countValue = parallel.count || block.config?.params?.count || 1
-
-      logger.info(`Parallel ${block.id} configuration:`, {
-        parallelType,
-        countValue,
-        distribution: parallel.distribution,
-        configSource: parallel.count ? 'workflow_subflows' : 'block.config',
-      })
+      const { parallelType, count } = parallel
 
       // Evaluate distribution items if provided and type is collection
       let distributionItems: any[] | Record<string, any> | null = null
@@ -147,10 +133,10 @@ export class ParallelBlockHandler implements BlockHandler {
       }
 
       // Determine the number of parallel executions
-      let parallelCount = 1
-      if (parallelType === 'count') {
+      let parallelCount: number
+      if (parallelType === 'count' && typeof count === 'number') {
         // Use the count value for count-based parallel
-        parallelCount = Math.min(20, Math.max(1, countValue))
+        parallelCount = Math.min(20, Math.max(1, count))
         logger.info(`Parallel ${block.id} will execute ${parallelCount} times based on count`)
       } else if (parallelType === 'collection' && distributionItems) {
         // Use distribution items length for collection-based parallel
@@ -161,9 +147,7 @@ export class ParallelBlockHandler implements BlockHandler {
           `Parallel ${block.id} will execute ${parallelCount} times based on distribution items`
         )
       } else {
-        // Simple parallel - single execution
-        parallelCount = 1
-        logger.info(`Parallel ${block.id} will execute ${parallelCount} time (simple mode)`)
+        throw new Error(`Invalid parallel configuration for block ${block.id}`)
       }
 
       // Initialize parallel execution state

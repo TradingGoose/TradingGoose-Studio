@@ -8,7 +8,8 @@ import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { Textarea } from '@/components/ui/textarea'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
-import { useWorkflowTextField } from '@/lib/yjs/use-workflow-doc'
+import { stringifySubBlockValue } from '@/lib/workflows/subblock-values'
+import { useWorkflowField } from '@/lib/yjs/use-workflow-doc'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useTagSelection } from '@/hooks/use-tag-selection'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
@@ -27,7 +28,7 @@ interface LongInputProps {
   isConnecting: boolean
   config: SubBlockConfig
   rows?: number
-  value?: string
+  value?: unknown
   onChange?: (value: string) => void
   disabled?: boolean
 }
@@ -67,15 +68,13 @@ export function LongInput({
   const containerRef = useRef<HTMLDivElement>(null)
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
-  const baseValueString = propValue?.toString() ?? ''
-  const { value: textFieldValue, setValue: setTextFieldValue } = useWorkflowTextField(
+  const baseValueString = stringifySubBlockValue(propValue)
+  const { value: textFieldValue, setValue: setTextFieldValue } = useWorkflowField(
     blockId,
     subBlockId,
     baseValueString,
     {
       enabled: isWorkflowManaged,
-      autoCreate: isWorkflowManaged && !disabled,
-      mirrorDelayMs: isWorkflowManaged ? 450 : null,
     }
   )
   const persistedValue = isWorkflowManaged ? textFieldValue : baseValueString

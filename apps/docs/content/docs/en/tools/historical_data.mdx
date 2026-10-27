@@ -42,7 +42,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "short-input",
             "title": "API Key",
             "layout": "full",
-            "placeholder": "ALPHAVANTAGE_API_KEY",
+            "placeholder": "Enter API key",
             "password": true,
             "description": "Shown when provider is one of 'alpha-vantage', 'alpaca', 'finnhub'."
         },
@@ -75,12 +75,40 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "description": "Shown when provider is 'alpaca'."
         },
         {
+            "id": "rangeMode",
+            "type": "dropdown",
+            "title": "Range Mode",
+            "layout": "full",
+            "placeholder": "Select range mode",
+            "required": true,
+            "options": [
+                {
+                    "id": "custom",
+                    "label": "Custom dates"
+                },
+                {
+                    "id": "latest",
+                    "label": "Latest range"
+                }
+            ]
+        },
+        {
             "id": "interval",
             "type": "dropdown",
             "title": "Interval",
             "layout": "full",
             "placeholder": "Select interval",
-            "description": "Shown when provider is one of 'alpha-vantage', 'alpaca', 'yahoo-finance', 'finnhub'."
+            "required": true,
+            "description": "Required for both modes when the selected provider supports intervals."
+        },
+        {
+            "id": "rangePresetId",
+            "type": "dropdown",
+            "title": "Latest Range",
+            "layout": "full",
+            "placeholder": "Select latest range",
+            "required": true,
+            "description": "Shown for Latest range. Available ranges depend on the selected provider and interval."
         },
         {
             "id": "normalizationMode",
@@ -96,7 +124,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Start",
             "layout": "full",
             "placeholder": "Start time",
-            "required": true
+            "required": true,
+            "description": "Shown and required only for Custom dates."
         },
         {
             "id": "end",
@@ -104,7 +133,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "End",
             "layout": "full",
             "placeholder": "End time",
-            "required": true
+            "required": true,
+            "description": "Shown and required only for Custom dates."
         }
     ]}
   />
@@ -122,13 +152,12 @@ Fetch and normalize market series data from registered market providers.
 | --------- | ---- | -------- | ----------- |
 | `provider` | string | Yes | Market data provider id \(e.g., alpaca, finnhub, yahoo-finance\). |
 | `listing` | listingIdentity | Yes | Structured listing payload from TradingGoose Market. |
-| `apiKey` | string | Yes | Alpha Vantage API key. |
+| `apiKey` | string | Yes | API key for the selected provider. |
 | `apiSecret` | string | Yes | Alpaca API secret key. |
 | `feed` | string | Yes | Alpaca data feed \(required for stock bars\). |
 | `interval` | string | No | Series interval/timeframe supported by the provider. |
 | `normalizationMode` | string | No | Normalization mode supported by the provider \(optional\). |
-| `window` | json | Yes | Primary series window \(range, bars, or absolute\). |
-| `fallbackWindow` | json | No | Fallback series window if the primary is unsupported or invalid. |
+| `window` | json | Yes | Series window \(range, bars, absolute, or all where supported\). |
 | `providerParams` | json | No | Optional provider-specific parameters. |
 
 #### Output
@@ -147,8 +176,7 @@ Fetch and normalize market series data from registered market providers.
 
 ## Usage Instructions
 
-Choose a market data provider, select a canonical listing, and fetch series bars that include open, high, low, close, volume, and timestamps. Start and end can be ISO strings or UNIX timestamps.
-
+Choose a market data provider, a canonical listing, and a supported interval. In Range Mode (`rangeMode`), choose Custom dates (`custom`) and enter the required start/end dates as ISO strings or UNIX timestamps, or choose Latest range (`latest`) and select a Latest Range (`rangePresetId`). Available ranges depend on the provider and interval; choosing a range does not change the interval. All available is offered only at the provider's supported interval for complete history.
 
 
 ## Notes

@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
+import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { GitHubBlock } from '@/blocks/blocks/github'
 import { GmailBlock } from '@/blocks/blocks/gmail'
+import { GoogleDriveBlock } from '@/blocks/blocks/google_drive'
+import { HistoricalDataBlock } from '@/blocks/blocks/historical_data'
+import { LoopBlock } from '@/blocks/blocks/loop'
+import { Neo4jBlock } from '@/blocks/blocks/neo4j'
+import { ParallelContainerBlock } from '@/blocks/blocks/parallel_container'
+import { SentryBlock } from '@/blocks/blocks/sentry'
+import { ServiceNowBlock } from '@/blocks/blocks/servicenow'
+import { TtsBlock } from '@/blocks/blocks/tts'
 import { InputTriggerBlock } from '@/triggers/blocks/input_trigger'
 import { PortfolioStateTriggerBlock } from '@/triggers/blocks/portfolio_state_trigger'
 import { apiTrigger } from '@/triggers/core/api'
@@ -28,6 +37,14 @@ function collectNonArrayOptionOverridePaths(
 ): string[] {
   const invalidPaths: string[] = []
   const blockEditor = localeCopy.workspace?.widgets?.blockEditor
+  const visitOptions = (copy: Record<string, any>, path: string) => {
+    if ('options' in copy && !Array.isArray(copy.options)) {
+      invalidPaths.push(`${locale}:${path}.options`)
+    }
+    for (const [key, variant] of Object.entries(copy.variants ?? {})) {
+      visitOptions(variant as Record<string, any>, `${path}.variants.${key}`)
+    }
+  }
 
   const visitSubBlockCollection = (
     collection: Record<string, any> | undefined,
@@ -46,10 +63,7 @@ function collectNonArrayOptionOverridePaths(
         if (!subBlockValue || typeof subBlockValue !== 'object') {
           continue
         }
-        const options = (subBlockValue as Record<string, any>)?.options
-        if ('options' in (subBlockValue as Record<string, any>) && !Array.isArray(options)) {
-          invalidPaths.push(`${locale}:${basePath}.${entryId}.${subBlockId}.options`)
-        }
+        visitOptions(subBlockValue, `${basePath}.${entryId}.${subBlockId}`)
       }
     }
   }
@@ -75,12 +89,10 @@ function collectNonArrayOptionOverridePaths(
           if (!paramValue || typeof paramValue !== 'object') {
             continue
           }
-          const options = (paramValue as Record<string, any>)?.options
-          if ('options' in (paramValue as Record<string, any>) && !Array.isArray(options)) {
-            invalidPaths.push(
-              `${locale}:workspace.widgets.blockEditor.toolParameters.${blockType}.${toolId}.${paramId}.options`
-            )
-          }
+          visitOptions(
+            paramValue,
+            `workspace.widgets.blockEditor.toolParameters.${blockType}.${toolId}.${paramId}`
+          )
         }
       }
     }
@@ -97,12 +109,10 @@ function collectNonArrayOptionOverridePaths(
         if (!subBlockValue || typeof subBlockValue !== 'object') {
           continue
         }
-        const options = (subBlockValue as Record<string, any>)?.options
-        if ('options' in (subBlockValue as Record<string, any>) && !Array.isArray(options)) {
-          invalidPaths.push(
-            `${locale}:workspace.widgets.blockEditor.triggers.${triggerId}.subBlocks.${subBlockId}.options`
-          )
-        }
+        visitOptions(
+          subBlockValue,
+          `workspace.widgets.blockEditor.triggers.${triggerId}.subBlocks.${subBlockId}`
+        )
       }
     }
   }
@@ -111,6 +121,25 @@ function collectNonArrayOptionOverridePaths(
 }
 
 describe('block-editor i18n helpers', () => {
+  it.each(['es', 'zh'] as const)('localizes canonical container fields in %s', (locale) => {
+    for (const block of [LoopBlock, ParallelContainerBlock]) {
+      for (const config of block.subBlocks) {
+        const localized = localizeWorkflowSubBlockConfig(locale, config, block.type)
+        for (const key of ['title', 'description', 'placeholder'] as const) {
+          if (typeof config[key] !== 'string') continue
+          expect(localized[key]).toEqual(expect.any(String))
+          expect(localized[key]).not.toBe(config[key])
+        }
+        if (Array.isArray(config.options)) {
+          expect(
+            Array.isArray(localized.options) && localized.options.map((option) => option.id)
+          ).toEqual(config.options.map((option) => option.id))
+          expect(localized.options).not.toEqual(config.options)
+        }
+      }
+    }
+  })
+
   it('translates workflow labels by canonical key', () => {
     expect(translateWorkflowLabel('zh', 'tools')).toBe('工具')
     expect(translateWorkflowLabel('zh', 'responseFormat')).toBe('响应格式')
@@ -212,7 +241,7 @@ describe('block-editor i18n helpers', () => {
     )
   })
 
-  it('localizes titles and static options through block editor overrides', () => {
+  it('localizes titles and lazy options through block editor overrides', () => {
     const localizedConfig = localizeWorkflowSubBlockConfig(
       'es',
       {
@@ -220,7 +249,7 @@ describe('block-editor i18n helpers', () => {
         title: 'Validation Type',
         type: 'dropdown',
         placeholder: 'Type or select a model...',
-        options: [
+        options: () => [
           { id: 'json', label: 'Valid JSON' },
           {
             id: 'pii',
@@ -254,6 +283,165 @@ describe('block-editor i18n helpers', () => {
       },
     ])
   })
+
+  it.each(['en', 'es', 'zh'] as const)(
+    'localizes historical data range options and display values in %s',
+    async (locale) => {
+      const blockCopy =
+        getPublicCopy(locale).workspace.widgets.blockEditor.subBlocks.historical_data
+      const mode = HistoricalDataBlock.subBlocks.find((subBlock) => subBlock.id === 'rangeMode')!
+      expect(localizeWorkflowSubBlockConfig(locale, mode, 'historical_data')).toMatchObject(
+        blockCopy.rangeMode
+      )
+      const config = HistoricalDataBlock.subBlocks.find(
+        (subBlock) => subBlock.id === 'rangePresetId'
+      )!
+      const localizedConfig = localizeWorkflowSubBlockConfig(locale, config, 'historical_data')
+      const copy = blockCopy.rangePresetId
+
+      expect(localizedConfig.title).toBe(copy.title)
+      expect(localizedConfig.placeholder).toBe(copy.placeholder)
+      expect(localizedConfig.options).toEqual(copy.options)
+      const context = {
+        channelId: 'test-channel',
+        workflowId: null,
+        contextValues: { provider: 'alpaca', interval: '1d', rangeMode: 'latest' },
+      }
+      const available = await config.fetchOptions!('block', config.id, context)
+      const localized = await localizedConfig.fetchOptions!('block', config.id, context)
+      expect(localized).toEqual(
+        available.map((option) => ({
+          ...option,
+          label: copy.options.find((entry: { id: string }) => entry.id === option.id)!.label,
+        }))
+      )
+      expect(
+        resolveWorkflowDisplayValue(
+          locale,
+          config,
+          localized.map((option) => option.id),
+          'historical_data'
+        )
+      ).toEqual(localized.map((option) => option.label))
+    }
+  )
+
+  it.each(['es', 'zh'] as const)('localizes the active field variant in %s', (locale) => {
+    for (const [block, id, values, property, es, zh] of [
+      [
+        'tts',
+        'voiceId',
+        { provider: 'elevenlabs' },
+        'placeholder',
+        'Introduce el ID de voz de ElevenLabs',
+        '输入 ElevenLabs 语音 ID',
+      ],
+      [
+        'tts',
+        'voiceId',
+        { provider: 'google' },
+        'placeholder',
+        'p. ej., en-US-Neural2-A',
+        '例如：en-US-Neural2-A',
+      ],
+      ['tts', 'voice', { provider: 'openai' }, 'placeholder', undefined, undefined],
+      ['google_drive', 'fileName', { operation: 'upload' }, 'title', 'Nombre de archivo', '文件名'],
+      [
+        'google_drive',
+        'fileName',
+        { operation: 'create_folder' },
+        'title',
+        'Nombre de carpeta',
+        '文件夹名称',
+      ],
+      [
+        'neo4j',
+        'cypherQuery',
+        { operation: 'create' },
+        'placeholder',
+        'CREATE (n:Person {name: "Alice", age: 30})',
+        'CREATE (n:Person {name: "Alice", age: 30})',
+      ],
+      [
+        'servicenow',
+        'fields',
+        { operation: 'servicenow_create_record' },
+        'description',
+        undefined,
+        undefined,
+      ],
+      [
+        'servicenow',
+        'fields',
+        { operation: 'servicenow_read_record' },
+        'placeholder',
+        'number,short_description,priority',
+        'number,short_description,priority',
+      ],
+    ] as const) {
+      const config = {
+        tts: TtsBlock,
+        google_drive: GoogleDriveBlock,
+        neo4j: Neo4jBlock,
+        servicenow: ServiceNowBlock,
+      }[block].subBlocks.find(
+        (entry) => entry.id === id && evaluateSubBlockConditionValues(entry.condition, values)
+      )!
+      const localized = localizeWorkflowSubBlockConfig(locale, config, block)
+      expect(localized[property]).toBe(locale === 'es' ? es : zh)
+      const tool = localizeToolParameter(
+        locale,
+        {
+          id,
+          type: 'string',
+          uiComponent: {
+            subBlockId: id,
+            type: config.type,
+            mode: config.mode,
+            condition:
+              typeof config.condition === 'function' ? config.condition() : config.condition,
+            [property]: config[property],
+          },
+        },
+        block
+      )
+      expect(tool.uiComponent?.[property]).toBe(localized[property])
+    }
+  })
+
+  it.each(['es', 'zh'] as const)(
+    'preserves variant option meanings through lazy, fetched and display paths in %s',
+    async (locale) => {
+      for (const [operation, es, zh] of [
+        ['sentry_issues_list', 'Todos', '全部'],
+        ['sentry_issues_update', 'Sin cambios', '不更改'],
+      ]) {
+        const config = SentryBlock.subBlocks.find(
+          (entry) =>
+            entry.id === 'status' && evaluateSubBlockConditionValues(entry.condition, { operation })
+        )!
+        const options = typeof config.options === 'function' ? config.options() : config.options!
+        const localized = localizeWorkflowSubBlockConfig(
+          locale,
+          { ...config, options: () => options, fetchOptions: async () => options },
+          'sentry'
+        )
+        const expected = locale === 'es' ? es : zh
+        expect(typeof localized.options === 'function' && localized.options()[0].label).toBe(
+          expected
+        )
+        expect(
+          (
+            await localized.fetchOptions!('block', 'status', {
+              workflowId: null,
+              channelId: 'channel',
+            })
+          )[0].label
+        ).toBe(expected)
+        expect(resolveWorkflowDisplayValue(locale, config, '', 'sentry')).toBe(expected)
+      }
+    }
+  )
 
   it('resolves localized display values for guardrails option ids', () => {
     const config = {

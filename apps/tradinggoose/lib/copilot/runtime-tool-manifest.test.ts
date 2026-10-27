@@ -2,6 +2,25 @@ import { describe, expect, it } from 'vitest'
 import { getCopilotRuntimeToolManifest } from '@/lib/copilot/runtime-tool-manifest'
 
 describe('copilot runtime tool manifest', () => {
+  it('uses the standard sub-block patch contract for all block parameters', async () => {
+    const manifest = await getCopilotRuntimeToolManifest()
+    const editBlock = manifest.tools.find((tool) => tool.name === 'edit_workflow_block')
+    expect(editBlock?.parameters).toMatchObject({
+      properties: {
+        subBlocks: {
+          type: 'object',
+          description: expect.stringContaining(
+            'canonical ids, options, defaults, bounds, and conditions'
+          ),
+        },
+      },
+    })
+    expect(editBlock?.parameters?.properties).not.toHaveProperty('count')
+    expect(editBlock?.description).toContain('`get_blocks_metadata`')
+    expect(editBlock?.description).toContain('container nesting')
+    expect(editBlock?.description).not.toContain('loops, parallels')
+  })
+
   it('exposes the Studio tool surface and workflow document validators', async () => {
     const manifest = await getCopilotRuntimeToolManifest()
     const toolNames = manifest.tools.map((tool) => tool.name)

@@ -81,6 +81,12 @@ const BlockMermaidSubBlockSchema = z.object({
   type: z.string(),
   mode: z.enum(['basic', 'advanced', 'both', 'trigger']).optional(),
   required: z.boolean().optional(),
+  inputType: z.enum(['text', 'number']).optional(),
+  supportsReferences: z.boolean().optional(),
+  min: z.number().optional(),
+  max: z.number().optional(),
+  integer: z.boolean().optional(),
+  condition: z.record(z.string(), z.unknown()).optional(),
   description: z.string().optional(),
   placeholder: z.string().optional(),
   canonicalParamId: z.string().optional(),
@@ -338,7 +344,6 @@ export const ReadBlockOutputsResult = z.object({
       blockType: z.string(),
       outputs: z.array(BlockOutputReferenceSchema),
       insideSubflowOutputs: z.array(BlockOutputReferenceSchema).optional(),
-      outsideSubflowOutputs: z.array(BlockOutputReferenceSchema).optional(),
     })
   ),
   variables: z

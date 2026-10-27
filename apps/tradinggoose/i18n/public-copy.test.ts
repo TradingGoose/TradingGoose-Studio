@@ -1,13 +1,16 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { registry } from '@/blocks/registry'
+import { DEFAULT_RANGE_PRESETS } from '@/providers/market/series-window'
 import {
   DRAW_ACTION_ICONS,
   DRAW_TOOL_ICONS,
 } from '@/widgets/widgets/data_chart/components/draw-tool-icon-registry'
 import { CANDLE_TYPE_OPTIONS } from '@/widgets/widgets/data_chart/options'
-import { DEFAULT_RANGE_PRESETS } from '@/widgets/widgets/data_chart/series-data'
+import { getLocalizedBlockMetadata } from './block-editor'
 import { getClientMessages, getPublicCopy } from './public-copy'
 import { formatTemplate } from './utils'
+
+vi.unmock('@/blocks/registry')
 
 function normalizeShape(value: unknown): unknown {
   if (Array.isArray(value)) {
@@ -265,12 +268,6 @@ describe('public copy', () => {
     expect(getPublicCopy('en').workspace.widgets.workflowVariables.unableToLoadWorkflows).toBe(
       'Unable to load workflows'
     )
-    expect(getPublicCopy('zh').workspace.widgets.workflowEditor.whileConditionPlaceholder).toBe(
-      '<counter.value> < 10'
-    )
-    expect(getPublicCopy('en').workspace.widgets.workflowEditor.collectionItemsPlaceholder).toBe(
-      "['item1', 'item2', 'item3']"
-    )
     expect(
       getPublicCopy('en').workspace.widgets.blockEditor.googleCalendarSelector.accessLabel
     ).toBe('Access:')
@@ -444,6 +441,7 @@ describe('public copy', () => {
   })
 
   it('covers toolbar-visible block names and descriptions in every locale', () => {
+    expect(toolbarVisibleBlockTypes).toEqual(expect.arrayContaining(['loop', 'parallel']))
     for (const locale of ['en', 'es', 'zh'] as const) {
       const blockEditor = getPublicCopy(locale).workspace.widgets.blockEditor
       const blockNames = blockEditor.blockNames as Partial<Record<string, string>>
@@ -457,6 +455,12 @@ describe('public copy', () => {
 
       expect(missingNames).toEqual([])
       expect(missingDescriptions).toEqual([])
+      for (const type of ['loop', 'parallel']) {
+        expect(getLocalizedBlockMetadata(locale, registry[type])).toMatchObject({
+          name: blockNames[type],
+          description: blockDescriptions[type],
+        })
+      }
     }
   })
 

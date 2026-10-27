@@ -18,6 +18,47 @@ const block = (type: string, extra: Record<string, unknown> = {}) => ({
 const edge = (source: string, target = 'agent') => ({ source, target })
 
 describe('workflow run trigger resolution', () => {
+  it.each(['gmail', 'outlook', 'imap'])(
+    'loads %s options from the supplied block values',
+    async (provider) => {
+      const fetch = vi
+        .spyOn(globalThis, 'fetch')
+        .mockResolvedValue(Response.json({ labels: [], folders: [], mailboxes: [] }))
+      const contextValues = {
+        triggerCredentials: 'credential',
+        host: 'imap.example.com',
+        username: 'mail-user',
+        password: 'test-password',
+        port: '143',
+        secure: false,
+        rejectUnauthorized: false,
+      }
+      try {
+        const field = getTrigger(`${provider}_poller`)!.subBlocks.find(
+          (config) => config.fetchOptions
+        )!
+        expect(
+          await field.fetchOptions!('block', field.id, {
+            channelId: 'default',
+            workflowId: 'workflow',
+            contextValues,
+          })
+        ).toEqual([])
+        expect(fetch).toHaveBeenCalledOnce()
+        const [url, options] = fetch.mock.calls[0]
+        expect(String(url)).toContain(`/api/tools/${provider}/`)
+        if (provider === 'imap') {
+          const { triggerCredentials: _credential, ...connection } = contextValues
+          expect(JSON.parse(options!.body as string)).toEqual({ ...connection, port: 143 })
+        } else {
+          expect(String(url)).toContain('credentialId=credential')
+        }
+      } finally {
+        fetch.mockRestore()
+      }
+    }
+  )
+
   it('lists one Run option per resolved trigger identity', () => {
     const edges = ['github', 'whatsapp', 'calendly', 'chat'].map((source) => edge(source))
     const runTriggers = listWorkflowRunTriggers(

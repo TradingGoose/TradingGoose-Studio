@@ -339,7 +339,6 @@ const marketToExchangeCodeMap: MarketProviderConfig['marketToExchangeCode'] = ma
 export const YahooFinanceProviderConfig: MarketProviderConfig = {
   id: 'yahoo-finance',
   name: 'YahooFinance',
-  utcOffset: 0,
   availability,
   api_endpoints: {
     default: 'https://query1.finance.yahoo.com/v8/finance/chart',
@@ -348,8 +347,10 @@ export const YahooFinanceProviderConfig: MarketProviderConfig = {
     series: {
       supportsInterval: true,
       intervals: ['1m', '2m', '5m', '15m', '30m', '1h', '1d', '1w', '1mo', '3mo'],
-      windowModes: ['range', 'bars', 'absolute'],
+      windowModes: ['range', 'bars', 'absolute', 'all'],
+      allInterval: '3mo',
       normalizationModes: ['raw', 'adjusted'],
+      normalizationIntervals: { adjusted: ['1d', '1w', '1mo', '3mo'] },
       marketSessions: ['regular', 'extended'],
       retention: {
         byInterval: {

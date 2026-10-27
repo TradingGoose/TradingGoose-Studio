@@ -1,9 +1,12 @@
 import { StreamableHTTPError } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildMarketQuoteSnapshot } from '@/lib/market/quote-snapshots'
-import { ROBINHOOD_MCP_URL } from '@/providers/market/robinhood/config'
-import { planMarketSeriesRequest } from '@/providers/market/series-planner'
+import { ROBINHOOD_MAX_REQUESTS, ROBINHOOD_MCP_URL } from '@/providers/market/robinhood/config'
+import {
+  getMarketSeriesRangePresets,
+  planMarketSeriesRequest,
+} from '@/providers/market/series-planner'
+import { rangeToMs } from '@/providers/market/series-window'
 import type { MarketSeriesRequest } from '@/providers/market/types'
 import { callRobinhoodTool } from './client'
 import { robinhoodProvider } from './index'
@@ -55,17 +58,6 @@ const mcpResult = (payload: unknown, text = false) =>
   text
     ? { content: [{ type: 'text', text: JSON.stringify(payload) }] }
     : { content: [], structuredContent: payload }
-const rawQuote = {
-  symbol: 'AAPL',
-  last_trade_price: '110',
-  venue_last_trade_time: '2026-09-24T20:00:00Z',
-  adjusted_previous_close: '100',
-  previous_close: '102',
-  last_non_reg_trade_price: '115',
-  venue_last_non_reg_trade_time: '2026-09-24T21:00:00Z',
-  has_traded: true,
-  state: 'active',
-}
 const request: MarketSeriesRequest = {
   kind: 'series',
   listing: { listing_id: 'us-aapl', base_id: '', quote_id: '', listing_type: 'default' },
@@ -93,36 +85,35 @@ beforeEach(() => {
 })
 
 describe('Robinhood market provider and MCP boundary', () => {
-  it('uses the newest trade and adjusted close through canonical OAuth', async () => {
-    sdk.callTool.mockResolvedValue(
-      mcpResult({
-        data: { results: [{ quote: rawQuote, close: { symbol: 'AAPL', price: '101' } }] },
-      })
-    )
-    await expect(
-      buildMarketQuoteSnapshot({
-        provider: 'robinhood',
-        listing: request.listing,
+  it('resolves canonical OAuth credentials for market series', async () => {
+    const { executeProviderRequest } = await import('@/providers/market')
+    await executeProviderRequest(
+      'robinhood',
+      {
+        ...request,
+        interval: '1d',
+        auth: undefined,
         providerParams: { credentialId: 'connection' },
-        context: { userId: 'owner', requestId: 'request' },
-      })
-    ).resolves.toEqual({ lastPrice: 115, previousClose: 100, change: 15, changePercent: 15 })
+      },
+      { userId: 'owner', requestId: 'request' }
+    )
     expect(sdk.token).toHaveBeenCalledExactlyOnceWith('connection', 'owner', 'request', 'robinhood')
-    expect(sdk.callTool).toHaveBeenCalledOnce()
-    expect(sdk.callTool.mock.calls[0][0]).toEqual({
-      name: 'get_equity_quotes',
-      arguments: { symbols: ['AAPL'] },
-    })
+    expect(sdk.callTool.mock.calls[0][0].name).toBe('get_equity_historicals')
     expect(sdk.transport.mock.calls[0][1].requestInit.headers.Authorization).toBe(
       'Bearer refreshed-token'
     )
   })
 
-  it.each([false, true])('normalizes authenticated MCP data (text=%s)', async (text) => {
+  it.each([
+    [false, 'raw', 'none'],
+    [true, 'raw', 'none'],
+    [false, 'split_adjusted', 'split'],
+    [true, 'split_adjusted', 'split'],
+  ] as const)('normalizes MCP data (text=%s, mode=%s)', async (text, mode, adjustment) => {
     sdk.callTool.mockResolvedValue(mcpResult(history([null, rawBar()]), text))
     const result = await fetchRobinhoodSeries({
       ...request,
-      normalizationMode: 'raw',
+      normalizationMode: mode,
       providerParams: { marketSession: 'extended' },
     })
     expect(sdk.transport).toHaveBeenCalledWith(
@@ -137,7 +128,7 @@ describe('Robinhood market provider and MCP boundary', () => {
         symbols: ['AAPL'],
         interval: 'minute',
         bounds: 'extended',
-        adjustment_type: 'none',
+        adjustment_type: adjustment,
         start_time: '2026-09-09T14:00:00.000Z',
         end_time: '2026-09-09T15:00:00.000Z',
       },
@@ -146,7 +137,7 @@ describe('Robinhood market provider and MCP boundary', () => {
       listing: request.listing,
       marketCode: 'NASDAQ',
       listingQuote: 'USD',
-      normalizationMode: 'raw',
+      normalizationMode: mode,
       bars: [
         {
           timeStamp: '2026-09-09T14:30:00.000Z',
@@ -207,6 +198,27 @@ describe('Robinhood market provider and MCP boundary', () => {
     ])
     expect(sdk.callTool).toHaveBeenCalledTimes(2)
   })
+
+  it.each(['1m', '5m', '10m', '30m', '1h', '4h'])(
+    'executes every admitted %s range within its request budget',
+    async (interval) => {
+      sdk.callTool.mockResolvedValue(mcpResult(history([])))
+      for (const preset of getMarketSeriesRangePresets('robinhood', interval)) {
+        sdk.callTool.mockClear()
+        const plan = planMarketSeriesRequest('robinhood', {
+          ...request,
+          interval,
+          windows: [preset.window],
+        })
+        expect(plan.window).toEqual({
+          mode: 'range',
+          rangeMs: rangeToMs('range' in preset.window ? preset.window.range : undefined),
+        })
+        await fetchRobinhoodSeries(plan.request)
+        expect(sdk.callTool.mock.calls.length).toBeLessThanOrEqual(ROBINHOOD_MAX_REQUESTS)
+      }
+    }
+  )
 
   it.each(['before', 'between', 'during', 'during-rejection'])(
     'rejects the entire history request when its deadline expires %s pages',

@@ -3,7 +3,6 @@ import { getIconTileStyle, sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { getBlock } from '@/blocks'
 import { type ConnectedBlock, useBlockConnections } from '@/hooks/workflow/use-block-connections'
-import { getSubflowBlockConfig } from '@/widgets/widgets/editor_workflow/components/subflows/config'
 
 interface ConnectionBlocksProps {
   blockId: string
@@ -51,9 +50,8 @@ export function ConnectionBlocks({
 
   const renderConnectionCard = (connection: ConnectedBlock) => {
     const blockConfig = getBlock(connection.type)
-    const subflowConfig = getSubflowBlockConfig(connection.type)
-    const Icon = blockConfig?.icon ?? subflowConfig?.icon
-    const bgColor = sanitizeSolidIconColor(blockConfig?.bgColor ?? subflowConfig?.bgColor)
+    const Icon = blockConfig?.icon
+    const bgColor = sanitizeSolidIconColor(blockConfig?.bgColor)
 
     return (
       <Card

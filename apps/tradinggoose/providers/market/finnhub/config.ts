@@ -54,9 +54,9 @@ const exchangeCodeToMarketMap: MarketProviderConfig['exchangeCodeToMarket'] = ex
 const marketToExchangeCodeMap: MarketProviderConfig['marketToExchangeCode'] = marketToExchangeCode
 
 export const finnhubProviderConfig: MarketProviderConfig = {
+  requestsPerMinute: 60,
   id: 'finnhub',
   name: 'Finnhub',
-  utcOffset: 0,
   availability,
   params,
   api_endpoints: {
@@ -84,6 +84,7 @@ export const finnhubProviderConfig: MarketProviderConfig = {
     live: {
       channels: ['trades', 'bars'],
       supportsInterval: false,
+      pollingIntervalMs: 60_000,
     },
   },
   rulePrecedence: {

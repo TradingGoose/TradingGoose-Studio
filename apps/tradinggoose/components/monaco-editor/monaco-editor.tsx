@@ -1,9 +1,18 @@
 'use client'
 
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { loader } from '@monaco-editor/react'
 import type { IDisposable, editor as MonacoEditorTypes } from 'monaco-editor'
 import dynamic from 'next/dynamic'
+import type { MonacoBinding } from 'y-monaco'
 import {
   buildMonacoScriptDiagnosticSource,
   isMonacoDiagnosticLanguage,
@@ -139,6 +148,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
   ) => {
     const editorRef = useRef<MonacoEditorTypes.IStandaloneCodeEditor | null>(null)
     const monacoRef = useRef<MonacoModule | null>(null)
+    const monacoBindingRef = useRef<typeof MonacoBinding | null>(null)
     const decorationIdsRef = useRef<string[]>([])
     const subscriptionsRef = useRef<IDisposable[]>([])
     const extraLibsRef = useRef<IDisposable[]>([])
@@ -440,6 +450,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
 
       Promise.all([
         import('monaco-editor'),
+        import('y-monaco'),
         import('monaco-editor/esm/vs/language/json/monaco.contribution'),
         import('monaco-editor/esm/vs/language/css/monaco.contribution'),
         import('monaco-editor/esm/vs/language/html/monaco.contribution'),
@@ -448,9 +459,10 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
         import('monaco-editor/esm/vs/basic-languages/python/python.contribution'),
         import('monaco-editor/esm/vs/basic-languages/sql/sql.contribution'),
       ])
-        .then(([monaco]) => {
+        .then(([monaco, { MonacoBinding }]) => {
           if (!isActive) return
           loader.config({ monaco })
+          monacoBindingRef.current = MonacoBinding
           setMonacoInstance(monaco)
         })
         .catch((error) => {
@@ -796,42 +808,26 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
       }
     }, [baseOptions, options])
 
-    useEffect(() => {
-      if (!yText || !editorReady) return
+    useLayoutEffect(() => {
+      const MonacoBinding = monacoBindingRef.current
+      if (!yText || !editorReady || !MonacoBinding) return
       const editor = editorRef.current
       if (!editor) return
       const model = editor.getModel()
       if (!model) return
 
-      let cancelled = false
-      let binding: any = null
-      import('y-monaco').then(({ MonacoBinding }) => {
-        if (cancelled || !editorRef.current) return
-        const nextBinding = new MonacoBinding(
-          yText,
-          model,
-          new Set([editor]),
-          awareness ?? undefined
-        )
-        const originalDestroy = nextBinding.destroy.bind(nextBinding)
-        let isDestroyed = false
-        nextBinding.destroy = () => {
-          if (isDestroyed) {
-            return
-          }
-          isDestroyed = true
-          originalDestroy()
+      const binding = new MonacoBinding(yText, model, new Set([editor]), awareness ?? undefined)
+      const originalDestroy = binding.destroy.bind(binding)
+      let isDestroyed = false
+      binding.destroy = () => {
+        if (isDestroyed) {
+          return
         }
-
-        binding = nextBinding
-      })
-
-      return () => {
-        cancelled = true
-        if (binding) {
-          binding.destroy()
-        }
+        isDestroyed = true
+        originalDestroy()
       }
+
+      return () => binding.destroy()
     }, [yText, editorReady, awareness])
 
     if (!monacoInstance) {
@@ -873,7 +869,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
           path={resolvedPath}
           defaultLanguage={language}
           theme={theme}
-          onChange={yText ? undefined : (nextValue) => onChange?.(nextValue ?? '')}
+          onChange={(nextValue) => onChange?.(nextValue ?? '')}
           onMount={(editor, monaco) => {
             editorRef.current = editor
             monacoRef.current = monaco
@@ -957,14 +953,6 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
                 updateAutoHeight()
               })
             )
-
-            if (yText && onChange) {
-              subscriptionsRef.current.push(
-                editor.onDidChangeModelContent(() => {
-                  onChange(editor.getValue())
-                })
-              )
-            }
 
             subscriptionsRef.current.push(
               editor.onDidLayoutChange(() => {
