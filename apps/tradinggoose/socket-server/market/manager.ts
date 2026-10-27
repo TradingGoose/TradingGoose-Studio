@@ -14,10 +14,11 @@ import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { executeProviderRequest } from '@/providers/market'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
+import { resolveMarketSessionsForRange } from '@/providers/market/market-hours'
 import {
+  getMarketLiveCapabilities,
   getMarketProviderConfig,
   getMarketProviderDefinition,
-  getMarketProviderPollingIntervalMs,
 } from '@/providers/market/providers'
 import { intervalToMs } from '@/providers/market/series-planner'
 import type {
@@ -697,38 +698,14 @@ export class MarketStreamManager {
     })
   }
 
-  private handleTrade(streamKey: string, symbol: string, trade: any, raw: any) {
+  private async handleTrade(streamKey: string, symbol: string, trade: any, raw: any) {
     const state = this.streams.get(streamKey)
     if (!state) return
 
     const subscribers = state.subscribersBySymbol.get(symbol)
     if (!subscribers || subscribers.size === 0) return
 
-    const hasQuoteSnapshots = Array.from(subscribers.values()).some(
-      (entry) => entry.channel === 'quote-snapshots'
-    )
-    let quoteSnapshot: MarketQuoteSnapshot | undefined
-    if (hasQuoteSnapshots) {
-      const cached = state.quoteSnapshotCache.get(symbol)
-      const previous = cached?.snapshot ?? createMarketQuoteSnapshot({})
-      const next = updateSnapshotFromPrice(previous, {
-        lastPrice: trade?.price,
-        lastPriceTime: trade?.timeStamp,
-      })
-      if (next !== previous) {
-        state.quoteSnapshotCache.set(symbol, { snapshot: next, refreshAt: cached?.refreshAt ?? 0 })
-        quoteSnapshot = next
-      }
-    }
-
     subscribers.forEach((record) => {
-      if (record.channel === 'quote-snapshots') {
-        if (quoteSnapshot) {
-          this.emitQuoteSnapshot(record, quoteSnapshot, raw)
-        }
-        return
-      }
-
       if (record.channel !== 'trades') return
       record.socket.emit('market-trade', {
         provider: record.provider,
@@ -746,6 +723,48 @@ export class MarketStreamManager {
         raw,
       })
     })
+
+    const quoteRecord = Array.from(subscribers.values()).find(
+      (record) => record.channel === 'quote-snapshots'
+    )
+    if (!quoteRecord) return
+    let regularSession = state.quoteSnapshotCache.get(symbol)?.snapshot.regularSession
+    const tradeTime = Date.parse(trade?.timeStamp ?? '')
+    if (
+      quoteRecord.listing.listing_type === 'default' &&
+      regularSession &&
+      tradeTime >= Date.parse(regularSession.end)
+    ) {
+      const sessions = await resolveMarketSessionsForRange(
+        quoteRecord.listing.listing_id,
+        quoteRecord.listing.listing_type,
+        tradeTime,
+        tradeTime + 1
+      ).catch(() => null)
+      if (
+        this.streams.get(streamKey) !== state ||
+        state.subscribersBySymbol.get(symbol) !== subscribers ||
+        !Array.from(subscribers.values()).some((record) => record.channel === 'quote-snapshots')
+      )
+        return
+      const resolved = sessions?.find(
+        (session) =>
+          session.type === 'market' &&
+          tradeTime >= Date.parse(session.start) &&
+          tradeTime < Date.parse(session.end)
+      )
+      if (!resolved) return
+      regularSession = { start: resolved.start, end: resolved.end }
+    }
+    const cached = state.quoteSnapshotCache.get(symbol)
+    const previous = cached?.snapshot ?? createMarketQuoteSnapshot({})
+    const next = updateSnapshotFromPrice(previous, {
+      lastPrice: trade?.price,
+      lastPriceTime: trade?.timeStamp,
+      regularSession,
+    })
+    if (next === previous) return
+    this.publishQuoteSnapshot(state, symbol, next, cached?.refreshAt ?? 0, raw)
   }
 
   private handleQuote(streamKey: string, symbol: string, quote: any, raw: any) {
@@ -778,7 +797,8 @@ export class MarketStreamManager {
     streamState: StreamState,
     symbol: string,
     snapshot: MarketQuoteSnapshot,
-    refreshAt: number
+    refreshAt: number,
+    raw?: unknown
   ) {
     const subscribers = streamState.subscribersBySymbol.get(symbol)
     if (!subscribers) return
@@ -787,7 +807,7 @@ export class MarketStreamManager {
     this.schedulePolling(streamState, refreshAt)
     subscribers.forEach((record) => {
       if (record.channel !== 'quote-snapshots') return
-      this.emitQuoteSnapshot(record, snapshot)
+      this.emitQuoteSnapshot(record, snapshot, raw)
     })
   }
 
@@ -903,9 +923,28 @@ export class MarketStreamManager {
 
     if (tasks.length === 0) return
 
-    const refreshAt =
-      now +
-      (getMarketProviderPollingIntervalMs(streamState.provider) ?? DEFAULT_POLLING_INTERVAL_MS)
+    const live = getMarketLiveCapabilities(streamState.provider)
+    let pollingIntervalMs = live?.pollingIntervalMs ?? DEFAULT_POLLING_INTERVAL_MS
+    if (live?.quoteSnapshotsPerMinute) {
+      let quoteCount = 0
+      const authKey = stableStringifyJsonValue(streamState.auth)
+      for (const state of this.streams.values()) {
+        if (
+          state.provider !== streamState.provider ||
+          stableStringifyJsonValue(state.auth) !== authKey
+        )
+          continue
+        for (const records of state.subscribersBySymbol.values()) {
+          if (Array.from(records.values()).some((record) => record.channel === 'quote-snapshots'))
+            quoteCount++
+        }
+      }
+      pollingIntervalMs = Math.max(
+        pollingIntervalMs,
+        Math.ceil(quoteCount / live.quoteSnapshotsPerMinute) * 60_000
+      )
+    }
+    const refreshAt = now + pollingIntervalMs
     if (tasks.some((task) => task.type === 'bar')) {
       streamState.barRefreshAt = refreshAt
       this.schedulePolling(streamState, refreshAt)
@@ -1291,55 +1330,61 @@ function createSubscriptionId({
 
 function updateSnapshotFromPrice(
   previous: MarketQuoteSnapshot,
-  update: Pick<MarketQuoteSnapshot, 'lastPrice' | 'lastPriceTime' | 'lastPriceEndTime'>
+  update: Partial<MarketQuoteSnapshot>
 ): MarketQuoteSnapshot {
-  const sessionEnd = Date.parse(previous.regularSession?.end ?? '')
+  const source =
+    update.regularSession &&
+    (!previous.regularSession ||
+      Date.parse(update.regularSession.start) > Date.parse(previous.regularSession.start))
+      ? update
+      : previous
+  const regularSession = source.regularSession
+  const sessionEnd = Date.parse(regularSession?.end ?? '')
   if (
-    previous.regularSession &&
+    regularSession &&
     update.lastPriceEndTime &&
     Date.parse(update.lastPriceEndTime) > sessionEnd
   ) {
-    update = { ...update, lastPriceEndTime: previous.regularSession.end }
+    update = { ...update, lastPriceEndTime: regularSession.end }
   }
-  const price = resolveFiniteNumber(update.lastPrice)
+  const price = update.lastPrice
   const priceTime = Date.parse(update.lastPriceTime ?? '')
   const updateTime = Date.parse(update.lastPriceEndTime ?? update.lastPriceTime ?? '')
   const previousTime = Date.parse(previous.lastPriceEndTime ?? previous.lastPriceTime ?? '')
   if (
-    price === null ||
+    typeof price !== 'number' ||
+    !Number.isFinite(price) ||
     !Number.isFinite(priceTime) ||
     (update.lastPriceEndTime ? updateTime <= previousTime : updateTime < previousTime)
   ) {
     return previous
   }
 
-  const sessionStart = Date.parse(previous.regularSession?.start ?? '')
+  const sessionStart = Date.parse(regularSession?.start ?? '')
   const inSession = priceTime >= sessionStart && priceTime < sessionEnd
-  if (previous.regularSession && !inSession) return previous
+  if (regularSession && !inSession) return previous
   const sameDay =
     inSession ||
-    (previous.timezone &&
-      previous.lastPriceTime &&
-      getMarketQuoteDate(previous.lastPriceTime, previous.timezone) ===
-        getMarketQuoteDate(update.lastPriceTime!, previous.timezone))
-  const previousClose = sameDay ? previous.previousClose : null
+    (source.timezone &&
+      source.lastPriceTime &&
+      getMarketQuoteDate(source.lastPriceTime, source.timezone) ===
+        getMarketQuoteDate(update.lastPriceTime!, source.timezone))
+  const previousClose = sameDay ? (source.previousClose ?? null) : null
 
   return createMarketQuoteSnapshot({
     lastPrice: price,
     lastPriceTime: update.lastPriceTime,
     lastPriceEndTime: update.lastPriceEndTime,
-    timezone: previous.timezone,
+    timezone: source.timezone ?? previous.timezone,
     previousClose,
-    volume: sameDay ? previous.volume : undefined,
-    regularSession: previous.regularSession,
+    volume: sameDay ? source.volume : undefined,
+    regularSession,
     error:
-      previous.error ??
-      (previousClose === null ? 'Previous regular-session close is unavailable' : undefined),
+      source.error ??
+      (previousClose === null
+        ? (previous.error ?? 'Previous regular-session close is unavailable')
+        : undefined),
   })
-}
-
-function resolveFiniteNumber(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
 function normalizeSymbol(symbol?: string): string {

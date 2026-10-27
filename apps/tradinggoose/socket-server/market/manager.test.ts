@@ -33,18 +33,20 @@ const {
   buildMarketQuoteSnapshotMock,
   executeProviderRequestMock,
   getMarketProviderConfigMock,
-  getMarketProviderPollingIntervalMsMock,
+  getMarketLiveCapabilitiesMock,
   resolveListingContextMock,
   resolveProviderSymbolMock,
+  resolveMarketSessionsForRangeMock,
   alpacaStreamInstances,
   finnhubStreamInstances,
 } = vi.hoisted(() => ({
   buildMarketQuoteSnapshotMock: vi.fn(),
   executeProviderRequestMock: vi.fn(),
   getMarketProviderConfigMock: vi.fn(),
-  getMarketProviderPollingIntervalMsMock: vi.fn(),
+  getMarketLiveCapabilitiesMock: vi.fn(),
   resolveListingContextMock: vi.fn(),
   resolveProviderSymbolMock: vi.fn(),
+  resolveMarketSessionsForRangeMock: vi.fn(),
   alpacaStreamInstances: [] as any[],
   finnhubStreamInstances: [] as any[],
 }))
@@ -81,12 +83,16 @@ vi.mock('@/providers/market/providers', () => ({
   getMarketProviderConfig: getMarketProviderConfigMock,
   getMarketProviderDefinition: (id: string) =>
     id === 'robinhood' ? { oauth: { provider: 'robinhood' } } : undefined,
-  getMarketProviderPollingIntervalMs: getMarketProviderPollingIntervalMsMock,
+  getMarketLiveCapabilities: getMarketLiveCapabilitiesMock,
 }))
 
 vi.mock('@/providers/market/utils', () => ({
   resolveListingContext: resolveListingContextMock,
   resolveProviderSymbol: resolveProviderSymbolMock,
+}))
+
+vi.mock('@/providers/market/market-hours', () => ({
+  resolveMarketSessionsForRange: resolveMarketSessionsForRangeMock,
 }))
 
 vi.mock('@/socket-server/market/alpaca', () => ({
@@ -181,6 +187,10 @@ const createSocket = (id: string) =>
     emit: vi.fn(),
   }) as any
 
+const lastQuote = (socket: ReturnType<typeof createSocket>) =>
+  socket.emit.mock.calls.findLast(([event]: [string]) => event === 'market-quote-snapshot')?.[1]
+    .snapshot
+
 describe('resolveMarketSubscribeEnv', () => {
   const originalEnv = process.env.RUNTIME_ONLY_KEY
 
@@ -269,13 +279,16 @@ describe('MarketStreamManager quote snapshots', () => {
       ],
     })
     getMarketProviderConfigMock.mockReturnValue({})
-    getMarketProviderPollingIntervalMsMock.mockImplementation((provider: string) =>
-      provider === 'yahoo-finance'
-        ? 5_000
-        : provider === 'alpaca' || provider === 'finnhub'
-          ? 60_000
-          : undefined
-    )
+    getMarketLiveCapabilitiesMock.mockImplementation((provider: string) => ({
+      pollingIntervalMs:
+        provider === 'yahoo-finance'
+          ? 5_000
+          : provider === 'alpaca' || provider === 'finnhub'
+            ? 60_000
+            : undefined,
+      quoteSnapshotsPerMinute: provider === 'alpaca' ? 50 : provider === 'finnhub' ? 30 : undefined,
+    }))
+    resolveMarketSessionsForRangeMock.mockReset().mockResolvedValue(null)
     resolveListingContextMock.mockResolvedValue({
       listing,
       base: 'AAPL',
@@ -449,25 +462,21 @@ describe('MarketStreamManager quote snapshots', () => {
         })
       }
       await vi.advanceTimersByTimeAsync(0)
-      const quote = () =>
-        socket.emit.mock.calls.findLast(
-          ([event]: [string]) => event === 'market-quote-snapshot'
-        )?.[1].snapshot
       const stream = (provider === 'alpaca' ? alpacaStreamInstances : finnhubStreamInstances)[0]
       const trade = (price: number, timeStamp: string) =>
         stream.handlers.onTrade({ symbol: 'AAPL', trade: { price, timeStamp } })
-      expect(quote()).toEqual(regularSnapshot)
+      expect(lastQuote(socket)).toEqual(regularSnapshot)
       trade(124, '2026-10-26T15:01:00.000Z')
       trade(126, '2026-10-26T15:01:00.000Z')
-      expect(quote()).toMatchObject({
+      expect(lastQuote(socket)).toMatchObject({
         lastPrice: 126,
         previousClose: 120,
         change: 6,
         changePercent: 5,
       })
-      expect(quote().lastPriceEndTime).toBeUndefined()
+      expect(lastQuote(socket).lastPriceEndTime).toBeUndefined()
       trade(132, '2026-10-26T15:02:00.000Z')
-      expect(quote()).toMatchObject({
+      expect(lastQuote(socket)).toMatchObject({
         lastPrice: 132,
         previousClose: 120,
         change: 12,
@@ -482,15 +491,15 @@ describe('MarketStreamManager quote snapshots', () => {
       ]) {
         trade(200, timeStamp)
       }
-      expect(quote()).toBeUndefined()
+      expect(lastQuote(socket)).toBeUndefined()
       expect(
         socket.emit.mock.calls.filter(([event]: [string]) => event === 'market-trade')
       ).toHaveLength(4)
       await vi.advanceTimersByTimeAsync(60_000)
-      expect(quote()).toMatchObject({ lastPrice: 132, previousClose: 120, change: 12 })
+      expect(lastQuote(socket)).toMatchObject({ lastPrice: 132, previousClose: 120, change: 12 })
       buildMarketQuoteSnapshotMock.mockRejectedValueOnce(new Error('429 Too Many Requests'))
       await vi.advanceTimersByTimeAsync(60_000)
-      expect(quote()).toMatchObject({
+      expect(lastQuote(socket)).toMatchObject({
         lastPrice: 132,
         previousClose: 120,
         change: 12,
@@ -500,9 +509,9 @@ describe('MarketStreamManager quote snapshots', () => {
       trade(200, '2026-10-26T20:01:00Z')
       trade(200, '2026-10-27T12:00:00Z')
       trade(133, '2026-10-27T14:00:00Z')
-      expect(quote()).toBeUndefined()
+      expect(lastQuote(socket)).toBeUndefined()
       await vi.advanceTimersByTimeAsync(60_000)
-      expect(quote()).toMatchObject({
+      expect(lastQuote(socket)).toMatchObject({
         lastPrice: 132,
         previousClose: 120,
         change: 12,
@@ -520,10 +529,10 @@ describe('MarketStreamManager quote snapshots', () => {
       }
       buildMarketQuoteSnapshotMock.mockResolvedValue(nextSessionSnapshot)
       await vi.advanceTimersByTimeAsync(60_000)
-      expect(quote()).toMatchObject({ lastPrice: 130, previousClose: 129, change: 1 })
-      expect(quote().error).toBeUndefined()
+      expect(lastQuote(socket)).toMatchObject({ lastPrice: 130, previousClose: 129, change: 1 })
+      expect(lastQuote(socket).error).toBeUndefined()
       trade(132, '2026-10-27T15:01:00Z')
-      expect(quote()).toMatchObject({ lastPrice: 132, previousClose: 129, change: 3 })
+      expect(lastQuote(socket)).toMatchObject({ lastPrice: 132, previousClose: 129, change: 3 })
       trade(125, '2026-10-27T19:59:10Z')
       const completedSnapshot = {
         ...nextSessionSnapshot,
@@ -544,15 +553,144 @@ describe('MarketStreamManager quote snapshots', () => {
           })
         )
         await vi.advanceTimersByTimeAsync(60_000)
-        expect(quote()).toEqual(completedSnapshot)
+        expect(lastQuote(socket)).toEqual(completedSnapshot)
         trade(125, '2026-10-27T19:59:59.999Z')
-        expect(quote()).toEqual(completedSnapshot)
+        expect(lastQuote(socket)).toEqual(completedSnapshot)
       }
       const correctedSnapshot = createMarketQuoteSnapshot({ ...completedSnapshot, lastPrice: 131 })
       buildMarketQuoteSnapshotMock.mockResolvedValue(correctedSnapshot)
       await vi.advanceTimersByTimeAsync(60_000)
-      expect(quote()).toEqual(correctedSnapshot)
+      expect(lastQuote(socket)).toEqual(correctedSnapshot)
       expect(executeProviderRequestMock).not.toHaveBeenCalled()
+      manager.removeSocket(socket.id)
+    }
+  )
+
+  it.each(['alpaca', 'finnhub'])(
+    'resolves the next %s regular session when historical refreshes fail',
+    async (provider) => {
+      vi.useFakeTimers()
+      const manager = new MarketStreamManager()
+      const socket = createSocket('socket-1')
+      buildMarketQuoteSnapshotMock.mockResolvedValue({
+        ...regularSnapshot,
+        volume: 10,
+        volumeUsd: 1234.5,
+      })
+      await manager.subscribe(socket, nativeQuotePayload(provider))
+      await vi.advanceTimersByTimeAsync(0)
+      const stream = (provider === 'alpaca' ? alpacaStreamInstances : finnhubStreamInstances)[0]
+      const trade = (price: number, timeStamp: string) =>
+        stream.handlers.onTrade({ symbol: 'AAPL', trade: { price, timeStamp } })
+      const session = { type: 'market', start: '2026-10-27T13:30:00Z', end: '2026-10-27T20:00:00Z' }
+      resolveMarketSessionsForRangeMock.mockResolvedValue([session])
+      buildMarketQuoteSnapshotMock.mockRejectedValue(new Error('Historical access denied'))
+      await vi.advanceTimersByTimeAsync(60_000)
+      await trade(200, '2026-10-27T12:00:00Z')
+      await trade(200, '2026-10-27T20:00:00Z')
+      resolveMarketSessionsForRangeMock.mockResolvedValueOnce([])
+      await trade(200, '2026-10-31T14:00:00Z')
+      resolveMarketSessionsForRangeMock.mockRejectedValueOnce(new Error('Calendar unavailable'))
+      await trade(200, '2026-10-27T14:00:00Z')
+      expect(lastQuote(socket).lastPrice).toBe(regularSnapshot.lastPrice)
+      await trade(133, '2026-10-27T14:00:00Z')
+      expect(lastQuote(socket)).toMatchObject({
+        lastPrice: 133,
+        previousClose: null,
+        change: null,
+        changePercent: null,
+        regularSession: { start: session.start, end: session.end },
+        error: 'Historical access denied',
+      })
+      expect(lastQuote(socket).volume).toBeUndefined()
+      expect(lastQuote(socket).volumeUsd).toBeUndefined()
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(lastQuote(socket).lastPrice).toBe(133)
+      buildMarketQuoteSnapshotMock.mockResolvedValueOnce(regularSnapshot)
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(lastQuote(socket)).toMatchObject({
+        lastPrice: 133,
+        previousClose: null,
+        change: null,
+        regularSession: { start: session.start, end: session.end },
+      })
+      const recovered = createMarketQuoteSnapshot({
+        lastPrice: 134,
+        previousClose: 129,
+        volume: 20,
+        lastPriceTime: '2026-10-27T14:01:00Z',
+        lastPriceEndTime: '2026-10-27T14:02:00Z',
+        timezone: regularSnapshot.timezone,
+        regularSession: session,
+      })
+      buildMarketQuoteSnapshotMock.mockResolvedValue(recovered)
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(lastQuote(socket)).toEqual(recovered)
+      const original = structuredClone(recovered)
+      buildMarketQuoteSnapshotMock.mockResolvedValueOnce(regularSnapshot)
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(lastQuote(socket)).toEqual(original)
+      expect(recovered).toEqual(original)
+      manager.removeSocket(socket.id)
+    }
+  )
+
+  it.each(['trade', 'refresh', 'unsubscribe'])(
+    'does not overwrite a newer %s while resolving an overnight session',
+    async (winner) => {
+      vi.useFakeTimers()
+      const manager = new MarketStreamManager()
+      const socket = createSocket('socket-1')
+      buildMarketQuoteSnapshotMock.mockResolvedValue(regularSnapshot)
+      await manager.subscribe(socket, nativeQuotePayload('alpaca'))
+      await manager.subscribe(socket, {
+        ...nativeQuotePayload('alpaca'),
+        channel: 'trades',
+        clientSubscriptionId: 'trades',
+      })
+      await vi.advanceTimersByTimeAsync(0)
+      const session = { type: 'market', start: '2026-10-27T13:30:00Z', end: '2026-10-27T20:00:00Z' }
+      let resolveSession!: (sessions: (typeof session)[]) => void
+      resolveMarketSessionsForRangeMock.mockResolvedValue([session]).mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveSession = resolve
+        })
+      )
+      const trade = (price: number, timeStamp: string) =>
+        alpacaStreamInstances[0].handlers.onTrade({ symbol: 'AAPL', trade: { price, timeStamp } })
+      socket.emit.mockClear()
+      const pending = trade(133, '2026-10-27T14:00:00Z')
+      expect(socket.emit).toHaveBeenCalledWith(
+        'market-trade',
+        expect.objectContaining({ trade: { price: 133, timeStamp: '2026-10-27T14:00:00Z' } })
+      )
+      if (winner === 'trade') await trade(134, '2026-10-27T14:01:00Z')
+      if (winner === 'refresh') {
+        buildMarketQuoteSnapshotMock.mockResolvedValue(
+          createMarketQuoteSnapshot({
+            lastPrice: 134,
+            previousClose: 129,
+            lastPriceTime: '2026-10-27T14:01:00Z',
+            lastPriceEndTime: '2026-10-27T14:02:00Z',
+            timezone: regularSnapshot.timezone,
+            regularSession: session,
+          })
+        )
+        await vi.advanceTimersByTimeAsync(60_000)
+      }
+      if (winner === 'unsubscribe') {
+        manager.removeSocket(socket.id)
+        socket.emit.mockClear()
+      }
+      resolveSession([session])
+      await pending
+      if (winner === 'unsubscribe') expect(socket.emit).not.toHaveBeenCalled()
+      else {
+        expect(lastQuote(socket)).toMatchObject({
+          lastPrice: 134,
+          previousClose: winner === 'refresh' ? 129 : null,
+        })
+      }
       manager.removeSocket(socket.id)
     }
   )
@@ -580,11 +718,7 @@ describe('MarketStreamManager quote snapshots', () => {
       buildMarketQuoteSnapshotMock.mockResolvedValue(inferred)
       await manager.subscribe(socket, nativeQuotePayload('alpaca'))
       await vi.advanceTimersByTimeAsync(0)
-      const quote = () =>
-        socket.emit.mock.calls.findLast(
-          ([event]: [string]) => event === 'market-quote-snapshot'
-        )?.[1].snapshot
-      expect(quote()).toEqual(inferred)
+      expect(lastQuote(socket)).toEqual(inferred)
       if (partial) {
         buildMarketQuoteSnapshotMock.mockResolvedValue(
           createMarketQuoteSnapshot({
@@ -594,14 +728,16 @@ describe('MarketStreamManager quote snapshots', () => {
           })
         )
         await vi.advanceTimersByTimeAsync(60_000)
-        expect(quote()).toEqual(createMarketQuoteSnapshot({ ...corrected, lastPrice: 130 }))
+        expect(lastQuote(socket)).toEqual(
+          createMarketQuoteSnapshot({ ...corrected, lastPrice: 130 })
+        )
       }
       buildMarketQuoteSnapshotMock.mockResolvedValue(corrected)
       for (let refresh = 0; refresh < 2; refresh++) {
         await vi.advanceTimersByTimeAsync(60_000)
-        expect(quote()).toEqual(corrected)
+        expect(lastQuote(socket)).toEqual(corrected)
       }
-      expect(quote().change).toBe(11)
+      expect(lastQuote(socket).change).toBe(11)
       expect(inferred.lastPriceEndTime).toBe('2026-10-27T04:00:00Z')
       manager.removeSocket(socket.id)
     }
@@ -623,20 +759,23 @@ describe('MarketStreamManager quote snapshots', () => {
         )
       await manager.subscribe(socket, nativeQuotePayload(provider))
       const stream = (provider === 'alpaca' ? alpacaStreamInstances : finnhubStreamInstances)[0]
-      const quote = () =>
-        socket.emit.mock.calls
-          .filter(([event]: [string]) => event === 'market-quote-snapshot')
-          .at(-1)![1].snapshot
       const trade = (price: number, timeStamp: string) =>
         stream.handlers.onTrade({ symbol: 'AAPL', trade: { price, timeStamp } })
       trade(123.45, '2026-10-26T15:01:00Z')
-      expect(quote()).toMatchObject({ lastPrice: 123.45, previousClose: null, change: null })
+      expect(lastQuote(socket)).toMatchObject({
+        lastPrice: 123.45,
+        previousClose: null,
+        change: null,
+      })
       rejectSeed(new Error('Historical access denied'))
       await vi.advanceTimersByTimeAsync(0)
-      expect(quote()).toMatchObject({ lastPrice: 123.45, error: 'Historical access denied' })
+      expect(lastQuote(socket)).toMatchObject({
+        lastPrice: 123.45,
+        error: 'Historical access denied',
+      })
       trade(126, '2026-10-26T15:02:00Z')
       await vi.advanceTimersByTimeAsync(60_000)
-      expect(quote()).toMatchObject({
+      expect(lastQuote(socket)).toMatchObject({
         lastPrice: 126,
         previousClose: null,
         change: null,
@@ -644,8 +783,8 @@ describe('MarketStreamManager quote snapshots', () => {
       })
       buildMarketQuoteSnapshotMock.mockResolvedValue(regularSnapshot)
       await vi.advanceTimersByTimeAsync(60_000)
-      expect(quote()).toMatchObject({ lastPrice: 126, previousClose: 120, change: 6 })
-      expect(quote().error).toBeUndefined()
+      expect(lastQuote(socket)).toMatchObject({ lastPrice: 126, previousClose: 120, change: 6 })
+      expect(lastQuote(socket).error).toBeUndefined()
       manager.removeSocket(socket.id)
     }
   )
@@ -674,26 +813,22 @@ describe('MarketStreamManager quote snapshots', () => {
       const socket = createSocket('socket-1')
       await manager.subscribe(socket, { ...nativeQuotePayload('finnhub'), listing: pair })
       await vi.advanceTimersByTimeAsync(0)
-      const quote = () =>
-        socket.emit.mock.calls
-          .filter(([event]: [string]) => event === 'market-quote-snapshot')
-          .at(-1)![1].snapshot
       const trade = (price: number, timeStamp: string) =>
         finnhubStreamInstances[0].handlers.onTrade({ symbol: 'AAPL', trade: { price, timeStamp } })
       trade(1.09, '2026-10-26T23:59:00Z')
-      expect(quote().lastPrice).toBe(1.08)
-      expect(quote().change).toBeCloseTo(0.01)
-      expect(quote().volumeUsd).toBeCloseTo(108)
+      expect(lastQuote(socket).lastPrice).toBe(1.08)
+      expect(lastQuote(socket).change).toBeCloseTo(0.01)
+      expect(lastQuote(socket).volumeUsd).toBeCloseTo(108)
       trade(1.1, '2026-10-27T00:00:00Z')
       await vi.advanceTimersByTimeAsync(60_000)
-      expect(quote()).toMatchObject({
+      expect(lastQuote(socket)).toMatchObject({
         lastPrice: 1.1,
         previousClose: null,
         change: null,
         timezone: 'UTC',
       })
-      expect(quote().volumeUsd).toBeUndefined()
-      expect(quote().lastPriceEndTime).toBeUndefined()
+      expect(lastQuote(socket).volumeUsd).toBeUndefined()
+      expect(lastQuote(socket).lastPriceEndTime).toBeUndefined()
       buildMarketQuoteSnapshotMock.mockResolvedValue(
         createMarketQuoteSnapshot({
           lastPrice: 1.1,
@@ -704,11 +839,11 @@ describe('MarketStreamManager quote snapshots', () => {
         })
       )
       await vi.advanceTimersByTimeAsync(60_000)
-      expect(quote().previousClose).toBe(1.09)
-      expect(quote().change).toBeCloseTo(0.01)
+      expect(lastQuote(socket).previousClose).toBe(1.09)
+      expect(lastQuote(socket).change).toBeCloseTo(0.01)
       trade(1.11, '2026-10-27T00:01:00Z')
-      expect(quote().lastPrice).toBe(1.11)
-      expect(quote().change).toBeCloseTo(0.02)
+      expect(lastQuote(socket).lastPrice).toBe(1.11)
+      expect(lastQuote(socket).change).toBeCloseTo(0.02)
       manager.removeSocket(socket.id)
     }
   )
@@ -818,6 +953,64 @@ describe('MarketStreamManager quote snapshots', () => {
     manager.removeSocket(socket.id)
   })
 
+  it.each([
+    ['alpaca', 50, 51, 60_000, 120_000],
+    ['finnhub', 30, 31, 60_000, 120_000],
+    ['alpaca', 50, 51, 180_000, 180_000],
+    ['alpaca', 50, 50, 60_000, 60_000],
+    ['finnhub', 30, 30, 60_000, 60_000],
+  ] as const)(
+    'budgets %s quotes across workspaces and credentials (capacity=%s, count=%s, base=%s)',
+    async (provider, capacity, count, base, expected) => {
+      vi.useFakeTimers()
+      getMarketLiveCapabilitiesMock.mockReturnValue({
+        pollingIntervalMs: base,
+        quoteSnapshotsPerMinute: capacity,
+      })
+      const times = new Map<string, number[]>()
+      buildMarketQuoteSnapshotMock.mockImplementation(async ({ listing: item }) => {
+        times.set(item.listing_id, [...(times.get(item.listing_id) ?? []), Date.now()])
+        return regularSnapshot
+      })
+      const manager = new MarketStreamManager()
+      const socket = createSocket('watchlist')
+      for (let index = 0; index < count; index++) {
+        resolveProviderSymbolMock.mockReturnValueOnce(`SYMBOL${index}`)
+        await manager.subscribe(socket, {
+          ...nativeQuotePayload(provider),
+          workspaceId: `workspace-${index % 2}`,
+          listing: { ...listing, listing_id: `listing-${index}` },
+          clientSubscriptionId: `quote-${index}`,
+        })
+      }
+      if (count === capacity) {
+        resolveProviderSymbolMock.mockReturnValueOnce('SYMBOL0')
+        await manager.subscribe(socket, {
+          ...nativeQuotePayload(provider),
+          workspaceId: 'workspace-0',
+          listing: { ...listing, listing_id: 'listing-0' },
+          clientSubscriptionId: 'duplicate',
+        })
+        resolveProviderSymbolMock.mockReturnValueOnce('OTHER')
+        await manager.subscribe(socket, {
+          ...nativeQuotePayload(provider),
+          auth: { apiKey: 'other-key', apiSecret: 'other-secret' },
+          listing: { ...listing, listing_id: 'other-listing' },
+          clientSubscriptionId: 'other',
+        })
+      }
+      await vi.advanceTimersByTimeAsync(expected * 2)
+      expect(times.size).toBe(capacity + 1)
+      for (const calls of times.values()) {
+        expect(calls.length).toBeGreaterThanOrEqual(3)
+        expect(calls.at(-1)! - calls.at(-2)!).toBe(expected)
+      }
+      if (count === capacity)
+        expect(buildMarketQuoteSnapshotMock).toHaveBeenCalledTimes((capacity + 1) * 3)
+      manager.removeSocket(socket.id)
+    }
+  )
+
   it.each(['bars', 'trades'] as const)(
     'identifies each streaming %s subscriber',
     async (channel) => {
@@ -843,7 +1036,7 @@ describe('MarketStreamManager quote snapshots', () => {
 
   it('reuses fresh quotes and refreshes staggered symbols at their own deadlines', async () => {
     vi.useFakeTimers()
-    getMarketProviderPollingIntervalMsMock.mockReturnValue(15_000)
+    getMarketLiveCapabilitiesMock.mockReturnValue({ pollingIntervalMs: 15_000 })
     const manager = new MarketStreamManager()
     const firstSocket = createSocket('socket-1')
     const secondSocket = createSocket('socket-2')

@@ -84,6 +84,7 @@ export const finnhubProviderConfig: MarketProviderConfig = {
       channels: ['trades', 'bars'],
       supportsInterval: false,
       pollingIntervalMs: 60_000,
+      quoteSnapshotsPerMinute: 30, // Free's 60 calls/minute, with two candle requests per quote.
     },
   },
   rulePrecedence: {

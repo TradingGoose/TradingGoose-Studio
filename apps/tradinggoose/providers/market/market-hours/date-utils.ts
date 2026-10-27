@@ -35,21 +35,6 @@ export const toDateKey = (date: Date) =>
     date.getUTCDate()
   ).padStart(2, '0')}`
 
-export const toDateKeyValue = (value: unknown): string | null => {
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    if (DATE_KEY_RE.test(trimmed)) return trimmed
-    const parsed = toDate(trimmed)
-    return parsed ? toDateKey(parsed) : null
-  }
-  if (value instanceof Date) return toDateKey(value)
-  if (typeof value === 'number') {
-    const parsed = toDate(value)
-    return parsed ? toDateKey(parsed) : null
-  }
-  return null
-}
-
 export const parseDateKey = (dateKey: string): Date | null => {
   if (!DATE_KEY_RE.test(dateKey)) return null
   const [year, month, day] = dateKey.split('-').map((value) => Number(value))

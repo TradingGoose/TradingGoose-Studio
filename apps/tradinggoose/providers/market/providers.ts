@@ -66,6 +66,7 @@ export interface MarketLiveInputCapabilities {
   supportsInterval?: boolean
   intervals?: string[]
   pollingIntervalMs?: number
+  quoteSnapshotsPerMinute?: number
 }
 
 export interface MarketProviderCapabilities {
@@ -284,10 +285,6 @@ export function getMarketLiveCapabilities(providerId: string): MarketLiveInputCa
 
 export function getMarketProviderIntervals(providerId: string): MarketInterval[] {
   return getMarketSeriesCapabilities(providerId)?.intervals ?? []
-}
-
-export function getMarketProviderPollingIntervalMs(providerId: string): number | undefined {
-  return getMarketLiveCapabilities(providerId)?.pollingIntervalMs
 }
 
 export function getMarketProviderExchangeCodes(providerId: string): string[] {
