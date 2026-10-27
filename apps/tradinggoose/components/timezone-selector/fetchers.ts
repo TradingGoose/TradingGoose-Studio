@@ -1,5 +1,5 @@
 import { MARKET_API_VERSION } from '@/lib/market/client/constants'
-import { formatTimezoneLabel, normalizeUtcOffset } from '@/lib/time-format'
+import { normalizeUtcOffset } from '@/lib/time-format'
 import type { TimeZoneResponse } from '@/lib/timezone/timezone-resolver'
 
 export type TimeZoneOption = TimeZoneResponse & {
@@ -98,5 +98,3 @@ export const fetchTimeZoneOptions = (): Promise<TimeZoneOption[]> => {
   }
   return timeZoneOptionsPromise
 }
-
-export { formatTimezoneLabel }

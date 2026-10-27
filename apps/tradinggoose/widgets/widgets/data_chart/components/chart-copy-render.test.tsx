@@ -22,7 +22,6 @@ import { IndicatorControl } from './indicator-control'
 
 vi.mock('@/components/timezone-selector/fetchers', () => ({
   fetchTimeZoneOptions: vi.fn(async () => []),
-  formatTimezoneLabel: (value: string) => value,
 }))
 
 vi.mock('@/lib/yjs/use-entity-fields', () => ({

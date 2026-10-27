@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type WheelEvent } from 'react'
 import { ChartNetwork, Check, Clock, ClockFading, ClockPlus } from 'lucide-react'
-import { fetchTimeZoneOptions, formatTimezoneLabel } from '@/components/timezone-selector/fetchers'
+import { fetchTimeZoneOptions } from '@/components/timezone-selector/fetchers'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,7 +19,7 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
-import { isUtcOffset, normalizeUtcOffset } from '@/lib/time-format'
+import { formatTimezoneLabel, isUtcOffset, normalizeUtcOffset } from '@/lib/time-format'
 import { cn } from '@/lib/utils'
 import {
   getMarketSeriesCapabilities,
