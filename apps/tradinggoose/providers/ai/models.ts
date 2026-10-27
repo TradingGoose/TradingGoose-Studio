@@ -2574,7 +2574,7 @@ export function getBaseModelProviders(): Record<string, ProviderId> {
 }
 
 export function getProviderFromModel(model: string): ProviderId {
-  const normalizedModel = model.toLowerCase()
+  const normalizedModel = model.toLowerCase().trim()
 
   for (const [providerId, provider] of Object.entries(PROVIDER_DEFINITIONS)) {
     if (
@@ -2603,21 +2603,26 @@ export function getProviderDefaultModel(providerId: string): string {
 }
 
 export function getModelPricing(modelId: string): ModelPricing | null {
-  const catalogModelId = modelId.toLowerCase().trim()
+  const normalizedModelId = modelId.toLowerCase().trim()
+  let openRouterPricing: ModelPricing | null = null
   for (const provider of Object.values(PROVIDER_DEFINITIONS)) {
-    const model = provider.models.find((m) => m.id.toLowerCase() === catalogModelId)
-    if (model) {
-      return model.pricing
+    for (const model of provider.models) {
+      const catalogModelId = model.id.toLowerCase()
+      if (catalogModelId === normalizedModelId) {
+        return model.pricing
+      }
+      if (`openrouter/${provider.id}/${catalogModelId}` === normalizedModelId) {
+        openRouterPricing = model.pricing
+      }
     }
   }
-  return null
+  return openRouterPricing
 }
 
 export function getModelCapabilities(modelId: string): ModelCapabilities | null {
-  const normalizedModelId = modelId.toLowerCase()
-  const catalogModelId = modelId.toLowerCase().trim()
+  const normalizedModelId = modelId.toLowerCase().trim()
   for (const provider of Object.values(PROVIDER_DEFINITIONS)) {
-    const model = provider.models.find((m) => m.id.toLowerCase() === catalogModelId)
+    const model = provider.models.find((m) => m.id.toLowerCase() === normalizedModelId)
     if (model) {
       const capabilities: ModelCapabilities = { ...provider.capabilities, ...model.capabilities }
       return capabilities
@@ -2625,12 +2630,8 @@ export function getModelCapabilities(modelId: string): ModelCapabilities | null 
   }
 
   for (const provider of Object.values(PROVIDER_DEFINITIONS)) {
-    if (provider.modelPatterns) {
-      for (const pattern of provider.modelPatterns) {
-        if (pattern.test(normalizedModelId) || pattern.test(catalogModelId)) {
-          return provider.capabilities || null
-        }
-      }
+    if (provider.modelPatterns?.some((pattern) => pattern.test(normalizedModelId))) {
+      return provider.capabilities || null
     }
   }
 

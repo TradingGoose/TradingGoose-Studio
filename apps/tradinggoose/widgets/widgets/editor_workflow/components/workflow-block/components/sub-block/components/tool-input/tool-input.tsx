@@ -31,7 +31,7 @@ import {
 import { useRouter } from '@/i18n/navigation'
 import type { LocaleCode } from '@/i18n/utils'
 import { formatTemplate } from '@/i18n/utils'
-import { getProviderFromModel, supportsToolUsageControl } from '@/providers/ai/models'
+import { getModelCapabilities } from '@/providers/ai/models'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 import {
   getRenderableToolParameters,
@@ -83,8 +83,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
 
   // Get the current model from the 'model' subblock
   const model = typeof modelValue === 'string' ? modelValue : ''
-  const provider = model ? getProviderFromModel(model) : ''
-  const supportsToolControl = provider ? supportsToolUsageControl(provider) : false
+  const supportsToolControl = getModelCapabilities(model)?.toolUsageControl ?? false
 
   const allToolBlocks = useMemo(
     () =>

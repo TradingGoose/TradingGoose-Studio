@@ -292,6 +292,12 @@ describe('Model Capabilities', () => {
 
 describe('Cost Calculation', () => {
   describe('calculateCost', () => {
+    it.concurrent.each([false, true])('prices OpenRouter tokens (cached=%s)', (cached) => {
+      expect(calculateCost('openrouter/openai/gpt-4.1', 1000, 500, cached).total).toBe(
+        cached ? 0.0045 : 0.006
+      )
+    })
+
     it.concurrent('should calculate cost correctly for known models', () => {
       const result = calculateCost('gpt-4.1', 1000, 500, false)
 

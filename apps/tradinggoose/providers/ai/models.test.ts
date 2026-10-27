@@ -4,10 +4,13 @@ import {
   resolveFireworksWireModel,
 } from '@/providers/ai/fireworks/utils'
 import {
+  getModelCapabilities,
+  getModelPricing,
   getProviderFromModel,
   getProviderModels,
   PROVIDER_DEFINITIONS,
   updateFireworksModels,
+  updateOpenRouterModels,
 } from '@/providers/ai/models'
 
 const EXPECTED_MODEL_COUNTS = {
@@ -117,7 +120,50 @@ const REMOVED_MODELS = [
 ]
 
 describe('AI model catalog', () => {
-  afterEach(() => updateFireworksModels([]))
+  afterEach(() => {
+    updateFireworksModels([])
+    updateOpenRouterModels([])
+  })
+
+  it.each(['', 'c', '{{MODEL}}', '<agent1.model>'])(
+    'leaves unresolved editor model %s without capabilities while routing stays strict',
+    (model) => {
+      expect(getModelCapabilities(model)).toBeNull()
+      expect(() => getProviderFromModel(model)).toThrow('Unknown model:')
+    }
+  )
+
+  it('uses catalog patterns for custom model capabilities', () => {
+    expect(getModelCapabilities(' gpt-5-custom ')?.toolUsageControl).toBe(true)
+  })
+
+  it.each([
+    ['openrouter/openai/gpt-4.1', 'gpt-4.1'],
+    ['openrouter/anthropic/claude-sonnet-4-6', 'claude-sonnet-4-6'],
+    ['openrouter/google/gemini-2.5-pro', 'gemini-2.5-pro'],
+  ])('resolves canonical reseller pricing for %s', (routedModel, model) => {
+    expect(getModelPricing(routedModel)).toEqual(getModelPricing(model))
+  })
+
+  it.each([0, 7])('preserves exact discovered OpenRouter pricing with input=%s', (input) => {
+    const model = 'openrouter/openai/gpt-4.1'
+    updateOpenRouterModels([model])
+    const pricing = { input, output: input * 2, updatedAt: '2026-10-27' }
+    PROVIDER_DEFINITIONS.openrouter.models[0].pricing = pricing
+    expect(getModelPricing(model)).toBe(pricing)
+  })
+
+  it.each([
+    'openrouter/unknown/gpt-4.1',
+    'openrouter/openai/unknown-model',
+    'unknown/openai/gpt-4.1',
+    'claude-sonnet-4.6',
+    'openrouter/anthropic/claude-sonnet-4.6',
+    'ollama/gpt-4.1',
+    'vllm/gpt-4.1',
+  ])('does not invent catalog pricing for %s', (model) => {
+    expect(getModelPricing(model)).toBeNull()
+  })
 
   it('contains the active sibling catalog for every existing provider', () => {
     const counts = Object.fromEntries(

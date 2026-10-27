@@ -3,7 +3,7 @@ import { isEqual } from 'lodash'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useBlock, useSubBlockValue as useYjsSubBlockValue } from '@/lib/yjs/use-workflow-doc'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
-import { getProviderFromModel } from '@/providers/ai/models'
+import { getModelCapabilities, getProviderFromModel } from '@/providers/ai/models'
 
 const logger = createLogger('SubBlockValue')
 
@@ -114,9 +114,11 @@ export function useSubBlockValue<T = any>(
           newValue &&
           typeof newValue === 'string'
         ) {
-          if (currentApiKeyValue && currentApiKeyValue !== '') {
-            const oldModelValue = currentValue as string
-            const oldProvider = oldModelValue ? getProviderFromModel(oldModelValue) : null
+          if (currentApiKeyValue && getModelCapabilities(newValue)) {
+            const oldProvider =
+              typeof currentValue === 'string' && getModelCapabilities(currentValue)
+                ? getProviderFromModel(currentValue)
+                : null
             const newProvider = getProviderFromModel(newValue)
             if (oldProvider !== newProvider) {
               collaborativeSetSubblockValue(blockId, 'apiKey', '')
