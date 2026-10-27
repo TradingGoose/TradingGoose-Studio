@@ -2,6 +2,23 @@ import { describe, expect, it } from 'vitest'
 import { mergeWatchlistParams, sanitizeWatchlistParams } from '@/widgets/widgets/watchlist/contract'
 
 describe('sanitizeWatchlistParams', () => {
+  it.each([{ provider: 'finnhub' }, { provider: 'finnhub', auth: { apiKey: 'new-key' } }])(
+    'clears old configuration when switching providers: %j',
+    (incoming) => {
+      expect(
+        mergeWatchlistParams(
+          {
+            watchlistId: 'watchlist-1',
+            provider: 'alpaca',
+            auth: { apiKey: 'old-key', apiSecret: 'old-secret' },
+            providerParams: { feed: 'sip' },
+          },
+          incoming
+        )
+      ).toEqual({ watchlistId: 'watchlist-1', ...incoming })
+    }
+  )
+
   it('preserves raw and env-var market auth', () => {
     expect(
       sanitizeWatchlistParams({

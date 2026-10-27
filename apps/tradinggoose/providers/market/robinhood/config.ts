@@ -25,7 +25,6 @@ export const ROBINHOOD_INTERVALS = {
 export const robinhoodProviderConfig: MarketProviderConfig = {
   id: 'robinhood',
   name: 'Robinhood',
-  utcOffset: 0,
   availability: {
     assetClass: ['stock', 'etf'],
     availableListingQuote: ['USD'],

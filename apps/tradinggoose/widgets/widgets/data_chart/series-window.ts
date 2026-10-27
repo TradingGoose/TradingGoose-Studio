@@ -11,7 +11,6 @@ import {
   type MarketSeriesRange,
   type MarketSeriesWindow,
   type MarketSeriesWindowMode,
-  type NormalizationMode,
 } from '@/providers/market/types'
 import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
 import { DEFAULT_BAR_COUNT } from '@/widgets/widgets/data_chart/series-data'
@@ -35,17 +34,6 @@ export const chooseIntervalForRange = (
     }
   }
   return best
-}
-
-export const sanitizeNormalizationMode = (
-  providerId: string,
-  mode?: NormalizationMode | string
-): NormalizationMode | undefined => {
-  if (!mode) return undefined
-  const capabilities = getMarketSeriesCapabilities(providerId)
-  if (!capabilities?.normalizationModes?.length) return mode as NormalizationMode
-  const allowed = capabilities.normalizationModes
-  return allowed.includes(mode as NormalizationMode) ? (mode as NormalizationMode) : undefined
 }
 
 export const coerceProviderParams = (

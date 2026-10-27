@@ -32,6 +32,15 @@ vi.mock('@/providers/market/market-hours/market-hours-api', () => ({
   resolveMarketHoursRange: mockResolveMarketHoursRange,
 }))
 
+vi.mock('@/providers/market/request', () => ({
+  fetchMarketProviderJson: async (
+    _config: unknown,
+    _apiKey: unknown,
+    input: string,
+    init?: RequestInit
+  ) => (await globalThis.fetch(input, init)).json(),
+}))
+
 afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
@@ -139,6 +148,28 @@ describe('fetchAlpacaSeries bounds', () => {
     expect(url.searchParams.get('end')).toBe(latest)
     expect(new URL(fetchMock.mock.calls[2][0]).searchParams.get('page_token')).toBe('stock-page-2')
   })
+
+  it.each([
+    ['raw', 'split', 'raw'],
+    ['split_adjusted', 'raw', 'split'],
+    [undefined, 'split', null],
+  ] as const)(
+    'uses canonical normalization %s despite an opaque adjustment parameter',
+    async (normalizationMode, adjustment, expected) => {
+      mockResolveListingContext.mockResolvedValue({ listing: stockListing, assetClass: 'stock' })
+      mockResolveProviderSymbol.mockReturnValue('AAPL')
+      fetchMock.mockResolvedValue(barsResponse('AAPL'))
+      await fetchAlpacaSeries({
+        kind: 'series',
+        listing: stockListing,
+        interval: '1d',
+        normalizationMode,
+        auth: { apiKey: 'key', apiSecret: 'secret' },
+        providerParams: { adjustment },
+      })
+      expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get('adjustment')).toBe(expected)
+    }
+  )
 
   it.each([
     ['1m', '2026-10-19T12:00:30.000Z', ['2026-10-19T11:59:00.000Z']],
@@ -280,10 +311,10 @@ describe('fetchAlpacaSeries bounds', () => {
     async (failure) => {
       fetchMock
         .mockResolvedValueOnce(barsResponse('BTC/USD', now, 'next'))
-        .mockResolvedValueOnce(
+        .mockImplementationOnce(() =>
           failure === 'failure'
-            ? new Response('Continuation failed', { status: 503 })
-            : barsResponse('BTC/USD', now, 'next')
+            ? Promise.reject(new Error('Continuation failed'))
+            : Promise.resolve(barsResponse('BTC/USD', now, 'next'))
         )
       await expect(
         fetchAlpacaSeries({ kind: 'series', listing: cryptoListing, start: '2026-09-19', end: now })

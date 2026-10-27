@@ -21613,14 +21613,16 @@
           "selectWorkspace": "Selecciona un espacio de trabajo para usar watchlists.",
           "loadingWatchlists": "Cargando watchlists…",
           "failedToLoadWatchlists": "No se pudieron cargar las watchlists.",
+          "loadingQuotes": "Cargando cotizaciones…",
+          "quoteUnavailable": "Cotización no disponible",
           "createWatchlistToGetStarted": "Crea una watchlist para comenzar.",
           "watchlistNotFound": "No se encontró la watchlist.",
           "noItemsInThisWatchlist": "No hay elementos en esta watchlist.",
           "symbol": "Símbolo",
           "asset": "Activo",
           "last": "Último",
-          "change": "Cambio",
-          "changePercent": "Cambio %",
+          "change": "Cambio diario",
+          "changePercent": "Cambio diario %",
           "actions": "Acciones",
           "cancelSymbolEdit": "Cancelar edición del símbolo",
           "editSymbol": "Editar símbolo",
@@ -21936,7 +21938,6 @@
           "failedToLoadTradingProviders": "No se pudieron cargar los proveedores de trading.",
           "failedToLoadBrokerAccounts": "No se pudieron cargar las cuentas de broker.",
           "failedToLoadPortfolioSnapshot": "No se pudo cargar el resumen de cartera.",
-          "failedToLoadMarketQuotes": "No se pudieron cargar las cotizaciones de mercado.",
           "failedToLoadPerformanceHistory": "No se pudo cargar el historial de rendimiento.",
           "performance": "Rendimiento",
           "performanceWindow": "Ventana de rendimiento",
@@ -21996,8 +21997,7 @@
           "selectBrokerAccountToLoadPortfolioHoldings": "Selecciona una cuenta de broker para cargar las posiciones de la cartera.",
           "failedToLoadHoldings": "No se pudieron cargar las posiciones.",
           "noHoldingsListingsFoundForThisAccount": "No se encontraron listados de posiciones para esta cuenta.",
-          "noWatchlistListingsFound": "No se encontraron listados de watchlist.",
-          "failedToLoadMarketQuotes": "No se pudieron cargar las cotizaciones de mercado."
+          "noWatchlistListingsFound": "No se encontraron listados de watchlist."
         }
       },
       "quickOrder": {

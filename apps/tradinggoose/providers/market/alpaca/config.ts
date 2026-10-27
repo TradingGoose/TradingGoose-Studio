@@ -76,9 +76,10 @@ const feedParam: MarketProviderParamDefinition = {
   id: 'feed',
   type: 'string',
   title: 'Feed',
-  description: 'Alpaca data feed (required for stock bars).',
+  description: 'Alpaca stock data feed (defaults to IEX).',
   placeholder: 'Select feed',
   required: true,
+  defaultValue: 'iex',
   visibility: 'user-only',
   inputType: 'dropdown',
   options: [
@@ -156,9 +157,9 @@ const marketToExchangeCodeMap: MarketProviderConfig['marketToExchangeCode'] = {
 }
 
 export const alpacaProviderConfig: MarketProviderConfig = {
+  requestsPerMinute: 200,
   id: 'alpaca',
   name: 'Alpaca',
-  utcOffset: 0,
   availability,
   params,
   capabilities: {
@@ -191,6 +192,7 @@ export const alpacaProviderConfig: MarketProviderConfig = {
     live: {
       channels: ['bars', 'trades', 'quotes'],
       supportsInterval: false,
+      pollingIntervalMs: 60_000,
     },
   },
   rulePrecedence: {

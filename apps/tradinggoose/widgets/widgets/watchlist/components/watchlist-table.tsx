@@ -74,6 +74,8 @@ import {
 type WatchlistTableProps = {
   watchlist: WatchlistRecord
   quotes: Record<string, MarketQuoteSnapshot>
+  quoteError?: string | null
+  isFetchingQuotes?: boolean
   providerId?: string
   onUpdateItemListing: (itemId: string, listing: ListingIdentity) => Promise<boolean> | boolean
   onMoveItem: (activeSortableId: string, overSortableId: string) => Promise<void>
@@ -139,6 +141,8 @@ const buildListingEditSurfaceId = (itemId: string) => `watchlist-listing-edit-su
 export const WatchlistTable = ({
   watchlist,
   quotes,
+  quoteError,
+  isFetchingQuotes = false,
   providerId,
   onUpdateItemListing,
   onMoveItem,
@@ -511,6 +515,9 @@ export const WatchlistTable = ({
 
   const renderListingRow = (row: ListingRowEntry) => {
     const quote = quotes[row.itemId]
+    const error = quote?.error || quoteError
+    const quoteStatus = error || (!quote && isFetchingQuotes ? copy.loadingQuotes : null)
+    const unavailable = !quoteStatus && quote?.lastPrice == null
     const resolved = resolvedByListingKey[getListingIdentityKey(row.listing)] ?? null
     const listingLabel = resolveWatchlistListingLabel(row.listing, resolved)
     const assetClass = resolveWatchlistAssetClass(row.listing, resolved)
@@ -563,6 +570,17 @@ export const WatchlistTable = ({
         </td>
         <td className='p-3 text-center align-middle'>
           <span className='text-sm'>{formatPrice(quote?.lastPrice ?? null, locale)}</span>
+          {quoteStatus || unavailable ? (
+            <span
+              className={cn(
+                'mt-1 block max-w-64 text-xs',
+                error ? 'text-destructive' : 'text-muted-foreground'
+              )}
+              role={error ? 'alert' : 'status'}
+            >
+              {quoteStatus || copy.quoteUnavailable}
+            </span>
+          ) : null}
         </td>
         <td className='p-3 text-center align-middle'>
           <span className={cn('text-sm', resolveWatchlistValueColorClass(quote?.change ?? null))}>

@@ -443,7 +443,7 @@ export function QuickOrderWidgetBody({
   const parsedTrailPrice = getParsedNumberValue(trailPrice)
   const parsedTrailPercent = getParsedNumberValue(trailPercent)
   const quoteKey = quoteItems[0]?.key
-  const selectedQuote = quoteKey ? quoteSnapshotsQuery.data?.[quoteKey] : undefined
+  const selectedQuote = quoteKey ? quoteSnapshotsQuery.data[quoteKey] : undefined
   const marketPrice =
     typeof selectedQuote?.lastPrice === 'number' && Number.isFinite(selectedQuote.lastPrice)
       ? selectedQuote.lastPrice

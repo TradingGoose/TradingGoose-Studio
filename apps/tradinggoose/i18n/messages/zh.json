@@ -21600,14 +21600,16 @@
           "selectWorkspace": "选择一个工作区以使用 watchlists。",
           "loadingWatchlists": "正在加载 watchlists…",
           "failedToLoadWatchlists": "无法加载 watchlists。",
+          "loadingQuotes": "正在加载报价…",
+          "quoteUnavailable": "报价不可用",
           "createWatchlistToGetStarted": "创建一个 watchlist 以开始使用。",
           "watchlistNotFound": "未找到 watchlist。",
           "noItemsInThisWatchlist": "此 watchlist 中没有项目。",
           "symbol": "符号",
           "asset": "资产",
           "last": "最新",
-          "change": "变化",
-          "changePercent": "变化 %",
+          "change": "日涨跌",
+          "changePercent": "日涨跌幅 %",
           "actions": "操作",
           "cancelSymbolEdit": "取消符号编辑",
           "editSymbol": "编辑符号",
@@ -21923,7 +21925,6 @@
           "failedToLoadTradingProviders": "无法加载交易提供商。",
           "failedToLoadBrokerAccounts": "无法加载券商账户。",
           "failedToLoadPortfolioSnapshot": "无法加载投资组合快照。",
-          "failedToLoadMarketQuotes": "无法加载市场报价。",
           "failedToLoadPerformanceHistory": "无法加载绩效历史。",
           "performance": "绩效",
           "performanceWindow": "绩效窗口",
@@ -21983,8 +21984,7 @@
           "selectBrokerAccountToLoadPortfolioHoldings": "选择一个券商账户以加载投资组合持仓。",
           "failedToLoadHoldings": "无法加载持仓。",
           "noHoldingsListingsFoundForThisAccount": "未找到此账户的持仓列表。",
-          "noWatchlistListingsFound": "未找到 watchlist 列表。",
-          "failedToLoadMarketQuotes": "无法加载市场报价。"
+          "noWatchlistListingsFound": "未找到 watchlist 列表。"
         }
       },
       "quickOrder": {

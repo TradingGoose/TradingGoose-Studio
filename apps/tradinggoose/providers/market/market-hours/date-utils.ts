@@ -1,5 +1,23 @@
 import { DATE_KEY_RE, MARKET_DAY_MS } from './constants'
 
+export function toZonedIsoTimestamp(
+  raw: string,
+  formatter: Intl.DateTimeFormat
+): string | undefined {
+  const local = raw.length === 10 ? `${raw}T00:00:00` : raw.replace(' ', 'T')
+  let timestamp = Date.parse(`${local}Z`)
+  if (!Number.isFinite(timestamp)) return undefined
+  // Resolve the source wall clock in its actual timezone, including daylight saving time.
+  for (let pass = 0; pass < 2; pass++) {
+    const zone = formatter
+      .formatToParts(new Date(timestamp))
+      .find(({ type }) => type === 'timeZoneName')!
+    const offset = zone.value.replace('GMT', '') || '+00:00'
+    timestamp = Date.parse(`${local}${offset}`)
+  }
+  return new Date(timestamp).toISOString()
+}
+
 export const toDate = (value?: string | number): Date | null => {
   if (value === undefined || value === null) return null
   const timestamp =
@@ -16,21 +34,6 @@ export const toDateKey = (date: Date) =>
   `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(
     date.getUTCDate()
   ).padStart(2, '0')}`
-
-export const toDateKeyValue = (value: unknown): string | null => {
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    if (DATE_KEY_RE.test(trimmed)) return trimmed
-    const parsed = toDate(trimmed)
-    return parsed ? toDateKey(parsed) : null
-  }
-  if (value instanceof Date) return toDateKey(value)
-  if (typeof value === 'number') {
-    const parsed = toDate(value)
-    return parsed ? toDateKey(parsed) : null
-  }
-  return null
-}
 
 export const parseDateKey = (dateKey: string): Date | null => {
   if (!DATE_KEY_RE.test(dateKey)) return null

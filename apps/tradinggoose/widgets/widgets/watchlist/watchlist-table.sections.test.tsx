@@ -358,7 +358,8 @@ describe('WatchlistTable section interactions', () => {
 
     expect(container.textContent).toContain('Symbol')
     expect(container.textContent).toContain('Asset')
-    expect(container.textContent).toContain('Change %')
+    expect(container.textContent).toContain('Day Change')
+    expect(container.textContent).toContain('Day %')
     expect(header?.className).toContain('sticky')
     expect(wrapper?.className).not.toContain('m-1')
     expect(wrapper?.className).not.toContain('rounded')

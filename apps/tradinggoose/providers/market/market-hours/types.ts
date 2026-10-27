@@ -7,9 +7,9 @@ export type MarketHoursResponse = {
     observesDst?: boolean
   }
   marketHours?: {
-    premarket?: { start?: string; end?: string }
-    market?: { start?: string; end?: string }
-    postmarket?: { start?: string; end?: string }
+    premarket?: { start?: string; end?: string } | null
+    market?: { start?: string; end?: string } | null
+    postmarket?: { start?: string; end?: string } | null
   }
 }
 

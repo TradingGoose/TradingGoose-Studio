@@ -55,7 +55,7 @@ const resolveExtendedSessionWindow = (
 
 const resolveSessionWindowBounds = (
   date: Date,
-  session: { start?: string; end?: string } | undefined,
+  session: { start?: string; end?: string } | null | undefined,
   utcOffsetMinutes: number
 ) => {
   const start = parseTime(session?.start)
@@ -118,7 +118,7 @@ export const resolveMarketSessionsForRange = async (
     const utcOffset = hoursResponse.timeZone?.utcOffset
     const sessionsByType: Array<{
       type: MarketSessionWindow['type']
-      window?: { start?: string; end?: string }
+      window?: { start?: string; end?: string } | null
     }> = [
       { type: 'premarket', window: hoursResponse.marketHours?.premarket },
       { type: 'market', window: resolveRegularSessionWindow(hoursResponse.marketHours) },

@@ -1,20 +1,13 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import { resolveTimezoneState } from '@/lib/timezone/timezone-resolver'
 import { alphaVantageProviderConfig } from '@/providers/market/alpha-vantage/config'
-import type {
-  MarketBar,
-  MarketSeries,
-  MarketSeriesRequest,
-  NormalizationMode,
-} from '@/providers/market/types'
+import { toZonedIsoTimestamp } from '@/providers/market/market-hours/date-utils'
+import { resolveMarketSeriesNormalizationMode } from '@/providers/market/providers'
+import { fetchMarketProviderJson } from '@/providers/market/request'
+import type { MarketBar, MarketSeries, MarketSeriesRequest } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 
 const logger = createLogger('MarketProvider:AlphaVantage')
-
-const PROVIDER_UTC_OFFSET = Number.isFinite(alphaVantageProviderConfig.utcOffset)
-  ? (alphaVantageProviderConfig.utcOffset ?? 0)
-  : 0
-
-const DEFAULT_INTERVAL = '1d'
 
 const INTRADAY_INTERVAL_MAP: Record<string, string> = {
   '1m': '1min',
@@ -33,20 +26,8 @@ const OUTPUTSIZE_FUNCTIONS = new Set([
   'CRYPTO_INTRADAY',
 ])
 
-type SeriesType = 'equity' | 'fx' | 'crypto' | 'digital'
-
-function resolveInterval(request: MarketSeriesRequest): string {
-  return (
-    request.interval || (request.providerParams?.interval as string | undefined) || DEFAULT_INTERVAL
-  )
-}
-
 function isIntradayInterval(interval: string): interval is keyof typeof INTRADAY_INTERVAL_MAP {
   return Object.hasOwn(INTRADAY_INTERVAL_MAP, interval)
-}
-
-function shouldUseAdjusted(mode?: NormalizationMode): boolean {
-  return Boolean(mode && mode !== 'raw')
 }
 
 function resolveEquityFunction(
@@ -85,20 +66,18 @@ function resolveFxFunction(interval: string): { functionName: string; intervalPa
 function resolveCryptoFunction(interval: string): {
   functionName: string
   intervalParam?: string
-  type: SeriesType
 } {
   if (isIntradayInterval(interval)) {
     return {
       functionName: 'CRYPTO_INTRADAY',
       intervalParam: INTRADAY_INTERVAL_MAP[interval],
-      type: 'crypto',
     }
   }
 
-  if (interval === '1w') return { functionName: 'DIGITAL_CURRENCY_WEEKLY', type: 'digital' }
-  if (interval === '1mo') return { functionName: 'DIGITAL_CURRENCY_MONTHLY', type: 'digital' }
+  if (interval === '1w') return { functionName: 'DIGITAL_CURRENCY_WEEKLY' }
+  if (interval === '1mo') return { functionName: 'DIGITAL_CURRENCY_MONTHLY' }
 
-  return { functionName: 'DIGITAL_CURRENCY_DAILY', type: 'digital' }
+  return { functionName: 'DIGITAL_CURRENCY_DAILY' }
 }
 
 function extractSeries(payload: Record<string, any>): Record<string, any> | undefined {
@@ -118,40 +97,6 @@ function toMillis(value?: string | number): number | undefined {
   return undefined
 }
 
-const HAS_TZ_SUFFIX = /([zZ]|[+-]\d{2}:?\d{2})$/
-
-function formatUtcOffset(utcOffsetHours: number): string {
-  if (!Number.isFinite(utcOffsetHours)) return '+00:00'
-  const sign = utcOffsetHours >= 0 ? '+' : '-'
-  const absolute = Math.abs(utcOffsetHours)
-  const rawHours = Math.floor(absolute)
-  const rawMinutes = Math.round((absolute - rawHours) * 60)
-  const carryHours = rawMinutes >= 60 ? rawHours + 1 : rawHours
-  const minutes = rawMinutes >= 60 ? 0 : rawMinutes
-  const hours = String(carryHours).padStart(2, '0')
-  const mins = String(minutes).padStart(2, '0')
-  return `${sign}${hours}:${mins}`
-}
-
-function toIsoTimestamp(raw: string, utcOffsetHours: number): string | undefined {
-  if (!raw) return undefined
-  const trimmed = raw.trim()
-  if (!trimmed) return undefined
-  if (HAS_TZ_SUFFIX.test(trimmed)) {
-    const date = new Date(trimmed)
-    return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
-  }
-
-  const normalized = trimmed.includes('T')
-    ? trimmed
-    : trimmed.includes(' ')
-      ? trimmed.replace(' ', 'T')
-      : `${trimmed}T00:00:00`
-  const offset = formatUtcOffset(utcOffsetHours)
-  const date = new Date(`${normalized}${offset}`)
-  return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
-}
-
 function parseNumber(value: unknown): number | undefined {
   if (value === undefined || value === null) return undefined
   const parsed = Number(value)
@@ -160,27 +105,6 @@ function parseNumber(value: unknown): number | undefined {
 
 function readField(entry: Record<string, any>, key: string): number | undefined {
   return parseNumber(entry[key])
-}
-
-function parseStandardBar(
-  entry: Record<string, any>,
-  useAdjusted: boolean
-): { open?: number; high?: number; low?: number; close?: number; volume?: number } {
-  const closeRaw = readField(entry, '4. close')
-  const adjustedClose = readField(entry, '5. adjusted close')
-  const close = useAdjusted ? (adjustedClose ?? closeRaw) : closeRaw
-
-  const volume = useAdjusted
-    ? (readField(entry, '6. volume') ?? readField(entry, '5. volume'))
-    : readField(entry, '5. volume')
-
-  return {
-    open: readField(entry, '1. open'),
-    high: readField(entry, '2. high'),
-    low: readField(entry, '3. low'),
-    close,
-    volume,
-  }
 }
 
 function parseDigitalBar(
@@ -223,35 +147,48 @@ function parseDigitalBar(
 
 function parseBars(
   series: Record<string, any>,
-  type: SeriesType,
-  useAdjusted: boolean,
-  market: string
+  functionName: string,
+  normalizationMode: MarketSeriesRequest['normalizationMode'],
+  market: string,
+  formatter: Intl.DateTimeFormat
 ): MarketBar[] {
   const bars: MarketBar[] = []
+  const adjusted = functionName.endsWith('_ADJUSTED')
+  const splitAdjusted = adjusted && normalizationMode === 'split_adjusted'
+  let splitRatio = 1
 
-  Object.entries(series).forEach(([timestamp, entry]) => {
-    const timeStamp = toIsoTimestamp(timestamp, PROVIDER_UTC_OFFSET)
-    if (!timeStamp || !entry || typeof entry !== 'object') return
+  for (const [timestamp, entry] of Object.entries(series).sort(([left], [right]) =>
+    right.localeCompare(left)
+  )) {
+    const timeStamp = toZonedIsoTimestamp(timestamp, formatter)
+    if (!timeStamp || !entry || typeof entry !== 'object') continue
 
-    const parsed =
-      type === 'digital'
-        ? parseDigitalBar(entry as Record<string, any>, market)
-        : parseStandardBar(entry as Record<string, any>, useAdjusted)
+    const parsed = functionName.startsWith('DIGITAL_CURRENCY_')
+      ? parseDigitalBar(entry, market)
+      : {
+          open: readField(entry, '1. open'),
+          high: readField(entry, '2. high'),
+          low: readField(entry, '3. low'),
+          close: readField(entry, adjusted && !splitAdjusted ? '5. adjusted close' : '4. close'),
+          volume: readField(entry, adjusted ? '6. volume' : '5. volume'),
+        }
 
-    if (parsed.close == null) return
+    if (splitAdjusted) {
+      const coefficient = readField(entry, '8. split coefficient')
+      if (coefficient === undefined || coefficient <= 0) {
+        throw new Error('Alpha Vantage daily data is missing a valid split coefficient')
+      }
+      for (const field of ['open', 'high', 'low', 'close'] as const) {
+        if (parsed[field] !== undefined) parsed[field] /= splitRatio
+      }
+      if (parsed.volume !== undefined) parsed.volume *= splitRatio
+      splitRatio *= coefficient
+    }
 
-    bars.push({
-      timeStamp,
-      open: parsed.open,
-      high: parsed.high,
-      low: parsed.low,
-      close: parsed.close,
-      volume: parsed.volume,
-    })
-  })
+    if (parsed.close !== undefined) bars.push({ ...parsed, timeStamp, close: parsed.close })
+  }
 
-  bars.sort((a, b) => new Date(a.timeStamp).getTime() - new Date(b.timeStamp).getTime())
-  return bars
+  return bars.reverse()
 }
 
 function filterBarsByRange(
@@ -280,12 +217,11 @@ export async function fetchAlphaVantageSeries(request: MarketSeriesRequest): Pro
 
   const context = await resolveListingContext(request.listing)
   const assetClass = context.assetClass
-  const interval = resolveInterval(request)
-  const useAdjusted = shouldUseAdjusted(request.normalizationMode)
+  const interval = request.interval || '1d'
+  const useAdjusted = Boolean(request.normalizationMode && request.normalizationMode !== 'raw')
 
-  let functionName = ''
+  let functionName: string
   let intervalParam: string | undefined
-  let seriesType: SeriesType = 'equity'
   let symbolParam: Record<string, string> = {}
 
   if (assetClass === 'currency') {
@@ -295,7 +231,6 @@ export async function fetchAlphaVantageSeries(request: MarketSeriesRequest): Pro
     const resolved = resolveFxFunction(interval)
     functionName = resolved.functionName
     intervalParam = resolved.intervalParam
-    seriesType = 'fx'
     symbolParam = {
       from_symbol: context.base,
       to_symbol: context.quote,
@@ -307,22 +242,22 @@ export async function fetchAlphaVantageSeries(request: MarketSeriesRequest): Pro
     const resolved = resolveCryptoFunction(interval)
     functionName = resolved.functionName
     intervalParam = resolved.intervalParam
-    seriesType = resolved.type
     symbolParam = {
       symbol: context.base,
       market: context.quote,
     }
   } else {
+    if (
+      request.normalizationMode &&
+      !resolveMarketSeriesNormalizationMode('alpha-vantage', request.normalizationMode, interval)
+    ) {
+      throw new Error(`Alpha Vantage does not support ${request.normalizationMode} at ${interval}`)
+    }
     const symbol = resolveProviderSymbol(alphaVantageProviderConfig, context)
     const resolved = resolveEquityFunction(interval, useAdjusted)
     functionName = resolved.functionName
     intervalParam = resolved.intervalParam
-    seriesType = 'equity'
     symbolParam = { symbol }
-  }
-
-  if (!functionName) {
-    throw new Error('Unsupported Alpha Vantage series request')
   }
 
   const seriesEndpoint =
@@ -343,6 +278,9 @@ export async function fetchAlphaVantageSeries(request: MarketSeriesRequest): Pro
   if (intervalParam) {
     url.searchParams.set('interval', intervalParam)
   }
+  if (functionName === 'TIME_SERIES_INTRADAY') {
+    url.searchParams.set('adjusted', String(useAdjusted))
+  }
 
   if (OUTPUTSIZE_FUNCTIONS.has(functionName)) {
     url.searchParams.set('outputsize', 'full')
@@ -354,18 +292,17 @@ export async function fetchAlphaVantageSeries(request: MarketSeriesRequest): Pro
     interval: intervalParam ?? interval,
   })
 
-  const response = await fetch(url.toString(), {
-    headers: {
-      Accept: 'application/json',
-    },
-  })
+  const payload = await fetchMarketProviderJson<Record<string, any>>(
+    alphaVantageProviderConfig,
+    apiKey,
+    url.toString(),
+    {
+      headers: {
+        Accept: 'application/json',
+      },
+    }
+  )
 
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => '')
-    throw new Error(errorText || `Alpha Vantage request failed with status ${response.status}`)
-  }
-
-  const payload = (await response.json()) as Record<string, any>
   const message = payload['Error Message'] || payload.Information || payload.Note
   if (message) {
     throw new Error(message)
@@ -377,7 +314,18 @@ export async function fetchAlphaVantageSeries(request: MarketSeriesRequest): Pro
   }
 
   const market = context.quote || 'USD'
-  const bars = parseBars(series, seriesType, useAdjusted, market)
+  const sourceTimezone = Object.entries(payload['Meta Data'] ?? {}).find(([key]) =>
+    key.endsWith('Time Zone')
+  )?.[1]
+  if (typeof sourceTimezone !== 'string' || !sourceTimezone.trim()) {
+    throw new Error('Alpha Vantage response is missing its time zone')
+  }
+  const { name: timezone } = await resolveTimezoneState(sourceTimezone)
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    timeZoneName: 'longOffset',
+  })
+  const bars = parseBars(series, functionName, request.normalizationMode, market, formatter)
   const filteredBars = filterBarsByRange(bars, request.start, request.end)
 
   if (!filteredBars.length) {
@@ -391,7 +339,7 @@ export async function fetchAlphaVantageSeries(request: MarketSeriesRequest): Pro
     marketCode: context.marketCode,
     start: filteredBars[0]?.timeStamp,
     end: filteredBars[filteredBars.length - 1]?.timeStamp,
-    timezone: context.timeZoneName,
+    timezone,
     normalizationMode: request.normalizationMode,
     bars: filteredBars,
   }

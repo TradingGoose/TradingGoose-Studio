@@ -319,7 +319,7 @@ describe('useLiveBars', () => {
       expect(onDataUpdated).toHaveBeenCalledTimes(2)
       handlers.get('market-subscribe-error')?.({
         clientSubscriptionId: 'another-chart',
-        error: 'ignore',
+        message: 'ignore',
       })
       expect(controls.liveError).toBeNull()
       act(() => {
@@ -340,7 +340,7 @@ describe('useLiveBars', () => {
       expect(series.update).toHaveBeenCalledTimes(3)
       expect(onDataUpdated).toHaveBeenCalledTimes(3)
       act(() => {
-        handlers.get('market-subscribe-error')?.({ clientSubscriptionId, error: 'Denied' })
+        handlers.get('market-subscribe-error')?.({ clientSubscriptionId, message: 'Denied' })
       })
       expect(controls.liveError).toBe('Denied')
       act(() => controls.stopLiveSubscription())

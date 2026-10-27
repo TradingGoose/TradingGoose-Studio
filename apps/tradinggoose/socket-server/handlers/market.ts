@@ -23,11 +23,8 @@ export function setupMarketHandlers(socket: AuthenticatedSocket) {
         error: message,
       })
       socket.emit('market-subscribe-error', {
-        error: message,
-        provider: payload?.provider,
-        channel: payload?.channel,
+        message,
         clientSubscriptionId: payload?.clientSubscriptionId,
-        listing: payload?.listing,
       })
     }
   })

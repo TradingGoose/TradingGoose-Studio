@@ -21613,14 +21613,16 @@
           "selectWorkspace": "Select a workspace to use watchlists.",
           "loadingWatchlists": "Loading watchlists…",
           "failedToLoadWatchlists": "Failed to load watchlists.",
+          "loadingQuotes": "Loading quotes…",
+          "quoteUnavailable": "Quote unavailable",
           "createWatchlistToGetStarted": "Create a watchlist to get started.",
           "watchlistNotFound": "Watchlist not found.",
           "noItemsInThisWatchlist": "No items in this watchlist.",
           "symbol": "Symbol",
           "asset": "Asset",
           "last": "Last",
-          "change": "Change",
-          "changePercent": "Change %",
+          "change": "Day Change",
+          "changePercent": "Day %",
           "actions": "Actions",
           "cancelSymbolEdit": "Cancel symbol edit",
           "editSymbol": "Edit symbol",
@@ -21936,7 +21938,6 @@
           "failedToLoadTradingProviders": "Failed to load trading providers.",
           "failedToLoadBrokerAccounts": "Failed to load broker accounts.",
           "failedToLoadPortfolioSnapshot": "Failed to load portfolio snapshot.",
-          "failedToLoadMarketQuotes": "Failed to load market quotes.",
           "failedToLoadPerformanceHistory": "Failed to load performance history.",
           "performance": "Performance",
           "performanceWindow": "Performance window",
@@ -21996,8 +21997,7 @@
           "selectBrokerAccountToLoadPortfolioHoldings": "Select a broker account to load portfolio holdings.",
           "failedToLoadHoldings": "Failed to load holdings.",
           "noHoldingsListingsFoundForThisAccount": "No holdings listings found for this account.",
-          "noWatchlistListingsFound": "No watchlist listings found.",
-          "failedToLoadMarketQuotes": "Failed to load market quotes."
+          "noWatchlistListingsFound": "No watchlist listings found."
         }
       },
       "quickOrder": {

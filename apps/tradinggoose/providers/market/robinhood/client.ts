@@ -16,7 +16,6 @@ import { MarketProviderError } from '@/providers/market/errors'
 import { ROBINHOOD_MCP_URL, robinhoodProviderConfig } from '@/providers/market/robinhood/config'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 
-type RobinhoodMarketTool = 'get_equity_historicals' | 'get_equity_quotes'
 const REQUEST_TIMEOUT_MS = 30_000
 const payloadSchema = z.record(z.string(), z.unknown())
 export const numberValue = z
@@ -52,7 +51,7 @@ export const robinhoodError = (message: string, status?: number) =>
 
 export async function callRobinhoodTool(
   accessToken: string,
-  tool: RobinhoodMarketTool,
+  tool: 'get_equity_historicals',
   args: Record<string, unknown>,
   parentSignal?: AbortSignal
 ): Promise<unknown> {

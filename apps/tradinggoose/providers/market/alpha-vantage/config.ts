@@ -44,7 +44,6 @@ const marketToExchangeCodeMap: MarketProviderConfig['marketToExchangeCode'] = {}
 export const alphaVantageProviderConfig: MarketProviderConfig = {
   id: 'alpha-vantage',
   name: 'Alpha Vantage',
-  utcOffset: 0,
   availability,
   params,
   api_endpoints: {
@@ -57,6 +56,7 @@ export const alphaVantageProviderConfig: MarketProviderConfig = {
       windowModes: ['range', 'bars', 'absolute', 'all'],
       allInterval: '1mo',
       normalizationModes: ['raw', 'adjusted', 'split_adjusted', 'total_return'],
+      normalizationIntervals: { split_adjusted: ['1d'] },
       marketSessions: ['regular'],
       retention: {
         byInterval: {
