@@ -9,15 +9,16 @@ export async function fetchMarketProviderJson<T = unknown>(
   input: string,
   init?: RequestInit
 ): Promise<T> {
-  const intervalMs = Math.ceil(60_000 / config.requestsPerMinute!)
+  const intervalMs = config.requestsPerMinute ? Math.ceil(60_000 / config.requestsPerMinute) : 0
   const key = JSON.stringify([config.id, apiKey])
   const gate = gates.get(key) ?? { ready: Promise.resolve(), startedAt: undefined }
   gates.set(key, gate)
   const request = gate.ready.then(async () => {
-    if (gate.startedAt !== undefined) {
+    if (intervalMs && gate.startedAt !== undefined) {
       const delay = gate.startedAt + intervalMs - Date.now()
       if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay))
     }
+    init?.signal?.throwIfAborted()
     const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
     const signal = init?.signal ? AbortSignal.any([init.signal, timeout]) : timeout
     gate.startedAt = Date.now()

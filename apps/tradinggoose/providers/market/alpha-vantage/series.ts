@@ -3,6 +3,7 @@ import { resolveTimezoneState } from '@/lib/timezone/timezone-resolver'
 import { alphaVantageProviderConfig } from '@/providers/market/alpha-vantage/config'
 import { toZonedIsoTimestamp } from '@/providers/market/market-hours/date-utils'
 import { resolveMarketSeriesNormalizationMode } from '@/providers/market/providers'
+import { fetchMarketProviderJson } from '@/providers/market/request'
 import type { MarketBar, MarketSeries, MarketSeriesRequest } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 
@@ -291,18 +292,17 @@ export async function fetchAlphaVantageSeries(request: MarketSeriesRequest): Pro
     interval: intervalParam ?? interval,
   })
 
-  const response = await fetch(url.toString(), {
-    headers: {
-      Accept: 'application/json',
-    },
-  })
+  const payload = await fetchMarketProviderJson<Record<string, any>>(
+    alphaVantageProviderConfig,
+    apiKey,
+    url.toString(),
+    {
+      headers: {
+        Accept: 'application/json',
+      },
+    }
+  )
 
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => '')
-    throw new Error(errorText || `Alpha Vantage request failed with status ${response.status}`)
-  }
-
-  const payload = (await response.json()) as Record<string, any>
   const message = payload['Error Message'] || payload.Information || payload.Note
   if (message) {
     throw new Error(message)

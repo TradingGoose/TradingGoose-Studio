@@ -218,6 +218,34 @@ it('starts deadlines at paced launch while preserving options and caller cancell
   await first
 })
 
+it.each([true, false])(
+  'skips canceled callers without consuming a launch slot (pre-aborted=%s)',
+  async (preAborted) => {
+    await request('cancelled-key')
+    const caller = new AbortController()
+    const reason = new Error('Caller cancelled')
+    if (preAborted) caller.abort(reason)
+    const cancelled = fetchMarketProviderJson(
+      finnhubProviderConfig,
+      'cancelled-key',
+      'https://example.test',
+      {
+        signal: caller.signal,
+      }
+    ).catch((error) => error)
+    const next = request('cancelled-key')
+    if (!preAborted) {
+      await vi.advanceTimersByTimeAsync(500)
+      caller.abort(reason)
+    }
+    await vi.runAllTimersAsync()
+    expect(starts).toEqual([now, now + 1000])
+    expect(AbortSignal.timeout).toHaveBeenCalledTimes(2)
+    expect(await cancelled).toBe(reason)
+    await next
+  }
+)
+
 it.each([
   ['launch', 'network failed'],
   ['response', 'network failed'],

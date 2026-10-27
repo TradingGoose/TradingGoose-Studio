@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ListingIdentity } from '@/lib/listing/identity'
 import { marketClient } from '@/lib/market/client'
+import { fetchAlphaVantageSeries } from '@/providers/market/alpha-vantage/series'
 import { getMarketSeriesCapabilities } from '@/providers/market/providers'
 import { applySeriesWindow, planMarketSeriesRequest } from '@/providers/market/series-planner'
 import type { MarketSeriesRequest } from '@/providers/market/types'
@@ -33,6 +34,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
@@ -61,6 +63,40 @@ const chartResponse = (
       ],
     },
   })
+
+it.each([
+  ['Yahoo Finance', 'fetch', fetchYahooFinanceSeries],
+  ['Yahoo Finance', 'body', fetchYahooFinanceSeries],
+  ['Alpha Vantage', 'fetch', fetchAlphaVantageSeries],
+  ['Alpha Vantage', 'body', fetchAlphaVantageSeries],
+] as const)('bounds a stalled %s %s at 30 seconds', async (_provider, stage, fetchSeries) => {
+  vi.useFakeTimers()
+  vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms) => {
+    const deadline = new AbortController()
+    setTimeout(() => deadline.abort(new DOMException('Request timed out', 'TimeoutError')), ms)
+    return deadline.signal
+  })
+  fetchMock.mockImplementation((_input, init) => {
+    const pending = new Promise((_, reject) =>
+      init?.signal?.addEventListener('abort', () => reject(init.signal.reason), { once: true })
+    )
+    return stage === 'fetch' ? pending : Promise.resolve({ ok: true, json: () => pending })
+  })
+  let error: unknown
+  const result = fetchSeries({
+    kind: 'series',
+    listing: { listing_id: 'IBM', base_id: '', quote_id: '', listing_type: 'default' },
+    interval: '1m',
+    auth: { apiKey: 'request-key' },
+  }).catch((failure) => {
+    error = failure
+  })
+  await vi.advanceTimersByTimeAsync(29_999)
+  expect(error).toBeUndefined()
+  await vi.advanceTimersByTimeAsync(1)
+  expect(error).toMatchObject({ name: 'TimeoutError' })
+  await result
+})
 
 describe('Yahoo all history', () => {
   it.each([undefined, { mode: 'bars', barCount: 2 }] as const)(

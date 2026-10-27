@@ -3,6 +3,7 @@ import { getMarketQuoteDate } from '@/lib/market/quote-snapshot-contract'
 import { resolveTimezoneState } from '@/lib/timezone/timezone-resolver'
 import { toDate } from '@/providers/market/market-hours/date-utils'
 import { resolveMarketSeriesNormalizationMode } from '@/providers/market/providers'
+import { fetchMarketProviderJson } from '@/providers/market/request'
 import type {
   MarketBar,
   MarketInterval,
@@ -83,19 +84,13 @@ export async function fetchYahooFinanceSeries(request: MarketSeriesRequest): Pro
     end: request.end,
   })
 
-  const response = await fetch(url, {
+  const payload = await fetchMarketProviderJson<any>(YahooFinanceProviderConfig, undefined, url, {
     headers: {
       'User-Agent': 'Mozilla/5.0',
       Accept: 'application/json',
     },
   })
 
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => '')
-    throw new Error(errorText || `Yahoo Finance request failed with status ${response.status}`)
-  }
-
-  const payload = (await response.json()) as any
   const result = payload?.chart?.result?.[0]
   const error = payload?.chart?.error
 
