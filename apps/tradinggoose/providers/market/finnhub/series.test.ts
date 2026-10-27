@@ -41,6 +41,12 @@ vi.mock('@/providers/market/request', () => ({
 }))
 
 const listing = { listing_id: 'AAPL', base_id: '', quote_id: '', listing_type: 'default' } as const
+const currencyContext = {
+  listing: { listing_id: '', base_id: 'EUR', quote_id: 'USD', listing_type: 'currency' },
+  base: 'EUR',
+  quote: 'USD',
+  assetClass: 'currency',
+} as const
 const request: MarketSeriesRequest = {
   kind: 'series',
   listing,
@@ -166,18 +172,8 @@ describe('fetchFinnhubSeries', () => {
           : {}),
       }
       if (label === 'currency interval') {
-        liveRequest.listing = {
-          listing_id: '',
-          base_id: 'EUR',
-          quote_id: 'USD',
-          listing_type: 'currency',
-        }
-        mockResolveListingContext.mockResolvedValue({
-          listing: liveRequest.listing,
-          base: 'EUR',
-          quote: 'USD',
-          assetClass: 'currency',
-        })
+        liveRequest.listing = currencyContext.listing
+        mockResolveListingContext.mockResolvedValue(currencyContext)
       }
       const original = structuredClone(liveRequest)
       fetchMock.mockResolvedValue(Response.json({ s: 'ok', c: [101], t: [end / 1000 - 60] }))
@@ -288,6 +284,53 @@ describe('fetchFinnhubSeries', () => {
     })
     expect(quote).toMatchObject({ lastPrice: 151.73, previousClose: 150, volume: 20 })
     expect(quote.change).toBeCloseTo(1.73)
+  })
+
+  it.each([
+    ['2026-10-24T23:00:00Z', '2026-10-23T20:59:00Z'],
+    ['2026-10-25T20:00:00Z', '2026-10-23T20:59:00Z'],
+    ['2026-12-27T20:00:00Z', '2026-12-23T21:59:00Z'],
+  ])('retains the last FX quote across closures at %s', async (clock, lastTrade) => {
+    const now = Date.parse(clock)
+    const day = Date.parse(lastTrade.slice(0, 10)) / 1000
+    vi.spyOn(Date, 'now').mockReturnValue(now)
+    mockResolveListingContext.mockResolvedValue(currencyContext)
+    mockResolveProviderSymbol.mockReturnValue('OANDA:EUR_USD')
+    fetchMock.mockImplementation(async (input: string) => {
+      const params = new URL(input).searchParams
+      const bars = (
+        params.get('resolution') === 'D'
+          ? [
+              { time: day - 86_400, close: 1 },
+              { time: day, close: 1.05 },
+            ]
+          : [{ time: Date.parse(lastTrade) / 1000, close: 1.1 }]
+      ).filter(({ time }) => time >= Number(params.get('from')) && time <= Number(params.get('to')))
+      return Response.json({
+        s: bars.length ? 'ok' : 'no_data',
+        t: bars.map(({ time }) => time),
+        c: bars.map(({ close }) => close),
+      })
+    })
+    const { buildMarketQuoteSnapshot } = await import('@/lib/market/quote-snapshots')
+    const quote = await buildMarketQuoteSnapshot({
+      provider: 'finnhub',
+      listing: currencyContext.listing,
+      auth: request.auth,
+    })
+    expect(quote).toMatchObject({
+      lastPrice: 1.1,
+      previousClose: 1,
+      timezone: 'UTC',
+      lastPriceTime: new Date(lastTrade).toISOString(),
+    })
+    expect(quote.changePercent).toBeCloseTo(10)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const minute = fetchMock.mock.calls
+      .map(([input]) => new URL(input).searchParams)
+      .find((params) => params.get('resolution') === '1')!
+    expect(Number(minute.get('from'))).toBe(now / 1000 - 7 * 86_400)
+    expect(Number(minute.get('to'))).toBe(now / 1000)
   })
 
   it('requires the exchange timezone for stock calendar labels', async () => {

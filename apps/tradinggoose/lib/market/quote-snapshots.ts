@@ -30,7 +30,8 @@ export const buildMarketQuoteSnapshot = async ({
     (
       [
         ['1d', 14],
-        ['1m', 1],
+        // Currency pairs have no session anchor; span weekends and holiday closures.
+        ['1m', listing.listing_type === 'currency' ? 7 : 1],
       ] as const
     )
       .filter(([interval]) => !dailyOnly || interval === '1d')

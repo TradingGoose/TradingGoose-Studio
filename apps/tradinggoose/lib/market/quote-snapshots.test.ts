@@ -278,6 +278,9 @@ describe('market quote normalization', () => {
         'raw',
         'raw',
       ])
+      expect(execute.mock.calls[1][1].windows[0].range.value).toBe(
+        { crypto: 1, currency: 7 }[listingType]
+      )
     }
   )
 
