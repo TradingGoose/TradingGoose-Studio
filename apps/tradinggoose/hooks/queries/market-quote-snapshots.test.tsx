@@ -195,22 +195,25 @@ describe('useMarketQuoteSnapshots', () => {
     expect(latest.a.isFetching).toBe(false)
   })
 
-  it('times out only pending rows and uses refreshKey to start a clean request', async () => {
+  it('waits for budgeted rows and uses refreshKey to start a clean request', async () => {
     vi.useFakeTimers()
     await render()
     await receive(subscriptions()[0])
     await act(async () => {
-      vi.advanceTimersByTime(30_000)
+      vi.advanceTimersByTime(65_000)
     })
     expect(latest.a.data.first).toEqual(quote)
-    expect(latest.a.data.second.error).toBe('Market quote request timed out')
+    expect(latest.a.data.second).toBeUndefined()
+    expect(latest.a.error).toBeNull()
+    expect(latest.a.isFetching).toBe(true)
+    await receive(subscriptions()[1])
+    expect(latest.a.data.second).toEqual(quote)
     expect(latest.a.isFetching).toBe(false)
     await render({ refreshKey: 1 })
     expect(latest.a.data).toEqual({})
     expect(latest.a.isLoading).toBe(true)
     for (const subscription of subscriptions().slice(-2)) await receive(subscription)
     expect(latest.a.isFetching).toBe(false)
-    expect(vi.getTimerCount()).toBe(0)
   })
 
   it('reports missing and disconnected sockets, then clears transport errors on reconnect', async () => {
@@ -236,8 +239,7 @@ describe('useMarketQuoteSnapshots', () => {
     }
   })
 
-  it('unsubscribes by client ID and removes listeners and response timers', async () => {
-    vi.useFakeTimers()
+  it('unsubscribes by client ID and removes listeners', async () => {
     await render()
     const requests = subscriptions()
     await act(async () => root.unmount())
@@ -245,6 +247,5 @@ describe('useMarketQuoteSnapshots', () => {
       expect(socket.emit).toHaveBeenCalledWith('market-unsubscribe', { clientSubscriptionId })
     }
     expect(Array.from(socket.handlers.values()).every((handlers) => handlers.size === 0)).toBe(true)
-    expect(vi.getTimerCount()).toBe(0)
   })
 })

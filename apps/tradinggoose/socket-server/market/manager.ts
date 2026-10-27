@@ -923,27 +923,9 @@ export class MarketStreamManager {
 
     if (tasks.length === 0) return
 
-    const live = getMarketLiveCapabilities(streamState.provider)
-    let pollingIntervalMs = live?.pollingIntervalMs ?? DEFAULT_POLLING_INTERVAL_MS
-    if (live?.quoteSnapshotsPerMinute) {
-      let quoteCount = 0
-      const authKey = stableStringifyJsonValue(streamState.auth)
-      for (const state of this.streams.values()) {
-        if (
-          state.provider !== streamState.provider ||
-          stableStringifyJsonValue(state.auth) !== authKey
-        )
-          continue
-        for (const records of state.subscribersBySymbol.values()) {
-          if (Array.from(records.values()).some((record) => record.channel === 'quote-snapshots'))
-            quoteCount++
-        }
-      }
-      pollingIntervalMs = Math.max(
-        pollingIntervalMs,
-        Math.ceil(quoteCount / live.quoteSnapshotsPerMinute) * 60_000
-      )
-    }
+    const pollingIntervalMs =
+      getMarketLiveCapabilities(streamState.provider)?.pollingIntervalMs ??
+      DEFAULT_POLLING_INTERVAL_MS
     const refreshAt = now + pollingIntervalMs
     if (tasks.some((task) => task.type === 'bar')) {
       streamState.barRefreshAt = refreshAt

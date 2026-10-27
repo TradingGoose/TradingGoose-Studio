@@ -66,7 +66,6 @@ export interface MarketLiveInputCapabilities {
   supportsInterval?: boolean
   intervals?: string[]
   pollingIntervalMs?: number
-  quoteSnapshotsPerMinute?: number
 }
 
 export interface MarketProviderCapabilities {
@@ -143,6 +142,7 @@ export interface MarketSymbolRule {
 export interface MarketProviderConfig {
   id: string
   name: string
+  requestsPerMinute?: number
   availability: MarketDataAvailability
   capabilities?: MarketProviderCapabilities
   params?: MarketProviderParamConfig

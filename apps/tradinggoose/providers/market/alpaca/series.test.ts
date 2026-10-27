@@ -32,6 +32,15 @@ vi.mock('@/providers/market/market-hours/market-hours-api', () => ({
   resolveMarketHoursRange: mockResolveMarketHoursRange,
 }))
 
+vi.mock('@/providers/market/request', () => ({
+  fetchMarketProviderJson: async (
+    _config: unknown,
+    _apiKey: unknown,
+    input: string,
+    init?: RequestInit
+  ) => (await globalThis.fetch(input, init)).json(),
+}))
+
 afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
@@ -302,10 +311,10 @@ describe('fetchAlpacaSeries bounds', () => {
     async (failure) => {
       fetchMock
         .mockResolvedValueOnce(barsResponse('BTC/USD', now, 'next'))
-        .mockResolvedValueOnce(
+        .mockImplementationOnce(() =>
           failure === 'failure'
-            ? new Response('Continuation failed', { status: 503 })
-            : barsResponse('BTC/USD', now, 'next')
+            ? Promise.reject(new Error('Continuation failed'))
+            : Promise.resolve(barsResponse('BTC/USD', now, 'next'))
         )
       await expect(
         fetchAlpacaSeries({ kind: 'series', listing: cryptoListing, start: '2026-09-19', end: now })

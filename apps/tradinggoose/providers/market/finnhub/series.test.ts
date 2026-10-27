@@ -22,13 +22,22 @@ vi.mock('@/lib/logs/console/logger', () => ({
 }))
 
 vi.mock('@/providers/market/utils', () => ({
-  resolveListingContext: (...args: unknown[]) => mockResolveListingContext(...args),
-  resolveProviderSymbol: (...args: unknown[]) => mockResolveProviderSymbol(...args),
+  resolveListingContext: mockResolveListingContext,
+  resolveProviderSymbol: mockResolveProviderSymbol,
 }))
 
 vi.mock('@/providers/market', () => ({
   executeProviderRequest: async (_provider: string, request: MarketSeriesRequest) =>
     (await import('./series')).fetchFinnhubSeries(request),
+}))
+
+vi.mock('@/providers/market/request', () => ({
+  fetchMarketProviderJson: async (
+    _config: unknown,
+    _apiKey: unknown,
+    input: string,
+    init?: RequestInit
+  ) => (await globalThis.fetch(input, init)).json(),
 }))
 
 const listing = { listing_id: 'AAPL', base_id: '', quote_id: '', listing_type: 'default' } as const
@@ -75,6 +84,62 @@ describe('fetchFinnhubSeries', () => {
 
     expect(fetchMock).not.toHaveBeenCalled()
   })
+
+  it.each(['1', 'D', 'unsupported'])(
+    'rejects unsupported or native interval alias %s before fetching',
+    async (interval) => {
+      const { fetchFinnhubSeries } = await import('./series')
+      await expect(fetchFinnhubSeries({ ...request, interval })).rejects.toThrow(
+        'Unsupported Finnhub interval'
+      )
+      expect(fetchMock).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each([1, 1000])(
+    'uses canonical date parsing for numeric bounds scaled by %s',
+    async (scale) => {
+      const start = Date.parse(request.start as string)
+      const end = Date.parse(request.end as string)
+      fetchMock.mockResolvedValue(Response.json({ s: 'ok', t: [], c: [] }))
+      const { fetchFinnhubSeries } = await import('./series')
+      const result = await fetchFinnhubSeries({
+        ...request,
+        start: start / scale,
+        end: end / scale,
+      })
+      const params = new URL(fetchMock.mock.calls[0][0]).searchParams
+      expect(params.get('from')).toBe(String(start / 1000))
+      expect(params.get('to')).toBe(String(end / 1000))
+      expect(result).toMatchObject({ start: request.start, end: request.end })
+    }
+  )
+
+  it.each([
+    ['currency', undefined, 'forex'],
+    ['crypto', undefined, 'crypto'],
+    ['currency', 'stock', 'stock'],
+  ] as const)(
+    'resolves %s candles with endpoint override %s',
+    async (assetClass, endpoint, expected) => {
+      const pair = { listing_id: '', base_id: 'BASE', quote_id: 'USD', listing_type: assetClass }
+      mockResolveListingContext.mockResolvedValue({
+        listing: pair,
+        assetClass,
+        base: 'BASE',
+        quote: 'USD',
+      })
+      fetchMock.mockResolvedValue(Response.json({ s: 'ok', t: [], c: [] }))
+      const { fetchFinnhubSeries } = await import('./series')
+      await fetchFinnhubSeries({
+        ...request,
+        listing: pair,
+        interval: '1m',
+        providerParams: { endpoint },
+      })
+      expect(new URL(fetchMock.mock.calls[0][0]).pathname).toBe(`/api/v1/${expected}/candle`)
+    }
+  )
 
   it.each([
     ['parameter interval', undefined, '1m', '1m', '1', 5],
@@ -143,23 +208,15 @@ describe('fetchFinnhubSeries', () => {
   ] as const)('uses explicit auth and planned %s bounds', async (mode, days, start, end) => {
     vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-01-02T00:00:00.000Z'))
     fetchMock.mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          s: 'ok',
-          c: [101],
-          h: [102],
-          l: [100],
-          o: [100],
-          t: [1735689600],
-          v: [1000],
-        }),
-        {
-          status: 200,
-          headers: {
-            'content-type': 'application/json',
-          },
-        }
-      )
+      Response.json({
+        s: 'ok',
+        c: [101],
+        h: [102],
+        l: [100],
+        o: [100],
+        t: [1735689600],
+        v: [1000],
+      })
     )
 
     const { fetchFinnhubSeries } = await import('./series')

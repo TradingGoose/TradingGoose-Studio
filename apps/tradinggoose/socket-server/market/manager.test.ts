@@ -286,7 +286,6 @@ describe('MarketStreamManager quote snapshots', () => {
           : provider === 'alpaca' || provider === 'finnhub'
             ? 60_000
             : undefined,
-      quoteSnapshotsPerMinute: provider === 'alpaca' ? 50 : provider === 'finnhub' ? 30 : undefined,
     }))
     resolveMarketSessionsForRangeMock.mockReset().mockResolvedValue(null)
     resolveListingContextMock.mockResolvedValue({
@@ -922,91 +921,43 @@ describe('MarketStreamManager quote snapshots', () => {
     }
   )
 
-  it.each([26, 30])('refreshes %s native quote symbols once per minute', async (count) => {
-    vi.useFakeTimers()
-    const manager = new MarketStreamManager()
-    const socket = createSocket('watchlist')
-    buildMarketQuoteSnapshotMock.mockResolvedValue(regularSnapshot)
-    for (let index = 0; index < count; index++) {
-      resolveProviderSymbolMock.mockReturnValueOnce(`SYMBOL${index}`)
-      await manager.subscribe(socket, {
-        ...nativeQuotePayload('alpaca'),
-        listing: { ...listing, listing_id: `listing-${index}` },
-        clientSubscriptionId: `quote-${index}`,
-      })
-      await vi.advanceTimersByTimeAsync(0)
-    }
-    resolveProviderSymbolMock.mockReturnValueOnce('SYMBOL0')
-    await manager.subscribe(socket, {
-      ...nativeQuotePayload('alpaca'),
-      listing: { ...listing, listing_id: 'listing-0' },
-      clientSubscriptionId: 'duplicate',
-    })
-    alpacaStreamInstances[0].handlers.onTrade({
-      symbol: 'SYMBOL0',
-      trade: { price: 126, timeStamp: '2026-10-26T15:01:00Z' },
-    })
-    await vi.advanceTimersByTimeAsync(59_999)
-    expect(buildMarketQuoteSnapshotMock).toHaveBeenCalledTimes(count)
-    await vi.advanceTimersByTimeAsync(1)
-    expect(buildMarketQuoteSnapshotMock).toHaveBeenCalledTimes(count * 2)
-    manager.removeSocket(socket.id)
-  })
-
   it.each([
-    ['alpaca', 50, 51, 60_000, 120_000],
-    ['finnhub', 30, 31, 60_000, 120_000],
-    ['alpaca', 50, 51, 180_000, 180_000],
-    ['alpaca', 50, 50, 60_000, 60_000],
-    ['finnhub', 30, 30, 60_000, 60_000],
+    ['alpaca', 26, 60_000],
+    ['alpaca', 30, 60_000],
+    ['finnhub', 31, 60_000],
+    ['alpaca', 51, 180_000],
   ] as const)(
-    'budgets %s quotes across workspaces and credentials (capacity=%s, count=%s, base=%s)',
-    async (provider, capacity, count, base, expected) => {
+    'refreshes %s %s quote symbols at the configured %sms cadence',
+    async (provider, count, interval) => {
       vi.useFakeTimers()
-      getMarketLiveCapabilitiesMock.mockReturnValue({
-        pollingIntervalMs: base,
-        quoteSnapshotsPerMinute: capacity,
-      })
-      const times = new Map<string, number[]>()
-      buildMarketQuoteSnapshotMock.mockImplementation(async ({ listing: item }) => {
-        times.set(item.listing_id, [...(times.get(item.listing_id) ?? []), Date.now()])
-        return regularSnapshot
-      })
+      getMarketLiveCapabilitiesMock.mockReturnValue({ pollingIntervalMs: interval })
       const manager = new MarketStreamManager()
       const socket = createSocket('watchlist')
+      buildMarketQuoteSnapshotMock.mockResolvedValue(regularSnapshot)
       for (let index = 0; index < count; index++) {
         resolveProviderSymbolMock.mockReturnValueOnce(`SYMBOL${index}`)
         await manager.subscribe(socket, {
           ...nativeQuotePayload(provider),
-          workspaceId: `workspace-${index % 2}`,
           listing: { ...listing, listing_id: `listing-${index}` },
           clientSubscriptionId: `quote-${index}`,
         })
+        await vi.advanceTimersByTimeAsync(0)
       }
-      if (count === capacity) {
-        resolveProviderSymbolMock.mockReturnValueOnce('SYMBOL0')
-        await manager.subscribe(socket, {
-          ...nativeQuotePayload(provider),
-          workspaceId: 'workspace-0',
-          listing: { ...listing, listing_id: 'listing-0' },
-          clientSubscriptionId: 'duplicate',
-        })
-        resolveProviderSymbolMock.mockReturnValueOnce('OTHER')
-        await manager.subscribe(socket, {
-          ...nativeQuotePayload(provider),
-          auth: { apiKey: 'other-key', apiSecret: 'other-secret' },
-          listing: { ...listing, listing_id: 'other-listing' },
-          clientSubscriptionId: 'other',
-        })
-      }
-      await vi.advanceTimersByTimeAsync(expected * 2)
-      expect(times.size).toBe(capacity + 1)
-      for (const calls of times.values()) {
-        expect(calls.length).toBeGreaterThanOrEqual(3)
-        expect(calls.at(-1)! - calls.at(-2)!).toBe(expected)
-      }
-      if (count === capacity)
-        expect(buildMarketQuoteSnapshotMock).toHaveBeenCalledTimes((capacity + 1) * 3)
+      resolveProviderSymbolMock.mockReturnValueOnce('SYMBOL0')
+      await manager.subscribe(socket, {
+        ...nativeQuotePayload(provider),
+        listing: { ...listing, listing_id: 'listing-0' },
+        clientSubscriptionId: 'duplicate',
+      })
+      const stream = (provider === 'alpaca' ? alpacaStreamInstances : finnhubStreamInstances)[0]
+      stream.handlers.onTrade({
+        symbol: 'SYMBOL0',
+        trade: { price: 126, timeStamp: '2026-10-26T15:01:00Z' },
+      })
+      await vi.advanceTimersByTimeAsync(interval - 1)
+      expect(buildMarketQuoteSnapshotMock).toHaveBeenCalledTimes(count)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(buildMarketQuoteSnapshotMock).toHaveBeenCalledTimes(count * 2)
       manager.removeSocket(socket.id)
     }
   )

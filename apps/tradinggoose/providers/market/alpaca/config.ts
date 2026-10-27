@@ -157,6 +157,7 @@ const marketToExchangeCodeMap: MarketProviderConfig['marketToExchangeCode'] = {
 }
 
 export const alpacaProviderConfig: MarketProviderConfig = {
+  requestsPerMinute: 200,
   id: 'alpaca',
   name: 'Alpaca',
   availability,
@@ -192,7 +193,6 @@ export const alpacaProviderConfig: MarketProviderConfig = {
       channels: ['bars', 'trades', 'quotes'],
       supportsInterval: false,
       pollingIntervalMs: 60_000,
-      quoteSnapshotsPerMinute: 50, // Basic's 200 calls/minute, allowing four calls per quote.
     },
   },
   rulePrecedence: {

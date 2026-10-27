@@ -5,6 +5,7 @@ import {
   alpacaProviderConfig,
 } from '@/providers/market/alpaca/config'
 import { toDate } from '@/providers/market/market-hours/date-utils'
+import { fetchMarketProviderJson } from '@/providers/market/request'
 import { rangeToMs } from '@/providers/market/series-window'
 import type {
   MarketBar,
@@ -56,15 +57,12 @@ async function fetchLatestBarTimestamp(
   url.searchParams.set('symbols', symbol)
   if (feed) url.searchParams.set('feed', feed)
 
-  const response = await fetch(url.toString(), { headers })
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => '')
-    throw new Error(errorText || `Alpaca latest bar request failed with status ${response.status}`)
-  }
-
-  const payload = (await response.json()) as {
-    bars?: Record<string, any>
-  }
+  const payload = await fetchMarketProviderJson<{ bars?: Record<string, any> }>(
+    alpacaProviderConfig,
+    headers['APCA-API-KEY-ID'],
+    url.toString(),
+    { headers }
+  )
   return toDate(payload?.bars?.[symbol]?.t)?.toISOString()
 }
 
@@ -173,15 +171,10 @@ export async function fetchAlpacaSeries(request: MarketSeriesRequest): Promise<M
   const pageTokens = new Set<string>()
   let emptyPages = 0
   while (true) {
-    const response = await fetch(url.toString(), { headers })
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => '')
-      throw new Error(errorText || `Alpaca request failed with status ${response.status}`)
-    }
-    const payload = (await response.json()) as {
+    const payload = await fetchMarketProviderJson<{
       bars?: Record<string, any[]>
       next_page_token?: string | null
-    }
+    }>(alpacaProviderConfig, headers['APCA-API-KEY-ID'], url.toString(), { headers })
     const pageBars = payload?.bars?.[symbol]
     const hasBars = Array.isArray(pageBars) && pageBars.length > 0
     if (hasBars) rawBars.push(...pageBars)

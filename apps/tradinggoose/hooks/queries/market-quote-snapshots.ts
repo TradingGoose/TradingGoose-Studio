@@ -26,7 +26,6 @@ type QuoteState = {
 }
 
 const EMPTY_QUOTES: Record<string, MarketQuoteSnapshot> = {}
-const QUOTE_RESPONSE_TIMEOUT_MS = 30_000
 
 export const useMarketQuoteSnapshots = ({
   workspaceId,
@@ -68,14 +67,12 @@ export const useMarketQuoteSnapshots = ({
 
     const subscriptions = new Map(items.map((item) => [crypto.randomUUID(), item]))
     const pending = new Set<string>()
-    let timeout: ReturnType<typeof setTimeout> | undefined
 
     const receive = (
       key: string,
       update: (previous?: MarketQuoteSnapshot) => MarketQuoteSnapshot
     ) => {
       pending.delete(key)
-      if (pending.size === 0) clearTimeout(timeout)
       setState((current) => ({
         scope,
         data: { ...current.data, [key]: update(current.data[key]) },
@@ -99,14 +96,12 @@ export const useMarketQuoteSnapshots = ({
         }))
     }
     const failConnection = (message: string) => {
-      clearTimeout(timeout)
       pending.clear()
       setState({ scope, data: EMPTY_QUOTES, error: new Error(message), pending: 0 })
     }
     const handleDisconnect = () => failConnection('Market data connection was lost')
     const handleConnectError = () => failConnection('Market data connection failed')
     const subscribe = () => {
-      clearTimeout(timeout)
       pending.clear()
       for (const item of items) pending.add(item.key)
       setState({
@@ -115,20 +110,6 @@ export const useMarketQuoteSnapshots = ({
         error: null,
         pending: pending.size,
       })
-      timeout = setTimeout(() => {
-        const failures = Object.fromEntries(
-          Array.from(pending, (key) => [
-            key,
-            createMarketQuoteSnapshot({ error: 'Market quote request timed out' }),
-          ])
-        )
-        pending.clear()
-        setState((current) => ({
-          ...current,
-          data: { ...current.data, ...failures },
-          pending: 0,
-        }))
-      }, QUOTE_RESPONSE_TIMEOUT_MS)
       for (const [clientSubscriptionId, item] of subscriptions) {
         socket.emit('market-subscribe', {
           provider,
@@ -152,7 +133,6 @@ export const useMarketQuoteSnapshots = ({
     else failConnection('Market data connection is unavailable')
 
     return () => {
-      clearTimeout(timeout)
       socket.off('market-quote-snapshot', handleSnapshot)
       socket.off('market-error', handleError)
       socket.off('market-subscribe-error', handleError)

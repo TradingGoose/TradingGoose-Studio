@@ -1,6 +1,7 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import { toDate } from '@/providers/market/market-hours/date-utils'
+import { fetchMarketProviderJson } from '@/providers/market/request'
 import { intervalToMs } from '@/providers/market/series-planner'
 import type { MarketBar, MarketLiveRequest, MarketLiveSnapshot } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
@@ -111,15 +112,6 @@ function aggregateTradesToBar(
   }
 }
 
-async function fetchJson(url: URL, headers: Record<string, string>, context: string): Promise<any> {
-  const response = await fetch(url.toString(), { headers })
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => '')
-    throw new Error(errorText || `${context} failed with status ${response.status}`)
-  }
-  return response.json()
-}
-
 export async function fetchAlpacaLiveSnapshot(
   request: MarketLiveRequest
 ): Promise<MarketLiveSnapshot> {
@@ -164,7 +156,12 @@ export async function fetchAlpacaLiveSnapshot(
   latestUrl.searchParams.set('symbols', symbol)
   if (market === 'stocks' && feed) latestUrl.searchParams.set('feed', feed)
 
-  const latestPayload = await fetchJson(latestUrl, headers, 'Alpaca latest trade request')
+  const latestPayload = await fetchMarketProviderJson<{ trades?: Record<string, any> }>(
+    alpacaProviderConfig,
+    headers['APCA-API-KEY-ID'],
+    latestUrl.toString(),
+    { headers }
+  )
   const latestTrade = latestPayload?.trades?.[symbol]
   const parsedLatestTrade = parseTrade(latestTrade)
   if (!parsedLatestTrade) {
@@ -188,7 +185,12 @@ export async function fetchAlpacaLiveSnapshot(
     tradesUrl.searchParams.set('limit', String(tradeLimit))
     if (market === 'stocks' && feed) tradesUrl.searchParams.set('feed', feed)
 
-    const tradesPayload = await fetchJson(tradesUrl, headers, 'Alpaca trade range request')
+    const tradesPayload = await fetchMarketProviderJson<{ trades?: Record<string, any> }>(
+      alpacaProviderConfig,
+      headers['APCA-API-KEY-ID'],
+      tradesUrl.toString(),
+      { headers }
+    )
     const tradeRows = tradesPayload?.trades?.[symbol]
     const aggregatedBar = Array.isArray(tradeRows)
       ? aggregateTradesToBar(tradeRows, bucketStartMs, intervalMs, tradeLimit, symbol)
