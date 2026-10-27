@@ -134,18 +134,85 @@ describe('useMarketQuoteSnapshots', () => {
     expect(latest.b.data.first).toEqual(quote)
   })
 
-  it('clears prior scope data and ignores late or unowned responses after settings change', async () => {
-    await render({ items: [items[0]] })
-    const previous = subscriptions()[0]
-    await receive(previous)
-    await render({ items: [items[0]], providerParams: { feed: 'sip' } })
-    expect(latest.a.data).toEqual({})
-    await receive(previous)
-    await emit('market-error', { ...previous, message: 'Previous subscription failed' })
-    await emit('market-quote-snapshot', { listing, snapshot: quote })
-    expect(latest.a.data).toEqual({})
-    await receive(subscriptions().at(-1))
-    expect(latest.a.data.first).toEqual(quote)
+  it.each([
+    ['feed', { providerParams: { feed: 'sip' } }],
+    ['credentials', { auth: { apiKey: 'next-key', apiSecret: 'next-secret' } }],
+    ['provider', { provider: 'finnhub', providerParams: undefined }],
+  ] satisfies Array<[string, Partial<UseMarketQuoteSnapshotsArgs>]>)(
+    'clears prior scope data and ignores late or unowned responses after %s changes',
+    async (_setting, overrides) => {
+      await render({ items: [items[0]] })
+      const previous = subscriptions()[0]
+      await receive(previous)
+      await render({ items: [items[0]], ...overrides })
+      expect(latest.a.data).toEqual({})
+      await receive(previous)
+      await emit('market-error', { ...previous, message: 'Previous subscription failed' })
+      await emit('market-quote-snapshot', { listing, snapshot: quote })
+      expect(latest.a.data).toEqual({})
+      await receive(subscriptions().at(-1))
+      expect(latest.a.data.first).toEqual(quote)
+    }
+  )
+
+  it('preserves populated rows while reconciling reorder, add, remove, and listing replacement', async () => {
+    const rows = Array.from({ length: 30 }, (_, index) => ({
+      key: `row-${index}`,
+      listing: { ...listing, listing_id: `listing-${index}` },
+    }))
+    const activity = () =>
+      socket.emit.mock.calls.map(([event, payload]) => [event, payload.clientSubscriptionId])
+    await render({ items: rows })
+    const initial = subscriptions()
+    for (const [index, subscription] of initial.entries()) {
+      await receive(subscription, { ...quote, lastPrice: 100 + index })
+    }
+    const expected = structuredClone(latest.a.data)
+    socket.emit.mockClear()
+    const reordered = [...rows].reverse()
+    await render({ items: reordered })
+    expect(activity()).toEqual([])
+    expect(latest.a.data).toEqual(expected)
+    expect(latest.a.isFetching).toBe(false)
+
+    const newRow = { key: 'added', listing: { ...listing, listing_id: 'added-listing' } }
+    await render({ items: [...reordered, newRow] })
+    const added = subscriptions()[0]
+    expect(activity()).toEqual([['market-subscribe', added.clientSubscriptionId]])
+    expect(latest.a.data).toEqual(expected)
+    expect(latest.a.isFetching).toBe(true)
+    expect(latest.a.isLoading).toBe(false)
+
+    socket.emit.mockClear()
+    const remaining = [...reordered.filter(({ key }) => key !== rows[0].key), newRow]
+    await render({ items: remaining })
+    delete expected[rows[0].key]
+    expect(activity()).toEqual([['market-unsubscribe', initial[0].clientSubscriptionId]])
+    await receive(initial[0])
+    await emit('market-error', { ...initial[0], message: 'Removed row failed' })
+    expect(latest.a.data).toEqual(expected)
+
+    socket.emit.mockClear()
+    const replaced = remaining.map((row) =>
+      row.key === rows[1].key ? { ...row, listing: { ...listing, listing_id: 'replacement' } } : row
+    )
+    await render({ items: replaced })
+    const replacement = subscriptions()[0]
+    delete expected[rows[1].key]
+    expect(activity()).toEqual([
+      ['market-unsubscribe', initial[1].clientSubscriptionId],
+      ['market-subscribe', replacement.clientSubscriptionId],
+    ])
+    await receive(initial[1])
+    await emit('market-error', { ...initial[1], message: 'Replaced listing failed' })
+    expect(latest.a.data).toEqual(expected)
+    expect(latest.a.error).toBeNull()
+    await receive(replacement)
+    expected[rows[1].key] = quote
+    expect(latest.a.data).toEqual(expected)
+    expect(latest.a.isFetching).toBe(true)
+    await receive(added)
+    expect(latest.a.isFetching).toBe(false)
   })
 
   it('gates active requests by required credentials and accepts provider defaults', async () => {
@@ -153,17 +220,20 @@ describe('useMarketQuoteSnapshots', () => {
       await render({ provider, auth: undefined, providerParams: undefined })
       expect(latest.a.error?.message).toContain('Configure market provider settings:')
     }
-    for (const idle of [{ items: [] }, { enabled: false }, { workspaceId: '' }]) {
-      await render({ ...idle, auth: undefined, providerParams: undefined })
-      expect(latest.a.error).toBeNull()
-      expect(latest.a.isFetching).toBe(false)
-    }
     expect(subscriptions()).toHaveLength(0)
     await render({ providerParams: undefined })
     expect(latest.a.error).toBeNull()
     expect(subscriptions()).toHaveLength(2)
     await render({ provider: 'yahoo-finance', auth: undefined, providerParams: undefined })
     expect(subscriptions()).toHaveLength(4)
+    await receive(subscriptions().at(-1))
+    for (const idle of [{ items: [] }, { enabled: false }, { workspaceId: '' }]) {
+      await render({ ...idle, auth: undefined, providerParams: undefined })
+      expect(latest.a.data).toEqual({})
+      expect(latest.a.error).toBeNull()
+      expect(latest.a.isLoading).toBe(false)
+      expect(latest.a.isFetching).toBe(false)
+    }
   })
 
   it('attaches row errors without discarding available quotes and replaces them on recovery', async () => {
@@ -224,11 +294,17 @@ describe('useMarketQuoteSnapshots', () => {
     await emit('connect')
     await receive(subscriptions()[0])
     for (const event of ['disconnect', 'connect_error']) {
+      const previous = subscriptions()
       await emit(event)
+      await receive(previous.at(-1))
       expect(latest.a.error).toBeInstanceOf(Error)
       expect(latest.a.data).toEqual({})
       expect(latest.a.isFetching).toBe(false)
       await emit('connect')
+      expect(subscriptions()).toHaveLength(previous.length + items.length)
+      await receive(previous.at(-1))
+      await emit('market-error', { ...previous.at(-1), message: 'Old connection failed' })
+      expect(latest.a.data).toEqual({})
       expect(latest.a.error).toBeNull()
       expect(latest.a.isLoading).toBe(true)
     }
