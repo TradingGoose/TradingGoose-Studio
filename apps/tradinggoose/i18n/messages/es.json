@@ -21997,8 +21997,7 @@
           "selectBrokerAccountToLoadPortfolioHoldings": "Selecciona una cuenta de broker para cargar las posiciones de la cartera.",
           "failedToLoadHoldings": "No se pudieron cargar las posiciones.",
           "noHoldingsListingsFoundForThisAccount": "No se encontraron listados de posiciones para esta cuenta.",
-          "noWatchlistListingsFound": "No se encontraron listados de watchlist.",
-          "failedToLoadMarketQuotes": "No se pudieron cargar las cotizaciones de mercado."
+          "noWatchlistListingsFound": "No se encontraron listados de watchlist."
         }
       },
       "quickOrder": {

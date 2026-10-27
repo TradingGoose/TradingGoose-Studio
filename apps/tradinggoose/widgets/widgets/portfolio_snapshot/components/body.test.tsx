@@ -606,6 +606,13 @@ describe('PortfolioSnapshotWidgetBody', () => {
   })
 
   it('reports quote failures and recovery while keeping the broker snapshot visible', async () => {
+    mockUsePortfolioDetail.mockReturnValue(
+      createQueryResult({
+        data: createPortfolioDetail({
+          positions: [createPortfolioPosition('AAPL', 10), createPortfolioPosition('MSFT', 10)],
+        }),
+      })
+    )
     const widget = () => (
       <PortfolioSnapshotWidgetBody
         channelId='portfolio-snapshot-panel-1'
@@ -621,35 +628,50 @@ describe('PortfolioSnapshotWidgetBody', () => {
         }}
       />
     )
-    for (const failure of [
-      { error: new Error('quotes failed') },
-      {
-        data: {
-          'default|TG_LSTG_AAPL||': {
-            lastPrice: null,
-            previousClose: null,
-            change: null,
-            changePercent: null,
-            error: 'quotes failed',
-          },
-        },
+    const data = {
+      'default|TG_LSTG_AAPL||': { ...quoteSnapshot, error: 'quotes failed' },
+      'default|TG_LSTG_MSFT||': {
+        lastPrice: null,
+        previousClose: null,
+        change: null,
+        changePercent: null,
+        error: 'listing unavailable',
       },
-    ]) {
-      mockUseMarketQuoteSnapshots.mockReturnValue(
-        createQueryResult<QuoteQuery>({ data: {}, ...failure })
-      )
+    }
+    for (const error of [null, new Error('connection lost')]) {
+      mockUseMarketQuoteSnapshots.mockReturnValue(createQueryResult<QuoteQuery>({ data, error }))
       await act(async () => root.render(widget()))
       expect(container.textContent).toContain('Performance')
       expect(container.textContent).toContain('Current Summary')
-      expect(container.textContent).toContain('quotes failed')
-      expect(container.textContent).toContain('Quote Value')
+      expect(container.textContent).toContain(error?.message ?? 'quotes failed')
+      const expected = error
+        ? ['N/A', 'N/A', 'N/A', '0/2']
+        : ['$1,100.00', '+$100.00', '+10.00%', '1/2']
+      for (const [index, label] of [
+        'Quote Value',
+        'Day Change',
+        'Day %',
+        'Quoted Positions',
+      ].entries()) {
+        const labelElement = Array.from(container.querySelectorAll('div')).find(
+          (element) => element.textContent === label
+        )
+        expect(labelElement?.nextElementSibling?.textContent).toBe(expected[index])
+      }
     }
     mockUseMarketQuoteSnapshots.mockReturnValue(
-      createQueryResult<QuoteQuery>({ data: { 'default|TG_LSTG_AAPL||': quoteSnapshot } })
+      createQueryResult<QuoteQuery>({
+        data: {
+          'default|TG_LSTG_AAPL||': quoteSnapshot,
+          'default|TG_LSTG_MSFT||': quoteSnapshot,
+        },
+      })
     )
     await act(async () => root.render(widget()))
     expect(container.textContent).not.toContain('quotes failed')
-    expect(container.textContent).toContain('$1,100.00')
+    expect(container.textContent).not.toContain('connection lost')
+    expect(container.textContent).toContain('$2,200.00')
+    expect(container.textContent).toContain('2/2')
   })
 
   it('renders the explicit performance unavailable state', async () => {

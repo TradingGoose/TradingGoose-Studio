@@ -53,7 +53,6 @@ const PortfolioLoading = ({
 )
 
 const CALENDAR_DAY_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T(?:00:00:00\.000Z|12:00:00\.000Z)$/
-const PORTFOLIO_SNAPSHOT_QUOTE_CAP = MARKET_QUOTE_SNAPSHOT_REQUEST_CAP
 
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value)
@@ -252,7 +251,7 @@ export function PortfolioSnapshotWidgetBody({
     [listingExposures]
   )
   const cappedQuotePositions = useMemo(
-    () => quotePositions.slice(0, PORTFOLIO_SNAPSHOT_QUOTE_CAP),
+    () => quotePositions.slice(0, MARKET_QUOTE_SNAPSHOT_REQUEST_CAP),
     [quotePositions]
   )
 
@@ -367,14 +366,14 @@ export function PortfolioSnapshotWidgetBody({
   const snapshot = snapshotQuery.data
   const performance = performanceQuery.data
   const currency = performance?.summary?.currency ?? snapshot.baseCurrency ?? 'USD'
-  const activeWindows = supportedWindows
-  const quoteErrorMessage =
-    quoteSnapshotsQuery.error?.message ??
+  const quoteErrorMessage = quoteSnapshotsQuery.error?.message ?? null
+  const quoteStatusErrorMessage =
+    quoteErrorMessage ??
     Object.values(quoteSnapshotsQuery.data).find((quote) => quote.error)?.error ??
     null
   const quoteSummary = cappedQuotePositions.reduce(
     (summary, position) => {
-      const quote = quoteSnapshotsQuery.data?.[position.key]
+      const quote = quoteSnapshotsQuery.data[position.key]
       const lastPrice = quote?.lastPrice
       const previousClose = quote?.previousClose
       const change = quote?.change
@@ -399,7 +398,7 @@ export function PortfolioSnapshotWidgetBody({
   const quotedPositionsHint =
     quotePositions.length > cappedQuotePositions.length
       ? formatTemplate(copy.quoteMetricsUseFirst, {
-          cap: PORTFOLIO_SNAPSHOT_QUOTE_CAP,
+          cap: MARKET_QUOTE_SNAPSHOT_REQUEST_CAP,
           total: quotePositions.length,
         })
       : undefined
@@ -408,8 +407,8 @@ export function PortfolioSnapshotWidgetBody({
     total: cappedQuotePositions.length,
   })
   const quoteStatusText =
-    quoteErrorMessage ??
-    (quoteSnapshotsQuery.isLoading && !quoteSnapshotsQuery.data
+    quoteStatusErrorMessage ??
+    (quoteSnapshotsQuery.isLoading
       ? copy.loadingQuotes
       : quoteSnapshotsQuery.isFetching
         ? copy.refreshingQuotes
@@ -426,7 +425,7 @@ export function PortfolioSnapshotWidgetBody({
   ].join(' · ')
   const performanceTone = getNumberTone(performance?.summary?.absoluteReturn)
   const quoteDayTone = getNumberTone(quoteDayChange)
-  const quoteStatusTone: MetricTone = quoteErrorMessage
+  const quoteStatusTone: MetricTone = quoteStatusErrorMessage
     ? 'negative'
     : quoteSnapshotsQuery.isFetching
       ? 'warning'
@@ -460,7 +459,7 @@ export function PortfolioSnapshotWidgetBody({
                 aria-label={copy.performanceWindow}
                 className='flex flex-wrap items-center gap-1'
               >
-                {activeWindows.map((window) => (
+                {supportedWindows.map((window) => (
                   <Button
                     key={window}
                     type='button'
@@ -629,8 +628,8 @@ export function PortfolioSnapshotWidgetBody({
                         ? formatCurrency(quoteSummary.quoteValue, currency, locale)
                         : 'N/A'
                   }
-                  hint={quoteErrorMessage ?? marketProviderId ?? copy.noMarketProvider}
-                  tone={quoteErrorMessage ? 'negative' : 'neutral'}
+                  hint={quoteStatusErrorMessage ?? marketProviderId ?? copy.noMarketProvider}
+                  tone={quoteStatusErrorMessage ? 'negative' : 'neutral'}
                 />
                 <MetricTile
                   label={copy.dayChange}

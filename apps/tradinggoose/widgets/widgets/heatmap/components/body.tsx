@@ -186,7 +186,7 @@ export function HeatmapWidgetBody({
     () =>
       cappedSourceListings.map((sourceListing) => {
         const key = sourceListing.key
-        const quote = quoteSnapshotsQuery.data?.[key] ?? null
+        const quote = quoteSnapshotsQuery.data[key] ?? null
         const sizeValue =
           sourceMode === 'portfolio'
             ? resolvePortfolioSizeValue(portfolioQuantityByKey.get(key), quote?.lastPrice)
@@ -330,19 +330,13 @@ export function HeatmapWidgetBody({
     )
   }
 
-  const quoteErrorMessage = quoteSnapshotsQuery.error
-    ? quoteSnapshotsQuery.error instanceof Error
-      ? quoteSnapshotsQuery.error.message
-      : copy.failedToLoadMarketQuotes
-    : null
-
   return (
     <div className='flex h-full flex-col gap-2 p-2'>
       <div className='min-h-0 flex-1'>
         <HeatmapTreemapChart
           cappedCount={cappedCount}
-          errorMessage={quoteErrorMessage}
-          isLoading={quoteSnapshotsQuery.isLoading && !quoteSnapshotsQuery.data}
+          errorMessage={quoteSnapshotsQuery.error?.message}
+          isLoading={quoteSnapshotsQuery.isLoading}
           items={chartItems}
           onListingSelect={onWidgetLinkedParamsPatch ? handleListingSelect : undefined}
           totalCount={totalCount}

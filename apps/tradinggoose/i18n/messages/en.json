@@ -21997,8 +21997,7 @@
           "selectBrokerAccountToLoadPortfolioHoldings": "Select a broker account to load portfolio holdings.",
           "failedToLoadHoldings": "Failed to load holdings.",
           "noHoldingsListingsFoundForThisAccount": "No holdings listings found for this account.",
-          "noWatchlistListingsFound": "No watchlist listings found.",
-          "failedToLoadMarketQuotes": "Failed to load market quotes."
+          "noWatchlistListingsFound": "No watchlist listings found."
         }
       },
       "quickOrder": {

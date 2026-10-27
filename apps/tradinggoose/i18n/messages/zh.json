@@ -21984,8 +21984,7 @@
           "selectBrokerAccountToLoadPortfolioHoldings": "选择一个券商账户以加载投资组合持仓。",
           "failedToLoadHoldings": "无法加载持仓。",
           "noHoldingsListingsFoundForThisAccount": "未找到此账户的持仓列表。",
-          "noWatchlistListingsFound": "未找到 watchlist 列表。",
-          "failedToLoadMarketQuotes": "无法加载市场报价。"
+          "noWatchlistListingsFound": "未找到 watchlist 列表。"
         }
       },
       "quickOrder": {
