@@ -9,14 +9,14 @@ export async function getApiKey(
     return 'empty'
   }
 
+  if (userProvidedKey) {
+    return userProvidedKey
+  }
+
   if (isHosted && (provider === 'openai' || provider === 'anthropic')) {
     const { getRotatingApiKey } = await import('@/lib/utils-server')
     return getRotatingApiKey(provider)
   }
 
-  if (!userProvidedKey) {
-    throw new Error(`API key is required for ${provider} ${model}`)
-  }
-
-  return userProvidedKey
+  throw new Error(`API key is required for ${provider} ${model}`)
 }

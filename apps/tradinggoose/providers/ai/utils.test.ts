@@ -47,15 +47,28 @@ describe('getApiKey', () => {
 
   it.each(['openai', 'anthropic'])('uses the hosted %s platform key', async (provider) => {
     isHostedSpy.mockReturnValue(true)
-    await expect(getApiKey(provider, 'model', 'user-key')).resolves.toBe('rotating-server-key')
+    await expect(getApiKey(provider, 'model')).resolves.toBe('rotating-server-key')
     expect(mockGetRotatingApiKey).toHaveBeenCalledWith(provider)
   })
 
-  it('propagates hosted key rotation failures instead of using a user key', async () => {
-    isHostedSpy.mockReturnValue(true)
-    mockGetRotatingApiKey.mockRejectedValue(new Error('Rotation failed'))
-    await expect(getApiKey('openai', 'model', 'user-key')).rejects.toThrow('Rotation failed')
-  })
+  it.each(['openai', 'anthropic'])(
+    'uses a supplied hosted %s key without loading platform keys',
+    async (provider) => {
+      isHostedSpy.mockReturnValue(true)
+      mockGetRotatingApiKey.mockRejectedValue(new Error('Rotation failed'))
+      await expect(getApiKey(provider, 'model', 'user-key')).resolves.toBe('user-key')
+      expect(mockGetRotatingApiKey).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each(['openai', 'anthropic'])(
+    'propagates hosted %s rotation failures when no user key is supplied',
+    async (provider) => {
+      isHostedSpy.mockReturnValue(true)
+      mockGetRotatingApiKey.mockRejectedValue(new Error('Rotation failed'))
+      await expect(getApiKey(provider, 'model')).rejects.toThrow('Rotation failed')
+    }
+  )
 
   it('requires user keys for other hosted providers', async () => {
     isHostedSpy.mockReturnValue(true)
