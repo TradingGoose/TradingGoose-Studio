@@ -305,10 +305,12 @@ describe('Model Capabilities', () => {
 
 describe('Cost Calculation', () => {
   describe('calculateCost', () => {
-    it.concurrent('prices canonical OpenRouter Claude tokens', () => {
-      expect(
-        calculateCost('openrouter/anthropic/claude-sonnet-4.6', 1_000_000, 1_000_000).total
-      ).toBe(18)
+    it.concurrent.each([
+      ['openrouter/anthropic/claude-sonnet-4.6', 18],
+      ['openrouter/x-ai/grok-4.6', 8],
+      ['openrouter/mistralai/mistral-small-2603', 0.75],
+    ] as const)('prices canonical OpenRouter tokens for %s', (model, total) => {
+      expect(calculateCost(model, 1_000_000, 1_000_000).total).toBeCloseTo(total, 8)
     })
 
     it.concurrent.each([false, true])('prices OpenRouter tokens (cached=%s)', (cached) => {

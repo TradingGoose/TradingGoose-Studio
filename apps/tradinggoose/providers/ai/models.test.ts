@@ -153,12 +153,19 @@ describe('AI model catalog', () => {
     ['openrouter/anthropic/claude-opus-4.6', 'claude-opus-4-6'],
     ['openrouter/anthropic/claude-haiku-4.5', 'claude-haiku-4-5'],
     ['openrouter/google/gemini-2.5-pro', 'gemini-2.5-pro'],
+    ['openrouter/x-ai/grok-4.6', 'grok-4.6'],
+    ['openrouter/mistralai/mistral-small-2603', 'mistral-small-2603'],
   ])('resolves canonical reseller pricing for %s', (routedModel, model) => {
     expect(getModelPricing(routedModel)).toEqual(getModelPricing(model))
   })
 
   it.each([0, 7])('preserves exact discovered OpenRouter pricing with input=%s', (input) => {
-    updateOpenRouterModels(['openrouter/openai/gpt-4.1', 'openrouter/anthropic/claude-sonnet-4.6'])
+    updateOpenRouterModels([
+      'openrouter/openai/gpt-4.1',
+      'openrouter/anthropic/claude-sonnet-4.6',
+      'openrouter/x-ai/grok-4.6',
+      'openrouter/mistralai/mistral-small-2603',
+    ])
     const pricing = { input, output: input * 2, updatedAt: '2026-10-27' }
     for (const model of PROVIDER_DEFINITIONS.openrouter.models) {
       model.pricing = pricing
@@ -172,6 +179,8 @@ describe('AI model catalog', () => {
     'unknown/openai/gpt-4.1',
     'claude-sonnet-4.6',
     'openrouter/anthropic/claude-sonnet-4-6',
+    'openrouter/xai/grok-4.6',
+    'openrouter/mistral/mistral-small-2603',
     'ollama/gpt-4.1',
     'vllm/gpt-4.1',
   ])('does not invent catalog pricing for %s', (model) => {

@@ -71,6 +71,7 @@ export interface ModelDefinition {
 
 export interface ProviderDefinition {
   id: string
+  openRouterPublisher?: string
   name: string
   description: string
   models: ModelDefinition[]
@@ -1619,6 +1620,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
   },
   xai: {
     id: 'xai',
+    openRouterPublisher: 'x-ai',
     name: 'xAI',
     description: "xAI's Grok models",
     defaultModel: 'grok-4.6',
@@ -1897,6 +1899,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
   },
   mistral: {
     id: 'mistral',
+    openRouterPublisher: 'mistralai',
     name: 'Mistral AI',
     description: "Mistral AI's language models",
     defaultModel: 'mistral-large-latest',
@@ -2610,6 +2613,7 @@ export function getModelPricing(modelId: string): ModelPricing | null {
   const normalizedModelId = modelId.toLowerCase().trim()
   let openRouterPricing: ModelPricing | null = null
   for (const provider of Object.values(PROVIDER_DEFINITIONS)) {
+    const openRouterPublisher = provider.openRouterPublisher ?? provider.id
     for (const model of provider.models) {
       const catalogModelId = model.id.toLowerCase()
       if (catalogModelId === normalizedModelId) {
@@ -2619,7 +2623,7 @@ export function getModelPricing(modelId: string): ModelPricing | null {
         provider.id === 'anthropic'
           ? catalogModelId.replace(/^(claude-(?:opus|sonnet|haiku)-\d+)-(\d+)$/, '$1.$2')
           : catalogModelId
-      if (`openrouter/${provider.id}/${routedModelId}` === normalizedModelId) {
+      if (`openrouter/${openRouterPublisher}/${routedModelId}` === normalizedModelId) {
         openRouterPricing = model.pricing
       }
     }
