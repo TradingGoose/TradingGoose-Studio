@@ -2,7 +2,6 @@ import OpenAI from 'openai'
 import { createLogger } from '@/lib/logs/console/logger'
 import { resolveOllamaServiceConfig } from '@/lib/system-services/runtime'
 import type { StreamingExecution } from '@/executor/types'
-import type { ModelsObject } from '@/providers/ai/ollama/types'
 import type {
   ProviderConfig,
   ProviderRequest,
@@ -14,7 +13,6 @@ import {
   prepareToolsWithUsageControl,
   trackForcedToolUsage,
 } from '@/providers/ai/utils'
-import { useProvidersStore } from '@/stores/providers/store'
 import { executeTool } from '@/tools'
 
 const logger = createLogger('OllamaProvider')
@@ -64,33 +62,8 @@ export const ollamaProvider: ProviderConfig = {
   name: 'Ollama',
   description: 'Local Ollama server for LLM inference',
   version: '1.0.0',
-  models: [], // Will be populated dynamically
+  models: [],
   defaultModel: '',
-
-  // Initialize the provider by fetching available models
-  async initialize() {
-    if (typeof window !== 'undefined') {
-      logger.info('Skipping Ollama initialization on client side to avoid CORS issues')
-      return
-    }
-
-    try {
-      const ollamaConfig = await resolveOllamaServiceConfig()
-      const response = await fetch(`${ollamaConfig.baseUrl}/api/tags`)
-      if (!response.ok) {
-        useProvidersStore.getState().setModels('ollama', [])
-        logger.warn('Ollama service is not available. The provider will be disabled.')
-        return
-      }
-      const data = (await response.json()) as ModelsObject
-      this.models = data.models.map((model) => model.name)
-      useProvidersStore.getState().setModels('ollama', this.models)
-    } catch (error) {
-      logger.warn('Ollama model instantiation failed. The provider will be disabled.', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      })
-    }
-  },
 
   executeRequest: async (
     request: ProviderRequest
@@ -151,7 +124,7 @@ export const ollamaProvider: ProviderConfig = {
 
     // Build the request payload
     const payload: any = {
-      model: request.model,
+      model: request.model.slice(7),
       messages: allMessages,
     }
 
@@ -165,8 +138,8 @@ export const ollamaProvider: ProviderConfig = {
       payload.response_format = {
         type: 'json_schema',
         json_schema: {
-          name: request.responseFormat.name || 'response_schema',
-          schema: request.responseFormat.schema || request.responseFormat,
+          name: request.responseFormat.name,
+          schema: request.responseFormat.schema,
           strict: request.responseFormat.strict !== false,
         },
       }

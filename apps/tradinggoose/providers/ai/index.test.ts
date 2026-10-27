@@ -1,7 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockOpenAIExecuteRequest } = vi.hoisted(() => ({
+const { mockOpenAIExecuteRequest, mockOllamaExecuteRequest, environment } = vi.hoisted(() => ({
   mockOpenAIExecuteRequest: vi.fn(),
+  mockOllamaExecuteRequest: vi.fn(),
+  environment: { isHosted: false },
+}))
+
+vi.mock('@/lib/environment', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/environment')>()),
+  get isHosted() {
+    return environment.isHosted
+  },
 }))
 
 vi.mock('@/providers/ai/openai', () => ({
@@ -108,7 +117,7 @@ vi.mock('@/providers/ai/ollama', () => ({
     version: 'test',
     models: [],
     defaultModel: '',
-    executeRequest: vi.fn(),
+    executeRequest: mockOllamaExecuteRequest,
   },
 }))
 
@@ -141,6 +150,7 @@ import { executeProviderRequest } from '@/providers/ai'
 describe('executeProviderRequest', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    environment.isHosted = false
   })
 
   it('calculates model usage cost for token-bearing responses', async () => {
@@ -174,5 +184,17 @@ describe('executeProviderRequest', () => {
         },
       },
     })
+  })
+
+  it('rejects hosted Ollama execution before calling the provider', async () => {
+    environment.isHosted = true
+
+    await expect(
+      executeProviderRequest('ollama', {
+        model: 'ollama/llama3.2',
+      })
+    ).rejects.toThrow('Ollama is not available on hosted instances')
+
+    expect(mockOllamaExecuteRequest).not.toHaveBeenCalled()
   })
 })

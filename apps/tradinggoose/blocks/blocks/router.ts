@@ -1,14 +1,14 @@
 import { ConnectIcon } from '@/components/icons/icons'
 import { isHosted } from '@/lib/environment'
 import { AuthMode, type BlockConfig } from '@/blocks/types'
-import { getProviderDefaultModel } from '@/providers/ai/models'
-import type { ProviderId } from '@/providers/ai/types'
 import {
-  getAllModelProviders,
   getHostedModels,
+  getProviderDefaultModel,
   getProviderIcon,
-  providers,
-} from '@/providers/ai/utils'
+  getProviderModels,
+} from '@/providers/ai/models'
+import type { ProviderId } from '@/providers/ai/types'
+import { getAllModelProviders } from '@/providers/ai/utils'
 import { useProvidersStore } from '@/stores/providers/store'
 import type { ToolResponse } from '@/tools/types'
 
@@ -181,7 +181,7 @@ export const RouterBlock: BlockConfig<RouterResponse> = {
       connectionDroppable: false,
       condition: () => ({
         field: 'model',
-        value: providers['azure-openai'].models,
+        value: getProviderModels('azure-openai'),
       }),
     },
     {
@@ -193,7 +193,7 @@ export const RouterBlock: BlockConfig<RouterResponse> = {
       connectionDroppable: false,
       condition: () => ({
         field: 'model',
-        value: providers['azure-openai'].models,
+        value: getProviderModels('azure-openai'),
       }),
     },
     {

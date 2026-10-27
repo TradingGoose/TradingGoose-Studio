@@ -4,7 +4,7 @@ import { createMockRequest, mockConsoleLogger } from '@/app/api/__test-utils__/u
 import { executeProviderRequest } from '@/providers/ai'
 
 vi.mock('@/providers/ai', () => ({ executeProviderRequest: vi.fn() }))
-vi.mock('@/providers/ai/utils', () => ({ getProviderFromModel: () => 'openai' }))
+vi.mock('@/providers/ai/models', () => ({ getProviderFromModel: () => 'openai' }))
 vi.mock('@/providers/ai/utils-server', () => ({ getApiKey: async () => 'model-api-key' }))
 vi.mock('@/lib/urls/utils', () => ({ getBaseUrl: () => 'https://studio.test' }))
 vi.mock('@/lib/utils', () => ({ generateRequestId: () => 'guardrail-test' }))

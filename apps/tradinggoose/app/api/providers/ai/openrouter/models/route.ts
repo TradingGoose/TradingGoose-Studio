@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
-import { filterBlacklistedModels } from '@/providers/ai/utils'
 
 const logger = createLogger('OpenRouterModelsAPI')
 
@@ -73,8 +72,7 @@ export async function GET(_request: NextRequest) {
       }
     }
 
-    const uniqueModels = Array.from(new Set(allModels))
-    const models = filterBlacklistedModels(uniqueModels)
+    const models = Array.from(new Set(allModels))
 
     const structuredOutputCount = Object.values(modelInfo).filter(
       (model) => model.supportsStructuredOutputs
@@ -82,7 +80,6 @@ export async function GET(_request: NextRequest) {
 
     logger.info('Successfully fetched OpenRouter models', {
       count: models.length,
-      filtered: uniqueModels.length - models.length,
       withStructuredOutputs: structuredOutputCount,
     })
 

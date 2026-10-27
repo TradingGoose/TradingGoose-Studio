@@ -3,8 +3,8 @@ import { getBaseUrl } from '@/lib/urls/utils'
 import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
 import type { BlockHandler, ExecutionContext } from '@/executor/types'
-import { getProviderDefaultModel } from '@/providers/ai/models'
-import { calculateCost, getProviderFromModel } from '@/providers/ai/utils'
+import { getProviderDefaultModel, getProviderFromModel } from '@/providers/ai/models'
+import { calculateCost } from '@/providers/ai/utils'
 import type { SerializedBlock } from '@/serializer/types'
 
 const logger = createLogger('EvaluatorBlockHandler')

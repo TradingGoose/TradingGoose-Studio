@@ -4,7 +4,8 @@ import { getAllBlocks } from '@/blocks'
 import { BlockType } from '@/executor/consts'
 import { AgentBlockHandler } from '@/executor/handlers/agent/agent-handler'
 import type { ExecutionContext, StreamingExecution } from '@/executor/types'
-import { getProviderFromModel, transformBlockTool } from '@/providers/ai/utils'
+import { getProviderFromModel } from '@/providers/ai/models'
+import { transformBlockTool } from '@/providers/ai/utils'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 import { executeTool } from '@/tools'
 
@@ -21,8 +22,12 @@ vi.mock('@/lib/environment', () => ({
 
 vi.mock('@/providers/ai/utils', async () => ({
   ...(await vi.importActual<typeof import('@/providers/ai/utils')>('@/providers/ai/utils')),
-  getProviderFromModel: vi.fn().mockReturnValue('mock-provider'),
   transformBlockTool: vi.fn(),
+}))
+
+vi.mock('@/providers/ai/models', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/providers/ai/models')>()),
+  getProviderFromModel: vi.fn().mockReturnValue('mock-provider'),
 }))
 
 vi.mock('@/blocks', () => ({

@@ -31,7 +31,7 @@ import {
 import { useRouter } from '@/i18n/navigation'
 import type { LocaleCode } from '@/i18n/utils'
 import { formatTemplate } from '@/i18n/utils'
-import { getProviderFromModel, supportsToolUsageControl } from '@/providers/ai/utils'
+import { getProviderFromModel, supportsToolUsageControl } from '@/providers/ai/models'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 import {
   getRenderableToolParameters,

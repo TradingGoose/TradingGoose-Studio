@@ -22,7 +22,6 @@ import {
   trackForcedToolUsage,
 } from '@/providers/ai/utils'
 import { createReadableStreamFromVLLMStream } from '@/providers/ai/vllm/utils'
-import { useProvidersStore } from '@/stores/providers/store'
 import { executeTool } from '@/tools'
 
 const logger = createLogger('VLLMProvider')
@@ -35,50 +34,6 @@ export const vllmProvider: ProviderConfig = {
   version: VLLM_VERSION,
   models: getProviderModels('vllm'),
   defaultModel: getProviderDefaultModel('vllm'),
-
-  async initialize() {
-    if (typeof window !== 'undefined') {
-      logger.info('Skipping vLLM initialization on client side to avoid CORS issues')
-      return
-    }
-
-    try {
-      const vllmConfig = await resolveVllmServiceConfig()
-      const baseUrl = (vllmConfig.baseUrl || '').replace(/\/$/, '')
-      if (!baseUrl) {
-        logger.info('vLLM base URL not configured, skipping initialization')
-        return
-      }
-
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      }
-      const apiKey = vllmConfig.apiKey
-      if (apiKey) {
-        headers.Authorization = `Bearer ${apiKey}`
-      }
-
-      const response = await fetch(`${baseUrl}/v1/models`, { headers })
-      if (!response.ok) {
-        await response.text().catch(() => {})
-        useProvidersStore.getState().setModels('vllm', [])
-        logger.warn('vLLM service is not available. The provider will be disabled.')
-        return
-      }
-
-      const data = (await response.json()) as { data: Array<{ id: string }> }
-      const models = data.data.map((model) => `vllm/${model.id}`)
-
-      this.models = models
-      useProvidersStore.getState().setModels('vllm', models)
-
-      logger.info(`Discovered ${models.length} vLLM model(s):`, { models })
-    } catch (error) {
-      logger.warn('vLLM model instantiation failed. The provider will be disabled.', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      })
-    }
-  },
 
   executeRequest: async (
     request: ProviderRequest

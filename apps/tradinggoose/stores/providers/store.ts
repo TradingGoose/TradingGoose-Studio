@@ -1,12 +1,12 @@
 import { createWithEqualityFn as create } from 'zustand/traditional'
+import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getBaseUrl } from '@/lib/urls/utils'
 import {
-  updateFireworksProviderModels,
-  updateOllamaProviderModels,
-  updateOpenRouterProviderModels,
-  updateVLLMProviderModels,
-} from '@/providers/ai/utils'
+  updateFireworksModels,
+  updateOllamaModels,
+  updateOpenRouterModels,
+  updateVLLMModels,
+} from '@/providers/ai/models'
 import type { ProviderConfig, ProviderName, ProvidersStore } from './types'
 
 const logger = createLogger('ProvidersStore')
@@ -15,67 +15,23 @@ let hasBootstrappedProviderModels = false
 const PROVIDER_CONFIGS: Record<ProviderName, ProviderConfig> = {
   base: {
     apiEndpoint: '/api/providers/ai/base/models',
-    dedupeModels: true,
-    updateFunction: () => {},
   },
   ollama: {
     apiEndpoint: '/api/providers/ai/ollama/models',
-    updateFunction: updateOllamaProviderModels,
+    updateFunction: updateOllamaModels,
   },
   openrouter: {
     apiEndpoint: '/api/providers/ai/openrouter/models',
-    dedupeModels: true,
-    updateFunction: updateOpenRouterProviderModels,
+    updateFunction: updateOpenRouterModels,
   },
   vllm: {
     apiEndpoint: '/api/providers/ai/vllm/models',
-    updateFunction: updateVLLMProviderModels,
+    updateFunction: updateVLLMModels,
   },
   fireworks: {
     apiEndpoint: '/api/providers/ai/fireworks/models',
-    dedupeModels: true,
-    updateFunction: updateFireworksProviderModels,
+    updateFunction: updateFireworksModels,
   },
-}
-
-const resolveApiEndpoint = (endpoint: string): string => {
-  if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
-    return endpoint
-  }
-
-  const baseUrl =
-    typeof window !== 'undefined' && window.location?.origin ? window.location.origin : getBaseUrl()
-
-  try {
-    return new URL(endpoint, baseUrl).toString()
-  } catch (_error) {
-    return endpoint
-  }
-}
-
-const fetchProviderModels = async (provider: ProviderName): Promise<string[]> => {
-  try {
-    const config = PROVIDER_CONFIGS[provider]
-    const apiEndpoint = resolveApiEndpoint(config.apiEndpoint)
-    const response = await fetch(apiEndpoint)
-
-    if (!response.ok) {
-      logger.warn(`Failed to fetch ${provider} models from API`, {
-        status: response.status,
-        statusText: response.statusText,
-        apiEndpoint,
-      })
-      return []
-    }
-
-    const data = await response.json()
-    return data.models || []
-  } catch (error) {
-    logger.warn(`Error fetching ${provider} models`, {
-      error: error instanceof Error ? error.message : 'Unknown error',
-    })
-    return []
-  }
 }
 
 export const useProvidersStore = create<ProvidersStore>((set, get) => ({
@@ -90,26 +46,24 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => ({
   setModels: (provider, models) => {
     const config = PROVIDER_CONFIGS[provider]
 
-    const processedModels = config.dedupeModels ? Array.from(new Set(models)) : models
-
     set((state) => ({
       providers: {
         ...state.providers,
         [provider]: {
           ...state.providers[provider],
-          models: processedModels,
+          models,
         },
       },
     }))
 
-    void Promise.resolve(config.updateFunction(models)).catch((error) => {
-      logger.warn(`Failed to update ${provider} provider models`, {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      })
-    })
+    config.updateFunction?.(models)
   },
 
   fetchModels: async (provider) => {
+    if (isHosted && provider === 'ollama') {
+      return
+    }
+
     if (typeof window === 'undefined') {
       logger.info(`Skipping client-side ${provider} model fetch on server`)
       return
@@ -134,7 +88,11 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => ({
     }))
 
     try {
-      const models = await fetchProviderModels(provider)
+      const response = await fetch(PROVIDER_CONFIGS[provider].apiEndpoint)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch ${provider} models: ${response.status}`)
+      }
+      const { models } = await response.json()
       logger.info(`Successfully fetched ${provider} models`, {
         count: models.length,
         ...(provider === 'ollama' ? { models } : {}),
@@ -155,10 +113,6 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => ({
         },
       }))
     }
-  },
-
-  getProvider: (provider) => {
-    return get().providers[provider]
   },
 }))
 
