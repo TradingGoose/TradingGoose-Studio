@@ -34,8 +34,7 @@ const request: UseMarketQuoteSnapshotsArgs = {
   auth: { apiKey: 'test-key', apiSecret: 'test-secret' },
   providerParams: { feed: 'iex' },
 }
-type Result = ReturnType<typeof useMarketQuoteSnapshots>
-let latest: Record<string, Result>
+let latest: Record<string, ReturnType<typeof useMarketQuoteSnapshots>>
 const Harness = ({
   id = 'a',
   overrides = {},
@@ -63,7 +62,6 @@ const receive = (subscription: { clientSubscriptionId: string }, snapshot = quot
 
 describe('useMarketQuoteSnapshots', () => {
   let root: Root
-  let container: HTMLDivElement
   const render = async (overrides: Partial<UseMarketQuoteSnapshotsArgs> = {}) => {
     await act(async () => {
       root.render(<Harness overrides={overrides} />)
@@ -83,13 +81,10 @@ describe('useMarketQuoteSnapshots', () => {
     socket.off.mockImplementation((event, handler) => {
       socket.handlers.get(event)?.delete(handler)
     })
-    container = document.createElement('div')
-    document.body.appendChild(container)
-    root = createRoot(container)
+    root = createRoot(document.createElement('div'))
   })
   afterEach(() => {
     act(() => root.unmount())
-    container.remove()
     vi.useRealTimers()
   })
 
