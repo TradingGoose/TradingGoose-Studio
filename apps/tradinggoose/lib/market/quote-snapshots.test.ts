@@ -170,20 +170,69 @@ describe('market quote normalization', () => {
     }
   )
 
-  it.each(['1d', '1m'])(
-    'propagates %s request failures without substituting another data source',
-    async (interval) => {
+  it('requires daily history for the day-change baseline', async () => {
+    execute.mockImplementation(async (_provider, request) => {
+      if (request.interval === '1d') throw new Error('Provider unavailable')
+      return regular
+    })
+    await expect(snapshot()).rejects.toThrow('Provider unavailable')
+    expect(execute).toHaveBeenCalledTimes(2)
+  })
+
+  it.each(['failure', 'empty'])(
+    'preserves the current daily quote when minute data is unavailable (%s)',
+    async (unavailable) => {
+      regular.bars = []
       execute.mockImplementation(async (_provider, request) => {
-        if (request.interval === interval) throw new Error('Provider unavailable')
+        if (request.interval === '1m' && unavailable === 'failure')
+          throw new Error('Provider unavailable')
         return request.interval === '1d' ? daily : regular
       })
-      await expect(snapshot()).rejects.toThrow('Provider unavailable')
+      const quote = await snapshot()
+      expect(quote).toMatchObject({
+        lastPrice: 105,
+        previousClose: 100,
+        change: 5,
+        changePercent: 5,
+        volume: 20,
+        lastPriceTime: '2026-10-26T04:00:00Z',
+        error: unavailable === 'failure' ? 'Provider unavailable' : 'No intraday price available',
+      })
+      expect(quote.lastPriceEndTime).toBeUndefined()
+      expect(execute.mock.calls.map(([, request]) => request.interval)).toEqual(['1d', '1m'])
     }
   )
 
-  it('requires minute data instead of substituting the current daily candle', async () => {
+  it.each(['crypto', 'currency'] as const)(
+    'keeps completed daily coverage for %s when intraday data is empty',
+    async (listingType) => {
+      daily.bars = [
+        { timeStamp: '2026-10-22T00:00:00Z', close: 100 },
+        { timeStamp: '2026-10-23T00:00:00Z', close: 105 },
+      ]
+      regular.bars = []
+      const quote = await buildMarketQuoteSnapshot({
+        provider: 'alpha-vantage',
+        listing: { listing_id: '', base_id: 'BTC', quote_id: 'USD', listing_type: listingType },
+      })
+      expect(quote).toMatchObject({
+        lastPrice: 105,
+        previousClose: 100,
+        change: 5,
+        lastPriceTime: '2026-10-23T00:00:00Z',
+        lastPriceEndTime: '2026-10-24T00:00:00.000Z',
+        timezone: 'UTC',
+        error: 'No intraday price available',
+      })
+      expect(execute).toHaveBeenCalledTimes(2)
+    }
+  )
+
+  it('rejects when neither series has an available price', async () => {
+    daily.bars = []
     regular.bars = []
-    await expect(snapshot()).rejects.toThrow('No regular-session price available')
+    await expect(snapshot()).rejects.toThrow('No intraday price available')
+    expect(execute).toHaveBeenCalledTimes(2)
   })
 
   it.each(['yahoo-finance', 'finnhub'])(

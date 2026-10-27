@@ -80,6 +80,7 @@ describe('fetchAlphaVantageSeries', () => {
 
   afterEach(() => {
     process.env.ALPHAVANTAGE_API_KEY = originalAlphaVantageApiKey
+    vi.restoreAllMocks()
     vi.unstubAllGlobals()
   })
 
@@ -286,6 +287,69 @@ describe('fetchAlphaVantageSeries', () => {
       expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get('function')).toBe(
         'TIME_SERIES_DAILY_ADJUSTED'
       )
+    }
+  )
+
+  it.each([
+    ['currency', 'EUR', 'FX_DAILY', 'FX_INTRADAY'],
+    ['crypto', 'BTC', 'DIGITAL_CURRENCY_DAILY', 'CRYPTO_INTRADAY'],
+  ] as const)(
+    'keeps available daily %s quotes when intraday access requires premium',
+    async (listingType, base, dailyFunction, minuteFunction) => {
+      vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-10-26T16:00:00Z'))
+      const pair = { listing_id: '', base_id: base, quote_id: 'USD', listing_type: listingType }
+      mockResolveListingContext.mockResolvedValue({
+        listing: pair,
+        base,
+        quote: 'USD',
+        assetClass: listingType,
+      })
+      marketRequestMock.mockResolvedValue({ success: true, data: { name: 'UTC' } })
+      const premiumError = 'This is a premium endpoint. Please subscribe to a premium plan.'
+      let premium = true
+      fetchMock.mockImplementation(async (input: string) => {
+        const minute = new URL(input).searchParams.get('function') === minuteFunction
+        if (minute && premium) return Response.json({ Information: premiumError })
+        const close = listingType === 'crypto' && !minute ? '4a. close (USD)' : '4. close'
+        return Response.json({
+          'Meta Data': { '5. Time Zone': 'UTC' },
+          'Time Series': minute
+            ? { '2026-10-26 15:59:00': { [close]: '106' } }
+            : { '2026-10-23': { [close]: '100' }, '2026-10-26': { [close]: '104' } },
+        })
+      })
+      const { buildMarketQuoteSnapshot } = await import('@/lib/market/quote-snapshots')
+      const quote = () =>
+        buildMarketQuoteSnapshot({
+          provider: 'alpha-vantage',
+          listing: pair,
+          auth: { apiKey: 'key' },
+        })
+      const dailyQuote = await quote()
+      expect(dailyQuote).toMatchObject({
+        lastPrice: 104,
+        previousClose: 100,
+        change: 4,
+        changePercent: 4,
+        lastPriceTime: '2026-10-26T00:00:00.000Z',
+        timezone: 'UTC',
+        error: premiumError,
+      })
+      expect(dailyQuote.lastPriceEndTime).toBeUndefined()
+      expect(
+        fetchMock.mock.calls.map(([input]) => new URL(input).searchParams.get('function'))
+      ).toEqual([dailyFunction, minuteFunction])
+      premium = false
+      const minuteQuote = await quote()
+      expect(minuteQuote).toMatchObject({
+        lastPrice: 106,
+        previousClose: 100,
+        change: 6,
+        changePercent: 6,
+        lastPriceTime: '2026-10-26T15:59:00.000Z',
+        timezone: 'UTC',
+      })
+      expect(minuteQuote.error).toBeUndefined()
     }
   )
 

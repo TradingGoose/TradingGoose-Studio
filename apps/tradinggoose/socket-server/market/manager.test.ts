@@ -487,13 +487,14 @@ describe('MarketStreamManager quote snapshots', () => {
         '2026-10-26T15:01:00Z',
         '2026-10-26T20:00:00Z',
         '2026-10-27T12:00:00Z',
+        'invalid',
       ]) {
         trade(200, timeStamp)
       }
       expect(lastQuote(socket)).toBeUndefined()
       expect(
         socket.emit.mock.calls.filter(([event]: [string]) => event === 'market-trade')
-      ).toHaveLength(4)
+      ).toHaveLength(5)
       await vi.advanceTimersByTimeAsync(60_000)
       expect(lastQuote(socket)).toMatchObject({ lastPrice: 132, previousClose: 120, change: 12 })
       buildMarketQuoteSnapshotMock.mockRejectedValueOnce(new Error('429 Too Many Requests'))
@@ -615,13 +616,35 @@ describe('MarketStreamManager quote snapshots', () => {
       expect(resolveMarketSessionsForRangeMock).toHaveBeenCalledTimes(4)
       await vi.advanceTimersByTimeAsync(60_000)
       expect(lastQuote(socket).lastPrice).toBe(133)
-      buildMarketQuoteSnapshotMock.mockResolvedValueOnce(regularSnapshot)
+      const dailyQuote = createMarketQuoteSnapshot({
+        lastPrice: 130,
+        previousClose: 129,
+        volume: 20,
+        lastPriceTime: '2026-10-26T04:00:00Z',
+        timezone: regularSnapshot.timezone,
+        error: 'Intraday premium access required',
+      })
+      buildMarketQuoteSnapshotMock.mockResolvedValueOnce(dailyQuote)
       await vi.advanceTimersByTimeAsync(60_000)
       expect(lastQuote(socket)).toMatchObject({
         lastPrice: 133,
         previousClose: null,
         change: null,
         regularSession: { start: session.start, end: session.end },
+      })
+      buildMarketQuoteSnapshotMock.mockResolvedValueOnce({
+        ...dailyQuote,
+        lastPriceTime: '2026-10-27T04:00:00Z',
+      })
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(lastQuote(socket)).toMatchObject({
+        lastPrice: 133,
+        previousClose: 129,
+        change: 4,
+        volume: 20,
+        volumeUsd: 2660,
+        regularSession: { start: session.start, end: session.end },
+        error: dailyQuote.error,
       })
       const recovered = createMarketQuoteSnapshot({
         lastPrice: 134,

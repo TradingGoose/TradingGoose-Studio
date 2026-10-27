@@ -1342,13 +1342,11 @@ function updateSnapshotFromPrice(
   previous: MarketQuoteSnapshot,
   update: Partial<MarketQuoteSnapshot>
 ): MarketQuoteSnapshot {
-  const source =
+  const newerSession =
     update.regularSession &&
     (!previous.regularSession ||
       Date.parse(update.regularSession.start) > Date.parse(previous.regularSession.start))
-      ? update
-      : previous
-  const regularSession = source.regularSession
+  const regularSession = newerSession ? update.regularSession : previous.regularSession
   const sessionEnd = Date.parse(regularSession?.end ?? '')
   if (
     regularSession &&
@@ -1373,12 +1371,13 @@ function updateSnapshotFromPrice(
   const sessionStart = Date.parse(regularSession?.start ?? '')
   const inSession = priceTime >= sessionStart && priceTime < sessionEnd
   if (regularSession && !inSession) return previous
-  const sameDay =
-    inSession ||
-    (source.timezone &&
-      source.lastPriceTime &&
-      getMarketQuoteDate(source.lastPriceTime, source.timezone) ===
-        getMarketQuoteDate(update.lastPriceTime!, source.timezone))
+  const sameDate =
+    previous.timezone &&
+    previous.lastPriceTime &&
+    getMarketQuoteDate(previous.lastPriceTime, previous.timezone) ===
+      getMarketQuoteDate(update.lastPriceTime!, previous.timezone)
+  const source = newerSession && !sameDate ? update : previous
+  const sameDay = inSession || sameDate
   const previousClose = sameDay ? (source.previousClose ?? null) : null
 
   return createMarketQuoteSnapshot({

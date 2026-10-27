@@ -26,34 +26,34 @@ export const buildMarketQuoteSnapshot = async ({
     listing.listing_type === 'default' &&
     (await resolveListingContext(listing)).assetClass === 'mutualfund'
   const requestStartedAt = Date.now()
-  const [daily, intraday] = await Promise.all(
-    (
-      [
-        ['1d', 14],
-        // Currency pairs have no session anchor; span weekends and holiday closures.
-        ['1m', listing.listing_type === 'currency' ? 7 : 1],
-      ] as const
-    )
-      .filter(([interval]) => !dailyOnly || interval === '1d')
-      .map(
-        async ([interval, days]) =>
-          (await executeProviderRequest(
-            provider,
-            {
-              kind: 'series',
-              listing,
-              interval,
-              windows: [{ mode: 'range', range: { value: days, unit: 'day' } }],
-              normalizationMode:
-                interval === '1d' && listing.listing_type === 'default' ? 'split_adjusted' : 'raw',
-              auth,
-              providerParams: { ...providerParams, marketSession: 'regular' },
-            },
-            context
-          )) as MarketSeries
-      )
-  )
-  const priceSeries = dailyOnly ? daily : intraday
+  const fetchSeries = async (interval: '1d' | '1m', days: number) =>
+    (await executeProviderRequest(
+      provider,
+      {
+        kind: 'series',
+        listing,
+        interval,
+        windows: [{ mode: 'range', range: { value: days, unit: 'day' } }],
+        normalizationMode:
+          interval === '1d' && listing.listing_type === 'default' ? 'split_adjusted' : 'raw',
+        auth,
+        providerParams: { ...providerParams, marketSession: 'regular' },
+      },
+      context
+    )) as MarketSeries
+  let intradayError: string | undefined
+  const [daily, intraday] = await Promise.all([
+    fetchSeries('1d', 14),
+    dailyOnly
+      ? undefined
+      : fetchSeries('1m', listing.listing_type === 'currency' ? 7 : 1).catch((error) => {
+          intradayError = error instanceof Error ? error.message : 'Intraday prices are unavailable'
+          return undefined
+        }),
+  ])
+  const priceSeries = intraday?.bars.length ? intraday : daily
+  const dailyPrice = priceSeries === daily
+  if (!dailyOnly && dailyPrice) intradayError ??= 'No intraday price available'
   const timezone = listing.listing_type === 'default' ? priceSeries.timezone : 'UTC'
   if (!timezone) throw new Error('Market series timezone is required')
   const sessions = priceSeries.marketSessions?.filter(({ type }) => type === 'market') ?? []
@@ -67,7 +67,7 @@ export const buildMarketQuoteSnapshot = async ({
         )
     )
     .at(-1)
-  if (!priceBar) throw new Error('No regular-session price available')
+  if (!priceBar) throw new Error(intradayError ?? 'No regular-session price available')
   const priceDate = getMarketQuoteDate(priceBar.timeStamp, timezone)
   const dailyBars = [...daily.bars].reverse()
   const previousDaily = dailyBars.find(
@@ -79,7 +79,7 @@ export const buildMarketQuoteSnapshot = async ({
   const session = sessions.find(({ date }) => date === priceDate)
   const completed =
     dailyOnly ||
-    (listing.listing_type === 'default' &&
+    ((listing.listing_type === 'default' || dailyPrice) &&
       (session
         ? Date.parse(session.end) <= requestStartedAt
         : priceDate < getMarketQuoteDate(new Date(requestStartedAt).toISOString(), timezone)))
@@ -96,16 +96,20 @@ export const buildMarketQuoteSnapshot = async ({
             new Date(Date.parse(priceDate) + 86_400_000).toISOString().slice(0, 10),
             new Intl.DateTimeFormat('en-US', { timeZone: timezone, timeZoneName: 'longOffset' })
           ))
-        : new Date(
-            Math.max(priceTime, Math.min(requestStartedAt, priceTime + 60_000))
-          ).toISOString(),
+        : dailyPrice
+          ? undefined
+          : new Date(
+              Math.max(priceTime, Math.min(requestStartedAt, priceTime + 60_000))
+            ).toISOString(),
     timezone,
     volume: sessionDaily?.volume,
     ...(session ? { regularSession: { start: session.start, end: session.end } } : {}),
-    error: missingClose
-      ? 'Current regular-session close is unavailable'
-      : !previousDaily
-        ? 'Previous regular-session close is unavailable'
-        : undefined,
+    error:
+      intradayError ??
+      (missingClose
+        ? 'Current regular-session close is unavailable'
+        : !previousDaily
+          ? 'Previous regular-session close is unavailable'
+          : undefined),
   })
 }
