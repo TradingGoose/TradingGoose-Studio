@@ -587,11 +587,18 @@ describe('MarketStreamManager quote snapshots', () => {
       await vi.advanceTimersByTimeAsync(60_000)
       await trade(200, '2026-10-27T12:00:00Z')
       await trade(200, '2026-10-27T20:00:00Z')
+      expect(resolveMarketSessionsForRangeMock).toHaveBeenCalledTimes(1)
+      await vi.advanceTimersByTimeAsync(15_000)
       resolveMarketSessionsForRangeMock.mockResolvedValueOnce([])
       await trade(200, '2026-10-31T14:00:00Z')
+      await vi.advanceTimersByTimeAsync(15_000)
       resolveMarketSessionsForRangeMock.mockRejectedValueOnce(new Error('Calendar unavailable'))
       await trade(200, '2026-10-27T14:00:00Z')
+      await vi.advanceTimersByTimeAsync(14_999)
+      await trade(200, '2026-10-27T14:00:00Z')
       expect(lastQuote(socket).lastPrice).toBe(regularSnapshot.lastPrice)
+      expect(resolveMarketSessionsForRangeMock).toHaveBeenCalledTimes(3)
+      await vi.advanceTimersByTimeAsync(1)
       await trade(133, '2026-10-27T14:00:00Z')
       expect(lastQuote(socket)).toMatchObject({
         lastPrice: 133,
@@ -603,6 +610,9 @@ describe('MarketStreamManager quote snapshots', () => {
       })
       expect(lastQuote(socket).volume).toBeUndefined()
       expect(lastQuote(socket).volumeUsd).toBeUndefined()
+      await trade(133, '2026-10-27T14:00:01Z')
+      expect(lastQuote(socket).lastPriceTime).toBe('2026-10-27T14:00:01Z')
+      expect(resolveMarketSessionsForRangeMock).toHaveBeenCalledTimes(4)
       await vi.advanceTimersByTimeAsync(60_000)
       expect(lastQuote(socket).lastPrice).toBe(133)
       buildMarketQuoteSnapshotMock.mockResolvedValueOnce(regularSnapshot)
@@ -634,9 +644,15 @@ describe('MarketStreamManager quote snapshots', () => {
     }
   )
 
-  it.each(['trade', 'refresh', 'unsubscribe'])(
-    'does not overwrite a newer %s while resolving an overnight session',
-    async (winner) => {
+  it.each([
+    ['trade', true],
+    ['poll', true],
+    ['refresh', true],
+    ['refresh', false],
+    ['unsubscribe', true],
+  ] as const)(
+    'does not overwrite a newer %s while resolving an overnight session (found=%s)',
+    async (winner, found) => {
       vi.useFakeTimers()
       const manager = new MarketStreamManager()
       const socket = createSocket('socket-1')
@@ -663,7 +679,10 @@ describe('MarketStreamManager quote snapshots', () => {
         'market-trade',
         expect.objectContaining({ trade: { price: 133, timeStamp: '2026-10-27T14:00:00Z' } })
       )
-      if (winner === 'trade') await trade(134, '2026-10-27T14:01:00Z')
+      if (winner === 'poll') await vi.advanceTimersByTimeAsync(60_000)
+      const newerTrade =
+        winner === 'trade' || winner === 'poll' ? trade(134, '2026-10-27T14:01:00Z') : undefined
+      expect(resolveMarketSessionsForRangeMock).toHaveBeenCalledTimes(1)
       if (winner === 'refresh') {
         buildMarketQuoteSnapshotMock.mockResolvedValue(
           createMarketQuoteSnapshot({
@@ -681,8 +700,8 @@ describe('MarketStreamManager quote snapshots', () => {
         manager.removeSocket(socket.id)
         socket.emit.mockClear()
       }
-      resolveSession([session])
-      await pending
+      resolveSession(found ? [session] : [])
+      await Promise.all([pending, newerTrade])
       if (winner === 'unsubscribe') expect(socket.emit).not.toHaveBeenCalled()
       else {
         expect(lastQuote(socket)).toMatchObject({
@@ -690,6 +709,56 @@ describe('MarketStreamManager quote snapshots', () => {
           previousClose: winner === 'refresh' ? 129 : null,
         })
       }
+      manager.removeSocket(socket.id)
+    }
+  )
+
+  it.each(['miss', 'inflight'])(
+    'clears a %s session lookup when its last symbol subscriber leaves',
+    async (result) => {
+      vi.useFakeTimers()
+      const manager = new MarketStreamManager()
+      const socket = createSocket('socket-1')
+      buildMarketQuoteSnapshotMock.mockResolvedValue(regularSnapshot)
+      const first = await manager.subscribe(socket, nativeQuotePayload('alpaca'))
+      resolveProviderSymbolMock.mockReturnValueOnce('MSFT')
+      await manager.subscribe(socket, {
+        ...nativeQuotePayload('alpaca'),
+        listing: { ...listing, listing_id: 'us-msft' },
+        clientSubscriptionId: 'other-symbol',
+      })
+      await vi.advanceTimersByTimeAsync(0)
+      let resolveLookup!: (sessions: []) => void
+      resolveMarketSessionsForRangeMock.mockImplementationOnce(() =>
+        result === 'miss'
+          ? Promise.resolve([])
+          : new Promise((resolve) => {
+              resolveLookup = resolve
+            })
+      )
+      const trade = () =>
+        alpacaStreamInstances[0].handlers.onTrade({
+          symbol: 'AAPL',
+          trade: { price: 133, timeStamp: '2026-10-27T14:00:00Z' },
+        })
+      const pending = trade()
+      if (result === 'miss') await pending
+      manager.unsubscribe(socket, { subscriptionId: first.subscriptionId })
+      await manager.subscribe(socket, {
+        ...nativeQuotePayload('alpaca'),
+        clientSubscriptionId: 'replacement',
+      })
+      await vi.advanceTimersByTimeAsync(0)
+      if (result === 'inflight') {
+        resolveLookup([])
+        await pending
+      }
+      resolveMarketSessionsForRangeMock.mockResolvedValueOnce([
+        { type: 'market', start: '2026-10-27T13:30:00Z', end: '2026-10-27T20:00:00Z' },
+      ])
+      await trade()
+      expect(resolveMarketSessionsForRangeMock).toHaveBeenCalledTimes(2)
+      expect(lastQuote(socket)).toMatchObject({ lastPrice: 133, previousClose: null })
       manager.removeSocket(socket.id)
     }
   )

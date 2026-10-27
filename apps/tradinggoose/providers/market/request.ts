@@ -1,5 +1,6 @@
 import type { MarketProviderConfig } from '@/providers/market/providers'
 
+const REQUEST_TIMEOUT_MS = 30_000
 const gates = new Map<string, { ready: Promise<void>; startedAt?: number }>()
 
 export async function fetchMarketProviderJson<T = unknown>(
@@ -17,8 +18,10 @@ export async function fetchMarketProviderJson<T = unknown>(
       const delay = gate.startedAt + intervalMs - Date.now()
       if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay))
     }
+    const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+    const signal = init?.signal ? AbortSignal.any([init.signal, timeout]) : timeout
     gate.startedAt = Date.now()
-    return { response: fetch(input, init) }
+    return { response: fetch(input, { ...init, signal }) }
   })
   // Release the queue when fetch starts, rather than when its response arrives.
   const ready = request.then(

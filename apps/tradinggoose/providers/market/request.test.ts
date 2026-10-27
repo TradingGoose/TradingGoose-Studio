@@ -34,6 +34,11 @@ let starts: number[]
 beforeEach(() => {
   vi.useFakeTimers()
   vi.setSystemTime(now)
+  vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms) => {
+    const deadline = new AbortController()
+    setTimeout(() => deadline.abort(new DOMException('Request timed out', 'TimeoutError')), ms)
+    return deadline.signal
+  })
   starts = []
   fetchMock.mockReset().mockImplementation(async () => Response.json({}))
   vi.stubGlobal('fetch', (...args: Parameters<typeof fetch>) => {
@@ -153,6 +158,63 @@ it('releases launch slots before responses complete', async () => {
   expect(starts).toEqual([now, now + 1000])
   await second
   finish(Response.json({}))
+  await first
+})
+
+it.each(['fetch', 'body'])(
+  'aborts a stalled %s after 30 seconds without blocking later launches',
+  async (stage) => {
+    fetchMock.mockImplementationOnce((_input, { signal }) => {
+      const pending = new Promise((_, reject) =>
+        signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+      )
+      return stage === 'fetch' ? pending : Promise.resolve({ ok: true, json: () => pending })
+    })
+    let settled = false
+    const failed = request('timeout-key').catch((error) => {
+      settled = true
+      return error
+    })
+    const next = request('timeout-key')
+    await vi.advanceTimersByTimeAsync(29_999)
+    expect(settled).toBe(false)
+    await expect(next).resolves.toEqual({})
+    await vi.advanceTimersByTimeAsync(1)
+    expect(await failed).toMatchObject({ name: 'TimeoutError' })
+    expect(starts).toEqual([now, now + 1000])
+  }
+)
+
+it('starts deadlines at paced launch while preserving options and caller cancellation', async () => {
+  const caller = new AbortController()
+  const config = { ...finnhubProviderConfig, requestsPerMinute: 1 }
+  const first = request('queued-key', config)
+  await vi.advanceTimersByTimeAsync(0)
+  fetchMock.mockImplementationOnce(
+    (_input, { signal }) =>
+      new Promise((_, reject) =>
+        signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+      )
+  )
+  const failed = fetchMarketProviderJson(config, 'queued-key', 'https://example.test', {
+    signal: caller.signal,
+    method: 'POST',
+    body: 'payload',
+    headers: { Accept: 'application/json' },
+  }).catch((error) => error)
+  await vi.advanceTimersByTimeAsync(59_999)
+  expect(AbortSignal.timeout).toHaveBeenCalledTimes(1)
+  await vi.advanceTimersByTimeAsync(1)
+  expect(AbortSignal.timeout).toHaveBeenLastCalledWith(30_000)
+  expect(fetchMock.mock.calls[1][1].signal.aborted).toBe(false)
+  expect(fetchMock.mock.calls[1][1]).toMatchObject({
+    method: 'POST',
+    body: 'payload',
+    headers: { Accept: 'application/json' },
+  })
+  const reason = new Error('Caller cancelled')
+  caller.abort(reason)
+  expect(await failed).toBe(reason)
   await first
 })
 

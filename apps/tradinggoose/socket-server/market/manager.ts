@@ -108,7 +108,14 @@ interface StreamState {
   barRefreshAt?: number
   pollingInFlight?: boolean
   pollingRequested?: boolean
-  quoteSnapshotCache: Map<string, { snapshot: MarketQuoteSnapshot; refreshAt: number }>
+  quoteSnapshotCache: Map<
+    string,
+    {
+      snapshot: MarketQuoteSnapshot
+      refreshAt: number
+      sessionLookup?: { promise: ReturnType<typeof resolveMarketSessionsForRange>; retryAt: number }
+    }
+  >
   marketBarCache: Map<string, MarketBar>
   subscribersBySymbol: Map<string, Map<string, MarketSubscriptionRecord>>
 }
@@ -728,19 +735,30 @@ export class MarketStreamManager {
       (record) => record.channel === 'quote-snapshots'
     )
     if (!quoteRecord) return
-    let regularSession = state.quoteSnapshotCache.get(symbol)?.snapshot.regularSession
+    const cachedQuote = state.quoteSnapshotCache.get(symbol)
+    let regularSession = cachedQuote?.snapshot.regularSession
     const tradeTime = Date.parse(trade?.timeStamp ?? '')
     if (
       quoteRecord.listing.listing_type === 'default' &&
+      cachedQuote &&
       regularSession &&
       tradeTime >= Date.parse(regularSession.end)
     ) {
-      const sessions = await resolveMarketSessionsForRange(
-        quoteRecord.listing.listing_id,
-        quoteRecord.listing.listing_type,
-        tradeTime,
-        tradeTime + 1
-      ).catch(() => null)
+      let lookup = cachedQuote.sessionLookup
+      if (lookup && Date.now() < lookup.retryAt) return
+      if (!lookup || lookup.retryAt) {
+        lookup = {
+          promise: resolveMarketSessionsForRange(
+            quoteRecord.listing.listing_id,
+            quoteRecord.listing.listing_type,
+            tradeTime,
+            tradeTime + 1
+          ).catch(() => null),
+          retryAt: 0,
+        }
+        cachedQuote.sessionLookup = lookup
+      }
+      const sessions = await lookup.promise
       if (
         this.streams.get(streamKey) !== state ||
         state.subscribersBySymbol.get(symbol) !== subscribers ||
@@ -753,8 +771,14 @@ export class MarketStreamManager {
           tradeTime >= Date.parse(session.start) &&
           tradeTime < Date.parse(session.end)
       )
-      if (!resolved) return
-      regularSession = { start: resolved.start, end: resolved.end }
+      const current = state.quoteSnapshotCache.get(symbol)
+      if (current?.sessionLookup === lookup) {
+        if (resolved) current.sessionLookup = undefined
+        else lookup.retryAt = Date.now() + DEFAULT_POLLING_INTERVAL_MS
+      }
+      regularSession = resolved
+        ? { start: resolved.start, end: resolved.end }
+        : current?.snapshot.regularSession
     }
     const cached = state.quoteSnapshotCache.get(symbol)
     const previous = cached?.snapshot ?? createMarketQuoteSnapshot({})
@@ -803,7 +827,11 @@ export class MarketStreamManager {
     const subscribers = streamState.subscribersBySymbol.get(symbol)
     if (!subscribers) return
 
-    streamState.quoteSnapshotCache.set(symbol, { snapshot, refreshAt })
+    streamState.quoteSnapshotCache.set(symbol, {
+      ...streamState.quoteSnapshotCache.get(symbol),
+      snapshot,
+      refreshAt,
+    })
     this.schedulePolling(streamState, refreshAt)
     subscribers.forEach((record) => {
       if (record.channel !== 'quote-snapshots') return
