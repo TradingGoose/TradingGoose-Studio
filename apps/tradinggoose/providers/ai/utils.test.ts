@@ -292,6 +292,12 @@ describe('Model Capabilities', () => {
 
 describe('Cost Calculation', () => {
   describe('calculateCost', () => {
+    it.concurrent('prices canonical OpenRouter Claude tokens', () => {
+      expect(
+        calculateCost('openrouter/anthropic/claude-sonnet-4.6', 1_000_000, 1_000_000).total
+      ).toBe(18)
+    })
+
     it.concurrent.each([false, true])('prices OpenRouter tokens (cached=%s)', (cached) => {
       expect(calculateCost('openrouter/openai/gpt-4.1', 1000, 500, cached).total).toBe(
         cached ? 0.0045 : 0.006

@@ -7,6 +7,7 @@ import {
   getModelCapabilities,
   getModelPricing,
   getProviderFromModel,
+  getProviderIcon,
   getProviderModels,
   PROVIDER_DEFINITIONS,
   updateFireworksModels,
@@ -137,20 +138,32 @@ describe('AI model catalog', () => {
     expect(getModelCapabilities(' gpt-5-custom ')?.toolUsageControl).toBe(true)
   })
 
+  it.each(['sonar', '', 'uncatalogued-model'])('omits unknown model icons for %s', (model) => {
+    expect(getProviderIcon(model)).toBeNull()
+    expect(() => getProviderFromModel(model)).toThrow('Unknown model:')
+  })
+
+  it('preserves known model icons', () => {
+    expect(getProviderIcon('gpt-4.1')).toBe(PROVIDER_DEFINITIONS.openai.icon)
+  })
+
   it.each([
     ['openrouter/openai/gpt-4.1', 'gpt-4.1'],
-    ['openrouter/anthropic/claude-sonnet-4-6', 'claude-sonnet-4-6'],
+    ['openrouter/anthropic/claude-sonnet-4.6', 'claude-sonnet-4-6'],
+    ['openrouter/anthropic/claude-opus-4.6', 'claude-opus-4-6'],
+    ['openrouter/anthropic/claude-haiku-4.5', 'claude-haiku-4-5'],
     ['openrouter/google/gemini-2.5-pro', 'gemini-2.5-pro'],
   ])('resolves canonical reseller pricing for %s', (routedModel, model) => {
     expect(getModelPricing(routedModel)).toEqual(getModelPricing(model))
   })
 
   it.each([0, 7])('preserves exact discovered OpenRouter pricing with input=%s', (input) => {
-    const model = 'openrouter/openai/gpt-4.1'
-    updateOpenRouterModels([model])
+    updateOpenRouterModels(['openrouter/openai/gpt-4.1', 'openrouter/anthropic/claude-sonnet-4.6'])
     const pricing = { input, output: input * 2, updatedAt: '2026-10-27' }
-    PROVIDER_DEFINITIONS.openrouter.models[0].pricing = pricing
-    expect(getModelPricing(model)).toBe(pricing)
+    for (const model of PROVIDER_DEFINITIONS.openrouter.models) {
+      model.pricing = pricing
+      expect(getModelPricing(model.id)).toBe(pricing)
+    }
   })
 
   it.each([
@@ -158,7 +171,7 @@ describe('AI model catalog', () => {
     'openrouter/openai/unknown-model',
     'unknown/openai/gpt-4.1',
     'claude-sonnet-4.6',
-    'openrouter/anthropic/claude-sonnet-4.6',
+    'openrouter/anthropic/claude-sonnet-4-6',
     'ollama/gpt-4.1',
     'vllm/gpt-4.1',
   ])('does not invent catalog pricing for %s', (model) => {

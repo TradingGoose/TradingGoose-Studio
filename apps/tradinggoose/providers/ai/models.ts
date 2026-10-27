@@ -2594,8 +2594,12 @@ export function getProviderFromModel(model: string): ProviderId {
 }
 
 export function getProviderIcon(model: string): React.ComponentType<{ className?: string }> | null {
-  const providerId = getProviderFromModel(model)
-  return PROVIDER_DEFINITIONS[providerId]?.icon || null
+  try {
+    const providerId = getProviderFromModel(model)
+    return PROVIDER_DEFINITIONS[providerId]?.icon || null
+  } catch {
+    return null
+  }
 }
 
 export function getProviderDefaultModel(providerId: string): string {
@@ -2611,7 +2615,11 @@ export function getModelPricing(modelId: string): ModelPricing | null {
       if (catalogModelId === normalizedModelId) {
         return model.pricing
       }
-      if (`openrouter/${provider.id}/${catalogModelId}` === normalizedModelId) {
+      const routedModelId =
+        provider.id === 'anthropic'
+          ? catalogModelId.replace(/^(claude-(?:opus|sonnet|haiku)-\d+)-(\d+)$/, '$1.$2')
+          : catalogModelId
+      if (`openrouter/${provider.id}/${routedModelId}` === normalizedModelId) {
         openRouterPricing = model.pricing
       }
     }
