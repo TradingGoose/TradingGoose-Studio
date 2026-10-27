@@ -557,6 +557,56 @@ describe('MarketStreamManager quote snapshots', () => {
     }
   )
 
+  it.each([false, true])(
+    'accepts a corrected close after session metadata recovers (partial=%s)',
+    async (partial) => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-10-27T12:00:00Z'))
+      const manager = new MarketStreamManager()
+      const socket = createSocket('socket-1')
+      const inferred = createMarketQuoteSnapshot({
+        lastPrice: 130,
+        previousClose: 120,
+        lastPriceTime: '2026-10-26T19:59:00Z',
+        lastPriceEndTime: '2026-10-27T04:00:00Z',
+        timezone: 'America/New_York',
+      })
+      const corrected = createMarketQuoteSnapshot({
+        ...inferred,
+        lastPrice: 131,
+        lastPriceEndTime: regularSnapshot.regularSession.end,
+        regularSession: regularSnapshot.regularSession,
+      })
+      buildMarketQuoteSnapshotMock.mockResolvedValue(inferred)
+      await manager.subscribe(socket, nativeQuotePayload('alpaca'))
+      await vi.advanceTimersByTimeAsync(0)
+      const quote = () =>
+        socket.emit.mock.calls.findLast(
+          ([event]: [string]) => event === 'market-quote-snapshot'
+        )?.[1].snapshot
+      expect(quote()).toEqual(inferred)
+      if (partial) {
+        buildMarketQuoteSnapshotMock.mockResolvedValue(
+          createMarketQuoteSnapshot({
+            ...corrected,
+            lastPrice: 124,
+            lastPriceEndTime: '2026-10-26T19:59:30Z',
+          })
+        )
+        await vi.advanceTimersByTimeAsync(60_000)
+        expect(quote()).toEqual(createMarketQuoteSnapshot({ ...corrected, lastPrice: 130 }))
+      }
+      buildMarketQuoteSnapshotMock.mockResolvedValue(corrected)
+      for (let refresh = 0; refresh < 2; refresh++) {
+        await vi.advanceTimersByTimeAsync(60_000)
+        expect(quote()).toEqual(corrected)
+      }
+      expect(quote().change).toBe(11)
+      expect(inferred.lastPriceEndTime).toBe('2026-10-27T04:00:00Z')
+      manager.removeSocket(socket.id)
+    }
+  )
+
   it.each(['alpaca', 'finnhub'])(
     'keeps %s live prices before seeding and through historical failures',
     async (provider) => {

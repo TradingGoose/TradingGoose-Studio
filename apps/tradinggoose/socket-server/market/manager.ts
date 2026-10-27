@@ -1293,6 +1293,14 @@ function updateSnapshotFromPrice(
   previous: MarketQuoteSnapshot,
   update: Pick<MarketQuoteSnapshot, 'lastPrice' | 'lastPriceTime' | 'lastPriceEndTime'>
 ): MarketQuoteSnapshot {
+  const sessionEnd = Date.parse(previous.regularSession?.end ?? '')
+  if (
+    previous.regularSession &&
+    update.lastPriceEndTime &&
+    Date.parse(update.lastPriceEndTime) > sessionEnd
+  ) {
+    update = { ...update, lastPriceEndTime: previous.regularSession.end }
+  }
   const price = resolveFiniteNumber(update.lastPrice)
   const priceTime = Date.parse(update.lastPriceTime ?? '')
   const updateTime = Date.parse(update.lastPriceEndTime ?? update.lastPriceTime ?? '')
@@ -1306,7 +1314,6 @@ function updateSnapshotFromPrice(
   }
 
   const sessionStart = Date.parse(previous.regularSession?.start ?? '')
-  const sessionEnd = Date.parse(previous.regularSession?.end ?? '')
   const inSession = priceTime >= sessionStart && priceTime < sessionEnd
   if (previous.regularSession && !inSession) return previous
   const sameDay =
