@@ -121,8 +121,8 @@ function buildThinkingConfig(
 
 /**
  * The Anthropic SDK requires streaming for non-streaming requests when max_tokens exceeds
- * this threshold, to avoid HTTP timeouts. When thinking is enabled and pushes max_tokens
- * above this limit, we use streaming internally and collect the final message.
+ * this threshold, to avoid HTTP timeouts. For larger output limits, we use streaming
+ * internally and collect the final message.
  */
 const ANTHROPIC_SDK_NON_STREAMING_MAX_TOKENS = 21333
 
@@ -281,21 +281,13 @@ export async function executeAnthropicProviderRequest(
         payload.output_config = thinkingConfig.outputConfig
       }
 
-      // Per Anthropic docs: budget_tokens must be less than max_tokens.
-      // Ensure max_tokens leaves room for both thinking and text output.
       if (
         thinkingConfig.thinking.type === 'enabled' &&
-        'budget_tokens' in thinkingConfig.thinking
+        thinkingConfig.thinking.budget_tokens >= payload.max_tokens
       ) {
-        const budgetTokens = thinkingConfig.thinking.budget_tokens
-        const minMaxTokens = budgetTokens + 4096
-        if (payload.max_tokens < minMaxTokens) {
-          const modelMax = getMaxOutputTokensForModel(request.model)
-          payload.max_tokens = Math.min(minMaxTokens, modelMax)
-          logger.info(
-            `Adjusted max_tokens to ${payload.max_tokens} to satisfy budget_tokens (${budgetTokens}) constraint`
-          )
-        }
+        throw new Error(
+          `Thinking budget (${thinkingConfig.thinking.budget_tokens}) must be less than maxTokens (${payload.max_tokens})`
+        )
       }
 
       // Per Anthropic docs: thinking is not compatible with temperature or top_k modifications.

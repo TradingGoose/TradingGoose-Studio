@@ -400,7 +400,7 @@ it.each([
     const result = await provider.executeRequest(
       request(model, {
         thinkingLevel: 'high',
-        maxTokens: 4096,
+        maxTokens: 1000,
         azureEndpoint: 'https://example.services.ai.azure.com',
         tools: tools.map((selected) => ({ ...selected, usageControl: 'force' })),
       })
@@ -412,29 +412,35 @@ it.each([
     ])
     for (const [payload] of mocks.claude.mock.calls) {
       expect(payload.thinking).toEqual({ type: 'adaptive' })
+      expect(payload.max_tokens).toBe(1000)
     }
     expect(mocks.tool.mock.calls.map(([name]) => name)).toEqual([tool.id, 'verify'])
     expect(result).toMatchObject({ content: 'Done', timing: { iterations: 3 } })
   }
 )
 
-it.each([
+const manualThinkingProviders = [
   { provider: anthropicProvider, model: 'claude-sonnet-4-5' },
   { provider: azureAnthropicProvider, model: 'azure-anthropic/claude-sonnet-4-5' },
-])('rejects forced tools with manual thinking for $provider.id', async ({ provider, model }) => {
-  await expect(
-    provider.executeRequest(
-      request(model, {
-        thinkingLevel: 'low',
-        maxTokens: 4096,
-        azureEndpoint: 'https://example.services.ai.azure.com',
-        tools: [{ ...tool, usageControl: 'force' }],
-      })
-    )
-  ).rejects.toThrow('Manual extended thinking does not support forced tool use')
-  expect(mocks.claude).not.toHaveBeenCalled()
-  expect(mocks.tool).not.toHaveBeenCalled()
-})
+]
+
+it.each(manualThinkingProviders)(
+  'rejects forced tools with manual thinking for $provider.id',
+  async ({ provider, model }) => {
+    await expect(
+      provider.executeRequest(
+        request(model, {
+          thinkingLevel: 'low',
+          maxTokens: 4096,
+          azureEndpoint: 'https://example.services.ai.azure.com',
+          tools: [{ ...tool, usageControl: 'force' }],
+        })
+      )
+    ).rejects.toThrow('Manual extended thinking does not support forced tool use')
+    expect(mocks.claude).not.toHaveBeenCalled()
+    expect(mocks.tool).not.toHaveBeenCalled()
+  }
+)
 
 it.each([
   { provider: anthropicProvider, model: 'claude-sonnet-4-5', stream: false },
@@ -469,11 +475,13 @@ it.each([
       request(model, {
         stream,
         maxTokens: 4096,
+        thinkingLevel: 'low',
         tools: [tool],
         azureEndpoint: 'https://example.services.ai.azure.com',
       })
     )
     expect(mocks.claude).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS + 1)
+    for (const [payload] of mocks.claude.mock.calls) expect(payload.max_tokens).toBe(4096)
     expect(mocks.tool).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS)
     expect(result).toMatchObject({
       content: 'Completed answer',
@@ -524,11 +532,49 @@ it.each([undefined, 0])('keeps optional Claude temperature %j', async (temperatu
   expect(payload.thinking).toBeUndefined()
 })
 
-it('keeps budget thinking for active Claude 4.5 models', async () => {
-  await anthropicProvider.executeRequest(
-    request('claude-sonnet-4-5', { thinkingLevel: 'low', maxTokens: 4096 })
-  )
-  expect(mocks.claude.mock.calls[0][0]).toMatchObject({
-    thinking: { type: 'enabled', budget_tokens: 2048 },
-  })
-})
+it.each(manualThinkingProviders)(
+  'rejects incompatible manual thinking limits before calling $provider.id',
+  async ({ provider, model }) => {
+    for (const stream of [false, true]) {
+      for (const maxTokens of [1000, 2048]) {
+        await expect(
+          provider.executeRequest(
+            request(model, {
+              thinkingLevel: 'low',
+              maxTokens,
+              stream,
+              azureEndpoint: 'https://example.services.ai.azure.com',
+            })
+          )
+        ).rejects.toThrow(`Thinking budget (2048) must be less than maxTokens (${maxTokens})`)
+      }
+    }
+    expect(mocks.claude).not.toHaveBeenCalled()
+    expect(mocks.tool).not.toHaveBeenCalled()
+  }
+)
+
+it.each(manualThinkingProviders)(
+  'preserves explicit and default manual thinking limits for $provider.id',
+  async ({ provider, model }) => {
+    for (const [maxTokens, thinkingLevel, stream] of [
+      [2049, 'low', false],
+      [4096, 'low', true],
+      [undefined, 'high', false],
+    ] as const) {
+      const result = await provider.executeRequest(
+        request(model, {
+          maxTokens,
+          thinkingLevel,
+          stream,
+          azureEndpoint: 'https://example.services.ai.azure.com',
+        })
+      )
+      if ('stream' in result) expect(await new Response(result.stream).text()).toBe('Done')
+      expect(mocks.claude.mock.calls.at(-1)?.[0]).toMatchObject({
+        max_tokens: maxTokens ?? 64000,
+        thinking: { type: 'enabled', budget_tokens: thinkingLevel === 'high' ? 32768 : 2048 },
+      })
+    }
+  }
+)
