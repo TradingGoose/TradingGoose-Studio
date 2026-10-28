@@ -2013,9 +2013,11 @@
           "organizationBilling": "Organization billing",
           "organizationUsage": "Organization Usage",
           "custom": "Custom",
-          "seats": "seats"
+          "seats": "seats",
+          "current": "Current",
+          "billingTier": "Billing tier"
         },
-        "seatsText": "{count} seats",
+        "seatsText": "{count, plural, one {# seat} other {# seats}}",
         "descriptions": {
           "manage": "Open Stripe Billing Portal to cancel, restore, or update your subscription.",
           "usageNotifications": "Email me when usage reaches the billing warning threshold",
@@ -2037,20 +2039,21 @@
         },
         "billingOwner": {
           "title": "Billing owner",
-          "description": "Choose who owns billing for this workspace.",
+          "description": "Choose which admin account or organization pays for this workspace.",
           "error": "Error",
-          "ownerLabel": "Owner",
           "selectPlaceholder": "Select billing owner",
           "organization": "Organization",
-          "billingNotice": "Changing the billing owner affects who pays for this workspace.",
+          "billingNotice": "User billing must point at a workspace admin. Organization billing requires an active organization billing tier.",
           "noActiveOrganization": "No active organization is available for billing ownership.",
           "invalidSelection": "Invalid billing owner selection.",
-          "failedToUpdate": "Failed to update billing owner."
+          "failedToUpdate": "Failed to update billing owner.",
+          "updating": "Updating billing owner…"
         },
         "actions": {
           "manage": "Manage",
           "contact": "Contact",
-          "upgradeTo": "Upgrade to {name}"
+          "upgradeTo": "Upgrade to {name}",
+          "changeTo": "Change to {name}"
         },
         "badges": {
           "resolvePayment": "Resolve Payment",
@@ -2065,17 +2068,32 @@
           "selectOrganization": "Select an organization to manage billing.",
           "activatePayg": "Failed to activate PAYG",
           "loadBillingData": "Failed to load billing data."
+        },
+        "usageHeader": {
+          "paymentRequired": "Payment required",
+          "paymentFailed": "Payment failed. Please update your payment method.",
+          "resolvePayment": "Resolve payment",
+          "limitExceeded": "Usage limit exceeded. Increase your limit to continue.",
+          "percentUsed": "{percent}% of your limit used.",
+          "nearingLimit": "Usage is nearing your configured limit."
+        },
+        "periods": {
+          "monthly": "/mo",
+          "yearly": "/yr"
+        },
+        "planCard": {
+          "error": "Error",
+          "actionLabel": "{action} {name} tier"
         }
       },
       "team": {
         "error": "Error",
         "defaultTeamName": "{name}'s Team",
-        "billingHowWorksSeatCost": "{seats} seat{plural} cost ${amount} per month.",
-        "billingHowWorksUsageTracked": "Usage is tracked across all workspaces in the organization.",
-        "billingHowWorksIncreaseLimit": "Increase the limit when the organization needs more capacity.",
-        "billingHowWorksOverage": "Overages are billed according to the active plan.",
+        "billingHowWorksSeatCost": "Your team is billed a minimum of {amount}/month for {seats, plural, one {# licensed seat} other {# licensed seats}}.",
+        "billingHowWorksUsageTracked": "Usage is tracked against the active included allowance for this tier.",
+        "billingHowWorksIncreaseLimit": "The organization owner can increase the usage limit when needed.",
+        "billingHowWorksOverage": "Any usage beyond the minimum seat cost is billed as overage at the end of the billing period.",
         "howBillingWorks": "How this team billing works",
-        "usageNote": "Note:",
         "usageNoteBody": "Users can only be part of one organization at a time. They must leave their current organization before joining another.",
         "teamId": "Team ID:",
         "created": "Created:",
@@ -2101,7 +2119,7 @@
         "addSeat": "Add Seat",
         "seat": "seat",
         "numberOfSeats": "Number of seats",
-        "yourTeamWillHave": "Your team will have {count} {seatWord} with a total of ${cost} inference credits per month.",
+        "yourTeamWillHave": "Your team will have {count, plural, one {# seat} other {# seats}} with a total of {cost} inference credits per month.",
         "minimumSeatsNoMax": "Minimum {minimum} seats. No maximum seat cap applies to this tier.",
         "chooseBetweenSeats": "Choose between {minimum} and {maximum} seats for this tier.",
         "currentSeats": "Current seats:",
@@ -2124,27 +2142,28 @@
         "noPublicAdjustableTier": "No public adjustable organization tier is configured",
         "addSeats": {
           "title": "Add Team Seats",
-          "description": "Each seat costs ${price}/month and provides ${price} in monthly inference credits. Adjust the number of licensed seats for your team.",
+          "description": "Each seat costs {price}/month and provides {price} in monthly inference credits. Adjust the number of licensed seats for your team.",
           "confirm": "Update Seats"
         },
         "billing": {
-          "title": "Workspace billing",
-          "description": "Assign workspaces to the organization or the owner.",
-          "organizationBillingRequired": "Organization billing is required to manage workspace billing.",
-          "organizationBilledTitle": "Billed to organization",
-          "organizationBilledEmpty": "No workspaces are billed to the organization.",
-          "availableOwnerBilledTitle": "Owner-billed workspaces",
-          "availableOwnerBilledEmpty": "No owner-billed workspaces are available.",
+          "title": "Workspace Billing",
+          "description": "Choose which workspaces are billed to this organization and which stay with their owner.",
+          "organizationBillingRequired": "Set up an organization billing tier before moving workspaces onto organization billing.",
+          "organizationBilledTitle": "Organization-billed workspaces",
+          "organizationBilledEmpty": "No workspaces are currently billed to this organization.",
+          "availableOwnerBilledTitle": "Available owner-billed workspaces",
+          "availableOwnerBilledEmpty": "No personal-billed admin workspaces are available to attach.",
           "returnToOwner": "Return to owner billing",
           "billToOrganization": "Bill to organization",
           "organization": "Organization",
           "ownerBilling": "Owner billing",
-          "ownerLabel": "Owner:"
+          "returning": "Returning…",
+          "assigning": "Assigning…"
         },
         "members": {
           "title": "Team members",
           "empty": "No team members yet.",
-          "sharedUsage": "Shared usage: ${amount}",
+          "sharedUsage": "Shared billed usage: {amount}",
           "pending": "Pending",
           "billing": "Billing",
           "usage": "Usage",
@@ -2157,8 +2176,8 @@
         },
         "invitation": {
           "title": "Invite team members",
-          "description": "Invite people to join your organization and choose workspace access.",
-          "emailPlaceholder": "name@example.com",
+          "description": "Add new members to your team and optionally give them access to specific workspaces.",
+          "emailPlaceholder": "Enter email address",
           "hideWorkspaces": "Hide workspaces",
           "addWorkspaces": "Add workspaces",
           "invite": "Invite",
@@ -2166,28 +2185,45 @@
           "unavailable": "Invite unavailable",
           "workspaceAccess": "Workspace access",
           "optional": "Optional",
-          "selected": "{count} selected workspace{plural}",
+          "selected": "{count, plural, one {# selected workspace} other {# selected workspaces}}",
           "grantAccess": "Grant access to specific workspaces and choose a permission level.",
           "noWorkspacesAvailable": "No workspaces available.",
           "needAdminAccess": "You need admin access to assign workspaces.",
           "owner": "Owner",
           "sentSuccess": "Invitation sent.",
-          "sentSuccessWithAccess": "Invitation sent with access to {count} workspace{plural}.",
+          "sentSuccessWithAccess": "Invitation sent with access to {count, plural, one {# workspace} other {# workspaces}}.",
           "invalidEmail": "Please enter a valid email address.",
           "permissions": {
             "read": {
               "label": "Read",
-              "description": "Can view workspace content."
+              "description": "View only"
             },
             "write": {
               "label": "Write",
-              "description": "Can edit workspace content."
+              "description": "Edit content"
             },
             "admin": {
               "label": "Admin",
-              "description": "Can manage workspace settings."
+              "description": "Full access"
             }
           }
+        },
+        "creating": "Creating…",
+        "removing": "Removing…",
+        "removingSeat": "Removing seat…",
+        "updating": "Updating…",
+        "plans": {
+          "title": "Organization plans",
+          "description": "Review the current and available organization tiers.",
+          "current": "Current",
+          "empty": "No organization plans are currently available.",
+          "monthly": "/mo",
+          "yearly": "/yr"
+        },
+        "errors": {
+          "actionFailed": "The organization action failed. Please try again.",
+          "loadFailed": "Failed to load organization data. Please try again.",
+          "loadOrganizationBilling": "Failed to load organization billing. Try again before selecting a plan."
         }
       },
       "sso": {

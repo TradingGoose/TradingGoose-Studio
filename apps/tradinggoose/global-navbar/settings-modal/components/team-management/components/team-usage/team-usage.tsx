@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { useLocale, useTranslations } from 'next-intl'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useActiveOrganization } from '@/lib/auth-client'
 import { openBillingPortal } from '@/lib/billing/billing-portal'
@@ -9,12 +10,15 @@ import {
   type UsageLimitRef,
 } from '@/global-navbar/settings-modal/components/subscription/components'
 import { useOrganizationBilling } from '@/hooks/queries/organization'
+import { formatUsd } from '@/i18n/formatters'
 
 interface TeamUsageProps {
   isOrganizationOwner: boolean
 }
 
 export function TeamUsage({ isOrganizationOwner }: TeamUsageProps) {
+  const copy = useTranslations('workspace.settingsModal.subscription')
+  const locale = useLocale()
   const { data: activeOrg } = useActiveOrganization()
   const {
     data: billingData,
@@ -50,9 +54,7 @@ export function TeamUsage({ isOrganizationOwner }: TeamUsageProps) {
   if (error) {
     return (
       <div className='rounded-sm border bg-background p-3 shadow-xs'>
-        <p className='text-center text-red-500 text-xs'>
-          {error instanceof Error ? error.message : 'Failed to load billing data'}
-        </p>
+        <p className='text-center text-red-500 text-xs'>{copy('errors.loadBillingData')}</p>
       </div>
     )
   }
@@ -75,23 +77,22 @@ export function TeamUsage({ isOrganizationOwner }: TeamUsageProps) {
   const status: 'ok' | 'warning' | 'exceeded' =
     percentUsed >= 100 ? 'exceeded' : percentUsed >= warningThresholdPercent ? 'warning' : 'ok'
 
-  const title = organizationBillingPayload.subscriptionTier?.displayName || 'Organization Usage'
+  const title =
+    organizationBillingPayload.subscriptionTier?.displayName || copy('titles.organizationUsage')
   const canEditUsageLimit = canTierEditUsageLimit(organizationBillingPayload.subscriptionTier)
   const handleOpenBillingPortal = () =>
-    openBillingPortal().catch((error) =>
-      alert(error instanceof Error ? error.message : 'Failed to open billing portal')
-    )
+    openBillingPortal().catch(() => alert(copy('errors.openBillingPortal')))
 
   return (
     <UsageHeader
       title={title}
       gradientTitle
       showBadge={!!(isOrganizationOwner && activeOrg?.id && canEditUsageLimit)}
-      badgeText={canEditUsageLimit ? 'Increase Limit' : undefined}
+      badgeText={canEditUsageLimit ? copy('titles.increaseLimit') : undefined}
       onBadgeClick={() => {
         if (canEditUsageLimit) usageLimitRef.current?.startEdit()
       }}
-      seatsText={`${seatsCount} seats`}
+      seatsText={copy('seatsText', { count: seatsCount })}
       current={currentUsage}
       limit={currentCap}
       isBlocked={Boolean(organizationBillingPayload?.billingBlocked)}
@@ -111,7 +112,7 @@ export function TeamUsage({ isOrganizationOwner }: TeamUsageProps) {
           />
         ) : (
           <span className='text-muted-foreground text-xs tabular-nums'>
-            ${currentCap.toFixed(0)}
+            {formatUsd(locale, currentCap, { maximumFractionDigits: 0 })}
           </span>
         )
       }

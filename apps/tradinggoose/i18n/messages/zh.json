@@ -2000,9 +2000,11 @@
           "organizationBilling": "组织结算",
           "organizationUsage": "组织用量",
           "custom": "自定义",
-          "seats": "席位"
+          "seats": "席位",
+          "current": "当前套餐",
+          "billingTier": "计费层级"
         },
-        "seatsText": "{count} 个席位",
+        "seatsText": "{count, plural, other {# 个席位}}",
         "descriptions": {
           "manage": "打开 Stripe 结算门户以取消、恢复或更新您的订阅。",
           "usageNotifications": "当用量达到结算警告阈值时发送邮件通知我",
@@ -2024,20 +2026,21 @@
         },
         "billingOwner": {
           "title": "账单所有者",
-          "description": "选择此工作区的账单所有者。",
+          "description": "选择由哪个管理员账户或组织支付此工作区的费用。",
           "error": "错误",
-          "ownerLabel": "所有者",
           "selectPlaceholder": "选择账单所有者",
           "organization": "组织",
-          "billingNotice": "更改账单所有者将影响此工作区的付费方。",
+          "billingNotice": "个人计费必须分配给工作区管理员。组织计费需要有效的组织计费层级。",
           "noActiveOrganization": "没有可用的活跃组织作为账单所有者。",
           "invalidSelection": "无效的账单所有者选择。",
-          "failedToUpdate": "更新账单所有者失败。"
+          "failedToUpdate": "更新账单所有者失败。",
+          "updating": "正在更新计费负责人…"
         },
         "actions": {
           "manage": "管理",
           "contact": "联系",
-          "upgradeTo": "升级至{name}"
+          "upgradeTo": "升级至{name}",
+          "changeTo": "切换至 {name}"
         },
         "badges": {
           "resolvePayment": "解决付款问题",
@@ -2052,17 +2055,32 @@
           "selectOrganization": "请选择一个组织来管理账单。",
           "activatePayg": "激活按需付费失败",
           "loadBillingData": "加载账单数据失败。"
+        },
+        "usageHeader": {
+          "paymentRequired": "需要付款",
+          "paymentFailed": "付款失败，请更新付款方式。",
+          "resolvePayment": "处理付款问题",
+          "limitExceeded": "已超出使用限额，请提高限额以继续使用。",
+          "percentUsed": "已使用限额的 {percent}%。",
+          "nearingLimit": "用量即将达到已配置的限额。"
+        },
+        "periods": {
+          "monthly": "/月",
+          "yearly": "/年"
+        },
+        "planCard": {
+          "error": "错误",
+          "actionLabel": "{action} {name} 套餐"
         }
       },
       "team": {
         "error": "错误",
         "defaultTeamName": "{name} 的团队",
-        "billingHowWorksSeatCost": "{seats} 个席位每月花费 ${amount}。",
-        "billingHowWorksUsageTracked": "使用量在组织的所有工作空间中追踪。",
-        "billingHowWorksIncreaseLimit": "当组织需要更多容量时，请提高限制。",
-        "billingHowWorksOverage": "超额使用费根据当前活跃套餐计费。",
+        "billingHowWorksSeatCost": "您的团队每月至少支付 {amount}，共 {seats, plural, other {# 个授权席位}}。",
+        "billingHowWorksUsageTracked": "用量按此层级当前包含的额度进行统计。",
+        "billingHowWorksIncreaseLimit": "组织所有者可根据需要提高使用限额。",
+        "billingHowWorksOverage": "超出最低席位费用的用量将在计费周期结束时作为超额费用收取。",
         "howBillingWorks": "此团队计费方式",
-        "usageNote": "注意：",
         "usageNoteBody": "用户一次只能属于一个组织。他们需要先离开当前组织，才能加入另一个组织。",
         "teamId": "团队 ID：",
         "created": "创建时间：",
@@ -2088,7 +2106,7 @@
         "addSeat": "添加席位",
         "seat": "席位",
         "numberOfSeats": "席位数量",
-        "yourTeamWillHave": "您的团队将拥有 {count} 个{seatWord}，每月共 ${cost} 推理积分。",
+        "yourTeamWillHave": "您的团队将拥有 {count, plural, other {# 个席位}}，每月共计 {cost} 的推理额度。",
         "minimumSeatsNoMax": "最少 {minimum} 个席位。此层级无最大席位上限。",
         "chooseBetweenSeats": "请在此层级选择 {minimum} 到 {maximum} 个席位。",
         "currentSeats": "当前席位：",
@@ -2111,27 +2129,28 @@
         "noPublicAdjustableTier": "未配置公开可调整的组织层级",
         "addSeats": {
           "title": "添加团队席位",
-          "description": "每个席位每月费用为 ${price}，并提供 ${price} 的月度推理积分。调整团队许可席位数量。",
+          "description": "每个席位每月费用为 {price}，并提供 {price} 的每月推理额度。请调整团队的授权席位数。",
           "confirm": "更新席位"
         },
         "billing": {
           "title": "工作区计费",
-          "description": "将工作区分配给组织或所有者。",
-          "organizationBillingRequired": "需要组织计费才能管理工作区计费。",
-          "organizationBilledTitle": "由组织计费",
-          "organizationBilledEmpty": "没有工作区由组织计费。",
-          "availableOwnerBilledTitle": "所有者计费的工作区",
-          "availableOwnerBilledEmpty": "没有可供使用的所有者计费工作区。",
+          "description": "选择哪些工作区由此组织付费，哪些由其所有者付费。",
+          "organizationBillingRequired": "请先设置组织计费层级，再将工作区转为组织计费。",
+          "organizationBilledTitle": "由组织付费的工作区",
+          "organizationBilledEmpty": "目前没有由此组织付费的工作区。",
+          "availableOwnerBilledTitle": "可分配的所有者付费工作区",
+          "availableOwnerBilledEmpty": "没有您可管理且采用个人计费的工作区可供分配。",
           "returnToOwner": "恢复为所有者计费",
           "billToOrganization": "由组织计费",
           "organization": "组织",
           "ownerBilling": "所有者计费",
-          "ownerLabel": "所有者："
+          "returning": "正在转回…",
+          "assigning": "正在分配…"
         },
         "members": {
           "title": "团队成员",
           "empty": "暂无团队成员。",
-          "sharedUsage": "共享用量：${amount}",
+          "sharedUsage": "共享计费用量：{amount}",
           "pending": "待处理",
           "billing": "计费",
           "usage": "用量",
@@ -2144,8 +2163,8 @@
         },
         "invitation": {
           "title": "邀请团队成员",
-          "description": "邀请人员加入您的组织，并选择工作区访问权限。",
-          "emailPlaceholder": "name@example.com",
+          "description": "向团队添加新成员，并可选择授予他们特定工作区的访问权限。",
+          "emailPlaceholder": "输入电子邮箱地址",
           "hideWorkspaces": "隐藏工作区",
           "addWorkspaces": "添加工作区",
           "invite": "邀请",
@@ -2153,28 +2172,45 @@
           "unavailable": "邀请不可用",
           "workspaceAccess": "工作区访问权限",
           "optional": "可选",
-          "selected": "已选择 {count} 个工作区",
+          "selected": "{count, plural, other {已选择 # 个工作区}}",
           "grantAccess": "授予特定工作区的访问权限并选择权限级别。",
           "noWorkspacesAvailable": "无可用工作区。",
           "needAdminAccess": "您需要管理员权限才能分配工作区。",
           "owner": "所有者",
           "sentSuccess": "邀请已发送。",
-          "sentSuccessWithAccess": "邀请已发送，授予 {count} 个工作区的访问权限。",
+          "sentSuccessWithAccess": "邀请已发送，并授予 {count, plural, other {# 个工作区}}的访问权限。",
           "invalidEmail": "请输入有效的电子邮件地址。",
           "permissions": {
             "read": {
               "label": "读取",
-              "description": "可以查看工作区内容。"
+              "description": "仅查看"
             },
             "write": {
               "label": "写入",
-              "description": "可以编辑工作区内容。"
+              "description": "编辑内容"
             },
             "admin": {
               "label": "管理员",
-              "description": "可以管理工作区设置。"
+              "description": "完全访问"
             }
           }
+        },
+        "creating": "正在创建…",
+        "removing": "正在移除…",
+        "removingSeat": "正在移除席位…",
+        "updating": "正在更新…",
+        "plans": {
+          "title": "组织套餐",
+          "description": "查看当前及可用的组织计费层级。",
+          "current": "当前套餐",
+          "empty": "目前没有可用的组织套餐。",
+          "monthly": "/月",
+          "yearly": "/年"
+        },
+        "errors": {
+          "actionFailed": "组织操作失败，请重试。",
+          "loadFailed": "无法加载组织数据，请重试。",
+          "loadOrganizationBilling": "无法加载组织计费信息，请重试后再选择套餐。"
         }
       },
       "sso": {

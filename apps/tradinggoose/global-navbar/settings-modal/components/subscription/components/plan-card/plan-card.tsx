@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui'
 import { cn } from '@/lib/utils'
 
@@ -18,6 +19,7 @@ export interface PlanCardProps {
   buttonText: string
   onButtonClick: () => void
   buttonDisabled?: boolean
+  isCurrent?: boolean
   isError?: boolean
   variant?: 'default' | 'compact'
   layout?: 'vertical' | 'horizontal'
@@ -36,12 +38,15 @@ export function PlanCard({
   buttonText,
   onButtonClick,
   buttonDisabled = false,
+  isCurrent = false,
   isError = false,
   variant = 'default',
   layout = 'vertical',
   className,
 }: PlanCardProps) {
+  const copy = useTranslations('workspace.settingsModal.subscription.planCard')
   const isHorizontal = layout === 'horizontal'
+  const actionText = isError ? copy('error') : buttonText
 
   const renderPrice = () => {
     if (typeof price === 'string') {
@@ -91,8 +96,10 @@ export function PlanCard({
 
   return (
     <article
+      aria-current={isCurrent || undefined}
       className={cn(
-        'relative flex rounded-md border p-4 transition-colors hover:border-muted-foreground/20',
+        'relative flex rounded-md border p-4 transition-colors',
+        isCurrent ? 'border-primary' : 'hover:border-muted-foreground/20',
         isHorizontal ? 'flex-row items-center justify-between' : 'flex-col',
         className
       )}
@@ -106,20 +113,26 @@ export function PlanCard({
       {!isHorizontal && renderFeatures()}
 
       <div className={isHorizontal ? 'ml-auto' : undefined}>
-        <Button
-          onClick={onButtonClick}
-          disabled={buttonDisabled}
-          className={cn(
-            'h-9 rounded-sm text-xs transition-colors',
-            isHorizontal ? 'px-4' : 'w-full',
-            isError &&
-              'border-red-500 bg-transparent text-red-500 hover:bg-red-500 hover:text-white dark:border-red-500 dark:text-red-500 dark:hover:bg-red-500'
-          )}
-          variant={isError ? 'outline' : 'default'}
-          aria-label={`${buttonText} ${name} tier`}
-        >
-          {isError ? 'Error' : buttonText}
-        </Button>
+        {isCurrent ? (
+          <div className='flex h-9 items-center justify-center rounded-sm bg-primary/10 px-4 font-medium text-primary text-xs'>
+            {buttonText}
+          </div>
+        ) : (
+          <Button
+            onClick={onButtonClick}
+            disabled={buttonDisabled}
+            className={cn(
+              'h-9 rounded-sm text-xs transition-colors',
+              isHorizontal ? 'px-4' : 'w-full',
+              isError &&
+                'border-red-500 bg-transparent text-red-500 hover:bg-red-500 hover:text-white dark:border-red-500 dark:text-red-500 dark:hover:bg-red-500'
+            )}
+            variant={isError ? 'outline' : 'default'}
+            aria-label={copy('actionLabel', { action: actionText, name })}
+          >
+            {actionText}
+          </Button>
+        )}
       </div>
     </article>
   )

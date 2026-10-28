@@ -2,8 +2,8 @@
 
 import { useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -39,6 +39,7 @@ export function WorkspaceBillingOwnerEditor({
   isLoading,
   workspaceSettings,
 }: WorkspaceBillingOwnerEditorProps) {
+  const copy = useTranslations('workspace.settingsModal.subscription.billingOwner')
   const { data: session } = useSession()
   const { data: organizationsData } = useOrganizations()
   const [error, setError] = useState<string | null>(null)
@@ -75,7 +76,8 @@ export function WorkspaceBillingOwnerEditor({
     try {
       if (value === 'organization') {
         if (!activeOrganization?.id) {
-          throw new Error('No active organization is available for billing ownership')
+          setError(copy('noActiveOrganization'))
+          return
         }
 
         await assignWorkspaceToOrganization.mutateAsync({
@@ -85,13 +87,10 @@ export function WorkspaceBillingOwnerEditor({
         return
       }
 
-      if (!value.startsWith('user:')) {
-        throw new Error('Invalid billing owner selection')
-      }
-
       const userId = value.slice('user:'.length)
-      if (!userId) {
-        throw new Error('Invalid billing owner selection')
+      if (!value.startsWith('user:') || !userId) {
+        setError(copy('invalidSelection'))
+        return
       }
 
       await updateWorkspaceSettings.mutateAsync({
@@ -102,12 +101,11 @@ export function WorkspaceBillingOwnerEditor({
         },
       })
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : 'Failed to update billing owner'
       logger.error('Failed to update workspace billing owner', {
         error: cause,
         workspaceId: workspace.id,
       })
-      setError(message)
+      setError(copy('failedToUpdate'))
     } finally {
       changeLockRef.current = false
     }
@@ -116,23 +114,20 @@ export function WorkspaceBillingOwnerEditor({
   return (
     <div className='space-y-3 rounded-sm border bg-background p-4 shadow-xs'>
       <div className='space-y-1'>
-        <h4 className='font-medium text-sm'>Billing owner</h4>
-        <p className='text-muted-foreground text-xs'>
-          Choose which admin account or organization pays for this workspace.
-        </p>
+        <h4 id='workspace-billing-owner-title' className='font-medium text-sm'>
+          {copy('title')}
+        </h4>
+        <p className='text-muted-foreground text-xs'>{copy('description')}</p>
       </div>
 
       {error ? (
         <Alert role='alert' variant='destructive' className='rounded-sm'>
-          <AlertTitle>Error</AlertTitle>
+          <AlertTitle>{copy('error')}</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
 
       <div className='space-y-2'>
-        <Label htmlFor='workspace-billing-owner' className='font-medium text-sm'>
-          Owner
-        </Label>
         <Select
           value={currentValue}
           items={[
@@ -144,9 +139,9 @@ export function WorkspaceBillingOwnerEditor({
               ? [{ value: currentValue, label: workspace.billingOwner.userId }]
               : []),
             ...(activeOrganization?.id
-              ? [{ value: 'organization', label: activeOrganization.name || 'Organization' }]
+              ? [{ value: 'organization', label: activeOrganization.name || copy('organization') }]
               : workspace.billingOwner.type === 'organization'
-                ? [{ value: 'organization', label: 'Organization' }]
+                ? [{ value: 'organization', label: copy('organization') }]
                 : []),
           ]}
           onValueChange={(value) => {
@@ -156,10 +151,11 @@ export function WorkspaceBillingOwnerEditor({
         >
           <SelectTrigger
             id='workspace-billing-owner'
+            aria-labelledby='workspace-billing-owner-title'
             className='rounded-sm'
             aria-busy={isPending || undefined}
           >
-            <SelectValue placeholder='Select billing owner' />
+            <SelectValue placeholder={copy('selectPlaceholder')} />
           </SelectTrigger>
           <SelectContent>
             {admins.map((admin) => (
@@ -174,24 +170,21 @@ export function WorkspaceBillingOwnerEditor({
             ) : null}
             {activeOrganization?.id ? (
               <SelectItem value='organization' disabled={!canAssignOrganizationBilling}>
-                {activeOrganization.name || 'Organization'}
+                {activeOrganization.name || copy('organization')}
               </SelectItem>
             ) : workspace.billingOwner.type === 'organization' ? (
               <SelectItem value='organization' disabled>
-                Organization
+                {copy('organization')}
               </SelectItem>
             ) : null}
           </SelectContent>
         </Select>
         {isPending ? (
           <p role='status' className='text-muted-foreground text-xs'>
-            Updating billing owner…
+            {copy('updating')}
           </p>
         ) : null}
-        <p className='text-muted-foreground text-xs'>
-          User billing must point at a workspace admin. Organization billing requires an active
-          organization billing tier.
-        </p>
+        <p className='text-muted-foreground text-xs'>{copy('billingNotice')}</p>
       </div>
     </div>
   )

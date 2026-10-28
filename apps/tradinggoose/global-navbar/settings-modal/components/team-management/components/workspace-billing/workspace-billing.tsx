@@ -1,7 +1,9 @@
 import { Building2, UserRound } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { OrganizationWorkspaceRecord } from '@/hooks/queries/organization'
+import { formatLocalizedNumber } from '@/i18n/formatters'
 
 interface WorkspaceBillingProps {
   billedWorkspaces: OrganizationWorkspaceRecord[]
@@ -37,6 +39,7 @@ function WorkspaceRow(props: {
   actionVariant?: 'default' | 'outline'
   onAction: (workspaceId: string) => Promise<void>
 }) {
+  const copy = useTranslations('workspace.settingsModal.team.billing')
   const {
     workspace,
     actionLabel,
@@ -54,17 +57,17 @@ function WorkspaceRow(props: {
           {workspace.billingOwner.type === 'organization' ? (
             <span className='inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] text-blue-700'>
               <Building2 className='h-3 w-3' />
-              Organization
+              {copy('organization')}
             </span>
           ) : (
             <span className='inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground'>
               <UserRound className='h-3 w-3' />
-              Owner billing
+              {copy('ownerBilling')}
             </span>
           )}
         </div>
         <p className='truncate text-muted-foreground text-xs'>
-          Owner: {workspace.ownerName || workspace.ownerId}
+          {workspace.ownerName || workspace.ownerId}
         </p>
       </div>
       <Button
@@ -95,6 +98,8 @@ export function WorkspaceBilling({
   onAssignWorkspace,
   onReleaseWorkspace,
 }: WorkspaceBillingProps) {
+  const copy = useTranslations('workspace.settingsModal.team.billing')
+  const locale = useLocale()
   if (!canManage) {
     return null
   }
@@ -106,15 +111,13 @@ export function WorkspaceBilling({
   return (
     <div className='space-y-4 rounded-sm border bg-background p-4 shadow-xs'>
       <div className='space-y-1'>
-        <h4 className='font-medium text-sm'>Workspace Billing</h4>
-        <p className='text-muted-foreground text-xs'>
-          Choose which workspaces are billed to this organization and which stay with their owner.
-        </p>
+        <h4 className='font-medium text-sm'>{copy('title')}</h4>
+        <p className='text-muted-foreground text-xs'>{copy('description')}</p>
       </div>
 
       {!hasOrganizationBilling ? (
         <div className='rounded-sm border border-dashed bg-muted/30 p-3 text-muted-foreground text-xs'>
-          Set up an organization billing tier before moving workspaces onto organization billing.
+          {copy('organizationBillingRequired')}
         </div>
       ) : null}
 
@@ -126,12 +129,14 @@ export function WorkspaceBilling({
 
       <div className='space-y-2'>
         <div className='flex items-center justify-between'>
-          <h5 className='font-medium text-sm'>Organization-billed workspaces</h5>
-          <span className='text-muted-foreground text-xs'>{billedWorkspaces.length}</span>
+          <h5 className='font-medium text-sm'>{copy('organizationBilledTitle')}</h5>
+          <span className='text-muted-foreground text-xs'>
+            {formatLocalizedNumber(locale, billedWorkspaces.length)}
+          </span>
         </div>
         {billedWorkspaces.length === 0 ? (
           <div className='rounded-sm border border-dashed bg-muted/20 p-3 text-muted-foreground text-xs'>
-            No workspaces are currently billed to this organization.
+            {copy('organizationBilledEmpty')}
           </div>
         ) : (
           <div className='space-y-2'>
@@ -140,7 +145,9 @@ export function WorkspaceBilling({
                 key={workspace.id}
                 workspace={workspace}
                 actionLabel={
-                  pendingAction === `release:${workspace.id}` ? 'Returning…' : 'Return To Owner'
+                  pendingAction === `release:${workspace.id}`
+                    ? copy('returning')
+                    : copy('returnToOwner')
                 }
                 actionVariant='outline'
                 actionDisabled={isPending}
@@ -154,12 +161,14 @@ export function WorkspaceBilling({
 
       <div className='space-y-2'>
         <div className='flex items-center justify-between'>
-          <h5 className='font-medium text-sm'>Available owner-billed workspaces</h5>
-          <span className='text-muted-foreground text-xs'>{availableWorkspaces.length}</span>
+          <h5 className='font-medium text-sm'>{copy('availableOwnerBilledTitle')}</h5>
+          <span className='text-muted-foreground text-xs'>
+            {formatLocalizedNumber(locale, availableWorkspaces.length)}
+          </span>
         </div>
         {availableWorkspaces.length === 0 ? (
           <div className='rounded-sm border border-dashed bg-muted/20 p-3 text-muted-foreground text-xs'>
-            No personal-billed admin workspaces are available to attach.
+            {copy('availableOwnerBilledEmpty')}
           </div>
         ) : (
           <div className='space-y-2'>
@@ -168,7 +177,9 @@ export function WorkspaceBilling({
                 key={workspace.id}
                 workspace={workspace}
                 actionLabel={
-                  pendingAction === `assign:${workspace.id}` ? 'Assigning…' : 'Bill To Organization'
+                  pendingAction === `assign:${workspace.id}`
+                    ? copy('assigning')
+                    : copy('billToOrganization')
                 }
                 actionDisabled={!hasOrganizationBilling || isPending}
                 isActive={pendingAction === `assign:${workspace.id}`}
