@@ -107,8 +107,8 @@ export const buildMarketQuoteSnapshot = async ({
   const completed =
     dailyOnly ||
     (dailyPrice && (session ? Date.parse(session.end) <= requestStartedAt : priceDate < today))
-  if (!dailyOnly && !minuteBar && !(listing.listing_type === 'default' && completed))
-    intradayError ??= 'marketQuotes.noIntradayPrice'
+  if (listing.listing_type === 'default' && completed) intradayError = undefined
+  else if (!dailyOnly && !minuteBar) intradayError ??= 'marketQuotes.noIntradayPrice'
   const priceTime = Date.parse(priceBar.timeStamp)
   return createMarketQuoteSnapshot({
     lastPrice: priceBar.close,

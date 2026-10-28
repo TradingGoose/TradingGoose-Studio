@@ -344,14 +344,67 @@ describe('market quote normalization', () => {
     }
   )
 
-  it.each(['crypto', 'currency'] as const)(
-    'keeps completed daily coverage for %s when intraday data is empty',
-    async (listingType) => {
+  it.each(['alpaca', 'finnhub', 'alpha-vantage', 'robinhood', 'yahoo-finance'])(
+    'suppresses irrelevant intraday errors for completed %s daily quotes',
+    async (provider) => {
+      vi.setSystemTime(new Date('2026-10-26T21:00:00Z'))
+      resolveHours.mockResolvedValue(
+        new Map([
+          [
+            '2026-10-26',
+            {
+              timeZone: { name: 'America/New_York', utcOffset: '-04:00' },
+              marketHours: { market: { start: '09:30', end: '16:00' } },
+            },
+          ],
+        ])
+      )
+      execute.mockImplementation(async (_provider, request) => {
+        if (request.interval === '1m') throw new Error('Provider unavailable')
+        return daily
+      })
+      for (const close of [105, 0]) {
+        daily.bars.at(-1)!.close = close
+        const quote = await snapshot(provider)
+        expect(quote).toMatchObject({
+          lastPrice: close,
+          previousClose: 100,
+          change: close - 100,
+          changePercent: close - 100,
+          lastPriceTime: '2026-10-26T04:00:00Z',
+          lastPriceEndTime: '2026-10-26T20:00:00.000Z',
+        })
+        expect(quote.error).toBeUndefined()
+      }
+      daily.bars = daily.bars.slice(-1)
+      expect(await snapshot(provider)).toMatchObject({
+        lastPrice: 0,
+        previousClose: null,
+        change: null,
+        changePercent: null,
+        error: 'marketQuotes.previousCloseUnavailable',
+      })
+    }
+  )
+
+  it.each([
+    ['crypto', 'empty'],
+    ['crypto', 'failure'],
+    ['currency', 'empty'],
+    ['currency', 'failure'],
+  ] as const)(
+    'keeps completed daily coverage for %s when intraday data is unavailable (%s)',
+    async (listingType, unavailable) => {
       daily.bars = [
         { timeStamp: '2026-10-22T00:00:00Z', close: 100 },
         { timeStamp: '2026-10-23T00:00:00Z', close: 105 },
       ]
       regular.bars = []
+      execute.mockImplementation(async (_provider, request) => {
+        if (request.interval === '1m' && unavailable === 'failure')
+          throw new Error('Provider unavailable')
+        return request.interval === '1d' ? daily : regular
+      })
       const quote = await buildMarketQuoteSnapshot({
         provider: 'alpha-vantage',
         listing: { listing_id: '', base_id: 'BTC', quote_id: 'USD', listing_type: listingType },
@@ -363,18 +416,29 @@ describe('market quote normalization', () => {
         lastPriceTime: '2026-10-23T00:00:00Z',
         lastPriceEndTime: '2026-10-24T00:00:00.000Z',
         timezone: 'UTC',
-        error: 'marketQuotes.noIntradayPrice',
+        error: unavailable === 'failure' ? 'Provider unavailable' : 'marketQuotes.noIntradayPrice',
       })
       expect(execute).toHaveBeenCalledTimes(2)
     }
   )
 
-  it('rejects when neither series has an available price', async () => {
-    daily.bars = []
-    regular.bars = []
-    await expect(snapshot()).rejects.toThrow('marketQuotes.noRegularSessionPrice')
-    expect(execute).toHaveBeenCalledTimes(2)
-  })
+  it.each(['empty', 'failure'])(
+    'rejects unavailable prices after close (%s)',
+    async (unavailable) => {
+      vi.setSystemTime(new Date('2026-10-27T12:00:00Z'))
+      daily.bars = []
+      regular.bars = []
+      execute.mockImplementation(async (_provider, request) => {
+        if (request.interval === '1m' && unavailable === 'failure')
+          throw new Error('Provider unavailable')
+        return request.interval === '1d' ? daily : regular
+      })
+      await expect(snapshot()).rejects.toThrow(
+        unavailable === 'failure' ? 'Provider unavailable' : 'marketQuotes.noRegularSessionPrice'
+      )
+      expect(execute).toHaveBeenCalledTimes(2)
+    }
+  )
 
   it.each(['yahoo-finance', 'finnhub'])(
     'prices mutual funds from their daily NAV with %s',
