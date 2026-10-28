@@ -327,20 +327,42 @@ it('rejects DeepSeek continuation errors instead of returning partial success', 
 })
 
 it.each([
-  { stream: false, streamToolCalls: false },
-  { stream: true, streamToolCalls: false },
-  { stream: true, streamToolCalls: true },
+  {
+    provider: anthropicProvider,
+    model: 'claude-opus-4-6',
+    stream: false,
+    streamToolCalls: false,
+  },
+  {
+    provider: azureAnthropicProvider,
+    model: 'azure-anthropic/claude-opus-4-6',
+    stream: true,
+    streamToolCalls: false,
+  },
+  {
+    provider: anthropicProvider,
+    model: 'claude-sonnet-5',
+    stream: true,
+    streamToolCalls: true,
+  },
 ])(
-  'keeps native Claude tool behavior for stream=$stream, streamToolCalls=$streamToolCalls',
+  'preserves Claude tool turns for $provider.id, stream=$stream, streamToolCalls=$streamToolCalls',
   async (mode) => {
     const thinking = { type: 'thinking', thinking: 'Checking data', signature: 'signature' }
     const call = { type: 'tool_use', id: 'next', name: tool.id, input: {} }
+    const assistantContent = [
+      thinking,
+      { type: 'text', text: 'I will check the data.' },
+      { type: 'redacted_thinking', data: 'opaque-reasoning' },
+      { type: 'thinking', thinking: 'Choosing a tool', signature: 'second-signature' },
+      call,
+    ]
     mocks.claude.mockResolvedValueOnce({
-      content: [thinking, call],
+      content: assistantContent,
       usage: { input_tokens: 10, output_tokens: 5 },
     })
-    const result = await anthropicProvider.executeRequest(
-      request('claude-sonnet-5', {
+    const result = await mode.provider.executeRequest(
+      request(mode.model, {
         stream: mode.stream,
         streamToolCalls: mode.streamToolCalls,
         messages: history,
@@ -348,6 +370,7 @@ it.each([
         thinkingLevel: 'high',
         tools: [{ ...tool, usageControl: 'force' }],
         responseFormat: { name: 'result', schema: { type: 'object', properties: {} } },
+        azureEndpoint: 'https://example.services.ai.azure.com',
       })
     )
     expect(mocks.tool).toHaveBeenCalledWith(tool.id, expect.any(Object))
@@ -368,7 +391,7 @@ it.each([
       })
     }
     const followup = mocks.claude.mock.calls[1][0].messages
-    expect(followup.at(-2).content).toEqual([thinking, call])
+    expect(followup.at(-2)).toEqual({ role: 'assistant', content: assistantContent })
     expect(followup.at(-1).content[0]).toMatchObject({
       type: 'tool_result',
       tool_use_id: 'next',
@@ -381,6 +404,46 @@ it.each([
       toolResults: [{ value: 42 }],
       timing: { iterations: 2 },
     })
+  }
+)
+
+it.each([
+  { provider: anthropicProvider, model: 'claude-opus-4-6', unknown: true },
+  { provider: azureAnthropicProvider, model: 'azure-anthropic/claude-opus-4-6', unknown: false },
+])(
+  'pairs every replayed tool call with a result for $provider.id',
+  async ({ provider, model, unknown }) => {
+    const assistantContent = [
+      { type: 'thinking', thinking: 'Checking both sources', signature: 'signature' },
+      { type: 'tool_use', id: 'first', name: tool.id, input: {} },
+      { type: 'text', text: 'Checking another source.' },
+      { type: 'tool_use', id: 'second', name: unknown ? 'missing' : tool.id, input: {} },
+    ]
+    mocks.claude.mockResolvedValueOnce({
+      content: assistantContent,
+      usage: { input_tokens: 10, output_tokens: 5 },
+    })
+    mocks.tool.mockResolvedValueOnce({ success: true, output: { value: 42 } })
+    if (!unknown) mocks.tool.mockRejectedValueOnce(new Error('Source unavailable'))
+
+    const result = await provider.executeRequest(
+      request(model, {
+        thinkingLevel: 'high',
+        maxTokens: 4096,
+        tools: [tool],
+        azureEndpoint: 'https://example.services.ai.azure.com',
+      })
+    )
+
+    expect(mocks.claude).toHaveBeenCalledTimes(2)
+    const followup = mocks.claude.mock.calls[1][0].messages
+    expect(followup.at(-2)).toEqual({ role: 'assistant', content: assistantContent })
+    expect(
+      followup.at(-1).content.map((block: { tool_use_id: string }) => block.tool_use_id)
+    ).toEqual(['first', 'second'])
+    expect(JSON.parse(followup.at(-1).content[0].content)).toEqual({ value: 42 })
+    expect(JSON.parse(followup.at(-1).content[1].content)).toMatchObject({ error: true })
+    expect(result).toMatchObject({ content: 'Done' })
   }
 )
 

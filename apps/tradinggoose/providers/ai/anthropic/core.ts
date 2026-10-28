@@ -482,7 +482,7 @@ export async function executeAnthropicProviderRequest(
 
           try {
             const tool = request.tools?.find((t) => t.id === toolName)
-            if (!tool) return null
+            if (!tool) throw new Error(`Unknown tool: ${toolName}`)
 
             const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
             const result = await executeTool(toolName, executionParams)
@@ -491,7 +491,6 @@ export async function executeAnthropicProviderRequest(
             return {
               toolUseId,
               toolName,
-              toolArgs,
               toolParams,
               result,
               startTime: toolCallStartTime,
@@ -505,7 +504,6 @@ export async function executeAnthropicProviderRequest(
             return {
               toolUseId,
               toolName,
-              toolArgs,
               toolParams: {},
               result: {
                 success: false,
@@ -519,25 +517,13 @@ export async function executeAnthropicProviderRequest(
           }
         })
 
-        const executionResults = await Promise.allSettled(toolExecutionPromises)
+        const executionResults = await Promise.all(toolExecutionPromises)
 
-        // Collect all tool_use and tool_result blocks for batching
-        const toolUseBlocks: Anthropic.Messages.ToolUseBlockParam[] = []
         const toolResultBlocks: Anthropic.Messages.ToolResultBlockParam[] = []
 
-        for (const settledResult of executionResults) {
-          if (settledResult.status === 'rejected' || !settledResult.value) continue
-
-          const {
-            toolUseId,
-            toolName,
-            toolArgs,
-            toolParams,
-            result,
-            startTime,
-            endTime,
-            duration,
-          } = settledResult.value
+        for (const executionResult of executionResults) {
+          const { toolUseId, toolName, toolParams, result, startTime, endTime, duration } =
+            executionResult
 
           timeSegments.push({
             type: 'tool',
@@ -569,14 +555,6 @@ export async function executeAnthropicProviderRequest(
             success: result.success,
           })
 
-          // Add to batched arrays using the ORIGINAL ID from Claude's response
-          toolUseBlocks.push({
-            type: 'tool_use',
-            id: toolUseId,
-            name: toolName,
-            input: toolArgs,
-          })
-
           toolResultBlocks.push({
             type: 'tool_result',
             tool_use_id: toolUseId,
@@ -584,33 +562,10 @@ export async function executeAnthropicProviderRequest(
           })
         }
 
-        // Per Anthropic docs: thinking blocks must be preserved in assistant messages
-        // during tool use to maintain reasoning continuity.
-        const thinkingBlocks = currentResponse.content.filter(
-          (
-            item
-          ): item is Anthropic.Messages.ThinkingBlock | Anthropic.Messages.RedactedThinkingBlock =>
-            item.type === 'thinking' || item.type === 'redacted_thinking'
+        currentMessages.push(
+          { role: 'assistant', content: currentResponse.content },
+          { role: 'user', content: toolResultBlocks }
         )
-
-        // Add ONE assistant message with thinking + tool_use blocks
-        if (toolUseBlocks.length > 0) {
-          currentMessages.push({
-            role: 'assistant',
-            content: [
-              ...thinkingBlocks,
-              ...toolUseBlocks,
-            ] as Anthropic.Messages.ContentBlockParam[],
-          })
-        }
-
-        // Add ONE user message with ALL tool_result blocks
-        if (toolResultBlocks.length > 0) {
-          currentMessages.push({
-            role: 'user',
-            content: toolResultBlocks as Anthropic.Messages.ContentBlockParam[],
-          })
-        }
 
         const thisToolsTime = Date.now() - toolsStartTime
         toolsTime += thisToolsTime
