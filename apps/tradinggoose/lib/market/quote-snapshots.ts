@@ -67,19 +67,19 @@ export const buildMarketQuoteSnapshot = async ({
     !marketSessions.some(({ type, date }) => type === 'market' && date === latestPriceDate)
   ) {
     const latestTime = Date.parse(priceSeries.bars.at(-1)?.timeStamp ?? '')
-    marketSessions =
-      (await resolveMarketSessionsForRange(
-        listing.listing_id,
-        listing.listing_type,
-        latestTime - 86_400_000,
-        Math.max(requestStartedAt, latestTime) + 1
-      )) ?? marketSessions
+    const resolved = await resolveMarketSessionsForRange(
+      listing.listing_id,
+      listing.listing_type,
+      latestTime - 86_400_000,
+      Math.max(requestStartedAt, latestTime) + 1
+    )
+    if (resolved !== null) marketSessions = resolved
   }
   const sessions = marketSessions.filter(({ type }) => type === 'market')
   const minuteBar = intraday?.bars
     .filter(
       ({ timeStamp }) =>
-        !sessions.length ||
+        listing.listing_type !== 'default' ||
         sessions.some(
           ({ start, end }) =>
             Date.parse(timeStamp) >= Date.parse(start) && Date.parse(timeStamp) < Date.parse(end)
