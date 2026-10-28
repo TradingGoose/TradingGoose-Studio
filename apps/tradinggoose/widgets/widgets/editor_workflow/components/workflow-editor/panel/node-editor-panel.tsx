@@ -267,6 +267,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
               blockId={selectedBlock.id}
               rows={regularRows}
               subBlockConfigs={blockConfig.subBlocks}
+              isAdvancedMode={selectedBlock.advancedMode ?? false}
               stateToUse={stateToUse}
               disabled={shouldDisableWrite}
               rowKeyPrefix='panel-row'
@@ -302,6 +303,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
                 blockId={selectedBlock.id}
                 rows={additionalRows}
                 subBlockConfigs={blockConfig.subBlocks}
+                isAdvancedMode={selectedBlock.advancedMode ?? false}
                 stateToUse={stateToUse}
                 disabled={shouldDisableWrite}
                 rowKeyPrefix='panel-additional-row'

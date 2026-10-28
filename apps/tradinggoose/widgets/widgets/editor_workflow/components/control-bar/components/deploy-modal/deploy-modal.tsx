@@ -1181,6 +1181,7 @@ export function DeployModal({
         <SubBlockEditRows
           blockId={tab.blockId}
           rows={tab.regularRows}
+          isAdvancedMode={mergedBlocks[tab.blockId]?.advancedMode ?? false}
           stateToUse={tab.stateToUse}
           disabled={shouldDisableTriggerWrite}
           rowKeyPrefix={`deploy-trigger-row-${tab.blockId}`}
@@ -1208,6 +1209,7 @@ export function DeployModal({
           <SubBlockEditRows
             blockId={tab.blockId}
             rows={tab.additionalRows}
+            isAdvancedMode={mergedBlocks[tab.blockId]?.advancedMode ?? false}
             stateToUse={tab.stateToUse}
             disabled={shouldDisableTriggerWrite}
             rowKeyPrefix={`deploy-trigger-advanced-row-${tab.blockId}`}

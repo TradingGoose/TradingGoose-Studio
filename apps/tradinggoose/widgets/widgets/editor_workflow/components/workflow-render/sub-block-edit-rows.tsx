@@ -8,6 +8,7 @@ interface SubBlockEditRowsProps {
   blockId: string
   rows: SubBlockConfig[][]
   subBlockConfigs?: SubBlockConfig[]
+  isAdvancedMode?: boolean
   stateToUse: Record<string, any>
   disabled: boolean
   rowKeyPrefix: string
@@ -19,6 +20,7 @@ export function SubBlockEditRows({
   blockId,
   rows,
   subBlockConfigs,
+  isAdvancedMode = false,
   stateToUse,
   disabled,
   rowKeyPrefix,
@@ -31,8 +33,9 @@ export function SubBlockEditRows({
         blockId,
         subBlockConfigs: subBlockConfigs ?? rows.flat(),
         subBlocks: stateToUse,
+        isAdvancedMode,
       }),
-    [blockId, rows, subBlockConfigs, stateToUse]
+    [blockId, rows, subBlockConfigs, stateToUse, isAdvancedMode]
   )
 
   return (
