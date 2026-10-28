@@ -11,15 +11,11 @@ import {
   getAllModelProviders,
   getHostedModels,
   getMaxTemperature,
-  getModelsWithReasoningEffort,
-  getModelsWithThinking,
-  getModelsWithVerbosity,
   getProviderDefaultModel,
   getProviderFromModel,
   getProviderModels,
-  getReasoningEffortValuesForModel,
-  getThinkingLevelsForModel,
-  getVerbosityValuesForModel,
+  MODEL_CONTROL_GETTERS,
+  type ModelControl,
   PROVIDER_DEFINITIONS,
 } from '@/providers/ai/models'
 import { useProvidersStore } from '@/stores/providers/store'
@@ -27,12 +23,7 @@ import type { ToolResponse } from '@/tools/types'
 
 const DEFAULT_MODEL = getProviderDefaultModel('openai')
 
-const modelControl = (
-  id: string,
-  title: string,
-  models: string[],
-  getValues: (model: string) => string[] | null
-): SubBlockConfig => ({
+const modelControl = (id: ModelControl, title: string): SubBlockConfig => ({
   id,
   title,
   description: 'Available levels depend on the model. Unset or Auto uses the provider default.',
@@ -42,10 +33,13 @@ const modelControl = (
   additional: true,
   autoSelectFirstOption: false,
   dependsOn: ['model'],
-  condition: { field: 'model', value: models },
+  condition: { field: 'model', operator: 'modelCapability', value: id },
   options: (params) => [
     { label: 'Auto (provider default)', id: 'auto' },
-    ...(getValues(params?.model ?? '') ?? []).map((value) => ({ label: value, id: value })),
+    ...(MODEL_CONTROL_GETTERS[id](params?.model ?? '') ?? []).map((value) => ({
+      label: value,
+      id: value,
+    })),
   ],
 })
 
@@ -245,19 +239,9 @@ Create a system prompt appropriately detailed for the request, using clear langu
         }),
       })
     ),
-    modelControl(
-      'reasoningEffort',
-      'Reasoning Effort',
-      getModelsWithReasoningEffort(),
-      getReasoningEffortValuesForModel
-    ),
-    modelControl('verbosity', 'Verbosity', getModelsWithVerbosity(), getVerbosityValuesForModel),
-    modelControl(
-      'thinkingLevel',
-      'Thinking Level',
-      getModelsWithThinking(),
-      getThinkingLevelsForModel
-    ),
+    modelControl('reasoningEffort', 'Reasoning Effort'),
+    modelControl('verbosity', 'Verbosity'),
+    modelControl('thinkingLevel', 'Thinking Level'),
     {
       id: 'maxTokens',
       title: 'Max Output Tokens',

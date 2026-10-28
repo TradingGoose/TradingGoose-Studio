@@ -2736,18 +2736,6 @@ export function getEmbeddingModelPricing(modelId: string): ModelPricing | null {
   return EMBEDDING_MODEL_PRICING[modelId] || null
 }
 
-export function getModelsWithReasoningEffort(): string[] {
-  const models: string[] = []
-  for (const provider of Object.values(PROVIDER_DEFINITIONS)) {
-    for (const model of provider.models) {
-      if (model.capabilities.reasoningEffort) {
-        models.push(model.id)
-      }
-    }
-  }
-  return models
-}
-
 /**
  * Get the reasoning effort values for a specific model
  * Returns the valid options for that model, or null if the model doesn't support reasoning effort
@@ -2761,18 +2749,6 @@ export function getReasoningEffortValuesForModel(modelId: string): string[] | nu
     }
   }
   return null
-}
-
-export function getModelsWithVerbosity(): string[] {
-  const models: string[] = []
-  for (const provider of Object.values(PROVIDER_DEFINITIONS)) {
-    for (const model of provider.models) {
-      if (model.capabilities.verbosity) {
-        models.push(model.id)
-      }
-    }
-  }
-  return models
 }
 
 /**
@@ -2813,21 +2789,6 @@ export function getThinkingCapability(
 }
 
 /**
- * Get all models that support thinking capability
- */
-export function getModelsWithThinking(): string[] {
-  const models: string[] = []
-  for (const provider of Object.values(PROVIDER_DEFINITIONS)) {
-    for (const model of provider.models) {
-      if (model.capabilities.thinking) {
-        models.push(model.id)
-      }
-    }
-  }
-  return models
-}
-
-/**
  * Get the thinking levels for a specific model
  * Returns the valid levels for that model, or null if the model doesn't support thinking
  */
@@ -2835,6 +2796,14 @@ export function getThinkingLevelsForModel(modelId: string): string[] | null {
   const capability = getThinkingCapability(modelId)
   return capability?.levels ?? null
 }
+
+export const MODEL_CONTROL_GETTERS = {
+  reasoningEffort: getReasoningEffortValuesForModel,
+  verbosity: getVerbosityValuesForModel,
+  thinkingLevel: getThinkingLevelsForModel,
+}
+
+export type ModelControl = keyof typeof MODEL_CONTROL_GETTERS
 
 /**
  * Get all models that explicitly disable memory support (memory: false).

@@ -1,6 +1,7 @@
 import type { JSX, SVGProps } from 'react'
 import type { TimeFormat } from '@/lib/time-format'
 import type { WorkflowOutputType, WorkflowParamType } from '@/lib/workflows/value-types'
+import type { ModelControl } from '@/providers/ai/models'
 import type { ParameterVisibility, ToolResponse } from '@/tools/types'
 
 export type BlockIcon = (props: SVGProps<SVGSVGElement>) => JSX.Element
@@ -79,12 +80,14 @@ export type SubBlockType =
 
 export type SubBlockLayout = 'full' | 'half'
 
-export interface SubBlockCondition {
+export type SubBlockCondition = {
   field: string
-  value: string | number | boolean | Array<string | number | boolean>
   not?: boolean
   and?: SubBlockCondition | SubBlockCondition[]
-}
+} & (
+  | { operator?: never; value: string | number | boolean | Array<string | number | boolean> }
+  | { operator: 'modelCapability'; value: ModelControl }
+)
 
 export type ExtractToolOutput<T> = T extends ToolResponse ? T['output'] : never
 

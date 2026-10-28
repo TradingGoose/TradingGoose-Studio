@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
 import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
+import { AgentBlock } from '@/blocks/blocks/agent'
 import { DatadogBlock } from '@/blocks/blocks/datadog'
 import { GmailBlock } from '@/blocks/blocks/gmail'
 import { HistoricalDataBlock } from '@/blocks/blocks/historical_data'
@@ -2243,6 +2244,25 @@ describe('InputResolver', () => {
 
     afterEach(() => {
       mockGetBlock.mockReset()
+    })
+
+    it.each([
+      ['claude-opus-4-5', 'claude-opus-4-5', true],
+      ['claude-opus-4-5-20251101', 'claude-opus-4-5-20251101', true],
+      ['gpt-4.1', 'gpt-4.1', false],
+      ['<variable.stringVar>', 'claude-opus-4-5-20251101', true],
+    ] as const)('resolves Agent thinking eligibility for %s', (model, resolvedModel, supported) => {
+      mockGetBlock.mockReturnValue(AgentBlock)
+      mockWorkflowVars.stringVar.value = resolvedModel
+      const block = {
+        ...sampleWorkflow.blocks[1],
+        metadata: { id: BlockType.AGENT },
+        config: { tool: BlockType.AGENT, params: { thinkingLevel: 'high', model } },
+      }
+
+      expect(resolver.resolveInputs(block, mockContext)).toEqual(
+        supported ? { model: resolvedModel, thinkingLevel: 'high' } : { model: resolvedModel }
+      )
     })
 
     it.each(['json', 'structured'])('resolves Response mode references to %s', async (mode) => {

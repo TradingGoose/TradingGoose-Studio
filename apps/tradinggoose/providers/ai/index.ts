@@ -11,12 +11,7 @@ import { fireworksProvider } from '@/providers/ai/fireworks'
 import { googleProvider } from '@/providers/ai/google'
 import { groqProvider } from '@/providers/ai/groq'
 import { mistralProvider } from '@/providers/ai/mistral'
-import {
-  getMaxTemperature,
-  getReasoningEffortValuesForModel,
-  getThinkingLevelsForModel,
-  getVerbosityValuesForModel,
-} from '@/providers/ai/models'
+import { getMaxTemperature, MODEL_CONTROL_GETTERS, type ModelControl } from '@/providers/ai/models'
 import { ollamaProvider } from '@/providers/ai/ollama'
 import { openaiProvider } from '@/providers/ai/openai'
 import { openRouterProvider } from '@/providers/ai/openrouter'
@@ -66,13 +61,9 @@ function sanitizeRequest(request: ProviderRequest): ProviderRequest {
     sanitizedRequest[field] = Number.isFinite(number) && validRange ? number : undefined
   }
 
-  for (const [field, getOptions] of [
-    ['reasoningEffort', getReasoningEffortValuesForModel],
-    ['verbosity', getVerbosityValuesForModel],
-    ['thinkingLevel', getThinkingLevelsForModel],
-  ] as const) {
+  for (const field of Object.keys(MODEL_CONTROL_GETTERS) as ModelControl[]) {
     const value = sanitizedRequest[field]
-    if (!getOptions(sanitizedRequest.model)?.includes(value ?? '')) {
+    if (!MODEL_CONTROL_GETTERS[field](sanitizedRequest.model)?.includes(value ?? '')) {
       sanitizedRequest[field] = undefined
     }
   }
