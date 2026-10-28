@@ -444,9 +444,12 @@ describe('Provider Management', () => {
       expect(getProvider('openai/chat')).toBeUndefined()
     })
 
-    it.concurrent('should return undefined for invalid provider IDs', () => {
-      expect(getProvider('nonexistent')).toBeUndefined()
-    })
+    it.concurrent.each(['nonexistent', 'constructor', 'toString', '__proto__'])(
+      'returns no provider for invalid or inherited key %s',
+      (provider) => {
+        expect(getProvider(provider)).toBeUndefined()
+      }
+    )
   })
 
   describe('getProviderModels', () => {

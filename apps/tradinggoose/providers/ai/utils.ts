@@ -39,7 +39,7 @@ export function getAllModelProviders(): Record<string, ProviderId> {
 }
 
 export function getProvider(id: string): ProviderDefinition | undefined {
-  return PROVIDER_DEFINITIONS[id]
+  return Object.hasOwn(PROVIDER_DEFINITIONS, id) ? PROVIDER_DEFINITIONS[id] : undefined
 }
 
 export function generateSchemaInstructions(schema: any, schemaName?: string): string {
