@@ -120,7 +120,7 @@ export function useSubBlockValue<T = any>(
                 ? getProviderFromModel(currentValue)
                 : null
             const newProvider = getProviderFromModel(newValue)
-            if (oldProvider !== newProvider) {
+            if (oldProvider && oldProvider !== newProvider) {
               collaborativeSetSubblockValue(blockId, 'apiKey', '')
             }
           }
