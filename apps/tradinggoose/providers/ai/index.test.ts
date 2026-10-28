@@ -315,4 +315,21 @@ describe('executeProviderRequest', () => {
 
     expect(mockOllamaExecuteRequest).not.toHaveBeenCalled()
   })
+
+  it('normalizes Claude usage once for non-streaming consumers and calculates its cost', async () => {
+    mockAnthropicExecuteRequest.mockResolvedValue({
+      content: 'ok',
+      model: 'claude-sonnet-5',
+      tokens: { input: 100, output: 20 },
+    })
+    const response = await executeProviderRequest('anthropic', {
+      model: 'claude-sonnet-5',
+      messages: [{ role: 'user', content: 'Test prompt' }],
+    })
+    if ('stream' in response) throw new Error('Expected non-streaming result')
+    expect(response.tokens).toEqual({ prompt: 100, completion: 20, total: 120 })
+    expect(response.cost?.input).toBeCloseTo(0.0002)
+    expect(response.cost?.output).toBeCloseTo(0.0002)
+    expect(response.cost?.total).toBeCloseTo(0.0004)
+  })
 })

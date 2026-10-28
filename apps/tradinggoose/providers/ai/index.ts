@@ -129,6 +129,11 @@ export async function executeProviderRequest(
     const completionTokens = response.tokens.completion ?? response.tokens.output ?? 0
     const useCachedInput = !!request.context && request.context.length > 0
 
+    response.tokens = {
+      prompt: promptTokens,
+      completion: completionTokens,
+      total: response.tokens.total ?? promptTokens + completionTokens,
+    }
     response.cost = calculateCost(response.model, promptTokens, completionTokens, useCachedInput)
   }
 
