@@ -49,7 +49,6 @@ export const azureAnthropicProvider: ProviderConfig = {
         apiKey,
       },
       {
-        providerId: 'azure-anthropic',
         providerLabel: 'Azure Anthropic',
         createClient: (apiKey, useNativeStructuredOutputs) =>
           new Anthropic({

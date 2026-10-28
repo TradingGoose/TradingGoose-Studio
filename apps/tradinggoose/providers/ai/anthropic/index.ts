@@ -16,7 +16,6 @@ export const anthropicProvider: ProviderConfig = {
 
   executeRequest: (request) =>
     executeAnthropicProviderRequest(request, {
-      providerId: 'anthropic',
       providerLabel: 'Anthropic',
       createClient: (apiKey, useNativeStructuredOutputs) =>
         new Anthropic({

@@ -295,6 +295,8 @@ it.each([
     expect(mocks.tool).toHaveBeenCalledWith(tool.id, expect.any(Object))
     expect(mocks.claude).toHaveBeenCalledTimes(2)
     const initial = mocks.claude.mock.calls[0][0]
+    expect(initial.tool_choice).toEqual({ type: 'tool', name: tool.id })
+    expect(mocks.claude.mock.calls[1][0].tool_choice).toBeUndefined()
     expect(initial.messages[1].content[0]).toMatchObject({ type: 'tool_use', id: 'previous' })
     expect(initial.messages[2].content[0]).toMatchObject({
       type: 'tool_result',
@@ -306,7 +308,6 @@ it.each([
         output_config: { effort: 'high' },
         output_format: { type: 'json_schema' },
       })
-      expect(payload.tool_choice).toBeUndefined()
     }
     const followup = mocks.claude.mock.calls[1][0].messages
     expect(followup.at(-2).content).toEqual([thinking, call])
@@ -324,6 +325,58 @@ it.each([
     })
   }
 )
+
+it.each([
+  { provider: anthropicProvider, model: 'claude-sonnet-5' },
+  { provider: azureAnthropicProvider, model: 'azure-anthropic/claude-opus-4-6' },
+])(
+  'sequences forced tools with adaptive thinking for $provider.id',
+  async ({ provider, model }) => {
+    const tools = [tool, { ...tool, id: 'verify' }]
+    for (const selected of tools) {
+      mocks.claude.mockResolvedValueOnce({
+        content: [{ type: 'tool_use', id: selected.id, name: selected.id, input: {} }],
+        usage: { input_tokens: 10, output_tokens: 5 },
+      })
+    }
+    const result = await provider.executeRequest(
+      request(model, {
+        thinkingLevel: 'high',
+        maxTokens: 4096,
+        azureEndpoint: 'https://example.services.ai.azure.com',
+        tools: tools.map((selected) => ({ ...selected, usageControl: 'force' })),
+      })
+    )
+    expect(mocks.claude.mock.calls.map(([payload]) => payload.tool_choice)).toEqual([
+      { type: 'tool', name: tool.id },
+      { type: 'tool', name: 'verify' },
+      undefined,
+    ])
+    for (const [payload] of mocks.claude.mock.calls) {
+      expect(payload.thinking).toEqual({ type: 'adaptive' })
+    }
+    expect(mocks.tool.mock.calls.map(([name]) => name)).toEqual([tool.id, 'verify'])
+    expect(result).toMatchObject({ content: 'Done', timing: { iterations: 3 } })
+  }
+)
+
+it.each([
+  { provider: anthropicProvider, model: 'claude-sonnet-4-5' },
+  { provider: azureAnthropicProvider, model: 'azure-anthropic/claude-sonnet-4-5' },
+])('rejects forced tools with manual thinking for $provider.id', async ({ provider, model }) => {
+  await expect(
+    provider.executeRequest(
+      request(model, {
+        thinkingLevel: 'low',
+        maxTokens: 4096,
+        azureEndpoint: 'https://example.services.ai.azure.com',
+        tools: [{ ...tool, usageControl: 'force' }],
+      })
+    )
+  ).rejects.toThrow('Manual extended thinking does not support forced tool use')
+  expect(mocks.claude).not.toHaveBeenCalled()
+  expect(mocks.tool).not.toHaveBeenCalled()
+})
 
 it.each([
   { provider: anthropicProvider, model: 'claude-sonnet-4-5', stream: false },
@@ -392,6 +445,15 @@ it('streams Claude text when tools are absent', async () => {
   expect(await new Response(result.stream).text()).toBe('Done')
   expect(mocks.claude).toHaveBeenCalledTimes(1)
   expect(mocks.claude.mock.calls[0][0].stream).toBe(true)
+  expect(mocks.tool).not.toHaveBeenCalled()
+})
+
+it('omits Claude tools disabled by usage control', async () => {
+  await anthropicProvider.executeRequest(
+    request('claude-sonnet-5', { tools: [{ ...tool, usageControl: 'none' }], maxTokens: 4096 })
+  )
+  expect(mocks.claude.mock.calls[0][0].tools).toBeUndefined()
+  expect(mocks.claude.mock.calls[0][0].tool_choice).toBeUndefined()
   expect(mocks.tool).not.toHaveBeenCalled()
 })
 

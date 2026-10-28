@@ -27,8 +27,6 @@ import { executeTool } from '@/tools'
  * Configuration for creating an Anthropic provider instance.
  */
 export interface AnthropicProviderConfig {
-  /** Provider identifier (e.g., 'anthropic', 'azure-anthropic') */
-  providerId: string
   /** Human-readable label for logging */
   providerLabel: string
   /** Factory function to create the Anthropic client */
@@ -160,7 +158,7 @@ export async function executeAnthropicProviderRequest(
   request: ProviderRequest,
   config: AnthropicProviderConfig
 ): Promise<ProviderResponse | StreamingExecution> {
-  const { logger, providerId, providerLabel } = config
+  const { logger, providerLabel } = config
 
   if (!request.apiKey) {
     throw new Error(`API key is required for ${providerLabel}`)
@@ -239,37 +237,19 @@ export async function executeAnthropicProviderRequest(
   let preparedTools: ReturnType<typeof prepareToolsWithUsageControl> | null = null
 
   if (anthropicTools?.length) {
-    try {
-      preparedTools = prepareToolsWithUsageControl(
-        anthropicTools,
-        request.tools,
-        logger,
-        providerId
-      )
-      const { tools: filteredTools, toolChoice: tc } = preparedTools
-
-      if (filteredTools?.length) {
-        anthropicTools = filteredTools
-
-        if (typeof tc === 'object' && tc !== null) {
-          if (tc.type === 'tool') {
-            toolChoice = tc
-            logger.info(`Using ${providerLabel} tool_choice format: force tool "${tc.name}"`)
-          } else {
-            toolChoice = 'auto'
-            logger.warn(`Received non-${providerLabel} tool_choice format, defaulting to auto`)
-          }
-        } else if (tc === 'auto' || tc === 'none') {
-          toolChoice = tc
-          logger.info(`Using tool_choice mode: ${tc}`)
-        } else {
-          toolChoice = 'auto'
-          logger.warn('Unexpected tool_choice format, defaulting to auto')
-        }
+    preparedTools = prepareToolsWithUsageControl(anthropicTools, request.tools, logger, 'anthropic')
+    anthropicTools = preparedTools.tools
+    if (anthropicTools?.length) {
+      const tc = preparedTools.toolChoice
+      if (
+        tc === 'auto' ||
+        tc === 'none' ||
+        (typeof tc === 'object' && tc !== null && tc.type === 'tool')
+      ) {
+        toolChoice = tc
+      } else {
+        throw new Error('Invalid Anthropic tool choice')
       }
-    } catch (error) {
-      logger.error('Error in prepareToolsWithUsageControl:', { error })
-      toolChoice = 'auto'
     }
   }
 
@@ -334,14 +314,10 @@ export async function executeAnthropicProviderRequest(
 
   if (anthropicTools?.length) {
     payload.tools = anthropicTools
-    // Per Anthropic docs: forced tool_choice (type: "tool" or "any") is incompatible with
-    // thinking. Only auto and none are supported when thinking is enabled.
-    if (payload.thinking) {
-      // Per Anthropic docs: only 'auto' (default) and 'none' work with thinking.
-      if (toolChoice === 'none') {
-        payload.tool_choice = { type: 'none' }
-      }
-    } else if (toolChoice === 'none') {
+    if (payload.thinking?.type === 'enabled' && typeof toolChoice === 'object') {
+      throw new Error('Manual extended thinking does not support forced tool use')
+    }
+    if (toolChoice === 'none') {
       payload.tool_choice = { type: 'none' }
     } else if (toolChoice !== 'auto') {
       payload.tool_choice = toolChoice
@@ -652,15 +628,7 @@ export async function executeAnthropicProviderRequest(
           messages: currentMessages,
         }
 
-        // Per Anthropic docs: forced tool_choice is incompatible with thinking.
-        // Only auto and none are supported when thinking is enabled.
-        const thinkingEnabled = !!payload.thinking
-        if (
-          !thinkingEnabled &&
-          typeof originalToolChoice === 'object' &&
-          hasUsedForcedTool &&
-          forcedTools.length > 0
-        ) {
+        if (typeof originalToolChoice === 'object' && hasUsedForcedTool && forcedTools.length > 0) {
           const remainingTools = forcedTools.filter((tool) => !usedForcedTools.includes(tool))
 
           if (remainingTools.length > 0) {
@@ -673,15 +641,6 @@ export async function executeAnthropicProviderRequest(
             nextPayload.tool_choice = undefined
             logger.info('All forced tools have been used, removing tool_choice parameter')
           }
-        } else if (
-          !thinkingEnabled &&
-          hasUsedForcedTool &&
-          typeof originalToolChoice === 'object'
-        ) {
-          nextPayload.tool_choice = undefined
-          logger.info(
-            'Removing tool_choice parameter for subsequent requests after forced tool was used'
-          )
         }
 
         const nextModelStartTime = Date.now()
