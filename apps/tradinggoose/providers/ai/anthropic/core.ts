@@ -451,13 +451,6 @@ export async function executeAnthropicProviderRequest(
 
     let content = ''
 
-    if (Array.isArray(currentResponse.content)) {
-      content = currentResponse.content
-        .filter((item) => item.type === 'text')
-        .map((item) => item.text)
-        .join('\n')
-    }
-
     const tokens = {
       input: currentResponse.usage?.input_tokens || 0,
       output: currentResponse.usage?.output_tokens || 0,
@@ -495,7 +488,7 @@ export async function executeAnthropicProviderRequest(
     }
 
     try {
-      while (iterationCount < MAX_TOOL_ITERATIONS) {
+      while (true) {
         const textContent = currentResponse.content
           .filter((item) => item.type === 'text')
           .map((item) => item.text)
@@ -506,7 +499,7 @@ export async function executeAnthropicProviderRequest(
         }
 
         const toolUses = currentResponse.content.filter((item) => item.type === 'tool_use')
-        if (!toolUses || toolUses.length === 0) {
+        if (iterationCount >= MAX_TOOL_ITERATIONS || toolUses.length === 0) {
           break
         }
 

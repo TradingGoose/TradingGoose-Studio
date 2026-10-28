@@ -37,7 +37,9 @@ vi.mock('@/lib/system-services/runtime', () => ({
 import { GET as discoverOllamaModels } from '@/app/api/providers/ai/ollama/models/route'
 import { executeProviderRequest } from '@/providers/ai'
 import { anthropicProvider } from '@/providers/ai/anthropic'
+import { azureAnthropicProvider } from '@/providers/ai/azure-anthropic'
 import { azureOpenAIProvider } from '@/providers/ai/azure-openai'
+import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import { deepseekProvider } from '@/providers/ai/deepseek'
 import { groqProvider } from '@/providers/ai/groq'
 import { ollamaProvider } from '@/providers/ai/ollama'
@@ -320,6 +322,56 @@ it.each([
       toolResults: [{ value: 42 }],
       timing: { iterations: 2 },
     })
+  }
+)
+
+it.each([
+  { provider: anthropicProvider, model: 'claude-sonnet-4-5', stream: false },
+  {
+    provider: azureAnthropicProvider,
+    model: 'azure-anthropic/claude-sonnet-4-5',
+    stream: true,
+  },
+])(
+  'keeps the latest Claude answer at the tool limit for $provider.id',
+  async ({ provider, model, stream }) => {
+    const call = { type: 'tool_use', name: tool.id, input: {} }
+    const usage = { input_tokens: 10, output_tokens: 5 }
+    for (let round = 0; round < MAX_TOOL_ITERATIONS; round++) {
+      mocks.claude.mockResolvedValueOnce({
+        content: [
+          { type: 'text', text: `Working ${round}` },
+          { ...call, id: `round-${round}` },
+        ],
+        usage,
+      })
+    }
+    mocks.claude.mockResolvedValueOnce({
+      content: [
+        { type: 'text', text: 'Completed answer' },
+        ...(stream ? [{ ...call, id: 'over-limit' }] : []),
+      ],
+      usage,
+    })
+
+    const result = await provider.executeRequest(
+      request(model, {
+        stream,
+        maxTokens: 4096,
+        tools: [tool],
+        azureEndpoint: 'https://example.services.ai.azure.com',
+      })
+    )
+    expect(mocks.claude).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS + 1)
+    expect(mocks.tool).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS)
+    expect(result).toMatchObject({
+      content: 'Completed answer',
+      tokens: { input: 210, output: 105, total: 315 },
+      timing: { iterations: MAX_TOOL_ITERATIONS + 1 },
+    })
+    if ('stream' in result) throw new Error('Expected completed response')
+    expect(result.toolCalls).toHaveLength(MAX_TOOL_ITERATIONS)
+    expect(result.toolResults).toHaveLength(MAX_TOOL_ITERATIONS)
   }
 )
 
