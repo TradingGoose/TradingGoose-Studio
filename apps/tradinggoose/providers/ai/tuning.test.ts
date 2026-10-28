@@ -171,6 +171,62 @@ it('preserves complete DeepSeek reasoning and parallel tool calls through follow
   ])
 })
 
+it('pairs every failed DeepSeek tool call with an error result before continuing', async () => {
+  const assistant = {
+    role: 'assistant',
+    content: null,
+    reasoning_content: 'Keep the complete tool turn',
+    tool_calls: [
+      { ...toolCall('malformed'), function: { name: tool.id, arguments: '{' } },
+      toolCall('throws'),
+      { ...toolCall('unknown'), function: { name: 'missing', arguments: '{}' } },
+      toolCall('fails'),
+      toolCall('works'),
+    ],
+  }
+  mocks.chat.mockResolvedValueOnce(completion(assistant))
+  mocks.tool
+    .mockRejectedValueOnce(new Error('Unavailable'))
+    .mockResolvedValueOnce({ success: false, output: {}, error: 'Denied' })
+
+  const result = await deepseekProvider.executeRequest(
+    request('deepseek-v4-flash', { tools: [tool] })
+  )
+  expect(mocks.chat).toHaveBeenCalledTimes(2)
+  expect(mocks.tool).toHaveBeenCalledTimes(3)
+  const messages = mocks.chat.mock.calls[1][0].messages
+  expect(messages.slice(0, 2)).toEqual([{ role: 'user', content: 'Analyze' }, assistant])
+  expect(
+    messages.slice(2).map((message: { tool_call_id: string }) => message.tool_call_id)
+  ).toEqual(['malformed', 'throws', 'unknown', 'fails', 'works'])
+  expect(
+    messages.slice(2).map((message: { content: string }) => JSON.parse(message.content))
+  ).toEqual([
+    { error: true, message: expect.any(String), tool: tool.id },
+    { error: true, message: 'Unavailable', tool: tool.id },
+    { error: true, message: 'Unknown tool: missing', tool: 'missing' },
+    { error: true, message: 'Denied', tool: tool.id },
+    { value: 42 },
+  ])
+  expect(result).toMatchObject({
+    content: 'Done',
+    toolCalls: [false, false, false, false, true].map((success) => ({ success })),
+    toolResults: [{ value: 42 }],
+  })
+})
+
+it('rejects DeepSeek continuation errors instead of returning partial success', async () => {
+  mocks.chat
+    .mockResolvedValueOnce(
+      completion({ role: 'assistant', content: null, tool_calls: [toolCall('next')] })
+    )
+    .mockRejectedValueOnce(new Error('DeepSeek unavailable'))
+  await expect(
+    deepseekProvider.executeRequest(request('deepseek-v4-flash', { tools: [tool] }))
+  ).rejects.toThrow('DeepSeek unavailable')
+  expect(mocks.chat).toHaveBeenCalledTimes(2)
+})
+
 it.each([
   { stream: false, streamToolCalls: false },
   { stream: true, streamToolCalls: false },

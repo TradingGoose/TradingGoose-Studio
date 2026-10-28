@@ -278,173 +278,157 @@ export const deepseekProvider: ProviderConfig = {
         usedForcedTools = result.usedForcedTools
       }
 
-      try {
-        while (iterationCount < MAX_ITERATIONS) {
-          // Check for tool calls
-          const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
-          if (!toolCallsInResponse || toolCallsInResponse.length === 0) {
-            break
-          }
-
-          // DeepSeek requires the complete reasoning content when continuing a tool turn.
-          currentMessages.push(currentResponse.choices[0].message)
-
-          // Track time for tool calls in this batch
-          const toolsStartTime = Date.now()
-
-          // Process each tool call
-          for (const toolCall of toolCallsInResponse) {
-            try {
-              const toolName = toolCall.function.name
-              const toolArgs = JSON.parse(toolCall.function.arguments)
-
-              // Get the tool from the tools registry
-              const tool = request.tools?.find((t) => t.id === toolName)
-              if (!tool) continue
-
-              // Execute the tool
-              const toolCallStartTime = Date.now()
-
-              const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
-
-              const result = await executeTool(toolName, executionParams)
-              const toolCallEndTime = Date.now()
-              const toolCallDuration = toolCallEndTime - toolCallStartTime
-
-              // Add to time segments for both success and failure
-              timeSegments.push({
-                type: 'tool',
-                name: toolName,
-                startTime: toolCallStartTime,
-                endTime: toolCallEndTime,
-                duration: toolCallDuration,
-              })
-
-              // Prepare result content for the LLM
-              let resultContent: any
-              if (result.success) {
-                toolResults.push(result.output)
-                resultContent = result.output
-              } else {
-                // Include error information so LLM can respond appropriately
-                resultContent = {
-                  error: true,
-                  message: result.error || 'Tool execution failed',
-                  tool: toolName,
-                }
-              }
-
-              toolCalls.push({
-                name: toolName,
-                arguments: toolParams,
-                startTime: new Date(toolCallStartTime).toISOString(),
-                endTime: new Date(toolCallEndTime).toISOString(),
-                duration: toolCallDuration,
-                result: resultContent,
-                success: result.success,
-              })
-
-              currentMessages.push({
-                role: 'tool',
-                tool_call_id: toolCall.id,
-                content: JSON.stringify(resultContent),
-              })
-            } catch (error) {
-              logger.error('Error processing tool call:', { error })
-            }
-          }
-
-          // Calculate tool call time for this iteration
-          const thisToolsTime = Date.now() - toolsStartTime
-          toolsTime += thisToolsTime
-
-          // Make the next request with updated messages
-          const nextPayload = {
-            ...payload,
-            messages: currentMessages,
-          }
-
-          // Update tool_choice based on which forced tools have been used
-          if (
-            typeof originalToolChoice === 'object' &&
-            hasUsedForcedTool &&
-            forcedTools.length > 0
-          ) {
-            // If we have remaining forced tools, get the next one to force
-            const remainingTools = forcedTools.filter((tool) => !usedForcedTools.includes(tool))
-
-            if (remainingTools.length > 0) {
-              // Force the next tool
-              nextPayload.tool_choice = {
-                type: 'function',
-                function: { name: remainingTools[0] },
-              }
-              logger.info(`Forcing next tool: ${remainingTools[0]}`)
-            } else {
-              // All forced tools have been used, switch to auto
-              nextPayload.tool_choice = 'auto'
-              logger.info('All forced tools have been used, switching to auto tool_choice')
-            }
-          }
-
-          // Time the next model call
-          const nextModelStartTime = Date.now()
-
-          // Make the next request
-          currentResponse = await deepseek.chat.completions.create(nextPayload)
-
-          // Check if any forced tools were used in this response
-          if (
-            typeof nextPayload.tool_choice === 'object' &&
-            currentResponse.choices[0]?.message?.tool_calls
-          ) {
-            const toolCallsResponse = currentResponse.choices[0].message.tool_calls
-            const result = trackForcedToolUsage(
-              toolCallsResponse,
-              nextPayload.tool_choice,
-              logger,
-              'deepseek',
-              forcedTools,
-              usedForcedTools
-            )
-            hasUsedForcedTool = result.hasUsedForcedTool
-            usedForcedTools = result.usedForcedTools
-          }
-
-          const nextModelEndTime = Date.now()
-          const thisModelTime = nextModelEndTime - nextModelStartTime
-
-          // Add to time segments
-          timeSegments.push({
-            type: 'model',
-            name: `Model response (iteration ${iterationCount + 1})`,
-            startTime: nextModelStartTime,
-            endTime: nextModelEndTime,
-            duration: thisModelTime,
-          })
-
-          // Add to model time
-          modelTime += thisModelTime
-
-          // Update content if we have a text response
-          if (currentResponse.choices[0]?.message?.content) {
-            content = currentResponse.choices[0].message.content
-            // Clean up the response content
-            content = content.replace(/```json\n?|\n?```/g, '')
-            content = content.trim()
-          }
-
-          // Update token counts
-          if (currentResponse.usage) {
-            tokens.prompt += currentResponse.usage.prompt_tokens || 0
-            tokens.completion += currentResponse.usage.completion_tokens || 0
-            tokens.total += currentResponse.usage.total_tokens || 0
-          }
-
-          iterationCount++
+      while (iterationCount < MAX_ITERATIONS) {
+        // Check for tool calls
+        const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
+        if (!toolCallsInResponse || toolCallsInResponse.length === 0) {
+          break
         }
-      } catch (error) {
-        logger.error('Error in Deepseek request:', { error })
+
+        // DeepSeek requires the complete reasoning content when continuing a tool turn.
+        currentMessages.push(currentResponse.choices[0].message)
+
+        // Track time for tool calls in this batch
+        const toolsStartTime = Date.now()
+
+        // Process each tool call
+        for (const toolCall of toolCallsInResponse) {
+          const toolName = toolCall.function.name
+          const toolCallStartTime = Date.now()
+          let toolParams: Record<string, any> = {}
+          let resultContent: any
+          let success = false
+
+          try {
+            const toolArgs = JSON.parse(toolCall.function.arguments)
+            const tool = request.tools?.find((t) => t.id === toolName)
+            if (!tool) throw new Error(`Unknown tool: ${toolName}`)
+
+            const prepared = prepareToolExecution(tool, toolArgs, request)
+            toolParams = prepared.toolParams
+            const result = await executeTool(toolName, prepared.executionParams)
+            if (!result.success) throw new Error(result.error || 'Tool execution failed')
+            success = true
+            toolResults.push(result.output)
+            resultContent = result.output
+          } catch (error) {
+            logger.error('Error processing tool call:', { error, toolName })
+            resultContent = {
+              error: true,
+              message: error instanceof Error ? error.message : String(error),
+              tool: toolName,
+            }
+          }
+
+          const toolCallEndTime = Date.now()
+          const toolCallDuration = toolCallEndTime - toolCallStartTime
+          timeSegments.push({
+            type: 'tool',
+            name: toolName,
+            startTime: toolCallStartTime,
+            endTime: toolCallEndTime,
+            duration: toolCallDuration,
+          })
+          toolCalls.push({
+            name: toolName,
+            arguments: toolParams,
+            startTime: new Date(toolCallStartTime).toISOString(),
+            endTime: new Date(toolCallEndTime).toISOString(),
+            duration: toolCallDuration,
+            result: resultContent,
+            success,
+          })
+          currentMessages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: JSON.stringify(resultContent),
+          })
+        }
+
+        // Calculate tool call time for this iteration
+        const thisToolsTime = Date.now() - toolsStartTime
+        toolsTime += thisToolsTime
+
+        // Make the next request with updated messages
+        const nextPayload = {
+          ...payload,
+          messages: currentMessages,
+        }
+
+        // Update tool_choice based on which forced tools have been used
+        if (typeof originalToolChoice === 'object' && hasUsedForcedTool && forcedTools.length > 0) {
+          // If we have remaining forced tools, get the next one to force
+          const remainingTools = forcedTools.filter((tool) => !usedForcedTools.includes(tool))
+
+          if (remainingTools.length > 0) {
+            // Force the next tool
+            nextPayload.tool_choice = {
+              type: 'function',
+              function: { name: remainingTools[0] },
+            }
+            logger.info(`Forcing next tool: ${remainingTools[0]}`)
+          } else {
+            // All forced tools have been used, switch to auto
+            nextPayload.tool_choice = 'auto'
+            logger.info('All forced tools have been used, switching to auto tool_choice')
+          }
+        }
+
+        // Time the next model call
+        const nextModelStartTime = Date.now()
+
+        // Make the next request
+        currentResponse = await deepseek.chat.completions.create(nextPayload)
+
+        // Check if any forced tools were used in this response
+        if (
+          typeof nextPayload.tool_choice === 'object' &&
+          currentResponse.choices[0]?.message?.tool_calls
+        ) {
+          const toolCallsResponse = currentResponse.choices[0].message.tool_calls
+          const result = trackForcedToolUsage(
+            toolCallsResponse,
+            nextPayload.tool_choice,
+            logger,
+            'deepseek',
+            forcedTools,
+            usedForcedTools
+          )
+          hasUsedForcedTool = result.hasUsedForcedTool
+          usedForcedTools = result.usedForcedTools
+        }
+
+        const nextModelEndTime = Date.now()
+        const thisModelTime = nextModelEndTime - nextModelStartTime
+
+        // Add to time segments
+        timeSegments.push({
+          type: 'model',
+          name: `Model response (iteration ${iterationCount + 1})`,
+          startTime: nextModelStartTime,
+          endTime: nextModelEndTime,
+          duration: thisModelTime,
+        })
+
+        // Add to model time
+        modelTime += thisModelTime
+
+        // Update content if we have a text response
+        if (currentResponse.choices[0]?.message?.content) {
+          content = currentResponse.choices[0].message.content
+          // Clean up the response content
+          content = content.replace(/```json\n?|\n?```/g, '')
+          content = content.trim()
+        }
+
+        // Update token counts
+        if (currentResponse.usage) {
+          tokens.prompt += currentResponse.usage.prompt_tokens || 0
+          tokens.completion += currentResponse.usage.completion_tokens || 0
+          tokens.total += currentResponse.usage.total_tokens || 0
+        }
+
+        iterationCount++
       }
 
       // Calculate overall timing
