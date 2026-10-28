@@ -234,6 +234,9 @@ export const WorkflowBlock = memo(
       return Boolean(getVal('triggerPath') && getVal('webhookId'))
     }, [currentBlock?.subBlocks])
 
+    const displayAdvancedMode = data.isPreview
+      ? (data.blockState?.advancedMode ?? false)
+      : (currentBlock?.advancedMode ?? false)
     const displayTriggerMode = data.isPreview
       ? (data.blockState?.triggerMode ?? false)
       : (currentBlock?.triggerMode ?? false)
@@ -455,6 +458,7 @@ export const WorkflowBlock = memo(
         blockId: id,
         subBlocks: localizedSubBlocks,
         stateToUse: subBlockState,
+        isAdvancedMode: displayAdvancedMode,
         isTriggerMode: effectiveTrigger,
         isPureTriggerBlock,
         availableTriggerIds: config.triggers?.available,
@@ -462,6 +466,7 @@ export const WorkflowBlock = memo(
     }, [
       config.subBlocks,
       config.triggers?.available,
+      displayAdvancedMode,
       displayTriggerMode,
       subBlockState,
       localizeWorkflowSubBlockConfig,

@@ -4,6 +4,7 @@ vi.unmock('@/blocks/registry')
 
 import { buildSubBlockPreviewRows, buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
 import { getAllBlocks } from '@/blocks'
+import { SlackBlock } from '@/blocks/blocks/slack'
 import type { BlockConfig } from '@/blocks/types'
 
 const multiTriggerBlocks = getAllBlocks().filter(
@@ -191,6 +192,33 @@ describe('buildSubBlockRows', () => {
       expect(subBlocks.map((subBlock) => subBlock.id)).toEqual(['model', 'temperature'])
     }
   )
+
+  it.each([false, true])('previews only active Slack mode values (%s)', (isAdvancedMode) => {
+    const subBlocks = buildSubBlockPreviewRows({
+      isAdvancedMode,
+      subBlocks: [
+        ...SlackBlock.subBlocks,
+        {
+          id: 'selectedChannelDetails',
+          type: 'short-input',
+          condition: { field: 'channel', value: 'C_SELECTED' },
+        },
+      ],
+      stateToUse: {
+        operation: { value: 'send' },
+        channel: { value: 'C_SELECTED' },
+        manualChannel: { value: 'C_MANUAL' },
+        text: { value: 'hello' },
+      },
+    })
+    const ids = subBlocks.map((subBlock) => subBlock.id)
+
+    expect(ids).toContain(isAdvancedMode ? 'manualChannel' : 'channel')
+    expect(ids).not.toContain(isAdvancedMode ? 'channel' : 'manualChannel')
+    expect(ids).toContain('operation')
+    expect(ids).toContain('text')
+    expect(ids.includes('selectedChannelDetails')).toBe(!isAdvancedMode)
+  })
 
   it.each(multiTriggerBlocks)(
     'renders one field instance per selected $type trigger',

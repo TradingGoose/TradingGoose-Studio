@@ -117,6 +117,7 @@ function LocalizedPreviewNode({ id, data }: NodeProps<PreviewCanvasNode>) {
     [blockConfig, data.type, localizeWorkflowSubBlockConfig, triggerId]
   )
   const isEnabled = data.blockState?.enabled ?? true
+  const isAdvancedMode = data.blockState?.advancedMode ?? false
   const useHorizontalHandles = data.blockState?.horizontalHandles ?? true
   const isPureTriggerBlock = blockConfig?.category === 'triggers'
   const isTriggerMode = Boolean(data.blockState?.triggerMode) || isPureTriggerBlock
@@ -127,6 +128,7 @@ function LocalizedPreviewNode({ id, data }: NodeProps<PreviewCanvasNode>) {
             blockId: id,
             subBlocks: localizedSubBlocks,
             stateToUse: previewStateRaw,
+            isAdvancedMode,
             isTriggerMode,
             isPureTriggerBlock,
             availableTriggerIds: blockConfig.triggers?.available,
@@ -135,6 +137,7 @@ function LocalizedPreviewNode({ id, data }: NodeProps<PreviewCanvasNode>) {
     [
       blockConfig?.triggers?.available,
       id,
+      isAdvancedMode,
       isPureTriggerBlock,
       isTriggerMode,
       localizedSubBlocks,
