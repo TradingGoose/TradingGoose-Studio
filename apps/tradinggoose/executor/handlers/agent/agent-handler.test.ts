@@ -1424,13 +1424,13 @@ describe('AgentBlockHandler', () => {
       mockGetApiKey.mockResolvedValue('resolved-api-key')
       mockExecuteProviderRequest.mockResolvedValue({
         content: 'Hello!',
-        model: 'deepseek-v4-flash',
+        model: 'deepseek-flash',
       })
 
       await handler.execute(
         mockBlock,
         {
-          model: 'deepseek-v4-flash',
+          model: 'deepseek-flash',
           userPrompt: 'Hello!',
           reasoningEffort: 'max',
           thinkingLevel: 'none',
@@ -1442,7 +1442,7 @@ describe('AgentBlockHandler', () => {
       expect(mockExecuteProviderRequest).toHaveBeenCalledWith(
         'deepseek',
         expect.objectContaining({
-          model: 'deepseek-v4-flash',
+          model: 'deepseek-flash',
           apiKey: 'resolved-api-key',
           reasoningEffort: 'max',
           thinkingLevel: 'none',

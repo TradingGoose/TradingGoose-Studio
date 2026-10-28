@@ -521,6 +521,7 @@ export const deepseekProvider: ProviderConfig = {
         content,
         model: request.model,
         tokens,
+        cost: calculateCost(request.model, tokens.prompt, tokens.completion, !!request.context),
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         toolResults: toolResults.length > 0 ? toolResults : undefined,
         timing: {

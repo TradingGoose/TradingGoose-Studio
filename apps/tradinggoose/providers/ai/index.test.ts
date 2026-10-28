@@ -23,132 +23,66 @@ vi.mock('@/lib/environment', async (importOriginal) => ({
 
 vi.mock('@/providers/ai/openai', () => ({
   openaiProvider: {
-    id: 'openai',
-    name: 'OpenAI',
-    description: 'test',
-    version: 'test',
-    models: ['gpt-4.1'],
-    defaultModel: 'gpt-4.1',
     executeRequest: mockOpenAIExecuteRequest,
   },
 }))
 
 vi.mock('@/providers/ai/anthropic', () => ({
   anthropicProvider: {
-    id: 'anthropic',
-    name: 'Anthropic',
-    description: 'test',
-    version: 'test',
-    models: [],
-    defaultModel: '',
     executeRequest: mockAnthropicExecuteRequest,
   },
 }))
 
 vi.mock('@/providers/ai/azure-openai', () => ({
   azureOpenAIProvider: {
-    id: 'azure-openai',
-    name: 'Azure OpenAI',
-    description: 'test',
-    version: 'test',
-    models: [],
-    defaultModel: '',
     executeRequest: vi.fn(),
   },
 }))
 
 vi.mock('@/providers/ai/cerebras', () => ({
   cerebrasProvider: {
-    id: 'cerebras',
-    name: 'Cerebras',
-    description: 'test',
-    version: 'test',
-    models: [],
-    defaultModel: '',
     executeRequest: vi.fn(),
   },
 }))
 
 vi.mock('@/providers/ai/deepseek', () => ({
   deepseekProvider: {
-    id: 'deepseek',
-    name: 'DeepSeek',
-    description: 'test',
-    version: 'test',
-    models: [],
-    defaultModel: '',
     executeRequest: mockDeepseekExecuteRequest,
   },
 }))
 
 vi.mock('@/providers/ai/google', () => ({
   googleProvider: {
-    id: 'google',
-    name: 'Google',
-    description: 'test',
-    version: 'test',
-    models: [],
-    defaultModel: '',
     executeRequest: vi.fn(),
   },
 }))
 
 vi.mock('@/providers/ai/groq', () => ({
   groqProvider: {
-    id: 'groq',
-    name: 'Groq',
-    description: 'test',
-    version: 'test',
-    models: [],
-    defaultModel: '',
     executeRequest: vi.fn(),
   },
 }))
 
 vi.mock('@/providers/ai/mistral', () => ({
   mistralProvider: {
-    id: 'mistral',
-    name: 'Mistral',
-    description: 'test',
-    version: 'test',
-    models: [],
-    defaultModel: '',
     executeRequest: vi.fn(),
   },
 }))
 
 vi.mock('@/providers/ai/ollama', () => ({
   ollamaProvider: {
-    id: 'ollama',
-    name: 'Ollama',
-    description: 'test',
-    version: 'test',
-    models: [],
-    defaultModel: '',
     executeRequest: mockOllamaExecuteRequest,
   },
 }))
 
 vi.mock('@/providers/ai/openrouter', () => ({
   openRouterProvider: {
-    id: 'openrouter',
-    name: 'OpenRouter',
-    description: 'test',
-    version: 'test',
-    models: [],
-    defaultModel: '',
     executeRequest: vi.fn(),
   },
 }))
 
 vi.mock('@/providers/ai/xai', () => ({
   xAIProvider: {
-    id: 'xai',
-    name: 'xAI',
-    description: 'test',
-    version: 'test',
-    models: [],
-    defaultModel: '',
     executeRequest: vi.fn(),
   },
 }))
@@ -160,9 +94,14 @@ describe('executeProviderRequest', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     environment.isHosted = false
-    mockOpenAIExecuteRequest.mockResolvedValue({ content: 'ok', model: 'gpt-5.4' })
-    mockAnthropicExecuteRequest.mockResolvedValue({ content: 'ok', model: 'claude-sonnet-4-6' })
-    mockDeepseekExecuteRequest.mockResolvedValue({ content: 'ok', model: 'deepseek-v4-flash' })
+    const cost = { input: 0, output: 0, total: 0, pricing: null }
+    mockOpenAIExecuteRequest.mockResolvedValue({ content: 'ok', model: 'gpt-5.4', cost })
+    mockAnthropicExecuteRequest.mockResolvedValue({
+      content: 'ok',
+      model: 'claude-sonnet-5-5',
+      cost,
+    })
+    mockDeepseekExecuteRequest.mockResolvedValue({ content: 'ok', model: 'deepseek-flash', cost })
   })
 
   it.each([
@@ -191,7 +130,7 @@ describe('executeProviderRequest', () => {
       'Analyze prices\n\nUse live quotes\n\nInclude risks',
     ],
   ] as const)('normalizes system-only instructions once: %j', async (input, content) => {
-    const request = { model: 'claude-sonnet-5', ...structuredClone(input) } as ProviderRequest
+    const request = { model: 'claude-sonnet-5-5', ...structuredClone(input) } as ProviderRequest
     const original = structuredClone(request)
 
     await executeProviderRequest('anthropic', request)
@@ -205,7 +144,7 @@ describe('executeProviderRequest', () => {
   it.each([{ context: 'AAPL' }, { messages: [{ role: 'user' as const, content: 'AAPL' }] }])(
     'preserves system instructions with conversational input: %j',
     async (input) => {
-      const request = { model: 'claude-sonnet-5', systemPrompt: 'Analyze prices', ...input }
+      const request = { model: 'claude-sonnet-5-5', systemPrompt: 'Analyze prices', ...input }
       const original = structuredClone(request)
 
       await executeProviderRequest('anthropic', request)
@@ -221,20 +160,10 @@ describe('executeProviderRequest', () => {
       { model: 'gpt-5.4', reasoningEffort: 'xhigh', verbosity: 'high', thinkingLevel: 'high' },
       { reasoningEffort: 'xhigh', verbosity: 'high', thinkingLevel: undefined },
     ],
-    [
-      'openai',
-      { model: 'gpt-5.4-2026-03-05', reasoningEffort: 'high', verbosity: 'low' },
-      { reasoningEffort: 'high', verbosity: 'low' },
-    ],
-    [
-      'openai',
-      { model: 'gpt-5.4-2026-03-05', reasoningEffort: 'invalid', verbosity: 'invalid' },
-      { reasoningEffort: undefined, verbosity: undefined },
-    ],
-    ['anthropic', { model: 'claude-sonnet-4-6', thinkingLevel: 'max' }, { thinkingLevel: 'max' }],
+    ['anthropic', { model: 'claude-sonnet-5-5', thinkingLevel: 'max' }, { thinkingLevel: 'max' }],
     [
       'deepseek',
-      { model: 'deepseek-v4-flash', reasoningEffort: 'max', thinkingLevel: 'none' },
+      { model: 'deepseek-flash', reasoningEffort: 'max', thinkingLevel: 'none' },
       { reasoningEffort: 'max', thinkingLevel: 'none' },
     ],
     [
@@ -244,7 +173,7 @@ describe('executeProviderRequest', () => {
     ],
     [
       'anthropic',
-      { model: 'claude-sonnet-4-6', thinkingLevel: 'xhigh' },
+      { model: 'claude-haiku-4-5', thinkingLevel: 'xhigh' },
       { thinkingLevel: undefined },
     ],
   ] as const)('filters settings by model for %s: %j', async (provider, settings, expected) => {
@@ -326,37 +255,21 @@ describe('executeProviderRequest', () => {
     )
   })
 
-  it('calculates model usage cost for token-bearing responses', async () => {
-    mockOpenAIExecuteRequest.mockResolvedValue({
+  it('preserves per-call tier costs when aggregate usage crosses a threshold', async () => {
+    mockAnthropicExecuteRequest.mockResolvedValue({
       content: 'ok',
-      model: 'gpt-4.1',
-      tokens: {
-        prompt: 1200,
-        completion: 300,
-        total: 1500,
-      },
+      model: 'claude-haiku-5-5',
+      tokens: { input: 120000, output: 2000 },
+      cost: { input: 0.012, output: 0.001, total: 0.013, pricing: null },
     })
 
-    const response = await executeProviderRequest('openai', {
-      model: 'gpt-4.1',
-      systemPrompt: 'Test prompt',
-      apiKey: 'test-key',
+    const response = await executeProviderRequest('anthropic', {
+      model: 'claude-haiku-5-5',
+      context: 'Analyze',
     })
-
-    expect(response).not.toBeInstanceOf(ReadableStream)
-    expect('stream' in (response as object)).toBe(false)
-
-    expect(response).toMatchObject({
-      cost: {
-        input: 0.0024,
-        output: 0.0024,
-        total: 0.0048,
-        pricing: {
-          input: 2,
-          output: 8,
-        },
-      },
-    })
+    if ('stream' in response) throw new Error('Expected non-streaming result')
+    expect(response.cost).toMatchObject({ input: 0.012, output: 0.001 })
+    expect(response.cost?.total).toBeCloseTo(0.013, 8)
   })
 
   it('rejects hosted Ollama execution before calling the provider', async () => {
@@ -374,13 +287,13 @@ describe('executeProviderRequest', () => {
   it('normalizes Claude usage and recomputes inclusive tool costs once', async () => {
     mockAnthropicExecuteRequest.mockResolvedValue({
       content: 'ok',
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       tokens: { input: 100, output: 20 },
       toolResults: [{ cost: { total: 1.25 } }, { cost: { total: 0.75 } }],
-      cost: { input: 0.0002, output: 0.0002, toolCost: 2, total: 2.0004 },
+      cost: { input: 0.0002, output: 0.0002, toolCost: 2, total: 2.0004, pricing: null },
     })
     const response = await executeProviderRequest('anthropic', {
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       messages: [{ role: 'user', content: 'Test prompt' }],
     })
     if ('stream' in response) throw new Error('Expected non-streaming result')

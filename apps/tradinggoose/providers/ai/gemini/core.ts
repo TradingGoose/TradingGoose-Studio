@@ -32,10 +32,10 @@ import type { FunctionCallResponse, ProviderRequest, ProviderResponse } from '@/
 import {
   calculateCost,
   isDeepResearchModel,
-  isGemini3Model,
+  isGemini3OrLaterModel,
   prepareToolExecution,
   prepareToolsWithUsageControl,
-  sumToolCosts,
+  withToolCosts,
 } from '@/providers/ai/utils'
 import { executeTool } from '@/tools'
 import type { ExecutionState, GeminiProviderType, GeminiUsage } from './types'
@@ -309,7 +309,7 @@ function buildNextConfig(
   if (allForcedToolsUsed && request.responseFormat) {
     nextConfig.tools = undefined
     nextConfig.toolConfig = undefined
-    if (isGemini3Model(model)) {
+    if (isGemini3OrLaterModel(model)) {
       logger.info('Gemini 3: Stripping tools after forced tool execution, schema already set')
     } else {
       nextConfig.responseMimeType = 'application/json'
@@ -369,7 +369,7 @@ function createStreamingResult(
           input: 0,
           output: 0,
           total: 0,
-          pricing: { input: 0, output: 0, updatedAt: new Date().toISOString() },
+          pricing: null,
         },
       },
       logs: [],
@@ -738,7 +738,7 @@ export async function executeDeepResearchRequest(
               input: 0,
               output: 0,
               total: 0,
-              pricing: { input: 0, output: 0, updatedAt: new Date().toISOString() },
+              pricing: null,
             },
           },
           logs: [],
@@ -932,7 +932,7 @@ export async function executeGeminiRequest(
       geminiConfig.responseMimeType = 'application/json'
       geminiConfig.responseSchema = cleanSchemaForGemini(request.responseFormat.schema) as Schema
       logger.info('Using Gemini native structured output format')
-    } else if (request.responseFormat && tools?.length && isGemini3Model(model)) {
+    } else if (request.responseFormat && tools?.length && isGemini3OrLaterModel(model)) {
       geminiConfig.responseMimeType = 'application/json'
       geminiConfig.responseJsonSchema = request.responseFormat.schema
       logger.info('Using Gemini 3 structured output with tools (responseJsonSchema)')
@@ -947,7 +947,7 @@ export async function executeGeminiRequest(
       const thinkingConfig: ThinkingConfig = {
         includeThoughts: false,
       }
-      if (isGemini3Model(model)) {
+      if (isGemini3OrLaterModel(model)) {
         thinkingConfig.thinkingLevel = mapToThinkingLevel(request.thinkingLevel)
       } else {
         thinkingConfig.thinkingBudget = mapToThinkingBudget(model, request.thinkingLevel)
@@ -955,7 +955,7 @@ export async function executeGeminiRequest(
       geminiConfig.thinkingConfig = thinkingConfig
     } else if (
       request.thinkingLevel === 'none' &&
-      !isGemini3Model(model) &&
+      !isGemini3OrLaterModel(model) &&
       supportsDisablingGemini25Thinking(model)
     ) {
       geminiConfig.thinkingConfig = { includeThoughts: false, thinkingBudget: 0 }
@@ -1142,7 +1142,7 @@ export async function executeGeminiRequest(
           if (request.responseFormat) {
             nextConfig.tools = undefined
             nextConfig.toolConfig = undefined
-            if (!isGemini3Model(model)) {
+            if (!isGemini3OrLaterModel(model)) {
               nextConfig.responseMimeType = 'application/json'
               nextConfig.responseSchema = cleanSchemaForGemini(
                 request.responseFormat.schema
@@ -1188,14 +1188,15 @@ export async function executeGeminiRequest(
                 usage.promptTokenCount,
                 usage.candidatesTokenCount
               )
-              const tc = sumToolCosts(state.toolResults)
-              streamingResult.execution.output.cost = {
-                input: accumulatedCost.input + streamCost.input,
-                output: accumulatedCost.output + streamCost.output,
-                toolCost: tc || undefined,
-                total: accumulatedCost.total + streamCost.total + tc,
-                pricing: streamCost.pricing,
-              }
+              streamingResult.execution.output.cost = withToolCosts(
+                {
+                  input: accumulatedCost.input + streamCost.input,
+                  output: accumulatedCost.output + streamCost.output,
+                  total: accumulatedCost.total + streamCost.total,
+                  pricing: streamCost.pricing,
+                },
+                state.toolResults
+              )
 
               if (streamingResult.execution.output.providerTiming) {
                 streamingResult.execution.output.providerTiming.endTime = new Date().toISOString()

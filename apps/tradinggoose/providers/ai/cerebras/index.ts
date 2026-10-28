@@ -8,35 +8,15 @@ import type {
   ProviderResponse,
   TimeSegment,
 } from '@/providers/ai/types'
-import { prepareToolExecution } from '@/providers/ai/utils'
+import {
+  calculateCost,
+  createOpenAICompatibleStream,
+  prepareToolExecution,
+  withToolCosts,
+} from '@/providers/ai/utils'
 import { executeTool } from '@/tools'
 
 const logger = createLogger('CerebrasProvider')
-
-/**
- * Helper to convert a Cerebras streaming response (async iterable) into a ReadableStream.
- * Enqueues only the model's text delta chunks as UTF-8 encoded bytes.
- */
-function createReadableStreamFromCerebrasStream(
-  cerebrasStream: AsyncIterable<any>
-): ReadableStream {
-  return new ReadableStream({
-    async start(controller) {
-      try {
-        for await (const chunk of cerebrasStream) {
-          // Expecting delta content similar to OpenAI: chunk.choices[0]?.delta?.content
-          const content = chunk.choices?.[0]?.delta?.content || ''
-          if (content) {
-            controller.enqueue(new TextEncoder().encode(content))
-          }
-        }
-        controller.close()
-      } catch (error) {
-        controller.error(error)
-      }
-    },
-  })
-}
 
 export const cerebrasProvider: ProviderConfig = {
   id: 'cerebras',
@@ -98,7 +78,7 @@ export const cerebrasProvider: ProviderConfig = {
           }))
         : undefined
 
-      const selectedModel = request.model || cerebrasProvider.defaultModel
+      const selectedModel = request.model
 
       // Build the request payload
       const payload: any = {
@@ -114,7 +94,7 @@ export const cerebrasProvider: ProviderConfig = {
       if (request.responseFormat) {
         payload.response_format = {
           type: 'json_schema',
-          schema: request.responseFormat.schema || request.responseFormat,
+          schema: request.responseFormat.schema,
         }
       }
 
@@ -161,7 +141,25 @@ export const cerebrasProvider: ProviderConfig = {
 
         // Create a StreamingExecution response with a readable stream
         const streamingResult = {
-          stream: createReadableStreamFromCerebrasStream(streamResponse),
+          stream: createOpenAICompatibleStream(
+            streamResponse as any,
+            'Cerebras',
+            (content, usage) => {
+              const tokens = {
+                prompt: usage.prompt_tokens,
+                completion: usage.completion_tokens,
+                total: usage.total_tokens,
+              }
+              streamingResult.execution.output.content = content
+              streamingResult.execution.output.tokens = tokens
+              streamingResult.execution.output.cost = calculateCost(
+                request.model,
+                tokens.prompt,
+                tokens.completion,
+                !!request.context
+              )
+            }
+          ),
           execution: {
             success: true,
             output: {
@@ -183,12 +181,7 @@ export const cerebrasProvider: ProviderConfig = {
                   },
                 ],
               },
-              // Estimate token cost
-              cost: {
-                total: 0.0,
-                input: 0.0,
-                output: 0.0,
-              },
+              cost: calculateCost(request.model),
             },
             logs: [], // No block logs for direct streaming
             metadata: {
@@ -217,7 +210,7 @@ export const cerebrasProvider: ProviderConfig = {
         total: currentResponse.usage?.total_tokens || 0,
       }
       const toolCalls = []
-      const toolResults = []
+      const toolResults: Record<string, unknown>[] = []
       const currentMessages = [...allMessages]
       let iterationCount = 0
       const MAX_ITERATIONS = 10 // Prevent infinite loops
@@ -471,9 +464,26 @@ export const cerebrasProvider: ProviderConfig = {
 
         const streamResponse: any = await client.chat.completions.create(streamingPayload)
 
+        const previousTokens = { ...tokens }
         // Create a StreamingExecution response with all collected data
         const streamingResult = {
-          stream: createReadableStreamFromCerebrasStream(streamResponse),
+          stream: createOpenAICompatibleStream(
+            streamResponse as any,
+            'Cerebras',
+            (content, usage) => {
+              const tokens = {
+                prompt: previousTokens.prompt + usage.prompt_tokens,
+                completion: previousTokens.completion + usage.completion_tokens,
+                total: previousTokens.total + usage.total_tokens,
+              }
+              streamingResult.execution.output.content = content
+              streamingResult.execution.output.tokens = tokens
+              streamingResult.execution.output.cost = withToolCosts(
+                calculateCost(request.model, tokens.prompt, tokens.completion, !!request.context),
+                toolResults
+              )
+            }
+          ),
           execution: {
             success: true,
             output: {
@@ -501,11 +511,10 @@ export const cerebrasProvider: ProviderConfig = {
                 iterations: iterationCount + 1,
                 timeSegments: timeSegments,
               },
-              cost: {
-                total: (tokens.total || 0) * 0.0001,
-                input: (tokens.prompt || 0) * 0.0001,
-                output: (tokens.completion || 0) * 0.0001,
-              },
+              cost: withToolCosts(
+                calculateCost(request.model, tokens.prompt, tokens.completion, !!request.context),
+                toolResults
+              ),
             },
             logs: [], // No block logs at provider level
             metadata: {
@@ -525,6 +534,7 @@ export const cerebrasProvider: ProviderConfig = {
         content,
         model: request.model,
         tokens,
+        cost: calculateCost(request.model, tokens.prompt, tokens.completion, !!request.context),
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         toolResults: toolResults.length > 0 ? toolResults : undefined,
         timing: {

@@ -32,9 +32,6 @@ export const azureAnthropicProvider: ProviderConfig = {
       throw new Error('API key is required for Azure Anthropic.')
     }
 
-    // Strip the azure-anthropic/ prefix from the model name if present
-    const modelName = request.model.replace(/^azure-anthropic\//, '')
-
     // Azure AI Foundry hosts Anthropic models at {endpoint}/anthropic
     // The SDK appends /v1/messages automatically
     const baseURL = `${azureEndpoint.replace(/\/$/, '')}/anthropic`
@@ -42,28 +39,22 @@ export const azureAnthropicProvider: ProviderConfig = {
     const anthropicVersion =
       request.azureApiVersion || getEnv('AZURE_ANTHROPIC_API_VERSION') || '2023-06-01'
 
-    return executeAnthropicProviderRequest(
-      {
-        ...request,
-        model: modelName,
-        apiKey,
-      },
-      {
-        providerLabel: 'Azure Anthropic',
-        createClient: (apiKey, useNativeStructuredOutputs) =>
-          new Anthropic({
-            baseURL,
-            apiKey,
-            defaultHeaders: {
-              'api-key': apiKey,
-              'anthropic-version': anthropicVersion,
-              ...(useNativeStructuredOutputs
-                ? { 'anthropic-beta': 'structured-outputs-2025-11-13' }
-                : {}),
-            },
-          }),
-        logger,
-      }
-    )
+    return executeAnthropicProviderRequest(request, {
+      providerLabel: 'Azure Anthropic',
+      resolveWireModel: (model) => model.replace(/^azure-anthropic\//, ''),
+      createClient: (apiKey, useNativeStructuredOutputs) =>
+        new Anthropic({
+          baseURL,
+          apiKey,
+          defaultHeaders: {
+            'api-key': apiKey,
+            'anthropic-version': anthropicVersion,
+            ...(useNativeStructuredOutputs
+              ? { 'anthropic-beta': 'structured-outputs-2025-11-13' }
+              : {}),
+          },
+        }),
+      logger,
+    })
   },
 }

@@ -1,5 +1,5 @@
 import type { Content, ToolConfig } from '@google/genai'
-import type { FunctionCallResponse, ModelPricing, TimeSegment } from '@/providers/ai/types'
+import type { FunctionCallResponse, ProviderResponse, TimeSegment } from '@/providers/ai/types'
 
 /**
  * Usage metadata from Gemini responses
@@ -24,7 +24,7 @@ export interface ParsedFunctionCall {
 export interface ExecutionState {
   contents: Content[]
   tokens: { input: number; output: number; total: number }
-  cost: { input: number; output: number; total: number; pricing: ModelPricing }
+  cost: ProviderResponse['cost']
   toolCalls: FunctionCallResponse[]
   toolResults: Record<string, unknown>[]
   iterationCount: number

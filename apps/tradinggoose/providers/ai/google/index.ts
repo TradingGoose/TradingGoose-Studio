@@ -6,7 +6,6 @@ import { getProviderDefaultModel, getProviderModels } from '@/providers/ai/model
 import type { ProviderConfig, ProviderRequest, ProviderResponse } from '@/providers/ai/types'
 
 const logger = createLogger('GoogleProvider')
-const DEFAULT_MODEL = getProviderDefaultModel('google')
 
 /**
  * Google Gemini provider
@@ -20,7 +19,7 @@ export const googleProvider: ProviderConfig = {
   description: "Google's Gemini models",
   version: '1.0.0',
   models: getProviderModels('google'),
-  defaultModel: DEFAULT_MODEL,
+  defaultModel: getProviderDefaultModel('google'),
 
   executeRequest: async (
     request: ProviderRequest
@@ -29,7 +28,7 @@ export const googleProvider: ProviderConfig = {
       throw new Error('API key is required for Google Gemini')
     }
 
-    const model = request.model || DEFAULT_MODEL
+    const model = request.model
     logger.info('Creating Google Gemini client', { model })
 
     const ai = new GoogleGenAI({ apiKey: request.apiKey })

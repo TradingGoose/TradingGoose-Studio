@@ -100,10 +100,37 @@ beforeEach(() => {
   mocks.tool.mockResolvedValue({ success: true, output: { value: 42 } })
 })
 
+it('reads actual Groq stream usage from the terminal x_groq chunk', async () => {
+  mocks.chat.mockResolvedValueOnce(
+    (async function* () {
+      yield { choices: [{ delta: { content: 'Done' } }] }
+      yield {
+        choices: [],
+        x_groq: { usage: { prompt_tokens: 1000, completion_tokens: 500, total_tokens: 1500 } },
+      }
+    })()
+  )
+
+  const result = await executeProviderRequest(
+    'groq',
+    request('groq/llama-3.3-70b-versatile', {
+      context: undefined,
+      messages: [{ role: 'user', content: 'Analyze' }],
+      stream: true,
+    })
+  )
+  if (!('stream' in result)) throw new Error('Expected streaming execution')
+  expect(await new Response(result.stream).text()).toBe('Done')
+  expect(result.execution.output.tokens).toEqual({ prompt: 1000, completion: 500, total: 1500 })
+  expect(result.execution.output.cost?.input).toBeCloseTo(0.00059, 8)
+  expect(result.execution.output.cost?.output).toBeCloseTo(0.000395, 8)
+  expect(result.execution.output.cost?.total).toBeCloseTo(0.000985, 8)
+})
+
 it('sends system-only requests once through Claude and Bedrock SDK adapters', async () => {
   const systemPrompt = 'Analyze prices'
   await executeProviderRequest('anthropic', {
-    model: 'claude-sonnet-5',
+    model: 'claude-sonnet-5-5',
     apiKey: 'test-key',
     systemPrompt,
     maxTokens: 4096,
@@ -163,6 +190,135 @@ it('retains paid tool costs in completed Azure Claude streaming requests', async
 })
 
 it.each([
+  ['openai', 'gpt-6.1-sol', 140000, 2, 10],
+  ['azure-openai', 'azure/gpt-6.1-sol', 140000, 2, 10],
+  ['xai', 'grok-4.7', 110000, 2, 6],
+  ['anthropic', 'claude-haiku-5-5', 60000, 0.1, 0.5],
+  ['azure-anthropic', 'azure-anthropic/claude-haiku-5-5', 60000, 0.1, 0.5],
+] as const)(
+  'prices each %s tool-loop call before adding paid tool costs',
+  async (provider, model, inputTokens, inputRate, outputRate) => {
+    if (provider.includes('anthropic')) {
+      const usage = { input_tokens: inputTokens, output_tokens: 100 }
+      mocks.claude
+        .mockResolvedValueOnce({
+          content: [{ type: 'tool_use', id: 'paid-tool', name: tool.id, input: {} }],
+          usage,
+        })
+        .mockResolvedValueOnce({ content: [{ type: 'text', text: 'Done' }], usage })
+    } else {
+      const usage = {
+        prompt_tokens: inputTokens,
+        completion_tokens: 100,
+        total_tokens: inputTokens + 100,
+      }
+      mocks.chat
+        .mockResolvedValueOnce({ ...completion({ tool_calls: [toolCall('paid-tool')] }), usage })
+        .mockResolvedValueOnce({ ...completion(), usage })
+    }
+    mocks.tool.mockResolvedValueOnce({ success: true, output: { cost: { total: 2 } } })
+
+    const result = await executeProviderRequest(
+      provider,
+      request(model, {
+        context: undefined,
+        messages: [{ role: 'user', content: 'Analyze' }],
+        maxTokens: 1000,
+        tools: [tool],
+        azureEndpoint: 'https://example.services.ai.azure.com',
+      })
+    )
+    if ('stream' in result) throw new Error('Expected completed response')
+    expect(result.tokens).toMatchObject({ prompt: inputTokens * 2, completion: 200 })
+    expect(result.cost?.input).toBeCloseTo((inputTokens * 2 * inputRate) / 1e6, 8)
+    expect(result.cost?.output).toBeCloseTo((200 * outputRate) / 1e6, 8)
+    expect(result.cost?.toolCost).toBe(2)
+    expect(result.cost?.total).toBeCloseTo(
+      2 + (inputTokens * 2 * inputRate + 200 * outputRate) / 1e6,
+      8
+    )
+  }
+)
+
+it.each([
+  ['openai', 'gpt-6.1-sol', 140000, 2, 10],
+  ['azure-openai', 'azure/gpt-6.1-sol', 140000, 2, 10],
+  ['xai', 'grok-4.7', 110000, 2, 6],
+] as const)(
+  'retains %s tool-loop usage and costs when its final answer streams',
+  async (provider, model, inputTokens, inputRate, outputRate) => {
+    const usage = {
+      prompt_tokens: inputTokens,
+      completion_tokens: 100,
+      total_tokens: inputTokens + 100,
+    }
+    mocks.chat
+      .mockResolvedValueOnce({ ...completion({ tool_calls: [toolCall('paid-tool')] }), usage })
+      .mockResolvedValueOnce({ ...completion(), usage })
+      .mockResolvedValueOnce(
+        (async function* () {
+          yield { choices: [{ delta: { content: 'Final answer' } }] }
+          yield { choices: [], usage }
+        })()
+      )
+    mocks.tool.mockResolvedValueOnce({ success: true, output: { cost: { total: 2 } } })
+
+    const result = await executeProviderRequest(
+      provider,
+      request(model, {
+        context: undefined,
+        messages: [{ role: 'user', content: 'Analyze' }],
+        stream: true,
+        maxTokens: 1000,
+        tools: [tool],
+      })
+    )
+    if (!('stream' in result)) throw new Error('Expected streaming execution')
+    expect(await new Response(result.stream).text()).toBe('Final answer')
+    const output = result.execution.output
+    expect(output.tokens).toMatchObject({ prompt: inputTokens * 3, completion: 300 })
+    expect(output.cost?.input).toBeCloseTo((inputTokens * 3 * inputRate) / 1e6, 8)
+    expect(output.cost?.output).toBeCloseTo((300 * outputRate) / 1e6, 8)
+    expect(output.cost?.toolCost).toBe(2)
+    expect(output.cost?.total).toBeCloseTo(
+      2 + (inputTokens * 3 * inputRate + 300 * outputRate) / 1e6,
+      8
+    )
+  }
+)
+
+it.each([false, true])(
+  'keeps Bedrock tools and schemas automatic when forcing is unsupported, tools=%s',
+  async (withTools) => {
+    const schema = { type: 'object', properties: { value: { type: 'number' } } }
+    const send = vi.spyOn(BedrockRuntimeClient.prototype, 'send').mockImplementation(async () => ({
+      output: { message: { role: 'assistant', content: [{ text: '{"value":42}' }] } },
+      $metadata: {},
+    }))
+    try {
+      const result = await executeProviderRequest(
+        'bedrock',
+        request('bedrock/openai.gpt-6.1-sol', {
+          tools: withTools ? [{ ...tool, usageControl: 'force' }] : undefined,
+          responseFormat: { schema },
+        })
+      )
+      expect(send).toHaveBeenCalledTimes(1)
+      const command = send.mock.calls[0][0]
+      expect(command).toBeInstanceOf(ConverseCommand)
+      expect(command.input).toMatchObject({
+        system: [{ text: expect.stringContaining(JSON.stringify(schema)) }],
+        toolConfig: withTools ? { toolChoice: { auto: {} } } : undefined,
+      })
+      expect(result).toMatchObject({ content: '{"value":42}' })
+      expect(mocks.tool).not.toHaveBeenCalled()
+    } finally {
+      send.mockRestore()
+    }
+  }
+)
+
+it.each([
   ['google', 'gemini-2.5-flash', 0],
   ['google', 'gemini-2.5-flash-lite', 0],
   ['vertex', 'vertex/gemini-2.5-flash', 0],
@@ -187,6 +343,79 @@ it.each([
     budget === 0 ? { includeThoughts: false, thinkingBudget: 0 } : undefined
   )
 })
+
+it('sends named thinking levels for Gemini 4', async () => {
+  mocks.gemini.mockResolvedValueOnce({
+    candidates: [{ content: { role: 'model', parts: [{ text: 'Done' }] } }],
+  })
+  await executeProviderRequest('google', request('gemini-4-argon', { thinkingLevel: 'high' }))
+  expect(mocks.gemini.mock.calls[0][0].config.thinkingConfig).toEqual({
+    includeThoughts: false,
+    thinkingLevel: 'HIGH',
+  })
+})
+
+it.each([
+  'claude-fable-5-1',
+  'claude-sonnet-5-5',
+  'claude-opus-5-5',
+  'claude-haiku-5-5',
+  'azure-anthropic/claude-fable-5-1',
+  'azure-anthropic/claude-sonnet-5-5',
+  'azure-anthropic/claude-opus-5-5',
+  'azure-anthropic/claude-haiku-5-5',
+  'azure-anthropic/claude-opus-4-6',
+])('uses adaptive thinking and preserves the catalog identity for %s', async (model) => {
+  const provider = model.startsWith('azure-anthropic/') ? azureAnthropicProvider : anthropicProvider
+  const result = await executeProviderRequest(
+    provider.id,
+    request(model, {
+      thinkingLevel: 'high',
+      maxTokens: 1000,
+      azureEndpoint: 'https://example.services.ai.azure.com',
+    })
+  )
+  expect(mocks.claude.mock.calls[0][0]).toMatchObject({
+    model: model.replace(/^azure-anthropic\//, ''),
+    thinking: { type: 'adaptive' },
+    output_config: { effort: 'high' },
+  })
+  expect(result).toMatchObject({ model })
+  if (model === 'azure-anthropic/claude-opus-4-6') {
+    expect(result).toMatchObject({ cost: { pricing: { input: 5, output: 25 } } })
+  }
+})
+
+it.each([
+  ['claude-sonnet-5-5', 'between_tools'],
+  ['claude-haiku-5-5', 'disabled'],
+  ['azure-anthropic/claude-sonnet-5-5', 'between_tools'],
+  ['azure-anthropic/claude-haiku-5-5', 'disabled'],
+])('sends the explicit thinking-off mode for %s', async (model, type) => {
+  await executeProviderRequest(
+    model.startsWith('azure-anthropic/') ? 'azure-anthropic' : 'anthropic',
+    request(model, {
+      thinkingLevel: 'none',
+      maxTokens: 1000,
+      azureEndpoint: 'https://example.services.ai.azure.com',
+    })
+  )
+  const payload = mocks.claude.mock.calls[0][0]
+  expect(payload.thinking).toEqual({ type })
+  expect(payload.output_config).toBeUndefined()
+})
+
+it.each(['claude-fable-5-1', 'claude-sonnet-5-5', 'claude-opus-5-5'])(
+  'uses automatic tools when %s does not support forcing',
+  async (model) => {
+    await anthropicProvider.executeRequest(
+      request(model, { maxTokens: 1000, tools: [{ ...tool, usageControl: 'force' }] })
+    )
+    expect(mocks.claude).toHaveBeenCalledTimes(1)
+    expect(mocks.claude.mock.calls[0][0].tool_choice).toBeUndefined()
+    expect(mocks.tool).not.toHaveBeenCalled()
+  }
+)
 
 it('discovers qualified Ollama IDs and sends only the model name to the SDK', async () => {
   vi.mocked(fetch).mockResolvedValueOnce(
@@ -288,9 +517,7 @@ it('pairs every failed DeepSeek tool call with an error result before continuing
     .mockRejectedValueOnce(new Error('Unavailable'))
     .mockResolvedValueOnce({ success: false, output: {}, error: 'Denied' })
 
-  const result = await deepseekProvider.executeRequest(
-    request('deepseek-v4-flash', { tools: [tool] })
-  )
+  const result = await deepseekProvider.executeRequest(request('deepseek-flash', { tools: [tool] }))
   expect(mocks.chat).toHaveBeenCalledTimes(2)
   expect(mocks.tool).toHaveBeenCalledTimes(3)
   const messages = mocks.chat.mock.calls[1][0].messages
@@ -321,7 +548,7 @@ it('rejects DeepSeek continuation errors instead of returning partial success', 
     )
     .mockRejectedValueOnce(new Error('DeepSeek unavailable'))
   await expect(
-    deepseekProvider.executeRequest(request('deepseek-v4-flash', { tools: [tool] }))
+    deepseekProvider.executeRequest(request('deepseek-flash', { tools: [tool] }))
   ).rejects.toThrow('DeepSeek unavailable')
   expect(mocks.chat).toHaveBeenCalledTimes(2)
 })
@@ -329,7 +556,7 @@ it('rejects DeepSeek continuation errors instead of returning partial success', 
 it.each([
   {
     provider: anthropicProvider,
-    model: 'claude-opus-4-6',
+    model: 'claude-opus-5-5',
     stream: false,
     streamToolCalls: false,
   },
@@ -341,7 +568,7 @@ it.each([
   },
   {
     provider: anthropicProvider,
-    model: 'claude-sonnet-5',
+    model: 'claude-sonnet-5-5',
     stream: true,
     streamToolCalls: true,
   },
@@ -376,7 +603,7 @@ it.each([
     expect(mocks.tool).toHaveBeenCalledWith(tool.id, expect.any(Object))
     expect(mocks.claude).toHaveBeenCalledTimes(2)
     const initial = mocks.claude.mock.calls[0][0]
-    expect(initial.tool_choice).toEqual({ type: 'tool', name: tool.id })
+    expect(initial.tool_choice).toBeUndefined()
     expect(mocks.claude.mock.calls[1][0].tool_choice).toBeUndefined()
     expect(initial.messages[1].content[0]).toMatchObject({ type: 'tool_use', id: 'previous' })
     expect(initial.messages[2].content[0]).toMatchObject({
@@ -408,7 +635,7 @@ it.each([
 )
 
 it.each([
-  { provider: anthropicProvider, model: 'claude-opus-4-6', unknown: true },
+  { provider: anthropicProvider, model: 'claude-opus-5-5', unknown: true },
   { provider: azureAnthropicProvider, model: 'azure-anthropic/claude-opus-4-6', unknown: false },
 ])(
   'pairs every replayed tool call with a result for $provider.id',
@@ -448,8 +675,8 @@ it.each([
 )
 
 it.each([
-  { provider: anthropicProvider, model: 'claude-sonnet-5' },
-  { provider: azureAnthropicProvider, model: 'azure-anthropic/claude-opus-4-6' },
+  { provider: anthropicProvider, model: 'claude-haiku-5-5' },
+  { provider: azureAnthropicProvider, model: 'azure-anthropic/claude-haiku-5-5' },
 ])(
   'sequences forced tools with adaptive thinking for $provider.id',
   async ({ provider, model }) => {
@@ -483,7 +710,7 @@ it.each([
 )
 
 const manualThinkingProviders = [
-  { provider: anthropicProvider, model: 'claude-sonnet-4-5' },
+  { provider: anthropicProvider, model: 'claude-haiku-4-5' },
   { provider: azureAnthropicProvider, model: 'azure-anthropic/claude-sonnet-4-5' },
 ]
 
@@ -506,7 +733,7 @@ it.each(manualThinkingProviders)(
 )
 
 it.each([
-  { provider: anthropicProvider, model: 'claude-sonnet-4-5', stream: false },
+  { provider: anthropicProvider, model: 'claude-haiku-4-5', stream: false },
   {
     provider: azureAnthropicProvider,
     model: 'azure-anthropic/claude-sonnet-4-5',
@@ -559,7 +786,7 @@ it.each([
 
 it('returns the completed Claude answer when configured tools are unused', async () => {
   const result = await anthropicProvider.executeRequest(
-    request('claude-sonnet-5', { stream: true, maxTokens: 4096, tools: [tool] })
+    request('claude-sonnet-5-5', { stream: true, maxTokens: 4096, tools: [tool] })
   )
   expect(mocks.claude).toHaveBeenCalledTimes(1)
   expect(mocks.tool).not.toHaveBeenCalled()
@@ -568,7 +795,7 @@ it('returns the completed Claude answer when configured tools are unused', async
 
 it('streams Claude text when tools are absent', async () => {
   const result = await anthropicProvider.executeRequest(
-    request('claude-sonnet-5', { stream: true, maxTokens: 4096 })
+    request('claude-sonnet-5-5', { stream: true, maxTokens: 4096 })
   )
   if (!('stream' in result)) throw new Error('Expected streaming execution')
   expect(await new Response(result.stream).text()).toBe('Done')
@@ -579,7 +806,7 @@ it('streams Claude text when tools are absent', async () => {
 
 it('omits Claude tools disabled by usage control', async () => {
   await anthropicProvider.executeRequest(
-    request('claude-sonnet-5', { tools: [{ ...tool, usageControl: 'none' }], maxTokens: 4096 })
+    request('claude-sonnet-5-5', { tools: [{ ...tool, usageControl: 'none' }], maxTokens: 4096 })
   )
   expect(mocks.claude.mock.calls[0][0].tools).toBeUndefined()
   expect(mocks.claude.mock.calls[0][0].tool_choice).toBeUndefined()
@@ -588,7 +815,7 @@ it('omits Claude tools disabled by usage control', async () => {
 
 it.each([undefined, 0])('keeps optional Claude temperature %j', async (temperature) => {
   await anthropicProvider.executeRequest(
-    request('claude-sonnet-4-5', { temperature, maxTokens: 4096 })
+    request('claude-haiku-4-5', { temperature, maxTokens: 4096 })
   )
   const payload = mocks.claude.mock.calls[0][0]
   expect(payload.temperature).toBe(temperature)

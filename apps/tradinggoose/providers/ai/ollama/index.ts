@@ -9,6 +9,8 @@ import type {
   TimeSegment,
 } from '@/providers/ai/types'
 import {
+  calculateCost,
+  createOpenAICompatibleStream,
   prepareToolExecution,
   prepareToolsWithUsageControl,
   trackForcedToolUsage,
@@ -16,46 +18,6 @@ import {
 import { executeTool } from '@/tools'
 
 const logger = createLogger('OllamaProvider')
-
-/**
- * Helper function to convert an Ollama stream to a standard ReadableStream
- * and collect completion metrics
- */
-function createReadableStreamFromOllamaStream(
-  ollamaStream: any,
-  onComplete?: (content: string, usage?: any) => void
-): ReadableStream {
-  let fullContent = ''
-  let usageData: any = null
-
-  return new ReadableStream({
-    async start(controller) {
-      try {
-        for await (const chunk of ollamaStream) {
-          // Check for usage data in the final chunk
-          if (chunk.usage) {
-            usageData = chunk.usage
-          }
-
-          const content = chunk.choices[0]?.delta?.content || ''
-          if (content) {
-            fullContent += content
-            controller.enqueue(new TextEncoder().encode(content))
-          }
-        }
-
-        // Once stream is complete, call the completion callback with the final content and usage
-        if (onComplete) {
-          onComplete(fullContent, usageData)
-        }
-
-        controller.close()
-      } catch (error) {
-        controller.error(error)
-      }
-    },
-  })
-}
 
 export const ollamaProvider: ProviderConfig = {
   id: 'ollama',
@@ -195,46 +157,50 @@ export const ollamaProvider: ProviderConfig = {
 
         // Create a StreamingExecution response with a callback to update content and tokens
         const streamingResult = {
-          stream: createReadableStreamFromOllamaStream(streamResponse, (content, usage) => {
-            // Update the execution data with the final content and token usage
-            streamingResult.execution.output.content = content
-
-            // Clean up the response content
-            if (content) {
+          stream: createOpenAICompatibleStream(
+            streamResponse as any,
+            'Ollama',
+            (content, usage) => {
+              // Update the execution data with the final content and token usage
               streamingResult.execution.output.content = content
-                .replace(/```json\n?|\n?```/g, '')
-                .trim()
-            }
 
-            // Update the timing information with the actual completion time
-            const streamEndTime = Date.now()
-            const streamEndTimeISO = new Date(streamEndTime).toISOString()
+              // Clean up the response content
+              if (content) {
+                streamingResult.execution.output.content = content
+                  .replace(/```json\n?|\n?```/g, '')
+                  .trim()
+              }
 
-            if (streamingResult.execution.output.providerTiming) {
-              streamingResult.execution.output.providerTiming.endTime = streamEndTimeISO
-              streamingResult.execution.output.providerTiming.duration =
-                streamEndTime - providerStartTime
+              // Update the timing information with the actual completion time
+              const streamEndTime = Date.now()
+              const streamEndTimeISO = new Date(streamEndTime).toISOString()
 
-              // Update the time segment as well
-              if (streamingResult.execution.output.providerTiming.timeSegments?.[0]) {
-                streamingResult.execution.output.providerTiming.timeSegments[0].endTime =
-                  streamEndTime
-                streamingResult.execution.output.providerTiming.timeSegments[0].duration =
+              if (streamingResult.execution.output.providerTiming) {
+                streamingResult.execution.output.providerTiming.endTime = streamEndTimeISO
+                streamingResult.execution.output.providerTiming.duration =
                   streamEndTime - providerStartTime
+
+                // Update the time segment as well
+                if (streamingResult.execution.output.providerTiming.timeSegments?.[0]) {
+                  streamingResult.execution.output.providerTiming.timeSegments[0].endTime =
+                    streamEndTime
+                  streamingResult.execution.output.providerTiming.timeSegments[0].duration =
+                    streamEndTime - providerStartTime
+                }
+              }
+
+              // Update token usage if available from the stream
+              if (usage) {
+                const newTokens = {
+                  prompt: usage.prompt_tokens || tokenUsage.prompt,
+                  completion: usage.completion_tokens || tokenUsage.completion,
+                  total: usage.total_tokens || tokenUsage.total,
+                }
+
+                streamingResult.execution.output.tokens = newTokens
               }
             }
-
-            // Update token usage if available from the stream
-            if (usage) {
-              const newTokens = {
-                prompt: usage.prompt_tokens || tokenUsage.prompt,
-                completion: usage.completion_tokens || tokenUsage.completion,
-                total: usage.total_tokens || tokenUsage.total,
-              }
-
-              streamingResult.execution.output.tokens = newTokens
-            }
-          }),
+          ),
           execution: {
             success: true,
             output: {
@@ -522,28 +488,32 @@ export const ollamaProvider: ProviderConfig = {
 
         // Create the StreamingExecution object with all collected data
         const streamingResult = {
-          stream: createReadableStreamFromOllamaStream(streamResponse, (content, usage) => {
-            // Update the execution data with the final content and token usage
-            streamingResult.execution.output.content = content
-
-            // Clean up the response content
-            if (content) {
+          stream: createOpenAICompatibleStream(
+            streamResponse as any,
+            'Ollama',
+            (content, usage) => {
+              // Update the execution data with the final content and token usage
               streamingResult.execution.output.content = content
-                .replace(/```json\n?|\n?```/g, '')
-                .trim()
-            }
 
-            // Update token usage if available from the stream
-            if (usage) {
-              const newTokens = {
-                prompt: usage.prompt_tokens || tokens.prompt,
-                completion: usage.completion_tokens || tokens.completion,
-                total: usage.total_tokens || tokens.total,
+              // Clean up the response content
+              if (content) {
+                streamingResult.execution.output.content = content
+                  .replace(/```json\n?|\n?```/g, '')
+                  .trim()
               }
 
-              streamingResult.execution.output.tokens = newTokens
+              // Update token usage if available from the stream
+              if (usage) {
+                const newTokens = {
+                  prompt: usage.prompt_tokens || tokens.prompt,
+                  completion: usage.completion_tokens || tokens.completion,
+                  total: usage.total_tokens || tokens.total,
+                }
+
+                streamingResult.execution.output.tokens = newTokens
+              }
             }
-          }),
+          ),
           execution: {
             success: true,
             output: {
@@ -594,6 +564,7 @@ export const ollamaProvider: ProviderConfig = {
         content,
         model: request.model,
         tokens,
+        cost: calculateCost(request.model, tokens.prompt, tokens.completion, !!request.context),
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         toolResults: toolResults.length > 0 ? toolResults : undefined,
         timing: {

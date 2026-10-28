@@ -77,11 +77,8 @@ export function checkForForcedToolUsage(
  * @returns The inference profile ID (e.g., "us.anthropic.claude-sonnet-4-5-20250929-v1:0")
  */
 export function getBedrockInferenceProfileId(modelId: string, region: string): string {
-  const baseModelId = modelId.startsWith('bedrock/') ? modelId.slice(8) : modelId
-
-  if (/^(us-gov|us|eu|apac|au|ca|jp|global)\./.test(baseModelId)) {
-    return baseModelId
-  }
+  if (!modelId.startsWith('bedrock/')) throw new Error(`Invalid Bedrock model ID: ${modelId}`)
+  const baseModelId = modelId.slice('bedrock/'.length)
 
   let inferencePrefix: string
   if (region.startsWith('us-gov-')) {
@@ -97,7 +94,7 @@ export function getBedrockInferenceProfileId(modelId: string, region: string): s
   } else if (region.startsWith('af-')) {
     inferencePrefix = 'eu'
   } else {
-    inferencePrefix = 'us'
+    throw new Error(`Unsupported Bedrock region: ${region}`)
   }
 
   return `${inferencePrefix}.${baseModelId}`

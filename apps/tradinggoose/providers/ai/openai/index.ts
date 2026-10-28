@@ -10,15 +10,16 @@ import type {
 } from '@/providers/ai/types'
 import {
   calculateCost,
+  createModelCost,
   createOpenAICompatibleStream,
   prepareToolExecution,
   prepareToolsWithUsageControl,
   trackForcedToolUsage,
+  withToolCosts,
 } from '@/providers/ai/utils'
 import { executeTool } from '@/tools'
 
 const logger = createLogger('OpenAIProvider')
-const DEFAULT_MODEL = getProviderDefaultModel('openai')
 
 /**
  * OpenAI provider configuration
@@ -29,12 +30,12 @@ export const openaiProvider: ProviderConfig = {
   description: "OpenAI's GPT models",
   version: '1.0.0',
   models: getProviderModels('openai'),
-  defaultModel: DEFAULT_MODEL,
+  defaultModel: getProviderDefaultModel('openai'),
 
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {
-    const model = request.model || DEFAULT_MODEL
+    const model = request.model
 
     logger.info('Preparing OpenAI request', {
       model,
@@ -230,7 +231,6 @@ export const openaiProvider: ProviderConfig = {
                   },
                 ],
               },
-              // Cost will be calculated in logger
             },
             logs: [], // No block logs for direct streaming
             metadata: {
@@ -279,14 +279,15 @@ export const openaiProvider: ProviderConfig = {
       const firstResponseTime = Date.now() - initialCallTime
 
       let content = currentResponse.choices[0]?.message?.content || ''
-      // Collect token information but don't calculate costs - that will be done in logger.ts
       const tokens = {
         prompt: currentResponse.usage?.prompt_tokens || 0,
         completion: currentResponse.usage?.completion_tokens || 0,
         total: currentResponse.usage?.total_tokens || 0,
       }
+      const cost = createModelCost(model, !!request.context)
+      cost.add(tokens.prompt, tokens.completion)
       const toolCalls = []
-      const toolResults = []
+      const toolResults: Record<string, unknown>[] = []
       const currentMessages = [...allMessages]
       let iterationCount = 0
       const MAX_ITERATIONS = 10 // Prevent infinite loops
@@ -469,6 +470,10 @@ export const openaiProvider: ProviderConfig = {
           tokens.prompt += currentResponse.usage.prompt_tokens || 0
           tokens.completion += currentResponse.usage.completion_tokens || 0
           tokens.total += currentResponse.usage.total_tokens || 0
+          cost.add(
+            currentResponse.usage.prompt_tokens || 0,
+            currentResponse.usage.completion_tokens || 0
+          )
         }
 
         iterationCount++
@@ -500,18 +505,13 @@ export const openaiProvider: ProviderConfig = {
 
               // Update token usage if available from the stream
               if (usage) {
-                const newTokens = {
-                  prompt: usage.prompt_tokens || tokens.prompt,
-                  completion: usage.completion_tokens || tokens.completion,
-                  total: usage.total_tokens || tokens.total,
+                cost.add(usage.prompt_tokens || 0, usage.completion_tokens || 0)
+                streamingResult.execution.output.tokens = {
+                  prompt: tokens.prompt + (usage.prompt_tokens || 0),
+                  completion: tokens.completion + (usage.completion_tokens || 0),
+                  total: tokens.total + (usage.total_tokens || 0),
                 }
-
-                streamingResult.execution.output.tokens = newTokens
-                streamingResult.execution.output.cost = calculateCost(
-                  model,
-                  newTokens.prompt,
-                  newTokens.completion
-                )
+                streamingResult.execution.output.cost = withToolCosts(cost.value, toolResults)
               }
             }
           ),
@@ -525,6 +525,7 @@ export const openaiProvider: ProviderConfig = {
                 completion: tokens.completion,
                 total: tokens.total,
               },
+              cost: withToolCosts(cost.value, toolResults),
               toolCalls:
                 toolCalls.length > 0
                   ? {
@@ -542,7 +543,6 @@ export const openaiProvider: ProviderConfig = {
                 iterations: iterationCount + 1,
                 timeSegments: timeSegments,
               },
-              // Cost will be calculated in logger
             },
             logs: [], // No block logs at provider level
             metadata: {
@@ -566,6 +566,7 @@ export const openaiProvider: ProviderConfig = {
         content,
         model,
         tokens,
+        cost: cost.value,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         toolResults: toolResults.length > 0 ? toolResults : undefined,
         timing: {
@@ -578,7 +579,6 @@ export const openaiProvider: ProviderConfig = {
           iterations: iterationCount + 1,
           timeSegments: timeSegments,
         },
-        // We're not calculating cost here as it will be handled in logger.ts
       }
     } catch (error) {
       // Include timing information even for errors

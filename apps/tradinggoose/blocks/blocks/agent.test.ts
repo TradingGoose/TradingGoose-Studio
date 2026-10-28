@@ -53,13 +53,13 @@ describe('AgentBlock', () => {
 
   it.each([
     ['reasoningEffort', 'gpt-5.4', ['none', 'low', 'medium', 'high', 'xhigh']],
-    ['reasoningEffort', 'gpt-5.4-2026-03-05', ['none', 'low', 'medium', 'high', 'xhigh']],
-    ['verbosity', 'gpt-5.4-2026-03-05', ['low', 'medium', 'high']],
     ['reasoningEffort', 'gpt-5.6-sol', ['none', 'low', 'medium', 'high', 'xhigh', 'max']],
-    ['reasoningEffort', 'deepseek-v4-pro', ['high', 'max']],
-    ['thinkingLevel', 'claude-sonnet-5', ['low', 'medium', 'high', 'xhigh', 'max']],
-    ['thinkingLevel', 'claude-opus-4-5-20251101', ['low', 'medium', 'high']],
-    ['thinkingLevel', 'deepseek-v4-flash', ['none', 'enabled']],
+    ['reasoningEffort', 'gpt-6.1-sol', ['low', 'medium', 'high', 'xhigh', 'max']],
+    ['reasoningEffort', 'deepseek-v4-pro', ['low', 'high', 'max']],
+    ['thinkingLevel', 'claude-sonnet-5-5', ['none', 'low', 'medium', 'high', 'xhigh', 'max']],
+    ['thinkingLevel', 'claude-haiku-5-5', ['none', 'low', 'medium', 'high', 'xhigh', 'max']],
+    ['thinkingLevel', 'claude-haiku-4-5', ['low', 'medium', 'high']],
+    ['thinkingLevel', 'deepseek-flash', ['none', 'enabled']],
     ['thinkingLevel', 'gemini-2.5-flash', ['none', 'low', 'medium', 'high']],
     ['thinkingLevel', 'gemini-2.5-flash-lite', ['none', 'low', 'medium', 'high']],
     ['thinkingLevel', 'vertex/gemini-2.5-flash', ['none', 'low', 'medium', 'high']],
@@ -81,8 +81,8 @@ describe('AgentBlock', () => {
     ['thinkingLevel', 'gpt-4.1'],
     ['thinkingLevel', 'unknown-model'],
     ['thinkingLevel', undefined],
-    ['reasoningEffort', 'claude-opus-4-5-20251101'],
-    ['verbosity', 'claude-opus-4-5-20251101'],
+    ['reasoningEffort', 'claude-haiku-4-5'],
+    ['verbosity', 'claude-haiku-4-5'],
   ])('hides unsupported %s controls for %s', (id, model) => {
     const field = AgentBlock.subBlocks.find((field) => field.id === id)!
     expect(evaluateSubBlockConditionValues(field.condition, { model })).toBe(false)
@@ -95,7 +95,7 @@ describe('AgentBlock', () => {
 
   it.each([
     ['gpt-4.1', 2],
-    ['claude-sonnet-4-5', 1],
+    ['claude-haiku-4-5', 1],
     ['mistral-large-latest', 1.5],
   ] as const)('uses a clearable temperature slider for %s', (model, max) => {
     const fields = inspectorLayout(model)
@@ -115,7 +115,7 @@ describe('AgentBlock', () => {
       and: { field: 'enabled', value: true },
     }
     const restored = JSON.parse(JSON.stringify(condition))
-    const values = { model: { id: 'claude-opus-4-5-20251101' }, enabled: true }
+    const values = { model: { id: 'claude-haiku-4-5' }, enabled: true }
     expect(evaluateSubBlockConditionValues(restored, values)).toBe(true)
     expect(evaluateSubBlockConditionValues(restored, { ...values, enabled: false })).toBe(false)
     expect(evaluateSubBlockConditionValues({ ...condition, not: true }, values)).toBe(false)

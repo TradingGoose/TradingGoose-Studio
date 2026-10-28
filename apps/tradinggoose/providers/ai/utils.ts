@@ -7,27 +7,11 @@ import {
 } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { ExecutionSubmissionSource } from '@/executor/types'
-import {
-  getEmbeddingModelPricing,
-  getModelCapabilities,
-  getModelPricing,
-} from '@/providers/ai/models'
-import type { ProviderToolConfig } from '@/providers/ai/types'
+import { getModelCapabilities, getModelPricing } from '@/providers/ai/models'
+import type { ProviderResponse, ProviderToolConfig } from '@/providers/ai/types'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 
 const logger = createLogger('ProviderUtils')
-
-export function generateSchemaInstructions(schema: any, schemaName?: string): string {
-  const name = schemaName || 'response'
-  return `IMPORTANT: You must respond with a valid JSON object that conforms to the following schema.
-Do not include any text before or after the JSON object. Only output the JSON.
-
-Schema name: ${name}
-JSON Schema:
-${JSON.stringify(schema, null, 2)}
-
-Your response must be valid JSON that exactly matches this schema structure.`
-}
 
 /**
  * Transforms a custom tool schema into a provider tool config
@@ -166,38 +150,35 @@ export async function transformBlockTool(
  * @param promptTokens Number of prompt tokens used
  * @param completionTokens Number of completion tokens used
  * @param useCachedInput Whether to use cached input pricing (default: false)
- * @param customMultiplier Optional custom multiplier to override the default cost multiplier
  * @returns Cost calculation results with input, output and total costs
  */
 export function calculateCost(
   model: string,
   promptTokens = 0,
   completionTokens = 0,
-  useCachedInput = false,
-  inputMultiplier?: number,
-  outputMultiplier?: number
+  useCachedInput = false
 ) {
-  // First check if it's an embedding model
-  let pricing = getEmbeddingModelPricing(model)
+  let pricing = getModelPricing(model)
 
-  // If not found, check chat models
   if (!pricing) {
-    pricing = getModelPricing(model)
-  }
-
-  // If no pricing found, return default pricing
-  if (!pricing) {
-    const defaultPricing = {
-      input: 1.0,
-      cachedInput: 0.5,
-      output: 5.0,
-      updatedAt: '2025-03-21',
-    }
     return {
       input: 0,
       output: 0,
       total: 0,
-      pricing: defaultPricing,
+      pricing: null,
+    }
+  }
+
+  const tier = pricing.tiers
+    ?.slice()
+    .reverse()
+    .find(({ aboveInputTokens }) => promptTokens > aboveInputTokens)
+  if (tier) {
+    pricing = {
+      ...pricing,
+      input: tier.input,
+      cachedInput: tier.cachedInput,
+      output: tier.output,
     }
   }
 
@@ -205,35 +186,44 @@ export function calculateCost(
   // Convert from "per million tokens" to "per token" by dividing by 1,000,000
   const inputCost =
     promptTokens *
-    (useCachedInput && pricing.cachedInput
+    (useCachedInput && pricing.cachedInput !== undefined
       ? pricing.cachedInput / 1_000_000
       : pricing.input / 1_000_000)
 
   const outputCost = completionTokens * (pricing.output / 1_000_000)
-  const finalInputCost = inputCost * (inputMultiplier ?? 1)
-  const finalOutputCost = outputCost * (outputMultiplier ?? 1)
-  const finalTotalCost = finalInputCost + finalOutputCost
-
   return {
-    input: Number.parseFloat(finalInputCost.toFixed(8)), // Use 8 decimal places for small costs
-    output: Number.parseFloat(finalOutputCost.toFixed(8)),
-    total: Number.parseFloat(finalTotalCost.toFixed(8)),
+    input: Number.parseFloat(inputCost.toFixed(8)),
+    output: Number.parseFloat(outputCost.toFixed(8)),
+    total: Number.parseFloat((inputCost + outputCost).toFixed(8)),
     pricing,
   }
 }
 
-export function sumToolCosts(toolResults?: Record<string, unknown>[]): number {
-  if (!toolResults?.length) return 0
-
-  let total = 0
-  for (const toolResult of toolResults) {
-    const cost = toolResult?.cost as { total?: unknown } | undefined
-    if (typeof cost?.total === 'number') {
-      total += cost.total
-    }
+export function createModelCost(model: string, useCachedInput = false) {
+  const value = calculateCost(model)
+  return {
+    value,
+    add(input: number, output: number) {
+      const cost = calculateCost(model, input, output, useCachedInput)
+      value.input += cost.input
+      value.output += cost.output
+      value.total += cost.total
+      value.pricing = cost.pricing
+      return value
+    },
   }
+}
 
-  return total
+export function withToolCosts(
+  cost: ProviderResponse['cost'],
+  toolResults?: Record<string, unknown>[]
+): ProviderResponse['cost'] {
+  let toolCost = 0
+  for (const result of toolResults ?? []) {
+    const total = (result.cost as { total?: unknown } | undefined)?.total
+    if (typeof total === 'number') toolCost += total
+  }
+  return { ...cost, toolCost: toolCost || undefined, total: cost.input + cost.output + toolCost }
 }
 
 /**
@@ -274,7 +264,8 @@ export function prepareToolsWithUsageControl(
   tools: any[] | undefined,
   providerTools: any[] | undefined,
   logger: any,
-  provider?: string
+  provider?: string,
+  supportsForcedTools = true
 ): {
   tools: any[] | undefined
   toolChoice:
@@ -331,7 +322,9 @@ export function prepareToolsWithUsageControl(
   }
 
   // Get all tools that should be forced
-  const forcedTools = providerTools?.filter((tool) => tool.usageControl === 'force') || []
+  const forcedTools = supportsForcedTools
+    ? providerTools?.filter((tool) => tool.usageControl === 'force') || []
+    : []
   const forcedToolIds = forcedTools.map((tool) => tool.id)
 
   // Determine tool_choice setting
@@ -556,9 +549,9 @@ export function isDeepResearchModel(model: string): boolean {
   return getModelCapabilities(model)?.deepResearch ?? false
 }
 
-export function isGemini3Model(model: string): boolean {
+export function isGemini3OrLaterModel(model: string): boolean {
   const normalizedModel = model.toLowerCase().replace(/^vertex\//, '')
-  return normalizedModel.startsWith('gemini-3')
+  return Number(normalizedModel.match(/^gemini-(\d+)(?:[.-]|$)/)?.[1]) >= 3
 }
 
 /**
@@ -616,7 +609,7 @@ export function prepareToolExecution(
 }
 
 export function createOpenAICompatibleStream(
-  stream: AsyncIterable<ChatCompletionChunk>,
+  stream: AsyncIterable<ChatCompletionChunk & { x_groq?: { usage?: CompletionUsage } }>,
   providerName: string,
   onComplete?: (content: string, usage: CompletionUsage) => void
 ): ReadableStream<Uint8Array> {
@@ -630,10 +623,11 @@ export function createOpenAICompatibleStream(
     async start(controller) {
       try {
         for await (const chunk of stream) {
-          if (chunk.usage) {
-            promptTokens = chunk.usage.prompt_tokens ?? 0
-            completionTokens = chunk.usage.completion_tokens ?? 0
-            totalTokens = chunk.usage.total_tokens ?? 0
+          const usage = chunk.x_groq ? chunk.x_groq.usage : chunk.usage
+          if (usage) {
+            promptTokens = usage.prompt_tokens ?? 0
+            completionTokens = usage.completion_tokens ?? 0
+            totalTokens = usage.total_tokens ?? 0
           }
 
           const content = chunk.choices?.[0]?.delta?.content || ''

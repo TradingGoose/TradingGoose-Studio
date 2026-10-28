@@ -3,7 +3,6 @@ import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { BlockConfig, ParamType } from '@/blocks/types'
 import {
-  getHostedModels,
   getProviderDefaultModel,
   getProviderFromModel,
   getProviderIcon,
@@ -210,11 +209,7 @@ export const EvaluatorBlock: BlockConfig<EvaluatorResponse> = {
       connectionDroppable: false,
       required: true,
       condition: isHosted
-        ? {
-            field: 'model',
-            value: getHostedModels(),
-            not: true, // Show for all models EXCEPT those listed
-          }
+        ? undefined
         : () => ({
             field: 'model',
             value: getCurrentOllamaModels(),

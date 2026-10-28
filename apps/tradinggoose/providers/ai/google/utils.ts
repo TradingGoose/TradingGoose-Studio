@@ -322,7 +322,7 @@ function mapToFunctionCallingMode(mode: string): FunctionCallingConfigMode {
     case 'NONE':
       return FunctionCallingConfigMode.NONE
     default:
-      return FunctionCallingConfigMode.AUTO
+      throw new Error(`Unknown Gemini function calling mode: ${mode}`)
   }
 }
 
@@ -330,7 +330,7 @@ function mapToFunctionCallingMode(mode: string): FunctionCallingConfigMode {
  * Maps string level to ThinkingLevel enum
  */
 export function mapToThinkingLevel(level: string): ThinkingLevel {
-  switch (level.toLowerCase()) {
+  switch (level) {
     case 'minimal':
       return ThinkingLevel.MINIMAL
     case 'low':
@@ -340,27 +340,26 @@ export function mapToThinkingLevel(level: string): ThinkingLevel {
     case 'high':
       return ThinkingLevel.HIGH
     default:
-      return ThinkingLevel.HIGH
+      throw new Error(`Unknown Gemini thinking level: ${level}`)
   }
 }
 
 const GEMINI_25_THINKING_BUDGETS: Record<string, Record<string, number>> = {
-  'gemini-2.5-pro': { minimal: 1024, low: 2048, medium: 8192, high: 32768 },
-  'gemini-2.5-flash': { minimal: 1024, low: 2048, medium: 8192, high: 24576 },
-  'gemini-2.5-flash-lite': { minimal: 1024, low: 1024, medium: 8192, high: 24576 },
+  'gemini-2.5-pro': { low: 2048, medium: 8192, high: 32768 },
+  'gemini-2.5-flash': { low: 2048, medium: 8192, high: 24576 },
+  'gemini-2.5-flash-lite': { low: 1024, medium: 8192, high: 24576 },
 }
 
 export function mapToThinkingBudget(model: string, level: string): number {
-  const normalizedModel = model.toLowerCase().replace(/^vertex\//, '')
-  const budgets = GEMINI_25_THINKING_BUDGETS[normalizedModel]
-  if (!budgets) return -1
-  return budgets[level.toLowerCase()] ?? budgets.minimal
+  const budget = GEMINI_25_THINKING_BUDGETS[model.replace(/^vertex\//, '')]?.[level]
+  if (budget === undefined) throw new Error(`Unknown Gemini thinking budget: ${model}/${level}`)
+  return budget
 }
 
 const GEMINI_25_MODELS_SUPPORTING_DISABLE = new Set(['gemini-2.5-flash', 'gemini-2.5-flash-lite'])
 
 export function supportsDisablingGemini25Thinking(model: string): boolean {
-  return GEMINI_25_MODELS_SUPPORTING_DISABLE.has(model.toLowerCase().replace(/^vertex\//, ''))
+  return GEMINI_25_MODELS_SUPPORTING_DISABLE.has(model.replace(/^vertex\//, ''))
 }
 
 /**

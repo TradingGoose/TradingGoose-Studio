@@ -9,6 +9,8 @@ import type {
   TimeSegment,
 } from '@/providers/ai/types'
 import {
+  calculateCost,
+  createOpenAICompatibleStream,
   prepareToolExecution,
   prepareToolsWithUsageControl,
   trackForcedToolUsage,
@@ -16,40 +18,6 @@ import {
 import { executeTool } from '@/tools'
 
 const logger = createLogger('MistralProvider')
-
-function createReadableStreamFromMistralStream(
-  mistralStream: any,
-  onComplete?: (content: string, usage?: any) => void
-): ReadableStream {
-  let fullContent = ''
-  let usageData: any = null
-
-  return new ReadableStream({
-    async start(controller) {
-      try {
-        for await (const chunk of mistralStream) {
-          if (chunk.usage) {
-            usageData = chunk.usage
-          }
-
-          const content = chunk.choices[0]?.delta?.content || ''
-          if (content) {
-            fullContent += content
-            controller.enqueue(new TextEncoder().encode(content))
-          }
-        }
-
-        if (onComplete) {
-          onComplete(fullContent, usageData)
-        }
-
-        controller.close()
-      } catch (error) {
-        controller.error(error)
-      }
-    },
-  })
-}
 
 /**
  * Mistral AI provider configuration
@@ -66,7 +34,7 @@ export const mistralProvider: ProviderConfig = {
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {
     logger.info('Preparing Mistral request', {
-      model: request.model || 'mistral-large-latest',
+      model: request.model,
       hasSystemPrompt: !!request.systemPrompt,
       hasMessages: !!request.messages?.length,
       hasTools: !!request.tools?.length,
@@ -116,7 +84,7 @@ export const mistralProvider: ProviderConfig = {
       : undefined
 
     const payload: any = {
-      model: request.model || 'mistral-large-latest',
+      model: request.model,
       messages: allMessages,
     }
 
@@ -128,7 +96,7 @@ export const mistralProvider: ProviderConfig = {
         type: 'json_schema',
         json_schema: {
           name: request.responseFormat.name || 'response_schema',
-          schema: request.responseFormat.schema || request.responseFormat,
+          schema: request.responseFormat.schema,
           strict: request.responseFormat.strict !== false,
         },
       }
@@ -158,7 +126,7 @@ export const mistralProvider: ProviderConfig = {
                   : toolChoice.type === 'any'
                     ? `force:${toolChoice.any?.name || 'unknown'}`
                     : 'unknown',
-          model: request.model || 'mistral-large-latest',
+          model: request.model,
         })
       }
     }
@@ -185,36 +153,40 @@ export const mistralProvider: ProviderConfig = {
         let _streamContent = ''
 
         const streamingResult = {
-          stream: createReadableStreamFromMistralStream(streamResponse, (content, usage) => {
-            _streamContent = content
-            streamingResult.execution.output.content = content
+          stream: createOpenAICompatibleStream(
+            streamResponse as any,
+            'Mistral',
+            (content, usage) => {
+              _streamContent = content
+              streamingResult.execution.output.content = content
 
-            const streamEndTime = Date.now()
-            const streamEndTimeISO = new Date(streamEndTime).toISOString()
+              const streamEndTime = Date.now()
+              const streamEndTimeISO = new Date(streamEndTime).toISOString()
 
-            if (streamingResult.execution.output.providerTiming) {
-              streamingResult.execution.output.providerTiming.endTime = streamEndTimeISO
-              streamingResult.execution.output.providerTiming.duration =
-                streamEndTime - providerStartTime
-
-              if (streamingResult.execution.output.providerTiming.timeSegments?.[0]) {
-                streamingResult.execution.output.providerTiming.timeSegments[0].endTime =
-                  streamEndTime
-                streamingResult.execution.output.providerTiming.timeSegments[0].duration =
+              if (streamingResult.execution.output.providerTiming) {
+                streamingResult.execution.output.providerTiming.endTime = streamEndTimeISO
+                streamingResult.execution.output.providerTiming.duration =
                   streamEndTime - providerStartTime
+
+                if (streamingResult.execution.output.providerTiming.timeSegments?.[0]) {
+                  streamingResult.execution.output.providerTiming.timeSegments[0].endTime =
+                    streamEndTime
+                  streamingResult.execution.output.providerTiming.timeSegments[0].duration =
+                    streamEndTime - providerStartTime
+                }
+              }
+
+              if (usage) {
+                const newTokens = {
+                  prompt: usage.prompt_tokens || tokenUsage.prompt,
+                  completion: usage.completion_tokens || tokenUsage.completion,
+                  total: usage.total_tokens || tokenUsage.total,
+                }
+
+                streamingResult.execution.output.tokens = newTokens
               }
             }
-
-            if (usage) {
-              const newTokens = {
-                prompt: usage.prompt_tokens || tokenUsage.prompt,
-                completion: usage.completion_tokens || tokenUsage.completion,
-                total: usage.total_tokens || tokenUsage.total,
-              }
-
-              streamingResult.execution.output.tokens = newTokens
-            }
-          }),
+          ),
           execution: {
             success: true,
             output: {
@@ -463,20 +435,24 @@ export const mistralProvider: ProviderConfig = {
         let _streamContent = ''
 
         const streamingResult = {
-          stream: createReadableStreamFromMistralStream(streamResponse, (content, usage) => {
-            _streamContent = content
-            streamingResult.execution.output.content = content
+          stream: createOpenAICompatibleStream(
+            streamResponse as any,
+            'Mistral',
+            (content, usage) => {
+              _streamContent = content
+              streamingResult.execution.output.content = content
 
-            if (usage) {
-              const newTokens = {
-                prompt: usage.prompt_tokens || tokens.prompt,
-                completion: usage.completion_tokens || tokens.completion,
-                total: usage.total_tokens || tokens.total,
+              if (usage) {
+                const newTokens = {
+                  prompt: usage.prompt_tokens || tokens.prompt,
+                  completion: usage.completion_tokens || tokens.completion,
+                  total: usage.total_tokens || tokens.total,
+                }
+
+                streamingResult.execution.output.tokens = newTokens
               }
-
-              streamingResult.execution.output.tokens = newTokens
             }
-          }),
+          ),
           execution: {
             success: true,
             output: {
@@ -525,6 +501,7 @@ export const mistralProvider: ProviderConfig = {
         content,
         model: request.model,
         tokens,
+        cost: calculateCost(request.model, tokens.prompt, tokens.completion, !!request.context),
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         toolResults: toolResults.length > 0 ? toolResults : undefined,
         timing: {

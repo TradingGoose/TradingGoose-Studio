@@ -36,7 +36,6 @@ export async function GET() {
     const data = (await response.json()) as OpenRouterResponse
     const pricing: Record<string, ModelPricing> = {}
     const allModels: string[] = []
-    const updatedAt = new Date().toISOString().split('T')[0]
 
     for (const model of data.data) {
       const modelId = `openrouter/${model.id}`
@@ -45,7 +44,7 @@ export async function GET() {
       const input = Number.parseFloat(model.pricing?.prompt ?? '')
       const output = Number.parseFloat(model.pricing?.completion ?? '')
       if (Number.isFinite(input) && input >= 0 && Number.isFinite(output) && output >= 0) {
-        pricing[modelId] = { input: input * 1_000_000, output: output * 1_000_000, updatedAt }
+        pricing[modelId] = { input: input * 1_000_000, output: output * 1_000_000 }
       }
     }
 

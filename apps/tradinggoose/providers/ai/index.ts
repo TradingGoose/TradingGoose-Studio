@@ -11,12 +11,17 @@ import { fireworksProvider } from '@/providers/ai/fireworks'
 import { googleProvider } from '@/providers/ai/google'
 import { groqProvider } from '@/providers/ai/groq'
 import { mistralProvider } from '@/providers/ai/mistral'
-import { getMaxTemperature, MODEL_CONTROL_GETTERS, type ModelControl } from '@/providers/ai/models'
+import {
+  getMaxTemperature,
+  getProviderFromModel,
+  MODEL_CONTROL_GETTERS,
+  type ModelControl,
+} from '@/providers/ai/models'
 import { ollamaProvider } from '@/providers/ai/ollama'
 import { openaiProvider } from '@/providers/ai/openai'
 import { openRouterProvider } from '@/providers/ai/openrouter'
 import type { ProviderConfig, ProviderRequest, ProviderResponse } from '@/providers/ai/types'
-import { calculateCost, sumToolCosts } from '@/providers/ai/utils'
+import { withToolCosts } from '@/providers/ai/utils'
 import { vertexProvider } from '@/providers/ai/vertex'
 import { vllmProvider } from '@/providers/ai/vllm'
 import { xAIProvider } from '@/providers/ai/xai'
@@ -113,6 +118,10 @@ export async function executeProviderRequest(
     throw new Error(`Provider not found: ${providerId}`)
   }
 
+  if (getProviderFromModel(request.model) !== providerId) {
+    throw new Error(`Model ${request.model} does not belong to provider ${providerId}`)
+  }
+
   const sanitizedRequest = sanitizeRequest(request)
 
   // Execute the request using the provider's implementation
@@ -127,21 +136,15 @@ export async function executeProviderRequest(
   if (response.tokens) {
     const promptTokens = response.tokens.prompt ?? response.tokens.input ?? 0
     const completionTokens = response.tokens.completion ?? response.tokens.output ?? 0
-    const useCachedInput = !!request.context && request.context.length > 0
 
     response.tokens = {
       prompt: promptTokens,
       completion: completionTokens,
       total: response.tokens.total ?? promptTokens + completionTokens,
     }
-    const modelCost = calculateCost(response.model, promptTokens, completionTokens, useCachedInput)
-    const toolCost = sumToolCosts(response.toolResults)
-    response.cost = {
-      ...modelCost,
-      toolCost: toolCost || undefined,
-      total: modelCost.total + toolCost,
-    }
   }
+
+  response.cost = withToolCosts(response.cost, response.toolResults)
 
   return response
 }

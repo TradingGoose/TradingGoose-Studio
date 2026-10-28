@@ -2,7 +2,6 @@ import { TranslateIcon } from '@/components/icons/icons'
 import { isHosted } from '@/lib/environment'
 import { AuthMode, type BlockConfig } from '@/blocks/types'
 import {
-  getHostedModels,
   getProviderDefaultModel,
   getProviderFromModel,
   getProviderIcon,
@@ -84,13 +83,8 @@ export const TranslateBlock: BlockConfig = {
       password: true,
       connectionDroppable: false,
       required: true,
-      // Hide API key for hosted models and Ollama models
       condition: isHosted
-        ? {
-            field: 'model',
-            value: getHostedModels(),
-            not: true, // Show for all models EXCEPT those listed
-          }
+        ? undefined
         : () => ({
             field: 'model',
             value: getCurrentOllamaModels(),

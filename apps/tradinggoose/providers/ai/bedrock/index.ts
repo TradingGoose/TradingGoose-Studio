@@ -21,7 +21,11 @@ import {
 } from '@/providers/ai/bedrock/utils'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import { toError } from '@/providers/ai/error'
-import { getProviderDefaultModel, getProviderModels } from '@/providers/ai/models'
+import {
+  getModelCapabilities,
+  getProviderDefaultModel,
+  getProviderModels,
+} from '@/providers/ai/models'
 import type {
   FunctionCallResponse,
   ProviderConfig,
@@ -32,9 +36,10 @@ import type {
 import { ProviderError } from '@/providers/ai/types'
 import {
   calculateCost,
+  createModelCost,
   prepareToolExecution,
   prepareToolsWithUsageControl,
-  sumToolCosts,
+  withToolCosts,
 } from '@/providers/ai/utils'
 import { executeTool } from '@/tools'
 
@@ -53,6 +58,7 @@ export const bedrockProvider: ProviderConfig = {
   ): Promise<ProviderResponse | StreamingExecution> => {
     const region = request.bedrockRegion || 'us-east-1'
     const bedrockModelId = getBedrockInferenceProfileId(request.model, region)
+    const canForceTools = getModelCapabilities(request.model)?.forcedToolUse !== false
 
     logger.info('Bedrock request', {
       requestModel: request.model,
@@ -138,7 +144,11 @@ export const bedrockProvider: ProviderConfig = {
     let structuredOutputTool: Tool | undefined
     const structuredOutputToolName = 'structured_output'
 
-    if (request.responseFormat) {
+    if (request.responseFormat && !canForceTools) {
+      systemContent.push({
+        text: `Respond with only a valid JSON object matching this schema: ${JSON.stringify(request.responseFormat.schema)}`,
+      })
+    } else if (request.responseFormat) {
       const schema = request.responseFormat.schema
       const schemaName = request.responseFormat.name || 'response'
 
@@ -183,7 +193,8 @@ export const bedrockProvider: ProviderConfig = {
           })),
           request.tools,
           logger,
-          'bedrock'
+          'bedrock',
+          canForceTools
         )
 
         const { tools: filteredTools, toolChoice: tc } = preparedTools
@@ -419,17 +430,8 @@ export const bedrockProvider: ProviderConfig = {
           (currentResponse.usage?.inputTokens || 0) + (currentResponse.usage?.outputTokens || 0),
       }
 
-      const initialCost = calculateCost(
-        request.model,
-        currentResponse.usage?.inputTokens || 0,
-        currentResponse.usage?.outputTokens || 0
-      )
-      const cost = {
-        input: initialCost.input,
-        output: initialCost.output,
-        total: initialCost.total,
-        pricing: initialCost.pricing,
-      }
+      const modelCost = createModelCost(request.model)
+      const cost = modelCost.add(tokens.input, tokens.output)
 
       const toolCalls: FunctionCallResponse[] = []
       const toolResults: Record<string, unknown>[] = []
@@ -675,14 +677,10 @@ export const bedrockProvider: ProviderConfig = {
           tokens.total +=
             (currentResponse.usage.inputTokens || 0) + (currentResponse.usage.outputTokens || 0)
 
-          const iterationCost = calculateCost(
-            request.model,
+          modelCost.add(
             currentResponse.usage.inputTokens || 0,
             currentResponse.usage.outputTokens || 0
           )
-          cost.input += iterationCost.input
-          cost.output += iterationCost.output
-          cost.total += iterationCost.total
         }
 
         iterationCount++
@@ -740,14 +738,10 @@ export const bedrockProvider: ProviderConfig = {
             (structuredResponse.usage.inputTokens || 0) +
             (structuredResponse.usage.outputTokens || 0)
 
-          const structuredCost = calculateCost(
-            request.model,
+          modelCost.add(
             structuredResponse.usage.inputTokens || 0,
             structuredResponse.usage.outputTokens || 0
           )
-          cost.input += structuredCost.input
-          cost.output += structuredCost.output
-          cost.total += structuredCost.total
         }
       }
 
@@ -813,14 +807,8 @@ export const bedrockProvider: ProviderConfig = {
                 total: tokens.total + usage.inputTokens + usage.outputTokens,
               }
 
-              const streamCost = calculateCost(request.model, usage.inputTokens, usage.outputTokens)
-              const tc = sumToolCosts(toolResults)
-              streamingResult.execution.output.cost = {
-                input: cost.input + streamCost.input,
-                output: cost.output + streamCost.output,
-                toolCost: tc || undefined,
-                total: cost.total + streamCost.total + tc,
-              }
+              modelCost.add(usage.inputTokens, usage.outputTokens)
+              streamingResult.execution.output.cost = withToolCosts(cost, toolResults)
 
               const streamEndTime = Date.now()
               const streamEndTimeISO = new Date(streamEndTime).toISOString()
@@ -859,12 +847,7 @@ export const bedrockProvider: ProviderConfig = {
                 iterations: iterationCount + 1,
                 timeSegments,
               },
-              cost: {
-                input: cost.input,
-                output: cost.output,
-                toolCost: undefined as number | undefined,
-                total: cost.total,
-              },
+              cost: withToolCosts(cost, toolResults),
             },
             logs: [],
             metadata: {
@@ -883,12 +866,7 @@ export const bedrockProvider: ProviderConfig = {
         content,
         model: request.model,
         tokens,
-        cost: {
-          input: cost.input,
-          output: cost.output,
-          total: cost.total,
-          pricing: cost.pricing,
-        },
+        cost,
         toolCalls:
           toolCalls.length > 0
             ? toolCalls.map((tc) => ({

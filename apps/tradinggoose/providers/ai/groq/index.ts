@@ -8,32 +8,15 @@ import type {
   ProviderResponse,
   TimeSegment,
 } from '@/providers/ai/types'
-import { prepareToolExecution } from '@/providers/ai/utils'
+import {
+  calculateCost,
+  createOpenAICompatibleStream,
+  prepareToolExecution,
+  withToolCosts,
+} from '@/providers/ai/utils'
 import { executeTool } from '@/tools'
 
 const logger = createLogger('GroqProvider')
-const DEFAULT_MODEL = getProviderDefaultModel('groq')
-
-/**
- * Helper to wrap Groq streaming into a browser-friendly ReadableStream
- * of raw assistant text chunks.
- */
-function createReadableStreamFromGroqStream(groqStream: any): ReadableStream {
-  return new ReadableStream({
-    async start(controller) {
-      try {
-        for await (const chunk of groqStream) {
-          if (chunk.choices[0]?.delta?.content) {
-            controller.enqueue(new TextEncoder().encode(chunk.choices[0].delta.content))
-          }
-        }
-        controller.close()
-      } catch (err) {
-        controller.error(err)
-      }
-    },
-  })
-}
 
 export const groqProvider: ProviderConfig = {
   id: 'groq',
@@ -41,7 +24,7 @@ export const groqProvider: ProviderConfig = {
   description: "Groq's LLM models with high-performance inference",
   version: '1.0.0',
   models: getProviderModels('groq'),
-  defaultModel: DEFAULT_MODEL,
+  defaultModel: getProviderDefaultModel('groq'),
 
   executeRequest: async (
     request: ProviderRequest
@@ -91,7 +74,7 @@ export const groqProvider: ProviderConfig = {
 
     // Build the request payload
     const payload: any = {
-      model: (request.model || DEFAULT_MODEL).replace('groq/', ''),
+      model: request.model.replace('groq/', ''),
       messages: allMessages,
     }
 
@@ -130,7 +113,7 @@ export const groqProvider: ProviderConfig = {
         logger.info('Groq request configuration:', {
           toolCount: filteredTools.length,
           toolChoice: 'auto', // Groq always uses auto
-          model: request.model || DEFAULT_MODEL,
+          model: request.model,
         })
       }
     }
@@ -158,12 +141,26 @@ export const groqProvider: ProviderConfig = {
 
       // Create a StreamingExecution response with a readable stream
       const streamingResult = {
-        stream: createReadableStreamFromGroqStream(streamResponse),
+        stream: createOpenAICompatibleStream(streamResponse as any, 'Groq', (content, usage) => {
+          const tokens = {
+            prompt: usage.prompt_tokens,
+            completion: usage.completion_tokens,
+            total: usage.total_tokens,
+          }
+          streamingResult.execution.output.content = content
+          streamingResult.execution.output.tokens = tokens
+          streamingResult.execution.output.cost = calculateCost(
+            request.model,
+            tokens.prompt,
+            tokens.completion,
+            !!request.context
+          )
+        }),
         execution: {
           success: true,
           output: {
             content: '', // Will be filled by streaming content in chat component
-            model: request.model || DEFAULT_MODEL,
+            model: request.model,
             tokens: tokenUsage,
             toolCalls: undefined,
             providerTiming: {
@@ -180,11 +177,7 @@ export const groqProvider: ProviderConfig = {
                 },
               ],
             },
-            cost: {
-              total: 0.0,
-              input: 0.0,
-              output: 0.0,
-            },
+            cost: calculateCost(request.model),
           },
           logs: [], // No block logs for direct streaming
           metadata: {
@@ -218,7 +211,7 @@ export const groqProvider: ProviderConfig = {
         total: currentResponse.usage?.total_tokens || 0,
       }
       const toolCalls = []
-      const toolResults = []
+      const toolResults: Record<string, unknown>[] = []
       const currentMessages = [...allMessages]
       let iterationCount = 0
       const MAX_ITERATIONS = 10 // Prevent infinite loops
@@ -391,14 +384,27 @@ export const groqProvider: ProviderConfig = {
 
         const streamResponse = await groq.chat.completions.create(streamingPayload)
 
+        const previousTokens = { ...tokens }
         // Create a StreamingExecution response with all collected data
         const streamingResult = {
-          stream: createReadableStreamFromGroqStream(streamResponse),
+          stream: createOpenAICompatibleStream(streamResponse as any, 'Groq', (content, usage) => {
+            const tokens = {
+              prompt: previousTokens.prompt + usage.prompt_tokens,
+              completion: previousTokens.completion + usage.completion_tokens,
+              total: previousTokens.total + usage.total_tokens,
+            }
+            streamingResult.execution.output.content = content
+            streamingResult.execution.output.tokens = tokens
+            streamingResult.execution.output.cost = withToolCosts(
+              calculateCost(request.model, tokens.prompt, tokens.completion, !!request.context),
+              toolResults
+            )
+          }),
           execution: {
             success: true,
             output: {
               content: '', // Will be filled by the callback
-              model: request.model || DEFAULT_MODEL,
+              model: request.model,
               tokens: {
                 prompt: tokens.prompt,
                 completion: tokens.completion,
@@ -421,11 +427,10 @@ export const groqProvider: ProviderConfig = {
                 iterations: iterationCount + 1,
                 timeSegments: timeSegments,
               },
-              cost: {
-                total: (tokens.total || 0) * 0.0001,
-                input: (tokens.prompt || 0) * 0.0001,
-                output: (tokens.completion || 0) * 0.0001,
-              },
+              cost: withToolCosts(
+                calculateCost(request.model, tokens.prompt, tokens.completion, !!request.context),
+                toolResults
+              ),
             },
             logs: [], // No block logs at provider level
             metadata: {
@@ -450,6 +455,7 @@ export const groqProvider: ProviderConfig = {
         content,
         model: request.model,
         tokens,
+        cost: calculateCost(request.model, tokens.prompt, tokens.completion, !!request.context),
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         toolResults: toolResults.length > 0 ? toolResults : undefined,
         timing: {

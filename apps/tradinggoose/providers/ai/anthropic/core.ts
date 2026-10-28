@@ -11,6 +11,7 @@ import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import { toError } from '@/providers/ai/error'
 import {
   getMaxOutputTokensForModel,
+  getModelCapabilities,
   getThinkingCapability,
   supportsTemperature,
 } from '@/providers/ai/models'
@@ -18,6 +19,7 @@ import type { ProviderRequest, ProviderResponse, TimeSegment } from '@/providers
 import { ProviderError } from '@/providers/ai/types'
 import {
   calculateCost,
+  createModelCost,
   prepareToolExecution,
   prepareToolsWithUsageControl,
 } from '@/providers/ai/utils'
@@ -29,6 +31,7 @@ import { executeTool } from '@/tools'
 export interface AnthropicProviderConfig {
   /** Human-readable label for logging */
   providerLabel: string
+  resolveWireModel?: (model: string) => string
   /** Factory function to create the Anthropic client */
   createClient: (apiKey: string, useNativeStructuredOutputs: boolean) => Anthropic
   /** Logger instance */
@@ -40,7 +43,10 @@ export interface AnthropicProviderConfig {
  * Adds fields not yet in the SDK: adaptive thinking, output_format, output_config.
  */
 interface AnthropicPayload extends Omit<Anthropic.Messages.MessageStreamParams, 'thinking'> {
-  thinking?: Anthropic.Messages.ThinkingConfigParam | { type: 'adaptive' }
+  thinking?:
+    | Anthropic.Messages.ThinkingConfigParam
+    | { type: 'adaptive' }
+    | { type: 'between_tools' }
   output_format?: { type: 'json_schema'; schema: Record<string, unknown> }
   output_config?: { effort: string }
 }
@@ -60,28 +66,17 @@ const THINKING_BUDGET_TOKENS: Record<string, number> = {
 
 /**
  * Checks if a model supports adaptive thinking (thinking.type: "adaptive").
- * Fable 5, Sonnet 5, Opus 5, Opus 4.8, and Opus 4.7 require adaptive thinking.
- * Opus 4.6 and Sonnet 4.6 support both extended and adaptive thinking — use adaptive.
- * Opus 4.5 supports effort but NOT adaptive thinking — it uses budget_tokens with type: "enabled".
+ * Claude 5 families and Opus 4.6–4.8 use adaptive thinking.
+ * Earlier Claude models use budget_tokens with type: "enabled".
  */
 function supportsAdaptiveThinking(modelId: string): boolean {
-  return [
-    'claude-fable-5',
-    'claude-sonnet-5',
-    'claude-opus-5',
-    'claude-opus-4-8',
-    'claude-opus-4-7',
-    'claude-opus-4-6',
-    'claude-sonnet-4-6',
-  ].includes(modelId)
+  return /(?:^|\/)claude-(?:fable-5|sonnet-5|haiku-5-5|opus-5|opus-4-[678]|sonnet-4-6)(?:-|$)/i.test(
+    modelId
+  )
 }
 
 /**
  * Builds the thinking configuration for the Anthropic API based on model capabilities and level.
- *
- * - Fable 5, Sonnet 5, Opus 5, Opus 4.8, Opus 4.7: Uses adaptive thinking only
- * - Opus 4.6, Sonnet 4.6: Uses adaptive thinking with effort parameter
- * - Other models: Uses budget_tokens-based extended thinking
  *
  * Returns both the thinking config and optional output_config for adaptive thinking.
  */
@@ -89,11 +84,19 @@ function buildThinkingConfig(
   modelId: string,
   thinkingLevel: string
 ): {
-  thinking: { type: 'enabled'; budget_tokens: number } | { type: 'adaptive' }
+  thinking: NonNullable<AnthropicPayload['thinking']>
   outputConfig?: { effort: string }
 } | null {
   const capability = getThinkingCapability(modelId)
-  if (!capability || !capability.levels.includes(thinkingLevel)) {
+  if (!capability) {
+    return null
+  }
+
+  if (thinkingLevel === 'none') {
+    return capability.noneMode ? { thinking: { type: capability.noneMode } } : null
+  }
+
+  if (!capability.levels.includes(thinkingLevel)) {
     return null
   }
 
@@ -237,7 +240,17 @@ export async function executeAnthropicProviderRequest(
   let preparedTools: ReturnType<typeof prepareToolsWithUsageControl> | null = null
 
   if (anthropicTools?.length) {
-    preparedTools = prepareToolsWithUsageControl(anthropicTools, request.tools, logger, 'anthropic')
+    preparedTools = prepareToolsWithUsageControl(
+      anthropicTools,
+      request.tools,
+      logger,
+      'anthropic',
+      getModelCapabilities(modelId)?.forcedToolUse !== false &&
+        (!request.thinkingLevel ||
+          request.thinkingLevel === 'none' ||
+          !supportsAdaptiveThinking(modelId) ||
+          getThinkingCapability(modelId)?.forcedToolUse === true)
+    )
     anthropicTools = preparedTools.tools
     if (anthropicTools?.length) {
       const tc = preparedTools.toolChoice
@@ -254,7 +267,7 @@ export async function executeAnthropicProviderRequest(
   }
 
   const payload: AnthropicPayload = {
-    model: request.model,
+    model: config.resolveWireModel?.(modelId) ?? modelId,
     messages,
     system: systemPrompt,
     max_tokens:
@@ -293,11 +306,10 @@ export async function executeAnthropicProviderRequest(
       // Per Anthropic docs: thinking is not compatible with temperature or top_k modifications.
       payload.temperature = undefined
 
-      const isAdaptive = thinkingConfig.thinking.type === 'adaptive'
       logger.info(
-        `Using ${isAdaptive ? 'adaptive' : 'extended'} thinking for model: ${modelId} with ${isAdaptive ? `effort: ${request.thinkingLevel}` : `budget: ${(thinkingConfig.thinking as { budget_tokens: number }).budget_tokens}`}`
+        `Using ${thinkingConfig.thinking.type} thinking for model: ${modelId} with level: ${request.thinkingLevel}`
       )
-    } else {
+    } else if (request.thinkingLevel !== 'none') {
       logger.warn(
         `Thinking level "${request.thinkingLevel}" not supported for model: ${modelId}, ignoring`
       )
@@ -341,7 +353,12 @@ export async function executeAnthropicProviderRequest(
             total: usage.input_tokens + usage.output_tokens,
           }
 
-          const costResult = calculateCost(request.model, usage.input_tokens, usage.output_tokens)
+          const costResult = calculateCost(
+            request.model,
+            usage.input_tokens,
+            usage.output_tokens,
+            !!request.context
+          )
           streamingResult.execution.output.cost = {
             input: costResult.input,
             output: costResult.output,
@@ -425,6 +442,8 @@ export async function executeAnthropicProviderRequest(
       total:
         (currentResponse.usage?.input_tokens || 0) + (currentResponse.usage?.output_tokens || 0),
     }
+    const cost = createModelCost(request.model, !!request.context)
+    cost.add(tokens.input, tokens.output)
 
     const toolCalls = []
     const toolResults: Record<string, unknown>[] = []
@@ -623,6 +642,10 @@ export async function executeAnthropicProviderRequest(
           tokens.output += currentResponse.usage.output_tokens || 0
           tokens.total +=
             (currentResponse.usage.input_tokens || 0) + (currentResponse.usage.output_tokens || 0)
+          cost.add(
+            currentResponse.usage.input_tokens || 0,
+            currentResponse.usage.output_tokens || 0
+          )
         }
 
         iterationCount++
@@ -640,6 +663,7 @@ export async function executeAnthropicProviderRequest(
       content,
       model: request.model,
       tokens,
+      cost: cost.value,
       toolCalls:
         toolCalls.length > 0
           ? toolCalls.map((tc) => ({

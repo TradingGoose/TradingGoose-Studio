@@ -4,11 +4,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import { toError } from '@/providers/ai/error'
-import {
-  checkForForcedToolUsage,
-  resolveFireworksWireModel,
-  supportsNativeStructuredOutputs,
-} from '@/providers/ai/fireworks/utils'
+import { resolveFireworksWireModel } from '@/providers/ai/fireworks/utils'
 import { getProviderDefaultModel, getProviderModels } from '@/providers/ai/models'
 import type {
   FunctionCallResponse,
@@ -21,46 +17,28 @@ import type {
 import { ProviderError } from '@/providers/ai/types'
 import {
   calculateCost,
+  checkForForcedToolUsageOpenAI,
   createOpenAICompatibleStream,
-  generateSchemaInstructions,
   prepareToolExecution,
   prepareToolsWithUsageControl,
-  sumToolCosts,
+  withToolCosts,
 } from '@/providers/ai/utils'
 import { executeTool } from '@/tools'
 
 const logger = createLogger('FireworksProvider')
 
-/**
- * Applies structured output configuration to a payload based on model capabilities.
- * Uses json_schema with strict mode for supported models, falls back to json_object with prompt instructions.
- */
-async function applyResponseFormat(
+function applyResponseFormat(
   targetPayload: any,
-  messages: any[],
-  responseFormat: any,
-  model: string
-): Promise<any[]> {
-  const useNative = await supportsNativeStructuredOutputs(model)
-
-  if (useNative) {
-    logger.info('Using native structured outputs for Fireworks model', { model })
-    targetPayload.response_format = {
-      type: 'json_schema',
-      json_schema: {
-        name: responseFormat.name || 'response_schema',
-        schema: responseFormat.schema || responseFormat,
-        strict: responseFormat.strict !== false,
-      },
-    }
-    return messages
+  responseFormat: NonNullable<ProviderRequest['responseFormat']>
+) {
+  targetPayload.response_format = {
+    type: 'json_schema',
+    json_schema: {
+      name: responseFormat.name || 'response_schema',
+      schema: responseFormat.schema,
+      strict: responseFormat.strict !== false,
+    },
   }
-
-  logger.info('Using json_object mode with prompt instructions for Fireworks model', { model })
-  const schema = responseFormat.schema || responseFormat
-  const schemaInstructions = generateSchemaInstructions(schema, responseFormat.name)
-  targetPayload.response_format = { type: 'json_object' }
-  return [...messages, { role: 'user', content: schemaInstructions }]
 }
 
 export const fireworksProvider: ProviderConfig = {
@@ -145,12 +123,7 @@ export const fireworksProvider: ProviderConfig = {
 
     try {
       if (request.responseFormat && !hasActiveTools) {
-        payload.messages = await applyResponseFormat(
-          payload,
-          payload.messages,
-          request.responseFormat,
-          apiModel
-        )
+        applyResponseFormat(payload, request.responseFormat)
       }
 
       if (request.stream && (!tools || tools.length === 0 || !hasActiveTools)) {
@@ -269,9 +242,10 @@ export const fireworksProvider: ProviderConfig = {
         },
       ]
 
-      const forcedToolResult = checkForForcedToolUsage(
+      const forcedToolResult = checkForForcedToolUsageOpenAI(
         currentResponse,
         originalToolChoice,
+        'Fireworks',
         forcedTools,
         usedForcedTools
       )
@@ -416,9 +390,10 @@ export const fireworksProvider: ProviderConfig = {
           nextPayload,
           request.abortSignal ? { signal: request.abortSignal } : undefined
         )
-        const nextForcedToolResult = checkForForcedToolUsage(
+        const nextForcedToolResult = checkForForcedToolUsageOpenAI(
           currentResponse,
           nextPayload.tool_choice,
+          'Fireworks',
           forcedTools,
           usedForcedTools
         )
@@ -457,12 +432,7 @@ export const fireworksProvider: ProviderConfig = {
         }
 
         if (request.responseFormat) {
-          ;(streamingParams as any).messages = await applyResponseFormat(
-            streamingParams as any,
-            streamingParams.messages,
-            request.responseFormat,
-            apiModel
-          )
+          applyResponseFormat(streamingParams, request.responseFormat)
         }
 
         const streamResponse = await client.chat.completions.create(
@@ -482,18 +452,14 @@ export const fireworksProvider: ProviderConfig = {
                 total: tokens.total + usage.total_tokens,
               }
 
-              const streamCost = calculateCost(
-                request.model,
-                usage.prompt_tokens,
-                usage.completion_tokens
+              streamingResult.execution.output.cost = withToolCosts(
+                calculateCost(
+                  request.model,
+                  tokens.input + usage.prompt_tokens,
+                  tokens.output + usage.completion_tokens
+                ),
+                toolResults
               )
-              const tc = sumToolCosts(toolResults)
-              streamingResult.execution.output.cost = {
-                input: accumulatedCost.input + streamCost.input,
-                output: accumulatedCost.output + streamCost.output,
-                toolCost: tc || undefined,
-                total: accumulatedCost.total + streamCost.total + tc,
-              }
             }
           ),
           execution: {
@@ -519,11 +485,7 @@ export const fireworksProvider: ProviderConfig = {
                 iterations: iterationCount + 1,
                 timeSegments: timeSegments,
               },
-              cost: {
-                input: accumulatedCost.input,
-                output: accumulatedCost.output,
-                total: accumulatedCost.total,
-              },
+              cost: withToolCosts(accumulatedCost, toolResults),
             },
             logs: [],
             metadata: {
@@ -549,12 +511,7 @@ export const fireworksProvider: ProviderConfig = {
           finalPayload.max_tokens = payload.max_tokens
         }
 
-        finalPayload.messages = await applyResponseFormat(
-          finalPayload,
-          finalPayload.messages,
-          request.responseFormat,
-          apiModel
-        )
+        applyResponseFormat(finalPayload, request.responseFormat)
 
         const finalStartTime = Date.now()
         const finalResponse = await client.chat.completions.create(
@@ -591,6 +548,7 @@ export const fireworksProvider: ProviderConfig = {
         content,
         model: request.model,
         tokens,
+        cost: calculateCost(request.model, tokens.input, tokens.output, !!request.context),
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         toolResults: toolResults.length > 0 ? toolResults : undefined,
         timing: {

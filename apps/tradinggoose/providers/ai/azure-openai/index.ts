@@ -10,54 +10,17 @@ import type {
   TimeSegment,
 } from '@/providers/ai/types'
 import {
+  calculateCost,
+  createModelCost,
+  createOpenAICompatibleStream,
   prepareToolExecution,
   prepareToolsWithUsageControl,
   trackForcedToolUsage,
+  withToolCosts,
 } from '@/providers/ai/utils'
 import { executeTool } from '@/tools'
 
 const logger = createLogger('AzureOpenAIProvider')
-const DEFAULT_MODEL = getProviderDefaultModel('azure-openai')
-
-/**
- * Helper function to convert an Azure OpenAI stream to a standard ReadableStream
- * and collect completion metrics
- */
-function createReadableStreamFromAzureOpenAIStream(
-  azureOpenAIStream: any,
-  onComplete?: (content: string, usage?: any) => void
-): ReadableStream {
-  let fullContent = ''
-  let usageData: any = null
-
-  return new ReadableStream({
-    async start(controller) {
-      try {
-        for await (const chunk of azureOpenAIStream) {
-          // Check for usage data in the final chunk
-          if (chunk.usage) {
-            usageData = chunk.usage
-          }
-
-          const content = chunk.choices[0]?.delta?.content || ''
-          if (content) {
-            fullContent += content
-            controller.enqueue(new TextEncoder().encode(content))
-          }
-        }
-
-        // Once stream is complete, call the completion callback with the final content and usage
-        if (onComplete) {
-          onComplete(fullContent, usageData)
-        }
-
-        controller.close()
-      } catch (error) {
-        controller.error(error)
-      }
-    },
-  })
-}
 
 /**
  * Azure OpenAI provider configuration
@@ -68,12 +31,12 @@ export const azureOpenAIProvider: ProviderConfig = {
   description: 'Microsoft Azure OpenAI Service models',
   version: '1.0.0',
   models: getProviderModels('azure-openai'),
-  defaultModel: DEFAULT_MODEL,
+  defaultModel: getProviderDefaultModel('azure-openai'),
 
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {
-    const model = request.model || DEFAULT_MODEL
+    const model = request.model
 
     logger.info('Preparing Azure OpenAI request', {
       model,
@@ -224,47 +187,57 @@ export const azureOpenAIProvider: ProviderConfig = {
 
         // Create a StreamingExecution response with a callback to update content and tokens
         const streamingResult = {
-          stream: createReadableStreamFromAzureOpenAIStream(streamResponse, (content, usage) => {
-            // Update the execution data with the final content and token usage
-            _streamContent = content
-            streamingResult.execution.output.content = content
+          stream: createOpenAICompatibleStream(
+            streamResponse as any,
+            'Azure OpenAI',
+            (content, usage) => {
+              // Update the execution data with the final content and token usage
+              _streamContent = content
+              streamingResult.execution.output.content = content
 
-            // Update the timing information with the actual completion time
-            const streamEndTime = Date.now()
-            const streamEndTimeISO = new Date(streamEndTime).toISOString()
+              // Update the timing information with the actual completion time
+              const streamEndTime = Date.now()
+              const streamEndTimeISO = new Date(streamEndTime).toISOString()
 
-            if (streamingResult.execution.output.providerTiming) {
-              streamingResult.execution.output.providerTiming.endTime = streamEndTimeISO
-              streamingResult.execution.output.providerTiming.duration =
-                streamEndTime - providerStartTime
-
-              // Update the time segment as well
-              if (streamingResult.execution.output.providerTiming.timeSegments?.[0]) {
-                streamingResult.execution.output.providerTiming.timeSegments[0].endTime =
-                  streamEndTime
-                streamingResult.execution.output.providerTiming.timeSegments[0].duration =
+              if (streamingResult.execution.output.providerTiming) {
+                streamingResult.execution.output.providerTiming.endTime = streamEndTimeISO
+                streamingResult.execution.output.providerTiming.duration =
                   streamEndTime - providerStartTime
+
+                // Update the time segment as well
+                if (streamingResult.execution.output.providerTiming.timeSegments?.[0]) {
+                  streamingResult.execution.output.providerTiming.timeSegments[0].endTime =
+                    streamEndTime
+                  streamingResult.execution.output.providerTiming.timeSegments[0].duration =
+                    streamEndTime - providerStartTime
+                }
+              }
+
+              // Update token usage if available from the stream
+              if (usage) {
+                const newTokens = {
+                  prompt: usage.prompt_tokens || tokenUsage.prompt,
+                  completion: usage.completion_tokens || tokenUsage.completion,
+                  total: usage.total_tokens || tokenUsage.total,
+                }
+
+                streamingResult.execution.output.tokens = newTokens
+                streamingResult.execution.output.cost = calculateCost(
+                  model,
+                  newTokens.prompt,
+                  newTokens.completion,
+                  !!request.context
+                )
               }
             }
-
-            // Update token usage if available from the stream
-            if (usage) {
-              const newTokens = {
-                prompt: usage.prompt_tokens || tokenUsage.prompt,
-                completion: usage.completion_tokens || tokenUsage.completion,
-                total: usage.total_tokens || tokenUsage.total,
-              }
-
-              streamingResult.execution.output.tokens = newTokens
-            }
-            // We don't need to estimate tokens here as logger.ts will handle that
-          }),
+          ),
           execution: {
             success: true,
             output: {
               content: '', // Will be filled by the stream completion callback
               model,
               tokens: tokenUsage,
+              cost: calculateCost(model),
               toolCalls: undefined,
               providerTiming: {
                 startTime: providerStartTimeISO,
@@ -280,7 +253,6 @@ export const azureOpenAIProvider: ProviderConfig = {
                   },
                 ],
               },
-              // Cost will be calculated in logger
             },
             logs: [], // No block logs for direct streaming
             metadata: {
@@ -329,14 +301,15 @@ export const azureOpenAIProvider: ProviderConfig = {
       const firstResponseTime = Date.now() - initialCallTime
 
       let content = currentResponse.choices[0]?.message?.content || ''
-      // Collect token information but don't calculate costs - that will be done in logger.ts
       const tokens = {
         prompt: currentResponse.usage?.prompt_tokens || 0,
         completion: currentResponse.usage?.completion_tokens || 0,
         total: currentResponse.usage?.total_tokens || 0,
       }
+      const cost = createModelCost(model, !!request.context)
+      cost.add(tokens.prompt, tokens.completion)
       const toolCalls = []
-      const toolResults = []
+      const toolResults: Record<string, unknown>[] = []
       const currentMessages = [...allMessages]
       let iterationCount = 0
       const MAX_ITERATIONS = 10 // Prevent infinite loops
@@ -520,6 +493,10 @@ export const azureOpenAIProvider: ProviderConfig = {
           tokens.prompt += currentResponse.usage.prompt_tokens || 0
           tokens.completion += currentResponse.usage.completion_tokens || 0
           tokens.total += currentResponse.usage.total_tokens || 0
+          cost.add(
+            currentResponse.usage.prompt_tokens || 0,
+            currentResponse.usage.completion_tokens || 0
+          )
         }
 
         iterationCount++
@@ -545,22 +522,26 @@ export const azureOpenAIProvider: ProviderConfig = {
         let _streamContent = ''
 
         const streamingResult = {
-          stream: createReadableStreamFromAzureOpenAIStream(streamResponse, (content, usage) => {
-            // Update the execution data with the final content and token usage
-            _streamContent = content
-            streamingResult.execution.output.content = content
+          stream: createOpenAICompatibleStream(
+            streamResponse as any,
+            'Azure OpenAI',
+            (content, usage) => {
+              // Update the execution data with the final content and token usage
+              _streamContent = content
+              streamingResult.execution.output.content = content
 
-            // Update token usage if available from the stream
-            if (usage) {
-              const newTokens = {
-                prompt: usage.prompt_tokens || tokens.prompt,
-                completion: usage.completion_tokens || tokens.completion,
-                total: usage.total_tokens || tokens.total,
+              // Update token usage if available from the stream
+              if (usage) {
+                cost.add(usage.prompt_tokens || 0, usage.completion_tokens || 0)
+                streamingResult.execution.output.tokens = {
+                  prompt: tokens.prompt + (usage.prompt_tokens || 0),
+                  completion: tokens.completion + (usage.completion_tokens || 0),
+                  total: tokens.total + (usage.total_tokens || 0),
+                }
+                streamingResult.execution.output.cost = withToolCosts(cost.value, toolResults)
               }
-
-              streamingResult.execution.output.tokens = newTokens
             }
-          }),
+          ),
           execution: {
             success: true,
             output: {
@@ -571,6 +552,7 @@ export const azureOpenAIProvider: ProviderConfig = {
                 completion: tokens.completion,
                 total: tokens.total,
               },
+              cost: withToolCosts(cost.value, toolResults),
               toolCalls:
                 toolCalls.length > 0
                   ? {
@@ -588,7 +570,6 @@ export const azureOpenAIProvider: ProviderConfig = {
                 iterations: iterationCount + 1,
                 timeSegments: timeSegments,
               },
-              // Cost will be calculated in logger
             },
             logs: [], // No block logs at provider level
             metadata: {
@@ -612,6 +593,7 @@ export const azureOpenAIProvider: ProviderConfig = {
         content,
         model,
         tokens,
+        cost: cost.value,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         toolResults: toolResults.length > 0 ? toolResults : undefined,
         timing: {
@@ -624,7 +606,6 @@ export const azureOpenAIProvider: ProviderConfig = {
           iterations: iterationCount + 1,
           timeSegments: timeSegments,
         },
-        // We're not calculating cost here as it will be handled in logger.ts
       }
     } catch (error) {
       // Include timing information even for errors

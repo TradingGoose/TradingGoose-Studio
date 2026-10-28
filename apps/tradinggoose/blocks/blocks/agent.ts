@@ -9,7 +9,6 @@ import type {
 import { AuthMode } from '@/blocks/types'
 import {
   getAllModelProviders,
-  getHostedModels,
   getMaxTemperature,
   getProviderDefaultModel,
   getProviderFromModel,
@@ -262,13 +261,8 @@ Create a system prompt appropriately detailed for the request, using clear langu
       password: true,
       connectionDroppable: false,
       required: true,
-      // Hide API key for hosted models and Ollama models
       condition: isHosted
-        ? {
-            field: 'model',
-            value: getHostedModels(),
-            not: true, // Show for all models EXCEPT those listed
-          }
+        ? undefined
         : () => ({
             field: 'model',
             value: useProvidersStore.getState().providers.ollama.models,

@@ -9,36 +9,17 @@ import type {
   TimeSegment,
 } from '@/providers/ai/types'
 import {
+  calculateCost,
+  createModelCost,
+  createOpenAICompatibleStream,
   prepareToolExecution,
   prepareToolsWithUsageControl,
   trackForcedToolUsage,
+  withToolCosts,
 } from '@/providers/ai/utils'
 import { executeTool } from '@/tools'
 
 const logger = createLogger('XAIProvider')
-const DEFAULT_MODEL = getProviderDefaultModel('xai')
-
-/**
- * Helper to wrap XAI (OpenAI-compatible) streaming into a browser-friendly
- * ReadableStream of raw assistant text chunks.
- */
-function createReadableStreamFromXAIStream(xaiStream: any): ReadableStream {
-  return new ReadableStream({
-    async start(controller) {
-      try {
-        for await (const chunk of xaiStream) {
-          const content = chunk.choices[0]?.delta?.content || ''
-          if (content) {
-            controller.enqueue(new TextEncoder().encode(content))
-          }
-        }
-        controller.close()
-      } catch (err) {
-        controller.error(err)
-      }
-    },
-  })
-}
 
 export const xAIProvider: ProviderConfig = {
   id: 'xai',
@@ -46,11 +27,12 @@ export const xAIProvider: ProviderConfig = {
   description: "xAI's Grok models",
   version: '1.0.0',
   models: getProviderModels('xai'),
-  defaultModel: DEFAULT_MODEL,
+  defaultModel: getProviderDefaultModel('xai'),
 
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {
+    const model = request.model
     if (!request.apiKey) {
       throw new Error('API key is required for xAI')
     }
@@ -64,7 +46,7 @@ export const xAIProvider: ProviderConfig = {
       hasTools: !!request.tools?.length,
       toolCount: request.tools?.length || 0,
       hasResponseFormat: !!request.responseFormat,
-      model: request.model || DEFAULT_MODEL,
+      model,
       streaming: !!request.stream,
     })
 
@@ -109,7 +91,7 @@ export const xAIProvider: ProviderConfig = {
 
     // Build the base request payload
     const basePayload: any = {
-      model: request.model || DEFAULT_MODEL,
+      model,
       messages: allMessages,
     }
 
@@ -160,11 +142,8 @@ export const xAIProvider: ProviderConfig = {
         ? createResponseFormatPayload()
         : { ...basePayload, stream: true }
 
-      if (!request.responseFormat) {
-        streamingPayload.stream = true
-      } else {
-        streamingPayload.stream = true
-      }
+      streamingPayload.stream = true
+      streamingPayload.stream_options = { include_usage: true }
 
       const streamResponse = await xai.chat.completions.create(streamingPayload)
 
@@ -177,12 +156,25 @@ export const xAIProvider: ProviderConfig = {
 
       // Create a StreamingExecution response with a readable stream
       const streamingResult = {
-        stream: createReadableStreamFromXAIStream(streamResponse),
+        stream: createOpenAICompatibleStream(streamResponse as any, 'xAI', (content, usage) => {
+          streamingResult.execution.output.content = content
+          streamingResult.execution.output.tokens = {
+            prompt: usage.prompt_tokens,
+            completion: usage.completion_tokens,
+            total: usage.total_tokens,
+          }
+          streamingResult.execution.output.cost = calculateCost(
+            model,
+            usage.prompt_tokens,
+            usage.completion_tokens,
+            !!request.context
+          )
+        }),
         execution: {
           success: true,
           output: {
             content: '', // Will be filled by streaming content in chat component
-            model: request.model || DEFAULT_MODEL,
+            model,
             tokens: tokenUsage,
             toolCalls: undefined,
             providerTiming: {
@@ -199,12 +191,7 @@ export const xAIProvider: ProviderConfig = {
                 },
               ],
             },
-            // Estimate token cost
-            cost: {
-              total: 0.0,
-              input: 0.0,
-              output: 0.0,
-            },
+            cost: calculateCost(model),
           },
           logs: [], // No block logs for direct streaming
           metadata: {
@@ -214,7 +201,7 @@ export const xAIProvider: ProviderConfig = {
           },
           isStreaming: true,
         },
-      }
+      } as StreamingExecution
 
       // Return the streaming execution object
       return streamingResult as StreamingExecution
@@ -259,8 +246,10 @@ export const xAIProvider: ProviderConfig = {
         completion: currentResponse.usage?.completion_tokens || 0,
         total: currentResponse.usage?.total_tokens || 0,
       }
+      const cost = createModelCost(model, !!request.context)
+      cost.add(tokens.prompt, tokens.completion)
       const toolCalls = []
-      const toolResults = []
+      const toolResults: Record<string, unknown>[] = []
       const currentMessages = [...allMessages]
       let iterationCount = 0
       const MAX_ITERATIONS = 10
@@ -493,6 +482,10 @@ export const xAIProvider: ProviderConfig = {
             tokens.prompt += currentResponse.usage.prompt_tokens || 0
             tokens.completion += currentResponse.usage.completion_tokens || 0
             tokens.total += currentResponse.usage.total_tokens || 0
+            cost.add(
+              currentResponse.usage.prompt_tokens || 0,
+              currentResponse.usage.completion_tokens || 0
+            )
           }
 
           iterationCount++
@@ -526,16 +519,26 @@ export const xAIProvider: ProviderConfig = {
           }
         }
 
+        finalStreamingPayload.stream_options = { include_usage: true }
         const streamResponse = await xai.chat.completions.create(finalStreamingPayload)
 
         // Create a StreamingExecution response with all collected data
         const streamingResult = {
-          stream: createReadableStreamFromXAIStream(streamResponse),
+          stream: createOpenAICompatibleStream(streamResponse as any, 'xAI', (content, usage) => {
+            cost.add(usage.prompt_tokens, usage.completion_tokens)
+            streamingResult.execution.output.content = content
+            streamingResult.execution.output.tokens = {
+              prompt: tokens.prompt + usage.prompt_tokens,
+              completion: tokens.completion + usage.completion_tokens,
+              total: tokens.total + usage.total_tokens,
+            }
+            streamingResult.execution.output.cost = withToolCosts(cost.value, toolResults)
+          }),
           execution: {
             success: true,
             output: {
               content: '', // Will be filled by the callback
-              model: request.model || DEFAULT_MODEL,
+              model,
               tokens: {
                 prompt: tokens.prompt,
                 completion: tokens.completion,
@@ -558,11 +561,7 @@ export const xAIProvider: ProviderConfig = {
                 iterations: iterationCount + 1,
                 timeSegments: timeSegments,
               },
-              cost: {
-                total: (tokens.total || 0) * 0.0001,
-                input: (tokens.prompt || 0) * 0.0001,
-                output: (tokens.completion || 0) * 0.0001,
-              },
+              cost: withToolCosts(cost.value, toolResults),
             },
             logs: [], // No block logs at provider level
             metadata: {
@@ -572,7 +571,7 @@ export const xAIProvider: ProviderConfig = {
             },
             isStreaming: true,
           },
-        }
+        } as StreamingExecution
 
         // Return the streaming execution object
         return streamingResult as StreamingExecution
@@ -593,8 +592,9 @@ export const xAIProvider: ProviderConfig = {
 
       return {
         content,
-        model: request.model,
+        model,
         tokens,
+        cost: cost.value,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         toolResults: toolResults.length > 0 ? toolResults : undefined,
         timing: {

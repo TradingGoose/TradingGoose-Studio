@@ -1,12 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as environmentModule from '@/lib/environment'
 import {
-  getHostedModels,
   getMaxTemperature,
   getProviderFromModel,
   getProviderModels,
   supportsTemperature,
-  supportsToolUsageControl,
 } from '@/providers/ai/models'
 import {
   calculateCost,
@@ -77,11 +75,11 @@ describe('Model Capabilities', () => {
         'gpt-4.1',
         'gpt-4.1-mini',
         'gemini-2.5-flash',
-        'claude-sonnet-4-6',
+        'azure-anthropic/claude-sonnet-4-6',
         'claude-haiku-4-5',
         'grok-4.6',
         'grok-4.5',
-        'deepseek-v4-flash',
+        'deepseek-flash',
         'cerebras/gpt-oss-120b',
         'groq/llama-3.3-70b-versatile',
       ]
@@ -113,11 +111,6 @@ describe('Model Capabilities', () => {
       }
     })
 
-    it.concurrent('should be case insensitive', () => {
-      expect(supportsTemperature('GPT-4.1')).toBe(true)
-      expect(supportsTemperature('CLAUDE-SONNET-4-6')).toBe(true)
-    })
-
     it.concurrent(
       'should inherit temperature support from provider for dynamically fetched models',
       () => {
@@ -135,7 +128,7 @@ describe('Model Capabilities', () => {
         'azure/gpt-4.1',
         'gemini-2.5-pro',
         'gemini-2.5-flash',
-        'deepseek-v4-flash',
+        'deepseek-flash',
         'grok-4.6',
         'cerebras/gpt-oss-120b',
       ]
@@ -147,7 +140,7 @@ describe('Model Capabilities', () => {
 
     it.concurrent('uses model-specific temperature limits', () => {
       const modelsRange01 = [
-        'claude-sonnet-4-6',
+        'azure-anthropic/claude-sonnet-4-6',
         'claude-haiku-4-5',
         'bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0',
       ]
@@ -174,11 +167,6 @@ describe('Model Capabilities', () => {
       expect(getMaxTemperature('azure/gpt-5-chat')).toBe(2)
     })
 
-    it.concurrent('should be case insensitive', () => {
-      expect(getMaxTemperature('GPT-4.1')).toBe(2)
-      expect(getMaxTemperature('CLAUDE-SONNET-4-6')).toBe(1)
-    })
-
     it.concurrent(
       'should inherit max temperature from provider for dynamically fetched models',
       () => {
@@ -187,52 +175,27 @@ describe('Model Capabilities', () => {
       }
     )
   })
-
-  describe('supportsToolUsageControl', () => {
-    it.concurrent('should return true for providers that support tool usage control', () => {
-      const supportedProviders = [
-        'openai',
-        'azure-openai',
-        'mistral',
-        'anthropic',
-        'deepseek',
-        'xai',
-        'google',
-      ]
-
-      for (const provider of supportedProviders) {
-        expect(supportsToolUsageControl(provider)).toBe(true)
-      }
-    })
-
-    it.concurrent(
-      'should return false for providers that do not support tool usage control',
-      () => {
-        const unsupportedProviders = ['ollama', 'non-existent-provider']
-
-        for (const provider of unsupportedProviders) {
-          expect(supportsToolUsageControl(provider)).toBe(false)
-        }
-      }
-    )
-  })
 })
 
 describe('Cost Calculation', () => {
   describe('calculateCost', () => {
     it.concurrent.each([
-      ['openrouter/anthropic/claude-sonnet-4.6', 18],
-      ['openrouter/x-ai/grok-4.6', 8],
-      ['openrouter/mistralai/mistral-small-2603', 0.75],
-    ] as const)('prices canonical OpenRouter tokens for %s', (model, total) => {
-      expect(calculateCost(model, 1_000_000, 1_000_000).total).toBeCloseTo(total, 8)
-    })
-
-    it.concurrent.each([false, true])('prices OpenRouter tokens (cached=%s)', (cached) => {
-      expect(calculateCost('openrouter/openai/gpt-4.1', 1000, 500, cached).total).toBe(
-        cached ? 0.0045 : 0.006
-      )
-    })
+      ['gpt-6.1-sol', 272000, 2, 0.1, 10],
+      ['gpt-6.1-sol', 272001, 4, 0.2, 15],
+      ['azure/gpt-6.1-sol', 272001, 4, 0.2, 15],
+      ['claude-haiku-5-5', 100000, 0.1, 0.01, 0.5],
+      ['claude-haiku-5-5', 100001, 0.5, 0.05, 2.5],
+    ] as const)(
+      'uses the input-size pricing tier for %s at %s tokens',
+      (model, tokens, input, cachedInput, output) => {
+        for (const cached of [false, true]) {
+          const result = calculateCost(model, tokens, 1000, cached)
+          expect(result.pricing).toMatchObject({ input, cachedInput, output })
+          expect(result.input).toBeCloseTo((tokens * (cached ? cachedInput : input)) / 1e6, 8)
+          expect(result.output).toBeCloseTo(output / 1000, 8)
+        }
+      }
+    )
 
     it.concurrent('should calculate cost correctly for known models', () => {
       const result = calculateCost('gpt-4.1', 1000, 500, false)
@@ -241,7 +204,7 @@ describe('Cost Calculation', () => {
       expect(result.output).toBeGreaterThan(0)
       expect(result.total).toBeCloseTo(result.input + result.output, 6)
       expect(result.pricing).toBeDefined()
-      expect(result.pricing.input).toBe(2) // GPT-4.1 pricing
+      expect(result.pricing?.input).toBe(2) // GPT-4.1 pricing
     })
 
     it.concurrent('should handle cached input pricing when enabled', () => {
@@ -252,13 +215,13 @@ describe('Cost Calculation', () => {
       expect(cachedCost.output).toBe(regularCost.output) // Output cost should be same
     })
 
-    it.concurrent('should return default pricing for unknown models', () => {
+    it.concurrent('marks unknown model pricing explicitly', () => {
       const result = calculateCost('unknown-model', 1000, 500, false)
 
       expect(result.input).toBe(0)
       expect(result.output).toBe(0)
       expect(result.total).toBe(0)
-      expect(result.pricing.input).toBe(1.0) // Default pricing
+      expect(result.pricing).toBeNull()
     })
 
     it.concurrent('should handle zero tokens', () => {
@@ -301,45 +264,18 @@ describe('Cost Calculation', () => {
   })
 })
 
-describe('getHostedModels', () => {
-  it.concurrent('should allow no platform-hosted models', () => {
-    const hostedModels = getHostedModels()
-
-    expect(hostedModels).toEqual([])
-  })
-
-  it.concurrent('should return an array of strings', () => {
-    const hostedModels = getHostedModels()
-
-    expect(Array.isArray(hostedModels)).toBe(true)
-    hostedModels.forEach((model) => {
-      expect(typeof model).toBe('string')
-    })
-  })
-})
-
 describe('Provider Management', () => {
   describe('getProviderFromModel', () => {
     it.concurrent('should return correct provider for known models', () => {
       expect(getProviderFromModel('gpt-4.1')).toBe('openai')
-      expect(getProviderFromModel('claude-sonnet-5')).toBe('anthropic')
+      expect(getProviderFromModel('claude-sonnet-5-5')).toBe('anthropic')
       expect(getProviderFromModel('gemini-2.5-pro')).toBe('google')
       expect(getProviderFromModel('azure/gpt-5.4')).toBe('azure-openai')
-    })
-
-    it.concurrent('should use model patterns for pattern matching', () => {
-      expect(getProviderFromModel('gpt-5-custom')).toBe('openai') // Matches /^gpt/ pattern
-      expect(getProviderFromModel('claude-custom-model')).toBe('anthropic') // Matches /^claude/ pattern
     })
 
     it.concurrent('rejects unknown models and recognizes canonical Ollama IDs', () => {
       expect(() => getProviderFromModel('unknown-model')).toThrow('Unknown AI model: unknown-model')
       expect(getProviderFromModel('ollama/llama3.2')).toBe('ollama')
-    })
-
-    it.concurrent('should be case insensitive', () => {
-      expect(getProviderFromModel('GPT-4.1')).toBe('openai')
-      expect(getProviderFromModel('CLAUDE-SONNET-5')).toBe('anthropic')
     })
   })
 
@@ -352,14 +288,13 @@ describe('Provider Management', () => {
       expect(openaiModels).not.toContain('gpt-4o')
 
       const anthropicModels = getProviderModels('anthropic')
-      expect(anthropicModels).toContain('claude-sonnet-5')
-      expect(anthropicModels).toContain('claude-opus-5')
+      expect(anthropicModels).toContain('claude-sonnet-5-5')
+      expect(anthropicModels).toContain('claude-opus-5-5')
       expect(anthropicModels).not.toContain('claude-sonnet-4-0')
     })
 
-    it.concurrent('should return empty array for unknown providers', () => {
-      const unknownModels = getProviderModels('unknown' as any)
-      expect(unknownModels).toEqual([])
+    it.concurrent('rejects unknown providers', () => {
+      expect(() => getProviderModels('unknown')).toThrow('Unknown AI provider')
     })
   })
 })

@@ -16,12 +16,12 @@ import type {
 import { ProviderError } from '@/providers/ai/types'
 import {
   calculateCost,
+  createOpenAICompatibleStream,
   prepareToolExecution,
   prepareToolsWithUsageControl,
-  sumToolCosts,
   trackForcedToolUsage,
+  withToolCosts,
 } from '@/providers/ai/utils'
-import { createReadableStreamFromVLLMStream } from '@/providers/ai/vllm/utils'
 import { executeTool } from '@/tools'
 
 const logger = createLogger('VLLMProvider')
@@ -104,7 +104,7 @@ export const vllmProvider: ProviderConfig = {
         type: 'json_schema',
         json_schema: {
           name: request.responseFormat.name || 'response_schema',
-          schema: request.responseFormat.schema || request.responseFormat,
+          schema: request.responseFormat.schema,
           strict: request.responseFormat.strict !== false,
         },
       }
@@ -155,7 +155,7 @@ export const vllmProvider: ProviderConfig = {
         )
 
         const streamingResult = {
-          stream: createReadableStreamFromVLLMStream(streamResponse, (content, usage) => {
+          stream: createOpenAICompatibleStream(streamResponse as any, 'vLLM', (content, usage) => {
             let cleanContent = content
             if (cleanContent && request.responseFormat) {
               cleanContent = cleanContent.replace(/```json\n?|\n?```/g, '').trim()
@@ -494,7 +494,7 @@ export const vllmProvider: ProviderConfig = {
         )
 
         const streamingResult = {
-          stream: createReadableStreamFromVLLMStream(streamResponse, (content, usage) => {
+          stream: createOpenAICompatibleStream(streamResponse as any, 'vLLM', (content, usage) => {
             let cleanContent = content
             if (cleanContent && request.responseFormat) {
               cleanContent = cleanContent.replace(/```json\n?|\n?```/g, '').trim()
@@ -507,18 +507,14 @@ export const vllmProvider: ProviderConfig = {
               total: tokens.total + usage.total_tokens,
             }
 
-            const streamCost = calculateCost(
-              request.model,
-              usage.prompt_tokens,
-              usage.completion_tokens
+            streamingResult.execution.output.cost = withToolCosts(
+              calculateCost(
+                request.model,
+                tokens.input + usage.prompt_tokens,
+                tokens.output + usage.completion_tokens
+              ),
+              toolResults
             )
-            const tc = sumToolCosts(toolResults)
-            streamingResult.execution.output.cost = {
-              input: accumulatedCost.input + streamCost.input,
-              output: accumulatedCost.output + streamCost.output,
-              toolCost: tc || undefined,
-              total: accumulatedCost.total + streamCost.total + tc,
-            }
           }),
           execution: {
             success: true,
@@ -547,11 +543,7 @@ export const vllmProvider: ProviderConfig = {
                 iterations: iterationCount + 1,
                 timeSegments: timeSegments,
               },
-              cost: {
-                input: accumulatedCost.input,
-                output: accumulatedCost.output,
-                total: accumulatedCost.total,
-              },
+              cost: withToolCosts(accumulatedCost, toolResults),
             },
             logs: [],
             metadata: {
@@ -573,6 +565,7 @@ export const vllmProvider: ProviderConfig = {
         content,
         model: request.model,
         tokens,
+        cost: calculateCost(request.model, tokens.input, tokens.output, !!request.context),
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         toolResults: toolResults.length > 0 ? toolResults : undefined,
         timing: {
