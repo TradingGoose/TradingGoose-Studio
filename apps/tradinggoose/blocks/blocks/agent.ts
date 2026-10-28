@@ -112,7 +112,7 @@ export const AgentBlock: BlockConfig<AgentResponse> = {
   description: 'Build an agent',
   authMode: AuthMode.ApiKey,
   longDescription:
-    'Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Available models come from the deployment catalog and configured provider connections. Use Additional Fields to configure memory, skills, response format, output token limits, and model-supported temperature, reasoning effort, verbosity, or thinking levels without switching block modes. Unset tuning controls or Auto use the provider’s defaults. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.',
+    'Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Available models come from the deployment catalog and configured provider connections. Configure Tools and Skills directly. Use Additional Fields to configure memory, response format, output token limits, and model-supported temperature, reasoning effort, verbosity, or thinking levels without switching block modes. Unset tuning controls or Auto use the provider’s defaults. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.',
   bestPractices: `
   - Cannot use core blocks like API, Webhook, Function, Workflow, Memory as tools. Only integrations or custom tools. 
   - Check custom tools examples for YAML syntax. Only construct these if there isn't an existing integration for that purpose.
@@ -219,14 +219,14 @@ Create a system prompt appropriately detailed for the request, using clear langu
       },
       options: getAvailableModelOptions,
     },
-    ...[1, 2].map(
+    ...[1, 1.5, 2].map(
       (max): SubBlockConfig => ({
         id: 'temperature',
         title: 'Temperature',
-        type: 'short-input',
+        type: 'slider',
         layout: 'half',
-        inputType: 'number',
         placeholder: 'Use the provider default',
+        clearable: true,
         min: 0,
         max,
         step: 0.1,
@@ -313,7 +313,6 @@ Create a system prompt appropriately detailed for the request, using clear langu
       type: 'skill-input',
       layout: 'full',
       defaultValue: [],
-      additional: true,
     },
     {
       id: 'responseFormat',

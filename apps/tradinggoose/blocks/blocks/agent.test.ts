@@ -1,11 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
-import { buildSubBlockPreviewRows } from '@/lib/workflows/sub-block-rows'
 import type { SubBlockCondition } from '@/blocks/types'
+import { getWorkflowInspectorCopy, type LocaleCode } from '@/i18n/block-editor'
 import { getProviderModels } from '@/providers/ai/models'
+import { buildTriggerEditingLayout } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/trigger-editing-layout'
 import { AgentBlock } from './agent'
 import { EvaluatorBlock } from './evaluator'
 import { RouterBlock } from './router'
+
+const inspectorLayout = (model?: string, locale: LocaleCode = 'en') =>
+  buildTriggerEditingLayout({
+    inspectorCopy: getWorkflowInspectorCopy(locale),
+    blockType: 'agent',
+    blockConfig: AgentBlock,
+    blockState: { subBlocks: { model: { value: model } } },
+    shouldDisableWrite: false,
+  })
 
 describe('AgentBlock', () => {
   it.each([AgentBlock, RouterBlock, EvaluatorBlock])(
@@ -18,9 +28,15 @@ describe('AgentBlock', () => {
 
   it('uses additional fields without mode switches or forced tuning defaults', () => {
     expect(AgentBlock.subBlocks.some((field) => field.mode)).toBe(false)
+    const coreFields = inspectorLayout('gpt-4.1')
+      .regularRows.flat()
+      .map((field) => field.id)
+    expect(coreFields.slice(coreFields.indexOf('tools'), coreFields.indexOf('tools') + 2)).toEqual([
+      'tools',
+      'skills',
+    ])
     for (const id of [
       'memories',
-      'skills',
       'responseFormat',
       'temperature',
       'maxTokens',
@@ -30,12 +46,13 @@ describe('AgentBlock', () => {
     ]) {
       const field = AgentBlock.subBlocks.find((field) => field.id === id)!
       expect(field.additional).toBe(true)
-      if (id !== 'skills') expect(field.defaultValue).toBeUndefined()
+      expect(field.defaultValue).toBeUndefined()
       expect(field.value).toBeUndefined()
     }
   })
 
   it.each([
+    ['reasoningEffort', 'gpt-5.4', ['none', 'low', 'medium', 'high', 'xhigh']],
     ['reasoningEffort', 'gpt-5.4-2026-03-05', ['none', 'low', 'medium', 'high', 'xhigh']],
     ['verbosity', 'gpt-5.4-2026-03-05', ['low', 'medium', 'high']],
     ['reasoningEffort', 'gpt-5.6-sol', ['none', 'low', 'medium', 'high', 'xhigh', 'max']],
@@ -49,18 +66,18 @@ describe('AgentBlock', () => {
     ['thinkingLevel', 'vertex/gemini-2.5-flash-lite', ['none', 'low', 'medium', 'high']],
     ['verbosity', 'gpt-5.6-sol', ['low', 'medium', 'high']],
   ] as const)('resolves %s for %s from the selected model', (id, model, levels) => {
-    const field = AgentBlock.subBlocks.find((field) => field.id === id)!
-    const visibleFields = buildSubBlockPreviewRows({
-      subBlocks: AgentBlock.subBlocks,
-      stateToUse: { model: { value: model }, [id]: { value: levels[0] } },
-    })
-    expect(visibleFields.map((entry) => entry.id)).toContain(id)
-    if (typeof field.options !== 'function') throw new Error('Expected model-dependent options')
-    expect(field.options({ model }).map((option) => option.id)).toEqual(['auto', ...levels])
-    expect(field.autoSelectFirstOption).toBe(false)
+    for (const locale of ['en', 'es', 'zh'] as const) {
+      const fields = inspectorLayout(model, locale).additionalRows.flat()
+      expect(fields.map((field) => field.id)).toContain(id)
+      const field = fields.find((field) => field.id === id)!
+      if (typeof field.options !== 'function') throw new Error('Expected model-dependent options')
+      expect(field.options({ model }).map((option) => option.id)).toEqual(['auto', ...levels])
+      expect(field.autoSelectFirstOption).toBe(false)
+    }
   })
 
   it.each([
+    ['reasoningEffort', 'gpt-4.1'],
     ['thinkingLevel', 'gpt-4.1'],
     ['thinkingLevel', 'unknown-model'],
     ['thinkingLevel', undefined],
@@ -69,6 +86,25 @@ describe('AgentBlock', () => {
   ])('hides unsupported %s controls for %s', (id, model) => {
     const field = AgentBlock.subBlocks.find((field) => field.id === id)!
     expect(evaluateSubBlockConditionValues(field.condition, { model })).toBe(false)
+    expect(
+      inspectorLayout(model)
+        .additionalRows.flat()
+        .map((field) => field.id)
+    ).not.toContain(id)
+  })
+
+  it.each([
+    ['gpt-4.1', 2],
+    ['claude-sonnet-4-5', 1],
+    ['mistral-large-latest', 1.5],
+  ] as const)('uses a clearable temperature slider for %s', (model, max) => {
+    const fields = inspectorLayout(model)
+      .additionalRows.flat()
+      .filter((field) => field.id === 'temperature')
+    expect(fields).toHaveLength(1)
+    expect(fields[0]).toMatchObject({ type: 'slider', min: 0, max, step: 0.1, clearable: true })
+    expect(fields[0].defaultValue).toBeUndefined()
+    expect(fields[0].value).toBeUndefined()
   })
 
   it('preserves serializable capability conditions, negation, and dependencies', () => {

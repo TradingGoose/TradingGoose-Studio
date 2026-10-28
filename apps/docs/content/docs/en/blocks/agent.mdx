@@ -55,7 +55,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         },
         {
             "id": "temperature",
-            "type": "short-input",
+            "type": "slider",
             "title": "Temperature",
             "layout": "half",
             "placeholder": "Use the provider default",
@@ -66,7 +66,18 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         },
         {
             "id": "temperature",
-            "type": "short-input",
+            "type": "slider",
+            "title": "Temperature",
+            "layout": "half",
+            "placeholder": "Use the provider default",
+            "min": 0,
+            "max": 1.5,
+            "step": 0.1,
+            "description": "Available in Additional Fields. Shown when model is one of 'mistral-large-latest', 'mistral-large-2512', 'mistral-small-2603', 'devstral-2512', 'magistral-medium-latest', 'magistral-medium-2509', 'mistral-medium-latest', 'mistral-medium-2604', 'mistral-medium-2508', 'mistral-medium-2505', 'mistral-small-latest', 'open-mistral-nemo', 'codestral-latest', 'codestral-2508', 'devstral-latest', 'ministral-14b-latest', 'ministral-14b-2512', 'ministral-8b-latest', 'ministral-8b-2512', 'ministral-3b-latest', 'ministral-3b-2512'."
+        },
+        {
+            "id": "temperature",
+            "type": "slider",
             "title": "Temperature",
             "layout": "half",
             "placeholder": "Use the provider default",
@@ -144,8 +155,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "skills",
             "type": "skill-input",
             "title": "Skills",
-            "layout": "full",
-            "description": "Available in Additional Fields."
+            "layout": "full"
         },
         {
             "id": "responseFormat",
@@ -193,7 +203,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 ## Usage Instructions
 
-Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Available models come from the deployment catalog and configured provider connections. Use Additional Fields to configure memory, skills, response format, output token limits, and model-supported temperature, reasoning effort, verbosity, or thinking levels without switching block modes. Unset tuning controls or Auto use the provider’s defaults. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.
+Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Available models come from the deployment catalog and configured provider connections. Configure Tools and Skills directly. Use Additional Fields to configure memory, response format, output token limits, and model-supported temperature, reasoning effort, verbosity, or thinking levels without switching block modes. Unset tuning controls or Auto use the provider’s defaults. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.
 
 
 

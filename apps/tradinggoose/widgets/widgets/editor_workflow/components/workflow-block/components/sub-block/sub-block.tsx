@@ -1,7 +1,7 @@
 import type React from 'react'
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { format } from 'date-fns'
-import { AlertTriangle, Info } from 'lucide-react'
+import { AlertTriangle, Info, X } from 'lucide-react'
 import { MarketProviderSelector } from '@/components/market-selector/provider-selector'
 import { TradingAccountSelector } from '@/components/trading-selector/account-selector'
 import { TradingProviderSelector } from '@/components/trading-selector/provider-selector'
@@ -123,6 +123,8 @@ function SubBlockSliderField({
   min = 0,
   max = 100,
   defaultValue,
+  placeholder,
+  clearable = false,
   step = 0.1,
   integer = false,
   disabled = false,
@@ -133,54 +135,77 @@ function SubBlockSliderField({
   min?: number
   max?: number
   defaultValue?: number
+  placeholder?: string
+  clearable?: boolean
   step?: number
   integer?: boolean
   disabled?: boolean
 }) {
-  const [storeValue, setStoreValue] = useSubBlockValue<number>(blockId, subBlockId)
-  const computedDefaultValue = defaultValue ?? (max <= 1 ? 0.7 : (min + max) / 2)
-  const normalizedValue =
-    storeValue !== null && storeValue !== undefined
-      ? Math.max(min, Math.min(max, storeValue))
-      : computedDefaultValue
+  const [storeValue, setStoreValue] = useSubBlockValue<number | string>(blockId, subBlockId)
+  const isUnset = storeValue == null || (typeof storeValue === 'string' && !storeValue.trim())
+  const numericValue = isUnset ? Number.NaN : Number(storeValue)
+  const hasNumericValue = Number.isFinite(numericValue)
+  const normalizedValue = Math.max(
+    min,
+    Math.min(max, hasNumericValue ? numericValue : (defaultValue ?? (min + max) / 2))
+  )
   const range = max - min || 1
 
   useEffect(() => {
-    if (storeValue !== null && storeValue !== undefined && storeValue !== normalizedValue) {
+    if (!disabled && hasNumericValue && numericValue !== normalizedValue) {
       setStoreValue(normalizedValue)
     }
-  }, [normalizedValue, setStoreValue, storeValue])
+  }, [disabled, hasNumericValue, normalizedValue, numericValue, setStoreValue])
 
   return (
-    <div className='relative pt-2 pb-6'>
-      <Slider
-        aria-label={title}
-        value={[normalizedValue]}
-        min={min}
-        max={max}
-        step={integer ? 1 : step}
-        onValueChange={(newValue) => {
-          if (!disabled) {
-            setStoreValue(integer ? Math.round(newValue[0]) : newValue[0])
-          }
-        }}
-        disabled={disabled}
-        className='[&_[data-slot=slider-thumb]]:size-4 [&_[data-slot=slider-track]]:h-1'
-      />
-      <div
-        className='absolute text-muted-foreground text-sm'
-        style={{
-          left: `clamp(0%, ${((normalizedValue - min) / range) * 100}%, 100%)`,
-          transform: `translateX(-${(() => {
-            const percentage = ((normalizedValue - min) / range) * 100
-            const bias = -25 * Math.sin((percentage * Math.PI) / 50)
-            return percentage === 0 ? 0 : percentage === 100 ? 100 : 50 + bias
-          })()}%)`,
-          top: '24px',
-        }}
-      >
-        {integer ? Math.round(normalizedValue).toString() : Number(normalizedValue).toFixed(1)}
+    <div className='flex items-start gap-2'>
+      <div className='relative min-w-0 flex-1 pt-2 pb-6'>
+        <Slider
+          aria-label={title}
+          value={[normalizedValue]}
+          min={min}
+          max={max}
+          step={integer ? 1 : step}
+          onValueChange={(newValue) => {
+            if (!disabled) {
+              setStoreValue(integer ? Math.round(newValue[0]) : newValue[0])
+            }
+          }}
+          disabled={disabled}
+          className='[&_[data-slot=slider-thumb]]:size-4 [&_[data-slot=slider-track]]:h-1'
+        />
+        <div
+          className='absolute text-muted-foreground text-sm'
+          style={{
+            left: `clamp(0%, ${((normalizedValue - min) / range) * 100}%, 100%)`,
+            transform: `translateX(-${(() => {
+              const percentage = ((normalizedValue - min) / range) * 100
+              const bias = -25 * Math.sin((percentage * Math.PI) / 50)
+              return percentage === 0 ? 0 : percentage === 100 ? 100 : 50 + bias
+            })()}%)`,
+            top: '24px',
+          }}
+        >
+          {!isUnset && !hasNumericValue
+            ? storeValue
+            : isUnset && clearable && defaultValue === undefined
+              ? placeholder
+              : integer
+                ? Math.round(normalizedValue).toString()
+                : normalizedValue.toFixed(1)}
+        </div>
       </div>
+      {clearable && !isUnset && (
+        <button
+          type='button'
+          aria-label={`Clear ${title}`}
+          className='mt-1 text-muted-foreground hover:text-foreground disabled:opacity-50'
+          disabled={disabled}
+          onClick={() => setStoreValue('')}
+        >
+          <X className='size-4' />
+        </button>
+      )}
     </div>
   )
 }
@@ -549,7 +574,11 @@ export const SubBlock = memo(
               title={config.title ?? config.id}
               min={config.min}
               max={config.max}
-              defaultValue={(config.min || 0) + ((config.max || 100) - (config.min || 0)) / 2}
+              defaultValue={
+                typeof config.defaultValue === 'number' ? config.defaultValue : undefined
+              }
+              placeholder={config.placeholder}
+              clearable={config.clearable}
               step={config.step}
               integer={config.integer}
               disabled={isDisabled}
