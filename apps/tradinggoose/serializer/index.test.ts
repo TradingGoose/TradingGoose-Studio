@@ -265,13 +265,17 @@ vi.mock('@/blocks', () => ({
         subBlocks: [
           { id: 'systemPrompt', type: 'long-input', title: 'System Prompt' }, // mode: 'both' (default)
           { id: 'userPrompt', type: 'long-input', title: 'User Prompt' }, // mode: 'both' (default)
-          { id: 'memories', type: 'short-input', title: 'Memories', mode: 'advanced' },
+          { id: 'memories', type: 'short-input', title: 'Memories', additional: true },
+          { id: 'reasoningEffort', type: 'dropdown', title: 'Reasoning Effort', additional: true },
+          { id: 'thinkingLevel', type: 'dropdown', title: 'Thinking Level', additional: true },
           { id: 'model', type: 'dropdown', title: 'Model' }, // mode: 'both' (default)
         ],
         inputs: {
           systemPrompt: { type: 'string' },
           userPrompt: { type: 'string' },
           memories: { type: 'array' },
+          reasoningEffort: { type: 'string' },
+          thinkingLevel: { type: 'string' },
           model: { type: 'string' },
         },
       },
@@ -1022,69 +1026,41 @@ describe('Serializer', () => {
       }
     )
 
-    it.concurrent('should filter memories field correctly in agent blocks', () => {
-      const serializer = new Serializer()
+    it.concurrent.each([undefined, false, true])(
+      'retains agent Additional Fields regardless of advancedMode (%j)',
+      (advancedMode) => {
+        const serializer = new Serializer()
+        const agent: any = {
+          id: 'agent-1',
+          type: 'agentWithMemories',
+          name: 'Test Agent',
+          position: { x: 0, y: 0 },
+          advancedMode,
+          subBlocks: {
+            systemPrompt: { value: 'You are helpful' },
+            userPrompt: { value: 'Hello' },
+            memories: { value: [{ role: 'user', content: 'My name is John' }] },
+            reasoningEffort: { value: 'auto' },
+            thinkingLevel: { value: 'high' },
+            model: { value: 'claude-sonnet-4-6' },
+          },
+          outputs: {},
+          enabled: true,
+        }
 
-      const agentInBasicMode: any = {
-        id: 'agent-1',
-        type: 'agentWithMemories',
-        name: 'Test Agent',
-        position: { x: 0, y: 0 },
-        advancedMode: false, // Basic mode
-        subBlocks: {
-          systemPrompt: { value: 'You are helpful' }, // both mode field
-          userPrompt: { value: 'Hello' }, // both mode field
-          memories: { value: [{ role: 'user', content: 'My name is John' }] }, // advanced mode field
-          model: { value: 'claude-3-sonnet' }, // both mode field
-        },
-        outputs: {},
-        enabled: true,
+        const serialized = serializer.serializeWorkflow({ 'agent-1': agent }, [], {})
+        const agentBlock = serialized.blocks.find((block) => block.id === 'agent-1')
+
+        expect(agentBlock?.config.params).toMatchObject({
+          systemPrompt: 'You are helpful',
+          userPrompt: 'Hello',
+          memories: [{ role: 'user', content: 'My name is John' }],
+          reasoningEffort: 'auto',
+          thinkingLevel: 'high',
+          model: 'claude-sonnet-4-6',
+        })
       }
-
-      const serialized = serializer.serializeWorkflow({ 'agent-1': agentInBasicMode }, [], {})
-
-      const agentBlock = serialized.blocks.find((b) => b.id === 'agent-1')
-      expect(agentBlock).toBeDefined()
-
-      // In basic mode, memories should be excluded
-      expect(agentBlock?.config.params.systemPrompt).toBe('You are helpful')
-      expect(agentBlock?.config.params.userPrompt).toBe('Hello')
-      expect(agentBlock?.config.params.memories).toBeUndefined() // Excluded in basic mode
-      expect(agentBlock?.config.params.model).toBe('claude-3-sonnet')
-    })
-
-    it.concurrent('should include memories field when agent is in advanced mode', () => {
-      const serializer = new Serializer()
-
-      const agentInAdvancedMode: any = {
-        id: 'agent-1',
-        type: 'agentWithMemories',
-        name: 'Test Agent',
-        position: { x: 0, y: 0 },
-        advancedMode: true, // Advanced mode
-        subBlocks: {
-          systemPrompt: { value: 'You are helpful' }, // both mode field
-          userPrompt: { value: 'Hello' }, // both mode field
-          memories: { value: [{ role: 'user', content: 'My name is John' }] }, // advanced mode field
-          model: { value: 'claude-3-sonnet' }, // both mode field
-        },
-        outputs: {},
-        enabled: true,
-      }
-
-      const serialized = serializer.serializeWorkflow({ 'agent-1': agentInAdvancedMode }, [], {})
-
-      const agentBlock = serialized.blocks.find((b) => b.id === 'agent-1')
-      expect(agentBlock).toBeDefined()
-
-      // In advanced mode, memories should be included
-      expect(agentBlock?.config.params.systemPrompt).toBe('You are helpful')
-      expect(agentBlock?.config.params.userPrompt).toBe('Hello')
-      expect(agentBlock?.config.params.memories).toEqual([
-        { role: 'user', content: 'My name is John' },
-      ]) // Included in advanced mode
-      expect(agentBlock?.config.params.model).toBe('claude-3-sonnet')
-    })
+    )
 
     it.concurrent('should handle blocks with no matching subblock config gracefully', () => {
       const serializer = new Serializer()

@@ -2,7 +2,7 @@ import { memo, type ReactNode, useMemo } from 'react'
 import { Handle, type NodeProps, Position } from '@xyflow/react'
 import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
-import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
+import { buildSubBlockPreviewRows } from '@/lib/workflows/sub-block-rows'
 import { getBlock } from '@/blocks'
 import { resolveTriggerIdFromSubBlocks } from '@/triggers/resolution'
 import {
@@ -117,29 +117,24 @@ function LocalizedPreviewNode({ id, data }: NodeProps<PreviewCanvasNode>) {
     [blockConfig, data.type, localizeWorkflowSubBlockConfig, triggerId]
   )
   const isEnabled = data.blockState?.enabled ?? true
-  const isAdvancedMode = data.blockState?.advancedMode ?? false
   const useHorizontalHandles = data.blockState?.horizontalHandles ?? true
   const isPureTriggerBlock = blockConfig?.category === 'triggers'
   const isTriggerMode = Boolean(data.blockState?.triggerMode) || isPureTriggerBlock
   const previewSubBlocks = useMemo(
     () =>
       blockConfig
-        ? buildSubBlockRows({
+        ? buildSubBlockPreviewRows({
             blockId: id,
             subBlocks: localizedSubBlocks,
             stateToUse: previewStateRaw,
-            isAdvancedMode,
             isTriggerMode,
             isPureTriggerBlock,
             availableTriggerIds: blockConfig.triggers?.available,
-            hideFromPreview: true,
-            triggerSubBlockOwner: 'all',
-          }).flat()
+          })
         : [],
     [
       blockConfig?.triggers?.available,
       id,
-      isAdvancedMode,
       isPureTriggerBlock,
       isTriggerMode,
       localizedSubBlocks,

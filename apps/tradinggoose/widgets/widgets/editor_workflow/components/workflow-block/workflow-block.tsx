@@ -19,7 +19,7 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import { getIconTileStyle, withIconColorAlpha } from '@/lib/ui/icon-colors'
 import { cn, validateName } from '@/lib/utils'
-import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
+import { buildSubBlockPreviewRows } from '@/lib/workflows/sub-block-rows'
 import { useBlock, useBlockProtection, useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
 import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { registry as blockRegistry } from '@/blocks/registry'
@@ -198,32 +198,14 @@ export const WorkflowBlock = memo(
 
     // Read block properties from Yjs doc
     const yjsMutations = useWorkflowMutations()
-    const currentYjsBlock = currentBlock
     const workflowChannelId = useWorkflowChannelId()
-
-    // Derive block properties from Yjs blocks
-    const {
-      storeHorizontalHandles,
-      storeBlockLayout,
-      storeBlockAdvancedMode,
-      storeBlockTriggerMode,
-    } = useMemo(() => {
-      const block = currentYjsBlock
-      return {
-        storeHorizontalHandles: block?.horizontalHandles ?? true,
-        storeBlockLayout: block?.layout,
-        storeBlockAdvancedMode: block?.advancedMode ?? false,
-        storeBlockTriggerMode: block?.triggerMode ?? false,
-      }
-    }, [currentYjsBlock])
 
     const horizontalHandles = data.isPreview
       ? (data.blockState?.horizontalHandles ?? true)
-      : storeHorizontalHandles
+      : (currentBlock?.horizontalHandles ?? true)
 
-    const blockHeight = storeBlockLayout?.measuredHeight ?? currentYjsBlock?.height ?? 0
-
-    const blockWidth = storeBlockLayout?.measuredWidth ?? 0
+    const blockHeight = currentBlock?.layout?.measuredHeight ?? currentBlock?.height ?? 0
+    const blockWidth = currentBlock?.layout?.measuredWidth ?? 0
 
     const tooltipPortalContainer = tooltipContainer ?? undefined
     const popoverPortalContainer = popoverContainer ?? undefined
@@ -245,24 +227,16 @@ export const WorkflowBlock = memo(
 
     // Get per-block webhook status by checking if webhook is configured (from Yjs blocks)
     const blockWebhookStatus = useMemo(() => {
-      const subBlocks = currentYjsBlock?.subBlocks
+      const subBlocks = currentBlock?.subBlocks
       if (!subBlocks) return false
 
       const getVal = (key: string) => subBlocks[key]?.value
       return Boolean(getVal('triggerPath') && getVal('webhookId'))
-    }, [currentYjsBlock?.subBlocks])
-
-    const blockAdvancedMode = storeBlockAdvancedMode
-
-    const blockTriggerMode = storeBlockTriggerMode
-
-    const displayAdvancedMode = data.isPreview
-      ? (data.blockState?.advancedMode ?? false)
-      : blockAdvancedMode
+    }, [currentBlock?.subBlocks])
 
     const displayTriggerMode = data.isPreview
       ? (data.blockState?.triggerMode ?? false)
-      : blockTriggerMode
+      : (currentBlock?.triggerMode ?? false)
 
     // Collaborative workflow actions
     const { collaborativeUpdateBlockName } = useWorkflowEditorActions()
@@ -468,54 +442,32 @@ export const WorkflowBlock = memo(
       debounce,
     ])
 
-    const subBlockRowsData = useMemo(() => {
-      // Get the appropriate state for conditional evaluation
-      let stateToUse: Record<string, any> = {}
-
-      if (data.isPreview && data.subBlockValues) {
-        // In preview mode, use the preview values
-        stateToUse = data.subBlockValues
-      } else {
-        // In normal mode, use Yjs blocks which already contain the merged subblock state.
-        stateToUse = currentBlock?.subBlocks || {}
-      }
-
+    const subBlockState =
+      data.isPreview && data.subBlockValues ? data.subBlockValues : (currentBlock?.subBlocks ?? {})
+    const flattenedSubBlocks = useMemo(() => {
       const isPureTriggerBlock = config.category === 'triggers'
       const effectiveTrigger = displayTriggerMode || isPureTriggerBlock
-      const triggerId = resolveTriggerIdFromSubBlocks(stateToUse, config.triggers?.available)
+      const triggerId = resolveTriggerIdFromSubBlocks(subBlockState, config.triggers?.available)
       const localizedSubBlocks = config.subBlocks.map((subBlock) =>
         localizeWorkflowSubBlockConfig(subBlock, type, triggerId ?? undefined)
       )
-      const rows = buildSubBlockRows({
+      return buildSubBlockPreviewRows({
         blockId: id,
         subBlocks: localizedSubBlocks,
-        stateToUse,
-        isAdvancedMode: displayAdvancedMode,
+        stateToUse: subBlockState,
         isTriggerMode: effectiveTrigger,
         isPureTriggerBlock,
         availableTriggerIds: config.triggers?.available,
-        hideFromPreview: true,
-        triggerSubBlockOwner: 'all',
       })
-
-      // Return both rows and state for stable key generation
-      return { rows, stateToUse }
     }, [
       config.subBlocks,
       config.triggers?.available,
-      displayAdvancedMode,
       displayTriggerMode,
-      data.isPreview,
-      data.subBlockValues,
-      currentBlock,
+      subBlockState,
       localizeWorkflowSubBlockConfig,
       type,
     ])
 
-    // Extract rows and state from the memoized value
-    const subBlockRows = subBlockRowsData.rows
-    const subBlockState = subBlockRowsData.stateToUse
-    const flattenedSubBlocks = useMemo(() => subBlockRows.flat(), [subBlockRows])
     const conditionRows = useMemo(() => {
       if (type !== 'condition') {
         return [] as Array<{ id: string; title: string; value: string }>
@@ -564,7 +516,7 @@ export const WorkflowBlock = memo(
       workflowLabelsCopy.elseIf,
       workflowLabelsCopy.if,
     ])
-    const shouldRenderInNodeSubBlocks = subBlockRows.length > 0
+    const shouldRenderInNodeSubBlocks = flattenedSubBlocks.length > 0
     const shouldShowErrorHandle =
       type === 'condition' ||
       (type !== 'response' && config.category !== 'triggers' && !displayTriggerMode)

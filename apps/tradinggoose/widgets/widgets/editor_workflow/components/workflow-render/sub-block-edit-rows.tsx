@@ -7,6 +7,7 @@ import { SubBlock } from '@/widgets/widgets/editor_workflow/components/workflow-
 interface SubBlockEditRowsProps {
   blockId: string
   rows: SubBlockConfig[][]
+  subBlockConfigs?: SubBlockConfig[]
   stateToUse: Record<string, any>
   disabled: boolean
   rowKeyPrefix: string
@@ -17,6 +18,7 @@ interface SubBlockEditRowsProps {
 export function SubBlockEditRows({
   blockId,
   rows,
+  subBlockConfigs,
   stateToUse,
   disabled,
   rowKeyPrefix,
@@ -27,10 +29,10 @@ export function SubBlockEditRows({
     () =>
       buildConfiguredSubBlockParams({
         blockId,
-        subBlockConfigs: rows.flat(),
+        subBlockConfigs: subBlockConfigs ?? rows.flat(),
         subBlocks: stateToUse,
       }),
-    [blockId, rows, stateToUse]
+    [blockId, rows, subBlockConfigs, stateToUse]
   )
 
   return (

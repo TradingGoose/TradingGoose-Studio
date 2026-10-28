@@ -162,7 +162,12 @@ function toCatalogCategory(category: BlockConfig['category']): BlockCatalogCateg
 }
 
 function resolveSubBlockOptions(subBlock: BlockConfig['subBlocks'][number]) {
-  const options = typeof subBlock.options === 'function' ? subBlock.options() : subBlock.options
+  const options =
+    typeof subBlock.options === 'function'
+      ? subBlock.options.length === 0
+        ? subBlock.options()
+        : undefined
+      : subBlock.options
   if (!Array.isArray(options) || options.length === 0) {
     return undefined
   }

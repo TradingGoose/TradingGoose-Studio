@@ -146,4 +146,47 @@ describe('trigger-editing-layout', () => {
         .map((subBlock) => subBlock.id)
     ).toEqual(['systemPrompt', 'userPrompt', 'model', 'apiKey', 'responseFormat'])
   })
+
+  it.each([false, true])(
+    'groups additional fields independently of saved advanced mode (%s)',
+    (advancedMode) => {
+      const layout = buildTriggerEditingLayout({
+        inspectorCopy: getWorkflowInspectorCopy('en'),
+        blockType: 'agent',
+        blockConfig: {
+          category: 'blocks',
+          subBlocks: [
+            { id: 'model', type: 'combobox' },
+            {
+              id: 'reasoningEffort',
+              type: 'dropdown',
+              additional: true,
+              condition: { field: 'model', value: 'reasoning-model' },
+            },
+            {
+              id: 'thinkingLevel',
+              type: 'dropdown',
+              additional: true,
+              condition: { field: 'model', value: 'other-model' },
+            },
+          ],
+        },
+        blockState: {
+          advancedMode,
+          subBlocks: {
+            model: { value: 'reasoning-model' },
+            reasoningEffort: { value: 'high' },
+          },
+        },
+        shouldDisableWrite: false,
+      })
+
+      expect(layout.regularRows.flat().map((subBlock) => subBlock.id)).toEqual(['model'])
+      expect(layout.hasAdvancedFields).toBe(false)
+      expect(layout.additionalRows.flat().map((subBlock) => subBlock.id)).toEqual([
+        'reasoningEffort',
+      ])
+      expect(layout.displayAdditionalFields).toBe(true)
+    }
+  )
 })

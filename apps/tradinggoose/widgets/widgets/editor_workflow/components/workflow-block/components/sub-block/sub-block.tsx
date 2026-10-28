@@ -503,7 +503,11 @@ export const SubBlock = memo(
               <Dropdown
                 blockId={blockId}
                 subBlockId={config.id}
-                options={config.options as { label: string; id: string }[]}
+                options={
+                  typeof config.options === 'function'
+                    ? config.options(valueContext)
+                    : (config.options ?? [])
+                }
                 defaultValue={
                   typeof config.value === 'function' ? config.value(valueContext) : config.value
                 }
@@ -522,7 +526,11 @@ export const SubBlock = memo(
               <ComboBox
                 blockId={blockId}
                 subBlockId={config.id}
-                options={config.options as { label: string; id: string }[]}
+                options={
+                  typeof config.options === 'function'
+                    ? config.options(valueContext)
+                    : (config.options ?? [])
+                }
                 defaultValue={
                   typeof config.value === 'function' ? config.value(valueContext) : config.value
                 }

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 vi.unmock('@/blocks/registry')
 
-import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
+import { buildSubBlockPreviewRows, buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
 import { getAllBlocks } from '@/blocks'
 import type { BlockConfig } from '@/blocks/types'
 
@@ -171,6 +171,26 @@ describe('buildSubBlockRows', () => {
 
     expect(rows.flat().map((subBlock) => subBlock.id)).toEqual(['files'])
   })
+
+  it.each([undefined, null, '', '  ', [], {}])(
+    'omits unconfigured additional values from previews (%j)',
+    (value) => {
+      const subBlocks = buildSubBlockPreviewRows({
+        subBlocks: [
+          { id: 'model', type: 'combobox' },
+          { id: 'optional', type: 'short-input', additional: true },
+          { id: 'temperature', type: 'short-input', additional: true },
+        ],
+        stateToUse: {
+          model: { value: 'model' },
+          optional: { value },
+          temperature: { value: 0 },
+        },
+      })
+
+      expect(subBlocks.map((subBlock) => subBlock.id)).toEqual(['model', 'temperature'])
+    }
+  )
 
   it.each(multiTriggerBlocks)(
     'renders one field instance per selected $type trigger',

@@ -30,10 +30,14 @@ type BuildSubBlockPreviewRowsParams = Omit<
   isTriggerMode?: boolean
 }
 
-const hasStoredValue = (value: unknown) =>
-  value && typeof value === 'object' && 'value' in value
-    ? (value as { value: unknown }).value !== undefined
-    : value !== undefined
+export const hasConfiguredSubBlockValue = (entry: unknown) => {
+  const value = entry && typeof entry === 'object' && 'value' in entry ? entry.value : entry
+  if (value === undefined || value === null) return false
+  if (typeof value === 'string') return value.trim().length > 0
+  if (Array.isArray(value)) return value.length > 0
+  if (typeof value === 'object') return Object.keys(value).length > 0
+  return true
+}
 
 export function buildSubBlockRows({
   blockId,
@@ -144,7 +148,11 @@ export function buildSubBlockPreviewRows({
     ...params,
     stateToUse,
     subBlocks: subBlocks
-      .filter((subBlock) => subBlock.mode !== 'advanced' || hasStoredValue(stateToUse[subBlock.id]))
+      .filter(
+        (subBlock) =>
+          (!subBlock.additional && subBlock.mode !== 'advanced') ||
+          hasConfiguredSubBlockValue(stateToUse[subBlock.id])
+      )
       .map((subBlock) =>
         subBlock.mode === 'advanced' ? { ...subBlock, mode: 'both' as const } : subBlock
       ),

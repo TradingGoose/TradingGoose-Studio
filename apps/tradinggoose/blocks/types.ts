@@ -168,6 +168,7 @@ export interface SubBlockConfig {
   type: SubBlockType
   layout?: SubBlockLayout
   mode?: 'basic' | 'advanced' | 'both' | 'trigger' // Default is 'both' if not specified
+  additional?: boolean
   canonicalParamId?: string
   providerType?: 'market' | 'trading'
   marketProviderKind?: 'series' | 'live'
@@ -175,7 +176,7 @@ export interface SubBlockConfig {
   tradingProviderFieldId?: string
   required?: boolean | SubBlockCondition | (() => SubBlockCondition)
   defaultValue?: string | number | boolean | Record<string, unknown> | Array<unknown>
-  options?: SubBlockOption[] | (() => SubBlockOption[])
+  options?: SubBlockOption[] | ((params?: Record<string, any>) => SubBlockOption[])
   entityListKind?: DropdownEntityListKind
   excludeCurrentEntity?: boolean
   // Async options loader for dropdown/combobox-like inputs
