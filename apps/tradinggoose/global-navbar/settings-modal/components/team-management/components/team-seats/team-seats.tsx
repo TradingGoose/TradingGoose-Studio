@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useLocale, useTranslations } from 'next-intl'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -12,6 +13,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { formatLocalizedNumber, formatUsd } from '@/i18n/formatters'
 
 interface TeamSeatsProps {
   open: boolean
@@ -48,6 +50,8 @@ export function TeamSeats({
   showCostBreakdown = false,
   isCancelledAtPeriodEnd = false,
 }: TeamSeatsProps) {
+  const t = useTranslations('workspace.settingsModal.team')
+  const locale = useLocale()
   const [selectedSeats, setSelectedSeats] = useState(initialSeats)
 
   useEffect(() => {
@@ -77,7 +81,7 @@ export function TeamSeats({
         </DialogHeader>
 
         <div className='py-4'>
-          <Label htmlFor='seats'>Number of seats</Label>
+          <Label htmlFor='seats'>{t('numberOfSeats')}</Label>
           <Input
             id='seats'
             type='number'
@@ -102,30 +106,35 @@ export function TeamSeats({
           />
 
           <p className='mt-2 text-muted-foreground text-sm'>
-            Your team will have {selectedSeats} {selectedSeats === 1 ? 'seat' : 'seats'} with a
-            total of ${totalMonthlyCost} inference credits per month.
+            {t('yourTeamWillHave', {
+              count: selectedSeats,
+              cost: formatUsd(locale, totalMonthlyCost),
+            })}
           </p>
           <p className='mt-1 text-muted-foreground text-xs'>
             {maximumSeats === null
-              ? `Minimum ${minimumSeats} seats. No maximum seat cap applies to this tier.`
-              : `Choose between ${minimumSeats} and ${maximumSeats} seats for this tier.`}
+              ? t('minimumSeatsNoMax', {
+                  minimum: formatLocalizedNumber(locale, minimumSeats),
+                })
+              : t('chooseBetweenSeats', {
+                  minimum: formatLocalizedNumber(locale, minimumSeats),
+                  maximum: formatLocalizedNumber(locale, maximumSeats),
+                })}
           </p>
 
           {showCostBreakdown && currentSeats !== undefined && (
             <div className='mt-3 rounded-md bg-muted/50 p-3'>
               <div className='flex justify-between text-sm'>
-                <span>Current seats:</span>
-                <span>{currentSeats}</span>
+                <span>{t('currentSeats')}</span>
+                <span>{formatLocalizedNumber(locale, currentSeats)}</span>
               </div>
               <div className='flex justify-between text-sm'>
-                <span>New seats:</span>
-                <span>{selectedSeats}</span>
+                <span>{t('newSeats')}</span>
+                <span>{formatLocalizedNumber(locale, selectedSeats)}</span>
               </div>
               <div className='mt-2 flex justify-between border-t pt-2 font-medium text-sm'>
-                <span>Monthly cost change:</span>
-                <span>
-                  {costChange > 0 ? '+' : ''}${costChange}
-                </span>
+                <span>{t('monthlyCostChange')}</span>
+                <span>{formatUsd(locale, costChange, { signDisplay: 'exceptZero' })}</span>
               </div>
             </div>
           )}
@@ -139,7 +148,7 @@ export function TeamSeats({
 
         <DialogFooter>
           <Button variant='outline' onClick={() => onOpenChange(false)} disabled={isLoading}>
-            Cancel
+            {t('cancel')}
           </Button>
           <TooltipProvider>
             <Tooltip>
@@ -159,7 +168,7 @@ export function TeamSeats({
                       {isLoading ? (
                         <div className='flex items-center space-x-2'>
                           <div className='h-4 w-4 animate-spin rounded-full border-2 border-current border-b-transparent' />
-                          <span>Updating…</span>
+                          <span>{t('updating')}</span>
                         </div>
                       ) : (
                         <span>{confirmButtonText}</span>
@@ -170,10 +179,7 @@ export function TeamSeats({
               />
               {isCancelledAtPeriodEnd && (
                 <TooltipContent>
-                  <p>
-                    To update seats, go to Subscription {'>'} Manage {'>'} Keep Subscription to
-                    reactivate
-                  </p>
+                  <p>{t('reactivateSubscription')}</p>
                 </TooltipContent>
               )}
             </Tooltip>

@@ -1,13 +1,13 @@
 import { TranslateIcon } from '@/components/icons/icons'
 import { isHosted } from '@/lib/environment'
 import { AuthMode, type BlockConfig } from '@/blocks/types'
-import { getProviderDefaultModel } from '@/providers/ai/models'
 import {
-  getAllModelProviders,
   getHostedModels,
+  getProviderDefaultModel,
   getProviderIcon,
-  providers,
-} from '@/providers/ai/utils'
+  getProviderModels,
+} from '@/providers/ai/models'
+import { getAllModelProviders } from '@/providers/ai/utils'
 import { useProvidersStore } from '@/stores/providers/store'
 
 const DEFAULT_MODEL = getProviderDefaultModel('openai')
@@ -107,7 +107,7 @@ export const TranslateBlock: BlockConfig = {
       connectionDroppable: false,
       condition: {
         field: 'model',
-        value: providers['azure-openai'].models,
+        value: getProviderModels('azure-openai'),
       },
     },
     {
@@ -119,7 +119,7 @@ export const TranslateBlock: BlockConfig = {
       connectionDroppable: false,
       condition: {
         field: 'model',
-        value: providers['azure-openai'].models,
+        value: getProviderModels('azure-openai'),
       },
     },
     {

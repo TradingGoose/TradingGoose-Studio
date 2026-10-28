@@ -82,9 +82,6 @@ function safeCreateEnv() {
     TWILIO_AUTH_TOKEN: z.string().min(1).optional(),           // Twilio Auth Token for API authentication
     TWILIO_PHONE_NUMBER: z.string().min(1).optional(),           // Twilio phone number for sending SMS
 
-    // AI/LLM feature flags
-    DEEPSEEK_MODELS_ENABLED: z.boolean().optional().default(false),  // Enable Deepseek models in UI (defaults to false for compliance)
-
     // Monitoring & Analytics
     TELEMETRY_ENDPOINT: z.string().url().optional(),            // Custom telemetry/analytics endpoint
     LOG_LEVEL: z.enum(['DEBUG', 'INFO', 'WARN', 'ERROR']).optional(), // Minimum log level to display (defaults to ERROR in production, DEBUG in development)
@@ -133,9 +130,6 @@ function safeCreateEnv() {
     KB_CONFIG_MIN_TIMEOUT: z.number().optional().default(1000),    // Min timeout in ms
     KB_CONFIG_MAX_TIMEOUT: z.number().optional().default(10000),   // Max timeout in ms
     KB_CONFIG_CONCURRENCY_LIMIT: z.number().optional().default(20),      // Queue concurrency limit
-    KB_CONFIG_BATCH_SIZE: z.number().optional().default(20),      // Processing batch size
-    KB_CONFIG_DELAY_BETWEEN_BATCHES: z.number().optional().default(100),     // Delay between batches in ms
-    KB_CONFIG_DELAY_BETWEEN_DOCUMENTS: z.number().optional().default(50),      // Delay between documents in ms
 
     // Real-time Communication
     SOCKET_PORT: z.number().optional(),                  // Port for the realtime socket server process
@@ -163,12 +157,7 @@ function safeCreateEnv() {
     // Client-side Services
     NEXT_PUBLIC_SOCKET_URL: z.string().url().optional(),            // Optional realtime URL; defaults to http://localhost:3002 when unset
 
-    // Google Services - For client-side Google integrations
-    NEXT_PUBLIC_GOOGLE_CLIENT_ID: z.string().optional(),                  // Google OAuth client ID for browser auth
-
     // Analytics & Tracking
-    NEXT_PUBLIC_GOOGLE_API_KEY: z.string().optional(),                  // Google API key for client-side API calls
-    NEXT_PUBLIC_GOOGLE_PROJECT_NUMBER: z.string().optional(),                  // Google project number for Drive picker
     NEXT_PUBLIC_POSTHOG_DISABLED: z.string().optional(),                 // Set to "1" to disable PostHog analytics
     NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),                  // PostHog project API key
 
@@ -184,9 +173,6 @@ function safeCreateEnv() {
 
   experimental__runtimeEnv: {
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
-    NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-    NEXT_PUBLIC_GOOGLE_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_API_KEY,
-    NEXT_PUBLIC_GOOGLE_PROJECT_NUMBER: process.env.NEXT_PUBLIC_GOOGLE_PROJECT_NUMBER,
     NEXT_PUBLIC_SOCKET_URL: process.env.NEXT_PUBLIC_SOCKET_URL,
     NEXT_PUBLIC_SSO_ENABLED: process.env.NEXT_PUBLIC_SSO_ENABLED,
     NEXT_PUBLIC_POSTHOG_DISABLED: process.env.NEXT_PUBLIC_POSTHOG_DISABLED,

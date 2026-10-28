@@ -4,17 +4,20 @@ import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { BlockConfig, SubBlockOption, SubBlockOptionGroup } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
-import { getProviderDefaultModel } from '@/providers/ai/models'
 import {
-  getAllModelProviders,
   getHostedModels,
   getMaxTemperature,
+  getProviderDefaultModel,
   getProviderFromModel,
   getProviderIcon,
+  getProviderModels,
+  PROVIDER_DEFINITIONS,
+  supportsTemperature,
+} from '@/providers/ai/models'
+import {
+  getAllModelProviders,
   MODELS_WITH_REASONING_EFFORT,
   MODELS_WITH_VERBOSITY,
-  providers,
-  supportsTemperature,
 } from '@/providers/ai/utils'
 
 const getCurrentOllamaModels = () => {
@@ -38,7 +41,7 @@ const getAvailableModels = () => {
 const getAvailableModelOptions = (): SubBlockOption[] => {
   return getAvailableModels().map((model) => {
     const providerId = getProviderFromModel(model)
-    const provider = providers[providerId]
+    const provider = PROVIDER_DEFINITIONS[providerId]
     const icon = provider?.icon ?? getProviderIcon(model)
 
     return {
@@ -59,7 +62,7 @@ const getAvailableModelGroups = (): SubBlockOptionGroup[] => {
     const providerId = getProviderFromModel(model)
     if (seenProviderIds.has(providerId)) continue
 
-    const provider = providers[providerId]
+    const provider = PROVIDER_DEFINITIONS[providerId]
     seenProviderIds.add(providerId)
     groups.push({
       id: providerId,
@@ -322,7 +325,7 @@ Create a system prompt appropriately detailed for the request, using clear langu
       connectionDroppable: false,
       condition: {
         field: 'model',
-        value: providers['azure-openai'].models,
+        value: getProviderModels('azure-openai'),
       },
     },
     {
@@ -334,7 +337,7 @@ Create a system prompt appropriately detailed for the request, using clear langu
       connectionDroppable: false,
       condition: {
         field: 'model',
-        value: providers['azure-openai'].models,
+        value: getProviderModels('azure-openai'),
       },
     },
     {

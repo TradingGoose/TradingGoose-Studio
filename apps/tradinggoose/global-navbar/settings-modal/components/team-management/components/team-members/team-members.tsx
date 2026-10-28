@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { LogOut, UserX, X } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
+import { formatUsd } from '@/i18n/formatters'
 import type { Invitation, Member, Organization } from '@/stores/organization'
 
 const logger = createLogger('TeamMembers')
@@ -54,6 +56,9 @@ export function TeamMembers({
   onRemoveMember,
   onCancelInvitation,
 }: TeamMembersProps) {
+  const copy = useTranslations('workspace.settingsModal.team.members')
+  const roles = useTranslations('workspace.switcher.roles')
+  const locale = useLocale()
   const [memberUsageData, setMemberUsageData] = useState<Record<string, number>>({})
   const [memberUsageMode, setMemberUsageMode] = useState<MemberUsageMode>('individual')
   const [sharedUsageTotal, setSharedUsageTotal] = useState<number | null>(null)
@@ -117,8 +122,9 @@ export function TeamMembers({
     organization.members.forEach((member: Member) => {
       const userId = member.user?.id
       const usageAmount = userId ? (memberUsageData[userId] ?? 0) : 0
-      const name = member.user?.name || 'Unknown'
-      const usage = memberUsageMode === 'pooled' ? 'Shared pool' : `$${usageAmount.toFixed(2)}`
+      const name = member.user?.name || copy('unknown')
+      const usage =
+        memberUsageMode === 'pooled' ? copy('sharedPool') : formatUsd(locale, usageAmount)
 
       const memberItem: MemberItem = {
         type: 'member',
@@ -160,7 +166,7 @@ export function TeamMembers({
   }
 
   if (teamItems.length === 0) {
-    return <div className='text-center text-muted-foreground text-sm'>No team members yet.</div>
+    return <div className='text-center text-muted-foreground text-sm'>{copy('empty')}</div>
   }
 
   // Check if current user can leave (is a member but not owner)
@@ -172,10 +178,10 @@ export function TeamMembers({
     <div className='flex flex-col gap-4'>
       {/* Header - simple like account page */}
       <div>
-        <h4 className='font-medium text-sm'>Team Members</h4>
+        <h4 className='font-medium text-sm'>{copy('title')}</h4>
         {isAdminOrOwner && memberUsageMode === 'pooled' && sharedUsageTotal !== null && (
           <p className='mt-1 text-muted-foreground text-xs'>
-            Shared billed usage: ${sharedUsageTotal.toFixed(2)}
+            {copy('sharedUsage', { amount: formatUsd(locale, sharedUsageTotal) })}
           </p>
         )}
       </div>
@@ -224,12 +230,12 @@ export function TeamMembers({
                           : 'bg-[var(--primary)]/10 text-muted-foreground'
                       } `}
                     >
-                      {item.role.charAt(0).toUpperCase() + item.role.slice(1)}
+                      {roles(item.role === 'owner' || item.role === 'admin' ? item.role : 'member')}
                     </span>
                   )}
                   {item.type === 'invitation' && (
                     <span className='inline-flex h-[1.125rem] items-center rounded-md bg-muted px-2 py-0 font-medium text-muted-foreground text-xs'>
-                      Pending
+                      {copy('pending')}
                     </span>
                   )}
                 </div>
@@ -241,7 +247,7 @@ export function TeamMembers({
                 <div className='hidden items-center text-xs tabular-nums sm:flex'>
                   <div className='text-center'>
                     <div className='text-muted-foreground'>
-                      {memberUsageMode === 'pooled' ? 'Billing' : 'Usage'}
+                      {memberUsageMode === 'pooled' ? copy('billing') : copy('usage')}
                     </div>
                     <div className='font-medium'>
                       {isLoadingUsage && item.type === 'member' ? (
@@ -276,7 +282,7 @@ export function TeamMembers({
                         </Button>
                       }
                     />
-                    <TooltipContent side='left'>Remove Member</TooltipContent>
+                    <TooltipContent side='left'>{copy('removeMemberTooltip')}</TooltipContent>
                   </Tooltip>
                 )}
 
@@ -304,8 +310,8 @@ export function TeamMembers({
                   />
                   <TooltipContent side='left'>
                     {pendingInvitationId === item.invitation.id
-                      ? 'Cancelling...'
-                      : 'Cancel Invitation'}
+                      ? copy('cancelling')
+                      : copy('cancelInvitationTooltip')}
                   </TooltipContent>
                 </Tooltip>
               )}
@@ -331,7 +337,7 @@ export function TeamMembers({
             className='w-full hover:bg-card'
           >
             <LogOut className='mr-2 h-4 w-4' />
-            Leave Organization
+            {copy('leaveOrganization')}
           </Button>
         </div>
       )}

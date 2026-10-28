@@ -4,10 +4,13 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockListSystemServices, mockUpsertSystemServiceConfig } = vi.hoisted(() => ({
+const { mockListSystemServices, mockUpsertSystemServiceConfig, environment } = vi.hoisted(() => ({
   mockListSystemServices: vi.fn(),
   mockUpsertSystemServiceConfig: vi.fn(),
+  environment: { isHosted: false },
 }))
+
+vi.mock('@/lib/environment', () => environment)
 
 vi.mock('@/lib/system-services/service', () => ({
   listSystemServices: (...args: any[]) => mockListSystemServices(...args),
@@ -19,6 +22,7 @@ describe('admin system services', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.resetModules()
+    environment.isHosted = false
     mockListSystemServices.mockResolvedValue([])
   })
 
@@ -67,5 +71,20 @@ describe('admin system services', () => {
       required: true,
       defaultValue: 'http://localhost:11434',
     })
+  })
+
+  it('removes Ollama from hosted settings and configuration lookups', async () => {
+    environment.isHosted = true
+    const { listAdminSystemServices } = await import('./system-services')
+    const { getSystemServiceDefinition, isSystemServiceSettingKey } = await import(
+      '@/lib/system-services/catalog'
+    )
+
+    const snapshot = await listAdminSystemServices()
+
+    expect(snapshot.services.some((service) => service.id === 'ollama')).toBe(false)
+    expect(getSystemServiceDefinition('ollama')).toBeNull()
+    expect(isSystemServiceSettingKey('ollama', 'baseUrl')).toBe(false)
+    expect(snapshot.services.some((service) => service.id === 'openai')).toBe(true)
   })
 })

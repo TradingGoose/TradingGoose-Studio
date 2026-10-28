@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import { resolveVllmServiceConfig } from '@/lib/system-services/runtime'
-import { filterBlacklistedModels } from '@/providers/ai/utils'
 
 const logger = createLogger('VLLMModelsAPI')
 
@@ -39,7 +38,7 @@ export async function GET() {
     }
 
     const data = (await response.json()) as { data: Array<{ id: string }> }
-    const models = filterBlacklistedModels(data.data.map((model) => `vllm/${model.id}`))
+    const models = data.data.map((model) => `vllm/${model.id}`)
 
     logger.info('Successfully fetched vLLM models', {
       count: models.length,

@@ -1,4 +1,5 @@
 import { COPILOT_API_URL_DEFAULT } from '@/lib/copilot/agent/constants'
+import { isHosted } from '@/lib/environment'
 import { MARKET_API_URL_DEFAULT } from '@/lib/market/client/constants'
 
 export type SystemServiceSettingFieldType = 'text' | 'url' | 'number' | 'boolean'
@@ -440,25 +441,13 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
 ]
 
 const SYSTEM_SERVICE_DEFINITIONS_BY_ID = new Map(
-  SYSTEM_SERVICE_DEFINITIONS.map((definition) => [definition.id, definition])
-)
-
-const SYSTEM_SERVICE_CREDENTIAL_KEYS = new Map(
-  SYSTEM_SERVICE_DEFINITIONS.map((definition) => [
-    definition.id,
-    new Set(definition.credentialFields.map((field) => field.key)),
-  ])
-)
-
-const SYSTEM_SERVICE_SETTING_KEYS = new Map(
-  SYSTEM_SERVICE_DEFINITIONS.map((definition) => [
-    definition.id,
-    new Set(definition.settingFields.map((field) => field.key)),
-  ])
+  SYSTEM_SERVICE_DEFINITIONS.filter((definition) => !isHosted || definition.id !== 'ollama').map(
+    (definition) => [definition.id, definition]
+  )
 )
 
 export function getSystemServiceDefinitions() {
-  return SYSTEM_SERVICE_DEFINITIONS
+  return Array.from(SYSTEM_SERVICE_DEFINITIONS_BY_ID.values())
 }
 
 export function getSystemServiceDefinition(serviceId: string) {
@@ -466,9 +455,14 @@ export function getSystemServiceDefinition(serviceId: string) {
 }
 
 export function isSystemServiceCredentialKey(serviceId: string, key: string) {
-  return SYSTEM_SERVICE_CREDENTIAL_KEYS.get(serviceId)?.has(key) ?? false
+  return (
+    getSystemServiceDefinition(serviceId)?.credentialFields.some((field) => field.key === key) ??
+    false
+  )
 }
 
 export function isSystemServiceSettingKey(serviceId: string, key: string) {
-  return SYSTEM_SERVICE_SETTING_KEYS.get(serviceId)?.has(key) ?? false
+  return (
+    getSystemServiceDefinition(serviceId)?.settingFields.some((field) => field.key === key) ?? false
+  )
 }

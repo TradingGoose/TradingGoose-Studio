@@ -1,52 +1,29 @@
-import { type NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { resolveOllamaServiceConfig } from '@/lib/system-services/runtime'
-import type { ModelsObject } from '@/providers/ai/ollama/types'
 
 const logger = createLogger('OllamaModelsAPI')
 
 export const dynamic = 'force-dynamic'
 
-/**
- * Get available Ollama models
- */
-export async function GET(request: NextRequest) {
-  try {
-    const ollamaConfig = await resolveOllamaServiceConfig()
-    logger.info('Fetching Ollama models', {
-      host: ollamaConfig.baseUrl,
-    })
+export async function GET() {
+  if (isHosted) {
+    return NextResponse.json({ models: [] })
+  }
 
-    const response = await fetch(`${ollamaConfig.baseUrl}/api/tags`, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
+  try {
+    const { baseUrl } = await resolveOllamaServiceConfig()
+    const response = await fetch(`${baseUrl}/api/tags`)
 
     if (!response.ok) {
-      logger.warn('Ollama service is not available', {
-        status: response.status,
-        statusText: response.statusText,
-      })
-      return NextResponse.json({ models: [] })
+      throw new Error(`Ollama returned HTTP ${response.status}`)
     }
 
-    const data = (await response.json()) as ModelsObject
-    const models = data.models.map((model) => model.name)
-
-    logger.info('Successfully fetched Ollama models', {
-      count: models.length,
-      models,
-    })
-
-    return NextResponse.json({ models })
+    const { models } = (await response.json()) as { models: { name: string }[] }
+    return NextResponse.json({ models: models.map((model) => `ollama/${model.name}`) })
   } catch (error) {
-    logger.error('Failed to fetch Ollama models', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      host: (await resolveOllamaServiceConfig()).baseUrl,
-    })
-
-    // Return empty array instead of error to avoid breaking the UI
-    return NextResponse.json({ models: [] })
+    logger.error('Failed to fetch Ollama models', error)
+    return NextResponse.json({ error: 'Failed to fetch Ollama models' }, { status: 502 })
   }
 }

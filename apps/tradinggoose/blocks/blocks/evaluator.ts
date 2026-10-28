@@ -2,14 +2,14 @@ import { ChartBarIcon } from '@/components/icons/icons'
 import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { BlockConfig, ParamType } from '@/blocks/types'
-import { getProviderDefaultModel } from '@/providers/ai/models'
-import type { ProviderId } from '@/providers/ai/types'
 import {
-  getAllModelProviders,
   getHostedModels,
+  getProviderDefaultModel,
   getProviderIcon,
-  providers,
-} from '@/providers/ai/utils'
+  getProviderModels,
+} from '@/providers/ai/models'
+import type { ProviderId } from '@/providers/ai/types'
+import { getAllModelProviders } from '@/providers/ai/utils'
 import { useProvidersStore } from '@/stores/providers/store'
 import type { ToolResponse } from '@/tools/types'
 
@@ -232,7 +232,7 @@ export const EvaluatorBlock: BlockConfig<EvaluatorResponse> = {
       connectionDroppable: false,
       condition: {
         field: 'model',
-        value: providers['azure-openai'].models,
+        value: getProviderModels('azure-openai'),
       },
     },
     {
@@ -244,7 +244,7 @@ export const EvaluatorBlock: BlockConfig<EvaluatorResponse> = {
       connectionDroppable: false,
       condition: {
         field: 'model',
-        value: providers['azure-openai'].models,
+        value: getProviderModels('azure-openai'),
       },
     },
     {

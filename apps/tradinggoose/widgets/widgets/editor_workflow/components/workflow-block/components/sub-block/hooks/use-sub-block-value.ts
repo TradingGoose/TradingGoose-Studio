@@ -3,7 +3,8 @@ import { isEqual } from 'lodash'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useBlock, useSubBlockValue as useYjsSubBlockValue } from '@/lib/yjs/use-workflow-doc'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
-import { getProviderFromModel } from '@/providers/ai/utils'
+import { getModelCapabilities, getProviderFromModel } from '@/providers/ai/models'
+import type { ProviderId } from '@/providers/ai/types'
 
 const logger = createLogger('SubBlockValue')
 
@@ -39,32 +40,22 @@ export function useSubBlockValue<T = any>(
 
   // Keep a ref to the latest value to prevent unnecessary re-renders
   const valueRef = useRef<T | null>(null)
+  const lastResolvedProviderRef = useRef<ProviderId | null>(null)
 
   // Streaming refs
-  const lastEmittedValueRef = useRef<T | null>(null)
   const streamingValueRef = useRef<T | null>(null)
   const wasStreamingRef = useRef<boolean>(false)
 
-  // Check if this is an API key field that could be auto-filled
-  const isApiKey =
-    subBlockId === 'apiKey' || (subBlockId?.toLowerCase().includes('apikey') ?? false)
-
-  // Get the model subblock value for provider-based blocks
-  const modelSubBlockValue = useYjsSubBlockValue(blockId, 'model') as string | null
   const currentApiKeyValue = useYjsSubBlockValue(blockId, 'apiKey') as string | null
 
   // Determine if this is a provider-based block type
   const isProviderBasedBlock =
     blockType === 'agent' || blockType === 'router' || blockType === 'evaluator'
 
-  // Compute the modelValue based on block type
-  const modelValue = isProviderBasedBlock ? (modelSubBlockValue as string) : null
-
   // Persist the value through the workflow editor action layer.
   const emitValue = useCallback(
     (value: T) => {
       collaborativeSetSubblockValue(blockId, subBlockId, value)
-      lastEmittedValueRef.current = value
     },
     [blockId, subBlockId, collaborativeSetSubblockValue]
   )
@@ -104,6 +95,7 @@ export function useSubBlockValue<T = any>(
 
         // Single Yjs write path: collaborativeSetSubblockValue writes to Yjs
         // and handles declarative cascade clearing for dependent sub-blocks.
+        const oldProvider = lastResolvedProviderRef.current
         emitValue(valueCopy)
 
         // Handle model changes for provider-based blocks - clear API key when provider changes.
@@ -111,16 +103,13 @@ export function useSubBlockValue<T = any>(
         if (
           subBlockId === 'model' &&
           isProviderBasedBlock &&
-          newValue &&
-          typeof newValue === 'string'
+          typeof newValue === 'string' &&
+          getModelCapabilities(newValue)
         ) {
-          if (currentApiKeyValue && currentApiKeyValue !== '') {
-            const oldModelValue = currentValue as string
-            const oldProvider = oldModelValue ? getProviderFromModel(oldModelValue) : null
-            const newProvider = getProviderFromModel(newValue)
-            if (oldProvider !== newProvider) {
-              collaborativeSetSubblockValue(blockId, 'apiKey', '')
-            }
+          const newProvider = getProviderFromModel(newValue)
+          lastResolvedProviderRef.current = newProvider
+          if (currentApiKeyValue && oldProvider !== newProvider) {
+            collaborativeSetSubblockValue(blockId, 'apiKey', '')
           }
         }
       }
@@ -128,11 +117,7 @@ export function useSubBlockValue<T = any>(
     [
       blockId,
       subBlockId,
-      blockType,
-      isApiKey,
-      currentValue,
       triggerWorkflowUpdate,
-      modelValue,
       isStreaming,
       emitValue,
       isProviderBasedBlock,
@@ -146,6 +131,10 @@ export function useSubBlockValue<T = any>(
     valueRef.current = currentValue
   }, [])
 
+  useEffect(() => {
+    lastResolvedProviderRef.current = null
+  }, [blockId, subBlockId])
+
   // Update the ref if the effective value changes
   // This ensures we're always working with the latest value
   useEffect(() => {
@@ -153,7 +142,16 @@ export function useSubBlockValue<T = any>(
     if (!isEqual(valueRef.current, currentValue)) {
       valueRef.current = currentValue
     }
-  }, [currentValue])
+    // Retain the provider while a model is empty, partial, or a reference.
+    if (
+      subBlockId === 'model' &&
+      isProviderBasedBlock &&
+      typeof currentValue === 'string' &&
+      getModelCapabilities(currentValue)
+    ) {
+      lastResolvedProviderRef.current = getProviderFromModel(currentValue)
+    }
+  }, [blockId, subBlockId, currentValue, isProviderBasedBlock])
 
   // Return appropriate tuple based on whether options were provided
   return [currentValue, setValue] as const

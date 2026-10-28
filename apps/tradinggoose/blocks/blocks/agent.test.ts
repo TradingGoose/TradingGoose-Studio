@@ -8,11 +8,15 @@ vi.mock('@/providers/ai/utils', () => ({
   MODELS_WITH_REASONING_EFFORT: [],
   MODELS_WITH_VERBOSITY: [],
   getAllModelProviders: vi.fn(() => ({ 'gpt-4o': 'openai_chat' })),
+}))
+
+vi.mock('@/providers/ai/models', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/providers/ai/models')>()),
   getHostedModels: vi.fn(() => []),
   getMaxTemperature: vi.fn(() => 1),
   getProviderFromModel: vi.fn(() => 'openai'),
   getProviderIcon: vi.fn(() => undefined),
-  providers: {
+  PROVIDER_DEFINITIONS: {
     openai: {
       name: 'OpenAI',
       models: ['gpt-4o'],
@@ -22,6 +26,7 @@ vi.mock('@/providers/ai/utils', () => ({
     },
   },
   supportsTemperature: vi.fn(() => true),
+  getProviderModels: vi.fn(() => []),
 }))
 
 vi.mock('@/stores/providers/store', () => ({

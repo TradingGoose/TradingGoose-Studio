@@ -1,3 +1,4 @@
+import { getProviderFromModel } from '@/providers/ai/models'
 /**
  * Utility functions for tokenization
  */
@@ -10,7 +11,6 @@ import {
 } from '@/lib/tokenization/constants'
 import { createTokenizationError } from '@/lib/tokenization/errors'
 import type { ProviderTokenizationConfig, TokenUsage } from '@/lib/tokenization/types'
-import { getProviderFromModel } from '@/providers/ai/utils'
 
 const logger = createLogger('TokenizationUtils')
 

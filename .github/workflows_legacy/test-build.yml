@@ -44,7 +44,6 @@ jobs:
           DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/tradinggoose'
           STRIPE_SECRET_KEY: 'dummy_key_for_ci_only'
           STRIPE_WEBHOOK_SECRET: 'dummy_secret_for_ci_only'
-          RESEND_API_KEY: 'dummy_key_for_ci_only'
           AWS_REGION: 'us-west-2'
           ENCRYPTION_KEY: '7cf672e460e430c1fba707575c2b0e2ad5a99dddf9b7b7e3b5646e630861db1c' # dummy key for CI only
         run: bun run build

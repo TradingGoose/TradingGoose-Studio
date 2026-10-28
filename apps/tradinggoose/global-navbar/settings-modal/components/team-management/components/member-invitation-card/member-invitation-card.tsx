@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react'
+import React, { useState } from 'react'
 import { CheckCircle } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -20,35 +21,29 @@ interface PermissionSelectorProps {
 
 const PermissionSelector = React.memo<PermissionSelectorProps>(
   ({ value, onChange, disabled = false, className = '' }) => {
-    const permissionOptions = useMemo(
-      () => [
-        { value: 'read' as PermissionType, label: 'Read', description: 'View only' },
-        { value: 'write' as PermissionType, label: 'Write', description: 'Edit content' },
-        { value: 'admin' as PermissionType, label: 'Admin', description: 'Full access' },
-      ],
-      []
-    )
+    const copy = useTranslations('workspace.settingsModal.team.invitation.permissions')
+    const permissionOptions: PermissionType[] = ['read', 'write', 'admin']
 
     return (
       <div className={cn('inline-flex rounded-lg border border-input bg-background', className)}>
         {permissionOptions.map((option, index) => (
           <button
-            key={option.value}
+            key={option}
             type='button'
-            onClick={() => !disabled && onChange(option.value)}
+            onClick={() => !disabled && onChange(option)}
             disabled={disabled}
-            title={option.description}
+            title={copy(`${option}.description`)}
             className={cn(
               'px-2.5 py-1.5 font-medium text-xs transition-colors focus:outline-none',
               'first:rounded-l-[11px] last:rounded-r-[11px]',
               disabled && 'cursor-not-allowed opacity-50',
-              value === option.value
+              value === option
                 ? 'bg-foreground text-background'
                 : 'text-muted-foreground hover:bg-card/50 hover:text-foreground',
               index > 0 && 'border-input border-l'
             )}
           >
-            {option.label}
+            {copy(`${option}.label`)}
           </button>
         ))}
       </div>
@@ -71,7 +66,7 @@ interface MemberInvitationCardProps {
   onInviteMember: () => Promise<void>
   onLoadUserWorkspaces: () => Promise<void>
   onWorkspaceToggle: (workspaceId: string, permission: string) => void
-  inviteSuccess: boolean
+  invitedWorkspaceCount: number | null
   canInviteMembers: boolean
   inviteUnavailableMessage?: string | null
   seatLimited: boolean
@@ -97,12 +92,13 @@ export function MemberInvitationCard({
   onInviteMember,
   onLoadUserWorkspaces,
   onWorkspaceToggle,
-  inviteSuccess,
+  invitedWorkspaceCount,
   canInviteMembers,
   inviteUnavailableMessage,
   seatLimited,
   availableSeats = 0,
 }: MemberInvitationCardProps) {
+  const copy = useTranslations('workspace.settingsModal.team.invitation')
   const selectedCount = selectedWorkspaces.length
   const hasAvailableSeats = seatLimited ? availableSeats > 0 : true
   const inviteEnabled = canInviteMembers && hasAvailableSeats
@@ -117,7 +113,7 @@ export function MemberInvitationCard({
 
     const validation = quickValidateEmail(email.trim())
     if (!validation.isValid) {
-      setEmailError(validation.reason || 'Please enter a valid email address')
+      setEmailError(copy('invalidEmail'))
     } else {
       setEmailError('')
     }
@@ -152,10 +148,8 @@ export function MemberInvitationCard({
     <div className='space-y-4'>
       {/* Header - clean like account page */}
       <div>
-        <h4 className='font-medium text-sm'>Invite Team Members</h4>
-        <p className='text-muted-foreground text-xs'>
-          Add new members to your team and optionally give them access to specific workspaces
-        </p>
+        <h4 className='font-medium text-sm'>{copy('title')}</h4>
+        <p className='text-muted-foreground text-xs'>{copy('description')}</p>
       </div>
 
       {/* Main invitation input - clean layout */}
@@ -163,7 +157,7 @@ export function MemberInvitationCard({
         <div className='flex-1'>
           <div>
             <Input
-              placeholder='Enter email address'
+              placeholder={copy('emailPlaceholder')}
               value={inviteEmail}
               onChange={handleEmailChange}
               disabled={actionsDisabled || !inviteEnabled}
@@ -186,7 +180,7 @@ export function MemberInvitationCard({
           disabled={actionsDisabled || !inviteEnabled}
           className='h-9 shrink-0 rounded-sm text-sm'
         >
-          {showWorkspaceInvite ? 'Hide' : 'Add'} Workspaces
+          {showWorkspaceInvite ? copy('hideWorkspaces') : copy('addWorkspaces')}
         </Button>
         <Button
           size='sm'
@@ -197,7 +191,11 @@ export function MemberInvitationCard({
           className='h-9 shrink-0 rounded-sm'
         >
           {isInviting ? <ButtonSkeleton /> : null}
-          {canInviteMembers ? (hasAvailableSeats ? 'Invite' : 'No Seats') : 'Unavailable'}
+          {canInviteMembers
+            ? hasAvailableSeats
+              ? copy('invite')
+              : copy('noSeats')
+            : copy('unavailable')}
         </Button>
       </div>
 
@@ -217,25 +215,23 @@ export function MemberInvitationCard({
         <div className='space-y-4'>
           <div className='flex items-center justify-between'>
             <div className='flex items-center gap-2'>
-              <h5 className='font-medium text-xs'>Workspace Access</h5>
+              <h5 className='font-medium text-xs'>{copy('workspaceAccess')}</h5>
               <Badge variant='outline' className='h-[1.125rem] rounded-md px-2 py-0 text-xs'>
-                Optional
+                {copy('optional')}
               </Badge>
             </div>
             {selectedCount > 0 && (
-              <span className='text-muted-foreground text-xs'>{selectedCount} selected</span>
+              <span className='text-muted-foreground text-xs'>
+                {copy('selected', { count: selectedCount })}
+              </span>
             )}
           </div>
-          <p className='text-muted-foreground text-xs leading-relaxed'>
-            Grant access to specific workspaces. You can modify permissions later.
-          </p>
+          <p className='text-muted-foreground text-xs leading-relaxed'>{copy('grantAccess')}</p>
 
           {userWorkspaces.length === 0 ? (
             <div className='rounded-md border border-dashed py-8 text-center'>
-              <p className='text-muted-foreground text-sm'>No workspaces available</p>
-              <p className='mt-1 text-muted-foreground text-xs'>
-                You need admin access to workspaces to invite members
-              </p>
+              <p className='text-muted-foreground text-sm'>{copy('noWorkspacesAvailable')}</p>
+              <p className='mt-1 text-muted-foreground text-xs'>{copy('needAdminAccess')}</p>
             </div>
           ) : (
             <div className='max-h-48 space-y-2 overflow-y-auto'>
@@ -272,7 +268,7 @@ export function MemberInvitationCard({
                             variant='outline'
                             className='h-[1.125rem] rounded-md px-2 py-0 text-xs'
                           >
-                            Owner
+                            {copy('owner')}
                           </Badge>
                         )}
                       </div>
@@ -303,13 +299,13 @@ export function MemberInvitationCard({
         </div>
       )}
 
-      {inviteSuccess && (
+      {invitedWorkspaceCount !== null && (
         <Alert className='rounded-sm border-green-200 bg-green-50 text-green-800 dark:border-green-800/50 dark:bg-green-950/20 dark:text-green-300'>
           <CheckCircle className='h-4 w-4 text-green-600 dark:text-green-400' />
           <AlertDescription>
-            Invitation sent successfully
-            {selectedCount > 0 &&
-              ` with access to ${selectedCount} workspace${selectedCount !== 1 ? 's' : ''}`}
+            {invitedWorkspaceCount > 0
+              ? copy('sentSuccessWithAccess', { count: invitedWorkspaceCount })
+              : copy('sentSuccess')}
           </AlertDescription>
         </Alert>
       )}

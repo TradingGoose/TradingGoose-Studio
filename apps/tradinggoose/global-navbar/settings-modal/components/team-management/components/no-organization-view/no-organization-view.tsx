@@ -1,4 +1,5 @@
 import { RefreshCw } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,14 +26,16 @@ export function NoOrganizationView({
   isCreatingOrg,
   error,
 }: NoOrganizationViewProps) {
+  const t = useTranslations('workspace.settingsModal.team')
+
   if (!canCreateOrganization) {
     return (
       <div className='px-6 pt-4 pb-4'>
         <div className='flex flex-col gap-6'>
           <div>
-            <h4 className='font-medium text-sm'>Upgrade To Create a Team</h4>
+            <h4 className='font-medium text-sm'>{t('upgradeToCreateTeam')}</h4>
             <p className='mt-1 text-muted-foreground text-xs'>
-              Upgrade to an organization tier to create a team workspace.
+              {t('upgradeToCreateTeamDescription')}
             </p>
           </div>
 
@@ -45,7 +48,7 @@ export function NoOrganizationView({
               }}
               className='h-9 rounded-sm'
             >
-              Open Subscription Settings
+              {t('openSubscriptionSettings')}
             </Button>
           </div>
         </div>
@@ -57,29 +60,29 @@ export function NoOrganizationView({
     <div className='px-6 pt-4 pb-4'>
       <div className='flex flex-col gap-6'>
         <div>
-          <h4 className='font-medium text-sm'>Create Your Team Workspace</h4>
+          <h4 className='font-medium text-sm'>{t('createYourTeamWorkspace')}</h4>
           <p className='mt-1 text-muted-foreground text-xs'>
-            Create an organization to collaborate with your team.
+            {t('createYourTeamWorkspaceDescription')}
           </p>
         </div>
 
         <div className='space-y-4'>
           <div>
             <Label htmlFor='orgName' className='font-medium text-sm'>
-              Team Name
+              {t('teamName')}
             </Label>
             <Input
               id='orgName'
               value={orgName}
               onChange={onOrgNameChange}
-              placeholder='My Team'
+              placeholder={t('teamNamePlaceholder')}
               className='mt-1'
             />
           </div>
 
           <div>
             <Label htmlFor='orgSlug' className='font-medium text-sm'>
-              Team URL
+              {t('teamUrl')}
             </Label>
             <div className='mt-1 flex items-center'>
               <div className='rounded-l-[8px] border border-r-0 bg-muted px-3 py-2 text-muted-foreground text-sm'>
@@ -89,7 +92,7 @@ export function NoOrganizationView({
                 id='orgSlug'
                 value={orgSlug}
                 onChange={(e) => setOrgSlug(e.target.value)}
-                placeholder='my-team'
+                placeholder={t('teamSlugPlaceholder')}
                 className='rounded-l-none'
               />
             </div>
@@ -97,7 +100,7 @@ export function NoOrganizationView({
 
           {error ? (
             <Alert variant='destructive' className='rounded-sm'>
-              <AlertTitle>Error</AlertTitle>
+              <AlertTitle>{t('error')}</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : null}
@@ -111,7 +114,7 @@ export function NoOrganizationView({
               className='h-9 rounded-sm'
             >
               {isCreatingOrg ? <RefreshCw className='h-4 w-4 animate-spin' /> : null}
-              {isCreatingOrg ? 'Creating…' : 'Create Team Workspace'}
+              {isCreatingOrg ? t('creating') : t('createTeamWorkspace')}
             </Button>
           </div>
         </div>

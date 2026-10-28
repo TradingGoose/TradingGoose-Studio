@@ -5,14 +5,11 @@ import {
   createCustomToolRuntimeId,
   isCustomToolRuntimeId,
 } from '@/lib/custom-tools/schema'
-import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { ExecutionSubmissionSource } from '@/executor/types'
 import {
   getEmbeddingModelPricing,
-  getHostedModels as getHostedModelsFromDefinitions,
-  getMaxTemperature as getMaxTempFromDefinitions,
-  getModelPricing as getModelPricingFromDefinitions,
+  getModelPricing,
   getModelsWithDeepResearch,
   getModelsWithReasoningEffort,
   getModelsWithTemperatureSupport,
@@ -20,108 +17,20 @@ import {
   getModelsWithTempRange02,
   getModelsWithThinking,
   getModelsWithVerbosity,
-  getProviderModels as getProviderModelsFromDefinitions,
   getProvidersWithToolUsageControl,
   PROVIDER_DEFINITIONS,
   type ProviderDefinition,
-  supportsTemperature as supportsTemperatureFromDefinitions,
-  supportsToolUsageControl as supportsToolUsageControlFromDefinitions,
-  updateOllamaModels as updateOllamaModelsInDefinitions,
-  updateVLLMModels as updateVLLMModelsInDefinitions,
 } from '@/providers/ai/models'
 import type { ProviderId, ProviderToolConfig } from '@/providers/ai/types'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 
 const logger = createLogger('ProviderUtils')
 
-type ProviderCatalogConfig = Omit<ProviderDefinition, 'models'> & {
-  version: string
-  models: string[]
-}
-
-/**
- * Provider metadata built from the comprehensive definitions.
- * This stays browser-safe and does not pull in provider execution code.
- */
-export const providers: Record<ProviderId, ProviderCatalogConfig> = Object.fromEntries(
-  Object.entries(PROVIDER_DEFINITIONS).map(([providerId, definition]) => [
-    providerId,
-    {
-      id: providerId,
-      name: definition.name,
-      description: definition.description,
-      version: '1.0.0',
-      models: getProviderModelsFromDefinitions(providerId),
-      defaultModel: definition.defaultModel,
-      modelPatterns: definition.modelPatterns,
-      icon: definition.icon,
-      capabilities: definition.capabilities,
-      contextInformationAvailable: definition.contextInformationAvailable,
-    },
-  ])
-) as Record<ProviderId, ProviderCatalogConfig>
-
-export function updateOllamaProviderModels(models: string[]): void {
-  updateOllamaModelsInDefinitions(models)
-  providers.ollama.models = getProviderModelsFromDefinitions('ollama')
-}
-
-export async function updateOpenRouterProviderModels(models: string[]): Promise<void> {
-  const { updateOpenRouterModels } = await import('@/providers/ai/models')
-  updateOpenRouterModels(models)
-  providers.openrouter.models = getProviderModelsFromDefinitions('openrouter')
-}
-
-export function updateVLLMProviderModels(models: string[]): void {
-  updateVLLMModelsInDefinitions(models)
-  providers.vllm.models = getProviderModelsFromDefinitions('vllm')
-}
-
-export async function updateFireworksProviderModels(models: string[]): Promise<void> {
-  const { updateFireworksModels } = await import('@/providers/ai/models')
-  updateFireworksModels(models)
-  providers.fireworks.models = getProviderModelsFromDefinitions('fireworks')
-}
-
-export function getBaseModelProviders(): Record<string, ProviderId> {
-  const allProviders = Object.entries(providers)
-    .filter(
-      ([providerId]) =>
-        providerId !== 'ollama' &&
-        providerId !== 'vllm' &&
-        providerId !== 'openrouter' &&
-        providerId !== 'fireworks'
-    )
-    .reduce(
-      (map, [providerId, config]) => {
-        config.models.forEach((model) => {
-          map[model.toLowerCase()] = providerId as ProviderId
-        })
-        return map
-      },
-      {} as Record<string, ProviderId>
-    )
-
-  return filterBlacklistedModelsFromProviderMap(allProviders)
-}
-
-function filterBlacklistedModelsFromProviderMap(
-  providerMap: Record<string, ProviderId>
-): Record<string, ProviderId> {
-  const filtered: Record<string, ProviderId> = {}
-  for (const [model, providerId] of Object.entries(providerMap)) {
-    if (!isModelBlacklisted(model)) {
-      filtered[model] = providerId
-    }
-  }
-  return filtered
-}
-
 export function getAllModelProviders(): Record<string, ProviderId> {
-  return Object.entries(providers).reduce(
+  return Object.entries(PROVIDER_DEFINITIONS).reduce(
     (map, [providerId, config]) => {
       config.models.forEach((model) => {
-        map[model.toLowerCase()] = providerId as ProviderId
+        map[model.id.toLowerCase()] = providerId as ProviderId
       })
       return map
     },
@@ -129,148 +38,8 @@ export function getAllModelProviders(): Record<string, ProviderId> {
   )
 }
 
-export function getProviderFromModel(model: string): ProviderId {
-  const normalizedModel = model.toLowerCase()
-  if (normalizedModel in getAllModelProviders()) {
-    return getAllModelProviders()[normalizedModel]
-  }
-
-  for (const [providerId, config] of Object.entries(providers)) {
-    if (config.modelPatterns) {
-      for (const pattern of config.modelPatterns) {
-        if (pattern.test(normalizedModel)) {
-          return providerId as ProviderId
-        }
-      }
-    }
-  }
-
-  logger.warn(`No provider found for model: ${model}, defaulting to ollama`)
-  return 'ollama'
-}
-
-export function getProvider(id: string): ProviderCatalogConfig | undefined {
-  // Handle both formats: 'openai' and 'openai/chat'
-  const providerId = id.split('/')[0] as ProviderId
-  return providers[providerId]
-}
-
-export function getProviderConfigFromModel(model: string): ProviderCatalogConfig | undefined {
-  const providerId = getProviderFromModel(model)
-  return providers[providerId]
-}
-
-export function getAllModels(): string[] {
-  return Object.values(providers).flatMap((provider) => provider.models || [])
-}
-
-export function getAllProviderIds(): ProviderId[] {
-  return Object.keys(providers) as ProviderId[]
-}
-
-export function getProviderModels(providerId: ProviderId): string[] {
-  return getProviderModelsFromDefinitions(providerId)
-}
-
-interface ModelBlacklist {
-  models: string[]
-  prefixes: string[]
-  envOverride?: string
-}
-
-const MODEL_BLACKLISTS: ModelBlacklist[] = []
-
-function isModelBlacklisted(model: string): boolean {
-  const lowerModel = model.toLowerCase()
-
-  for (const blacklist of MODEL_BLACKLISTS) {
-    if (blacklist.envOverride && isTruthy(getEnv(blacklist.envOverride))) {
-      continue
-    }
-
-    if (blacklist.models.includes(lowerModel)) {
-      return true
-    }
-
-    if (blacklist.prefixes.some((prefix) => lowerModel.startsWith(prefix))) {
-      return true
-    }
-  }
-
-  return false
-}
-
-export function filterBlacklistedModels(models: string[]): string[] {
-  return models.filter((model) => !isModelBlacklisted(model))
-}
-
-/**
- * Get provider icon for a given model
- */
-export function getProviderIcon(model: string): React.ComponentType<{ className?: string }> | null {
-  const providerId = getProviderFromModel(model)
-  return PROVIDER_DEFINITIONS[providerId]?.icon || null
-}
-
-export function generateStructuredOutputInstructions(responseFormat: any): string {
-  // Handle null/undefined input
-  if (!responseFormat) return ''
-
-  // If using the new JSON Schema format, don't add additional instructions
-  // This is necessary because providers now handle the schema directly
-  if (responseFormat.schema || (responseFormat.type === 'object' && responseFormat.properties)) {
-    return ''
-  }
-
-  // Handle legacy format with fields array
-  if (!responseFormat.fields) return ''
-
-  function generateFieldStructure(field: any): string {
-    if (field.type === 'object' && field.properties) {
-      return `{
-    ${Object.entries(field.properties)
-      .map(([key, prop]: [string, any]) => `"${key}": ${prop.type === 'number' ? '0' : '"value"'}`)
-      .join(',\n    ')}
-  }`
-    }
-    return field.type === 'string'
-      ? '"value"'
-      : field.type === 'number'
-        ? '0'
-        : field.type === 'boolean'
-          ? 'true/false'
-          : '[]'
-  }
-
-  const exampleFormat = responseFormat.fields
-    .map((field: any) => `  "${field.name}": ${generateFieldStructure(field)}`)
-    .join(',\n')
-
-  const fieldDescriptions = responseFormat.fields
-    .map((field: any) => {
-      let desc = `${field.name} (${field.type})`
-      if (field.description) desc += `: ${field.description}`
-      if (field.type === 'object' && field.properties) {
-        desc += '\nProperties:'
-        Object.entries(field.properties).forEach(([key, prop]: [string, any]) => {
-          desc += `\n  - ${key} (${(prop as any).type}): ${(prop as any).description || ''}`
-        })
-      }
-      return desc
-    })
-    .join('\n')
-
-  return `
-Please provide your response in the following JSON format:
-{
-${exampleFormat}
-}
-
-Field descriptions:
-${fieldDescriptions}
-
-Your response MUST be valid JSON and include all the specified fields with their correct types.
-Each metric should be an object containing 'score' (number) and 'reasoning' (string).`
+export function getProvider(id: string): ProviderDefinition | undefined {
+  return Object.hasOwn(PROVIDER_DEFINITIONS, id) ? PROVIDER_DEFINITIONS[id] : undefined
 }
 
 export function generateSchemaInstructions(schema: any, schemaName?: string): string {
@@ -479,7 +248,7 @@ export function calculateCost(
 
   // If not found, check chat models
   if (!pricing) {
-    pricing = getModelPricingFromDefinitions(model)
+    pricing = getModelPricing(model)
   }
 
   // If no pricing found, return default pricing
@@ -519,18 +288,6 @@ export function calculateCost(
   }
 }
 
-/**
- * Get pricing information for a specific model (including embedding models)
- */
-export function getModelPricing(modelId: string): any {
-  const embeddingPricing = getEmbeddingModelPricing(modelId)
-  if (embeddingPricing) {
-    return embeddingPricing
-  }
-
-  return getModelPricingFromDefinitions(modelId)
-}
-
 export function sumToolCosts(toolResults?: Record<string, unknown>[]): number {
   if (!toolResults?.length) return 0
 
@@ -568,14 +325,6 @@ export function formatCost(cost: number): string {
     return `$${cost.toFixed(places)}`
   }
   return '$0'
-}
-
-/**
- * Get the list of models that are hosted by the platform (don't require user API keys)
- * These are the models for which we hide the API key field in the hosted environment
- */
-export function getHostedModels(): string[] {
-  return getHostedModelsFromDefinitions()
 }
 
 /**
@@ -878,13 +627,6 @@ export const MODELS_WITH_VERBOSITY = getModelsWithVerbosity()
 export const MODELS_WITH_THINKING = getModelsWithThinking()
 export const PROVIDERS_WITH_TOOL_USAGE_CONTROL = getProvidersWithToolUsageControl()
 
-/**
- * Check if a model supports temperature parameter
- */
-export function supportsTemperature(model: string): boolean {
-  return supportsTemperatureFromDefinitions(model)
-}
-
 export function supportsReasoningEffort(model: string): boolean {
   return MODELS_WITH_REASONING_EFFORT.includes(model.toLowerCase())
 }
@@ -904,21 +646,6 @@ export function isDeepResearchModel(model: string): boolean {
 export function isGemini3Model(model: string): boolean {
   const normalizedModel = model.toLowerCase().replace(/^vertex\//, '')
   return normalizedModel.startsWith('gemini-3')
-}
-
-/**
- * Get the maximum temperature value for a model
- * @returns Maximum temperature value (1 or 2) or undefined if temperature not supported
- */
-export function getMaxTemperature(model: string): number | undefined {
-  return getMaxTempFromDefinitions(model)
-}
-
-/**
- * Check if a provider supports tool usage control
- */
-export function supportsToolUsageControl(provider: string): boolean {
-  return supportsToolUsageControlFromDefinitions(provider)
 }
 
 /**

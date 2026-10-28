@@ -1,5 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { getProviderFromModel } from '@/providers/ai/utils'
+import { getProviderFromModel } from '@/providers/ai/models'
 import type { ToolConfig, ToolResponse } from '@/tools/types'
 
 const logger = createLogger('LLMChatTool')

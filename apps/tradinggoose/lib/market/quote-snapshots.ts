@@ -5,6 +5,7 @@ import {
   type MarketQuoteSnapshot,
 } from '@/lib/market/quote-snapshot-contract'
 import { executeProviderRequest } from '@/providers/market'
+import { resolveMarketSessionsForRange } from '@/providers/market/market-hours'
 import { toZonedIsoTimestamp } from '@/providers/market/market-hours/date-utils'
 import type { MarketProviderRequestContext, MarketSeries } from '@/providers/market/types'
 import { resolveListingContext } from '@/providers/market/utils'
@@ -47,27 +48,53 @@ export const buildMarketQuoteSnapshot = async ({
     dailyOnly
       ? undefined
       : fetchSeries('1m', listing.listing_type === 'currency' ? 7 : 1).catch((error) => {
-          intradayError = error instanceof Error ? error.message : 'Intraday prices are unavailable'
+          intradayError =
+            error instanceof Error ? error.message : 'marketQuotes.intradayUnavailable'
           return undefined
         }),
   ])
   const priceSeries = intraday?.bars.length ? intraday : daily
-  const dailyPrice = priceSeries === daily
-  if (!dailyOnly && dailyPrice) intradayError ??= 'No intraday price available'
   const timezone = listing.listing_type === 'default' ? priceSeries.timezone : 'UTC'
-  if (!timezone) throw new Error('Market series timezone is required')
-  const sessions = priceSeries.marketSessions?.filter(({ type }) => type === 'market') ?? []
-  const priceBar = priceSeries.bars
+  if (!timezone) throw new Error('marketQuotes.missingTimezone')
+  const latestPriceDate = [priceSeries.bars.at(-1), daily.bars.at(-1)]
+    .flatMap((bar) => (bar ? [getMarketQuoteDate(bar.timeStamp, timezone)] : []))
+    .sort()
+    .at(-1)
+  let marketSessions = intraday?.marketSessions ?? []
+  if (
+    listing.listing_type === 'default' &&
+    !dailyOnly &&
+    !marketSessions.some(({ type, date }) => type === 'market' && date === latestPriceDate)
+  ) {
+    const latestTime = Date.parse(priceSeries.bars.at(-1)?.timeStamp ?? '')
+    const resolved = await resolveMarketSessionsForRange(
+      listing.listing_id,
+      listing.listing_type,
+      latestTime - 86_400_000,
+      Math.max(requestStartedAt, latestTime) + 1
+    )
+    if (resolved !== null) marketSessions = resolved
+  }
+  const sessions = marketSessions.filter(({ type }) => type === 'market')
+  const minuteBar = intraday?.bars
     .filter(
       ({ timeStamp }) =>
-        !sessions.length ||
+        listing.listing_type !== 'default' ||
         sessions.some(
           ({ start, end }) =>
             Date.parse(timeStamp) >= Date.parse(start) && Date.parse(timeStamp) < Date.parse(end)
         )
     )
     .at(-1)
-  if (!priceBar) throw new Error(intradayError ?? 'No regular-session price available')
+  const today = getMarketQuoteDate(new Date(requestStartedAt).toISOString(), timezone)
+  const minuteDate = minuteBar && getMarketQuoteDate(minuteBar.timeStamp, timezone)
+  const minuteSession = sessions.find(({ date }) => date === minuteDate)
+  const dailyPrice =
+    !minuteBar ||
+    (listing.listing_type === 'default' &&
+      (minuteSession ? Date.parse(minuteSession.end) <= requestStartedAt : minuteDate! < today))
+  const priceBar = dailyPrice ? daily.bars.at(-1) : minuteBar
+  if (!priceBar) throw new Error(intradayError ?? 'marketQuotes.noRegularSessionPrice')
   const priceDate = getMarketQuoteDate(priceBar.timeStamp, timezone)
   const dailyBars = [...daily.bars].reverse()
   const previousDaily = dailyBars.find(
@@ -79,37 +106,28 @@ export const buildMarketQuoteSnapshot = async ({
   const session = sessions.find(({ date }) => date === priceDate)
   const completed =
     dailyOnly ||
-    ((listing.listing_type === 'default' || dailyPrice) &&
-      (session
-        ? Date.parse(session.end) <= requestStartedAt
-        : priceDate < getMarketQuoteDate(new Date(requestStartedAt).toISOString(), timezone)))
-  const missingClose = completed && !sessionDaily
+    (dailyPrice && (session ? Date.parse(session.end) <= requestStartedAt : priceDate < today))
+  if (listing.listing_type === 'default' && completed) intradayError = undefined
+  else if (!dailyOnly && !minuteBar) intradayError ??= 'marketQuotes.noIntradayPrice'
   const priceTime = Date.parse(priceBar.timeStamp)
   return createMarketQuoteSnapshot({
-    lastPrice: completed && sessionDaily ? sessionDaily.close : priceBar.close,
-    previousClose: missingClose ? undefined : previousDaily?.close,
+    lastPrice: priceBar.close,
+    previousClose: previousDaily?.close,
     lastPriceTime: priceBar.timeStamp,
-    lastPriceEndTime:
-      completed && sessionDaily
-        ? (session?.end ??
-          toZonedIsoTimestamp(
-            new Date(Date.parse(priceDate) + 86_400_000).toISOString().slice(0, 10),
-            new Intl.DateTimeFormat('en-US', { timeZone: timezone, timeZoneName: 'longOffset' })
-          ))
-        : dailyPrice
-          ? undefined
-          : new Date(
-              Math.max(priceTime, Math.min(requestStartedAt, priceTime + 60_000))
-            ).toISOString(),
+    lastPriceEndTime: completed
+      ? (session?.end ??
+        toZonedIsoTimestamp(
+          new Date(Date.parse(priceDate) + 86_400_000).toISOString().slice(0, 10),
+          new Intl.DateTimeFormat('en-US', { timeZone: timezone, timeZoneName: 'longOffset' })
+        ))
+      : dailyPrice
+        ? undefined
+        : new Date(
+            Math.max(priceTime, Math.min(requestStartedAt, priceTime + 60_000))
+          ).toISOString(),
     timezone,
     volume: sessionDaily?.volume,
     ...(session ? { regularSession: { start: session.start, end: session.end } } : {}),
-    error:
-      intradayError ??
-      (missingClose
-        ? 'Current regular-session close is unavailable'
-        : !previousDaily
-          ? 'Previous regular-session close is unavailable'
-          : undefined),
+    error: intradayError ?? (!previousDaily ? 'marketQuotes.previousCloseUnavailable' : undefined),
   })
 }

@@ -1,14 +1,21 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { GET } from '@/app/api/providers/ai/openrouter/models/route'
 import {
   normalizeFireworksCatalogModel,
   resolveFireworksWireModel,
 } from '@/providers/ai/fireworks/utils'
 import {
+  getModelCapabilities,
+  getModelPricing,
   getProviderFromModel,
+  getProviderIcon,
   getProviderModels,
   PROVIDER_DEFINITIONS,
   updateFireworksModels,
+  updateOpenRouterModels,
 } from '@/providers/ai/models'
+import { calculateCost } from '@/providers/ai/utils'
+import { useProvidersStore } from '@/stores/providers/store'
 
 const EXPECTED_MODEL_COUNTS = {
   fireworks: 2,
@@ -117,7 +124,103 @@ const REMOVED_MODELS = [
 ]
 
 describe('AI model catalog', () => {
-  afterEach(() => updateFireworksModels([]))
+  afterEach(() => {
+    updateFireworksModels([])
+    updateOpenRouterModels([])
+    vi.unstubAllGlobals()
+  })
+
+  it.each(['', 'c', '{{MODEL}}', '<agent1.model>'])(
+    'leaves unresolved editor model %s without capabilities while routing stays strict',
+    (model) => {
+      expect(getModelCapabilities(model)).toBeNull()
+      expect(() => getProviderFromModel(model)).toThrow('Unknown model:')
+    }
+  )
+
+  it('uses catalog patterns for custom model capabilities', () => {
+    expect(getModelCapabilities(' gpt-5-custom ')?.toolUsageControl).toBe(true)
+  })
+
+  it.each(['sonar', '', 'uncatalogued-model'])('omits unknown model icons for %s', (model) => {
+    expect(getProviderIcon(model)).toBeNull()
+    expect(() => getProviderFromModel(model)).toThrow('Unknown model:')
+  })
+
+  it('preserves known model icons', () => {
+    expect(getProviderIcon('gpt-4.1')).toBe(PROVIDER_DEFINITIONS.openai.icon)
+  })
+
+  it.each([
+    ['openrouter/openai/gpt-4.1', 'gpt-4.1'],
+    ['openrouter/anthropic/claude-sonnet-4.6', 'claude-sonnet-4-6'],
+    ['openrouter/anthropic/claude-opus-4.6', 'claude-opus-4-6'],
+    ['openrouter/anthropic/claude-haiku-4.5', 'claude-haiku-4-5'],
+    ['openrouter/google/gemini-2.5-pro', 'gemini-2.5-pro'],
+    ['openrouter/x-ai/grok-4.6', 'grok-4.6'],
+    ['openrouter/mistralai/mistral-small-2603', 'mistral-small-2603'],
+  ])('resolves canonical reseller pricing for %s', (routedModel, model) => {
+    const pricing = getModelPricing(model)
+    expect(pricing).not.toBeNull()
+    expect(getModelPricing(routedModel)).toEqual(pricing)
+  })
+
+  it.each([
+    ['paid', { prompt: '0.000007', completion: '0.000014' }, 7, 14],
+    ['free', { prompt: '0', completion: '0' }, 0, 0],
+    ['missing', undefined, 2, 8],
+    ['incomplete', { prompt: '0' }, 2, 8],
+    ['invalid', { prompt: 'invalid', completion: '0' }, 2, 8],
+    ['nonfinite', { prompt: 'Infinity', completion: '0' }, 2, 8],
+  ] as const)(
+    'preserves %s pricing through OpenRouter discovery',
+    async (_name, pricing, input, output) => {
+      const fetchMock = vi.mocked(fetch).mockClear()
+      fetchMock.mockResolvedValueOnce(
+        Response.json({ data: [{ id: 'openai/gpt-4.1', pricing }, { id: 'unknown/custom' }] })
+      )
+      const response = await GET()
+      expect(response.status).toBe(200)
+      vi.stubGlobal('window', {})
+      fetchMock.mockResolvedValueOnce(response)
+      const model = 'openrouter/openai/gpt-4.1'
+      const observedPricing: ReturnType<typeof getModelPricing>[] = []
+      const unsubscribe = useProvidersStore.subscribe((state, previous) => {
+        if (state.providers.openrouter.models !== previous.providers.openrouter.models) {
+          observedPricing.push(getModelPricing(model))
+        }
+      })
+
+      await useProvidersStore.getState().fetchModels('openrouter')
+      unsubscribe()
+
+      expect(observedPricing).toEqual([expect.objectContaining({ input, output })])
+      expect(fetchMock).toHaveBeenLastCalledWith('/api/providers/ai/openrouter/models')
+      expect(useProvidersStore.getState().providers.openrouter.models).toContain(model)
+      expect(getModelPricing(model)).toMatchObject({ input, output })
+      expect(calculateCost(model, 1_000_000, 1_000_000).total).toBeCloseTo(input + output, 8)
+      expect(getModelPricing('openrouter/unknown/custom')).toBeNull()
+    }
+  )
+
+  it.each([401, 503])('reports failed OpenRouter discovery (%s)', async (status) => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status }))
+    expect((await GET()).status).toBe(502)
+  })
+
+  it.each([
+    'openrouter/unknown/gpt-4.1',
+    'openrouter/openai/unknown-model',
+    'unknown/openai/gpt-4.1',
+    'claude-sonnet-4.6',
+    'openrouter/anthropic/claude-sonnet-4-6',
+    'openrouter/xai/grok-4.6',
+    'openrouter/mistral/mistral-small-2603',
+    'ollama/gpt-4.1',
+    'vllm/gpt-4.1',
+  ])('does not invent catalog pricing for %s', (model) => {
+    expect(getModelPricing(model)).toBeNull()
+  })
 
   it('contains the active sibling catalog for every existing provider', () => {
     const counts = Object.fromEntries(

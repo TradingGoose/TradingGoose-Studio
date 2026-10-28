@@ -3,7 +3,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { Button, Input, Skeleton } from '@/components/ui'
 import { useSession } from '@/lib/auth-client'
-import { formatBillingPriceLabel, formatBillingPricePeriod } from '@/lib/billing/public-catalog'
 import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
 import type { BillingTierSummary } from '@/lib/billing/types'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -22,6 +21,7 @@ import { usePrivateTierAccessForm } from '@/hooks/queries/private-tier-access'
 import { usePublicBillingCatalog } from '@/hooks/queries/public-billing-catalog'
 import { useSubscriptionData } from '@/hooks/queries/subscription'
 import { useAdminWorkspaces } from '@/hooks/queries/workspace'
+import { formatUsd } from '@/i18n/formatters'
 import type { LocaleCode } from '@/i18n/utils'
 import { toUpgradeTarget } from '../subscription/plan-configs'
 import {
@@ -74,6 +74,8 @@ export function TeamManagement() {
   const { data: session } = useSession()
   const { handleUpgrade } = useSubscriptionUpgrade()
   const locale = useLocale() as LocaleCode
+  const copy = useTranslations('workspace.settingsModal.team')
+  const roles = useTranslations('workspace.switcher.roles')
   const privateAccessCopy = useTranslations('workspace.settingsModal.subscription.privateAccess')
   const queryClient = useQueryClient()
 
@@ -140,7 +142,7 @@ export function TeamManagement() {
     Boolean(activeOrgId && adminOrOwner)
   )
 
-  const [inviteSuccess, setInviteSuccess] = useState(false)
+  const [invitedWorkspaceCount, setInvitedWorkspaceCount] = useState<number | null>(null)
   const [inviteEmail, setInviteEmail] = useState('')
   const [showWorkspaceInvite, setShowWorkspaceInvite] = useState(false)
   const [selectedWorkspaces, setSelectedWorkspaces] = useState<
@@ -182,16 +184,15 @@ export function TeamManagement() {
         await operation()
         return true
       } catch (cause) {
-        const failure = cause instanceof Error ? cause.message : 'The organization action failed'
         logger.error('Organization action failed', { action, error: cause })
-        setActionError({ action, message: failure })
+        setActionError({ action, message: copy('errors.actionFailed') })
         return false
       } finally {
         actionLockRef.current = false
         setPendingAction(null)
       }
     },
-    [isPending]
+    [isPending, copy]
   )
 
   const personalBillingPayload = (userSubscriptionData as any)?.data ?? userSubscriptionData
@@ -313,17 +314,15 @@ export function TeamManagement() {
   const canInviteMembers = Boolean(currentTier?.ownerType === 'organization')
   const seatLimited = canInviteMembers
   const inviteUnavailableMessage =
-    displayOrganization && !canInviteMembers
-      ? 'An active organization subscription is required before you can invite team members.'
-      : null
+    displayOrganization && !canInviteMembers ? copy('inviteUnavailableMessage') : null
 
   useEffect(() => {
     if (session?.user?.name && !orgName) {
-      const defaultName = `${session.user.name}'s Team`
+      const defaultName = copy('defaultTeamName', { name: session.user.name })
       setOrgName(defaultName)
-      setOrgSlug(generateSlug(defaultName))
+      setOrgSlug(generateSlug(defaultName) || 'team')
     }
-  }, [session?.user?.name, orgName])
+  }, [session?.user?.name, orgName, copy])
 
   useEffect(() => {
     if (session?.user?.id && activeOrgId && adminOrOwner) {
@@ -370,8 +369,8 @@ export function TeamManagement() {
       })
     )
     if (succeeded) {
-      setInviteSuccess(true)
-      setTimeout(() => setInviteSuccess(false), 3000)
+      setInvitedWorkspaceCount(workspaceInvitations?.length ?? 0)
+      setTimeout(() => setInvitedWorkspaceCount(null), 3000)
       setInviteEmail('')
       setSelectedWorkspaces([])
       setShowWorkspaceInvite(false)
@@ -405,8 +404,8 @@ export function TeamManagement() {
 
       const isLeavingSelf = member.user?.email === session.user.email
       const displayName = isLeavingSelf
-        ? 'yourself'
-        : member.user?.name || member.user?.email || 'this member'
+        ? copy('yourself')
+        : member.user?.name || member.user?.email || copy('thisMember')
 
       setRemoveMemberDialog({
         open: true,
@@ -416,7 +415,7 @@ export function TeamManagement() {
         isSelfRemoval: isLeavingSelf,
       })
     },
-    [session?.user, activeOrgId]
+    [session?.user, activeOrgId, copy]
   )
 
   const confirmRemoveMember = useCallback(
@@ -543,7 +542,7 @@ export function TeamManagement() {
   const confirmTeamUpgrade = useCallback(
     async (seats: number) => {
       if (!session?.user || !adjustableSeatTier) {
-        alert('No public adjustable organization tier is configured')
+        alert(copy('noPublicAdjustableTier'))
         return
       }
 
@@ -558,11 +557,11 @@ export function TeamManagement() {
         organizationId: activeOrgId,
       })
     },
-    [session?.user, activeOrgId, adjustableSeatTier, handleUpgrade]
+    [session?.user, activeOrgId, adjustableSeatTier, handleUpgrade, copy]
   )
 
   const queryError = orgError || organizationBillingError || subscriptionError
-  const queryFailure = queryError instanceof Error ? queryError.message : null
+  const queryFailure = queryError ? copy('errors.loadFailed') : null
   const actionFailure = (action: string) =>
     actionError?.action === action ? actionError.message : null
   if (isLoading && !displayOrganization) {
@@ -602,18 +601,17 @@ export function TeamManagement() {
         {currentTier?.ownerType === 'organization' && (
           <div className='rounded-sm border bg-blue-50/50 p-4 shadow-xs dark:bg-blue-950/20'>
             <div className='space-y-3'>
-              <h4 className='font-medium text-sm'>How this team billing works</h4>
+              <h4 className='font-medium text-sm'>{copy('howBillingWorks')}</h4>
               <ul className='ml-4 list-disc space-y-2 text-muted-foreground text-xs'>
                 <li>
-                  Your team is billed a minimum of ${(subscriptionData?.seats || 0) * seatPriceUsd}
-                  /month for {subscriptionData?.seats || 0} licensed seats
+                  {copy('billingHowWorksSeatCost', {
+                    seats: subscriptionData?.seats || 0,
+                    amount: formatUsd(locale, (subscriptionData?.seats || 0) * seatPriceUsd),
+                  })}
                 </li>
-                <li>Usage is tracked against the active included allowance for this tier</li>
-                <li>The organization owner can increase the usage limit when needed</li>
-                <li>
-                  Any usage beyond the minimum seat cost is billed as overage at the end of the
-                  billing period
-                </li>
+                <li>{copy('billingHowWorksUsageTracked')}</li>
+                <li>{copy('billingHowWorksIncreaseLimit')}</li>
+                <li>{copy('billingHowWorksOverage')}</li>
               </ul>
             </div>
           </div>
@@ -622,10 +620,8 @@ export function TeamManagement() {
         {canShowOrganizationPlans ? (
           <div className='space-y-3 rounded-sm border bg-background p-4 shadow-xs'>
             <div>
-              <h4 className='font-medium text-sm'>Organization plans</h4>
-              <p className='mt-1 text-muted-foreground text-xs'>
-                Review the current and available organization tiers.
-              </p>
+              <h4 className='font-medium text-sm'>{copy('plans.title')}</h4>
+              <p className='mt-1 text-muted-foreground text-xs'>{copy('plans.description')}</p>
             </div>
 
             <label htmlFor='organization-private-tier-access-code' className='font-medium text-sm'>
@@ -661,20 +657,37 @@ export function TeamManagement() {
               <div className='flex flex-wrap gap-2'>
                 {organizationPlanTiers.map((tier) => {
                   const isCurrentTier = tier.id === organizationPlanSurface.currentTier?.id
+                  const planLabel = (
+                    <>
+                      {tier.displayName} ·{' '}
+                      {formatUsd(locale, tier.monthlyPriceUsd ?? tier.yearlyPriceUsd ?? 0)}
+                      {tier.monthlyPriceUsd !== null
+                        ? copy('plans.monthly')
+                        : tier.yearlyPriceUsd !== null
+                          ? copy('plans.yearly')
+                          : null}
+                      {isCurrentTier ? ` · ${copy('plans.current')}` : null}
+                    </>
+                  )
 
-                  return (
+                  return isCurrentTier ? (
+                    <div
+                      key={tier.id}
+                      aria-current='true'
+                      className='inline-flex h-10 items-center justify-center rounded-md border border-primary bg-primary/10 px-4 py-2 font-medium text-primary text-sm'
+                    >
+                      {planLabel}
+                    </div>
+                  ) : (
                     <Button
                       key={tier.id}
                       variant='outline'
                       disabled={
-                        isCurrentTier ||
                         isPending ||
                         !activeOrgId ||
                         !organizationPlanSurface.canManageOrganizationPlan
                       }
                       onClick={() => {
-                        if (isCurrentTier) return
-
                         void runAction(`subscribe:${tier.id}`, () =>
                           handleUpgrade(toUpgradeTarget(tier), {
                             organizationId: activeOrgId,
@@ -683,17 +696,13 @@ export function TeamManagement() {
                         )
                       }}
                     >
-                      {tier.displayName} · {formatBillingPriceLabel(tier)}
-                      {formatBillingPricePeriod(tier)}
-                      {isCurrentTier ? ' · Current' : null}
+                      {planLabel}
                     </Button>
                   )
                 })}
               </div>
             ) : privateTierAccess.isError ? null : (
-              <p className='text-muted-foreground text-xs'>
-                No organization plans are currently available.
-              </p>
+              <p className='text-muted-foreground text-xs'>{copy('plans.empty')}</p>
             )}
             {actionError?.action.startsWith('subscribe:') ? (
               <p role='alert' className='text-destructive text-xs'>
@@ -705,7 +714,7 @@ export function TeamManagement() {
 
         {showOrganizationBillingError ? (
           <p role='alert' className='text-destructive text-xs'>
-            Failed to load organization billing. Try again before selecting a plan.
+            {copy('errors.loadOrganizationBilling')}
           </p>
         ) : null}
 
@@ -773,10 +782,7 @@ export function TeamManagement() {
         {/* Single Organization Notice */}
         {adminOrOwner && (
           <div className='mt-4 rounded-lg bg-muted/50 p-3'>
-            <p className='text-muted-foreground text-xs'>
-              <span className='font-medium'>Note:</span> Users can only be part of one organization
-              at a time. They must leave their current organization before joining another.
-            </p>
+            <p className='text-muted-foreground text-xs'>{copy('usageNoteBody')}</p>
           </div>
         )}
 
@@ -797,7 +803,7 @@ export function TeamManagement() {
               await refetchAdminWorkspaces()
             }}
             onWorkspaceToggle={handleWorkspaceToggle}
-            inviteSuccess={inviteSuccess}
+            invitedWorkspaceCount={invitedWorkspaceCount}
             canInviteMembers={canInviteMembers}
             inviteUnavailableMessage={inviteUnavailableMessage}
             seatLimited={seatLimited}
@@ -810,16 +816,18 @@ export function TeamManagement() {
       <div className='mt-6 flex-shrink-0 border-t pt-6'>
         <div className='space-y-3 text-xs'>
           <div className='flex justify-between'>
-            <span className='text-muted-foreground'>Team ID:</span>
+            <span className='text-muted-foreground'>{copy('teamId')}</span>
             <span className='font-mono'>{displayOrganization.id}</span>
           </div>
           <div className='flex justify-between'>
-            <span className='text-muted-foreground'>Created:</span>
-            <span>{new Date(displayOrganization.createdAt).toLocaleDateString()}</span>
+            <span className='text-muted-foreground'>{copy('created')}</span>
+            <span>{new Date(displayOrganization.createdAt).toLocaleDateString(locale)}</span>
           </div>
           <div className='flex justify-between'>
-            <span className='text-muted-foreground'>Your Role:</span>
-            <span className='font-medium capitalize'>{userRole}</span>
+            <span className='text-muted-foreground'>{copy('yourRole')}</span>
+            <span className='font-medium'>
+              {roles(userRole === 'owner' || userRole === 'admin' ? userRole : 'member')}
+            </span>
           </div>
         </div>
       </div>
@@ -861,8 +869,8 @@ export function TeamManagement() {
       <TeamSeats
         open={isAddSeatDialogOpen && isOrganizationOwner && isAdjustableSeatTier}
         onOpenChange={setIsAddSeatDialogOpen}
-        title='Add Team Seats'
-        description={`Each seat costs $${seatPriceUsd}/month and provides $${seatPriceUsd} in monthly inference credits. Adjust the number of licensed seats for your team.`}
+        title={copy('addSeats.title')}
+        description={copy('addSeats.description', { price: formatUsd(locale, seatPriceUsd) })}
         pricePerSeat={seatPriceUsd}
         minimumSeats={seatCount}
         maximumSeats={seatMaximum}
@@ -876,7 +884,7 @@ export function TeamManagement() {
           setNewSeatCount(selectedSeats)
           await confirmAddSeats(selectedSeats)
         }}
-        confirmButtonText='Update Seats'
+        confirmButtonText={copy('addSeats.confirm')}
         showCostBreakdown={true}
         isCancelledAtPeriodEnd={subscriptionData?.cancelAtPeriodEnd}
       />

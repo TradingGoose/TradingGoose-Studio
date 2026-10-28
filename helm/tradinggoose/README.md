@@ -131,6 +131,8 @@ aws iam attach-role-policy --role-name AmazonEKS_EBS_CSI_DriverRole \
 
 ## Configuration
 
+Configure service credentials and base URLs in Admin → Services, including the Ollama service URL when enabled.
+
 The following table lists the configurable parameters and their default values.
 
 ### Global Parameters

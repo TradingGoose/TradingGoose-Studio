@@ -9,7 +9,7 @@ export type MarketQuoteSnapshot = {
   lastPriceEndTime?: string // Exclusive coverage end for candle-derived prices.
   timezone?: string
   regularSession?: { start: string; end: string }
-  error?: string
+  error?: string // Application IDs use marketQuotes.<key>; provider messages remain verbatim.
 }
 
 export const MARKET_QUOTE_SNAPSHOT_REQUEST_CAP = 200

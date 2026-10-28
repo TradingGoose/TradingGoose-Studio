@@ -60,7 +60,7 @@ export interface ModelCapabilities {
 
 export interface ModelDefinition {
   id: string
-  pricing: ModelPricing
+  pricing?: ModelPricing
   capabilities: ModelCapabilities
   contextWindow?: number
   /** ISO date string (YYYY-MM-DD) when the model was first publicly released */
@@ -71,6 +71,7 @@ export interface ModelDefinition {
 
 export interface ProviderDefinition {
   id: string
+  openRouterPublisher?: string
   name: string
   description: string
   models: ModelDefinition[]
@@ -1619,6 +1620,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
   },
   xai: {
     id: 'xai',
+    openRouterPublisher: 'x-ai',
     name: 'xAI',
     description: "xAI's Grok models",
     defaultModel: 'grok-4.6',
@@ -1897,6 +1899,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
   },
   mistral: {
     id: 'mistral',
+    openRouterPublisher: 'mistralai',
     name: 'Mistral AI',
     description: "Mistral AI's language models",
     defaultModel: 'mistral-large-latest',
@@ -2201,7 +2204,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
     name: 'Ollama',
     description: 'Local LLM models via Ollama',
     defaultModel: '',
-    modelPatterns: [],
+    modelPatterns: [/^ollama\//],
     icon: OllamaIcon,
     capabilities: {
       toolUsageControl: false, // Ollama does not support tool_choice parameter
@@ -2509,29 +2512,6 @@ export function getProviderModels(providerId: string): string[] {
 
 export const DYNAMIC_MODEL_PROVIDERS = ['ollama', 'vllm', 'openrouter', 'fireworks'] as const
 
-function normalizeCatalogLookupModelId(modelId: string): string {
-  const normalizedModelId = modelId.toLowerCase().trim()
-  if (!normalizedModelId) {
-    return normalizedModelId
-  }
-
-  const directMatch = Object.values(PROVIDER_DEFINITIONS).some((provider) =>
-    provider.models.some((model) => model.id.toLowerCase() === normalizedModelId)
-  )
-  if (directMatch) {
-    return normalizedModelId
-  }
-
-  const baseModelId = normalizedModelId.includes('/')
-    ? normalizedModelId.split('/').pop() || normalizedModelId
-    : normalizedModelId
-  if (/^claude-(opus|sonnet|haiku)-\d+\.\d+$/.test(baseModelId)) {
-    return baseModelId.replace(/\./g, '-')
-  }
-
-  return baseModelId
-}
-
 function getAllStaticModelIds(): string[] {
   const ids: string[] = []
   for (const [providerId, provider] of Object.entries(PROVIDER_DEFINITIONS)) {
@@ -2597,7 +2577,7 @@ export function getBaseModelProviders(): Record<string, ProviderId> {
 }
 
 export function getProviderFromModel(model: string): ProviderId {
-  const normalizedModel = model.toLowerCase()
+  const normalizedModel = model.toLowerCase().trim()
 
   for (const [providerId, provider] of Object.entries(PROVIDER_DEFINITIONS)) {
     if (
@@ -2613,12 +2593,16 @@ export function getProviderFromModel(model: string): ProviderId {
     }
   }
 
-  return 'ollama'
+  throw new Error(`Unknown model: ${model}`)
 }
 
 export function getProviderIcon(model: string): React.ComponentType<{ className?: string }> | null {
-  const providerId = getProviderFromModel(model)
-  return PROVIDER_DEFINITIONS[providerId]?.icon || null
+  try {
+    const providerId = getProviderFromModel(model)
+    return PROVIDER_DEFINITIONS[providerId]?.icon || null
+  } catch {
+    return null
+  }
 }
 
 export function getProviderDefaultModel(providerId: string): string {
@@ -2626,21 +2610,32 @@ export function getProviderDefaultModel(providerId: string): string {
 }
 
 export function getModelPricing(modelId: string): ModelPricing | null {
-  const catalogModelId = normalizeCatalogLookupModelId(modelId)
+  const normalizedModelId = modelId.toLowerCase().trim()
+  let openRouterPricing: ModelPricing | null = null
   for (const provider of Object.values(PROVIDER_DEFINITIONS)) {
-    const model = provider.models.find((m) => m.id.toLowerCase() === catalogModelId)
-    if (model) {
-      return model.pricing
+    const openRouterPublisher = provider.openRouterPublisher ?? provider.id
+    for (const model of provider.models) {
+      if (!model.pricing) continue
+      const catalogModelId = model.id.toLowerCase()
+      if (catalogModelId === normalizedModelId) {
+        return model.pricing
+      }
+      const routedModelId =
+        provider.id === 'anthropic'
+          ? catalogModelId.replace(/^(claude-(?:opus|sonnet|haiku)-\d+)-(\d+)$/, '$1.$2')
+          : catalogModelId
+      if (`openrouter/${openRouterPublisher}/${routedModelId}` === normalizedModelId) {
+        openRouterPricing = model.pricing
+      }
     }
   }
-  return null
+  return openRouterPricing
 }
 
 export function getModelCapabilities(modelId: string): ModelCapabilities | null {
-  const normalizedModelId = modelId.toLowerCase()
-  const catalogModelId = normalizeCatalogLookupModelId(modelId)
+  const normalizedModelId = modelId.toLowerCase().trim()
   for (const provider of Object.values(PROVIDER_DEFINITIONS)) {
-    const model = provider.models.find((m) => m.id.toLowerCase() === catalogModelId)
+    const model = provider.models.find((m) => m.id.toLowerCase() === normalizedModelId)
     if (model) {
       const capabilities: ModelCapabilities = { ...provider.capabilities, ...model.capabilities }
       return capabilities
@@ -2648,12 +2643,8 @@ export function getModelCapabilities(modelId: string): ModelCapabilities | null 
   }
 
   for (const provider of Object.values(PROVIDER_DEFINITIONS)) {
-    if (provider.modelPatterns) {
-      for (const pattern of provider.modelPatterns) {
-        if (pattern.test(normalizedModelId) || pattern.test(catalogModelId)) {
-          return provider.capabilities || null
-        }
-      }
+    if (provider.modelPatterns?.some((pattern) => pattern.test(normalizedModelId))) {
+      return provider.capabilities || null
     }
   }
 
@@ -2784,14 +2775,13 @@ export function updateFireworksModels(models: string[]): void {
   ]
 }
 
-export function updateOpenRouterModels(models: string[]): void {
+export function updateOpenRouterModels(
+  models: string[],
+  pricing?: Record<string, ModelPricing>
+): void {
   PROVIDER_DEFINITIONS.openrouter.models = models.map((modelId) => ({
     id: modelId,
-    pricing: {
-      input: 0,
-      output: 0,
-      updatedAt: new Date().toISOString().split('T')[0],
-    },
+    pricing: pricing?.[modelId],
     capabilities: {},
   }))
 }
@@ -2835,7 +2825,7 @@ export function getModelsWithReasoningEffort(): string[] {
  * Returns the valid options for that model, or null if the model doesn't support reasoning effort
  */
 export function getReasoningEffortValuesForModel(modelId: string): string[] | null {
-  const catalogModelId = normalizeCatalogLookupModelId(modelId)
+  const catalogModelId = modelId.toLowerCase().trim()
   for (const provider of Object.values(PROVIDER_DEFINITIONS)) {
     const model = provider.models.find((m) => m.id.toLowerCase() === catalogModelId)
     if (model?.capabilities.reasoningEffort) {
@@ -2862,7 +2852,7 @@ export function getModelsWithVerbosity(): string[] {
  * Returns the valid options for that model, or null if the model doesn't support verbosity
  */
 export function getVerbosityValuesForModel(modelId: string): string[] | null {
-  const catalogModelId = normalizeCatalogLookupModelId(modelId)
+  const catalogModelId = modelId.toLowerCase().trim()
   for (const provider of Object.values(PROVIDER_DEFINITIONS)) {
     const model = provider.models.find((m) => m.id.toLowerCase() === catalogModelId)
     if (model?.capabilities.verbosity) {
@@ -2877,7 +2867,7 @@ export function getVerbosityValuesForModel(modelId: string): string[] | null {
  * Handles model IDs with date suffixes (e.g., claude-sonnet-4-5-20250514).
  */
 export function supportsNativeStructuredOutputs(modelId: string): boolean {
-  const normalizedModelId = normalizeCatalogLookupModelId(modelId)
+  const normalizedModelId = modelId.toLowerCase().trim()
 
   for (const provider of Object.values(PROVIDER_DEFINITIONS)) {
     for (const model of provider.models) {
@@ -2900,7 +2890,7 @@ export function supportsNativeStructuredOutputs(modelId: string): boolean {
 export function getThinkingCapability(
   modelId: string
 ): { levels: string[]; default?: string } | null {
-  const normalizedModelId = normalizeCatalogLookupModelId(modelId)
+  const normalizedModelId = modelId.toLowerCase().trim()
 
   for (const provider of Object.values(PROVIDER_DEFINITIONS)) {
     for (const model of provider.models) {
@@ -2976,7 +2966,7 @@ export function getModelsWithoutMemory(): string[] {
  * @param modelId - The model ID
  */
 export function getMaxOutputTokensForModel(modelId: string): number {
-  const normalizedModelId = normalizeCatalogLookupModelId(modelId)
+  const normalizedModelId = modelId.toLowerCase().trim()
   const STANDARD_MAX_OUTPUT_TOKENS = 4096
   const allModels = Object.values(PROVIDER_DEFINITIONS).flatMap((provider) => provider.models)
 

@@ -1,21 +1,22 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as environmentModule from '@/lib/environment'
+import {
+  getBaseModelProviders,
+  getHostedModels,
+  getMaxTemperature,
+  getProviderFromModel,
+  getProviderModels,
+  supportsTemperature,
+  supportsToolUsageControl,
+  updateOllamaModels,
+} from '@/providers/ai/models'
 import {
   calculateCost,
   extractAndParseJSON,
   formatCost,
-  generateStructuredOutputInstructions,
   getAllModelProviders,
-  getAllModels,
-  getAllProviderIds,
-  getBaseModelProviders,
   getCustomTools,
-  getHostedModels,
-  getMaxTemperature,
   getProvider,
-  getProviderConfigFromModel,
-  getProviderFromModel,
-  getProviderModels,
   MODELS_TEMP_RANGE_0_1,
   MODELS_TEMP_RANGE_0_2,
   MODELS_WITH_REASONING_EFFORT,
@@ -24,91 +25,59 @@ import {
   PROVIDERS_WITH_TOOL_USAGE_CONTROL,
   prepareToolExecution,
   prepareToolsWithUsageControl,
-  supportsTemperature,
-  supportsToolUsageControl,
   transformCustomTool,
-  updateOllamaProviderModels,
 } from '@/providers/ai/utils'
 import { getApiKey } from '@/providers/ai/utils-server'
 
 const isHostedSpy = vi.spyOn(environmentModule, 'isHosted', 'get')
-const mockGetRotatingApiKey = vi.fn().mockReturnValue('rotating-server-key')
-const originalRequire = module.require
+const { mockGetRotatingApiKey } = vi.hoisted(() => ({ mockGetRotatingApiKey: vi.fn() }))
+vi.mock('@/lib/utils-server', () => ({ getRotatingApiKey: mockGetRotatingApiKey }))
 
 describe('getApiKey', () => {
-  // Save original env and reset between tests
-  const originalEnv = { ...process.env }
-
   beforeEach(() => {
     vi.clearAllMocks()
-
     isHostedSpy.mockReturnValue(false)
-
-    module.require = vi.fn(() => ({
-      getRotatingApiKey: mockGetRotatingApiKey,
-    }))
+    mockGetRotatingApiKey.mockResolvedValue('rotating-server-key')
   })
 
-  afterEach(() => {
-    process.env = { ...originalEnv }
-    module.require = originalRequire
+  it.each(['openai', 'anthropic'])('uses the self-hosted %s user key', async (provider) => {
+    await expect(getApiKey(provider, 'model', 'user-key')).resolves.toBe('user-key')
+    await expect(getApiKey(provider, 'model')).rejects.toThrow('API key is required')
   })
 
-  it('should return user-provided key when not in hosted environment', async () => {
-    isHostedSpy.mockReturnValue(false)
-
-    // For OpenAI
-    const key1 = await getApiKey('openai', 'gpt-4', 'user-key-openai')
-    expect(key1).toBe('user-key-openai')
-
-    // For Anthropic
-    const key2 = await getApiKey('anthropic', 'claude-3', 'user-key-anthropic')
-    expect(key2).toBe('user-key-anthropic')
-  })
-
-  it('should throw error if no key provided in non-hosted environment', async () => {
-    isHostedSpy.mockReturnValue(false)
-
-    await expect(getApiKey('openai', 'gpt-4')).rejects.toThrow(
-      'API key is required for openai gpt-4'
-    )
-    await expect(getApiKey('anthropic', 'claude-3')).rejects.toThrow(
-      'API key is required for anthropic claude-3'
-    )
-  })
-
-  it('should fall back to user key in hosted environment if rotation fails', async () => {
+  it.each(['openai', 'anthropic'])('uses the hosted %s platform key', async (provider) => {
     isHostedSpy.mockReturnValue(true)
-
-    module.require = vi.fn(() => {
-      throw new Error('Rotation failed')
-    })
-
-    const key = await getApiKey('openai', 'gpt-4', 'user-fallback-key')
-    expect(key).toBe('user-fallback-key')
+    await expect(getApiKey(provider, 'model')).resolves.toBe('rotating-server-key')
+    expect(mockGetRotatingApiKey).toHaveBeenCalledWith(provider)
   })
 
-  it('should throw error in hosted environment if rotation fails and no user key', async () => {
+  it.each(['openai', 'anthropic'])(
+    'uses a supplied hosted %s key without loading platform keys',
+    async (provider) => {
+      isHostedSpy.mockReturnValue(true)
+      mockGetRotatingApiKey.mockRejectedValue(new Error('Rotation failed'))
+      await expect(getApiKey(provider, 'model', 'user-key')).resolves.toBe('user-key')
+      expect(mockGetRotatingApiKey).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each(['openai', 'anthropic'])(
+    'propagates hosted %s rotation failures when no user key is supplied',
+    async (provider) => {
+      isHostedSpy.mockReturnValue(true)
+      mockGetRotatingApiKey.mockRejectedValue(new Error('Rotation failed'))
+      await expect(getApiKey(provider, 'model')).rejects.toThrow('Rotation failed')
+    }
+  )
+
+  it('requires user keys for other hosted providers', async () => {
     isHostedSpy.mockReturnValue(true)
-
-    module.require = vi.fn(() => {
-      throw new Error('Rotation failed')
-    })
-
-    await expect(getApiKey('openai', 'gpt-4')).rejects.toThrow(
-      'No API key available for openai gpt-4'
-    )
+    await expect(getApiKey('other-provider', 'model', 'user-key')).resolves.toBe('user-key')
+    await expect(getApiKey('other-provider', 'model')).rejects.toThrow('API key is required')
   })
 
-  it('should require user key for non-OpenAI/Anthropic providers even in hosted environment', async () => {
-    isHostedSpy.mockReturnValue(true)
-
-    const key = await getApiKey('other-provider', 'some-model', 'user-key')
-    expect(key).toBe('user-key')
-
-    await expect(getApiKey('other-provider', 'some-model')).rejects.toThrow(
-      'API key is required for other-provider some-model'
-    )
+  it('does not require an Ollama API key', async () => {
+    await expect(getApiKey('ollama', 'ollama/llama3.2')).resolves.toBe('empty')
   })
 })
 
@@ -336,6 +305,20 @@ describe('Model Capabilities', () => {
 
 describe('Cost Calculation', () => {
   describe('calculateCost', () => {
+    it.concurrent.each([
+      ['openrouter/anthropic/claude-sonnet-4.6', 18],
+      ['openrouter/x-ai/grok-4.6', 8],
+      ['openrouter/mistralai/mistral-small-2603', 0.75],
+    ] as const)('prices canonical OpenRouter tokens for %s', (model, total) => {
+      expect(calculateCost(model, 1_000_000, 1_000_000).total).toBeCloseTo(total, 8)
+    })
+
+    it.concurrent.each([false, true])('prices OpenRouter tokens (cached=%s)', (cached) => {
+      expect(calculateCost('openrouter/openai/gpt-4.1', 1000, 500, cached).total).toBe(
+        cached ? 0.0045 : 0.006
+      )
+    })
+
     it.concurrent('should calculate cost correctly for known models', () => {
       const result = calculateCost('gpt-4.1', 1000, 500, false)
 
@@ -361,14 +344,6 @@ describe('Cost Calculation', () => {
       expect(result.output).toBe(0)
       expect(result.total).toBe(0)
       expect(result.pricing.input).toBe(1.0) // Default pricing
-    })
-
-    it.concurrent('should resolve dotted Claude model ids through the pricing catalog', () => {
-      const dotted = calculateCost('claude-sonnet-4.6', 100, 25, false)
-      const hyphenated = calculateCost('claude-sonnet-4-6', 100, 25, false)
-
-      expect(dotted.total).toBeGreaterThan(0)
-      expect(dotted).toEqual(hyphenated)
     })
 
     it.concurrent('should handle zero tokens', () => {
@@ -442,8 +417,9 @@ describe('Provider Management', () => {
       expect(getProviderFromModel('claude-custom-model')).toBe('anthropic') // Matches /^claude/ pattern
     })
 
-    it.concurrent('should default to ollama for unknown models', () => {
-      expect(getProviderFromModel('unknown-model')).toBe('ollama')
+    it.concurrent('rejects unknown models and recognizes canonical Ollama IDs', () => {
+      expect(() => getProviderFromModel('unknown-model')).toThrow('Unknown model: unknown-model')
+      expect(getProviderFromModel('ollama/llama3.2')).toBe('ollama')
     })
 
     it.concurrent('should be case insensitive', () => {
@@ -464,51 +440,16 @@ describe('Provider Management', () => {
       expect(anthropicProvider?.id).toBe('anthropic')
     })
 
-    it.concurrent('should handle provider/service format', () => {
-      const provider = getProvider('openai/chat')
-      expect(provider).toBeDefined()
-      expect(provider?.id).toBe('openai')
+    it.concurrent('rejects provider/service aliases', () => {
+      expect(getProvider('openai/chat')).toBeUndefined()
     })
 
-    it.concurrent('should return undefined for invalid provider IDs', () => {
-      expect(getProvider('nonexistent')).toBeUndefined()
-    })
-  })
-
-  describe('getProviderConfigFromModel', () => {
-    it.concurrent('should return provider config for model', () => {
-      const config = getProviderConfigFromModel('gpt-4.1')
-      expect(config).toBeDefined()
-      expect(config?.id).toBe('openai')
-
-      const anthropicConfig = getProviderConfigFromModel('claude-sonnet-5')
-      expect(anthropicConfig).toBeDefined()
-      expect(anthropicConfig?.id).toBe('anthropic')
-    })
-  })
-
-  describe('getAllModels', () => {
-    it.concurrent('should return all models from all providers', () => {
-      const allModels = getAllModels()
-      expect(Array.isArray(allModels)).toBe(true)
-      expect(allModels.length).toBeGreaterThan(0)
-
-      // Should contain models from different providers
-      expect(allModels).toContain('gpt-5.6-sol')
-      expect(allModels).toContain('claude-sonnet-5')
-      expect(allModels).toContain('gemini-3.6-flash')
-    })
-  })
-
-  describe('getAllProviderIds', () => {
-    it.concurrent('should return all provider IDs', () => {
-      const providerIds = getAllProviderIds()
-      expect(Array.isArray(providerIds)).toBe(true)
-      expect(providerIds).toContain('openai')
-      expect(providerIds).toContain('anthropic')
-      expect(providerIds).toContain('google')
-      expect(providerIds).toContain('azure-openai')
-    })
+    it.concurrent.each(['nonexistent', 'constructor', 'toString', '__proto__'])(
+      'returns no provider for invalid or inherited key %s',
+      (provider) => {
+        expect(getProvider(provider)).toBeUndefined()
+      }
+    )
   })
 
   describe('getProviderModels', () => {
@@ -544,12 +485,12 @@ describe('Provider Management', () => {
     })
   })
 
-  describe('updateOllamaProviderModels', () => {
+  describe('updateOllamaModels', () => {
     it.concurrent('should update ollama models', () => {
-      const mockModels = ['llama2', 'codellama', 'mistral']
+      const mockModels = ['ollama/llama2', 'ollama/codellama', 'ollama/mistral']
 
       // This should not throw
-      expect(() => updateOllamaProviderModels(mockModels)).not.toThrow()
+      expect(() => updateOllamaModels(mockModels)).not.toThrow()
 
       // Verify the models were updated
       const ollamaModels = getProviderModels('ollama')
@@ -594,68 +535,6 @@ describe('JSON and Structured Output', () => {
     it.concurrent('should throw error for invalid JSON', () => {
       const invalidJson = '{"key": invalid, "broken": }'
       expect(() => extractAndParseJSON(invalidJson)).toThrow('Failed to parse JSON after cleanup')
-    })
-  })
-
-  describe('generateStructuredOutputInstructions', () => {
-    it.concurrent('should return empty string for JSON Schema format', () => {
-      const schemaFormat = {
-        schema: {
-          type: 'object',
-          properties: { key: { type: 'string' } },
-        },
-      }
-      expect(generateStructuredOutputInstructions(schemaFormat)).toBe('')
-    })
-
-    it.concurrent('should return empty string for object type with properties', () => {
-      const objectFormat = {
-        type: 'object',
-        properties: { key: { type: 'string' } },
-      }
-      expect(generateStructuredOutputInstructions(objectFormat)).toBe('')
-    })
-
-    it.concurrent('should generate instructions for legacy fields format', () => {
-      const fieldsFormat = {
-        fields: [
-          { name: 'score', type: 'number', description: 'A score from 1-10' },
-          { name: 'comment', type: 'string', description: 'A comment' },
-        ],
-      }
-      const result = generateStructuredOutputInstructions(fieldsFormat)
-
-      expect(result).toContain('JSON format')
-      expect(result).toContain('score')
-      expect(result).toContain('comment')
-      expect(result).toContain('A score from 1-10')
-    })
-
-    it.concurrent('should handle object fields with properties', () => {
-      const fieldsFormat = {
-        fields: [
-          {
-            name: 'metadata',
-            type: 'object',
-            properties: {
-              version: { type: 'string', description: 'Version number' },
-              count: { type: 'number', description: 'Item count' },
-            },
-          },
-        ],
-      }
-      const result = generateStructuredOutputInstructions(fieldsFormat)
-
-      expect(result).toContain('metadata')
-      expect(result).toContain('Properties:')
-      expect(result).toContain('version')
-      expect(result).toContain('count')
-    })
-
-    it.concurrent('should return empty string for missing fields', () => {
-      expect(generateStructuredOutputInstructions({})).toBe('')
-      expect(generateStructuredOutputInstructions(null)).toBe('')
-      expect(generateStructuredOutputInstructions({ fields: null })).toBe('')
     })
   })
 })

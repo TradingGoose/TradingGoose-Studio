@@ -105,14 +105,16 @@ vi.mock('@/hooks/queries/private-tier-access', async (importOriginal) => {
 vi.mock('./components', () => ({
   PlanCard: ({
     name,
+    price,
     buttonText,
     onButtonClick,
   }: {
     name: string
+    price: string
     buttonText: string
     onButtonClick: () => void
   }) => (
-    <button type='button' data-testid='plan-card' onClick={onButtonClick}>
+    <button type='button' data-testid='plan-card' data-price={price} onClick={onButtonClick}>
       {`${name}:${buttonText}`}
     </button>
   ),
@@ -203,7 +205,7 @@ function catalogTier(
     usageScope: ownerType === 'organization' ? 'pooled' : 'individual',
     seatMode: ownerType === 'organization' ? 'adjustable' : 'fixed',
     displayOrder,
-    monthlyPriceUsd: 20,
+    monthlyPriceUsd: 12.5,
     yearlyPriceUsd: null,
     seatCount: ownerType === 'organization' ? 2 : null,
     seatMaximum: null,
@@ -373,6 +375,7 @@ describe('Subscription billing subject', () => {
     const privatePlan = Array.from(container.querySelectorAll('button')).find((button) =>
       button.textContent?.includes('Organization Private')
     )
+    expect(privatePlan).toHaveAttribute('data-price', '$12.50')
     act(() => privatePlan?.click())
 
     expect(mocks.handleUpgrade).toHaveBeenCalledWith(

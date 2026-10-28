@@ -2,14 +2,9 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
 import { executeTool } from '@/tools'
-import { getProviderDefaultModel, getProviderModels } from '../models'
+import { getProviderDefaultModel, getProviderModels, supportsTemperature } from '../models'
 import type { ProviderConfig, ProviderRequest, ProviderResponse, TimeSegment } from '../types'
-import {
-  prepareToolExecution,
-  prepareToolsWithUsageControl,
-  supportsTemperature,
-  trackForcedToolUsage,
-} from '../utils'
+import { prepareToolExecution, prepareToolsWithUsageControl, trackForcedToolUsage } from '../utils'
 
 const logger = createLogger('AnthropicProvider')
 const DEFAULT_MODEL = getProviderDefaultModel('anthropic')
