@@ -108,7 +108,7 @@ export function useSubBlockValue<T = any>(
         ) {
           const newProvider = getProviderFromModel(newValue)
           lastResolvedProviderRef.current = newProvider
-          if (currentApiKeyValue && oldProvider && oldProvider !== newProvider) {
+          if (currentApiKeyValue && oldProvider !== newProvider) {
             collaborativeSetSubblockValue(blockId, 'apiKey', '')
           }
         }

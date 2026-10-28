@@ -43,9 +43,13 @@ afterAll(() => {
 })
 
 describe('model editor credentials', () => {
-  it.each(['', 'c', '{{MODEL}}', '<agent1.model>'])(
-    'remembers the provider through unresolved model text %j',
-    async (unresolved) => {
+  it.each(
+    ['', 'c', '{{MODEL}}', '<agent1.model>'].flatMap((unresolved) =>
+      [false, true].map((reopen) => ({ unresolved, reopen }))
+    )
+  )(
+    'clears mismatched credentials after $unresolved model edits (reopen=$reopen)',
+    async ({ unresolved, reopen }) => {
       const doc = new Y.Doc()
       setWorkflowState(
         doc,
@@ -93,6 +97,11 @@ describe('model editor credentials', () => {
       for (const value of [unresolved, 'gpt-5.4', unresolved]) {
         await act(async () => model[1](value))
         expect(model[0]).toBe(value)
+        expect(apiKey()).toBe('openai-key')
+      }
+      if (reopen) {
+        await act(async () => root?.render(React.createElement(Harness, { key: 'reopened' })))
+        expect(model[0]).toBe(unresolved)
         expect(apiKey()).toBe('openai-key')
       }
       await act(async () => model[1]('claude-sonnet-4-6'))

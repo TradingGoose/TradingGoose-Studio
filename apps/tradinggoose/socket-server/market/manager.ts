@@ -1019,7 +1019,6 @@ export class MarketStreamManager {
                     (timezone && getMarketQuoteDate(new Date().toISOString(), timezone))
                 if (
                   cached &&
-                  streamState.stream &&
                   (record.listing.listing_type !== 'default' ||
                     cachedDate === snapshotDate ||
                     cachedSessionOpen)
