@@ -702,9 +702,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                     <PlanCard
                       key={tier.id}
                       name={tier.displayName}
-                      price={formatUsd(locale, tier.monthlyPriceUsd ?? tier.yearlyPriceUsd ?? 0, {
-                        maximumFractionDigits: 0,
-                      })}
+                      price={formatUsd(locale, tier.monthlyPriceUsd ?? tier.yearlyPriceUsd ?? 0)}
                       priceSubtext={
                         tier.monthlyPriceUsd !== null
                           ? copy('periods.monthly')
