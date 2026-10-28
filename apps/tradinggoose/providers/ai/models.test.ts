@@ -184,15 +184,17 @@ describe('AI model catalog', () => {
       vi.stubGlobal('window', {})
       fetchMock.mockResolvedValueOnce(response)
       const model = 'openrouter/openai/gpt-4.1'
+      const observedPricing: ReturnType<typeof getModelPricing>[] = []
       const unsubscribe = useProvidersStore.subscribe((state, previous) => {
         if (state.providers.openrouter.models !== previous.providers.openrouter.models) {
-          expect(getModelPricing(model)).toMatchObject({ input, output })
+          observedPricing.push(getModelPricing(model))
         }
       })
 
       await useProvidersStore.getState().fetchModels('openrouter')
       unsubscribe()
 
+      expect(observedPricing).toEqual([expect.objectContaining({ input, output })])
       expect(fetchMock).toHaveBeenLastCalledWith('/api/providers/ai/openrouter/models')
       expect(useProvidersStore.getState().providers.openrouter.models).toContain(model)
       expect(getModelPricing(model)).toMatchObject({ input, output })
