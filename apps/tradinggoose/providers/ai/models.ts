@@ -1313,7 +1313,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
         capabilities: {
           temperature: { min: 0, max: 2 },
           thinking: {
-            levels: ['low', 'medium', 'high'],
+            levels: ['none', 'low', 'medium', 'high'],
             default: 'medium',
           },
           maxOutputTokens: 65536,
@@ -1332,7 +1332,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
         capabilities: {
           temperature: { min: 0, max: 2 },
           thinking: {
-            levels: ['low', 'medium', 'high'],
+            levels: ['none', 'low', 'medium', 'high'],
             default: 'low',
           },
           maxOutputTokens: 65536,
@@ -1479,7 +1479,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
         capabilities: {
           temperature: { min: 0, max: 2 },
           thinking: {
-            levels: ['low', 'medium', 'high'],
+            levels: ['none', 'low', 'medium', 'high'],
             default: 'medium',
           },
           maxOutputTokens: 65535,
@@ -1498,7 +1498,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
         capabilities: {
           temperature: { min: 0, max: 2 },
           thinking: {
-            levels: ['low', 'medium', 'high'],
+            levels: ['none', 'low', 'medium', 'high'],
             default: 'low',
           },
           maxOutputTokens: 65535,

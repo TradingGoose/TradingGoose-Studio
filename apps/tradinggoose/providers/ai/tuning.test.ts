@@ -5,6 +5,7 @@ import type { ProviderRequest, ProviderToolConfig } from '@/providers/ai/types'
 const mocks = vi.hoisted(() => ({
   chat: vi.fn(),
   claude: vi.fn(),
+  gemini: vi.fn(),
   tool: vi.fn(),
 }))
 vi.mock('openai', () => ({
@@ -26,6 +27,12 @@ vi.mock('@anthropic-ai/sdk', () => ({
       create: mocks.claude,
       stream: (payload: unknown) => ({ finalMessage: () => mocks.claude(payload) }),
     }
+  },
+}))
+vi.mock('@google/genai', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@google/genai')>()),
+  GoogleGenAI: class {
+    models = { generateContent: mocks.gemini }
   },
 }))
 vi.mock('@/tools', () => ({ executeTool: mocks.tool }))
@@ -128,6 +135,32 @@ it('sends system-only requests once through Claude and Bedrock SDK adapters', as
   } finally {
     send.mockRestore()
   }
+})
+
+it.each([
+  ['google', 'gemini-2.5-flash', 0],
+  ['google', 'gemini-2.5-flash-lite', 0],
+  ['vertex', 'vertex/gemini-2.5-flash', 0],
+  ['vertex', 'vertex/gemini-2.5-flash-lite', 0],
+  ['google', 'gemini-2.5-pro', undefined],
+  ['vertex', 'vertex/gemini-2.5-pro', undefined],
+] as const)('handles explicit thinking disablement for %s %s', async (provider, model, budget) => {
+  mocks.gemini.mockResolvedValueOnce({
+    candidates: [{ content: { role: 'model', parts: [{ text: 'Done' }] } }],
+  })
+  await expect(
+    executeProviderRequest(
+      provider,
+      request(model, { thinkingLevel: 'none', vertexProject: 'test-project' })
+    )
+  ).resolves.toMatchObject({ content: 'Done' })
+
+  expect(mocks.gemini).toHaveBeenCalledTimes(1)
+  const payload = mocks.gemini.mock.calls[0][0]
+  expect(payload.model).toBe(model.replace(/^vertex\//, ''))
+  expect(payload.config.thinkingConfig).toEqual(
+    budget === 0 ? { includeThoughts: false, thinkingBudget: 0 } : undefined
+  )
 })
 
 it('discovers qualified Ollama IDs and sends only the model name to the SDK', async () => {

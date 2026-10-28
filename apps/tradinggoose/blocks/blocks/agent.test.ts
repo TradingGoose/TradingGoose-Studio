@@ -39,6 +39,10 @@ describe('AgentBlock', () => {
     ['reasoningEffort', 'deepseek-v4-pro', ['high', 'max']],
     ['thinkingLevel', 'claude-sonnet-5', ['low', 'medium', 'high', 'xhigh', 'max']],
     ['thinkingLevel', 'deepseek-v4-flash', ['none', 'enabled']],
+    ['thinkingLevel', 'gemini-2.5-flash', ['none', 'low', 'medium', 'high']],
+    ['thinkingLevel', 'gemini-2.5-flash-lite', ['none', 'low', 'medium', 'high']],
+    ['thinkingLevel', 'vertex/gemini-2.5-flash', ['none', 'low', 'medium', 'high']],
+    ['thinkingLevel', 'vertex/gemini-2.5-flash-lite', ['none', 'low', 'medium', 'high']],
     ['verbosity', 'gpt-5.6-sol', ['low', 'medium', 'high']],
   ] as const)('resolves %s for %s from the selected model', (id, model, levels) => {
     const field = AgentBlock.subBlocks.find((field) => field.id === id)!
