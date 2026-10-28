@@ -70,19 +70,36 @@ it('retains the key through empty drafts and a model change within the same prov
   expect(mocks.values.apiKey).toBe('saved-key')
 })
 
-it('can reopen an incomplete saved model without inventing a previous provider', () => {
-  expect(() => render('c')).not.toThrow()
-  expect(() => type('claude-sonnet-5')).not.toThrow()
-  expect(mocks.values.apiKey).toBe('saved-key')
-})
+it.each(['c', '', '<start.model>', 'unsupported-model'])(
+  'clears an unowned key when resolving the saved model %s',
+  (model) => {
+    expect(() => render(model)).not.toThrow()
+    expect(() => type('cl')).not.toThrow()
+    expect(mocks.values.apiKey).toBe('saved-key')
+    type('claude-sonnet-5')
+    expect(mocks.values.apiKey).toBe('')
+  }
+)
 
 it.each([
-  ['c', 'saved-key'],
-  ['gpt-4.1', ''],
-])('uses only the selected block provider after switching to %s', (model, expectedKey) => {
+  ['c', 'claude-sonnet-5', ''],
+  ['gpt-4.1', 'gpt-5.6-sol', 'saved-key'],
+])('reopens %s without retaining another provider’s ownership', (model, selection, expectedKey) => {
   render('gpt-4.1')
-  render(model, 'other-agent')
-  type('claude-sonnet-5')
+  type(model)
+  act(() => root.render(null))
+  render(model)
+  type(selection)
   expect(mocks.values.apiKey).toBe(expectedKey)
-  expect(mocks.write.mock.calls.every((call) => call[0] === 'other-agent')).toBe(true)
 })
+
+it.each(['c', 'gpt-4.1'])(
+  'uses only the selected block provider after switching to %s',
+  (model) => {
+    render('gpt-4.1')
+    render(model, 'other-agent')
+    type('claude-sonnet-5')
+    expect(mocks.values.apiKey).toBe('')
+    expect(mocks.write.mock.calls.every((call) => call[0] === 'other-agent')).toBe(true)
+  }
+)

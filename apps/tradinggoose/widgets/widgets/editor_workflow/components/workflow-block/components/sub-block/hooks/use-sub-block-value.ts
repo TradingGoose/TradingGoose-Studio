@@ -37,11 +37,7 @@ export function useSubBlockValue<T = any>(
         // Partial model names are valid editor drafts, not provider changes.
         return
       }
-      if (
-        currentApiKeyValue &&
-        lastProviderRef.current &&
-        lastProviderRef.current !== newProvider
-      ) {
+      if (currentApiKeyValue && lastProviderRef.current !== newProvider) {
         collaborativeSetSubblockValue(blockId, 'apiKey', '')
       }
       lastProviderRef.current = newProvider
