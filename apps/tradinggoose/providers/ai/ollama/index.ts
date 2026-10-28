@@ -124,7 +124,7 @@ export const ollamaProvider: ProviderConfig = {
 
     // Build the request payload
     const payload: any = {
-      model: request.model.slice(7),
+      model: request.model.trim().slice(7),
       messages: allMessages,
     }
 
