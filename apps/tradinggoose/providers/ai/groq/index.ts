@@ -98,12 +98,17 @@ export const groqProvider: ProviderConfig = {
     // Add optional parameters
     if (request.temperature !== undefined) payload.temperature = request.temperature
     if (request.maxTokens !== undefined) payload.max_tokens = request.maxTokens
+    if (request.reasoningEffort !== undefined) payload.reasoning_effort = request.reasoningEffort
+    if (payload.model.startsWith('qwen/') && request.thinkingLevel === 'enabled') {
+      payload.reasoning_effort = 'default'
+      payload.reasoning_format = 'parsed'
+    }
 
     // Add response format for structured output if specified
     if (request.responseFormat) {
       payload.response_format = {
         type: 'json_schema',
-        schema: request.responseFormat.schema || request.responseFormat,
+        schema: request.responseFormat.schema,
       }
     }
 

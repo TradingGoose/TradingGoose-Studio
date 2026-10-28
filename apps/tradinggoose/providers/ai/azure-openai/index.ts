@@ -148,7 +148,7 @@ export const azureOpenAIProvider: ProviderConfig = {
 
     // Add optional parameters
     if (request.temperature !== undefined) payload.temperature = request.temperature
-    if (request.maxTokens !== undefined) payload.max_tokens = request.maxTokens
+    if (request.maxTokens !== undefined) payload.max_completion_tokens = request.maxTokens
 
     // Add GPT-5 specific parameters
     if (request.reasoningEffort !== undefined) payload.reasoning_effort = request.reasoningEffort
@@ -161,7 +161,7 @@ export const azureOpenAIProvider: ProviderConfig = {
         type: 'json_schema',
         json_schema: {
           name: request.responseFormat.name || 'response_schema',
-          schema: request.responseFormat.schema || request.responseFormat,
+          schema: request.responseFormat.schema,
           strict: request.responseFormat.strict !== false,
         },
       }

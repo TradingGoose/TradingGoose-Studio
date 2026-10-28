@@ -17,7 +17,6 @@ import type { StreamingExecution } from '@/executor/types'
 import {
   checkForForcedToolUsage,
   createReadableStreamFromBedrockStream,
-  generateToolUseId,
   getBedrockInferenceProfileId,
 } from '@/providers/ai/bedrock/utils'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
@@ -96,28 +95,32 @@ export const bedrockProvider: ProviderConfig = {
 
     if (request.messages) {
       for (const msg of request.messages) {
-        if (msg.role === 'function' || msg.role === 'tool') {
+        if (msg.role === 'system') {
+          if (msg.content) systemContent.push({ text: msg.content })
+        } else if (msg.role === 'tool') {
+          if (!msg.tool_call_id) throw new Error('Tool result messages require tool_call_id')
           const toolResultBlock: ToolResultBlock = {
-            toolUseId: msg.tool_call_id || msg.name || generateToolUseId('tool'),
+            toolUseId: msg.tool_call_id,
             content: [{ text: msg.content || '' }],
           }
           messages.push({
             role: 'user' as ConversationRole,
             content: [{ toolResult: toolResultBlock }],
           })
-        } else if (msg.function_call || msg.tool_calls) {
-          const toolCall = msg.function_call || msg.tool_calls?.[0]?.function
-          if (toolCall) {
-            const toolUseBlock: ToolUseBlock = {
-              toolUseId: msg.tool_calls?.[0]?.id || generateToolUseId(toolCall.name),
-              name: toolCall.name,
-              input: JSON.parse(toolCall.arguments),
-            }
-            messages.push({
-              role: 'assistant' as ConversationRole,
-              content: [{ toolUse: toolUseBlock }],
-            })
-          }
+        } else if (msg.tool_calls?.length) {
+          messages.push({
+            role: 'assistant' as ConversationRole,
+            content: [
+              ...(msg.content ? [{ text: msg.content }] : []),
+              ...msg.tool_calls.map((call) => ({
+                toolUse: {
+                  toolUseId: call.id,
+                  name: call.function.name,
+                  input: JSON.parse(call.function.arguments),
+                },
+              })),
+            ],
+          })
         } else {
           const role: ConversationRole = msg.role === 'assistant' ? 'assistant' : 'user'
           messages.push({
@@ -129,18 +132,14 @@ export const bedrockProvider: ProviderConfig = {
     }
 
     if (messages.length === 0) {
-      messages.push({
-        role: 'user' as ConversationRole,
-        content: [{ text: request.systemPrompt || 'Hello' }],
-      })
-      systemContent.length = 0
+      throw new Error('Bedrock requests require a user or assistant message')
     }
 
     let structuredOutputTool: Tool | undefined
     const structuredOutputToolName = 'structured_output'
 
     if (request.responseFormat) {
-      const schema = request.responseFormat.schema || request.responseFormat
+      const schema = request.responseFormat.schema
       const schemaName = request.responseFormat.name || 'response'
 
       structuredOutputTool = {
@@ -268,9 +267,8 @@ export const bedrockProvider: ProviderConfig = {
 
     const systemPromptWithSchema = systemContent
 
-    const inferenceConfig: { temperature: number; maxTokens?: number } = {
-      temperature: Number.parseFloat(String(request.temperature ?? 0.7)),
-    }
+    const inferenceConfig: { temperature?: number; maxTokens?: number } = {}
+    if (request.temperature !== undefined) inferenceConfig.temperature = request.temperature
     if (request.maxTokens != null) {
       inferenceConfig.maxTokens = Number.parseInt(String(request.maxTokens))
     }
@@ -482,7 +480,10 @@ export const bedrockProvider: ProviderConfig = {
         const toolUseContentBlocks = (currentResponse.output?.message?.content || []).filter(
           (block): block is ContentBlock & { toolUse: ToolUseBlock } => 'toolUse' in block
         )
-        const currentToolUses = toolUseContentBlocks.map((block) => block.toolUse)
+        const currentToolUses = toolUseContentBlocks.map(({ toolUse }) => {
+          if (!toolUse.toolUseId) throw new Error('Bedrock tool calls require toolUseId')
+          return { ...toolUse, toolUseId: toolUse.toolUseId }
+        })
 
         if (!currentToolUses || currentToolUses.length === 0) {
           break
@@ -490,11 +491,11 @@ export const bedrockProvider: ProviderConfig = {
 
         const toolsStartTime = Date.now()
 
-        const toolExecutionPromises = currentToolUses.map(async (toolUse: ToolUseBlock) => {
+        const toolExecutionPromises = currentToolUses.map(async (toolUse) => {
           const toolCallStartTime = Date.now()
           const toolName = toolUse.name || ''
           const toolArgs = (toolUse.input as Record<string, any>) || {}
-          const toolUseId = toolUse.toolUseId || generateToolUseId(toolName)
+          const toolUseId = toolUse.toolUseId
 
           try {
             const tool = request.tools?.find((t) => t.id === toolName)

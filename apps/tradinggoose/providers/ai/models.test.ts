@@ -134,7 +134,7 @@ describe('AI model catalog', () => {
     'leaves unresolved editor model %s without capabilities while routing stays strict',
     (model) => {
       expect(getModelCapabilities(model)).toBeNull()
-      expect(() => getProviderFromModel(model)).toThrow('Unknown model:')
+      expect(() => getProviderFromModel(model)).toThrow('Unknown AI model:')
     }
   )
 
@@ -144,7 +144,7 @@ describe('AI model catalog', () => {
 
   it.each(['sonar', '', 'uncatalogued-model'])('omits unknown model icons for %s', (model) => {
     expect(getProviderIcon(model)).toBeNull()
-    expect(() => getProviderFromModel(model)).toThrow('Unknown model:')
+    expect(() => getProviderFromModel(model)).toThrow('Unknown AI model:')
   })
 
   it('preserves known model icons', () => {

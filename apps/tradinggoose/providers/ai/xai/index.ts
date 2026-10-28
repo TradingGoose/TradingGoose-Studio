@@ -115,6 +115,8 @@ export const xAIProvider: ProviderConfig = {
 
     if (request.temperature !== undefined) basePayload.temperature = request.temperature
     if (request.maxTokens !== undefined) basePayload.max_tokens = request.maxTokens
+    if (request.reasoningEffort !== undefined)
+      basePayload.reasoning_effort = request.reasoningEffort
 
     // Function to create response format configuration
     const createResponseFormatPayload = (messages: any[] = allMessages) => {
@@ -128,7 +130,7 @@ export const xAIProvider: ProviderConfig = {
           type: 'json_schema',
           json_schema: {
             name: request.responseFormat.name || 'structured_response',
-            schema: request.responseFormat.schema || request.responseFormat,
+            schema: request.responseFormat.schema,
             strict: request.responseFormat.strict !== false,
           },
         }

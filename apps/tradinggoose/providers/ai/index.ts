@@ -1,4 +1,5 @@
 import { isHosted } from '@/lib/environment'
+import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
 import { anthropicProvider } from '@/providers/ai/anthropic'
 import { azureAnthropicProvider } from '@/providers/ai/azure-anthropic'
@@ -10,7 +11,12 @@ import { fireworksProvider } from '@/providers/ai/fireworks'
 import { googleProvider } from '@/providers/ai/google'
 import { groqProvider } from '@/providers/ai/groq'
 import { mistralProvider } from '@/providers/ai/mistral'
-import { supportsTemperature } from '@/providers/ai/models'
+import {
+  getMaxTemperature,
+  getReasoningEffortValuesForModel,
+  getThinkingLevelsForModel,
+  getVerbosityValuesForModel,
+} from '@/providers/ai/models'
 import { ollamaProvider } from '@/providers/ai/ollama'
 import { openaiProvider } from '@/providers/ai/openai'
 import { openRouterProvider } from '@/providers/ai/openrouter'
@@ -19,6 +25,8 @@ import { calculateCost } from '@/providers/ai/utils'
 import { vertexProvider } from '@/providers/ai/vertex'
 import { vllmProvider } from '@/providers/ai/vllm'
 import { xAIProvider } from '@/providers/ai/xai'
+
+const logger = createLogger('Providers')
 
 const providers: Record<string, ProviderConfig> = {
   openai: openaiProvider,
@@ -39,6 +47,55 @@ const providers: Record<string, ProviderConfig> = {
   vllm: vllmProvider,
 }
 
+function sanitizeRequest(request: ProviderRequest): ProviderRequest {
+  const sanitizedRequest = { ...request }
+  const maxTemperature = getMaxTemperature(sanitizedRequest.model)
+
+  for (const field of ['temperature', 'maxTokens'] as const) {
+    const value: unknown = sanitizedRequest[field]
+    const number =
+      typeof value === 'number'
+        ? value
+        : typeof value === 'string' && value.trim() !== ''
+          ? Number(value)
+          : Number.NaN
+    const validRange =
+      field === 'maxTokens'
+        ? Number.isInteger(number) && number > 0
+        : maxTemperature !== undefined && number >= 0 && number <= maxTemperature
+    sanitizedRequest[field] = Number.isFinite(number) && validRange ? number : undefined
+  }
+
+  for (const [field, getOptions] of [
+    ['reasoningEffort', getReasoningEffortValuesForModel],
+    ['verbosity', getVerbosityValuesForModel],
+    ['thinkingLevel', getThinkingLevelsForModel],
+  ] as const) {
+    const value = sanitizedRequest[field]
+    if (!getOptions(sanitizedRequest.model)?.includes(value ?? '')) {
+      sanitizedRequest[field] = undefined
+    }
+  }
+
+  const systemPrompt =
+    typeof sanitizedRequest.systemPrompt === 'string' ? sanitizedRequest.systemPrompt : ''
+  const hasSystemPrompt = systemPrompt.trim().length > 0
+  sanitizedRequest.systemPrompt = hasSystemPrompt ? systemPrompt : ''
+
+  const context =
+    typeof sanitizedRequest.context === 'string' ? sanitizedRequest.context : undefined
+  const hasContext = typeof context === 'string' && context.trim().length > 0
+  sanitizedRequest.context = hasContext ? context : undefined
+
+  const hasMessages = Array.isArray(sanitizedRequest.messages) && sanitizedRequest.messages.length
+
+  if (!hasMessages && !hasContext && !hasSystemPrompt) {
+    throw new Error('AI provider requests require messages, context, or a system prompt')
+  }
+
+  return sanitizedRequest
+}
+
 function isStreamingExecution(response: any): response is StreamingExecution {
   return response && typeof response === 'object' && 'stream' in response && 'execution' in response
 }
@@ -46,7 +103,7 @@ function isStreamingExecution(response: any): response is StreamingExecution {
 export async function executeProviderRequest(
   providerId: string,
   request: ProviderRequest
-): Promise<ProviderResponse | ReadableStream | StreamingExecution> {
+): Promise<ProviderResponse | StreamingExecution> {
   if (isHosted && providerId === 'ollama') {
     throw new Error('Ollama is not available on hosted instances')
   }
@@ -56,12 +113,17 @@ export async function executeProviderRequest(
     throw new Error(`Provider not found: ${providerId}`)
   }
 
-  const response = await provider.executeRequest({
-    ...request,
-    temperature: supportsTemperature(request.model) ? request.temperature : undefined,
-  })
+  if (!provider.executeRequest) {
+    throw new Error(`Provider ${providerId} does not implement executeRequest`)
+  }
+  const sanitizedRequest = sanitizeRequest(request)
 
-  if (isStreamingExecution(response) || response instanceof ReadableStream) {
+  // Execute the request using the provider's implementation
+  const response = await provider.executeRequest(sanitizedRequest)
+
+  // Streaming executions carry their own usage and cost metadata.
+  if (isStreamingExecution(response)) {
+    logger.info('Provider returned StreamingExecution')
     return response
   }
 

@@ -16,12 +16,9 @@ import {
   formatCost,
   getAllModelProviders,
   getCustomTools,
-  getProvider,
   MODELS_TEMP_RANGE_0_1,
   MODELS_TEMP_RANGE_0_2,
-  MODELS_WITH_REASONING_EFFORT,
   MODELS_WITH_TEMPERATURE_SUPPORT,
-  MODELS_WITH_VERBOSITY,
   PROVIDERS_WITH_TOOL_USAGE_CONTROL,
   prepareToolExecution,
   prepareToolsWithUsageControl,
@@ -257,49 +254,6 @@ describe('Model Capabilities', () => {
       expect(MODELS_WITH_TEMPERATURE_SUPPORT).toContain('mistral-large-latest')
       expect(getMaxTemperature('mistral-large-latest')).toBe(1.5)
     })
-
-    it.concurrent('should have correct models in MODELS_WITH_REASONING_EFFORT', () => {
-      // Should contain GPT-5 models that support reasoning effort
-      expect(MODELS_WITH_REASONING_EFFORT).toContain('gpt-5')
-      expect(MODELS_WITH_REASONING_EFFORT).toContain('gpt-5-mini')
-      expect(MODELS_WITH_REASONING_EFFORT).toContain('gpt-5-nano')
-      expect(MODELS_WITH_REASONING_EFFORT).toContain('azure/gpt-5')
-      expect(MODELS_WITH_REASONING_EFFORT).toContain('azure/gpt-5-mini')
-      expect(MODELS_WITH_REASONING_EFFORT).toContain('azure/gpt-5-nano')
-
-      // Should NOT contain non-reasoning GPT-5 models
-      expect(MODELS_WITH_REASONING_EFFORT).not.toContain('azure/gpt-5-chat')
-
-      // Should NOT contain non-reasoning models
-      expect(MODELS_WITH_REASONING_EFFORT).not.toContain('gpt-4.1')
-      expect(MODELS_WITH_REASONING_EFFORT).not.toContain('gpt-4.1-mini')
-    })
-
-    it.concurrent('should have correct models in MODELS_WITH_VERBOSITY', () => {
-      // Should contain GPT-5 models that support verbosity
-      expect(MODELS_WITH_VERBOSITY).toContain('gpt-5')
-      expect(MODELS_WITH_VERBOSITY).toContain('gpt-5-mini')
-      expect(MODELS_WITH_VERBOSITY).toContain('gpt-5-nano')
-      expect(MODELS_WITH_VERBOSITY).toContain('azure/gpt-5')
-      expect(MODELS_WITH_VERBOSITY).toContain('azure/gpt-5-mini')
-      expect(MODELS_WITH_VERBOSITY).toContain('azure/gpt-5-nano')
-
-      // Should NOT contain non-reasoning GPT-5 models
-      expect(MODELS_WITH_VERBOSITY).not.toContain('azure/gpt-5-chat')
-
-      // Should NOT contain models without verbosity support
-      expect(MODELS_WITH_VERBOSITY).not.toContain('gpt-4.1')
-      expect(MODELS_WITH_VERBOSITY).not.toContain('claude-sonnet-4-6')
-      expect(MODELS_WITH_VERBOSITY).not.toContain('o3-pro')
-    })
-
-    it.concurrent('should keep verbosity as a strict subset of reasoning-capable models', () => {
-      MODELS_WITH_VERBOSITY.forEach((model) => {
-        expect(MODELS_WITH_REASONING_EFFORT).toContain(model)
-      })
-      expect(MODELS_WITH_REASONING_EFFORT).toContain('deepseek-v4-pro')
-      expect(MODELS_WITH_VERBOSITY).not.toContain('deepseek-v4-pro')
-    })
   })
 })
 
@@ -418,7 +372,7 @@ describe('Provider Management', () => {
     })
 
     it.concurrent('rejects unknown models and recognizes canonical Ollama IDs', () => {
-      expect(() => getProviderFromModel('unknown-model')).toThrow('Unknown model: unknown-model')
+      expect(() => getProviderFromModel('unknown-model')).toThrow('Unknown AI model: unknown-model')
       expect(getProviderFromModel('ollama/llama3.2')).toBe('ollama')
     })
 
@@ -426,30 +380,6 @@ describe('Provider Management', () => {
       expect(getProviderFromModel('GPT-4.1')).toBe('openai')
       expect(getProviderFromModel('CLAUDE-SONNET-5')).toBe('anthropic')
     })
-  })
-
-  describe('getProvider', () => {
-    it.concurrent('should return provider config for valid provider IDs', () => {
-      const openaiProvider = getProvider('openai')
-      expect(openaiProvider).toBeDefined()
-      expect(openaiProvider?.id).toBe('openai')
-      expect(openaiProvider?.name).toBe('OpenAI')
-
-      const anthropicProvider = getProvider('anthropic')
-      expect(anthropicProvider).toBeDefined()
-      expect(anthropicProvider?.id).toBe('anthropic')
-    })
-
-    it.concurrent('rejects provider/service aliases', () => {
-      expect(getProvider('openai/chat')).toBeUndefined()
-    })
-
-    it.concurrent.each(['nonexistent', 'constructor', 'toString', '__proto__'])(
-      'returns no provider for invalid or inherited key %s',
-      (provider) => {
-        expect(getProvider(provider)).toBeUndefined()
-      }
-    )
   })
 
   describe('getProviderModels', () => {

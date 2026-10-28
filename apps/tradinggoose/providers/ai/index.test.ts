@@ -1,8 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockOpenAIExecuteRequest, mockOllamaExecuteRequest, environment } = vi.hoisted(() => ({
+const {
+  mockOpenAIExecuteRequest,
+  mockOllamaExecuteRequest,
+  mockAnthropicExecuteRequest,
+  mockDeepseekExecuteRequest,
+  environment,
+} = vi.hoisted(() => ({
   mockOpenAIExecuteRequest: vi.fn(),
   mockOllamaExecuteRequest: vi.fn(),
+  mockAnthropicExecuteRequest: vi.fn(),
+  mockDeepseekExecuteRequest: vi.fn(),
   environment: { isHosted: false },
 }))
 
@@ -33,7 +41,7 @@ vi.mock('@/providers/ai/anthropic', () => ({
     version: 'test',
     models: [],
     defaultModel: '',
-    executeRequest: vi.fn(),
+    executeRequest: mockAnthropicExecuteRequest,
   },
 }))
 
@@ -69,7 +77,7 @@ vi.mock('@/providers/ai/deepseek', () => ({
     version: 'test',
     models: [],
     defaultModel: '',
-    executeRequest: vi.fn(),
+    executeRequest: mockDeepseekExecuteRequest,
   },
 }))
 
@@ -146,11 +154,121 @@ vi.mock('@/providers/ai/xai', () => ({
 }))
 
 import { executeProviderRequest } from '@/providers/ai'
+import type { ProviderRequest } from '@/providers/ai/types'
 
 describe('executeProviderRequest', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     environment.isHosted = false
+    mockOpenAIExecuteRequest.mockResolvedValue({ content: 'ok', model: 'gpt-5.4' })
+    mockAnthropicExecuteRequest.mockResolvedValue({ content: 'ok', model: 'claude-sonnet-4-6' })
+    mockDeepseekExecuteRequest.mockResolvedValue({ content: 'ok', model: 'deepseek-v4-flash' })
+  })
+
+  it('rejects an empty request before calling the provider', async () => {
+    await expect(
+      executeProviderRequest('openai', { model: 'gpt-5.4', context: ' ' })
+    ).rejects.toThrow('require messages, context, or a system prompt')
+    expect(mockOpenAIExecuteRequest).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    [
+      'openai',
+      { model: 'gpt-5.4', reasoningEffort: 'xhigh', verbosity: 'high', thinkingLevel: 'high' },
+      { reasoningEffort: 'xhigh', verbosity: 'high', thinkingLevel: undefined },
+    ],
+    ['anthropic', { model: 'claude-sonnet-4-6', thinkingLevel: 'max' }, { thinkingLevel: 'max' }],
+    [
+      'deepseek',
+      { model: 'deepseek-v4-flash', reasoningEffort: 'max', thinkingLevel: 'none' },
+      { reasoningEffort: 'max', thinkingLevel: 'none' },
+    ],
+    [
+      'openai',
+      { model: 'gpt-4.1', reasoningEffort: 'high', verbosity: 'high', thinkingLevel: 'high' },
+      { reasoningEffort: undefined, verbosity: undefined, thinkingLevel: undefined },
+    ],
+    [
+      'anthropic',
+      { model: 'claude-sonnet-4-6', thinkingLevel: 'xhigh' },
+      { thinkingLevel: undefined },
+    ],
+  ] as const)('filters settings by model for %s: %j', async (provider, settings, expected) => {
+    const request = { ...settings, context: 'Test prompt' }
+    const original = { ...request }
+    await executeProviderRequest(provider, request)
+    const executeRequest = {
+      openai: mockOpenAIExecuteRequest,
+      anthropic: mockAnthropicExecuteRequest,
+      deepseek: mockDeepseekExecuteRequest,
+    }[provider]
+    expect(executeRequest).toHaveBeenCalledWith(expect.objectContaining(expected))
+    expect(request).toEqual(original)
+  })
+
+  it.each([undefined, '', ' ', 'auto', 'invalid'])(
+    'omits the optional setting %j',
+    async (value) => {
+      await executeProviderRequest('openai', {
+        model: 'gpt-5.4',
+        context: 'Test prompt',
+        reasoningEffort: value,
+        verbosity: value,
+        thinkingLevel: value,
+      })
+
+      expect(mockOpenAIExecuteRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reasoningEffort: undefined,
+          verbosity: undefined,
+          thinkingLevel: undefined,
+        })
+      )
+    }
+  )
+
+  it('converts numeric input strings before calling the provider', async () => {
+    await executeProviderRequest('openai', {
+      model: 'gpt-4.1',
+      context: 'Test prompt',
+      maxTokens: '1024',
+      temperature: '0',
+    } as unknown as ProviderRequest)
+
+    expect(mockOpenAIExecuteRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ maxTokens: 1024, temperature: 0 })
+    )
+  })
+
+  it.each([undefined, null, '', ' ', 'invalid', Number.NaN, Number.POSITIVE_INFINITY])(
+    'omits invalid numeric inputs %j',
+    async (value) => {
+      await executeProviderRequest('openai', {
+        model: 'gpt-4.1',
+        context: 'Test prompt',
+        maxTokens: value,
+        temperature: value,
+      } as unknown as ProviderRequest)
+
+      expect(mockOpenAIExecuteRequest).toHaveBeenCalledWith(
+        expect.objectContaining({ maxTokens: undefined, temperature: undefined })
+      )
+    }
+  )
+
+  it.each([
+    ['gpt-4.1', 'maxTokens', 0],
+    ['gpt-4.1', 'maxTokens', -1],
+    ['gpt-4.1', 'maxTokens', 1.5],
+    ['gpt-4.1', 'temperature', -0.1],
+    ['gpt-4.1', 'temperature', 2.1],
+    ['gpt-5.4', 'temperature', 0.5],
+  ] as const)('omits unsupported numeric settings: %s %s %j', async (model, field, value) => {
+    await executeProviderRequest('openai', { model, [field]: value, context: 'Test prompt' })
+    expect(mockOpenAIExecuteRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ [field]: undefined })
+    )
   })
 
   it('calculates model usage cost for token-bearing responses', async () => {
@@ -166,7 +284,7 @@ describe('executeProviderRequest', () => {
 
     const response = await executeProviderRequest('openai', {
       model: 'gpt-4.1',
-      systemPrompt: '',
+      systemPrompt: 'Test prompt',
       apiKey: 'test-key',
     })
 

@@ -19,6 +19,7 @@ export interface AgentInputs {
   azureApiVersion?: string
   reasoningEffort?: string
   verbosity?: string
+  thinkingLevel?: string
 }
 
 export interface ToolInput {
@@ -36,8 +37,6 @@ export interface ToolInput {
 export interface Message {
   role: 'system' | 'user' | 'assistant'
   content: string
-  function_call?: any
-  tool_calls?: any[]
 }
 
 export interface StreamingConfig {

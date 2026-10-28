@@ -89,6 +89,14 @@ export const deepseekProvider: ProviderConfig = {
       // Add optional parameters
       if (request.temperature !== undefined) payload.temperature = request.temperature
       if (request.maxTokens !== undefined) payload.max_tokens = request.maxTokens
+      if (request.thinkingLevel !== undefined) {
+        payload.thinking = {
+          type: request.thinkingLevel === 'none' ? 'disabled' : 'enabled',
+        }
+      }
+      if (request.reasoningEffort !== undefined && request.thinkingLevel !== 'none') {
+        payload.reasoning_effort = request.reasoningEffort
+      }
 
       // Handle tools and tool usage control
       let preparedTools: ReturnType<typeof prepareToolsWithUsageControl> | null = null
@@ -228,7 +236,9 @@ export const deepseekProvider: ProviderConfig = {
       }
       const toolCalls = []
       const toolResults = []
-      const currentMessages = [...allMessages]
+      const currentMessages: Array<
+        (typeof allMessages)[number] | OpenAI.Chat.Completions.ChatCompletionMessage
+      > = [...allMessages]
       let iterationCount = 0
       const MAX_ITERATIONS = 10 // Prevent infinite loops
 
@@ -275,6 +285,9 @@ export const deepseekProvider: ProviderConfig = {
           if (!toolCallsInResponse || toolCallsInResponse.length === 0) {
             break
           }
+
+          // DeepSeek requires the complete reasoning content when continuing a tool turn.
+          currentMessages.push(currentResponse.choices[0].message)
 
           // Track time for tool calls in this batch
           const toolsStartTime = Date.now()
@@ -329,22 +342,6 @@ export const deepseekProvider: ProviderConfig = {
                 duration: toolCallDuration,
                 result: resultContent,
                 success: result.success,
-              })
-
-              // Add the tool call and result to messages (both success and failure)
-              currentMessages.push({
-                role: 'assistant',
-                content: null,
-                tool_calls: [
-                  {
-                    id: toolCall.id,
-                    type: 'function',
-                    function: {
-                      name: toolName,
-                      arguments: toolCall.function.arguments,
-                    },
-                  },
-                ],
               })
 
               currentMessages.push({

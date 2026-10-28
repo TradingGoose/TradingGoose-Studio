@@ -1,228 +1,36 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-
-vi.mock('@/components/icons/icons', () => ({
-  AgentIcon: () => null,
-}))
-
-vi.mock('@/providers/ai/utils', () => ({
-  MODELS_WITH_REASONING_EFFORT: [],
-  MODELS_WITH_VERBOSITY: [],
-  getAllModelProviders: vi.fn(() => ({ 'gpt-4o': 'openai_chat' })),
-}))
-
-vi.mock('@/providers/ai/models', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/providers/ai/models')>()),
-  getHostedModels: vi.fn(() => []),
-  getMaxTemperature: vi.fn(() => 1),
-  getProviderFromModel: vi.fn(() => 'openai'),
-  getProviderIcon: vi.fn(() => undefined),
-  PROVIDER_DEFINITIONS: {
-    openai: {
-      name: 'OpenAI',
-      models: ['gpt-4o'],
-    },
-    'azure-openai': {
-      models: [],
-    },
-  },
-  supportsTemperature: vi.fn(() => true),
-  getProviderModels: vi.fn(() => []),
-}))
-
-vi.mock('@/stores/providers/store', () => ({
-  useProvidersStore: {
-    getState: vi.fn(() => ({
-      providers: {
-        base: { models: ['gpt-4o'] },
-        ollama: { models: [] },
-        openrouter: { models: [] },
-      },
-    })),
-  },
-}))
-
-vi.mock('@/blocks', () => ({
-  getAllBlocks: vi.fn(() => [
-    {
-      type: 'tool-type-1',
-      tools: {
-        access: ['tool-id-1'],
-      },
-    },
-    {
-      type: 'tool-type-2',
-      tools: {
-        access: ['tool-id-2'],
-      },
-    },
-  ]),
-}))
+import { describe, expect, it } from 'vitest'
+import { AgentBlock } from './agent'
 
 describe('AgentBlock', () => {
-  let AgentBlock: typeof import('@/blocks/blocks/agent').AgentBlock
-
-  beforeAll(async () => {
-    ;({ AgentBlock } = await import('@/blocks/blocks/agent'))
-  })
-
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  const getParamsFunction = () => {
-    const paramsFunction = AgentBlock.tools.config?.params
-    if (!paramsFunction) {
-      throw new Error('AgentBlock.tools.config.params function is missing')
+  it('uses additional fields without mode switches or forced tuning defaults', () => {
+    expect(AgentBlock.subBlocks.some((field) => field.mode)).toBe(false)
+    for (const id of [
+      'memories',
+      'skills',
+      'responseFormat',
+      'temperature',
+      'maxTokens',
+      'reasoningEffort',
+      'verbosity',
+      'thinkingLevel',
+    ]) {
+      const field = AgentBlock.subBlocks.find((field) => field.id === id)!
+      expect(field.additional).toBe(true)
+      if (id !== 'skills') expect(field.defaultValue).toBeUndefined()
+      expect(field.value).toBeUndefined()
     }
-    return paramsFunction
-  }
-
-  it('includes a skills selector sub-block', () => {
-    const skillsSubBlock = AgentBlock.subBlocks.find((subBlock) => subBlock.id === 'skills')
-
-    expect(skillsSubBlock).toBeDefined()
-    expect(skillsSubBlock?.type).toBe('skill-input')
-    expect(skillsSubBlock?.defaultValue).toEqual([])
   })
 
-  describe('tools.config.params function', () => {
-    it('should pass through params when no tools array is provided', () => {
-      const paramsFunction = getParamsFunction()
-
-      const params = {
-        model: 'gpt-4o',
-        systemPrompt: 'You are a helpful assistant.',
-        // No tools provided
-      }
-
-      const result = paramsFunction(params)
-      expect(result).toEqual(params)
-    })
-
-    it('should filter out tools with usageControl set to "none"', () => {
-      const paramsFunction = getParamsFunction()
-
-      const params = {
-        model: 'gpt-4o',
-        systemPrompt: 'You are a helpful assistant.',
-        tools: [
-          {
-            type: 'tool-type-1',
-            title: 'Tool 1',
-            usageControl: 'auto',
-          },
-          {
-            type: 'tool-type-2',
-            title: 'Tool 2',
-            usageControl: 'none', // Should be filtered out
-          },
-          {
-            type: 'custom-tool',
-            title: 'Custom Tool',
-            toolId: 'custom_custom-tool-1',
-            schema: {
-              function: {
-                description: 'A custom function',
-                parameters: { type: 'object', properties: {} },
-              },
-            },
-            usageControl: 'force',
-          },
-        ],
-      }
-
-      const result = paramsFunction(params)
-
-      // Verify that transformed tools contains only the tools not set to 'none'
-      expect(result.tools.length).toBe(2)
-
-      // Verify the tool titles (custom identifiers that we can check)
-      const toolIds = result.tools.map((tool: any) => tool.name)
-      expect(toolIds).toContain('Tool 1')
-      expect(toolIds).not.toContain('Tool 2')
-      expect(toolIds).toContain('Custom Tool')
-    })
-
-    it('should set default usageControl to "auto" if not specified', () => {
-      const paramsFunction = getParamsFunction()
-
-      const params = {
-        model: 'gpt-4o',
-        systemPrompt: 'You are a helpful assistant.',
-        tools: [
-          {
-            type: 'tool-type-1',
-            title: 'Tool 1',
-            // No usageControl specified, should default to 'auto'
-          },
-        ],
-      }
-
-      const result = paramsFunction(params)
-
-      // Verify that the tool has usageControl set to 'auto'
-      expect(result.tools[0].usageControl).toBe('auto')
-    })
-
-    it('should correctly transform custom tools', () => {
-      const paramsFunction = getParamsFunction()
-
-      const params = {
-        model: 'gpt-4o',
-        systemPrompt: 'You are a helpful assistant.',
-        tools: [
-          {
-            type: 'custom-tool',
-            title: 'Custom Tool',
-            toolId: 'custom_custom-tool-1',
-            schema: {
-              function: {
-                description: 'A custom function description',
-                parameters: {
-                  type: 'object',
-                  properties: {
-                    param1: { type: 'string' },
-                  },
-                },
-              },
-            },
-            usageControl: 'force',
-          },
-        ],
-      }
-
-      const result = paramsFunction(params)
-
-      // Verify custom tool transformation
-      expect(result.tools[0]).toEqual({
-        id: 'custom_custom-tool-1',
-        name: 'Custom Tool',
-        description: 'A custom function description',
-        params: {},
-        parameters: {
-          type: 'object',
-          properties: {
-            param1: { type: 'string' },
-          },
-        },
-        type: 'custom-tool',
-        usageControl: 'force',
-      })
-    })
-
-    it('should handle an empty tools array', () => {
-      const paramsFunction = getParamsFunction()
-
-      const params = {
-        model: 'gpt-4o',
-        systemPrompt: 'You are a helpful assistant.',
-        tools: [], // Empty array
-      }
-
-      const result = paramsFunction(params)
-
-      // Verify that transformed tools is an empty array
-      expect(result.tools).toEqual([])
-    })
+  it.each([
+    ['reasoningEffort', 'gpt-5.6-sol', ['none', 'low', 'medium', 'high', 'xhigh', 'max']],
+    ['reasoningEffort', 'deepseek-v4-pro', ['high', 'max']],
+    ['thinkingLevel', 'claude-sonnet-5', ['low', 'medium', 'high', 'xhigh', 'max']],
+    ['thinkingLevel', 'deepseek-v4-flash', ['none', 'enabled']],
+    ['verbosity', 'gpt-5.6-sol', ['low', 'medium', 'high']],
+  ] as const)('resolves %s for %s from the selected model', (id, model, levels) => {
+    const field = AgentBlock.subBlocks.find((field) => field.id === id)!
+    if (typeof field.options !== 'function') throw new Error('Expected model-dependent options')
+    expect(field.options({ model }).map((option) => option.id)).toEqual(['auto', ...levels])
+    expect(field.autoSelectFirstOption).toBe(false)
   })
 })

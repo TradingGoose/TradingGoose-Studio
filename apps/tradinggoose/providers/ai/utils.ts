@@ -11,15 +11,11 @@ import {
   getEmbeddingModelPricing,
   getModelPricing,
   getModelsWithDeepResearch,
-  getModelsWithReasoningEffort,
   getModelsWithTemperatureSupport,
   getModelsWithTempRange01,
   getModelsWithTempRange02,
-  getModelsWithThinking,
-  getModelsWithVerbosity,
   getProvidersWithToolUsageControl,
   PROVIDER_DEFINITIONS,
-  type ProviderDefinition,
 } from '@/providers/ai/models'
 import type { ProviderId, ProviderToolConfig } from '@/providers/ai/types'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
@@ -36,10 +32,6 @@ export function getAllModelProviders(): Record<string, ProviderId> {
     },
     {} as Record<string, ProviderId>
   )
-}
-
-export function getProvider(id: string): ProviderDefinition | undefined {
-  return Object.hasOwn(PROVIDER_DEFINITIONS, id) ? PROVIDER_DEFINITIONS[id] : undefined
 }
 
 export function generateSchemaInstructions(schema: any, schemaName?: string): string {
@@ -622,22 +614,7 @@ export const MODELS_TEMP_RANGE_0_2 = getModelsWithTempRange02()
 export const MODELS_TEMP_RANGE_0_1 = getModelsWithTempRange01()
 export const MODELS_WITH_TEMPERATURE_SUPPORT = getModelsWithTemperatureSupport()
 export const MODELS_WITH_DEEP_RESEARCH = getModelsWithDeepResearch()
-export const MODELS_WITH_REASONING_EFFORT = getModelsWithReasoningEffort()
-export const MODELS_WITH_VERBOSITY = getModelsWithVerbosity()
-export const MODELS_WITH_THINKING = getModelsWithThinking()
 export const PROVIDERS_WITH_TOOL_USAGE_CONTROL = getProvidersWithToolUsageControl()
-
-export function supportsReasoningEffort(model: string): boolean {
-  return MODELS_WITH_REASONING_EFFORT.includes(model.toLowerCase())
-}
-
-export function supportsVerbosity(model: string): boolean {
-  return MODELS_WITH_VERBOSITY.includes(model.toLowerCase())
-}
-
-export function supportsThinking(model: string): boolean {
-  return MODELS_WITH_THINKING.includes(model.toLowerCase())
-}
 
 export function isDeepResearchModel(model: string): boolean {
   return MODELS_WITH_DEEP_RESEARCH.includes(model.toLowerCase())

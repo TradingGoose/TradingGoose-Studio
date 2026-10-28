@@ -53,9 +53,7 @@ export interface ProviderConfig {
   version: string
   models: string[]
   defaultModel: string
-  executeRequest: (
-    request: ProviderRequest
-  ) => Promise<ProviderResponse | ReadableStream<any> | StreamingExecution>
+  executeRequest: (request: ProviderRequest) => Promise<ProviderResponse | StreamingExecution>
 }
 
 export interface FunctionCallResponse {
@@ -122,13 +120,9 @@ export interface ProviderToolConfig {
 }
 
 export interface Message {
-  role: 'system' | 'user' | 'assistant' | 'function' | 'tool'
+  role: 'system' | 'user' | 'assistant' | 'tool'
   content: string | null
   name?: string
-  function_call?: {
-    name: string
-    arguments: string
-  }
   tool_calls?: Array<{
     id: string
     type: 'function'

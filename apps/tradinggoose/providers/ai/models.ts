@@ -2593,7 +2593,7 @@ export function getProviderFromModel(model: string): ProviderId {
     }
   }
 
-  throw new Error(`Unknown model: ${model}`)
+  throw new Error(`Unknown AI model: ${model}`)
 }
 
 export function getProviderIcon(model: string): React.ComponentType<{ className?: string }> | null {
@@ -2860,27 +2860,6 @@ export function getVerbosityValuesForModel(modelId: string): string[] | null {
     }
   }
   return null
-}
-
-/**
- * Check if a model supports native structured outputs.
- * Handles model IDs with date suffixes (e.g., claude-sonnet-4-5-20250514).
- */
-export function supportsNativeStructuredOutputs(modelId: string): boolean {
-  const normalizedModelId = modelId.toLowerCase().trim()
-
-  for (const provider of Object.values(PROVIDER_DEFINITIONS)) {
-    for (const model of provider.models) {
-      if (model.capabilities.nativeStructuredOutputs) {
-        const baseModelId = model.id.toLowerCase()
-        // Check exact match or date-suffixed version (e.g., claude-sonnet-4-5-20250514)
-        if (normalizedModelId === baseModelId || normalizedModelId.startsWith(`${baseModelId}-`)) {
-          return true
-        }
-      }
-    }
-  }
-  return false
 }
 
 /**

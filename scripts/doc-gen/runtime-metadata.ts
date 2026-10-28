@@ -146,7 +146,8 @@ function sanitizeSubBlock(
     throw new Error(`${ownerType ?? 'block'}.${subBlock.id} value is not serializable`)
   }
 
-  const hasOptionsFactory = resolveFactories && typeof subBlock.options === 'function'
+  const hasOptionsFactory =
+    resolveFactories && typeof subBlock.options === 'function' && subBlock.options.length === 0
   const options = hasOptionsFactory
     ? resolveMetadataFactory(subBlock.options as () => unknown, ownerType, subBlock.id, 'options')
     : subBlock.options
@@ -180,6 +181,9 @@ function sanitizeBlock(block: RuntimeBlockConfig, resolveOperations = true): Blo
       const field = sanitizeSubBlock(subBlock, true, block.type)
       if (field && block.category === 'blocks' && subBlock.mode === 'advanced') {
         field.description = appendSentence(field.description, 'Available in Advanced mode.')
+      }
+      if (field && subBlock.additional) {
+        field.description = appendSentence(field.description, 'Available in Additional Fields.')
       }
       return field
     })

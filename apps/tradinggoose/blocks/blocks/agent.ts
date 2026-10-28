@@ -1,34 +1,53 @@
 import { AgentIcon } from '@/components/icons/icons'
-import { getCustomToolEntityIdFromRuntimeId } from '@/lib/custom-tools/schema'
 import { isHosted } from '@/lib/environment'
-import { createLogger } from '@/lib/logs/console/logger'
-import type { BlockConfig, SubBlockOption, SubBlockOptionGroup } from '@/blocks/types'
+import type {
+  BlockConfig,
+  SubBlockConfig,
+  SubBlockOption,
+  SubBlockOptionGroup,
+} from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import {
   getHostedModels,
   getMaxTemperature,
+  getModelsWithReasoningEffort,
+  getModelsWithThinking,
+  getModelsWithVerbosity,
   getProviderDefaultModel,
   getProviderFromModel,
-  getProviderIcon,
   getProviderModels,
+  getReasoningEffortValuesForModel,
+  getThinkingLevelsForModel,
+  getVerbosityValuesForModel,
   PROVIDER_DEFINITIONS,
-  supportsTemperature,
 } from '@/providers/ai/models'
-import {
-  getAllModelProviders,
-  MODELS_WITH_REASONING_EFFORT,
-  MODELS_WITH_VERBOSITY,
-} from '@/providers/ai/utils'
-
-const getCurrentOllamaModels = () => {
-  return useProvidersStore.getState().providers.ollama.models
-}
-
+import { getAllModelProviders } from '@/providers/ai/utils'
 import { useProvidersStore } from '@/stores/providers/store'
 import type { ToolResponse } from '@/tools/types'
 
-const logger = createLogger('AgentBlock')
 const DEFAULT_MODEL = getProviderDefaultModel('openai')
+
+const modelControl = (
+  id: string,
+  title: string,
+  models: string[],
+  getValues: (model: string) => string[] | null
+): SubBlockConfig => ({
+  id,
+  title,
+  description: 'Available levels depend on the model. Unset or Auto uses the provider default.',
+  type: 'dropdown',
+  layout: 'half',
+  placeholder: 'Auto (provider default)',
+  additional: true,
+  autoSelectFirstOption: false,
+  dependsOn: ['model'],
+  condition: { field: 'model', value: models },
+  options: (params) => [
+    { label: 'Auto (provider default)', id: 'auto' },
+    ...(getValues(params?.model ?? '') ?? []).map((value) => ({ label: value, id: value })),
+  ],
+})
 
 const getAvailableModels = () => {
   const providersState = useProvidersStore.getState()
@@ -42,14 +61,13 @@ const getAvailableModelOptions = (): SubBlockOption[] => {
   return getAvailableModels().map((model) => {
     const providerId = getProviderFromModel(model)
     const provider = PROVIDER_DEFINITIONS[providerId]
-    const icon = provider?.icon ?? getProviderIcon(model)
 
     return {
       label: model,
       id: model,
       group: providerId,
-      searchLabel: `${model} ${provider?.name ?? providerId}`,
-      ...(icon && { icon }),
+      searchLabel: `${model} ${provider.name}`,
+      ...(provider.icon && { icon: provider.icon }),
     }
   })
 }
@@ -66,8 +84,8 @@ const getAvailableModelGroups = (): SubBlockOptionGroup[] => {
     seenProviderIds.add(providerId)
     groups.push({
       id: providerId,
-      label: provider?.name ?? providerId,
-      ...(provider?.icon && { icon: provider.icon }),
+      label: provider.name,
+      ...(provider.icon && { icon: provider.icon }),
     })
   }
 
@@ -94,28 +112,13 @@ interface AgentResponse extends ToolResponse {
   }
 }
 
-// Helper function to get the tool ID from a block type
-const getToolIdFromBlock = (blockType: string): string | undefined => {
-  try {
-    const { getAllBlocks } = require('@/blocks/registry')
-    const blocks = getAllBlocks()
-    const block = blocks.find(
-      (b: { type: string; tools?: { access?: string[] } }) => b.type === blockType
-    )
-    return block?.tools?.access?.[0]
-  } catch (error) {
-    logger.error('Error getting tool ID from block', { error })
-    return undefined
-  }
-}
-
 export const AgentBlock: BlockConfig<AgentResponse> = {
   type: 'agent',
   name: 'Agent',
   description: 'Build an agent',
   authMode: AuthMode.ApiKey,
   longDescription:
-    'Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Available models come from the deployment catalog and configured provider connections. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. With a Response Format, valid JSON response fields become top-level outputs alongside response metadata; malformed JSON falls back to standard content with a warning. Without a Response Format, the block returns the standard outputs listed below.',
+    'Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Available models come from the deployment catalog and configured provider connections. Use Additional Fields to configure memory, skills, response format, output token limits, and model-supported temperature, reasoning effort, verbosity, or thinking levels without switching block modes. Unset tuning controls or Auto use the provider’s defaults. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.',
   bestPractices: `
   - Cannot use core blocks like API, Webhook, Function, Workflow, Memory as tools. Only integrations or custom tools. 
   - Check custom tools examples for YAML syntax. Only construct these if there isn't an existing integration for that purpose.
@@ -204,7 +207,7 @@ Create a system prompt appropriately detailed for the request, using clear langu
       type: 'short-input',
       layout: 'full',
       placeholder: 'Connect memory block output...',
-      mode: 'advanced',
+      additional: true,
     },
     {
       id: 'model',
@@ -222,76 +225,49 @@ Create a system prompt appropriately detailed for the request, using clear langu
       },
       options: getAvailableModelOptions,
     },
+    ...[1, 2].map(
+      (max): SubBlockConfig => ({
+        id: 'temperature',
+        title: 'Temperature',
+        type: 'short-input',
+        layout: 'half',
+        inputType: 'number',
+        placeholder: 'Use the provider default',
+        min: 0,
+        max,
+        step: 0.1,
+        additional: true,
+        condition: () => ({
+          field: 'model',
+          value: Object.keys(getAllModelProviders()).filter(
+            (model) => getMaxTemperature(model) === max
+          ),
+        }),
+      })
+    ),
+    modelControl(
+      'reasoningEffort',
+      'Reasoning Effort',
+      getModelsWithReasoningEffort(),
+      getReasoningEffortValuesForModel
+    ),
+    modelControl('verbosity', 'Verbosity', getModelsWithVerbosity(), getVerbosityValuesForModel),
+    modelControl(
+      'thinkingLevel',
+      'Thinking Level',
+      getModelsWithThinking(),
+      getThinkingLevelsForModel
+    ),
     {
-      id: 'temperature',
-      title: 'Temperature',
-      type: 'slider',
+      id: 'maxTokens',
+      title: 'Max Output Tokens',
+      type: 'short-input',
       layout: 'half',
-      min: 0,
-      max: 1,
-      defaultValue: 0.5,
-      condition: () => ({
-        field: 'model',
-        value: (() => {
-          const allModels = Object.keys(getAllModelProviders())
-          return allModels.filter(
-            (model) => supportsTemperature(model) && getMaxTemperature(model) === 1
-          )
-        })(),
-      }),
-    },
-    {
-      id: 'temperature',
-      title: 'Temperature',
-      type: 'slider',
-      layout: 'half',
-      min: 0,
-      max: 2,
-      defaultValue: 1,
-      condition: () => ({
-        field: 'model',
-        value: (() => {
-          const allModels = Object.keys(getAllModelProviders())
-          return allModels.filter(
-            (model) => supportsTemperature(model) && getMaxTemperature(model) === 2
-          )
-        })(),
-      }),
-    },
-    {
-      id: 'reasoningEffort',
-      title: 'Reasoning Effort',
-      type: 'dropdown',
-      layout: 'half',
-      placeholder: 'Select reasoning effort...',
-      options: [
-        { label: 'minimal', id: 'minimal' },
-        { label: 'low', id: 'low' },
-        { label: 'medium', id: 'medium' },
-        { label: 'high', id: 'high' },
-      ],
-      value: () => 'medium',
-      condition: {
-        field: 'model',
-        value: MODELS_WITH_REASONING_EFFORT,
-      },
-    },
-    {
-      id: 'verbosity',
-      title: 'Verbosity',
-      type: 'dropdown',
-      layout: 'half',
-      placeholder: 'Select verbosity...',
-      options: [
-        { label: 'low', id: 'low' },
-        { label: 'medium', id: 'medium' },
-        { label: 'high', id: 'high' },
-      ],
-      value: () => 'medium',
-      condition: {
-        field: 'model',
-        value: MODELS_WITH_VERBOSITY,
-      },
+      placeholder: 'Use the provider default',
+      inputType: 'number',
+      min: 1,
+      integer: true,
+      additional: true,
     },
     {
       id: 'apiKey',
@@ -311,7 +287,7 @@ Create a system prompt appropriately detailed for the request, using clear langu
           }
         : () => ({
             field: 'model',
-            value: getCurrentOllamaModels(),
+            value: useProvidersStore.getState().providers.ollama.models,
             not: true, // Show for all models EXCEPT Ollama models
           }),
     },
@@ -353,6 +329,7 @@ Create a system prompt appropriately detailed for the request, using clear langu
       type: 'skill-input',
       layout: 'full',
       defaultValue: [],
+      additional: true,
     },
     {
       id: 'responseFormat',
@@ -361,6 +338,7 @@ Create a system prompt appropriately detailed for the request, using clear langu
       layout: 'full',
       placeholder: 'Enter JSON schema...',
       language: 'json',
+      additional: true,
       wandConfig: {
         enabled: true,
         maintainHistory: true,
@@ -465,7 +443,7 @@ Example 3 (Array Input):
     ],
     config: {
       tool: (params: Record<string, any>) => {
-        const model = params.model || DEFAULT_MODEL
+        const model = params.model
         if (!model) {
           throw new Error('No model selected')
         }
@@ -474,47 +452,6 @@ Example 3 (Array Input):
           throw new Error(`Invalid model selected: ${model}`)
         }
         return tool
-      },
-      params: (params: Record<string, any>) => {
-        // If tools array is provided, handle tool usage control
-        if (params.tools && Array.isArray(params.tools)) {
-          // Transform tools to include usageControl
-          const transformedTools = params.tools
-            // Filter out tools set to 'none' - they should never be passed to the provider
-            .filter((tool: any) => {
-              const usageControl = tool.usageControl || 'auto'
-              return usageControl !== 'none'
-            })
-            .map((tool: any) => {
-              const isCustomTool = tool.type === 'custom-tool'
-              const toolId = isCustomTool
-                ? tool.toolId
-                : tool.operation || getToolIdFromBlock(tool.type)
-              if (isCustomTool) getCustomToolEntityIdFromRuntimeId(toolId)
-              const toolConfig = {
-                id: toolId,
-                name: isCustomTool ? tool.title?.trim() : tool.title,
-                description: isCustomTool ? tool.schema?.function?.description : '',
-                params: tool.params || {},
-                parameters: isCustomTool ? tool.schema?.function?.parameters : {},
-                usageControl: tool.usageControl || 'auto',
-                type: tool.type,
-              }
-              return toolConfig
-            })
-
-          // Log which tools are being passed and which are filtered out
-          const filteredOutTools = params.tools
-            .filter((tool: any) => (tool.usageControl || 'auto') === 'none')
-            .map((tool: any) => tool.title)
-
-          if (filteredOutTools.length > 0) {
-            logger.info('Filtered out tools set to none', { tools: filteredOutTools.join(', ') })
-          }
-
-          return { ...params, tools: transformedTools }
-        }
-        return params
       },
     },
   },
@@ -571,8 +508,10 @@ Example 3 (Array Input):
       },
     },
     temperature: { type: 'number', description: 'Response randomness level' },
-    reasoningEffort: { type: 'string', description: 'Reasoning effort level for GPT-5 models' },
-    verbosity: { type: 'string', description: 'Verbosity level for GPT-5 models' },
+    maxTokens: { type: 'number', description: 'Maximum output tokens' },
+    reasoningEffort: { type: 'string', description: 'Model-supported reasoning effort, or auto' },
+    verbosity: { type: 'string', description: 'Model-supported response verbosity, or auto' },
+    thinkingLevel: { type: 'string', description: 'Model-supported thinking level, or auto' },
     tools: { type: 'json', description: 'Available tools configuration' },
     skills: { type: 'json', description: 'Selected skills configuration' },
   },

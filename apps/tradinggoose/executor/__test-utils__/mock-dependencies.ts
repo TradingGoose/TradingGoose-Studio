@@ -52,7 +52,6 @@ vi.mock('@/providers/ai/utils', async (importOriginal) => {
     transformBlockTool: vi.fn(),
   }
 })
-
 vi.mock('@/providers/ai/models', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/providers/ai/models')>()),
   getProviderFromModel: vi.fn(),

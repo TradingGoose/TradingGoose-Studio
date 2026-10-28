@@ -68,19 +68,6 @@ export function checkForForcedToolUsage(
 }
 
 /**
- * Generates a unique tool use ID for Bedrock.
- * AWS Bedrock requires toolUseId to be 1-64 characters, pattern [a-zA-Z0-9_-]+
- */
-export function generateToolUseId(toolName: string): string {
-  const timestamp = Date.now().toString(36) // Base36 timestamp (9 chars)
-  const random = Math.random().toString(36).substring(2, 7) // 5 random chars
-  const suffix = `-${timestamp}-${random}` // ~15 chars
-  const maxNameLength = 64 - suffix.length
-  const truncatedName = toolName.substring(0, maxNameLength).replace(/[^a-zA-Z0-9_-]/g, '_')
-  return `${truncatedName}${suffix}`
-}
-
-/**
  * Converts a model ID to the Bedrock inference profile format.
  * AWS Bedrock requires inference profile IDs (e.g., us.anthropic.claude-...)
  * for on-demand invocation of newer models.
