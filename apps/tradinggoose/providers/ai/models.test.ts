@@ -271,6 +271,12 @@ describe('AI model catalog', () => {
     })
   })
 
+  it('omits uncatalogued model icons while keeping execution validation strict', () => {
+    expect(getProviderIcon('sonar')).toBeNull()
+    expect(getProviderIcon('gpt-5.5')).toBe(PROVIDER_DEFINITIONS.openai.icon)
+    expect(() => getProviderFromModel('sonar')).toThrow('Unknown AI model: sonar')
+  })
+
   it('preserves static Fireworks models when dynamic models refresh', () => {
     updateFireworksModels(['fireworks/kimi-k3', 'fireworks/custom-model'])
 

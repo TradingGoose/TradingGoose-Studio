@@ -2606,8 +2606,7 @@ export function getProviderFromModel(model: string): ProviderId {
 
 export function getProviderIcon(model: string): React.ComponentType<{ className?: string }> | null {
   try {
-    const providerId = getProviderFromModel(model)
-    return PROVIDER_DEFINITIONS[providerId]?.icon || null
+    return PROVIDER_DEFINITIONS[getProviderFromModel(model)].icon || null
   } catch {
     return null
   }
