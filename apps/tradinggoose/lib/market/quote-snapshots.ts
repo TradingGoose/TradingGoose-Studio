@@ -56,11 +56,15 @@ export const buildMarketQuoteSnapshot = async ({
   const priceSeries = intraday?.bars.length ? intraday : daily
   const timezone = listing.listing_type === 'default' ? priceSeries.timezone : 'UTC'
   if (!timezone) throw new Error('marketQuotes.missingTimezone')
+  const latestPriceDate = [priceSeries.bars.at(-1), daily.bars.at(-1)]
+    .flatMap((bar) => (bar ? [getMarketQuoteDate(bar.timeStamp, timezone)] : []))
+    .sort()
+    .at(-1)
   let marketSessions = intraday?.marketSessions ?? []
   if (
     listing.listing_type === 'default' &&
     !dailyOnly &&
-    !marketSessions.some(({ type }) => type === 'market')
+    !marketSessions.some(({ type, date }) => type === 'market' && date === latestPriceDate)
   ) {
     const latestTime = Date.parse(priceSeries.bars.at(-1)?.timeStamp ?? '')
     marketSessions =
@@ -69,7 +73,7 @@ export const buildMarketQuoteSnapshot = async ({
         listing.listing_type,
         latestTime - 86_400_000,
         Math.max(requestStartedAt, latestTime) + 1
-      )) ?? []
+      )) ?? marketSessions
   }
   const sessions = marketSessions.filter(({ type }) => type === 'market')
   const minuteBar = intraday?.bars

@@ -744,10 +744,7 @@ export class MarketStreamManager {
       Number.isFinite(tradeTime) &&
       (regularSession
         ? tradeTime >= Date.parse(regularSession.end)
-        : cachedQuote.snapshot.timezone &&
-          cachedQuote.snapshot.lastPriceTime &&
-          getMarketQuoteDate(trade.timeStamp, cachedQuote.snapshot.timezone) >
-            getMarketQuoteDate(cachedQuote.snapshot.lastPriceTime, cachedQuote.snapshot.timezone))
+        : cachedQuote.snapshot.timezone && cachedQuote.snapshot.lastPriceTime)
     ) {
       let lookup = cachedQuote.sessionLookup
       if (lookup && Date.now() < lookup.retryAt) return

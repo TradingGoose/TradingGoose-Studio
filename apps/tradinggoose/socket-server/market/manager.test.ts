@@ -373,6 +373,51 @@ describe('MarketStreamManager quote snapshots', () => {
     }
   )
 
+  it.each(['alpaca', 'finnhub'])(
+    'validates %s same-day trades when the daily quote has no session metadata',
+    async (provider) => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-10-27T21:00:00Z'))
+      const manager = new MarketStreamManager()
+      const socket = createSocket('socket-1')
+      const daily = createMarketQuoteSnapshot({
+        lastPrice: 105,
+        previousClose: 100,
+        lastPriceTime: '2026-10-27T04:00:00Z',
+        timezone: regularSnapshot.timezone,
+      })
+      buildMarketQuoteSnapshotMock.mockResolvedValue(daily)
+      await manager.subscribe(socket, nativeQuotePayload(provider))
+      await vi.advanceTimersByTimeAsync(0)
+      const stream = (provider === 'alpaca' ? alpacaStreamInstances : finnhubStreamInstances)[0]
+      const trade = (price: number, timeStamp: string) =>
+        stream.handlers.onTrade({ symbol: 'AAPL', trade: { price, timeStamp } })
+      resolveMarketSessionsForRangeMock.mockRejectedValueOnce(new Error('Calendar unavailable'))
+      await trade(999, '2026-10-27T21:00:00Z')
+      expect(lastQuote(socket)).toEqual(daily)
+      await trade(999, '2026-10-27T21:00:01Z')
+      expect(resolveMarketSessionsForRangeMock).toHaveBeenCalledTimes(1)
+      await vi.advanceTimersByTimeAsync(15_000)
+      resolveMarketSessionsForRangeMock.mockResolvedValueOnce([])
+      await trade(999, '2026-10-27T21:00:15Z')
+      expect(lastQuote(socket)).toEqual(daily)
+      await vi.advanceTimersByTimeAsync(15_000)
+      const regularSession = { start: '2026-10-27T13:30:00Z', end: '2026-10-27T20:00:00Z' }
+      resolveMarketSessionsForRangeMock.mockResolvedValueOnce([
+        { type: 'market', ...regularSession },
+      ])
+      await trade(106, '2026-10-27T19:59:00Z')
+      expect(lastQuote(socket)).toMatchObject({
+        lastPrice: 106,
+        previousClose: 100,
+        change: 6,
+        changePercent: 6,
+        regularSession,
+      })
+      manager.removeSocket(socket.id)
+    }
+  )
+
   it.each([
     ['robinhood', 'disconnect'],
     ['alpaca', 'unsubscribe'],

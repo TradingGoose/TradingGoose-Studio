@@ -107,6 +107,12 @@ describe('market quote normalization', () => {
           session: 'regular',
         },
       ])
+      daily.bars.pop()
+      expect(await snapshot(provider)).toMatchObject({
+        lastPrice: 112,
+        previousClose: 100,
+        change: 12,
+      })
       expect(resolveHours).not.toHaveBeenCalled()
     }
   )
@@ -275,6 +281,44 @@ describe('market quote normalization', () => {
     await expect(snapshot()).rejects.toThrow('Provider unavailable')
     expect(execute).toHaveBeenCalledTimes(2)
   })
+
+  it.each(['alpaca', 'finnhub', 'alpha-vantage', 'robinhood', 'yahoo-finance'])(
+    'recovers the %s session for a daily price newer than the minute history',
+    async (provider) => {
+      vi.setSystemTime(new Date('2026-10-26T21:00:00Z'))
+      regular.bars = [{ timeStamp: '2026-10-23T19:59:00Z', close: 102 }]
+      regular.marketSessions = [
+        {
+          ...session,
+          date: '2026-10-23',
+          start: '2026-10-23T13:30:00Z',
+          end: '2026-10-23T20:00:00Z',
+        },
+      ]
+      resolveHours.mockResolvedValue(
+        new Map([
+          [
+            '2026-10-26',
+            {
+              timeZone: { name: 'America/New_York', utcOffset: '-04:00' },
+              marketHours: { market: { start: '09:30', end: '16:00' } },
+            },
+          ],
+        ])
+      )
+      expect(await snapshot(provider)).toMatchObject({
+        lastPrice: 105,
+        previousClose: 100,
+        change: 5,
+        changePercent: 5,
+        lastPriceTime: '2026-10-26T04:00:00Z',
+        lastPriceEndTime: '2026-10-26T20:00:00.000Z',
+        regularSession: { start: '2026-10-26T13:30:00.000Z', end: '2026-10-26T20:00:00.000Z' },
+      })
+      expect(resolveHours).toHaveBeenCalledTimes(1)
+      expect(execute).toHaveBeenCalledTimes(2)
+    }
+  )
 
   it.each(['failure', 'empty'])(
     'preserves the current daily quote when minute data is unavailable (%s)',
