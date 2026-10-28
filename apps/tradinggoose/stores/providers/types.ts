@@ -7,11 +7,5 @@ export interface ProviderState {
 
 export interface ProvidersStore {
   providers: Record<ProviderName, ProviderState>
-  setModels: (provider: ProviderName, models: string[]) => void
   fetchModels: (provider: ProviderName) => Promise<void>
-}
-
-export interface ProviderConfig {
-  apiEndpoint: string
-  updateFunction?: (models: string[]) => void
 }

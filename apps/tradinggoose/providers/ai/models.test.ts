@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { GET } from '@/app/api/providers/ai/openrouter/models/route'
 import {
   normalizeFireworksCatalogModel,
   resolveFireworksWireModel,
@@ -13,6 +14,8 @@ import {
   updateFireworksModels,
   updateOpenRouterModels,
 } from '@/providers/ai/models'
+import { calculateCost } from '@/providers/ai/utils'
+import { useProvidersStore } from '@/stores/providers/store'
 
 const EXPECTED_MODEL_COUNTS = {
   fireworks: 2,
@@ -124,6 +127,7 @@ describe('AI model catalog', () => {
   afterEach(() => {
     updateFireworksModels([])
     updateOpenRouterModels([])
+    vi.unstubAllGlobals()
   })
 
   it.each(['', 'c', '{{MODEL}}', '<agent1.model>'])(
@@ -156,21 +160,50 @@ describe('AI model catalog', () => {
     ['openrouter/x-ai/grok-4.6', 'grok-4.6'],
     ['openrouter/mistralai/mistral-small-2603', 'mistral-small-2603'],
   ])('resolves canonical reseller pricing for %s', (routedModel, model) => {
-    expect(getModelPricing(routedModel)).toEqual(getModelPricing(model))
+    const pricing = getModelPricing(model)
+    expect(pricing).not.toBeNull()
+    expect(getModelPricing(routedModel)).toEqual(pricing)
   })
 
-  it.each([0, 7])('preserves exact discovered OpenRouter pricing with input=%s', (input) => {
-    updateOpenRouterModels([
-      'openrouter/openai/gpt-4.1',
-      'openrouter/anthropic/claude-sonnet-4.6',
-      'openrouter/x-ai/grok-4.6',
-      'openrouter/mistralai/mistral-small-2603',
-    ])
-    const pricing = { input, output: input * 2, updatedAt: '2026-10-27' }
-    for (const model of PROVIDER_DEFINITIONS.openrouter.models) {
-      model.pricing = pricing
-      expect(getModelPricing(model.id)).toBe(pricing)
+  it.each([
+    ['paid', { prompt: '0.000007', completion: '0.000014' }, 7, 14],
+    ['free', { prompt: '0', completion: '0' }, 0, 0],
+    ['missing', undefined, 2, 8],
+    ['incomplete', { prompt: '0' }, 2, 8],
+    ['invalid', { prompt: 'invalid', completion: '0' }, 2, 8],
+    ['nonfinite', { prompt: 'Infinity', completion: '0' }, 2, 8],
+  ] as const)(
+    'preserves %s pricing through OpenRouter discovery',
+    async (_name, pricing, input, output) => {
+      const fetchMock = vi.mocked(fetch).mockClear()
+      fetchMock.mockResolvedValueOnce(
+        Response.json({ data: [{ id: 'openai/gpt-4.1', pricing }, { id: 'unknown/custom' }] })
+      )
+      const response = await GET()
+      expect(response.status).toBe(200)
+      vi.stubGlobal('window', {})
+      fetchMock.mockResolvedValueOnce(response)
+      const model = 'openrouter/openai/gpt-4.1'
+      const unsubscribe = useProvidersStore.subscribe((state, previous) => {
+        if (state.providers.openrouter.models !== previous.providers.openrouter.models) {
+          expect(getModelPricing(model)).toMatchObject({ input, output })
+        }
+      })
+
+      await useProvidersStore.getState().fetchModels('openrouter')
+      unsubscribe()
+
+      expect(fetchMock).toHaveBeenLastCalledWith('/api/providers/ai/openrouter/models')
+      expect(useProvidersStore.getState().providers.openrouter.models).toContain(model)
+      expect(getModelPricing(model)).toMatchObject({ input, output })
+      expect(calculateCost(model, 1_000_000, 1_000_000).total).toBeCloseTo(input + output, 8)
+      expect(getModelPricing('openrouter/unknown/custom')).toBeNull()
     }
+  )
+
+  it.each([401, 503])('reports failed OpenRouter discovery (%s)', async (status) => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status }))
+    expect((await GET()).status).toBe(502)
   })
 
   it.each([

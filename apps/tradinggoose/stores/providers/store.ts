@@ -7,114 +7,79 @@ import {
   updateOpenRouterModels,
   updateVLLMModels,
 } from '@/providers/ai/models'
-import type { ProviderConfig, ProviderName, ProvidersStore } from './types'
+import type { ProviderName, ProviderState, ProvidersStore } from './types'
 
 const logger = createLogger('ProvidersStore')
 let hasBootstrappedProviderModels = false
 
-const PROVIDER_CONFIGS: Record<ProviderName, ProviderConfig> = {
-  base: {
-    apiEndpoint: '/api/providers/ai/base/models',
-  },
-  ollama: {
-    apiEndpoint: '/api/providers/ai/ollama/models',
-    updateFunction: updateOllamaModels,
-  },
-  openrouter: {
-    apiEndpoint: '/api/providers/ai/openrouter/models',
-    updateFunction: updateOpenRouterModels,
-  },
-  vllm: {
-    apiEndpoint: '/api/providers/ai/vllm/models',
-    updateFunction: updateVLLMModels,
-  },
-  fireworks: {
-    apiEndpoint: '/api/providers/ai/fireworks/models',
-    updateFunction: updateFireworksModels,
-  },
+const MODEL_UPDATERS: Partial<Record<ProviderName, typeof updateOpenRouterModels>> = {
+  ollama: updateOllamaModels,
+  openrouter: updateOpenRouterModels,
+  vllm: updateVLLMModels,
+  fireworks: updateFireworksModels,
 }
 
-export const useProvidersStore = create<ProvidersStore>((set, get) => ({
-  providers: {
-    base: { models: [], isLoading: false },
-    ollama: { models: [], isLoading: false },
-    openrouter: { models: [], isLoading: false },
-    vllm: { models: [], isLoading: false },
-    fireworks: { models: [], isLoading: false },
-  },
-
-  setModels: (provider, models) => {
-    const config = PROVIDER_CONFIGS[provider]
-
+export const useProvidersStore = create<ProvidersStore>((set, get) => {
+  const updateProvider = (provider: ProviderName, update: Partial<ProviderState>) => {
     set((state) => ({
       providers: {
         ...state.providers,
-        [provider]: {
-          ...state.providers[provider],
-          models,
-        },
+        [provider]: { ...state.providers[provider], ...update },
       },
     }))
+  }
 
-    config.updateFunction?.(models)
-  },
+  return {
+    providers: {
+      base: { models: [], isLoading: false },
+      ollama: { models: [], isLoading: false },
+      openrouter: { models: [], isLoading: false },
+      vllm: { models: [], isLoading: false },
+      fireworks: { models: [], isLoading: false },
+    },
 
-  fetchModels: async (provider) => {
-    if (isHosted && provider === 'ollama') {
-      return
-    }
-
-    if (typeof window === 'undefined') {
-      logger.info(`Skipping client-side ${provider} model fetch on server`)
-      return
-    }
-
-    const currentState = get().providers[provider]
-    if (currentState.isLoading) {
-      logger.info(`${provider} model fetch already in progress`)
-      return
-    }
-
-    logger.info(`Fetching ${provider} models from API`)
-
-    set((state) => ({
-      providers: {
-        ...state.providers,
-        [provider]: {
-          ...state.providers[provider],
-          isLoading: true,
-        },
-      },
-    }))
-
-    try {
-      const response = await fetch(PROVIDER_CONFIGS[provider].apiEndpoint)
-      if (!response.ok) {
-        throw new Error(`Failed to fetch ${provider} models: ${response.status}`)
+    fetchModels: async (provider) => {
+      if (isHosted && provider === 'ollama') {
+        return
       }
-      const { models } = await response.json()
-      logger.info(`Successfully fetched ${provider} models`, {
-        count: models.length,
-        ...(provider === 'ollama' ? { models } : {}),
-      })
-      get().setModels(provider, models)
-    } catch (error) {
-      logger.error(`Failed to fetch ${provider} models`, {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      })
-    } finally {
-      set((state) => ({
-        providers: {
-          ...state.providers,
-          [provider]: {
-            ...state.providers[provider],
-            isLoading: false,
-          },
-        },
-      }))
-    }
-  },
-}))
+
+      if (typeof window === 'undefined') {
+        logger.info(`Skipping client-side ${provider} model fetch on server`)
+        return
+      }
+
+      const currentState = get().providers[provider]
+      if (currentState.isLoading) {
+        logger.info(`${provider} model fetch already in progress`)
+        return
+      }
+
+      logger.info(`Fetching ${provider} models from API`)
+
+      updateProvider(provider, { isLoading: true })
+
+      try {
+        const response = await fetch(`/api/providers/ai/${provider}/models`)
+        if (!response.ok) {
+          throw new Error(`Failed to fetch ${provider} models: ${response.status}`)
+        }
+        const { models, pricing } = await response.json()
+        logger.info(`Successfully fetched ${provider} models`, {
+          count: models.length,
+          ...(provider === 'ollama' ? { models } : {}),
+        })
+        MODEL_UPDATERS[provider]?.(models, pricing)
+        updateProvider(provider, { models })
+      } catch (error) {
+        logger.error(`Failed to fetch ${provider} models`, {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        })
+      } finally {
+        updateProvider(provider, { isLoading: false })
+      }
+    },
+  }
+})
 
 export function bootstrapProviderModels() {
   if (typeof window === 'undefined' || hasBootstrappedProviderModels) {

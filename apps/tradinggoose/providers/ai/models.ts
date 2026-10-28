@@ -60,7 +60,7 @@ export interface ModelCapabilities {
 
 export interface ModelDefinition {
   id: string
-  pricing: ModelPricing
+  pricing?: ModelPricing
   capabilities: ModelCapabilities
   contextWindow?: number
   /** ISO date string (YYYY-MM-DD) when the model was first publicly released */
@@ -2615,6 +2615,7 @@ export function getModelPricing(modelId: string): ModelPricing | null {
   for (const provider of Object.values(PROVIDER_DEFINITIONS)) {
     const openRouterPublisher = provider.openRouterPublisher ?? provider.id
     for (const model of provider.models) {
+      if (!model.pricing) continue
       const catalogModelId = model.id.toLowerCase()
       if (catalogModelId === normalizedModelId) {
         return model.pricing
@@ -2774,14 +2775,13 @@ export function updateFireworksModels(models: string[]): void {
   ]
 }
 
-export function updateOpenRouterModels(models: string[]): void {
+export function updateOpenRouterModels(
+  models: string[],
+  pricing?: Record<string, ModelPricing>
+): void {
   PROVIDER_DEFINITIONS.openrouter.models = models.map((modelId) => ({
     id: modelId,
-    pricing: {
-      input: 0,
-      output: 0,
-      updatedAt: new Date().toISOString().split('T')[0],
-    },
+    pricing: pricing?.[modelId],
     capabilities: {},
   }))
 }
