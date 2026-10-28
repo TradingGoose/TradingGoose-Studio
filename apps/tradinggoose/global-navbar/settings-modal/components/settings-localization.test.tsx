@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { act, type ReactNode } from 'react'
+import { act, cloneElement, type ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
@@ -267,8 +267,7 @@ describe('settings localization', () => {
         name: `Workspace ${index}`,
       }))
 
-      await render(
-        locale,
+      const card = (
         <MemberInvitationCard
           inviteEmail='teammate@example.com'
           setInviteEmail={vi.fn()}
@@ -281,16 +280,23 @@ describe('settings localization', () => {
           onInviteMember={mocks.mutate}
           onLoadUserWorkspaces={mocks.refetch}
           onWorkspaceToggle={vi.fn()}
-          inviteSuccess
+          invitedWorkspaceCount={count}
           canInviteMembers
           seatLimited={false}
         />
       )
 
+      await render(locale, card)
+
       expect(container.textContent).toContain(selected)
       expect(container.textContent).toContain(success)
       expect(container.textContent).not.toContain('selected workspace')
       expect(container.textContent).not.toContain('Invitation sent')
+
+      await render(locale, cloneElement(card, { selectedWorkspaces: [] }))
+
+      expect(container.textContent).not.toContain(selected)
+      expect(container.textContent).toContain(success)
     }
   )
 

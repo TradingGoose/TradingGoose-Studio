@@ -66,7 +66,7 @@ interface MemberInvitationCardProps {
   onInviteMember: () => Promise<void>
   onLoadUserWorkspaces: () => Promise<void>
   onWorkspaceToggle: (workspaceId: string, permission: string) => void
-  inviteSuccess: boolean
+  invitedWorkspaceCount: number | null
   canInviteMembers: boolean
   inviteUnavailableMessage?: string | null
   seatLimited: boolean
@@ -92,7 +92,7 @@ export function MemberInvitationCard({
   onInviteMember,
   onLoadUserWorkspaces,
   onWorkspaceToggle,
-  inviteSuccess,
+  invitedWorkspaceCount,
   canInviteMembers,
   inviteUnavailableMessage,
   seatLimited,
@@ -299,12 +299,12 @@ export function MemberInvitationCard({
         </div>
       )}
 
-      {inviteSuccess && (
+      {invitedWorkspaceCount !== null && (
         <Alert className='rounded-sm border-green-200 bg-green-50 text-green-800 dark:border-green-800/50 dark:bg-green-950/20 dark:text-green-300'>
           <CheckCircle className='h-4 w-4 text-green-600 dark:text-green-400' />
           <AlertDescription>
-            {selectedCount > 0
-              ? copy('sentSuccessWithAccess', { count: selectedCount })
+            {invitedWorkspaceCount > 0
+              ? copy('sentSuccessWithAccess', { count: invitedWorkspaceCount })
               : copy('sentSuccess')}
           </AlertDescription>
         </Alert>

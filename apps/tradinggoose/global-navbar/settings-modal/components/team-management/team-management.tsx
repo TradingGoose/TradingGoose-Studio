@@ -142,7 +142,7 @@ export function TeamManagement() {
     Boolean(activeOrgId && adminOrOwner)
   )
 
-  const [inviteSuccess, setInviteSuccess] = useState(false)
+  const [invitedWorkspaceCount, setInvitedWorkspaceCount] = useState<number | null>(null)
   const [inviteEmail, setInviteEmail] = useState('')
   const [showWorkspaceInvite, setShowWorkspaceInvite] = useState(false)
   const [selectedWorkspaces, setSelectedWorkspaces] = useState<
@@ -369,8 +369,8 @@ export function TeamManagement() {
       })
     )
     if (succeeded) {
-      setInviteSuccess(true)
-      setTimeout(() => setInviteSuccess(false), 3000)
+      setInvitedWorkspaceCount(workspaceInvitations?.length ?? 0)
+      setTimeout(() => setInvitedWorkspaceCount(null), 3000)
       setInviteEmail('')
       setSelectedWorkspaces([])
       setShowWorkspaceInvite(false)
@@ -803,7 +803,7 @@ export function TeamManagement() {
               await refetchAdminWorkspaces()
             }}
             onWorkspaceToggle={handleWorkspaceToggle}
-            inviteSuccess={inviteSuccess}
+            invitedWorkspaceCount={invitedWorkspaceCount}
             canInviteMembers={canInviteMembers}
             inviteUnavailableMessage={inviteUnavailableMessage}
             seatLimited={seatLimited}
