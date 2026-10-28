@@ -9,7 +9,7 @@ export interface AgentInputs {
   responseFormat?: string | object
   tools?: ToolInput[]
   skills?: SkillInput[]
-  systemPrompt?: string
+  systemPrompt?: string | object
   userPrompt?: string | object
   memories?: any
   temperature?: number

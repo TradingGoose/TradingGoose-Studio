@@ -5,6 +5,7 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import { createMcpToolId } from '@/lib/mcp/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { stringifySubBlockValue } from '@/lib/workflows/subblock-values'
 import { getAllBlocks } from '@/blocks'
 import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
@@ -410,11 +411,11 @@ export class AgentBlockHandler implements BlockHandler {
 
     if (inputs.systemPrompt) {
       messages = messages.filter((message) => message.role !== 'system')
-      messages.unshift({ role: 'system', content: inputs.systemPrompt })
+      messages.unshift({ role: 'system', content: stringifySubBlockValue(inputs.systemPrompt) })
     }
 
     if (inputs.userPrompt) {
-      this.addUserPrompt(messages, inputs.userPrompt)
+      messages.push({ role: 'user', content: stringifySubBlockValue(inputs.userPrompt) })
     }
 
     if (skillMetadata.length > 0 && skillLoaderToolId) {
@@ -429,6 +430,10 @@ export class AgentBlockHandler implements BlockHandler {
       } else {
         messages.unshift({ role: 'system', content: skillSection.trim() })
       }
+    }
+
+    if (messages.length > 0 && messages.every((message) => message.role === 'system')) {
+      return [{ role: 'user', content: messages.map((message) => message.content).join('\n\n') }]
     }
 
     return messages.length > 0 ? messages : undefined
@@ -468,19 +473,6 @@ export class AgentBlockHandler implements BlockHandler {
     })
 
     return messages
-  }
-
-  private addUserPrompt(messages: Message[], userPrompt: any) {
-    let content: string
-    if (typeof userPrompt === 'object' && userPrompt.input) {
-      content = String(userPrompt.input)
-    } else if (typeof userPrompt === 'object') {
-      content = JSON.stringify(userPrompt)
-    } else {
-      content = String(userPrompt)
-    }
-
-    messages.push({ role: 'user', content })
   }
 
   private buildProviderRequest(config: {

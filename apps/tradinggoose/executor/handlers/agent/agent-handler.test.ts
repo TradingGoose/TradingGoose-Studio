@@ -189,6 +189,28 @@ describe('AgentBlockHandler', () => {
   })
 
   describe('execute', () => {
+    it('normalizes a resolved object system prompt into message text', async () => {
+      const systemPrompt = { task: 'Analyze prices', symbols: ['AAPL', 'MSFT'] }
+      await handler.execute(
+        mockBlock,
+        { model: 'gpt-5.4', systemPrompt, userPrompt: 'Run the analysis' },
+        mockContext
+      )
+      expect(JSON.parse(mockFetch.mock.calls[0][1].body).messages).toEqual([
+        { role: 'system', content: JSON.stringify(systemPrompt) },
+        { role: 'user', content: 'Run the analysis' },
+      ])
+    })
+
+    it('sends a system-only Agent task once', async () => {
+      const task = 'Analyze the current portfolio using the available tools.'
+      await handler.execute(mockBlock, { model: 'gpt-5.4', systemPrompt: task }, mockContext)
+      const request = JSON.parse(mockFetch.mock.calls[0][1].body)
+      expect(request.messages).toEqual([{ role: 'user', content: task }])
+      expect(request).not.toHaveProperty('systemPrompt')
+      expect(request).not.toHaveProperty('context')
+    })
+
     it.each([undefined, ''])('rejects a missing model (%j)', async (model) => {
       await expect(handler.execute(mockBlock, { model }, mockContext)).rejects.toThrow(
         'Agent model is required'
@@ -322,14 +344,13 @@ describe('AgentBlockHandler', () => {
           toolId.startsWith('tradinggoose_internal_load_skill') &&
           toolId !== 'tradinggoose_internal_load_skill'
       )
-      const systemMessage = providerRequest.messages.find(
-        (message: { role: string; content?: string }) => message.role === 'system'
-      )
-
       expect(uniqueToolIds.size).toBe(toolIds.length)
       expect(toolIds).toContain('tradinggoose_internal_load_skill')
       expect(generatedSkillToolId).toBe('tradinggoose_internal_load_skill_2')
-      expect(systemMessage?.content).toContain('tradinggoose_internal_load_skill_2')
+      expect(providerRequest.messages).toHaveLength(1)
+      expect(providerRequest.messages[0].role).toBe('user')
+      expect(providerRequest.messages[0].content).toContain('You are a helpful assistant.')
+      expect(providerRequest.messages[0].content).toContain('tradinggoose_internal_load_skill_2')
     })
 
     it('executes without a skill loader when selected skills are unavailable', async () => {
@@ -1319,7 +1340,7 @@ describe('AgentBlockHandler', () => {
       expect(requestBody.messages[4].content).toBe('What should I do?')
     })
 
-    it('should handle user prompt as object with input field', async () => {
+    it('serializes the complete object-valued user prompt', async () => {
       const inputs = {
         model: 'gpt-4o',
         systemPrompt: 'You are a helpful assistant.',
@@ -1338,13 +1359,10 @@ describe('AgentBlockHandler', () => {
       const fetchCall = mockFetch.mock.calls[0]
       const requestBody = JSON.parse(fetchCall[1].body)
 
-      // Verify user prompt content was extracted correctly
-      expect(requestBody.messages).toBeDefined()
-      expect(requestBody.messages.length).toBe(2) // system + user prompt
-
-      expect(requestBody.messages[1].role).toBe('user')
-      expect(requestBody.messages[1].content).toBe('What is the weather like?')
-      expect(requestBody.messages[1]).not.toHaveProperty('conversationId')
+      expect(requestBody.messages[1]).toEqual({
+        role: 'user',
+        content: JSON.stringify(inputs.userPrompt),
+      })
     })
 
     it('should pass Azure OpenAI parameters through the request pipeline', async () => {
