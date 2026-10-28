@@ -2529,56 +2529,6 @@ function normalizeCatalogLookupModelId(modelId: string): string {
   return normalizedModelId
 }
 
-function getAllStaticModelIds(): string[] {
-  const ids: string[] = []
-  for (const [providerId, provider] of Object.entries(PROVIDER_DEFINITIONS)) {
-    if ((DYNAMIC_MODEL_PROVIDERS as readonly string[]).includes(providerId)) continue
-    for (const model of provider.models) ids.push(model.id)
-  }
-  return ids
-}
-
-const STATIC_MODEL_ID_SET = new Set(getAllStaticModelIds().map((id) => id.toLowerCase()))
-
-export function isKnownModelId(modelId: string): boolean {
-  if (!modelId || typeof modelId !== 'string') return false
-  const trimmed = modelId.trim()
-  if (!trimmed) return false
-
-  if (STATIC_MODEL_ID_SET.has(trimmed.toLowerCase())) return true
-
-  const lowered = trimmed.toLowerCase()
-  for (const provider of DYNAMIC_MODEL_PROVIDERS) {
-    if (lowered.startsWith(`${provider}/`)) return true
-  }
-
-  return false
-}
-
-function getRecommendedModels(): string[] {
-  const models: string[] = []
-  for (const [providerId, provider] of Object.entries(PROVIDER_DEFINITIONS)) {
-    if ((DYNAMIC_MODEL_PROVIDERS as readonly string[]).includes(providerId)) continue
-    for (const model of provider.models) {
-      if (model.recommended) models.push(model.id)
-    }
-  }
-  return models
-}
-
-export function suggestModelIdsForUnknownModel(_modelId: string, limit = 5): string[] {
-  const recommended = getRecommendedModels()
-  if (recommended.length > 0) return recommended.slice(0, limit)
-
-  return [
-    PROVIDER_DEFINITIONS.anthropic.defaultModel,
-    PROVIDER_DEFINITIONS.openai.defaultModel,
-    PROVIDER_DEFINITIONS.google.defaultModel,
-  ]
-    .filter(Boolean)
-    .slice(0, limit)
-}
-
 export function getBaseModelProviders(): Record<string, ProviderId> {
   return Object.entries(PROVIDER_DEFINITIONS)
     .filter(([providerId]) => !(DYNAMIC_MODEL_PROVIDERS as readonly string[]).includes(providerId))
