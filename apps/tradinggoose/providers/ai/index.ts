@@ -16,7 +16,7 @@ import { ollamaProvider } from '@/providers/ai/ollama'
 import { openaiProvider } from '@/providers/ai/openai'
 import { openRouterProvider } from '@/providers/ai/openrouter'
 import type { ProviderConfig, ProviderRequest, ProviderResponse } from '@/providers/ai/types'
-import { calculateCost } from '@/providers/ai/utils'
+import { calculateCost, sumToolCosts } from '@/providers/ai/utils'
 import { vertexProvider } from '@/providers/ai/vertex'
 import { vllmProvider } from '@/providers/ai/vllm'
 import { xAIProvider } from '@/providers/ai/xai'
@@ -134,7 +134,13 @@ export async function executeProviderRequest(
       completion: completionTokens,
       total: response.tokens.total ?? promptTokens + completionTokens,
     }
-    response.cost = calculateCost(response.model, promptTokens, completionTokens, useCachedInput)
+    const modelCost = calculateCost(response.model, promptTokens, completionTokens, useCachedInput)
+    const toolCost = sumToolCosts(response.toolResults)
+    response.cost = {
+      ...modelCost,
+      toolCost: toolCost || undefined,
+      total: modelCost.total + toolCost,
+    }
   }
 
   return response

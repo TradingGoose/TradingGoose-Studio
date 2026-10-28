@@ -371,11 +371,13 @@ describe('executeProviderRequest', () => {
     expect(mockOllamaExecuteRequest).not.toHaveBeenCalled()
   })
 
-  it('normalizes Claude usage once for non-streaming consumers and calculates its cost', async () => {
+  it('normalizes Claude usage and recomputes inclusive tool costs once', async () => {
     mockAnthropicExecuteRequest.mockResolvedValue({
       content: 'ok',
       model: 'claude-sonnet-5',
       tokens: { input: 100, output: 20 },
+      toolResults: [{ cost: { total: 1.25 } }, { cost: { total: 0.75 } }],
+      cost: { input: 0.0002, output: 0.0002, toolCost: 2, total: 2.0004 },
     })
     const response = await executeProviderRequest('anthropic', {
       model: 'claude-sonnet-5',
@@ -385,6 +387,7 @@ describe('executeProviderRequest', () => {
     expect(response.tokens).toEqual({ prompt: 100, completion: 20, total: 120 })
     expect(response.cost?.input).toBeCloseTo(0.0002)
     expect(response.cost?.output).toBeCloseTo(0.0002)
-    expect(response.cost?.total).toBeCloseTo(0.0004)
+    expect(response.cost?.toolCost).toBe(2)
+    expect(response.cost?.total).toBeCloseTo(2.0004)
   })
 })

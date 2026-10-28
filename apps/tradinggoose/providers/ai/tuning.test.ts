@@ -137,6 +137,31 @@ it('sends system-only requests once through Claude and Bedrock SDK adapters', as
   }
 })
 
+it('retains paid tool costs in completed Azure Claude streaming requests', async () => {
+  mocks.claude.mockResolvedValueOnce({
+    content: [{ type: 'tool_use', id: 'paid-tool', name: tool.id, input: {} }],
+    usage: { input_tokens: 10, output_tokens: 5 },
+  })
+  mocks.tool.mockResolvedValueOnce({ success: true, output: { cost: { total: 2 } } })
+
+  const result = await executeProviderRequest(
+    'azure-anthropic',
+    request('azure-anthropic/claude-sonnet-4-5', {
+      stream: true,
+      maxTokens: 4096,
+      tools: [tool],
+      azureEndpoint: 'https://example.services.ai.azure.com',
+    })
+  )
+
+  expect(mocks.claude).toHaveBeenCalledTimes(2)
+  expect(mocks.tool).toHaveBeenCalledTimes(1)
+  if ('stream' in result) throw new Error('Expected completed response')
+  expect(result.content).toBe('Done')
+  expect(result.cost?.toolCost).toBe(2)
+  expect(result.cost?.total).toBeCloseTo(2.000156, 8)
+})
+
 it.each([
   ['google', 'gemini-2.5-flash', 0],
   ['google', 'gemini-2.5-flash-lite', 0],
