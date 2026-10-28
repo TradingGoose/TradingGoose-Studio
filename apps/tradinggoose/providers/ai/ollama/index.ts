@@ -138,7 +138,7 @@ export const ollamaProvider: ProviderConfig = {
       payload.response_format = {
         type: 'json_schema',
         json_schema: {
-          name: request.responseFormat.name,
+          name: request.responseFormat.name ?? 'response_schema',
           schema: request.responseFormat.schema,
           strict: request.responseFormat.strict !== false,
         },

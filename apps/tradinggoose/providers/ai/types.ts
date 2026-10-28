@@ -150,7 +150,7 @@ export interface ProviderRequest {
   apiKey?: string
   messages?: Message[]
   responseFormat?: {
-    name: string
+    name?: string
     schema: any
     strict?: boolean
   }
