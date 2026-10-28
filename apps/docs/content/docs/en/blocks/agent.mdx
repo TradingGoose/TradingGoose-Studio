@@ -81,7 +81,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Reasoning Effort",
             "layout": "half",
             "placeholder": "Auto (provider default)",
-            "description": "Available levels depend on the model. Unset or Auto uses the provider default. Available in Additional Fields. Shown when model is one of 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5-pro', 'gpt-5.5', 'gpt-5.4-pro', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-5.2-pro', 'gpt-5.2', 'gpt-5.1', 'gpt-5-pro', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/o3', 'azure/o4-mini', 'deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-reasoner', 'grok-4.6', 'grok-4.5', 'grok-4.3', 'grok-4.20-multi-agent-0309', 'groq/openai/gpt-oss-120b', 'groq/openai/gpt-oss-20b', 'groq/openai/gpt-oss-safeguard-20b'."
+            "description": "Available levels depend on the model. Unset or Auto uses the provider default. Available in Additional Fields. Shown when model supports reasoning effort."
         },
         {
             "id": "verbosity",
@@ -89,7 +89,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Verbosity",
             "layout": "half",
             "placeholder": "Auto (provider default)",
-            "description": "Available levels depend on the model. Unset or Auto uses the provider default. Available in Additional Fields. Shown when model is one of 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-5.2', 'gpt-5.1', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano'."
+            "description": "Available levels depend on the model. Unset or Auto uses the provider default. Available in Additional Fields. Shown when model supports verbosity."
         },
         {
             "id": "thinkingLevel",
@@ -97,7 +97,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Thinking Level",
             "layout": "half",
             "placeholder": "Auto (provider default)",
-            "description": "Available levels depend on the model. Unset or Auto uses the provider default. Available in Additional Fields. Shown when model is one of 'claude-fable-5', 'claude-sonnet-5', 'claude-opus-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-4-6', 'claude-opus-4-5', 'claude-sonnet-4-5', 'claude-haiku-4-5', 'azure-anthropic/claude-opus-4-6', 'azure-anthropic/claude-opus-4-5', 'azure-anthropic/claude-sonnet-4-5', 'azure-anthropic/claude-haiku-4-5', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.1-pro-preview', 'gemini-3.1-flash-lite', 'gemini-3-flash-preview', 'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'vertex/gemini-3.5-flash', 'vertex/gemini-3.1-pro-preview', 'vertex/gemini-3.1-flash-lite', 'vertex/gemini-3-flash-preview', 'vertex/gemini-2.5-pro', 'vertex/gemini-2.5-flash', 'vertex/gemini-2.5-flash-lite', 'deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-reasoner', 'groq/qwen/qwen3.6-27b'."
+            "description": "Available levels depend on the model. Unset or Auto uses the provider default. Available in Additional Fields. Shown when model supports thinking level."
         },
         {
             "id": "maxTokens",
@@ -152,9 +152,9 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "code",
             "title": "Response Format",
             "layout": "full",
-            "placeholder": "Enter JSON schema...",
-            "language": "json",
-            "description": "Available in Additional Fields."
+            "placeholder": "Enter response format JSON...",
+            "description": "JSON object containing a JSON Schema in its schema field. Available in Additional Fields.",
+            "language": "json"
         }
     ]}
   />
@@ -171,12 +171,12 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 | `apiKey` | string | No | Provider API key. Shown when applicable to the selected model at runtime. |
 | `azureEndpoint` | string | No | Azure OpenAI endpoint URL. Shown when model is one of 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano', 'azure/model-router'. |
 | `azureApiVersion` | string | No | Azure API version. Shown when model is one of 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano', 'azure/model-router'. |
-| `responseFormat` | json | No | JSON response format schema |
+| `responseFormat` | json | No | JSON object containing a JSON Schema in its schema field |
 | `temperature` | number | No | Response randomness level |
 | `maxTokens` | number | No | Maximum output tokens |
-| `reasoningEffort` | string | No | Model-supported reasoning effort, or auto. Shown when model is one of 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5-pro', 'gpt-5.5', 'gpt-5.4-pro', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-5.2-pro', 'gpt-5.2', 'gpt-5.1', 'gpt-5-pro', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/o3', 'azure/o4-mini', 'deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-reasoner', 'grok-4.6', 'grok-4.5', 'grok-4.3', 'grok-4.20-multi-agent-0309', 'groq/openai/gpt-oss-120b', 'groq/openai/gpt-oss-20b', 'groq/openai/gpt-oss-safeguard-20b'. |
-| `verbosity` | string | No | Model-supported response verbosity, or auto. Shown when model is one of 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-5.2', 'gpt-5.1', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano'. |
-| `thinkingLevel` | string | No | Model-supported thinking level, or auto. Shown when model is one of 'claude-fable-5', 'claude-sonnet-5', 'claude-opus-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-4-6', 'claude-opus-4-5', 'claude-sonnet-4-5', 'claude-haiku-4-5', 'azure-anthropic/claude-opus-4-6', 'azure-anthropic/claude-opus-4-5', 'azure-anthropic/claude-sonnet-4-5', 'azure-anthropic/claude-haiku-4-5', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.1-pro-preview', 'gemini-3.1-flash-lite', 'gemini-3-flash-preview', 'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'vertex/gemini-3.5-flash', 'vertex/gemini-3.1-pro-preview', 'vertex/gemini-3.1-flash-lite', 'vertex/gemini-3-flash-preview', 'vertex/gemini-2.5-pro', 'vertex/gemini-2.5-flash', 'vertex/gemini-2.5-flash-lite', 'deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-reasoner', 'groq/qwen/qwen3.6-27b'. |
+| `reasoningEffort` | string | No | Model-supported reasoning effort, or auto. Shown when model supports reasoning effort. |
+| `verbosity` | string | No | Model-supported response verbosity, or auto. Shown when model supports verbosity. |
+| `thinkingLevel` | string | No | Model-supported thinking level, or auto. Shown when model supports thinking level. |
 | `tools` | json | No | Available tools configuration |
 | `skills` | json | No | Selected skills configuration |
 
