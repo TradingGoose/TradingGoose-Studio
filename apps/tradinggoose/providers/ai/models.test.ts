@@ -8,11 +8,14 @@ import {
   DYNAMIC_MODEL_PROVIDERS,
   getAllModelProviders,
   getBaseModelProviders,
+  getMaxOutputTokensForModel,
   getModelCapabilities,
   getModelPricing,
   getProviderFromModel,
   getProviderIcon,
   getProviderModels,
+  getReasoningEffortValuesForModel,
+  getVerbosityValuesForModel,
   PROVIDER_DEFINITIONS,
   updateFireworksModels,
   updateOllamaModels,
@@ -275,6 +278,39 @@ describe('AI model catalog', () => {
     expect(getProviderIcon('sonar')).toBeNull()
     expect(getProviderIcon('gpt-5.5')).toBe(PROVIDER_DEFINITIONS.openai.icon)
     expect(() => getProviderFromModel('sonar')).toThrow('Unknown AI model: sonar')
+  })
+
+  it.each(['gpt-5.4', 'azure/gpt-5.4'])(
+    'uses the scoped catalog model for snapshots of %s',
+    (model) => {
+      const snapshot = `${model}-2026-03-05`
+      expect(getProviderFromModel(snapshot)).toBe(getProviderFromModel(model))
+      expect(getReasoningEffortValuesForModel(snapshot)).toEqual(
+        getReasoningEffortValuesForModel(model)
+      )
+      expect(getVerbosityValuesForModel(snapshot)).toEqual(getVerbosityValuesForModel(model))
+      expect(getModelCapabilities(snapshot)).toEqual(getModelCapabilities(model))
+      expect(getModelPricing(snapshot)).toEqual(getModelPricing(model))
+      expect(getMaxOutputTokensForModel(snapshot)).toBe(getMaxOutputTokensForModel(model))
+    }
+  )
+
+  it.each([
+    'gpt-5.4-preview',
+    'gpt-unknown-2026-03-05',
+    'ollama/gpt-5.4-2026-03-05',
+    'vllm/gpt-5.4-2026-03-05',
+    'openrouter/openai/gpt-5.4-2026-03-05',
+  ])('does not infer tuning controls for %s', (model) => {
+    expect(getReasoningEffortValuesForModel(model)).toBeNull()
+    expect(getVerbosityValuesForModel(model)).toBeNull()
+  })
+
+  it('keeps exact discovered models ahead of snapshot base models', () => {
+    const snapshot = 'fireworks/glm-5.2-2026-03-05'
+    updateFireworksModels([snapshot])
+    expect(getReasoningEffortValuesForModel(snapshot)).toBeNull()
+    expect(getModelPricing(snapshot)?.input).toBe(0)
   })
 
   it('preserves static Fireworks models when dynamic models refresh', () => {

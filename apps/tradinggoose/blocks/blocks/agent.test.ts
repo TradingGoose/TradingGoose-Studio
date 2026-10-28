@@ -33,6 +33,8 @@ describe('AgentBlock', () => {
   })
 
   it.each([
+    ['reasoningEffort', 'gpt-5.4-2026-03-05', ['none', 'low', 'medium', 'high', 'xhigh']],
+    ['verbosity', 'gpt-5.4-2026-03-05', ['low', 'medium', 'high']],
     ['reasoningEffort', 'gpt-5.6-sol', ['none', 'low', 'medium', 'high', 'xhigh', 'max']],
     ['reasoningEffort', 'deepseek-v4-pro', ['high', 'max']],
     ['thinkingLevel', 'claude-sonnet-5', ['low', 'medium', 'high', 'xhigh', 'max']],

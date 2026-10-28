@@ -2512,6 +2512,23 @@ export function getProviderModels(providerId: string): string[] {
 
 export const DYNAMIC_MODEL_PROVIDERS = ['ollama', 'vllm', 'openrouter', 'fireworks'] as const
 
+function normalizeCatalogLookupModelId(modelId: string): string {
+  const normalizedModelId = modelId.toLowerCase().trim()
+  for (const catalogModelId of [
+    normalizedModelId,
+    normalizedModelId.replace(/-\d{4}-\d{2}-\d{2}$/, ''),
+  ]) {
+    if (
+      Object.values(PROVIDER_DEFINITIONS).some((provider) =>
+        provider.models.some((model) => model.id.toLowerCase() === catalogModelId)
+      )
+    ) {
+      return catalogModelId
+    }
+  }
+  return normalizedModelId
+}
+
 function getAllStaticModelIds(): string[] {
   const ids: string[] = []
   for (const [providerId, provider] of Object.entries(PROVIDER_DEFINITIONS)) {
@@ -2617,7 +2634,7 @@ export function getProviderDefaultModel(providerId: string): string {
 }
 
 export function getModelPricing(modelId: string): ModelPricing | null {
-  const normalizedModelId = modelId.toLowerCase().trim()
+  const normalizedModelId = normalizeCatalogLookupModelId(modelId)
   let openRouterPricing: ModelPricing | null = null
   for (const provider of Object.values(PROVIDER_DEFINITIONS)) {
     const openRouterPublisher = provider.openRouterPublisher ?? provider.id
@@ -2640,7 +2657,7 @@ export function getModelPricing(modelId: string): ModelPricing | null {
 }
 
 export function getModelCapabilities(modelId: string): ModelCapabilities | null {
-  const normalizedModelId = modelId.toLowerCase().trim()
+  const normalizedModelId = normalizeCatalogLookupModelId(modelId)
   for (const provider of Object.values(PROVIDER_DEFINITIONS)) {
     const model = provider.models.find((m) => m.id.toLowerCase() === normalizedModelId)
     if (model) {
@@ -2786,7 +2803,7 @@ export function getModelsWithReasoningEffort(): string[] {
  * Returns the valid options for that model, or null if the model doesn't support reasoning effort
  */
 export function getReasoningEffortValuesForModel(modelId: string): string[] | null {
-  const catalogModelId = modelId.toLowerCase().trim()
+  const catalogModelId = normalizeCatalogLookupModelId(modelId)
   for (const provider of Object.values(PROVIDER_DEFINITIONS)) {
     const model = provider.models.find((m) => m.id.toLowerCase() === catalogModelId)
     if (model?.capabilities.reasoningEffort) {
@@ -2813,7 +2830,7 @@ export function getModelsWithVerbosity(): string[] {
  * Returns the valid options for that model, or null if the model doesn't support verbosity
  */
 export function getVerbosityValuesForModel(modelId: string): string[] | null {
-  const catalogModelId = modelId.toLowerCase().trim()
+  const catalogModelId = normalizeCatalogLookupModelId(modelId)
   for (const provider of Object.values(PROVIDER_DEFINITIONS)) {
     const model = provider.models.find((m) => m.id.toLowerCase() === catalogModelId)
     if (model?.capabilities.verbosity) {
@@ -2830,7 +2847,7 @@ export function getVerbosityValuesForModel(modelId: string): string[] | null {
 export function getThinkingCapability(
   modelId: string
 ): { levels: string[]; default?: string } | null {
-  const normalizedModelId = modelId.toLowerCase().trim()
+  const normalizedModelId = normalizeCatalogLookupModelId(modelId)
 
   for (const provider of Object.values(PROVIDER_DEFINITIONS)) {
     for (const model of provider.models) {
@@ -2891,7 +2908,7 @@ export function getModelsWithoutMemory(): string[] {
  * @param modelId - The model ID
  */
 export function getMaxOutputTokensForModel(modelId: string): number {
-  const normalizedModelId = modelId.toLowerCase().trim()
+  const normalizedModelId = normalizeCatalogLookupModelId(modelId)
   const STANDARD_MAX_OUTPUT_TOKENS = 4096
   const allModels = Object.values(PROVIDER_DEFINITIONS).flatMap((provider) => provider.models)
 

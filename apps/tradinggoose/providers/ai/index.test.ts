@@ -221,6 +221,16 @@ describe('executeProviderRequest', () => {
       { model: 'gpt-5.4', reasoningEffort: 'xhigh', verbosity: 'high', thinkingLevel: 'high' },
       { reasoningEffort: 'xhigh', verbosity: 'high', thinkingLevel: undefined },
     ],
+    [
+      'openai',
+      { model: 'gpt-5.4-2026-03-05', reasoningEffort: 'high', verbosity: 'low' },
+      { reasoningEffort: 'high', verbosity: 'low' },
+    ],
+    [
+      'openai',
+      { model: 'gpt-5.4-2026-03-05', reasoningEffort: 'invalid', verbosity: 'invalid' },
+      { reasoningEffort: undefined, verbosity: undefined },
+    ],
     ['anthropic', { model: 'claude-sonnet-4-6', thinkingLevel: 'max' }, { thinkingLevel: 'max' }],
     [
       'deepseek',
@@ -246,7 +256,9 @@ describe('executeProviderRequest', () => {
       anthropic: mockAnthropicExecuteRequest,
       deepseek: mockDeepseekExecuteRequest,
     }[provider]
-    expect(executeRequest).toHaveBeenCalledWith(expect.objectContaining(expected))
+    expect(executeRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ model: settings.model, ...expected })
+    )
     expect(request).toEqual(original)
   })
 
