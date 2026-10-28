@@ -172,9 +172,9 @@ it('preserves complete DeepSeek reasoning and parallel tool calls through follow
 })
 
 it.each([
-  { stream: false, streamToolCalls: false, skipPostProcess: true },
-  { stream: true, streamToolCalls: false, skipPostProcess: false },
-  { stream: true, streamToolCalls: true, skipPostProcess: true },
+  { stream: false, streamToolCalls: false },
+  { stream: true, streamToolCalls: false },
+  { stream: true, streamToolCalls: true },
 ])(
   'keeps native Claude tool behavior for stream=$stream, streamToolCalls=$streamToolCalls',
   async (mode) => {
@@ -195,7 +195,7 @@ it.each([
         responseFormat: { name: 'result', schema: { type: 'object', properties: {} } },
       })
     )
-    expect(mocks.tool).toHaveBeenCalledWith(tool.id, expect.any(Object), mode.skipPostProcess)
+    expect(mocks.tool).toHaveBeenCalledWith(tool.id, expect.any(Object))
     const initial = mocks.claude.mock.calls[0][0]
     expect(initial.messages[1].content[0]).toMatchObject({ type: 'tool_use', id: 'previous' })
     expect(initial.messages[2].content[0]).toMatchObject({
