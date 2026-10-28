@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest'
+import { getProviderModels } from '@/providers/ai/models'
 import { AgentBlock } from './agent'
+import { EvaluatorBlock } from './evaluator'
+import { RouterBlock } from './router'
 
 describe('AgentBlock', () => {
+  it.each([AgentBlock, RouterBlock, EvaluatorBlock])(
+    'resolves $name Ollama provider identity without browser model discovery',
+    (block) => {
+      expect(getProviderModels('ollama')).toEqual([])
+      expect(block.tools.config!.tool({ model: 'ollama/llama3.2:latest' })).toBe('ollama')
+    }
+  )
+
   it('uses additional fields without mode switches or forced tuning defaults', () => {
     expect(AgentBlock.subBlocks.some((field) => field.mode)).toBe(false)
     for (const id of [

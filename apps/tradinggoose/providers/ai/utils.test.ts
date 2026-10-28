@@ -1,25 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as environmentModule from '@/lib/environment'
 import {
-  getBaseModelProviders,
   getHostedModels,
   getMaxTemperature,
   getProviderFromModel,
   getProviderModels,
   supportsTemperature,
   supportsToolUsageControl,
-  updateOllamaModels,
 } from '@/providers/ai/models'
 import {
   calculateCost,
-  extractAndParseJSON,
   formatCost,
-  getAllModelProviders,
   getCustomTools,
-  MODELS_TEMP_RANGE_0_1,
-  MODELS_TEMP_RANGE_0_2,
-  MODELS_WITH_TEMPERATURE_SUPPORT,
-  PROVIDERS_WITH_TOOL_USAGE_CONTROL,
   prepareToolExecution,
   prepareToolsWithUsageControl,
   transformCustomTool,
@@ -153,7 +145,7 @@ describe('Model Capabilities', () => {
       }
     })
 
-    it.concurrent('should return 1 for models with temperature range 0-1', () => {
+    it.concurrent('uses model-specific temperature limits', () => {
       const modelsRange01 = [
         'claude-sonnet-4-6',
         'claude-haiku-4-5',
@@ -163,6 +155,7 @@ describe('Model Capabilities', () => {
       for (const model of modelsRange01) {
         expect(getMaxTemperature(model)).toBe(1)
       }
+      expect(getMaxTemperature('mistral-large-latest')).toBe(1.5)
     })
 
     it.concurrent('should return undefined for models that do not support temperature', () => {
@@ -222,38 +215,6 @@ describe('Model Capabilities', () => {
         }
       }
     )
-  })
-
-  describe('Model Constants', () => {
-    it.concurrent('should have correct models in MODELS_TEMP_RANGE_0_2', () => {
-      expect(MODELS_TEMP_RANGE_0_2).toContain('gpt-4.1')
-      expect(MODELS_TEMP_RANGE_0_2).toContain('gemini-2.5-flash')
-      expect(MODELS_TEMP_RANGE_0_2).toContain('deepseek-v4-flash')
-      expect(MODELS_TEMP_RANGE_0_2).toContain('grok-4.6')
-      expect(MODELS_TEMP_RANGE_0_2).not.toContain('claude-sonnet-4-6')
-    })
-
-    it.concurrent('should have correct models in MODELS_TEMP_RANGE_0_1', () => {
-      expect(MODELS_TEMP_RANGE_0_1).toContain('claude-sonnet-4-6')
-      expect(MODELS_TEMP_RANGE_0_1).toContain('claude-haiku-4-5')
-      expect(MODELS_TEMP_RANGE_0_1).not.toContain('gpt-4.1')
-    })
-
-    it.concurrent('should have correct providers in PROVIDERS_WITH_TOOL_USAGE_CONTROL', () => {
-      expect(PROVIDERS_WITH_TOOL_USAGE_CONTROL).toContain('openai')
-      expect(PROVIDERS_WITH_TOOL_USAGE_CONTROL).toContain('anthropic')
-      expect(PROVIDERS_WITH_TOOL_USAGE_CONTROL).toContain('deepseek')
-      expect(PROVIDERS_WITH_TOOL_USAGE_CONTROL).toContain('google')
-      expect(PROVIDERS_WITH_TOOL_USAGE_CONTROL).not.toContain('ollama')
-    })
-
-    it.concurrent('should include every supported temperature range', () => {
-      expect(MODELS_WITH_TEMPERATURE_SUPPORT).toEqual(
-        expect.arrayContaining([...MODELS_TEMP_RANGE_0_2, ...MODELS_TEMP_RANGE_0_1])
-      )
-      expect(MODELS_WITH_TEMPERATURE_SUPPORT).toContain('mistral-large-latest')
-      expect(getMaxTemperature('mistral-large-latest')).toBe(1.5)
-    })
   })
 })
 
@@ -399,72 +360,6 @@ describe('Provider Management', () => {
     it.concurrent('should return empty array for unknown providers', () => {
       const unknownModels = getProviderModels('unknown' as any)
       expect(unknownModels).toEqual([])
-    })
-  })
-
-  describe('getBaseModelProviders and getAllModelProviders', () => {
-    it.concurrent('should return model to provider mapping', () => {
-      const allProviders = getAllModelProviders()
-      expect(typeof allProviders).toBe('object')
-      expect(allProviders['gpt-4.1']).toBe('openai')
-      expect(allProviders['claude-sonnet-5']).toBe('anthropic')
-
-      const baseProviders = getBaseModelProviders()
-      expect(typeof baseProviders).toBe('object')
-      // Should exclude ollama models
-    })
-  })
-
-  describe('updateOllamaModels', () => {
-    it.concurrent('should update ollama models', () => {
-      const mockModels = ['ollama/llama2', 'ollama/codellama', 'ollama/mistral']
-
-      // This should not throw
-      expect(() => updateOllamaModels(mockModels)).not.toThrow()
-
-      // Verify the models were updated
-      const ollamaModels = getProviderModels('ollama')
-      expect(ollamaModels).toEqual(mockModels)
-    })
-  })
-})
-
-describe('JSON and Structured Output', () => {
-  describe('extractAndParseJSON', () => {
-    it.concurrent('should extract and parse valid JSON', () => {
-      const content = 'Some text before ```json\n{"key": "value"}\n``` some text after'
-      const result = extractAndParseJSON(content)
-      expect(result).toEqual({ key: 'value' })
-    })
-
-    it.concurrent('should extract JSON without code blocks', () => {
-      const content = 'Text before {"name": "test", "value": 42} text after'
-      const result = extractAndParseJSON(content)
-      expect(result).toEqual({ name: 'test', value: 42 })
-    })
-
-    it.concurrent('should handle nested objects', () => {
-      const content = '{"user": {"name": "John", "age": 30}, "active": true}'
-      const result = extractAndParseJSON(content)
-      expect(result).toEqual({
-        user: { name: 'John', age: 30 },
-        active: true,
-      })
-    })
-
-    it.concurrent('should clean up common JSON issues', () => {
-      const content = '{\n  "key": "value",\n  "number": 42,\n}' // Trailing comma
-      const result = extractAndParseJSON(content)
-      expect(result).toEqual({ key: 'value', number: 42 })
-    })
-
-    it.concurrent('should throw error for content without JSON', () => {
-      expect(() => extractAndParseJSON('No JSON here')).toThrow('No JSON object found in content')
-    })
-
-    it.concurrent('should throw error for invalid JSON', () => {
-      const invalidJson = '{"key": invalid, "broken": }'
-      expect(() => extractAndParseJSON(invalidJson)).toThrow('Failed to parse JSON after cleanup')
     })
   })
 })

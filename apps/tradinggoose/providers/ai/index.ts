@@ -113,9 +113,6 @@ export async function executeProviderRequest(
     throw new Error(`Provider not found: ${providerId}`)
   }
 
-  if (!provider.executeRequest) {
-    throw new Error(`Provider ${providerId} does not implement executeRequest`)
-  }
   const sanitizedRequest = sanitizeRequest(request)
 
   // Execute the request using the provider's implementation

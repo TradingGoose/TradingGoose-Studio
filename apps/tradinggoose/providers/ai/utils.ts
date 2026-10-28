@@ -9,30 +9,13 @@ import { createLogger } from '@/lib/logs/console/logger'
 import type { ExecutionSubmissionSource } from '@/executor/types'
 import {
   getEmbeddingModelPricing,
+  getModelCapabilities,
   getModelPricing,
-  getModelsWithDeepResearch,
-  getModelsWithTemperatureSupport,
-  getModelsWithTempRange01,
-  getModelsWithTempRange02,
-  getProvidersWithToolUsageControl,
-  PROVIDER_DEFINITIONS,
 } from '@/providers/ai/models'
-import type { ProviderId, ProviderToolConfig } from '@/providers/ai/types'
+import type { ProviderToolConfig } from '@/providers/ai/types'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 
 const logger = createLogger('ProviderUtils')
-
-export function getAllModelProviders(): Record<string, ProviderId> {
-  return Object.entries(PROVIDER_DEFINITIONS).reduce(
-    (map, [providerId, config]) => {
-      config.models.forEach((model) => {
-        map[model.id.toLowerCase()] = providerId as ProviderId
-      })
-      return map
-    },
-    {} as Record<string, ProviderId>
-  )
-}
 
 export function generateSchemaInstructions(schema: any, schemaName?: string): string {
   const name = schemaName || 'response'
@@ -44,47 +27,6 @@ JSON Schema:
 ${JSON.stringify(schema, null, 2)}
 
 Your response must be valid JSON that exactly matches this schema structure.`
-}
-
-export function extractAndParseJSON(content: string): any {
-  // First clean up the string
-  const trimmed = content.trim()
-
-  // Find the first '{' and last '}'
-  const firstBrace = trimmed.indexOf('{')
-  const lastBrace = trimmed.lastIndexOf('}')
-
-  if (firstBrace === -1 || lastBrace === -1) {
-    throw new Error('No JSON object found in content')
-  }
-
-  // Extract just the JSON part
-  const jsonStr = trimmed.slice(firstBrace, lastBrace + 1)
-
-  try {
-    return JSON.parse(jsonStr)
-  } catch (_error) {
-    // If parsing fails, try to clean up common issues
-    const cleaned = jsonStr
-      .replace(/\n/g, ' ') // Remove newlines
-      .replace(/\s+/g, ' ') // Normalize whitespace
-      .replace(/,\s*([}\]])/g, '$1') // Remove trailing commas
-
-    try {
-      return JSON.parse(cleaned)
-    } catch (innerError) {
-      logger.error('Failed to parse JSON response', {
-        contentLength: content.length,
-        extractedLength: jsonStr.length,
-        cleanedLength: cleaned.length,
-        error: innerError instanceof Error ? innerError.message : 'Unknown error',
-      })
-
-      throw new Error(
-        `Failed to parse JSON after cleanup: ${innerError instanceof Error ? innerError.message : 'Unknown error'}`
-      )
-    }
-  }
 }
 
 /**
@@ -610,14 +552,8 @@ export function trackForcedToolUsage(
   }
 }
 
-export const MODELS_TEMP_RANGE_0_2 = getModelsWithTempRange02()
-export const MODELS_TEMP_RANGE_0_1 = getModelsWithTempRange01()
-export const MODELS_WITH_TEMPERATURE_SUPPORT = getModelsWithTemperatureSupport()
-export const MODELS_WITH_DEEP_RESEARCH = getModelsWithDeepResearch()
-export const PROVIDERS_WITH_TOOL_USAGE_CONTROL = getProvidersWithToolUsageControl()
-
 export function isDeepResearchModel(model: string): boolean {
-  return MODELS_WITH_DEEP_RESEARCH.includes(model.toLowerCase())
+  return getModelCapabilities(model)?.deepResearch ?? false
 }
 
 export function isGemini3Model(model: string): boolean {

@@ -30,12 +30,15 @@ vi.mock('@anthropic-ai/sdk', () => ({
 vi.mock('@/tools', () => ({ executeTool: mocks.tool }))
 vi.mock('@/lib/system-services/runtime', () => ({
   resolveAzureOpenAIServiceConfig: async () => ({ endpoint: 'https://example.openai.azure.com' }),
+  resolveOllamaServiceConfig: async () => ({ baseUrl: 'http://ollama:11434' }),
 }))
 
+import { GET as discoverOllamaModels } from '@/app/api/providers/ai/ollama/models/route'
 import { anthropicProvider } from '@/providers/ai/anthropic'
 import { azureOpenAIProvider } from '@/providers/ai/azure-openai'
 import { deepseekProvider } from '@/providers/ai/deepseek'
 import { groqProvider } from '@/providers/ai/groq'
+import { ollamaProvider } from '@/providers/ai/ollama'
 import { openaiProvider } from '@/providers/ai/openai'
 
 const request = (model: string, params: Partial<ProviderRequest> = {}): ProviderRequest => ({
@@ -84,6 +87,24 @@ beforeEach(() => {
       : { content: [{ type: 'text', text: 'Done' }], usage: { input_tokens: 10, output_tokens: 5 } }
   )
   mocks.tool.mockResolvedValue({ success: true, output: { value: 42 } })
+})
+
+it('discovers qualified Ollama IDs and sends only the model name to the SDK', async () => {
+  vi.mocked(fetch).mockResolvedValueOnce(
+    new Response(JSON.stringify({ models: [{ name: 'llama3.2:latest' }] }))
+  )
+  const discovery = await discoverOllamaModels()
+  const { models } = await discovery.json()
+  expect(models).toEqual(['ollama/llama3.2:latest'])
+  const result = await ollamaProvider.executeRequest(request(models[0]))
+  expect(mocks.chat).toHaveBeenCalledWith(expect.objectContaining({ model: 'llama3.2:latest' }))
+  expect(result).toMatchObject({ model: models[0] })
+})
+
+it('rejects unqualified Ollama IDs at the wire boundary', async () => {
+  await expect(ollamaProvider.executeRequest(request('llama3.2:latest'))).rejects.toThrow(
+    'Ollama model IDs must use ollama/<model>'
+  )
 })
 
 it.each([

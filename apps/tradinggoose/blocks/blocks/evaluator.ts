@@ -5,11 +5,10 @@ import type { BlockConfig, ParamType } from '@/blocks/types'
 import {
   getHostedModels,
   getProviderDefaultModel,
+  getProviderFromModel,
   getProviderIcon,
   getProviderModels,
 } from '@/providers/ai/models'
-import type { ProviderId } from '@/providers/ai/types'
-import { getAllModelProviders } from '@/providers/ai/utils'
 import { useProvidersStore } from '@/stores/providers/store'
 import type { ToolResponse } from '@/tools/types'
 
@@ -319,11 +318,7 @@ export const EvaluatorBlock: BlockConfig<EvaluatorResponse> = {
         if (!model) {
           throw new Error('No model selected')
         }
-        const tool = getAllModelProviders()[model as ProviderId]
-        if (!tool) {
-          throw new Error(`Invalid model selected: ${model}`)
-        }
-        return tool
+        return getProviderFromModel(model)
       },
     },
   },

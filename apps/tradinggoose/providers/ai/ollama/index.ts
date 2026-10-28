@@ -68,6 +68,9 @@ export const ollamaProvider: ProviderConfig = {
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {
+    if (!request.model.startsWith('ollama/') || request.model.length === 'ollama/'.length) {
+      throw new Error('Ollama model IDs must use ollama/<model>')
+    }
     logger.info('Preparing Ollama request', {
       model: request.model,
       hasSystemPrompt: !!request.systemPrompt,
@@ -124,7 +127,7 @@ export const ollamaProvider: ProviderConfig = {
 
     // Build the request payload
     const payload: any = {
-      model: request.model.trim().slice(7),
+      model: request.model.trim().slice('ollama/'.length),
       messages: allMessages,
     }
 

@@ -8,6 +8,7 @@ import type {
 } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import {
+  getAllModelProviders,
   getHostedModels,
   getMaxTemperature,
   getModelsWithReasoningEffort,
@@ -21,7 +22,6 @@ import {
   getVerbosityValuesForModel,
   PROVIDER_DEFINITIONS,
 } from '@/providers/ai/models'
-import { getAllModelProviders } from '@/providers/ai/utils'
 import { useProvidersStore } from '@/stores/providers/store'
 import type { ToolResponse } from '@/tools/types'
 
@@ -447,11 +447,7 @@ Example 3 (Array Input):
         if (!model) {
           throw new Error('No model selected')
         }
-        const tool = getAllModelProviders()[model]
-        if (!tool) {
-          throw new Error(`Invalid model selected: ${model}`)
-        }
-        return tool
+        return getProviderFromModel(model)
       },
     },
   },

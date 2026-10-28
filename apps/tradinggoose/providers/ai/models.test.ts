@@ -5,6 +5,9 @@ import {
   resolveFireworksWireModel,
 } from '@/providers/ai/fireworks/utils'
 import {
+  DYNAMIC_MODEL_PROVIDERS,
+  getAllModelProviders,
+  getBaseModelProviders,
   getModelCapabilities,
   getModelPricing,
   getProviderFromModel,
@@ -12,6 +15,7 @@ import {
   getProviderModels,
   PROVIDER_DEFINITIONS,
   updateFireworksModels,
+  updateOllamaModels,
   updateOpenRouterModels,
 } from '@/providers/ai/models'
 import { calculateCost } from '@/providers/ai/utils'
@@ -126,6 +130,7 @@ const REMOVED_MODELS = [
 describe('AI model catalog', () => {
   afterEach(() => {
     updateFireworksModels([])
+    updateOllamaModels([])
     updateOpenRouterModels([])
     vi.unstubAllGlobals()
   })
@@ -250,11 +255,19 @@ describe('AI model catalog', () => {
   })
 
   it('keeps static defaults inside their provider catalog and routes every model', () => {
+    const allProviders = getAllModelProviders()
+    const baseProviders = getBaseModelProviders()
     Object.entries(PROVIDER_DEFINITIONS).forEach(([providerId, provider]) => {
       if (provider.models.length > 0 && provider.defaultModel) {
         expect(provider.models.map((model) => model.id)).toContain(provider.defaultModel)
       }
-      provider.models.forEach((model) => expect(getProviderFromModel(model.id)).toBe(providerId))
+      provider.models.forEach((model) => {
+        expect(getProviderFromModel(model.id)).toBe(providerId)
+        expect(allProviders[model.id.toLowerCase()]).toBe(providerId)
+        if (!(DYNAMIC_MODEL_PROVIDERS as readonly string[]).includes(providerId)) {
+          expect(baseProviders[model.id.toLowerCase()]).toBe(providerId)
+        }
+      })
     })
   })
 
@@ -266,6 +279,19 @@ describe('AI model catalog', () => {
       'fireworks/kimi-k3',
       'fireworks/custom-model',
     ])
+  })
+
+  it('routes canonical Ollama IDs in a fresh process without discovered models', () => {
+    expect(getProviderModels('ollama')).toEqual([])
+    expect(getProviderFromModel('ollama/llama3.2:latest')).toBe('ollama')
+    expect(() => getProviderFromModel('llama3.2:latest')).toThrow('Unknown AI model')
+    expect(() => getProviderFromModel('c')).toThrow('Unknown AI model')
+    updateOllamaModels(['ollama/llama3.2:latest'])
+    expect(getProviderModels('ollama')).toEqual(['ollama/llama3.2:latest'])
+    expect(getAllModelProviders()['ollama/llama3.2:latest']).toBe('ollama')
+    expect(getBaseModelProviders()).not.toHaveProperty('ollama/llama3.2:latest')
+    updateOllamaModels([])
+    expect(getAllModelProviders()).not.toHaveProperty('ollama/llama3.2:latest')
   })
 
   it('maps Fireworks catalog IDs to their API resource names', () => {

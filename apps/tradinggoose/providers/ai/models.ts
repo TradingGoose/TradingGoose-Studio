@@ -2564,7 +2564,7 @@ export function suggestModelIdsForUnknownModel(_modelId: string, limit = 5): str
 
 export function getBaseModelProviders(): Record<string, ProviderId> {
   return Object.entries(PROVIDER_DEFINITIONS)
-    .filter(([providerId]) => !['ollama', 'vllm', 'openrouter', 'fireworks'].includes(providerId))
+    .filter(([providerId]) => !(DYNAMIC_MODEL_PROVIDERS as readonly string[]).includes(providerId))
     .reduce(
       (map, [providerId, provider]) => {
         provider.models.forEach((model) => {
@@ -2574,6 +2574,14 @@ export function getBaseModelProviders(): Record<string, ProviderId> {
       },
       {} as Record<string, ProviderId>
     )
+}
+
+export function getAllModelProviders(): Record<string, ProviderId> {
+  return Object.fromEntries(
+    Object.entries(PROVIDER_DEFINITIONS).flatMap(([providerId, provider]) =>
+      provider.models.map((model) => [model.id.toLowerCase(), providerId as ProviderId])
+    )
+  )
 }
 
 export function getProviderFromModel(model: string): ProviderId {
@@ -2651,52 +2659,6 @@ export function getModelCapabilities(modelId: string): ModelCapabilities | null 
   return null
 }
 
-export function getModelsWithTemperatureSupport(): string[] {
-  const models: string[] = []
-  for (const provider of Object.values(PROVIDER_DEFINITIONS)) {
-    for (const model of provider.models) {
-      if (model.capabilities.temperature) {
-        models.push(model.id)
-      }
-    }
-  }
-  return models
-}
-
-export function getModelsWithTempRange01(): string[] {
-  const models: string[] = []
-  for (const provider of Object.values(PROVIDER_DEFINITIONS)) {
-    for (const model of provider.models) {
-      if (model.capabilities.temperature?.max === 1) {
-        models.push(model.id)
-      }
-    }
-  }
-  return models
-}
-
-export function getModelsWithTempRange02(): string[] {
-  const models: string[] = []
-  for (const provider of Object.values(PROVIDER_DEFINITIONS)) {
-    for (const model of provider.models) {
-      if (model.capabilities.temperature?.max === 2) {
-        models.push(model.id)
-      }
-    }
-  }
-  return models
-}
-
-export function getProvidersWithToolUsageControl(): string[] {
-  const providers: string[] = []
-  for (const [providerId, provider] of Object.entries(PROVIDER_DEFINITIONS)) {
-    if (provider.capabilities?.toolUsageControl) {
-      providers.push(providerId)
-    }
-  }
-  return providers
-}
-
 export function getHostedModels(): string[] {
   return [
     // ...getProviderModels('openai'),
@@ -2728,7 +2690,7 @@ export function getMaxTemperature(modelId: string): number | undefined {
 }
 
 export function supportsToolUsageControl(providerId: string): boolean {
-  return getProvidersWithToolUsageControl().includes(providerId)
+  return !!PROVIDER_DEFINITIONS[providerId]?.capabilities?.toolUsageControl
 }
 
 export function updateOllamaModels(models: string[]): void {
@@ -2906,21 +2868,6 @@ export function getModelsWithThinking(): string[] {
 export function getThinkingLevelsForModel(modelId: string): string[] | null {
   const capability = getThinkingCapability(modelId)
   return capability?.levels ?? null
-}
-
-/**
- * Get all models that support deep research capability
- */
-export function getModelsWithDeepResearch(): string[] {
-  const models: string[] = []
-  for (const provider of Object.values(PROVIDER_DEFINITIONS)) {
-    for (const model of provider.models) {
-      if (model.capabilities.deepResearch) {
-        models.push(model.id)
-      }
-    }
-  }
-  return models
 }
 
 /**

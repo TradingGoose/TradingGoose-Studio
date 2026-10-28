@@ -4,10 +4,10 @@ import { AuthMode, type BlockConfig } from '@/blocks/types'
 import {
   getHostedModels,
   getProviderDefaultModel,
+  getProviderFromModel,
   getProviderIcon,
   getProviderModels,
 } from '@/providers/ai/models'
-import { getAllModelProviders } from '@/providers/ai/utils'
 import { useProvidersStore } from '@/stores/providers/store'
 
 const DEFAULT_MODEL = getProviderDefaultModel('openai')
@@ -142,11 +142,7 @@ export const TranslateBlock: BlockConfig = {
         if (!model) {
           throw new Error('No model selected')
         }
-        const tool = getAllModelProviders()[model]
-        if (!tool) {
-          throw new Error(`Invalid model selected: ${model}`)
-        }
-        return tool
+        return getProviderFromModel(model)
       },
     },
   },
