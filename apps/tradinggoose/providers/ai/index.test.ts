@@ -165,12 +165,55 @@ describe('executeProviderRequest', () => {
     mockDeepseekExecuteRequest.mockResolvedValue({ content: 'ok', model: 'deepseek-v4-flash' })
   })
 
-  it('rejects an empty request before calling the provider', async () => {
-    await expect(
-      executeProviderRequest('openai', { model: 'gpt-5.4', context: ' ' })
-    ).rejects.toThrow('require messages, context, or a system prompt')
+  it.each([
+    { context: ' ' },
+    { systemPrompt: ' ' },
+    { messages: [{ role: 'system' as const, content: ' ' }] },
+  ])('rejects an empty request before calling the provider: %j', async (input) => {
+    await expect(executeProviderRequest('openai', { model: 'gpt-5.4', ...input })).rejects.toThrow(
+      'require messages, context, or a system prompt'
+    )
     expect(mockOpenAIExecuteRequest).not.toHaveBeenCalled()
   })
+
+  it.each([
+    [{ systemPrompt: 'Analyze prices' }, 'Analyze prices'],
+    [{ messages: [{ role: 'system', content: 'Analyze prices' }] }, 'Analyze prices'],
+    [
+      {
+        systemPrompt: 'Analyze prices',
+        context: ' ',
+        messages: [
+          { role: 'system', content: 'Use live quotes' },
+          { role: 'system', content: 'Include risks' },
+        ],
+      },
+      'Analyze prices\n\nUse live quotes\n\nInclude risks',
+    ],
+  ] as const)('normalizes system-only instructions once: %j', async (input, content) => {
+    const request = { model: 'claude-sonnet-5', ...structuredClone(input) } as ProviderRequest
+    const original = structuredClone(request)
+
+    await executeProviderRequest('anthropic', request)
+
+    expect(mockAnthropicExecuteRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ systemPrompt: '', messages: [{ role: 'user', content }] })
+    )
+    expect(request).toEqual(original)
+  })
+
+  it.each([{ context: 'AAPL' }, { messages: [{ role: 'user' as const, content: 'AAPL' }] }])(
+    'preserves system instructions with conversational input: %j',
+    async (input) => {
+      const request = { model: 'claude-sonnet-5', systemPrompt: 'Analyze prices', ...input }
+      const original = structuredClone(request)
+
+      await executeProviderRequest('anthropic', request)
+
+      expect(mockAnthropicExecuteRequest).toHaveBeenCalledWith(expect.objectContaining(request))
+      expect(request).toEqual(original)
+    }
+  )
 
   it.each([
     [

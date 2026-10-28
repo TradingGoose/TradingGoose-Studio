@@ -202,11 +202,11 @@ describe('AgentBlockHandler', () => {
       ])
     })
 
-    it('sends a system-only Agent task once', async () => {
+    it('sends system-only Agent instructions once to the provider boundary', async () => {
       const task = 'Analyze the current portfolio using the available tools.'
       await handler.execute(mockBlock, { model: 'gpt-5.4', systemPrompt: task }, mockContext)
       const request = JSON.parse(mockFetch.mock.calls[0][1].body)
-      expect(request.messages).toEqual([{ role: 'user', content: task }])
+      expect(request.messages).toEqual([{ role: 'system', content: task }])
       expect(request).not.toHaveProperty('systemPrompt')
       expect(request).not.toHaveProperty('context')
     })
@@ -348,7 +348,7 @@ describe('AgentBlockHandler', () => {
       expect(toolIds).toContain('tradinggoose_internal_load_skill')
       expect(generatedSkillToolId).toBe('tradinggoose_internal_load_skill_2')
       expect(providerRequest.messages).toHaveLength(1)
-      expect(providerRequest.messages[0].role).toBe('user')
+      expect(providerRequest.messages[0].role).toBe('system')
       expect(providerRequest.messages[0].content).toContain('You are a helpful assistant.')
       expect(providerRequest.messages[0].content).toContain('tradinggoose_internal_load_skill_2')
     })

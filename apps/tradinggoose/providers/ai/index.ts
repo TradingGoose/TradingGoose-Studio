@@ -87,9 +87,18 @@ function sanitizeRequest(request: ProviderRequest): ProviderRequest {
   const hasContext = typeof context === 'string' && context.trim().length > 0
   sanitizedRequest.context = hasContext ? context : undefined
 
-  const hasMessages = Array.isArray(sanitizedRequest.messages) && sanitizedRequest.messages.length
+  const messages = sanitizedRequest.messages ?? []
+  if (!hasContext && messages.every((message) => message.role === 'system')) {
+    const content = [sanitizedRequest.systemPrompt, ...messages.map((message) => message.content)]
+      .filter(Boolean)
+      .join('\n\n')
+    sanitizedRequest.systemPrompt = ''
+    sanitizedRequest.messages = content.trim() ? [{ role: 'user', content }] : []
+  }
 
-  if (!hasMessages && !hasContext && !hasSystemPrompt) {
+  const hasMessages = sanitizedRequest.messages?.length
+
+  if (!hasMessages && !hasContext && !sanitizedRequest.systemPrompt) {
     throw new Error('AI provider requests require messages, context, or a system prompt')
   }
 

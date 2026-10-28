@@ -1,3 +1,4 @@
+import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime'
 import { beforeEach, expect, it, vi } from 'vitest'
 import type { ProviderRequest, ProviderToolConfig } from '@/providers/ai/types'
 
@@ -34,6 +35,7 @@ vi.mock('@/lib/system-services/runtime', () => ({
 }))
 
 import { GET as discoverOllamaModels } from '@/app/api/providers/ai/ollama/models/route'
+import { executeProviderRequest } from '@/providers/ai'
 import { anthropicProvider } from '@/providers/ai/anthropic'
 import { azureOpenAIProvider } from '@/providers/ai/azure-openai'
 import { deepseekProvider } from '@/providers/ai/deepseek'
@@ -87,6 +89,43 @@ beforeEach(() => {
       : { content: [{ type: 'text', text: 'Done' }], usage: { input_tokens: 10, output_tokens: 5 } }
   )
   mocks.tool.mockResolvedValue({ success: true, output: { value: 42 } })
+})
+
+it('sends system-only requests once through Claude and Bedrock SDK adapters', async () => {
+  const systemPrompt = 'Analyze prices'
+  await executeProviderRequest('anthropic', {
+    model: 'claude-sonnet-5',
+    apiKey: 'test-key',
+    systemPrompt,
+    maxTokens: 4096,
+  })
+  expect(mocks.claude).toHaveBeenCalledTimes(1)
+  expect(mocks.claude.mock.calls[0][0]).toMatchObject({
+    system: '',
+    messages: [{ role: 'user', content: [{ type: 'text', text: systemPrompt }] }],
+  })
+
+  const send = vi.spyOn(BedrockRuntimeClient.prototype, 'send').mockImplementation(async () => ({
+    output: { message: { role: 'assistant', content: [{ text: 'Done' }] } },
+    $metadata: {},
+  }))
+  try {
+    await expect(
+      executeProviderRequest('bedrock', {
+        model: 'bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0',
+        systemPrompt,
+      })
+    ).resolves.toMatchObject({ content: 'Done' })
+    expect(send).toHaveBeenCalledTimes(1)
+    const command = send.mock.calls[0][0]
+    expect(command).toBeInstanceOf(ConverseCommand)
+    expect(command.input).toMatchObject({
+      system: undefined,
+      messages: [{ role: 'user', content: [{ text: systemPrompt }] }],
+    })
+  } finally {
+    send.mockRestore()
+  }
 })
 
 it('discovers qualified Ollama IDs and sends only the model name to the SDK', async () => {

@@ -432,10 +432,6 @@ export class AgentBlockHandler implements BlockHandler {
       }
     }
 
-    if (messages.length > 0 && messages.every((message) => message.role === 'system')) {
-      return [{ role: 'user', content: messages.map((message) => message.content).join('\n\n') }]
-    }
-
     return messages.length > 0 ? messages : undefined
   }
 
