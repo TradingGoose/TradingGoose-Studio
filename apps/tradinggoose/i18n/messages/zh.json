@@ -2069,8 +2069,7 @@
           "yearly": "/年"
         },
         "planCard": {
-          "error": "错误",
-          "actionLabel": "{action} {name} 套餐"
+          "error": "错误"
         }
       },
       "team": {

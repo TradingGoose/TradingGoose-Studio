@@ -2082,8 +2082,7 @@
           "yearly": "/yr"
         },
         "planCard": {
-          "error": "Error",
-          "actionLabel": "{action} {name} tier"
+          "error": "Error"
         }
       },
       "team": {
