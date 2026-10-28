@@ -32,6 +32,7 @@ export function getClientMessages(
       nav: workspace.nav,
       userMenu: workspace.userMenu,
       settingsModal: workspace.settingsModal,
+      switcher: { roles: workspace.switcher.roles },
     },
   }
 }

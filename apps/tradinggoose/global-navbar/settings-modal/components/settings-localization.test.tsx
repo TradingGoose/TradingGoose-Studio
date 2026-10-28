@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
 import type { Organization } from '@/lib/organization'
 import type { WorkspaceSettingsResponse } from '@/hooks/queries/workspace'
-import { getPublicCopy } from '@/i18n/public-copy'
+import { getClientMessages } from '@/i18n/public-copy'
 import type { LocaleCode } from '@/i18n/utils'
 import { UsageHeader } from './shared/usage-header'
 import { WorkspaceBillingOwnerEditor } from './subscription/components/workspace-billing-owner'
@@ -79,13 +79,13 @@ vi.mock('@/hooks/queries/private-tier-access', () => ({
   }),
 }))
 
-vi.mock('./team-management/components', () => ({
+vi.mock('./team-management/components', async () => ({
   MemberInvitationCard: () => null,
   NoOrganizationView: ({ orgName }: { orgName: string }) => (
     <output data-testid='default-team-name'>{orgName}</output>
   ),
   RemoveMemberDialog: () => null,
-  TeamMembers: () => null,
+  TeamMembers: (await import('./team-management/components/team-members/team-members')).TeamMembers,
   TeamSeats: () => null,
   TeamSeatsOverview: () => null,
   TeamUsage: () => null,
@@ -121,7 +121,7 @@ describe('settings localization', () => {
       root.render(
         <NextIntlClientProvider
           locale={locale}
-          messages={getPublicCopy(locale)}
+          messages={getClientMessages(locale)}
           timeZone='UTC'
           onError={onIntlError}
         >
@@ -161,6 +161,7 @@ describe('settings localization', () => {
   })
 
   it.each([
+    ['en', 'How this team billing works', 'Owner'],
     ['es', 'Cómo funciona la facturación de este equipo', 'Propietario'],
     ['zh', '此团队计费方式', '拥有者'],
   ] as const)('translates team billing and metadata in %s', async (locale, title, role) => {
@@ -191,13 +192,17 @@ describe('settings localization', () => {
     await render(locale, <TeamManagement />)
 
     expect(container.textContent).toContain(title)
-    expect(container.textContent).toContain(role)
+    expect(
+      Array.from(container.querySelectorAll('span')).filter((span) => span.textContent === role)
+    ).toHaveLength(2)
     expect(container.textContent).toContain(
       new Date(mocks.organization.createdAt).toLocaleDateString(locale)
     )
-    expect(container.textContent).not.toContain('Organization plans')
-    expect(container.textContent).not.toContain('Team ID:')
-    expect(container.textContent).not.toContain('licensed seats')
+    if (locale !== 'en') {
+      expect(container.textContent).not.toContain('Organization plans')
+      expect(container.textContent).not.toContain('Team ID:')
+      expect(container.textContent).not.toContain('licensed seats')
+    }
   })
 
   it.each([
