@@ -20,7 +20,6 @@ import {
   calculateCost,
   prepareToolExecution,
   prepareToolsWithUsageControl,
-  sumToolCosts,
 } from '@/providers/ai/utils'
 import { executeTool } from '@/tools'
 
@@ -466,17 +465,6 @@ export async function executeAnthropicProviderRequest(
         (currentResponse.usage?.input_tokens || 0) + (currentResponse.usage?.output_tokens || 0),
     }
 
-    const initialCost = calculateCost(
-      request.model,
-      currentResponse.usage?.input_tokens || 0,
-      currentResponse.usage?.output_tokens || 0
-    )
-    const cost = {
-      input: initialCost.input,
-      output: initialCost.output,
-      total: initialCost.total,
-    }
-
     const toolCalls = []
     const toolResults: Record<string, unknown>[] = []
     const currentMessages = [...messages]
@@ -736,15 +724,6 @@ export async function executeAnthropicProviderRequest(
           tokens.output += currentResponse.usage.output_tokens || 0
           tokens.total +=
             (currentResponse.usage.input_tokens || 0) + (currentResponse.usage.output_tokens || 0)
-
-          const iterationCost = calculateCost(
-            request.model,
-            currentResponse.usage.input_tokens || 0,
-            currentResponse.usage.output_tokens || 0
-          )
-          cost.input += iterationCost.input
-          cost.output += iterationCost.output
-          cost.total += iterationCost.total
         }
 
         iterationCount++
@@ -757,98 +736,6 @@ export async function executeAnthropicProviderRequest(
     const providerEndTime = Date.now()
     const providerEndTimeISO = new Date(providerEndTime).toISOString()
     const totalDuration = providerEndTime - providerStartTime
-
-    if (request.stream) {
-      logger.info(`Using streaming for final ${providerLabel} response after tool processing`)
-
-      const streamingPayload = {
-        ...payload,
-        messages: currentMessages,
-        stream: true,
-        tool_choice: undefined,
-      }
-
-      const streamResponse = await anthropic.messages.create(
-        streamingPayload as Anthropic.Messages.MessageCreateParamsStreaming,
-        request.abortSignal ? { signal: request.abortSignal } : undefined
-      )
-
-      const streamingResult = {
-        stream: createReadableStreamFromAnthropicStream(
-          streamResponse as AsyncIterable<RawMessageStreamEvent>,
-          (streamContent, usage) => {
-            streamingResult.execution.output.content = streamContent
-            streamingResult.execution.output.tokens = {
-              input: tokens.input + usage.input_tokens,
-              output: tokens.output + usage.output_tokens,
-              total: tokens.total + usage.input_tokens + usage.output_tokens,
-            }
-
-            const streamCost = calculateCost(request.model, usage.input_tokens, usage.output_tokens)
-            const tc2 = sumToolCosts(toolResults)
-            streamingResult.execution.output.cost = {
-              input: cost.input + streamCost.input,
-              output: cost.output + streamCost.output,
-              toolCost: tc2 || undefined,
-              total: cost.total + streamCost.total + tc2,
-            }
-
-            const streamEndTime = Date.now()
-            const streamEndTimeISO = new Date(streamEndTime).toISOString()
-
-            if (streamingResult.execution.output.providerTiming) {
-              streamingResult.execution.output.providerTiming.endTime = streamEndTimeISO
-              streamingResult.execution.output.providerTiming.duration =
-                streamEndTime - providerStartTime
-            }
-          }
-        ),
-        execution: {
-          success: true,
-          output: {
-            content: '',
-            model: request.model,
-            tokens: {
-              input: tokens.input,
-              output: tokens.output,
-              total: tokens.total,
-            },
-            toolCalls:
-              toolCalls.length > 0
-                ? {
-                    list: toolCalls,
-                    count: toolCalls.length,
-                  }
-                : undefined,
-            providerTiming: {
-              startTime: providerStartTimeISO,
-              endTime: new Date().toISOString(),
-              duration: Date.now() - providerStartTime,
-              modelTime: modelTime,
-              toolsTime: toolsTime,
-              firstResponseTime: firstResponseTime,
-              iterations: iterationCount + 1,
-              timeSegments: timeSegments,
-            },
-            cost: {
-              input: cost.input,
-              output: cost.output,
-              toolCost: undefined as number | undefined,
-              total: cost.total,
-            },
-          },
-          logs: [],
-          metadata: {
-            startTime: providerStartTimeISO,
-            endTime: new Date().toISOString(),
-            duration: Date.now() - providerStartTime,
-          },
-          isStreaming: true,
-        },
-      }
-
-      return streamingResult as StreamingExecution
-    }
 
     return {
       content,

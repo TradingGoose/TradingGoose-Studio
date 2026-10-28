@@ -252,6 +252,7 @@ it.each([
       })
     )
     expect(mocks.tool).toHaveBeenCalledWith(tool.id, expect.any(Object))
+    expect(mocks.claude).toHaveBeenCalledTimes(2)
     const initial = mocks.claude.mock.calls[0][0]
     expect(initial.messages[1].content[0]).toMatchObject({ type: 'tool_use', id: 'previous' })
     expect(initial.messages[2].content[0]).toMatchObject({
@@ -273,15 +274,35 @@ it.each([
       tool_use_id: 'next',
       content: '{"value":42}',
     })
-    if (mode.stream) {
-      if (!('stream' in result)) throw new Error('Expected streaming execution')
-      expect(await new Response(result.stream).text()).toBe('Done')
-      expect(result.execution.output.toolCalls?.count).toBe(1)
-    } else {
-      expect(result).toMatchObject({ content: 'Done', toolResults: [{ value: 42 }] })
-    }
+    expect(result).toMatchObject({
+      content: 'Done',
+      tokens: { input: 20, output: 10, total: 30 },
+      toolCalls: [{ name: tool.id, result: { value: 42 } }],
+      toolResults: [{ value: 42 }],
+      timing: { iterations: 2 },
+    })
   }
 )
+
+it('returns the completed Claude answer when configured tools are unused', async () => {
+  const result = await anthropicProvider.executeRequest(
+    request('claude-sonnet-5', { stream: true, maxTokens: 4096, tools: [tool] })
+  )
+  expect(mocks.claude).toHaveBeenCalledTimes(1)
+  expect(mocks.tool).not.toHaveBeenCalled()
+  expect(result).toMatchObject({ content: 'Done', tokens: { total: 15 } })
+})
+
+it('streams Claude text when tools are absent', async () => {
+  const result = await anthropicProvider.executeRequest(
+    request('claude-sonnet-5', { stream: true, maxTokens: 4096 })
+  )
+  if (!('stream' in result)) throw new Error('Expected streaming execution')
+  expect(await new Response(result.stream).text()).toBe('Done')
+  expect(mocks.claude).toHaveBeenCalledTimes(1)
+  expect(mocks.claude.mock.calls[0][0].stream).toBe(true)
+  expect(mocks.tool).not.toHaveBeenCalled()
+})
 
 it.each([undefined, 0])('keeps optional Claude temperature %j', async (temperature) => {
   await anthropicProvider.executeRequest(
