@@ -123,7 +123,7 @@ describe('market quote normalization', () => {
       previousClose: null,
       change: null,
       changePercent: null,
-      error: 'Previous regular-session close is unavailable',
+      error: 'marketQuotes.previousCloseUnavailable',
     })
   })
 
@@ -132,6 +132,7 @@ describe('market quote normalization', () => {
     async (hasSession) => {
       vi.setSystemTime(new Date('2026-10-26T12:00:00Z'))
       daily.bars = [
+        { timeStamp: '2026-10-21T04:00:00Z', close: 49 },
         { timeStamp: '2026-10-22T04:00:00Z', close: 50 },
         { timeStamp: '2026-10-23T04:00:00Z', close: 51, volume: 20 },
       ]
@@ -155,18 +156,56 @@ describe('market quote normalization', () => {
         lastPriceEndTime: hasSession ? '2026-10-23T20:00:00Z' : '2026-10-24T04:00:00.000Z',
       })
       daily.bars.pop()
-      expect(await snapshot()).toMatchObject({
-        lastPrice: 102,
-        previousClose: null,
-        change: null,
-        lastPriceEndTime: '2026-10-23T19:01:00.000Z',
-        error: 'Current regular-session close is unavailable',
+      const latestDaily = await snapshot()
+      expect(latestDaily).toMatchObject({
+        lastPrice: 50,
+        previousClose: 49,
+        change: 1,
+        lastPriceTime: '2026-10-22T04:00:00Z',
+        lastPriceEndTime: '2026-10-23T04:00:00.000Z',
       })
+      expect(latestDaily.error).toBeUndefined()
+      expect(latestDaily.regularSession).toBeUndefined()
       vi.setSystemTime(new Date('2026-10-26T16:00:00Z'))
       daily.bars = [{ timeStamp: '2026-10-23T04:00:00Z', close: 100 }]
       regular.bars = [{ timeStamp: '2026-10-26T15:59:00Z', close: 100 }]
       regular.marketSessions = [session]
       expect(await snapshot()).toMatchObject({ lastPrice: 100, previousClose: 100, change: 0 })
+    }
+  )
+
+  it.each(['alpaca', 'finnhub', 'alpha-vantage', 'robinhood', 'yahoo-finance'])(
+    'shows the latest available daily change while %s stocks are closed',
+    async (provider) => {
+      regular.bars = [{ timeStamp: '2026-10-26T19:59:00Z', close: 110 }]
+      for (const now of ['2026-10-26T20:01:00Z', '2026-10-27T12:00:00Z', '2026-10-31T16:00:00Z']) {
+        vi.setSystemTime(new Date(now))
+        expect(await snapshot(provider)).toMatchObject({
+          lastPrice: 105,
+          previousClose: 100,
+          change: 5,
+          changePercent: 5,
+          lastPriceTime: '2026-10-26T04:00:00Z',
+          lastPriceEndTime: session.end,
+        })
+        daily.bars.pop()
+        const quote = await snapshot(provider)
+        expect(quote).toMatchObject({
+          lastPrice: 100,
+          previousClose: 90,
+          change: 10,
+          changePercent: (10 / 90) * 100,
+          lastPriceTime: '2026-10-23T04:00:00Z',
+          lastPriceEndTime: '2026-10-24T04:00:00.000Z',
+        })
+        expect(quote.error).toBeUndefined()
+        expect(quote.regularSession).toBeUndefined()
+        daily.bars.push({ timeStamp: '2026-10-26T04:00:00Z', close: 105, volume: 20 })
+      }
+      regular.bars = []
+      const quote = await snapshot(provider)
+      expect(quote).toMatchObject({ lastPrice: 105, previousClose: 100, change: 5 })
+      expect(quote.error).toBeUndefined()
     }
   )
 
@@ -196,7 +235,7 @@ describe('market quote normalization', () => {
         changePercent: 5,
         volume: 20,
         lastPriceTime: '2026-10-26T04:00:00Z',
-        error: unavailable === 'failure' ? 'Provider unavailable' : 'No intraday price available',
+        error: unavailable === 'failure' ? 'Provider unavailable' : 'marketQuotes.noIntradayPrice',
       })
       expect(quote.lastPriceEndTime).toBeUndefined()
       expect(execute.mock.calls.map(([, request]) => request.interval)).toEqual(['1d', '1m'])
@@ -222,7 +261,7 @@ describe('market quote normalization', () => {
         lastPriceTime: '2026-10-23T00:00:00Z',
         lastPriceEndTime: '2026-10-24T00:00:00.000Z',
         timezone: 'UTC',
-        error: 'No intraday price available',
+        error: 'marketQuotes.noIntradayPrice',
       })
       expect(execute).toHaveBeenCalledTimes(2)
     }
@@ -231,7 +270,7 @@ describe('market quote normalization', () => {
   it('rejects when neither series has an available price', async () => {
     daily.bars = []
     regular.bars = []
-    await expect(snapshot()).rejects.toThrow('No intraday price available')
+    await expect(snapshot()).rejects.toThrow('marketQuotes.noRegularSessionPrice')
     expect(execute).toHaveBeenCalledTimes(2)
   })
 
@@ -268,7 +307,7 @@ describe('market quote normalization', () => {
         lastPrice: 105,
         previousClose: null,
         change: null,
-        error: 'Previous regular-session close is unavailable',
+        error: 'marketQuotes.previousCloseUnavailable',
       })
       execute.mockRejectedValueOnce(new Error('Provider unavailable'))
       await expect(snapshot(provider)).rejects.toThrow('Provider unavailable')
@@ -286,7 +325,7 @@ describe('market quote normalization', () => {
     expect(await snapshot()).toMatchObject({
       lastPrice: 110,
       change: 10,
-      lastPriceTime: '2026-10-26T19:59:00Z',
+      lastPriceTime: '2026-10-26T04:00:00Z',
       lastPriceEndTime: session.end,
     })
   })

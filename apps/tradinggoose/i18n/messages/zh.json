@@ -21603,6 +21603,18 @@
         "retry": "重试",
         "retrying": "正在重试…"
       },
+      "marketQuotes": {
+        "intradayUnavailable": "日内价格不可用",
+        "noIntradayPrice": "暂无日内价格",
+        "noRegularSessionPrice": "暂无常规交易时段价格",
+        "missingTimezone": "市场数据序列缺少时区",
+        "previousCloseUnavailable": "上一常规交易时段的收盘价不可用",
+        "pollFailed": "无法加载市场报价",
+        "configureProvider": "请配置市场数据提供商设置：{settings}",
+        "connectionUnavailable": "市场数据连接不可用",
+        "connectionLost": "市场数据连接已断开",
+        "connectionFailed": "市场数据连接失败"
+      },
       "watchlist": {
         "header": {
           "explorer": "资源管理器",

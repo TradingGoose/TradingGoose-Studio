@@ -21616,6 +21616,18 @@
         "retry": "Retry",
         "retrying": "Retrying…"
       },
+      "marketQuotes": {
+        "intradayUnavailable": "Intraday prices are unavailable",
+        "noIntradayPrice": "No intraday price available",
+        "noRegularSessionPrice": "No regular-session price available",
+        "missingTimezone": "Market series timezone is required",
+        "previousCloseUnavailable": "Previous regular-session close is unavailable",
+        "pollFailed": "Failed to load market quotes",
+        "configureProvider": "Configure market provider settings: {settings}",
+        "connectionUnavailable": "Market data connection is unavailable",
+        "connectionLost": "Market data connection was lost",
+        "connectionFailed": "Market data connection failed"
+      },
       "watchlist": {
         "header": {
           "explorer": "Explorer",

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useLocale, useMessages } from 'next-intl'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { areListingIdentitiesEqual, type ListingIdentity } from '@/lib/listing/identity'
 import { getMissingMarketProviderSettings } from '@/lib/market/market-provider-settings'
@@ -7,6 +8,7 @@ import {
   type MarketQuoteSnapshot,
 } from '@/lib/market/quote-snapshot-contract'
 import { useSocket } from '@/contexts/socket-context'
+import { formatTemplate, type LocaleCode } from '@/i18n/utils'
 
 export type UseMarketQuoteSnapshotsArgs = {
   workspaceId?: string
@@ -41,6 +43,8 @@ export const useMarketQuoteSnapshots = ({
   enabled = true,
 }: UseMarketQuoteSnapshotsArgs) => {
   const { socket } = useSocket()
+  const locale = useLocale() as LocaleCode
+  const copy = useMessages().workspace.widgets.marketQuotes
   const records = useRef(new Map<string, QuoteSubscription>()).current
   const [state, setState] = useState<QuoteState>({
     scope: '',
@@ -52,9 +56,17 @@ export const useMarketQuoteSnapshots = ({
   const missingSettings = hasRequest
     ? getMissingMarketProviderSettings(provider, auth, providerParams)
     : []
-  const configurationError = missingSettings.length
-    ? `Configure market provider settings: ${missingSettings.join(', ')}`
-    : null
+  const configurationError = missingSettings.length ? 'marketQuotes.configureProvider' : null
+  const localizeError = (message: string) => {
+    const key = message.slice('marketQuotes.'.length)
+    return message.startsWith('marketQuotes.') && Object.hasOwn(copy, key)
+      ? formatTemplate(
+          copy[key as keyof typeof copy],
+          { settings: missingSettings.join(', ') },
+          locale
+        )
+      : message
+  }
   const subscribe = (record: QuoteSubscription) => {
     if (socket?.connected)
       socket.emit('market-subscribe', {
@@ -81,8 +93,7 @@ export const useMarketQuoteSnapshots = ({
       })
     reset(
       hasRequest
-        ? (configurationError ??
-            (!socket?.connected ? 'Market data connection is unavailable' : null))
+        ? (configurationError ?? (!socket?.connected ? 'marketQuotes.connectionUnavailable' : null))
         : null
     )
     if (!hasRequest || configurationError || !socket) return
@@ -113,8 +124,8 @@ export const useMarketQuoteSnapshots = ({
         error: payload.message,
       }))
     }
-    const handleDisconnect = () => reset('Market data connection was lost')
-    const handleConnectError = () => reset('Market data connection failed')
+    const handleDisconnect = () => reset('marketQuotes.connectionLost')
+    const handleConnectError = () => reset('marketQuotes.connectionFailed')
     const handleConnect = () => {
       records.forEach((record, key) =>
         records.set(key, { ...record, clientSubscriptionId: crypto.randomUUID() })
@@ -174,17 +185,21 @@ export const useMarketQuoteSnapshots = ({
   const active = hasRequest && !configurationError && state.scope === scope
   const data = active
     ? Object.fromEntries(
-        items.flatMap(({ key, listing }) =>
-          state.data[key] && areListingIdentitiesEqual(records.get(key)?.listing, listing)
-            ? [[key, state.data[key]]]
+        items.flatMap(({ key, listing }) => {
+          const quote = state.data[key]
+          return quote && areListingIdentitiesEqual(records.get(key)?.listing, listing)
+            ? [[key, quote.error ? { ...quote, error: localizeError(quote.error) } : quote]]
             : []
-        )
+        })
       )
     : EMPTY_QUOTES
   const isFetching = active && !state.error && items.some(({ key }) => !data[key])
   return {
     data,
-    error: hasRequest && state.scope === scope ? state.error : null,
+    error:
+      hasRequest && state.scope === scope && state.error
+        ? new Error(localizeError(state.error.message))
+        : null,
     isLoading: isFetching && Object.keys(data).length === 0,
     isFetching,
   }

@@ -21616,6 +21616,18 @@
         "retry": "Reintentar",
         "retrying": "Reintentando…"
       },
+      "marketQuotes": {
+        "intradayUnavailable": "Los precios intradía no están disponibles",
+        "noIntradayPrice": "No hay ningún precio intradía disponible",
+        "noRegularSessionPrice": "No hay ningún precio disponible de la sesión regular",
+        "missingTimezone": "Se requiere la zona horaria de la serie de mercado",
+        "previousCloseUnavailable": "El cierre de la sesión regular anterior no está disponible",
+        "pollFailed": "No se pudieron cargar las cotizaciones del mercado",
+        "configureProvider": "Configura los ajustes del proveedor de mercado: {settings}",
+        "connectionUnavailable": "La conexión de datos de mercado no está disponible",
+        "connectionLost": "Se perdió la conexión de datos de mercado",
+        "connectionFailed": "Falló la conexión de datos de mercado"
+      },
       "watchlist": {
         "header": {
           "explorer": "Explorador",
