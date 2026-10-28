@@ -5,6 +5,7 @@ import {
   type MarketQuoteSnapshot,
 } from '@/lib/market/quote-snapshot-contract'
 import { executeProviderRequest } from '@/providers/market'
+import { resolveMarketSessionsForRange } from '@/providers/market/market-hours'
 import { toZonedIsoTimestamp } from '@/providers/market/market-hours/date-utils'
 import type { MarketProviderRequestContext, MarketSeries } from '@/providers/market/types'
 import { resolveListingContext } from '@/providers/market/utils'
@@ -55,7 +56,22 @@ export const buildMarketQuoteSnapshot = async ({
   const priceSeries = intraday?.bars.length ? intraday : daily
   const timezone = listing.listing_type === 'default' ? priceSeries.timezone : 'UTC'
   if (!timezone) throw new Error('marketQuotes.missingTimezone')
-  const sessions = intraday?.marketSessions?.filter(({ type }) => type === 'market') ?? []
+  let marketSessions = intraday?.marketSessions ?? []
+  if (
+    listing.listing_type === 'default' &&
+    !dailyOnly &&
+    !marketSessions.some(({ type }) => type === 'market')
+  ) {
+    const latestTime = Date.parse(priceSeries.bars.at(-1)?.timeStamp ?? '')
+    marketSessions =
+      (await resolveMarketSessionsForRange(
+        listing.listing_id,
+        listing.listing_type,
+        latestTime - 86_400_000,
+        Math.max(requestStartedAt, latestTime) + 1
+      )) ?? []
+  }
+  const sessions = marketSessions.filter(({ type }) => type === 'market')
   const minuteBar = intraday?.bars
     .filter(
       ({ timeStamp }) =>

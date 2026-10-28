@@ -5,11 +5,15 @@ import type { MarketSeries } from '@/providers/market/types'
 
 const execute = vi.fn()
 const resolveContext = vi.fn()
+const resolveHours = vi.fn()
 vi.mock('@/providers/market', () => ({
   executeProviderRequest: (...args: unknown[]) => execute(...args),
 }))
 vi.mock('@/providers/market/utils', () => ({
   resolveListingContext: (...args: unknown[]) => resolveContext(...args),
+}))
+vi.mock('@/providers/market/market-hours/market-hours-api', () => ({
+  resolveMarketHoursRange: (...args: unknown[]) => resolveHours(...args),
 }))
 const listing = { listing_id: 'AAPL', base_id: '', quote_id: '', listing_type: 'default' as const }
 const session = {
@@ -27,6 +31,7 @@ describe('market quote normalization', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-10-26T16:00:00Z'))
     resolveContext.mockReset().mockResolvedValue({ assetClass: 'stock' })
+    resolveHours.mockReset().mockResolvedValue(null)
     execute
       .mockReset()
       .mockImplementation(async (_provider, request) =>
@@ -102,6 +107,7 @@ describe('market quote normalization', () => {
           session: 'regular',
         },
       ])
+      expect(resolveHours).not.toHaveBeenCalled()
     }
   )
 
@@ -209,6 +215,58 @@ describe('market quote normalization', () => {
     }
   )
 
+  it.each(['alpaca', 'finnhub', 'alpha-vantage', 'robinhood', 'yahoo-finance'])(
+    'resolves missing %s session metadata before selecting same-day stock prices',
+    async (provider) => {
+      for (const [close, now, minute, afterHours, closed] of [
+        ['16:00', '21:01', '19:59', '21:00', true],
+        ['13:00', '18:01', '16:59', '18:00', true],
+        ['16:00', '16:00', '15:59', undefined, false],
+      ] as const) {
+        vi.setSystemTime(new Date(`2026-10-26T${now}:00Z`))
+        resolveHours.mockResolvedValue(
+          new Map([
+            [
+              '2026-10-26',
+              {
+                timeZone: { name: 'America/New_York', utcOffset: '-04:00' },
+                marketHours: {
+                  premarket: { start: '04:00', end: '09:30' },
+                  market: { start: '09:30', end: close },
+                  postmarket: { start: close, end: '20:00' },
+                },
+              },
+            ],
+          ])
+        )
+        regular.marketSessions = close === '13:00' ? [] : undefined
+        regular.bars = [
+          { timeStamp: '2026-10-26T13:00:00Z', close: 120 },
+          { timeStamp: `2026-10-26T${minute}:00Z`, close: 110 },
+          ...(afterHours ? [{ timeStamp: `2026-10-26T${afterHours}:00Z`, close: 115 }] : []),
+        ]
+        const quote = await snapshot(provider)
+        const sessionEnd = `2026-10-26T${close === '13:00' ? '17:00' : '20:00'}:00.000Z`
+        expect(quote).toMatchObject({
+          lastPrice: closed ? 105 : 110,
+          previousClose: 100,
+          change: closed ? 5 : 10,
+          changePercent: closed ? 5 : 10,
+          lastPriceTime: closed ? daily.bars.at(-1)!.timeStamp : regular.bars[1].timeStamp,
+          lastPriceEndTime: closed ? sessionEnd : '2026-10-26T16:00:00.000Z',
+          regularSession: { start: '2026-10-26T13:30:00.000Z', end: sessionEnd },
+        })
+        expect(quote.error).toBeUndefined()
+        const [listingId, listingType, start, end] = resolveHours.mock.calls.at(-1)!
+        expect([listingId, listingType]).toEqual(['AAPL', 'default'])
+        expect(start.getTime()).toBeLessThan(Date.parse(session.start))
+        expect(end.getTime()).toBeGreaterThan(Date.parse(sessionEnd))
+      }
+      expect(resolveHours).toHaveBeenCalledTimes(3)
+      expect(execute).toHaveBeenCalledTimes(6)
+    }
+  )
+
   it('requires daily history for the day-change baseline', async () => {
     execute.mockImplementation(async (_provider, request) => {
       if (request.interval === '1d') throw new Error('Provider unavailable')
@@ -301,6 +359,7 @@ describe('market quote normalization', () => {
         expect(quote.error).toBeUndefined()
         expect(quote.regularSession).toBeUndefined()
         expect(execute.mock.calls.map(([, request]) => request.interval)).toEqual(['1d'])
+        expect(resolveHours).not.toHaveBeenCalled()
       }
       daily.bars.shift()
       expect(await snapshot(provider)).toMatchObject({
@@ -369,6 +428,7 @@ describe('market quote normalization', () => {
       expect(execute.mock.calls[1][1].windows[0].range.value).toBe(
         { crypto: 1, currency: 7 }[listingType]
       )
+      expect(resolveHours).not.toHaveBeenCalled()
     }
   )
 
