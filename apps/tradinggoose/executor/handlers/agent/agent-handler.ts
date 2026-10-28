@@ -9,6 +9,7 @@ import { stringifySubBlockValue } from '@/lib/workflows/subblock-values'
 import { getAllBlocks } from '@/blocks'
 import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
+import { parseAgentStructuredResponse } from '@/executor/handlers/agent/response-format'
 import type {
   AgentInputs,
   Message,
@@ -821,32 +822,10 @@ export class AgentBlockHandler implements BlockHandler {
   }
 
   private processRegularResponse(result: any, responseFormat: any): BlockOutput {
-    if (responseFormat) {
-      return this.processStructuredResponse(result)
-    }
-
-    return this.processStandardResponse(result)
-  }
-
-  private processStructuredResponse(result: any): BlockOutput {
-    try {
-      const extractedJson = JSON.parse(result.content)
-      if (!extractedJson || typeof extractedJson !== 'object' || Array.isArray(extractedJson)) {
-        throw new Error('Expected an object')
-      }
-      return {
-        ...extractedJson,
-        ...this.createResponseMetadata(result),
-      }
-    } catch {
-      throw new Error('Agent response format requires a valid JSON object')
-    }
-  }
-
-  private processStandardResponse(result: any): BlockOutput {
     return {
-      content: result.content,
-      model: result.model,
+      ...(responseFormat
+        ? parseAgentStructuredResponse(result.content)
+        : { content: result.content, model: result.model }),
       ...this.createResponseMetadata(result),
     }
   }

@@ -122,7 +122,7 @@ export const AgentBlock: BlockConfig<AgentResponse> = {
   bestPractices: `
   - Cannot use core blocks like API, Webhook, Function, Workflow, Memory as tools. Only integrations or custom tools. 
   - Check custom tools examples for YAML syntax. Only construct these if there isn't an existing integration for that purpose.
-  - Response Format should be a valid JSON Schema. This determines the output of the agent only if present. Fields can be accessed at root level by the following blocks: e.g. <agent1.field>. If response format is not present, the agent will return the standard outputs: content, model, tokens, toolCalls.
+  - Response Format must be a JSON object containing a JSON Schema in its schema field. Returned fields can be accessed at root level by the following blocks: e.g. <agent1.field>. If response format is not present, the agent will return the standard outputs: content, model, tokens, toolCalls.
   `,
   docsLink: 'https://docs.tradinggoose.ai/blocks/agent',
   category: 'blocks',
@@ -336,7 +336,8 @@ Create a system prompt appropriately detailed for the request, using clear langu
       title: 'Response Format',
       type: 'code',
       layout: 'full',
-      placeholder: 'Enter JSON schema...',
+      placeholder: 'Enter response format JSON...',
+      description: 'JSON object containing a JSON Schema in its schema field.',
       language: 'json',
       additional: true,
       wandConfig: {
@@ -461,7 +462,7 @@ Example 3 (Array Input):
     azureApiVersion: { type: 'string', description: 'Azure API version' },
     responseFormat: {
       type: 'json',
-      description: 'JSON response format schema',
+      description: 'JSON object containing a JSON Schema in its schema field',
       schema: {
         type: 'object',
         properties: {

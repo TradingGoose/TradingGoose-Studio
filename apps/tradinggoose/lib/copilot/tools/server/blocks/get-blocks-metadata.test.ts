@@ -9,10 +9,12 @@ vi.mock('@/lib/oauth/oauth.server', () => ({
 }))
 
 vi.mock('@/blocks/registry', async () => {
+  const { AgentBlock } = await import('@/blocks/blocks/agent')
   const { HistoricalDataBlock } = await import('@/blocks/blocks/historical_data')
   const { LoopBlock } = await import('@/blocks/blocks/loop')
   const { ParallelContainerBlock } = await import('@/blocks/blocks/parallel_container')
   const registry = {
+    agent: AgentBlock,
     historical_data: HistoricalDataBlock,
     loop: LoopBlock,
     parallel: ParallelContainerBlock,
@@ -165,6 +167,18 @@ describe('getBlocksMetadataServerTool', () => {
     })
     expect(range?.options).not.toContainEqual(expect.objectContaining({ id: 'custom' }))
     expect(range?.options).toContainEqual({ id: '1m', label: 'Last 1 month' })
+  })
+
+  it('describes the canonical Agent response format wrapper', async () => {
+    const result = await getBlocksMetadataServerTool.execute({ blockTypes: ['agent'] })
+    const agent = result.metadata.agent
+
+    expect(agent?.subBlocks?.find((field) => field.id === 'responseFormat')).toMatchObject({
+      description: 'JSON object containing a JSON Schema in its schema field.',
+    })
+    expect(agent?.bestPractices).toContain(
+      'Response Format must be a JSON object containing a JSON Schema in its schema field.'
+    )
   })
 
   it('returns Mermaid profiles and operation variants instead of schema-shaped metadata', async () => {
