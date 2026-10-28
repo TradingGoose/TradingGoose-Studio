@@ -1,158 +1,68 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { isEqual } from 'lodash'
-import { createLogger } from '@/lib/logs/console/logger'
 import { useBlock, useSubBlockValue as useYjsSubBlockValue } from '@/lib/yjs/use-workflow-doc'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
-import { getModelCapabilities, getProviderFromModel } from '@/providers/ai/models'
+import { getProviderFromModel } from '@/providers/ai/models'
 import type { ProviderId } from '@/providers/ai/types'
 
-const logger = createLogger('SubBlockValue')
-
-interface UseSubBlockValueOptions {
-  isStreaming?: boolean
-  onStreamingEnd?: () => void
-}
-
-/**
- * Custom hook to get and set values for a sub-block in a workflow.
- * Handles complex object values properly by using deep equality comparison.
- * Supports explicit streaming mode for AI generation.
- *
- * @param blockId The ID of the block containing the sub-block
- * @param subBlockId The ID of the sub-block
- * @param triggerWorkflowUpdate Whether to trigger a workflow update when the value changes
- * @param options Configuration for debouncing and streaming behavior
- * @returns A tuple containing the current value and setter function
- */
 export function useSubBlockValue<T = any>(
   blockId: string,
-  subBlockId: string,
-  triggerWorkflowUpdate = false,
-  options?: UseSubBlockValueOptions
+  subBlockId: string
 ): readonly [T | null, (value: T) => void] {
-  const { isStreaming = false, onStreamingEnd } = options || {}
-
   const { collaborativeSetSubblockValue } = useWorkflowEditorActions()
-
-  const block = useBlock(blockId)
-  const blockType = block?.type
+  const blockType = useBlock(blockId)?.type
   const currentValue = useYjsSubBlockValue(blockId, subBlockId) as T | null
-
-  // Keep a ref to the latest value to prevent unnecessary re-renders
-  const valueRef = useRef<T | null>(null)
-  const lastResolvedProviderRef = useRef<ProviderId | null>(null)
-
-  // Streaming refs
-  const streamingValueRef = useRef<T | null>(null)
-  const wasStreamingRef = useRef<boolean>(false)
-
   const currentApiKeyValue = useYjsSubBlockValue(blockId, 'apiKey') as string | null
+  const valueRef = useRef(currentValue)
+  const lastProviderRef = useRef<ProviderId | null>(null)
+  const isProviderModel =
+    subBlockId === 'model' &&
+    (blockType === 'agent' || blockType === 'router' || blockType === 'evaluator')
 
-  // Determine if this is a provider-based block type
-  const isProviderBasedBlock =
-    blockType === 'agent' || blockType === 'router' || blockType === 'evaluator'
-
-  // Persist the value through the workflow editor action layer.
-  const emitValue = useCallback(
-    (value: T) => {
-      collaborativeSetSubblockValue(blockId, subBlockId, value)
-    },
-    [blockId, subBlockId, collaborativeSetSubblockValue]
-  )
-
-  // Handle streaming mode changes
-  useEffect(() => {
-    // If we just exited streaming mode, emit the final value
-    if (wasStreamingRef.current && !isStreaming && streamingValueRef.current !== null) {
-      logger.debug('Streaming ended, persisting final value', { blockId, subBlockId })
-      emitValue(streamingValueRef.current)
-      streamingValueRef.current = null
-      onStreamingEnd?.()
-    }
-    wasStreamingRef.current = isStreaming
-  }, [isStreaming, blockId, subBlockId, emitValue, onStreamingEnd])
-
-  // Setter for the live sub-block value.
   const setValue = useCallback(
     (newValue: T) => {
-      // Use deep comparison to avoid unnecessary updates for complex objects
-      if (!isEqual(valueRef.current, newValue)) {
-        valueRef.current = newValue
+      if (isEqual(valueRef.current, newValue)) return
+      valueRef.current = newValue
+      const valueCopy =
+        newValue !== null && typeof newValue === 'object'
+          ? JSON.parse(JSON.stringify(newValue))
+          : newValue
+      collaborativeSetSubblockValue(blockId, subBlockId, valueCopy)
 
-        // Ensure we're passing the actual value, not a reference that might change
-        const valueCopy =
-          newValue === null
-            ? null
-            : typeof newValue === 'object'
-              ? JSON.parse(JSON.stringify(newValue))
-              : newValue
-
-        // If streaming, hold value locally and do not update global store to avoid render-phase updates
-        if (isStreaming) {
-          streamingValueRef.current = valueCopy
-          return
-        }
-
-        // Single Yjs write path: collaborativeSetSubblockValue writes to Yjs
-        // and handles declarative cascade clearing for dependent sub-blocks.
-        const oldProvider = lastResolvedProviderRef.current
-        emitValue(valueCopy)
-
-        // Handle model changes for provider-based blocks - clear API key when provider changes.
-        // This is a special case not covered by the generic dependsOn cascade.
-        if (
-          subBlockId === 'model' &&
-          isProviderBasedBlock &&
-          typeof newValue === 'string' &&
-          getModelCapabilities(newValue)
-        ) {
-          const newProvider = getProviderFromModel(newValue)
-          lastResolvedProviderRef.current = newProvider
-          if (currentApiKeyValue && oldProvider !== newProvider) {
-            collaborativeSetSubblockValue(blockId, 'apiKey', '')
-          }
-        }
+      if (!isProviderModel || typeof newValue !== 'string') return
+      let newProvider: ProviderId
+      try {
+        newProvider = getProviderFromModel(newValue)
+      } catch {
+        // Partial model names are valid editor drafts, not provider changes.
+        return
       }
+      if (
+        currentApiKeyValue &&
+        lastProviderRef.current &&
+        lastProviderRef.current !== newProvider
+      ) {
+        collaborativeSetSubblockValue(blockId, 'apiKey', '')
+      }
+      lastProviderRef.current = newProvider
     },
-    [
-      blockId,
-      subBlockId,
-      triggerWorkflowUpdate,
-      isStreaming,
-      emitValue,
-      isProviderBasedBlock,
-      collaborativeSetSubblockValue,
-      currentApiKeyValue,
-    ]
+    [blockId, subBlockId, isProviderModel, collaborativeSetSubblockValue, currentApiKeyValue]
   )
 
-  // Initialize valueRef on first render
   useEffect(() => {
-    valueRef.current = currentValue
-  }, [])
-
-  useEffect(() => {
-    lastResolvedProviderRef.current = null
+    lastProviderRef.current = null
   }, [blockId, subBlockId])
 
-  // Update the ref if the effective value changes
-  // This ensures we're always working with the latest value
   useEffect(() => {
-    // Use deep comparison for objects to prevent unnecessary updates
-    if (!isEqual(valueRef.current, currentValue)) {
-      valueRef.current = currentValue
+    valueRef.current = currentValue
+    if (isProviderModel && typeof currentValue === 'string') {
+      try {
+        lastProviderRef.current = getProviderFromModel(currentValue)
+      } catch {
+        // Retain the last resolved provider while a draft is incomplete.
+      }
     }
-    // Retain the provider while a model is empty, partial, or a reference.
-    if (
-      subBlockId === 'model' &&
-      isProviderBasedBlock &&
-      typeof currentValue === 'string' &&
-      getModelCapabilities(currentValue)
-    ) {
-      lastResolvedProviderRef.current = getProviderFromModel(currentValue)
-    }
-  }, [blockId, subBlockId, currentValue, isProviderBasedBlock])
+  }, [blockId, subBlockId, currentValue, isProviderModel])
 
-  // Return appropriate tuple based on whether options were provided
   return [currentValue, setValue] as const
 }
