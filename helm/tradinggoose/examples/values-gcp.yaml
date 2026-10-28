@@ -46,7 +46,6 @@ app:
     
     # GCP-specific environment variables
     GOOGLE_CLOUD_PROJECT: "your-project-id"
-    GOOGLE_CLOUD_REGION: "us-central1"
 
 # Realtime service
 realtime:

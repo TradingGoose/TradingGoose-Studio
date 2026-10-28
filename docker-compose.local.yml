@@ -21,9 +21,6 @@ services:
       - ENCRYPTION_KEY=${ENCRYPTION_KEY:?set ENCRYPTION_KEY in .env}
       - INTERNAL_API_SECRET=${INTERNAL_API_SECRET:?set INTERNAL_API_SECRET in .env}
       - REDIS_URL=redis://redis:6379
-      - COPILOT_API_KEY=${COPILOT_API_KEY:-}
-      - COPILOT_API_URL=${COPILOT_API_URL:-}
-      - OLLAMA_URL=${OLLAMA_URL:-http://localhost:11434}
       - NEXT_PUBLIC_SOCKET_URL=${NEXT_PUBLIC_SOCKET_URL:-http://localhost:3002}
       - API_ENCRYPTION_KEY=${API_ENCRYPTION_KEY:-}
     depends_on:
