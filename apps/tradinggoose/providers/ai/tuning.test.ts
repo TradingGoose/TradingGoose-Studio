@@ -929,7 +929,7 @@ const cachedChatModels = [
   ['deepseek', 'deepseek-flash', 0.0003, 0.000153, 0.000006, 0.00012],
   ['deepseek', 'deepseek-v4-pro', 0.00132, 0.000682, 0.000044, 0.000396],
   ['xai', 'grok-4.6', 0.002, 0.00125, 0.0005, 0.0006],
-  ['mistral', 'mistral-large-4', 0.00068, 0.000375, 0.00007, 0.000209],
+  ['mistral', 'mistral-large-4', 0.0007, 0.000385, 0.00007, 0.00021],
   ['groq', 'groq/openai/gpt-oss-120b', 0.00015, 0.0001125, 0.000075, 0.00006],
   ['fireworks', 'fireworks/accounts/fireworks/models/glm-5p3', 0.0014, 0.00083, 0.00026, 0.00044],
 ] as const

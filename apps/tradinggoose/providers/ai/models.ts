@@ -2039,9 +2039,9 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
       {
         id: 'mistral-large-4',
         pricing: {
-          input: 0.68,
+          input: 0.7,
           cachedInput: 0.07,
-          output: 2.09,
+          output: 2.1,
         },
       },
       {
