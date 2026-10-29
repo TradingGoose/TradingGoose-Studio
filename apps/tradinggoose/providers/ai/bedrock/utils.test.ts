@@ -31,10 +31,41 @@ describe('getBedrockModelId', () => {
 
   it.each([
     ['anthropic.claude-sonnet-4-5-20250929-v1:0', 'us-east-1', 'us'],
-    ['anthropic.claude-sonnet-4-5-20250929-v1:0', 'ap-southeast-2', 'apac'],
+    ['anthropic.claude-opus-5', 'ap-southeast-2', 'au'],
+    ['anthropic.claude-opus-5', 'ap-south-1', 'in'],
+    ['anthropic.claude-opus-4-8', 'ap-northeast-1', 'jp'],
+    ['anthropic.claude-opus-4-8', 'us-gov-west-1', 'us-gov'],
+    ['anthropic.claude-sonnet-4-5-20250929-v1:0', 'ap-southeast-2', 'au'],
+    ['anthropic.claude-haiku-4-5-20251001-v1:0', 'ap-south-2', 'in'],
+    ['openai.gpt-6.1-sol', 'us-east-1', 'us'],
+    ['amazon.nova-2-lite-v1:0', 'ap-northeast-3', 'jp'],
+    ['amazon.nova-lite-v1:0', 'ca-central-1', 'ca'],
     ['amazon.nova-pro-v1:0', 'eu-west-1', 'eu'],
+    ['amazon.nova-pro-v1:0', 'ap-southeast-2', 'apac'],
   ])('preserves the geographic profile for %s in %s', (model, region, prefix) => {
     expect(getBedrockModelId(`bedrock/${model}`, region)).toBe(`${prefix}.${model}`)
+  })
+
+  it.each([
+    ['openai.gpt-6.1-sol', 'eu-west-1'],
+    ['openai.gpt-6-astra', 'ap-southeast-2'],
+    ['openai.gpt-5.6-sol', 'eu-west-1'],
+    ['anthropic.claude-fable-5', 'eu-west-1'],
+    ['anthropic.claude-opus-4-5-20251101-v1:0', 'ap-southeast-2'],
+    ['meta.llama4-maverick-17b-instruct-v1:0', 'eu-west-1'],
+    ['mistral.pixtral-large-2502-v1:0', 'ap-southeast-2'],
+  ])('rejects unsupported geographic inference for %s in %s', (model, region) => {
+    expect(() => getBedrockModelId(`bedrock/${model}`, region)).toThrow(
+      'No supported Bedrock invocation'
+    )
+  })
+
+  it.each([
+    ['anthropic.claude-opus-5', 'ap-northeast-2'],
+    ['amazon.nova-micro-v1:0', 'ap-southeast-2'],
+    ['amazon.nova-pro-v1:0', 'us-gov-west-1'],
+  ])('uses the documented in-region deployment for %s in %s', (model, region) => {
+    expect(getBedrockModelId(`bedrock/${model}`, region)).toBe(model)
   })
 
   it('rejects invalid namespaces, unknown models, and unsupported geographic regions', () => {

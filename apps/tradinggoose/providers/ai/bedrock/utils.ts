@@ -72,17 +72,32 @@ export function checkForForcedToolUsage(
 export function getBedrockModelId(modelId: string, region: string): string {
   if (!modelId.startsWith('bedrock/')) throw new Error(`Invalid Bedrock model ID: ${modelId}`)
   const baseModelId = modelId.slice('bedrock/'.length)
-  const inferenceProfiles = getModelCapabilities(modelId)?.bedrockInferenceProfiles
+  const capabilities = getModelCapabilities(modelId)
+  const inferenceProfiles = capabilities?.bedrockInferenceProfiles
   if (!inferenceProfiles) throw new Error(`Unknown Bedrock model: ${modelId}`)
   if (!inferenceProfiles.length) return baseModelId
 
   let inferencePrefix: string
   if (region.startsWith('us-gov-')) {
     inferencePrefix = 'us-gov'
+  } else if (region.startsWith('ca-') && inferenceProfiles.includes('ca')) {
+    inferencePrefix = 'ca'
   } else if (region.startsWith('us-') || region.startsWith('ca-')) {
     inferencePrefix = 'us'
   } else if (region.startsWith('eu-') || region === 'il-central-1') {
     inferencePrefix = 'eu'
+  } else if (
+    ['ap-southeast-2', 'ap-southeast-4', 'ap-southeast-6'].includes(region) &&
+    inferenceProfiles.includes('au')
+  ) {
+    inferencePrefix = 'au'
+  } else if (region.startsWith('ap-south-') && inferenceProfiles.includes('in')) {
+    inferencePrefix = 'in'
+  } else if (
+    ['ap-northeast-1', 'ap-northeast-3'].includes(region) &&
+    inferenceProfiles.includes('jp')
+  ) {
+    inferencePrefix = 'jp'
   } else if (region.startsWith('ap-') || region.startsWith('me-')) {
     inferencePrefix = 'apac'
   } else if (region.startsWith('sa-')) {
@@ -93,7 +108,7 @@ export function getBedrockModelId(modelId: string, region: string): string {
     throw new Error(`Unsupported Bedrock region: ${region}`)
   }
 
-  return inferenceProfiles.includes(inferencePrefix)
-    ? `${inferencePrefix}.${baseModelId}`
-    : baseModelId
+  if (inferenceProfiles.includes(inferencePrefix)) return `${inferencePrefix}.${baseModelId}`
+  if (capabilities?.bedrockInRegion) return baseModelId
+  throw new Error(`No supported Bedrock invocation for ${modelId} in ${region}`)
 }
