@@ -1,4 +1,5 @@
 import { Groq } from 'groq-sdk'
+import type { CompletionUsage } from 'openai/resources/completions'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
 import type {
@@ -8,7 +9,7 @@ import type {
   TimeSegment,
 } from '@/providers/ai/types'
 import {
-  calculateCost,
+  createModelCost,
   createOpenAICompatibleStream,
   prepareToolExecution,
   withToolCosts,
@@ -25,6 +26,20 @@ export const groqProvider: ProviderConfig = {
   ): Promise<ProviderResponse | StreamingExecution> => {
     if (!request.apiKey) {
       throw new Error('API key is required for Groq')
+    }
+
+    const tokens = { prompt: 0, completion: 0, total: 0 }
+    const cost = createModelCost(request.model)
+    const recordUsage = (usage?: CompletionUsage) => {
+      if (!usage) return
+      tokens.prompt += usage.prompt_tokens ?? 0
+      tokens.completion += usage.completion_tokens ?? 0
+      tokens.total += usage.total_tokens ?? 0
+      cost.add(
+        usage.prompt_tokens ?? 0,
+        usage.completion_tokens ?? 0,
+        usage.prompt_tokens_details?.cached_tokens ?? 0
+      )
     }
 
     // Create Groq client
@@ -126,35 +141,18 @@ export const groqProvider: ProviderConfig = {
         stream: true,
       })
 
-      // Start collecting token usage
-      const tokenUsage = {
-        prompt: 0,
-        completion: 0,
-        total: 0,
-      }
-
       // Create a StreamingExecution response with a readable stream
-      const streamingResult = {
+      const streamingResult: StreamingExecution = {
         stream: createOpenAICompatibleStream(streamResponse as any, 'Groq', (content, usage) => {
-          const tokens = {
-            prompt: usage.prompt_tokens,
-            completion: usage.completion_tokens,
-            total: usage.total_tokens,
-          }
+          recordUsage(usage)
           streamingResult.execution.output.content = content
-          streamingResult.execution.output.tokens = tokens
-          streamingResult.execution.output.cost = calculateCost(
-            request.model,
-            tokens.prompt,
-            tokens.completion
-          )
         }),
         execution: {
           success: true,
           output: {
             content: '', // Will be filled by streaming content in chat component
             model: request.model,
-            tokens: tokenUsage,
+            tokens,
             toolCalls: undefined,
             providerTiming: {
               startTime: providerStartTimeISO,
@@ -170,7 +168,7 @@ export const groqProvider: ProviderConfig = {
                 },
               ],
             },
-            cost: calculateCost(request.model),
+            cost: cost.value,
           },
           logs: [], // No block logs for direct streaming
           metadata: {
@@ -183,7 +181,7 @@ export const groqProvider: ProviderConfig = {
       }
 
       // Return the streaming execution object
-      return streamingResult as StreamingExecution
+      return streamingResult
     }
 
     // Start execution timer for the entire provider execution
@@ -196,13 +194,9 @@ export const groqProvider: ProviderConfig = {
 
       let currentResponse = await groq.chat.completions.create(payload)
       const firstResponseTime = Date.now() - initialCallTime
+      recordUsage(currentResponse.usage)
 
       let content = currentResponse.choices[0]?.message?.content || ''
-      const tokens = {
-        prompt: currentResponse.usage?.prompt_tokens || 0,
-        completion: currentResponse.usage?.completion_tokens || 0,
-        total: currentResponse.usage?.total_tokens || 0,
-      }
       const toolCalls = []
       const toolResults: Record<string, unknown>[] = []
       const currentMessages = [...allMessages]
@@ -349,12 +343,7 @@ export const groqProvider: ProviderConfig = {
             content = currentResponse.choices[0].message.content
           }
 
-          // Update token counts
-          if (currentResponse.usage) {
-            tokens.prompt += currentResponse.usage.prompt_tokens || 0
-            tokens.completion += currentResponse.usage.completion_tokens || 0
-            tokens.total += currentResponse.usage.total_tokens || 0
-          }
+          recordUsage(currentResponse.usage)
 
           iterationCount++
         }
@@ -377,32 +366,19 @@ export const groqProvider: ProviderConfig = {
 
         const streamResponse = await groq.chat.completions.create(streamingPayload)
 
-        const previousTokens = { ...tokens }
         // Create a StreamingExecution response with all collected data
-        const streamingResult = {
+        const streamingResult: StreamingExecution = {
           stream: createOpenAICompatibleStream(streamResponse as any, 'Groq', (content, usage) => {
-            const tokens = {
-              prompt: previousTokens.prompt + usage.prompt_tokens,
-              completion: previousTokens.completion + usage.completion_tokens,
-              total: previousTokens.total + usage.total_tokens,
-            }
+            recordUsage(usage)
             streamingResult.execution.output.content = content
-            streamingResult.execution.output.tokens = tokens
-            streamingResult.execution.output.cost = withToolCosts(
-              calculateCost(request.model, tokens.prompt, tokens.completion),
-              toolResults
-            )
+            streamingResult.execution.output.cost = withToolCosts(cost.value, toolResults)
           }),
           execution: {
             success: true,
             output: {
               content: '', // Will be filled by the callback
               model: request.model,
-              tokens: {
-                prompt: tokens.prompt,
-                completion: tokens.completion,
-                total: tokens.total,
-              },
+              tokens,
               toolCalls:
                 toolCalls.length > 0
                   ? {
@@ -420,10 +396,7 @@ export const groqProvider: ProviderConfig = {
                 iterations: iterationCount + 1,
                 timeSegments: timeSegments,
               },
-              cost: withToolCosts(
-                calculateCost(request.model, tokens.prompt, tokens.completion),
-                toolResults
-              ),
+              cost: withToolCosts(cost.value, toolResults),
             },
             logs: [], // No block logs at provider level
             metadata: {
@@ -436,7 +409,7 @@ export const groqProvider: ProviderConfig = {
         }
 
         // Return the streaming execution object
-        return streamingResult as StreamingExecution
+        return streamingResult
       }
 
       // Calculate overall timing
@@ -448,7 +421,7 @@ export const groqProvider: ProviderConfig = {
         content,
         model: request.model,
         tokens,
-        cost: calculateCost(request.model, tokens.prompt, tokens.completion),
+        cost: cost.value,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         toolResults: toolResults.length > 0 ? toolResults : undefined,
         timing: {

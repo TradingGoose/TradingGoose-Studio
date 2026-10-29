@@ -925,13 +925,17 @@ it.each([
   }
 )
 
+const cachedChatModels = [
+  ['deepseek', 'deepseek-flash', 0.0003, 0.000153, 0.000006, 0.00012],
+  ['deepseek', 'deepseek-v4-pro', 0.00132, 0.000682, 0.000044, 0.000396],
+  ['xai', 'grok-4.6', 0.002, 0.00125, 0.0005, 0.0006],
+  ['mistral', 'mistral-large-4', 0.00068, 0.000375, 0.00007, 0.000209],
+  ['groq', 'groq/openai/gpt-oss-120b', 0.00015, 0.0001125, 0.000075, 0.00006],
+  ['fireworks', 'fireworks/accounts/fireworks/models/glm-5p3', 0.0014, 0.00083, 0.00026, 0.00044],
+] as const
+
 it.each(
-  (
-    [
-      ['deepseek-flash', 0.0003, 0.000153, 0.000006, 0.00012],
-      ['deepseek-v4-pro', 0.00132, 0.000682, 0.000044, 0.000396],
-    ] as const
-  ).flatMap(([model, cold, partial, cached, outputCost]) =>
+  cachedChatModels.flatMap(([provider, model, cold, partial, cached, outputCost]) =>
     (
       [
         [undefined, cold],
@@ -940,70 +944,114 @@ it.each(
         [1000, cached],
       ] as const
     ).flatMap(([cachedTokens, inputCost]) =>
-      [false, true].map((stream) => ({ model, cachedTokens, inputCost, outputCost, stream }))
+      [false, true].map((stream) => ({
+        provider,
+        model,
+        cachedTokens,
+        inputCost,
+        outputCost,
+        stream,
+      }))
     )
   )
 )(
-  'prices $model native cache hits=$cachedTokens, stream=$stream',
-  async ({ model, cachedTokens, inputCost, outputCost, stream }) => {
+  'prices $model reported cache hits=$cachedTokens, stream=$stream',
+  async ({ provider, model, cachedTokens, inputCost, outputCost, stream }) => {
     const usage = {
       prompt_tokens: 1000,
       completion_tokens: 100,
       total_tokens: 1100,
-      ...(cachedTokens !== undefined && { prompt_cache_hit_tokens: cachedTokens }),
+      ...(cachedTokens === undefined
+        ? {}
+        : provider === 'deepseek'
+          ? { prompt_cache_hit_tokens: cachedTokens }
+          : { prompt_tokens_details: { cached_tokens: cachedTokens } }),
     }
     mocks.chat.mockResolvedValueOnce(
       stream
         ? (async function* () {
-            yield { choices: [{ delta: { content: 'Done' }, finish_reason: 'stop' }], usage }
+            yield { choices: [{ delta: { content: 'Done' } }] }
+            yield provider === 'groq' ? { choices: [], x_groq: { usage } } : { choices: [], usage }
           })()
         : { ...completion(), usage }
     )
-    const result = await executeProviderRequest('deepseek', request(model, { stream }))
+    const result = await executeProviderRequest(provider, request(model, { stream }))
     if ('stream' in result) expect(await new Response(result.stream).text()).toBe('Done')
     const output = 'stream' in result ? result.execution.output : result
-    expect(output.tokens).toEqual({ prompt: 1000, completion: 100, total: 1100 })
+    expect(output.tokens).toEqual(
+      provider === 'fireworks' && stream
+        ? { input: 1000, output: 100, total: 1100 }
+        : { prompt: 1000, completion: 100, total: 1100 }
+    )
     expect(output.cost.input).toBeCloseTo(inputCost, 8)
     expect(output.cost.output).toBeCloseTo(outputCost, 8)
     expect(output.cost.total).toBeCloseTo(inputCost + outputCost, 8)
   }
 )
 
-it.each([false, true])(
-  'preserves DeepSeek cached usage across tool turns, stream=%s',
-  async (stream) => {
-    const usage = { prompt_tokens: 1000, completion_tokens: 100, total_tokens: 1100 }
+it.each(
+  cachedChatModels.flatMap(([provider, model, cold, partial, cached, outputCost]) =>
+    [false, true].map((stream) => ({ provider, model, cold, partial, cached, outputCost, stream }))
+  )
+)(
+  'preserves $model cached usage across tool turns, stream=$stream',
+  async ({ provider, model, cold, partial, cached, outputCost, stream }) => {
+    const usages = [0, 500, 1000].map((cachedTokens) => ({
+      prompt_tokens: 1000,
+      completion_tokens: 100,
+      total_tokens: 1100,
+      ...(provider === 'deepseek'
+        ? { prompt_cache_hit_tokens: cachedTokens }
+        : { prompt_tokens_details: { cached_tokens: cachedTokens } }),
+    }))
+    const content = provider === 'fireworks' ? '{"value":42}' : 'Done'
     mocks.chat
       .mockResolvedValueOnce({
         ...completion({ role: 'assistant', content: null, tool_calls: [toolCall('cached-tool')] }),
-        usage: { ...usage, prompt_cache_hit_tokens: 0 },
+        usage: usages[0],
       })
-      .mockResolvedValueOnce({ ...completion(), usage: { ...usage, prompt_cache_hit_tokens: 500 } })
+      .mockResolvedValueOnce({ ...completion(), usage: usages[1] })
       .mockResolvedValueOnce(
-        (async function* () {
-          yield {
-            choices: [{ delta: { content: 'Done' }, finish_reason: 'stop' }],
-            usage: { ...usage, prompt_cache_hit_tokens: 1000 },
-          }
-        })()
+        stream
+          ? (async function* () {
+              yield { choices: [{ delta: { content } }] }
+              yield provider === 'groq'
+                ? { choices: [], x_groq: { usage: usages[2] } }
+                : { choices: [], usage: usages[2] }
+            })()
+          : { ...completion({ role: 'assistant', content }), usage: usages[2] }
       )
     mocks.tool.mockResolvedValueOnce({ success: true, output: { cost: { total: 2 } } })
     const result = await executeProviderRequest(
-      'deepseek',
-      request('deepseek-flash', { stream, tools: [tool] })
+      provider,
+      request(model, {
+        stream,
+        tools: [tool],
+        ...(provider === 'fireworks' && {
+          responseFormat: {
+            schema: {
+              type: 'object',
+              properties: { value: { type: 'number' } },
+              required: ['value'],
+              additionalProperties: false,
+            },
+          },
+        }),
+      })
     )
-    if ('stream' in result) expect(await new Response(result.stream).text()).toBe('Done')
+    if ('stream' in result) expect(await new Response(result.stream).text()).toBe(content)
     const output = 'stream' in result ? result.execution.output : result
-    const calls = stream ? 3 : 2
-    expect(output.tokens).toEqual({
-      prompt: calls * 1000,
-      completion: calls * 100,
-      total: calls * 1100,
-    })
-    expect(output.cost.input).toBeCloseTo(stream ? 0.000459 : 0.000453, 8)
-    expect(output.cost.output).toBeCloseTo(stream ? 0.00036 : 0.00024, 8)
+    const calls = stream || provider === 'fireworks' ? 3 : 2
+    expect(output.tokens).toEqual(
+      provider === 'fireworks' && stream
+        ? { input: calls * 1000, output: calls * 100, total: calls * 1100 }
+        : { prompt: calls * 1000, completion: calls * 100, total: calls * 1100 }
+    )
+    const inputCost = cold + partial + (calls === 3 ? cached : 0)
+    expect(output.cost.input).toBeCloseTo(inputCost, 8)
+    expect(output.cost.output).toBeCloseTo(outputCost * calls, 8)
     expect(output.cost.toolCost).toBe(2)
-    expect(output.cost.total).toBeCloseTo(stream ? 2.000819 : 2.000693, 8)
+    expect(output.cost.total).toBeCloseTo(2 + inputCost + outputCost * calls, 8)
     expect(mocks.chat).toHaveBeenCalledTimes(calls)
     expect(mocks.tool).toHaveBeenCalledTimes(1)
   }

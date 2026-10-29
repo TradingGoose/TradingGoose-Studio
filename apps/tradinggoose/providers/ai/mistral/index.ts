@@ -177,7 +177,8 @@ export const mistralProvider: ProviderConfig = {
               streamingResult.execution.output.cost = calculateCost(
                 request.model,
                 usage.prompt_tokens,
-                usage.completion_tokens
+                usage.completion_tokens,
+                usage.prompt_tokens_details?.cached_tokens ?? 0
               )
             }
           ),
@@ -252,7 +253,11 @@ export const mistralProvider: ProviderConfig = {
         total: currentResponse.usage?.total_tokens || 0,
       }
       const cost = createModelCost(request.model)
-      cost.add(tokens.prompt, tokens.completion)
+      cost.add(
+        tokens.prompt,
+        tokens.completion,
+        currentResponse.usage?.prompt_tokens_details?.cached_tokens ?? 0
+      )
       const toolCalls = []
       const toolResults: Record<string, unknown>[] = []
       const currentMessages = [...allMessages]
@@ -413,7 +418,8 @@ export const mistralProvider: ProviderConfig = {
           tokens.total += currentResponse.usage.total_tokens || 0
           cost.add(
             currentResponse.usage.prompt_tokens || 0,
-            currentResponse.usage.completion_tokens || 0
+            currentResponse.usage.completion_tokens || 0,
+            currentResponse.usage.prompt_tokens_details?.cached_tokens ?? 0
           )
         }
 
@@ -445,7 +451,11 @@ export const mistralProvider: ProviderConfig = {
                 completion: tokens.completion + usage.completion_tokens,
                 total: tokens.total + usage.total_tokens,
               }
-              cost.add(usage.prompt_tokens, usage.completion_tokens)
+              cost.add(
+                usage.prompt_tokens,
+                usage.completion_tokens,
+                usage.prompt_tokens_details?.cached_tokens ?? 0
+              )
               streamingResult.execution.output.cost = withToolCosts(cost.value, toolResults)
             }
           ),

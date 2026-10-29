@@ -1,5 +1,6 @@
 import OpenAI from 'openai'
 import type { ChatCompletionCreateParamsStreaming } from 'openai/resources/chat/completions'
+import type { CompletionUsage } from 'openai/resources/completions'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
@@ -15,8 +16,8 @@ import type {
 } from '@/providers/ai/types'
 import { ProviderError } from '@/providers/ai/types'
 import {
-  calculateCost,
   checkForForcedToolUsageOpenAI,
+  createModelCost,
   createOpenAICompatibleStream,
   prepareToolExecution,
   prepareToolsWithUsageControl,
@@ -48,6 +49,20 @@ export const fireworksProvider: ProviderConfig = {
   ): Promise<ProviderResponse | StreamingExecution> => {
     if (!request.apiKey) {
       throw new Error('API key is required for Fireworks')
+    }
+
+    const tokens = { input: 0, output: 0, total: 0 }
+    const cost = createModelCost(request.model)
+    const recordUsage = (usage?: CompletionUsage) => {
+      if (!usage) return
+      tokens.input += usage.prompt_tokens ?? 0
+      tokens.output += usage.completion_tokens ?? 0
+      tokens.total += usage.total_tokens ?? 0
+      cost.add(
+        usage.prompt_tokens ?? 0,
+        usage.completion_tokens ?? 0,
+        usage.prompt_tokens_details?.cached_tokens ?? 0
+      )
     }
 
     const client = new OpenAI({
@@ -131,28 +146,13 @@ export const fireworksProvider: ProviderConfig = {
           request.abortSignal ? { signal: request.abortSignal } : undefined
         )
 
-        const streamingResult = {
+        const streamingResult: StreamingExecution = {
           stream: createOpenAICompatibleStream(
             streamResponse as any,
             'Fireworks',
             (content, usage) => {
+              recordUsage(usage)
               streamingResult.execution.output.content = content
-              streamingResult.execution.output.tokens = {
-                input: usage.prompt_tokens,
-                output: usage.completion_tokens,
-                total: usage.total_tokens,
-              }
-
-              const costResult = calculateCost(
-                request.model,
-                usage.prompt_tokens,
-                usage.completion_tokens
-              )
-              streamingResult.execution.output.cost = {
-                input: costResult.input,
-                output: costResult.output,
-                total: costResult.total,
-              }
 
               const end = Date.now()
               const endISO = new Date(end).toISOString()
@@ -172,7 +172,7 @@ export const fireworksProvider: ProviderConfig = {
             output: {
               content: '',
               model: request.model,
-              tokens: { input: 0, output: 0, total: 0 },
+              tokens,
               toolCalls: undefined,
               providerTiming: {
                 startTime: providerStartTimeISO,
@@ -188,7 +188,7 @@ export const fireworksProvider: ProviderConfig = {
                   },
                 ],
               },
-              cost: { input: 0, output: 0, total: 0 },
+              cost: cost.value,
             },
             logs: [],
             metadata: {
@@ -197,9 +197,9 @@ export const fireworksProvider: ProviderConfig = {
               duration: Date.now() - providerStartTime,
             },
           },
-        } as StreamingExecution
+        }
 
-        return streamingResult as StreamingExecution
+        return streamingResult
       }
 
       const initialCallTime = Date.now()
@@ -212,13 +212,9 @@ export const fireworksProvider: ProviderConfig = {
         request.abortSignal ? { signal: request.abortSignal } : undefined
       )
       const firstResponseTime = Date.now() - initialCallTime
+      recordUsage(currentResponse.usage)
 
       let content = currentResponse.choices[0]?.message?.content || ''
-      const tokens = {
-        input: currentResponse.usage?.prompt_tokens || 0,
-        output: currentResponse.usage?.completion_tokens || 0,
-        total: currentResponse.usage?.total_tokens || 0,
-      }
       const toolCalls: FunctionCallResponse[] = []
       const toolResults: Record<string, unknown>[] = []
       const currentMessages = [...allMessages]
@@ -406,17 +402,11 @@ export const fireworksProvider: ProviderConfig = {
         if (currentResponse.choices[0]?.message?.content) {
           content = currentResponse.choices[0].message.content
         }
-        if (currentResponse.usage) {
-          tokens.input += currentResponse.usage.prompt_tokens || 0
-          tokens.output += currentResponse.usage.completion_tokens || 0
-          tokens.total += currentResponse.usage.total_tokens || 0
-        }
+        recordUsage(currentResponse.usage)
         iterationCount++
       }
 
       if (request.stream) {
-        const accumulatedCost = calculateCost(request.model, tokens.input, tokens.output)
-
         const streamingParams: ChatCompletionCreateParamsStreaming = {
           ...payload,
           messages: [...currentMessages],
@@ -434,26 +424,14 @@ export const fireworksProvider: ProviderConfig = {
           request.abortSignal ? { signal: request.abortSignal } : undefined
         )
 
-        const streamingResult = {
+        const streamingResult: StreamingExecution = {
           stream: createOpenAICompatibleStream(
             streamResponse as any,
             'Fireworks',
             (content, usage) => {
+              recordUsage(usage)
               streamingResult.execution.output.content = content
-              streamingResult.execution.output.tokens = {
-                input: tokens.input + usage.prompt_tokens,
-                output: tokens.output + usage.completion_tokens,
-                total: tokens.total + usage.total_tokens,
-              }
-
-              streamingResult.execution.output.cost = withToolCosts(
-                calculateCost(
-                  request.model,
-                  tokens.input + usage.prompt_tokens,
-                  tokens.output + usage.completion_tokens
-                ),
-                toolResults
-              )
+              streamingResult.execution.output.cost = withToolCosts(cost.value, toolResults)
             }
           ),
           execution: {
@@ -461,7 +439,7 @@ export const fireworksProvider: ProviderConfig = {
             output: {
               content: '',
               model: request.model,
-              tokens: { input: tokens.input, output: tokens.output, total: tokens.total },
+              tokens,
               toolCalls:
                 toolCalls.length > 0
                   ? {
@@ -479,7 +457,7 @@ export const fireworksProvider: ProviderConfig = {
                 iterations: iterationCount + 1,
                 timeSegments: timeSegments,
               },
-              cost: withToolCosts(accumulatedCost, toolResults),
+              cost: withToolCosts(cost.value, toolResults),
             },
             logs: [],
             metadata: {
@@ -488,9 +466,9 @@ export const fireworksProvider: ProviderConfig = {
               duration: Date.now() - providerStartTime,
             },
           },
-        } as StreamingExecution
+        }
 
-        return streamingResult as StreamingExecution
+        return streamingResult
       }
 
       if (request.responseFormat && hasActiveTools) {
@@ -527,11 +505,7 @@ export const fireworksProvider: ProviderConfig = {
         if (finalResponse.choices[0]?.message?.content) {
           content = finalResponse.choices[0].message.content
         }
-        if (finalResponse.usage) {
-          tokens.input += finalResponse.usage.prompt_tokens || 0
-          tokens.output += finalResponse.usage.completion_tokens || 0
-          tokens.total += finalResponse.usage.total_tokens || 0
-        }
+        recordUsage(finalResponse.usage)
       }
 
       const providerEndTime = Date.now()
@@ -542,7 +516,7 @@ export const fireworksProvider: ProviderConfig = {
         content,
         model: request.model,
         tokens,
-        cost: calculateCost(request.model, tokens.input, tokens.output),
+        cost: cost.value,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         toolResults: toolResults.length > 0 ? toolResults : undefined,
         timing: {
