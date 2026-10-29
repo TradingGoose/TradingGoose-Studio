@@ -2083,18 +2083,6 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
         },
       },
       {
-        /** Free preview retires September 30, 2026: https://docs.mistral.ai/resources/changelogs */
-        id: 'labs-leanstral-1-5',
-        pricing: {
-          input: 0,
-          cachedInput: 0,
-          output: 0,
-        },
-        capabilities: {
-          maxOutputTokens: 128000,
-        },
-      },
-      {
         id: 'mistral-large-latest',
         pricing: {
           input: 0.5,

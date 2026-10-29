@@ -68,12 +68,12 @@ describe('AI model catalog', () => {
       xai: 7,
       cerebras: 4,
       groq: 7,
-      mistral: 27,
+      mistral: 26,
       ollama: 0,
       bedrock: 37,
     })
     const models = Object.values(PROVIDER_DEFINITIONS).flatMap((provider) => provider.models)
-    expect(models).toHaveLength(180)
+    expect(models).toHaveLength(179)
     expect(new Set(models.map((model) => model.id)).size).toBe(models.length)
     const allProviders = getAllModelProviders()
     const baseProviders = getBaseModelProviders()
@@ -107,6 +107,7 @@ describe('AI model catalog', () => {
     'deepseek-chat',
     'deepseek-reasoner',
     'azure/model-router',
+    'labs-leanstral-1-5',
   ])('rejects uncatalogued static IDs and aliases: %s', (model) => {
     expect(() => getProviderFromModel(model)).toThrow('Unknown AI model:')
     expect(getProviderIcon(model)).toBeNull()
