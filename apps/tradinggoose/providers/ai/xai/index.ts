@@ -160,8 +160,7 @@ export const xAIProvider: ProviderConfig = {
           streamingResult.execution.output.cost = calculateCost(
             model,
             usage.prompt_tokens,
-            usage.completion_tokens,
-            !!request.context
+            usage.completion_tokens
           )
         }),
         execution: {
@@ -240,7 +239,7 @@ export const xAIProvider: ProviderConfig = {
         completion: currentResponse.usage?.completion_tokens || 0,
         total: currentResponse.usage?.total_tokens || 0,
       }
-      const cost = createModelCost(model, !!request.context)
+      const cost = createModelCost(model)
       cost.add(tokens.prompt, tokens.completion)
       const toolCalls = []
       const toolResults: Record<string, unknown>[] = []

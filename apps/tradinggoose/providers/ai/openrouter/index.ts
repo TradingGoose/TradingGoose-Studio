@@ -381,12 +381,7 @@ export const openRouterProvider: ProviderConfig = {
                 }
                 streamingResult.execution.output.tokens = newTokens
                 streamingResult.execution.output.cost = withToolCosts(
-                  calculateCost(
-                    request.model,
-                    newTokens.prompt,
-                    newTokens.completion,
-                    !!request.context
-                  ),
+                  calculateCost(request.model, newTokens.prompt, newTokens.completion),
                   toolResults
                 )
               }
@@ -400,7 +395,7 @@ export const openRouterProvider: ProviderConfig = {
               model: request.model,
               tokens: { prompt: tokens.prompt, completion: tokens.completion, total: tokens.total },
               cost: withToolCosts(
-                calculateCost(request.model, tokens.prompt, tokens.completion, !!request.context),
+                calculateCost(request.model, tokens.prompt, tokens.completion),
                 toolResults
               ),
               toolCalls:
@@ -441,7 +436,7 @@ export const openRouterProvider: ProviderConfig = {
         content,
         model: request.model,
         tokens,
-        cost: calculateCost(request.model, tokens.prompt, tokens.completion, !!request.context),
+        cost: calculateCost(request.model, tokens.prompt, tokens.completion),
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         toolResults: toolResults.length > 0 ? toolResults : undefined,
         timing: {

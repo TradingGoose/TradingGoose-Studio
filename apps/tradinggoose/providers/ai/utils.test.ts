@@ -188,17 +188,20 @@ describe('Cost Calculation', () => {
     ] as const)(
       'uses the input-size pricing tier for %s at %s tokens',
       (model, tokens, input, cachedInput, output) => {
-        for (const cached of [false, true]) {
-          const result = calculateCost(model, tokens, 1000, cached)
+        for (const cachedTokens of [0, Math.floor(tokens / 2), tokens]) {
+          const result = calculateCost(model, tokens, 1000, cachedTokens)
           expect(result.pricing).toMatchObject({ input, cachedInput, output })
-          expect(result.input).toBeCloseTo((tokens * (cached ? cachedInput : input)) / 1e6, 8)
+          expect(result.input).toBeCloseTo(
+            ((tokens - cachedTokens) * input + cachedTokens * cachedInput) / 1e6,
+            8
+          )
           expect(result.output).toBeCloseTo(output / 1000, 8)
         }
       }
     )
 
     it.concurrent('should calculate cost correctly for known models', () => {
-      const result = calculateCost('gpt-4.1', 1000, 500, false)
+      const result = calculateCost('gpt-4.1', 1000, 500)
 
       expect(result.input).toBeGreaterThan(0)
       expect(result.output).toBeGreaterThan(0)
@@ -207,16 +210,20 @@ describe('Cost Calculation', () => {
       expect(result.pricing?.input).toBe(2) // GPT-4.1 pricing
     })
 
-    it.concurrent('should handle cached input pricing when enabled', () => {
-      const regularCost = calculateCost('gpt-4.1', 1000, 500, false)
-      const cachedCost = calculateCost('gpt-4.1', 1000, 500, true)
+    it.concurrent('prices only the cached portion of input', () => {
+      const regularCost = calculateCost('gpt-4.1', 1000, 500)
+      const partialCost = calculateCost('gpt-4.1', 1000, 500, 500)
+      const cachedCost = calculateCost('gpt-4.1', 1000, 500, 1000)
 
-      expect(cachedCost.input).toBeLessThan(regularCost.input)
-      expect(cachedCost.output).toBe(regularCost.output) // Output cost should be same
+      expect(regularCost.input).toBe(0.002)
+      expect(partialCost.input).toBe(0.00125)
+      expect(cachedCost.input).toBe(0.0005)
+      expect(partialCost.output).toBe(regularCost.output)
+      expect(cachedCost.output).toBe(regularCost.output)
     })
 
     it.concurrent('marks unknown model pricing explicitly', () => {
-      const result = calculateCost('unknown-model', 1000, 500, false)
+      const result = calculateCost('unknown-model', 1000, 500)
 
       expect(result.input).toBe(0)
       expect(result.output).toBe(0)
@@ -225,7 +232,7 @@ describe('Cost Calculation', () => {
     })
 
     it.concurrent('should handle zero tokens', () => {
-      const result = calculateCost('gpt-4.1', 0, 0, false)
+      const result = calculateCost('gpt-4.1', 0, 0)
 
       expect(result.input).toBe(0)
       expect(result.output).toBe(0)

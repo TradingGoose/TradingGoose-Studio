@@ -96,7 +96,7 @@ export async function executeResponsesRequest(
   const startTime = Date.now()
   const startTimeISO = new Date(startTime).toISOString()
   const tokens = { prompt: 0, completion: 0, total: 0 }
-  const cost = createModelCost(request.model, !!request.context)
+  const cost = createModelCost(request.model)
   const toolCalls: FunctionCallResponse[] = []
   const toolResults: Record<string, unknown>[] = []
   const timeSegments: TimeSegment[] = []
@@ -173,7 +173,11 @@ export async function executeResponsesRequest(
         tokens.prompt += response.usage?.input_tokens ?? 0
         tokens.completion += response.usage?.output_tokens ?? 0
         tokens.total += response.usage?.total_tokens ?? 0
-        cost.add(response.usage?.input_tokens ?? 0, response.usage?.output_tokens ?? 0)
+        cost.add(
+          response.usage?.input_tokens ?? 0,
+          response.usage?.output_tokens ?? 0,
+          response.usage?.input_tokens_details?.cached_tokens ?? 0
+        )
 
         const calls = response.output.filter((item) => item.type === 'function_call')
         if (response.error) throw new Error(response.error.message)

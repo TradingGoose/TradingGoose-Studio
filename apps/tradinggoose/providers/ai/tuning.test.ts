@@ -580,6 +580,44 @@ it.each(['gpt-4.1', 'gpt-6.1-sol', 'azure/gpt-4.1', 'azure/gpt-6.1-sol', 'azure/
 )
 
 it.each(
+  ['gpt-4.1', 'azure/gpt-4.1'].flatMap((model) =>
+    (
+      [
+        [undefined, 0.002],
+        [0, 0.002],
+        [500, 0.00125],
+        [1000, 0.0005],
+      ] as const
+    ).flatMap(([cachedTokens, inputCost]) =>
+      [false, true].map((stream) => ({ model, cachedTokens, inputCost, stream }))
+    )
+  )
+)(
+  'prices $model using reported cached tokens=$cachedTokens, stream=$stream',
+  async ({ model, cachedTokens, inputCost, stream }) => {
+    const usage = {
+      input_tokens: 1000,
+      output_tokens: 100,
+      total_tokens: 1100,
+      ...(cachedTokens !== undefined && { input_tokens_details: { cached_tokens: cachedTokens } }),
+    }
+    respond({ ...response(), usage })
+    const provider = model.startsWith('azure/') ? 'azure-openai' : 'openai'
+    const result = await executeProviderRequest(provider, request(model, { stream }))
+    if ('stream' in result) expect(await new Response(result.stream).text()).toBe('Done')
+    const output = 'stream' in result ? result.execution.output : result
+    expect(output.tokens).toEqual({ prompt: 1000, completion: 100, total: 1100 })
+    expect(output.cost.input).toBeCloseTo(inputCost, 8)
+    expect(output.cost.output).toBeCloseTo(0.0008, 8)
+    expect(output.cost.total).toBeCloseTo(inputCost + 0.0008, 8)
+    expect(mocks.responses.mock.calls[0][0].input).toContainEqual({
+      role: 'user',
+      content: 'Analyze',
+    })
+  }
+)
+
+it.each(
   ['gpt-6.1-sol', 'azure/gpt-6.1-sol', 'azure/gpt-5.6-sol'].flatMap((model) =>
     [false, true].map((stream) => ({ model, stream }))
   )
@@ -587,8 +625,7 @@ it.each(
   'replays and prices each $model Responses tool turn, stream=$stream',
   async ({ model, stream }) => {
     const provider: ProviderId = model.startsWith('azure/') ? 'azure-openai' : 'openai'
-    const inputRate = model === 'azure/gpt-5.6-sol' ? 4 : 2
-    const outputRate = model === 'azure/gpt-5.6-sol' ? 20 : 10
+    const [inputCost, outputCost] = model === 'azure/gpt-5.6-sol' ? [1.26, 0.006] : [0.882, 0.0035]
     const firstOutput = [
       { type: 'reasoning', id: 'reasoning', encrypted_content: 'opaque', summary: [] },
       { type: 'message', content: [{ type: 'output_text', text: 'Checking' }] },
@@ -599,8 +636,17 @@ it.each(
       response([{ type: 'function_call', call_id: 'second', name: 'second', arguments: '{}' }]),
       response(),
     ]
-    const usage = { input_tokens: 140000, output_tokens: 100, total_tokens: 140100 }
-    respond(...turns.map((turn) => ({ ...turn, usage })))
+    respond(
+      ...turns.map((turn, index) => ({
+        ...turn,
+        usage: {
+          input_tokens: index === 1 ? 280000 : 140000,
+          output_tokens: 100,
+          total_tokens: index === 1 ? 280100 : 140100,
+          input_tokens_details: { cached_tokens: index === 0 ? 0 : 140000 },
+        },
+      }))
+    )
     mocks.tool.mockResolvedValue({ success: true, output: { value: 42, cost: { total: 2 } } })
     const result = await executeProviderRequest(
       provider,
@@ -622,12 +668,12 @@ it.each(
     }
     expect(output).toMatchObject({
       content: 'Done',
-      tokens: { prompt: 420000, completion: 300, total: 420300 },
+      tokens: { prompt: 560000, completion: 300, total: 560300 },
       cost: { toolCost: 4 },
     })
-    expect(output.cost.input).toBeCloseTo(0.42 * inputRate, 8)
-    expect(output.cost.output).toBeCloseTo(0.0003 * outputRate, 8)
-    expect(output.cost.total).toBeCloseTo(4 + 0.42 * inputRate + 0.0003 * outputRate, 8)
+    expect(output.cost.input).toBeCloseTo(inputCost, 8)
+    expect(output.cost.output).toBeCloseTo(outputCost, 8)
+    expect(output.cost.total).toBeCloseTo(4 + inputCost + outputCost, 8)
     expect(mocks.responses).toHaveBeenCalledTimes(3)
     expect(mocks.tool).toHaveBeenCalledTimes(2)
     expect(mocks.responses.mock.calls.map(([payload]) => payload.tool_choice)).toEqual([

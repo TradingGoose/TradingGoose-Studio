@@ -1,7 +1,12 @@
-import { beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { handleAIProviderRequest } from '@/app/api/providers/ai/handler'
+import { EvaluatorBlockHandler } from '@/executor/handlers/evaluator/evaluator-handler'
+import { RouterBlockHandler } from '@/executor/handlers/router/router-handler'
+import { PathTracker } from '@/executor/path/path'
+import type { ExecutionContext } from '@/executor/types'
 import { openaiProvider } from '@/providers/ai/openai'
 import { decodeProviderStream } from '@/providers/ai/streaming'
+import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 
 const mocks = vi.hoisted(() => ({ execute: vi.fn(), responses: vi.fn(), tool: vi.fn() }))
 vi.mock('@/providers/ai', () => ({ executeProviderRequest: mocks.execute }))
@@ -17,6 +22,8 @@ beforeEach(() => {
   vi.resetAllMocks()
   mocks.execute.mockImplementation((_provider, request) => openaiProvider.executeRequest(request))
 })
+
+afterEach(() => vi.unstubAllGlobals())
 
 it.each([false, true])('preserves completed OpenAI HTTP metadata, tools=%s', async (withTools) => {
   let finishTool!: () => void
@@ -120,3 +127,73 @@ it.each([false, true])('preserves completed OpenAI HTTP metadata, tools=%s', asy
     })
   expect(mocks.responses).toHaveBeenCalledTimes(calls)
 })
+
+it.each(['router', 'evaluator'])(
+  'preserves uncached OpenAI costs through %s execution',
+  async (kind) => {
+    const block: SerializedBlock = {
+      id: 'source',
+      position: { x: 0, y: 0 },
+      config: { tool: kind, params: {} },
+      inputs: {},
+      outputs: {},
+      enabled: true,
+    }
+    const workflow: SerializedWorkflow = {
+      version: '1',
+      blocks: [block, { ...block, id: 'target' }],
+      connections: [{ source: block.id, target: 'target' }],
+      loops: {},
+    }
+    const context = {
+      workflowId: 'cost-test',
+      workflow,
+      blockStates: new Map(),
+    } as ExecutionContext
+    mocks.responses.mockResolvedValue({
+      status: 'completed',
+      output: [
+        {
+          type: 'message',
+          content: [{ type: 'output_text', text: kind === 'router' ? 'target' : '{"score":1}' }],
+        },
+      ],
+      usage: {
+        input_tokens: 1000,
+        output_tokens: 100,
+        total_tokens: 1100,
+        input_tokens_details: { cached_tokens: 0 },
+      },
+    })
+    vi.stubGlobal('fetch', async (_url: string, init: RequestInit) =>
+      handleAIProviderRequest({
+        providerId: 'openai',
+        requestId: 'handler-cost-test',
+        startTime: Date.now(),
+        authUserId: 'user',
+        body: JSON.parse(init.body as string),
+      })
+    )
+    const handler =
+      kind === 'router'
+        ? new RouterBlockHandler(new PathTracker(workflow))
+        : new EvaluatorBlockHandler()
+    const result = await handler.execute(
+      block,
+      {
+        model: 'gpt-4.1',
+        apiKey: 'test-key',
+        prompt: 'Choose a path',
+        content: 'Evaluate this',
+        metrics: [{ name: 'score', range: { min: 0, max: 1 } }],
+      },
+      context
+    )
+    expect(mocks.execute).toHaveBeenCalledTimes(1)
+    expect(mocks.execute.mock.calls[0][1].context).toBeTruthy()
+    expect(result).toMatchObject({
+      cost: { input: 0.002, output: 0.0008, total: 0.0028 },
+      ...(kind === 'router' ? { selectedPath: { blockId: 'target' } } : { score: 1 }),
+    })
+  }
+)

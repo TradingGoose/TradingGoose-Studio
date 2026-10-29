@@ -147,16 +147,16 @@ export async function transformBlockTool(
  * Calculate cost for token usage based on model pricing
  *
  * @param model The model name
- * @param promptTokens Number of prompt tokens used
+ * @param promptTokens Total prompt tokens, including cache reads
  * @param completionTokens Number of completion tokens used
- * @param useCachedInput Whether to use cached input pricing (default: false)
+ * @param cachedInputTokens Number of prompt tokens retrieved from cache
  * @returns Cost calculation results with input, output and total costs
  */
 export function calculateCost(
   model: string,
   promptTokens = 0,
   completionTokens = 0,
-  useCachedInput = false
+  cachedInputTokens = 0
 ) {
   let pricing = getModelPricing(model)
 
@@ -184,11 +184,11 @@ export function calculateCost(
 
   // Calculate costs in USD
   // Convert from "per million tokens" to "per token" by dividing by 1,000,000
+  const cachedTokens = Math.min(promptTokens, Math.max(0, cachedInputTokens))
   const inputCost =
-    promptTokens *
-    (useCachedInput && pricing.cachedInput !== undefined
-      ? pricing.cachedInput / 1_000_000
-      : pricing.input / 1_000_000)
+    ((promptTokens - cachedTokens) * pricing.input +
+      cachedTokens * (pricing.cachedInput ?? pricing.input)) /
+    1_000_000
 
   const outputCost = completionTokens * (pricing.output / 1_000_000)
   return {
@@ -199,12 +199,12 @@ export function calculateCost(
   }
 }
 
-export function createModelCost(model: string, useCachedInput = false) {
+export function createModelCost(model: string) {
   const value = calculateCost(model)
   return {
     value,
-    add(input: number, output: number) {
-      const cost = calculateCost(model, input, output, useCachedInput)
+    add(input: number, output: number, cachedInputTokens = 0) {
+      const cost = calculateCost(model, input, output, cachedInputTokens)
       value.input += cost.input
       value.output += cost.output
       value.total += cost.total

@@ -146,8 +146,7 @@ export const groqProvider: ProviderConfig = {
           streamingResult.execution.output.cost = calculateCost(
             request.model,
             tokens.prompt,
-            tokens.completion,
-            !!request.context
+            tokens.completion
           )
         }),
         execution: {
@@ -390,7 +389,7 @@ export const groqProvider: ProviderConfig = {
             streamingResult.execution.output.content = content
             streamingResult.execution.output.tokens = tokens
             streamingResult.execution.output.cost = withToolCosts(
-              calculateCost(request.model, tokens.prompt, tokens.completion, !!request.context),
+              calculateCost(request.model, tokens.prompt, tokens.completion),
               toolResults
             )
           }),
@@ -422,7 +421,7 @@ export const groqProvider: ProviderConfig = {
                 timeSegments: timeSegments,
               },
               cost: withToolCosts(
-                calculateCost(request.model, tokens.prompt, tokens.completion, !!request.context),
+                calculateCost(request.model, tokens.prompt, tokens.completion),
                 toolResults
               ),
             },
@@ -449,7 +448,7 @@ export const groqProvider: ProviderConfig = {
         content,
         model: request.model,
         tokens,
-        cost: calculateCost(request.model, tokens.prompt, tokens.completion, !!request.context),
+        cost: calculateCost(request.model, tokens.prompt, tokens.completion),
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         toolResults: toolResults.length > 0 ? toolResults : undefined,
         timing: {

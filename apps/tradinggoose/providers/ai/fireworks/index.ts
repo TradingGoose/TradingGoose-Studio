@@ -542,7 +542,7 @@ export const fireworksProvider: ProviderConfig = {
         content,
         model: request.model,
         tokens,
-        cost: calculateCost(request.model, tokens.input, tokens.output, !!request.context),
+        cost: calculateCost(request.model, tokens.input, tokens.output),
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         toolResults: toolResults.length > 0 ? toolResults : undefined,
         timing: {
