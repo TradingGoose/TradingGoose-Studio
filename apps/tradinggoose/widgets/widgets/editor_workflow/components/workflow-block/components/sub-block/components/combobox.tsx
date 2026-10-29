@@ -105,26 +105,20 @@ export function ComboBox({
     })
   }, [evaluatedOptions, value])
 
-  // Get the default option value (prefer gpt-4o, then provided defaultValue, then first option)
+  // Get the explicit default or first option when automatic selection is enabled.
   const defaultOptionValue = useMemo(() => {
     if (defaultValue !== undefined) {
       return defaultValue
     }
 
-    // For model field, default to gpt-4o if available
-    if (subBlockId === 'model') {
-      const gpt4o = evaluatedOptions.find((opt) => getOptionValue(opt) === 'gpt-4o')
-      if (gpt4o) {
-        return getOptionValue(gpt4o)
-      }
-    }
+    if (config.autoSelectFirstOption === false) return undefined
 
     if (evaluatedOptions.length > 0) {
       return getOptionValue(evaluatedOptions[0])
     }
 
     return undefined
-  }, [defaultValue, evaluatedOptions, subBlockId])
+  }, [defaultValue, evaluatedOptions, config.autoSelectFirstOption])
 
   // Mark store as initialized on first render
   useEffect(() => {

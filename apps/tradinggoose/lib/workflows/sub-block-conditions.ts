@@ -1,3 +1,4 @@
+import { extractEnvironmentReferences, extractReferencePrefixes } from '@/lib/workflows/references'
 import type { SubBlockCondition } from '@/blocks/types'
 import { MODEL_CONTROL_GETTERS } from '@/providers/ai/models'
 
@@ -7,7 +8,11 @@ function matchesConditionValue(condition: SubBlockCondition, value: unknown): bo
   const matches =
     condition.operator === 'modelCapability'
       ? typeof fieldValue === 'string' &&
-        Boolean(MODEL_CONTROL_GETTERS[condition.value](fieldValue)?.length)
+        Boolean(
+          extractReferencePrefixes(fieldValue).length ||
+            extractEnvironmentReferences(fieldValue).length ||
+            MODEL_CONTROL_GETTERS[condition.value](fieldValue)?.length
+        )
       : Array.isArray(condition.value)
         ? condition.value.includes(fieldValue as string | number | boolean)
         : fieldValue === condition.value

@@ -2247,24 +2247,40 @@ describe('InputResolver', () => {
     })
 
     it.each([
-      ['claude-haiku-4-5', 'claude-haiku-4-5', true],
-      ['claude-opus-5-5', 'claude-opus-5-5', true],
-      ['claude-haiku-4-5-20251001', 'claude-haiku-4-5-20251001', false],
-      ['gpt-4.1', 'gpt-4.1', false],
-      ['<variable.stringVar>', 'claude-opus-5-5', true],
-    ] as const)('resolves Agent thinking eligibility for %s', (model, resolvedModel, supported) => {
-      mockGetBlock.mockReturnValue(AgentBlock)
-      mockWorkflowVars.stringVar.value = resolvedModel
-      const block = {
-        ...sampleWorkflow.blocks[1],
-        metadata: { id: BlockType.AGENT },
-        config: { tool: BlockType.AGENT, params: { thinkingLevel: 'high', model } },
-      }
+      ['claude-haiku-4-5', 'claude-haiku-4-5', { thinkingLevel: 'high' }],
+      ['claude-opus-5-5', 'claude-opus-5-5', { thinkingLevel: 'high' }],
+      ['claude-haiku-4-5-20251001', 'claude-haiku-4-5-20251001', {}],
+      ['gpt-4.1', 'gpt-4.1', {}],
+      ...['<variable.stringVar>', '{{MODEL}}', '<start.model>'].flatMap(
+        (model) =>
+          [
+            [model, 'claude-opus-5-5', { thinkingLevel: 'high' }],
+            [model, 'gpt-5.4', { reasoningEffort: 'high', verbosity: 'high' }],
+            [model, 'gpt-4.1', {}],
+          ] as const
+      ),
+    ] as const)(
+      'resolves Agent tuning eligibility for %s as %s',
+      (model, resolvedModel, expected) => {
+        mockGetBlock.mockReturnValue(AgentBlock)
+        mockWorkflowVars.stringVar.value = resolvedModel
+        mockEnvironmentVars.MODEL = resolvedModel
+        mockContext.blockStates.get('trigger-block').output.model = resolvedModel
+        const block = {
+          ...sampleWorkflow.blocks[1],
+          metadata: { id: BlockType.AGENT },
+          config: {
+            tool: BlockType.AGENT,
+            params: { thinkingLevel: 'high', reasoningEffort: 'high', verbosity: 'high', model },
+          },
+        }
 
-      expect(resolver.resolveInputs(block, mockContext)).toEqual(
-        supported ? { model: resolvedModel, thinkingLevel: 'high' } : { model: resolvedModel }
-      )
-    })
+        expect(resolver.resolveInputs(block, mockContext)).toEqual({
+          model: resolvedModel,
+          ...expected,
+        })
+      }
+    )
 
     it.each(['json', 'structured'])('resolves Response mode references to %s', async (mode) => {
       mockGetBlock.mockReturnValue(ResponseBlock)

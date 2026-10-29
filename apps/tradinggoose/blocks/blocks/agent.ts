@@ -27,12 +27,11 @@ const modelControl = (id: ModelControl, title: string): SubBlockConfig => ({
   id,
   title,
   description: 'Available levels depend on the model. Unset or Auto uses the provider default.',
-  type: 'dropdown',
+  type: 'combobox',
   layout: 'half',
   placeholder: 'Auto (provider default)',
   additional: true,
   autoSelectFirstOption: false,
-  dependsOn: ['model'],
   condition: { field: 'model', operator: 'modelCapability', value: id },
   options: (params) => [
     { label: 'Auto (provider default)', id: 'auto' },

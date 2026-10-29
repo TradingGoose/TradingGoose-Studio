@@ -111,8 +111,24 @@ describe('AgentBlock', () => {
       if (typeof field.options !== 'function') throw new Error('Expected model-dependent options')
       expect(field.options({ model }).map((option) => option.id)).toEqual(['auto', ...levels])
       expect(field.autoSelectFirstOption).toBe(false)
+      expect(field.type).toBe('combobox')
+      expect(field.dependsOn).toBeUndefined()
     }
   })
+
+  it.each(['<variable.model>', '{{MODEL}}', 'gpt-<variable.version>', 'gpt-{{VERSION}}'])(
+    'keeps tuning controls editable until model %s resolves',
+    (model) => {
+      const fields = inspectorLayout(model).additionalRows.flat()
+      for (const id of ['reasoningEffort', 'verbosity', 'thinkingLevel']) {
+        const field = fields.find((field) => field.id === id)!
+        expect(field?.type).toBe('combobox')
+        expect(field.dependsOn).toBeUndefined()
+        if (typeof field.options !== 'function') throw new Error('Expected model-dependent options')
+        expect(field.options({ model }).map((option) => option.id)).toEqual(['auto'])
+      }
+    }
+  )
 
   it.each([
     ['reasoningEffort', 'gpt-4.1'],
