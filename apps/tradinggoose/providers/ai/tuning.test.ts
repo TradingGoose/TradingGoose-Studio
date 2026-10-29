@@ -517,6 +517,27 @@ it('rejects unqualified Ollama IDs at the wire boundary', async () => {
   )
 })
 
+it.each(
+  ['models/custom', 'deployments/prod'].flatMap((resource) =>
+    [false, true].map((stream) => ({ resource, stream }))
+  )
+)('sends qualified Fireworks $resource, stream=$stream', async ({ resource, stream }) => {
+  const wireModel = `accounts/acme/${resource}`
+  const model = `fireworks/${wireModel}`
+  mocks.chat.mockResolvedValueOnce(
+    stream
+      ? (async function* () {
+          yield { choices: [{ delta: { content: 'Done' } }] }
+        })()
+      : completion()
+  )
+  const result = await executeProviderRequest('fireworks', request(model, { stream }))
+  if ('stream' in result) expect(await new Response(result.stream).text()).toBe('Done')
+  const output = 'stream' in result ? result.execution.output : result
+  expect(output).toMatchObject({ model, content: 'Done' })
+  expect(mocks.chat.mock.calls[0][0].model).toBe(wireModel)
+})
+
 it.each([
   {
     provider: groqProvider,

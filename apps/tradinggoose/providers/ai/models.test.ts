@@ -131,6 +131,7 @@ describe('AI model catalog', () => {
     ['vllm', 'vllm/custom-model'],
     ['openrouter', 'openrouter/publisher/custom-model'],
     ['fireworks', 'fireworks/accounts/acme/models/custom'],
+    ['fireworks', 'fireworks/accounts/acme/deployments/prod'],
   ])('routes qualified %s models before client discovery', (provider, model) => {
     expect(getProviderFromModel(model)).toBe(provider)
     expect(() => getProviderFromModel(`${provider}/`)).toThrow('Unknown AI model:')
