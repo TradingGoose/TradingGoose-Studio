@@ -554,7 +554,6 @@ it.each(
     'azure/gpt-5.6-luna',
     'azure/gpt-5.4-pro',
     'azure/gpt-4.1',
-    'azure/model-router',
   ].flatMap((model) => [false, true].map((stream) => ({ model, stream })))
 )('executes $model through Responses, stream=$stream', async ({ model, stream }) => {
   const provider = model.startsWith('azure/') ? 'azure-openai' : 'openai'

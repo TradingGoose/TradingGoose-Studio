@@ -96,7 +96,7 @@ describe('Model Capabilities', () => {
         'o3-pro',
         'azure/o3',
         'azure/o4-mini',
-        'azure/model-router',
+        'azure/gpt-5.4-pro',
         // Reasoning GPT-5 models don't support temperature
         'gpt-5',
         'gpt-5-mini',

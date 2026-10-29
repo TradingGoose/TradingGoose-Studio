@@ -1126,14 +1126,6 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
           maxOutputTokens: 32768,
         },
       },
-      {
-        id: 'azure/model-router',
-        pricing: {
-          input: 2.0,
-          cachedInput: 0.5,
-          output: 8.0,
-        },
-      },
     ],
   },
   'azure-anthropic': {

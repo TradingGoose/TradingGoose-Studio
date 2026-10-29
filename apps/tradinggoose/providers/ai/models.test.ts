@@ -60,7 +60,7 @@ describe('AI model catalog', () => {
       vllm: 0,
       openai: 26,
       anthropic: 5,
-      'azure-openai': 25,
+      'azure-openai': 24,
       'azure-anthropic': 13,
       google: 13,
       vertex: 12,
@@ -73,7 +73,7 @@ describe('AI model catalog', () => {
       bedrock: 37,
     })
     const models = Object.values(PROVIDER_DEFINITIONS).flatMap((provider) => provider.models)
-    expect(models).toHaveLength(181)
+    expect(models).toHaveLength(180)
     expect(new Set(models.map((model) => model.id)).size).toBe(models.length)
     const allProviders = getAllModelProviders()
     const baseProviders = getBaseModelProviders()
@@ -106,6 +106,7 @@ describe('AI model catalog', () => {
     'deepseek-v4-flash',
     'deepseek-chat',
     'deepseek-reasoner',
+    'azure/model-router',
   ])('rejects uncatalogued static IDs and aliases: %s', (model) => {
     expect(() => getProviderFromModel(model)).toThrow('Unknown AI model:')
     expect(getProviderIcon(model)).toBeNull()
