@@ -3,10 +3,14 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
 import { JiraBlock } from '@/blocks/blocks/jira'
+import { SpotifyBlock } from '@/blocks/blocks/spotify'
 import type { SubBlockConfig } from '@/blocks/types'
 import { getWorkflowInspectorCopy } from '@/i18n/block-editor'
 import { localizeWorkflowSubBlockConfigWithCopy } from '@/i18n/workflow-inspector-core'
+import { spotifySetVolumeTool } from '@/tools/spotify/set_volume'
+import { validateRequiredParametersAfterMerge } from '@/tools/utils'
 import { SubBlockEditRows } from './sub-block-edit-rows'
 
 const control = vi.hoisted(() => vi.fn((_props: unknown) => null))
@@ -110,7 +114,7 @@ describe('slider fields', () => {
         <SubBlockEditRows
           blockId='agent'
           rows={[[field]]}
-          stateToUse={{ temperature: { value } }}
+          stateToUse={{ [field.id]: { value } }}
           disabled={disabled}
           rowKeyPrefix='slider'
         />
@@ -159,12 +163,36 @@ describe('slider fields', () => {
     }
   )
 
-  it('uses the declared default without persisting a visual fallback', () => {
+  it('uses the declared default without persisting a clearable value', () => {
     expect(render(undefined, { defaultValue: 0.3 }).value).toEqual([0.3])
     expect(container.textContent).toContain('0.3')
-    expect(render(undefined, { clearable: false }).value).toEqual([1])
-    expect(container.textContent).toContain('1.0')
     expect(sliderState.write).not.toHaveBeenCalled()
+  })
+
+  it('persists the displayed volume for a fresh Spotify Set Volume block', () => {
+    const volume = SpotifyBlock.subBlocks.find((field) => field.id === 'volume_percent')!
+    const state = buildInitialSubBlockStates(SpotifyBlock.subBlocks, {
+      operation: 'spotify_set_volume',
+    })
+    const validate = () =>
+      validateRequiredParametersAfterMerge(spotifySetVolumeTool.id, spotifySetVolumeTool, {
+        volume_percent: state.volume_percent.value,
+      })
+    expect(validate).toThrow('"Volume Percent" is required')
+    sliderState.write.mockImplementation((value) => {
+      state.volume_percent.value = value
+    })
+    expect(render(state.volume_percent.value, { ...volume, clearable: false }).value).toEqual([50])
+    expect(sliderState.write).toHaveBeenCalledExactlyOnceWith(50)
+    expect(state.volume_percent.value).toBe(50)
+    expect(container.textContent).toContain('50')
+    expect(validate).not.toThrow()
+  })
+
+  it('persists the displayed integer midpoint for a nonclearable slider', () => {
+    expect(render('', { min: 1, max: 50, integer: true, clearable: false }).value).toEqual([26])
+    expect(sliderState.write).toHaveBeenCalledExactlyOnceWith(26)
+    expect(container.textContent).toContain('26')
   })
 
   it('writes numeric zero on interaction and clears back to unset', () => {
@@ -186,6 +214,8 @@ describe('slider fields', () => {
     act(() => slider.onValueChange([0]))
     expect(container.querySelector('button')!.disabled).toBe(true)
     act(() => container.querySelector('button')!.click())
+    expect(sliderState.write).not.toHaveBeenCalled()
+    render('', { clearable: false }, true)
     expect(sliderState.write).not.toHaveBeenCalled()
   })
 })

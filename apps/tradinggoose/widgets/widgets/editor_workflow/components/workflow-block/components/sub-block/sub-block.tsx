@@ -145,17 +145,21 @@ function SubBlockSliderField({
   const isUnset = storeValue == null || (typeof storeValue === 'string' && !storeValue.trim())
   const numericValue = isUnset ? Number.NaN : Number(storeValue)
   const hasNumericValue = Number.isFinite(numericValue)
+  const effectiveValue = hasNumericValue ? numericValue : (defaultValue ?? (min + max) / 2)
   const normalizedValue = Math.max(
     min,
-    Math.min(max, hasNumericValue ? numericValue : (defaultValue ?? (min + max) / 2))
+    Math.min(max, integer ? Math.round(effectiveValue) : effectiveValue)
   )
   const range = max - min || 1
 
   useEffect(() => {
-    if (!disabled && hasNumericValue && numericValue !== normalizedValue) {
+    if (
+      !disabled &&
+      ((!clearable && isUnset) || (hasNumericValue && numericValue !== normalizedValue))
+    ) {
       setStoreValue(normalizedValue)
     }
-  }, [disabled, hasNumericValue, normalizedValue, numericValue, setStoreValue])
+  }, [clearable, disabled, hasNumericValue, isUnset, normalizedValue, numericValue, setStoreValue])
 
   return (
     <div className='flex items-start gap-2'>
@@ -191,7 +195,7 @@ function SubBlockSliderField({
             : isUnset && clearable && defaultValue === undefined
               ? placeholder
               : integer
-                ? Math.round(normalizedValue).toString()
+                ? normalizedValue.toString()
                 : normalizedValue.toFixed(1)}
         </div>
       </div>
