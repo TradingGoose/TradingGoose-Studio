@@ -3,8 +3,9 @@ import { isHosted } from '@/lib/environment'
 import { getAllBlocks } from '@/blocks'
 import { BlockType } from '@/executor/consts'
 import { AgentBlockHandler } from '@/executor/handlers/agent/agent-handler'
-import type { ExecutionContext, StreamingExecution } from '@/executor/types'
+import type { ExecutionContext, NormalizedBlockOutput, StreamingExecution } from '@/executor/types'
 import { getProviderFromModel } from '@/providers/ai/models'
+import { openaiProvider } from '@/providers/ai/openai'
 import { transformBlockTool } from '@/providers/ai/utils'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 import { executeTool } from '@/tools'
@@ -12,11 +13,17 @@ import { executeTool } from '@/tools'
 process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
 
 const mockResolveSkillMetadata = vi.hoisted(() => vi.fn())
-const { mockExecuteProviderRequest, mockGetApiKey } = vi.hoisted(() => ({
+const { mockExecuteProviderRequest, mockGetApiKey, mockResponses } = vi.hoisted(() => ({
   mockExecuteProviderRequest: vi.fn(),
   mockGetApiKey: vi.fn(),
+  mockResponses: vi.fn(),
 }))
 
+vi.mock('openai', () => ({
+  default: class {
+    responses = { create: mockResponses }
+  },
+}))
 vi.mock('@/providers/ai', () => ({ executeProviderRequest: mockExecuteProviderRequest }))
 vi.mock('@/providers/ai/utils-server', () => ({ getApiKey: mockGetApiKey }))
 
@@ -67,6 +74,7 @@ describe('AgentBlockHandler', () => {
   beforeEach(() => {
     handler = new AgentBlockHandler()
     vi.clearAllMocks()
+    mockResponses.mockReset()
 
     Object.defineProperty(global, 'window', {
       value: {},
@@ -1018,6 +1026,119 @@ describe('AgentBlockHandler', () => {
       await expect(handler.execute(mockBlock, inputs, mockContext)).rejects.toThrow(
         'Provider API Error'
       )
+    })
+
+    it.each([false, true])('names completed OpenAI tool calls, stream=%s', async (stream) => {
+      Object.defineProperty(global, 'window', { value: undefined, configurable: true })
+      mockGetProviderFromModel.mockReturnValue('openai')
+      mockGetApiKey.mockResolvedValue('test-api-key')
+      mockContext.stream = stream
+      let finishTool!: () => void
+      const pendingTool = new Promise<void>((resolve) => {
+        finishTool = resolve
+      })
+      mockExecuteTool.mockImplementationOnce(async () => {
+        if (stream) await pendingTool
+        return { success: true, output: { price: 42 } }
+      })
+      mockResponses.mockImplementation(async (payload) => {
+        const done = payload.input.some(
+          (item: { type: string }) => item.type === 'function_call_output'
+        )
+        const response = {
+          status: 'completed',
+          output: done
+            ? [{ type: 'message', content: [{ type: 'output_text', text: 'Done' }] }]
+            : [
+                {
+                  type: 'function_call',
+                  call_id: 'prices-call',
+                  name: 'custom_price_lookup',
+                  arguments: '{}',
+                },
+              ],
+          usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
+        }
+        return payload.stream
+          ? (async function* () {
+              if (done) yield { type: 'response.output_text.delta', delta: 'Done' }
+              yield { type: 'response.completed', response }
+            })()
+          : response
+      })
+      mockExecuteProviderRequest.mockImplementationOnce((_provider, request) =>
+        openaiProvider.executeRequest(request)
+      )
+      const result = await handler.execute(
+        mockBlock,
+        {
+          model: 'gpt-6.1-sol',
+          userPrompt: 'Get prices',
+          tools: [
+            {
+              type: 'custom-tool',
+              title: 'Get prices',
+              toolId: 'custom_price_lookup',
+              code: 'return { price: 42 }',
+              schema: {
+                function: {
+                  description: 'Get prices',
+                  parameters: { type: 'object', properties: {} },
+                },
+              },
+            },
+          ],
+        },
+        mockContext
+      )
+      const output = (
+        stream ? (result as StreamingExecution).execution.output : result
+      ) as NormalizedBlockOutput
+      if (stream) {
+        expect(output.toolCalls).toBeUndefined()
+        finishTool()
+        expect(await new Response((result as StreamingExecution).stream).text()).toBe('Done')
+        expect((result as StreamingExecution).execution.output).toBe(output)
+      }
+      expect(output).toMatchObject({
+        toolCalls: { list: [{ id: 'custom_price_lookup', name: 'Get prices' }] },
+      })
+      expect(mockResponses).toHaveBeenCalledTimes(2)
+      expect(mockResponses.mock.calls[0][0].tools[0].name).toBe('custom_price_lookup')
+      expect(mockResponses.mock.calls[1][0].input).toContainEqual({
+        type: 'function_call',
+        call_id: 'prices-call',
+        name: 'custom_price_lookup',
+        arguments: '{}',
+      })
+    })
+
+    it.each(['error', 'cancel'])('preserves provider stream %s propagation', async (operation) => {
+      Object.defineProperty(global, 'window', { value: undefined, configurable: true })
+      const cancel = vi.fn()
+      let controller!: ReadableStreamDefaultController<Uint8Array>
+      mockGetApiKey.mockResolvedValue('test-api-key')
+      mockExecuteProviderRequest.mockResolvedValueOnce({
+        stream: new ReadableStream<Uint8Array>({
+          start(value) {
+            controller = value
+          },
+          cancel,
+        }),
+        execution: { success: true, output: {}, logs: [], metadata: { duration: 0 } },
+      })
+      const result = (await handler.execute(
+        mockBlock,
+        { model: 'gpt-6.1-sol', userPrompt: 'Prices' },
+        mockContext
+      )) as StreamingExecution
+      if (operation === 'error') {
+        controller.error(new Error('Provider failed'))
+        await expect(new Response(result.stream).text()).rejects.toThrow('Provider failed')
+      } else {
+        await result.stream.cancel('Cancelled')
+        expect(cancel).toHaveBeenCalledExactlyOnceWith('Cancelled')
+      }
     })
 
     it.each(['server', 'browser'])(

@@ -693,14 +693,16 @@ export class AgentBlockHandler implements BlockHandler {
       throw new Error('Invalid streaming execution data')
     }
     return this.processStreamingExecution(
-      {
-        stream: response.body,
-        execution: {
-          ...executionData,
-          output: this.withToolCallMetadata({ output: executionData.output }, tools).output,
-          logs: [],
+      this.withToolCallMetadata(
+        {
+          stream: response.body,
+          execution: {
+            ...executionData,
+            logs: [],
+          },
         },
-      },
+        tools
+      ),
       block
     )
   }
@@ -846,9 +848,13 @@ export class AgentBlockHandler implements BlockHandler {
         if (name) Object.assign(toolCall, { id, name })
       })
 
-    apply(result?.toolCalls)
-    apply(result?.execution?.output?.toolCalls?.list)
-    apply(result?.output?.toolCalls?.list)
+    if (this.isStreamingExecution(result)) {
+      result.stream = result.stream.pipeThrough(
+        new TransformStream({ flush: () => apply(result.execution.output.toolCalls?.list) })
+      )
+    } else {
+      apply(result?.toolCalls)
+    }
     return result
   }
 
