@@ -324,22 +324,29 @@ it.each([
   }
 )
 
-it.each([false, true])(
-  'keeps Bedrock tools and schemas automatic when forcing is unsupported, tools=%s',
-  async (withTools) => {
+it.each([undefined, 'auto', 'force'] as const)(
+  'validates Bedrock tool usage when forcing is unsupported, mode=%s',
+  async (usageControl) => {
+    const withTools = usageControl !== undefined
     const schema = { type: 'object', properties: { value: { type: 'number' } } }
     const send = vi.spyOn(BedrockRuntimeClient.prototype, 'send').mockImplementation(async () => ({
       output: { message: { role: 'assistant', content: [{ text: '{"value":42}' }] } },
       $metadata: {},
     }))
     try {
-      const result = await executeProviderRequest(
+      const pending = executeProviderRequest(
         'bedrock',
         request('bedrock/openai.gpt-6.1-sol', {
-          tools: withTools ? [{ ...tool, usageControl: 'force' }] : undefined,
+          tools: withTools ? [{ ...tool, usageControl }] : undefined,
           responseFormat: { schema },
         })
       )
+      if (usageControl === 'force') {
+        await expect(pending).rejects.toThrow('does not support forced tool use')
+        expect(send).not.toHaveBeenCalled()
+        return
+      }
+      const result = await pending
       expect(send).toHaveBeenCalledTimes(1)
       const command = send.mock.calls[0][0]
       expect(command).toBeInstanceOf(ConverseCommand)
@@ -442,17 +449,24 @@ it.each([
   expect(payload.output_config).toBeUndefined()
 })
 
-it.each(['claude-fable-5-1', 'claude-sonnet-5-5', 'claude-opus-5-5'])(
-  'uses automatic tools when %s does not support forcing',
-  async (model) => {
-    await anthropicProvider.executeRequest(
-      request(model, { maxTokens: 1000, tools: [{ ...tool, usageControl: 'force' }] })
+it.each([
+  { provider: anthropicProvider, model: 'claude-fable-5-1' },
+  { provider: anthropicProvider, model: 'claude-sonnet-5-5' },
+  { provider: anthropicProvider, model: 'claude-opus-5-5' },
+  { provider: azureAnthropicProvider, model: 'azure-anthropic/claude-sonnet-5-5' },
+])('rejects unsupported forced tools for $model', async ({ provider, model }) => {
+  await expect(
+    provider.executeRequest(
+      request(model, {
+        maxTokens: 1000,
+        tools: [{ ...tool, usageControl: 'force' }],
+        azureEndpoint: 'https://example.services.ai.azure.com',
+      })
     )
-    expect(mocks.claude).toHaveBeenCalledTimes(1)
-    expect(mocks.claude.mock.calls[0][0].tool_choice).toBeUndefined()
-    expect(mocks.tool).not.toHaveBeenCalled()
-  }
-)
+  ).rejects.toThrow('does not support forced tool use')
+  expect(mocks.claude).not.toHaveBeenCalled()
+  expect(mocks.tool).not.toHaveBeenCalled()
+})
 
 it('discovers qualified Ollama IDs and sends only the model name to the SDK', async () => {
   vi.mocked(fetch).mockResolvedValueOnce(
@@ -895,19 +909,19 @@ it('rejects DeepSeek continuation errors instead of returning partial success', 
 it.each([
   {
     provider: anthropicProvider,
-    model: 'claude-opus-5-5',
+    model: 'claude-haiku-5-5',
     stream: false,
     streamToolCalls: false,
   },
   {
     provider: azureAnthropicProvider,
-    model: 'azure-anthropic/claude-opus-4-6',
+    model: 'azure-anthropic/claude-opus-5',
     stream: true,
     streamToolCalls: false,
   },
   {
     provider: anthropicProvider,
-    model: 'claude-sonnet-5-5',
+    model: 'claude-haiku-5-5',
     stream: true,
     streamToolCalls: true,
   },
@@ -942,7 +956,7 @@ it.each([
     expect(mocks.tool).toHaveBeenCalledWith(tool.id, expect.any(Object))
     expect(mocks.claude).toHaveBeenCalledTimes(2)
     const initial = mocks.claude.mock.calls[0][0]
-    expect(initial.tool_choice).toBeUndefined()
+    expect(initial.tool_choice).toEqual({ type: 'tool', name: tool.id })
     expect(mocks.claude.mock.calls[1][0].tool_choice).toBeUndefined()
     expect(initial.messages[1].content[0]).toMatchObject({ type: 'tool_use', id: 'previous' })
     expect(initial.messages[2].content[0]).toMatchObject({

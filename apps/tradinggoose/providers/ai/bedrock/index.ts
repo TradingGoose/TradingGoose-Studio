@@ -175,53 +175,48 @@ export const bedrockProvider: ProviderConfig = {
         },
       }))
 
-      try {
-        preparedTools = prepareToolsWithUsageControl(
-          bedrockTools.map((t) => ({
-            name: t.toolSpec?.name || '',
-            description: t.toolSpec?.description || '',
-            input_schema: t.toolSpec?.inputSchema?.json,
-          })),
-          request.tools,
-          logger,
-          'bedrock',
-          canForceTools
-        )
+      preparedTools = prepareToolsWithUsageControl(
+        bedrockTools.map((t) => ({
+          name: t.toolSpec?.name || '',
+          description: t.toolSpec?.description || '',
+          input_schema: t.toolSpec?.inputSchema?.json,
+        })),
+        request.tools,
+        logger,
+        'bedrock',
+        canForceTools
+      )
 
-        const { tools: filteredTools, toolChoice: tc } = preparedTools
+      const { tools: filteredTools, toolChoice: tc } = preparedTools
 
-        if (filteredTools?.length) {
-          bedrockTools = filteredTools.map((t: any) => ({
-            toolSpec: {
-              name: t.name,
-              description: t.description,
-              inputSchema: { json: t.input_schema },
-            },
-          }))
+      if (filteredTools?.length) {
+        bedrockTools = filteredTools.map((t: any) => ({
+          toolSpec: {
+            name: t.name,
+            description: t.description,
+            inputSchema: { json: t.input_schema },
+          },
+        }))
 
-          if (typeof tc === 'object' && tc !== null) {
-            if (tc.type === 'tool' && tc.name) {
-              toolChoice = { tool: { name: tc.name } }
-              logger.info(`Using Bedrock tool_choice format: force tool "${tc.name}"`)
-            } else if (tc.type === 'function' && tc.function?.name) {
-              toolChoice = { tool: { name: tc.function.name } }
-              logger.info(`Using Bedrock tool_choice format: force tool "${tc.function.name}"`)
-            } else if (tc.type === 'any') {
-              toolChoice = { any: {} }
-              logger.info('Using Bedrock tool_choice format: any tool')
-            } else {
-              toolChoice = { auto: {} }
-            }
-          } else if (tc === 'none') {
-            toolChoice = undefined
-            bedrockTools = undefined
+        if (typeof tc === 'object' && tc !== null) {
+          if (tc.type === 'tool' && tc.name) {
+            toolChoice = { tool: { name: tc.name } }
+            logger.info(`Using Bedrock tool_choice format: force tool "${tc.name}"`)
+          } else if (tc.type === 'function' && tc.function?.name) {
+            toolChoice = { tool: { name: tc.function.name } }
+            logger.info(`Using Bedrock tool_choice format: force tool "${tc.function.name}"`)
+          } else if (tc.type === 'any') {
+            toolChoice = { any: {} }
+            logger.info('Using Bedrock tool_choice format: any tool')
           } else {
             toolChoice = { auto: {} }
           }
+        } else if (tc === 'none') {
+          toolChoice = undefined
+          bedrockTools = undefined
+        } else {
+          toolChoice = { auto: {} }
         }
-      } catch (error) {
-        logger.error('Error in prepareToolsWithUsageControl:', { error })
-        toolChoice = { auto: {} }
       }
     } else if (structuredOutputTool) {
       bedrockTools = [structuredOutputTool]

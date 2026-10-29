@@ -322,9 +322,12 @@ export function prepareToolsWithUsageControl(
   }
 
   // Get all tools that should be forced
-  const forcedTools = supportsForcedTools
-    ? providerTools?.filter((tool) => tool.usageControl === 'force') || []
-    : []
+  const forcedTools = providerTools?.filter((tool) => tool.usageControl === 'force') || []
+  if (!supportsForcedTools && forcedTools.length) {
+    throw new Error(
+      'This model or thinking configuration does not support forced tool use. Select Auto or a compatible model.'
+    )
+  }
   const forcedToolIds = forcedTools.map((tool) => tool.id)
 
   // Determine tool_choice setting
