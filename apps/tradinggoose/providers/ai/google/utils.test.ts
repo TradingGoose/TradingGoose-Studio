@@ -1,9 +1,31 @@
 import { describe, expect, it } from 'vitest'
 import {
+  convertUsageMetadata,
   mapToThinkingBudget,
   mapToThinkingLevel,
   supportsDisablingGemini25Thinking,
 } from '@/providers/ai/google/utils'
+
+it.each([undefined, 0, 5000, 10000])(
+  'preserves Gemini cache hits=%s in usage conversion',
+  (cachedContentTokenCount) => {
+    expect(
+      convertUsageMetadata({
+        promptTokenCount: 10000,
+        toolUsePromptTokenCount: 50,
+        candidatesTokenCount: 80,
+        thoughtsTokenCount: 20,
+        totalTokenCount: 10150,
+        cachedContentTokenCount,
+      })
+    ).toEqual({
+      promptTokenCount: 10050,
+      candidatesTokenCount: 100,
+      totalTokenCount: 10150,
+      cachedContentTokenCount: cachedContentTokenCount ?? 0,
+    })
+  }
+)
 
 describe('Gemini 2.5 thinking configuration', () => {
   it('maps named levels to each model family budget', () => {

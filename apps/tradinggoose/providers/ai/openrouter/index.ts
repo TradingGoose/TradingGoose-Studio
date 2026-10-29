@@ -1,4 +1,5 @@
 import OpenAI from 'openai'
+import type { CompletionUsage } from 'openai/resources/completions'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
 import { getOpenRouterModels } from '@/providers/ai/openrouter/models'
@@ -9,7 +10,7 @@ import type {
   TimeSegment,
 } from '@/providers/ai/types'
 import {
-  calculateCost,
+  createModelCost,
   createOpenAICompatibleStream,
   prepareToolExecution,
   prepareToolsWithUsageControl,
@@ -111,6 +112,20 @@ export const openRouterProvider: ProviderConfig = {
         logger.warn('Unable to refresh OpenRouter pricing', { error })
       })
 
+      const tokens = { prompt: 0, completion: 0, total: 0 }
+      const cost = createModelCost(request.model)
+      const recordUsage = (usage?: CompletionUsage) => {
+        if (!usage) return
+        tokens.prompt += usage.prompt_tokens ?? 0
+        tokens.completion += usage.completion_tokens ?? 0
+        tokens.total += usage.total_tokens ?? 0
+        cost.add(
+          usage.prompt_tokens ?? 0,
+          usage.completion_tokens ?? 0,
+          usage.prompt_tokens_details?.cached_tokens ?? 0
+        )
+      }
+
       if (request.stream && (!tools || tools.length === 0 || !hasActiveTools)) {
         const streamResponse = await client.chat.completions.create({
           ...payload,
@@ -118,26 +133,12 @@ export const openRouterProvider: ProviderConfig = {
           stream_options: { include_usage: true },
         })
 
-        const tokenUsage = { prompt: 0, completion: 0, total: 0 }
-
         const streamingResult = {
           stream: createOpenAICompatibleStream(
             streamResponse as any,
             'OpenRouter',
             (content, usage) => {
-              if (usage) {
-                const newTokens = {
-                  prompt: usage.prompt_tokens || tokenUsage.prompt,
-                  completion: usage.completion_tokens || tokenUsage.completion,
-                  total: usage.total_tokens || tokenUsage.total,
-                }
-                streamingResult.execution.output.tokens = newTokens
-                streamingResult.execution.output.cost = calculateCost(
-                  request.model,
-                  newTokens.prompt,
-                  newTokens.completion
-                )
-              }
+              recordUsage(usage)
               streamingResult.execution.output.content = content
               const end = Date.now()
               const endISO = new Date(end).toISOString()
@@ -157,7 +158,8 @@ export const openRouterProvider: ProviderConfig = {
             output: {
               content: '',
               model: request.model,
-              tokens: tokenUsage,
+              tokens,
+              cost: cost.value,
               toolCalls: undefined,
               providerTiming: {
                 startTime: providerStartTimeISO,
@@ -192,14 +194,10 @@ export const openRouterProvider: ProviderConfig = {
       let usedForcedTools: string[] = []
 
       let currentResponse = await client.chat.completions.create(payload)
+      recordUsage(currentResponse.usage)
       const firstResponseTime = Date.now() - initialCallTime
 
       let content = currentResponse.choices[0]?.message?.content || ''
-      const tokens = {
-        prompt: currentResponse.usage?.prompt_tokens || 0,
-        completion: currentResponse.usage?.completion_tokens || 0,
-        total: currentResponse.usage?.total_tokens || 0,
-      }
       const toolCalls = [] as any[]
       const toolResults = [] as any[]
       const currentMessages = [...allMessages]
@@ -350,11 +348,7 @@ export const openRouterProvider: ProviderConfig = {
         if (currentResponse.choices[0]?.message?.content) {
           content = currentResponse.choices[0].message.content
         }
-        if (currentResponse.usage) {
-          tokens.prompt += currentResponse.usage.prompt_tokens || 0
-          tokens.completion += currentResponse.usage.completion_tokens || 0
-          tokens.total += currentResponse.usage.total_tokens || 0
-        }
+        recordUsage(currentResponse.usage)
         iterationCount++
       }
 
@@ -373,18 +367,8 @@ export const openRouterProvider: ProviderConfig = {
             streamResponse as any,
             'OpenRouter',
             (content, usage) => {
-              if (usage) {
-                const newTokens = {
-                  prompt: tokens.prompt + (usage.prompt_tokens || 0),
-                  completion: tokens.completion + (usage.completion_tokens || 0),
-                  total: tokens.total + (usage.total_tokens || 0),
-                }
-                streamingResult.execution.output.tokens = newTokens
-                streamingResult.execution.output.cost = withToolCosts(
-                  calculateCost(request.model, newTokens.prompt, newTokens.completion),
-                  toolResults
-                )
-              }
+              recordUsage(usage)
+              streamingResult.execution.output.cost = withToolCosts(cost.value, toolResults)
               streamingResult.execution.output.content = content
             }
           ),
@@ -393,11 +377,8 @@ export const openRouterProvider: ProviderConfig = {
             output: {
               content: '',
               model: request.model,
-              tokens: { prompt: tokens.prompt, completion: tokens.completion, total: tokens.total },
-              cost: withToolCosts(
-                calculateCost(request.model, tokens.prompt, tokens.completion),
-                toolResults
-              ),
+              tokens,
+              cost: withToolCosts(cost.value, toolResults),
               toolCalls:
                 toolCalls.length > 0
                   ? {
@@ -436,7 +417,7 @@ export const openRouterProvider: ProviderConfig = {
         content,
         model: request.model,
         tokens,
-        cost: calculateCost(request.model, tokens.prompt, tokens.completion),
+        cost: cost.value,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         toolResults: toolResults.length > 0 ? toolResults : undefined,
         timing: {

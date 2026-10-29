@@ -10,6 +10,7 @@ interface OpenRouterModel {
   pricing?: {
     prompt?: string
     completion?: string
+    input_cache_read?: string
   }
 }
 
@@ -45,8 +46,14 @@ export async function getOpenRouterModels(): Promise<OpenRouterCatalog> {
 
       const input = Number.parseFloat(model.pricing?.prompt ?? '')
       const output = Number.parseFloat(model.pricing?.completion ?? '')
+      const cachedInput = Number.parseFloat(model.pricing?.input_cache_read ?? '')
       if (Number.isFinite(input) && input >= 0 && Number.isFinite(output) && output >= 0) {
-        pricing[modelId] = { input: input * 1_000_000, output: output * 1_000_000 }
+        pricing[modelId] = {
+          input: input * 1_000_000,
+          output: output * 1_000_000,
+          ...(Number.isFinite(cachedInput) &&
+            cachedInput >= 0 && { cachedInput: cachedInput * 1_000_000 }),
+        }
       }
     }
 

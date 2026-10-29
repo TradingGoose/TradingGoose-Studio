@@ -14,6 +14,7 @@ import {
 } from '@google/genai'
 import { createLogger } from '@/lib/logs/console/logger'
 import { toError } from '@/providers/ai/error'
+import type { GeminiUsage } from '@/providers/ai/gemini/types'
 import type { ProviderRequest } from '@/providers/ai/types'
 import { trackForcedToolUsage } from '@/providers/ai/utils'
 
@@ -33,15 +34,6 @@ export function ensureStructResponse(value: unknown): Record<string, unknown> {
     return value as Record<string, unknown>
   }
   return { value }
-}
-
-/**
- * Usage metadata for Google Gemini responses
- */
-export interface GeminiUsage {
-  promptTokenCount: number
-  candidatesTokenCount: number
-  totalTokenCount: number
 }
 
 /**
@@ -150,6 +142,7 @@ export function convertUsageMetadata(
   return {
     promptTokenCount,
     candidatesTokenCount,
+    cachedContentTokenCount: usageMetadata?.cachedContentTokenCount ?? 0,
     totalTokenCount: usageMetadata?.totalTokenCount ?? 0,
   }
 }
@@ -281,7 +274,7 @@ export function createReadableStreamFromGeminiStream(
   onComplete?: (content: string, usage: GeminiUsage) => void
 ): ReadableStream<Uint8Array> {
   let fullContent = ''
-  let usage: GeminiUsage = { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0 }
+  let usage = convertUsageMetadata(undefined)
 
   return new ReadableStream({
     async start(controller) {

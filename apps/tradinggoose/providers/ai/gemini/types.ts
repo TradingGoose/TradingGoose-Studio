@@ -7,6 +7,7 @@ import type { FunctionCallResponse, ProviderResponse, TimeSegment } from '@/prov
 export interface GeminiUsage {
   promptTokenCount: number
   candidatesTokenCount: number
+  cachedContentTokenCount: number
   totalTokenCount: number
 }
 

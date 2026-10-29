@@ -54,7 +54,8 @@ function createInitialState(
   const initialCost = calculateCost(
     model,
     initialUsage.promptTokenCount,
-    initialUsage.candidatesTokenCount
+    initialUsage.candidatesTokenCount,
+    initialUsage.cachedContentTokenCount
   )
 
   return {
@@ -260,7 +261,12 @@ function updateStateWithResponse(
   endTime: number
 ): ExecutionState {
   const usage = convertUsageMetadata(response.usageMetadata)
-  const cost = calculateCost(model, usage.promptTokenCount, usage.candidatesTokenCount)
+  const cost = calculateCost(
+    model,
+    usage.promptTokenCount,
+    usage.candidatesTokenCount,
+    usage.cachedContentTokenCount
+  )
   const duration = endTime - startTime
 
   return {
@@ -478,19 +484,11 @@ function extractTextFromInteractionOutputs(outputs: Interactions.Interaction['ou
 /**
  * Extracts token usage from an Interaction's Usage object.
  * The Interactions API provides total_input_tokens, total_output_tokens, total_tokens,
- * and total_thought_tokens (for thinking models).
- *
- * Also handles the raw API field name total_thought_tokens which the SDK may
- * map to total_reasoning_tokens.
+ * total_cached_tokens, and total_thought_tokens (for thinking models).
  */
-function extractInteractionUsage(usage: Interactions.Usage | undefined): {
-  inputTokens: number
-  outputTokens: number
-  reasoningTokens: number
-  totalTokens: number
-} {
+function extractInteractionUsage(usage: Interactions.Usage | undefined) {
   if (!usage) {
-    return { inputTokens: 0, outputTokens: 0, reasoningTokens: 0, totalTokens: 0 }
+    return { inputTokens: 0, outputTokens: 0, reasoningTokens: 0, cachedTokens: 0, totalTokens: 0 }
   }
 
   const usageLogger = createLogger('DeepResearchUsage')
@@ -499,9 +497,10 @@ function extractInteractionUsage(usage: Interactions.Usage | undefined): {
   const inputTokens = usage.total_input_tokens ?? 0
   const outputTokens = usage.total_output_tokens ?? 0
   const reasoningTokens = usage.total_thought_tokens ?? 0
+  const cachedTokens = usage.total_cached_tokens ?? 0
   const totalTokens = usage.total_tokens ?? inputTokens + outputTokens
 
-  return { inputTokens, outputTokens, reasoningTokens, totalTokens }
+  return { inputTokens, outputTokens, reasoningTokens, cachedTokens, totalTokens }
 }
 
 /**
@@ -510,12 +509,7 @@ function extractInteractionUsage(usage: Interactions.Usage | undefined): {
 function buildDeepResearchResponse(
   content: string,
   model: string,
-  usage: {
-    inputTokens: number
-    outputTokens: number
-    reasoningTokens: number
-    totalTokens: number
-  },
+  usage: ReturnType<typeof extractInteractionUsage>,
   providerStartTime: number,
   providerStartTimeISO: string,
   interactionId?: string
@@ -549,7 +543,7 @@ function buildDeepResearchResponse(
         },
       ],
     },
-    cost: calculateCost(model, usage.inputTokens, usage.outputTokens),
+    cost: calculateCost(model, usage.inputTokens, usage.outputTokens, usage.cachedTokens),
     interactionId,
   }
 }
@@ -570,18 +564,13 @@ function createDeepResearchStream(
   stream: AsyncIterable<Interactions.InteractionSSEEvent>,
   onComplete?: (
     content: string,
-    usage: {
-      inputTokens: number
-      outputTokens: number
-      reasoningTokens: number
-      totalTokens: number
-    },
+    usage: ReturnType<typeof extractInteractionUsage>,
     interactionId?: string
   ) => void
 ): ReadableStream<Uint8Array> {
   const streamLogger = createLogger('DeepResearchStream')
   let fullContent = ''
-  let completionUsage = { inputTokens: 0, outputTokens: 0, reasoningTokens: 0, totalTokens: 0 }
+  let completionUsage = extractInteractionUsage(undefined)
   let completedInteractionId: string | undefined
 
   return new ReadableStream({
@@ -762,7 +751,12 @@ export async function executeDeepResearchRequest(
           }
           streamingResult.execution.output.interactionId = streamInteractionId
 
-          const cost = calculateCost(model, usage.inputTokens, usage.outputTokens)
+          const cost = calculateCost(
+            model,
+            usage.inputTokens,
+            usage.outputTokens,
+            usage.cachedTokens
+          )
           streamingResult.execution.output.cost = cost
 
           const streamEndTime = Date.now()
@@ -1041,7 +1035,8 @@ export async function executeGeminiRequest(
           const costResult = calculateCost(
             model,
             usage.promptTokenCount,
-            usage.candidatesTokenCount
+            usage.candidatesTokenCount,
+            usage.cachedContentTokenCount
           )
           streamingResult.execution.output.cost = costResult
 
@@ -1186,7 +1181,8 @@ export async function executeGeminiRequest(
               const streamCost = calculateCost(
                 model,
                 usage.promptTokenCount,
-                usage.candidatesTokenCount
+                usage.candidatesTokenCount,
+                usage.cachedContentTokenCount
               )
               streamingResult.execution.output.cost = withToolCosts(
                 {

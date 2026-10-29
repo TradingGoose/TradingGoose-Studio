@@ -168,6 +168,21 @@ describe('AI model catalog', () => {
       { prompt: '0', completion: '0' },
       { input: 0, output: 0 },
     ],
+    [
+      { prompt: '0.000007', completion: '0.000014', input_cache_read: '0.00000175' },
+      { input: 7, cachedInput: 1.75, output: 14 },
+    ],
+    [
+      { prompt: '0.000007', completion: '0.000014', input_cache_read: '0' },
+      { input: 7, cachedInput: 0, output: 14 },
+    ],
+    ...['invalid', 'Infinity', '-1'].map(
+      (input_cache_read) =>
+        [
+          { prompt: '0.000007', completion: '0.000014', input_cache_read },
+          { input: 7, output: 14 },
+        ] as const
+    ),
     [undefined, null],
     [{ prompt: '0' }, null],
     [{ prompt: 'invalid', completion: '0' }, null],
@@ -183,7 +198,7 @@ describe('AI model catalog', () => {
     const model = 'openrouter/openai/gpt-4.1'
     expect(useProvidersStore.getState().providers.openrouter.models).toContain(model)
     if (expected) {
-      expect(getModelPricing(model)).toMatchObject(expected)
+      expect(getModelPricing(model)).toEqual(expected)
       expect(calculateCost(model, 1_000_000, 1_000_000).total).toBeCloseTo(
         expected.input + expected.output,
         8
@@ -198,18 +213,45 @@ describe('AI model catalog', () => {
     expect((await GET()).status).toBe(502)
   })
 
-  it.each([false, true])(
-    'prices fresh-server OpenRouter execution before browser discovery (stream=%s)',
-    async (stream) => {
+  it.each(
+    [false, true].flatMap((stream) =>
+      (
+        [
+          [undefined, 0.0007],
+          [0, 0.0007],
+          [50, 0.0004375],
+          [100, 0.000175],
+        ] as const
+      ).map(([cachedTokens, inputCost]) => ({ stream, cachedTokens, inputCost }))
+    )
+  )(
+    'prices fresh-server OpenRouter execution before browser discovery (stream=$stream, cached=$cachedTokens)',
+    async ({ stream, cachedTokens, inputCost }) => {
       const model = 'openrouter/openai/gpt-4.1'
       vi.mocked(fetch).mockResolvedValueOnce(
         Response.json({
-          data: [{ id: 'openai/gpt-4.1', pricing: { prompt: '0.000007', completion: '0.000014' } }],
+          data: [
+            {
+              id: 'openai/gpt-4.1',
+              pricing: {
+                prompt: '0.000007',
+                completion: '0.000014',
+                input_cache_read: '0.00000175',
+              },
+            },
+          ],
         })
       )
-      const usage = { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 }
+      const usage = {
+        prompt_tokens: 100,
+        completion_tokens: 20,
+        total_tokens: 120,
+        ...(cachedTokens === undefined
+          ? {}
+          : { prompt_tokens_details: { cached_tokens: cachedTokens } }),
+      }
       mocks.chat.mockImplementationOnce(() => {
-        expect(getModelPricing(model)).toEqual({ input: 7, output: 14 })
+        expect(getModelPricing(model)).toEqual({ input: 7, cachedInput: 1.75, output: 14 })
         return stream
           ? (async function* () {
               yield { choices: [{ delta: { content: 'Done' } }] }
@@ -231,11 +273,11 @@ describe('AI model catalog', () => {
       const output = 'stream' in result ? result.execution.output : result
       if ('stream' in result) expect(await new Response(result.stream).text()).toBe('Done')
       expect(output.cost).toMatchObject({
-        input: 0.0007,
+        input: inputCost,
         output: 0.00028,
-        total: 0.00098,
-        pricing: { input: 7, output: 14 },
+        pricing: { input: 7, cachedInput: 1.75, output: 14 },
       })
+      expect(output.cost.total).toBeCloseTo(inputCost + 0.00028, 8)
       expect(mocks.chat).toHaveBeenCalledTimes(1)
       expect(fetch).toHaveBeenCalledExactlyOnceWith(
         'https://openrouter.ai/api/v1/models',
@@ -245,7 +287,7 @@ describe('AI model catalog', () => {
       updateOpenRouterModels([])
       mocks.readCache.mockResolvedValueOnce(catalog)
       expect(await getOpenRouterModels()).toEqual(catalog)
-      expect(getModelPricing(model)).toEqual({ input: 7, output: 14 })
+      expect(getModelPricing(model)).toEqual({ input: 7, cachedInput: 1.75, output: 14 })
       expect(fetch).toHaveBeenCalledTimes(1)
     }
   )

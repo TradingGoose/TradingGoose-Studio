@@ -40,10 +40,15 @@ vi.mock('@anthropic-ai/sdk', () => ({
 vi.mock('@google/genai', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@google/genai')>()),
   GoogleGenAI: class {
-    models = { generateContent: mocks.gemini }
+    models = { generateContent: mocks.gemini, generateContentStream: mocks.gemini }
+    interactions = { create: mocks.gemini }
   },
 }))
 vi.mock('@/tools', () => ({ executeTool: mocks.tool }))
+vi.mock('@/lib/cache/server-json-cache', () => ({
+  readServerJsonCache: async () => null,
+  writeServerJsonCache: async () => {},
+}))
 vi.mock('@/lib/system-services/runtime', () => ({
   resolveAzureOpenAIServiceConfig: async () => ({ endpoint: 'https://example.openai.azure.com' }),
   resolveOllamaServiceConfig: async () => ({ baseUrl: 'http://ollama:11434' }),
@@ -123,6 +128,20 @@ const controls = (payload: Record<string, unknown>) =>
 
 beforeEach(() => {
   vi.resetAllMocks()
+  vi.mocked(fetch).mockResolvedValue(
+    Response.json({
+      data: [
+        {
+          id: 'openai/gpt-4.1',
+          pricing: {
+            prompt: '0.000002',
+            completion: '0.000008',
+            input_cache_read: '0.0000005',
+          },
+        },
+      ],
+    })
+  )
   mocks.chat.mockResolvedValue(completion())
   respond(response())
   mocks.claude.mockImplementation(async (payload) =>
@@ -946,23 +965,80 @@ it.each([
   }
 )
 
-const cachedChatModels = [
+it.each(
+  ['google', 'vertex'].flatMap((provider) =>
+    (
+      [
+        [undefined, 0.02],
+        [0, 0.02],
+        [5000, 0.011],
+        [10000, 0.002],
+      ] as const
+    ).flatMap(([cachedTokens, inputCost]) =>
+      [false, true].map((stream) => ({ provider, cachedTokens, inputCost, stream }))
+    )
+  )
+)(
+  'prices $provider Interactions cache hits=$cachedTokens, stream=$stream',
+  async ({ provider, cachedTokens, inputCost, stream }) => {
+    const model = `${provider === 'vertex' ? 'vertex/' : ''}deep-research-pro-preview-12-2025`
+    const interaction = {
+      id: 'research',
+      status: 'completed',
+      outputs: [{ type: 'text', text: 'Done' }],
+      usage: {
+        total_input_tokens: 10000,
+        total_output_tokens: 100,
+        total_tokens: 10100,
+        ...(cachedTokens === undefined ? {} : { total_cached_tokens: cachedTokens }),
+      },
+    }
+    mocks.gemini.mockResolvedValueOnce(
+      stream
+        ? (async function* () {
+            yield { event_type: 'content.delta', delta: { type: 'text', text: 'Done' } }
+            yield { event_type: 'interaction.complete', interaction }
+          })()
+        : interaction
+    )
+    const result = await executeProviderRequest(
+      provider,
+      request(model, { stream, vertexProject: 'test-project' })
+    )
+    if ('stream' in result) expect(await new Response(result.stream).text()).toBe('Done')
+    const output = 'stream' in result ? result.execution.output : result
+    expect(output.cost.input).toBeCloseTo(inputCost, 8)
+    expect(output.cost.output).toBeCloseTo(0.0012, 8)
+    expect(output.cost.total).toBeCloseTo(inputCost + 0.0012, 8)
+    expect(output.tokens).toEqual(
+      stream
+        ? { input: 10000, output: 100, total: 10100 }
+        : { prompt: 10000, completion: 100, total: 10100 }
+    )
+  }
+)
+
+const cachedModels = [
   ['deepseek', 'deepseek-flash', 0.0003, 0.000153, 0.000006, 0.00012],
   ['deepseek', 'deepseek-v4-pro', 0.00132, 0.000682, 0.000044, 0.000396],
   ['xai', 'grok-4.6', 0.002, 0.00125, 0.0005, 0.0006],
   ['mistral', 'mistral-large-4', 0.0007, 0.000385, 0.00007, 0.00021],
   ['groq', 'groq/openai/gpt-oss-120b', 0.00015, 0.0001125, 0.000075, 0.00006],
   ['fireworks', 'fireworks/accounts/fireworks/models/glm-5p3', 0.0014, 0.00083, 0.00026, 0.00044],
+  ['openrouter', 'openrouter/openai/gpt-4.1', 0.002048, 0.00128, 0.000512, 0.0008, 1024],
+  ['google', 'gemini-2.5-flash', 0.003, 0.00165, 0.0003, 0.00025, 10000],
+  ['vertex', 'vertex/gemini-2.5-flash', 0.003, 0.00165, 0.0003, 0.00025, 10000],
+  ['google', 'gemini-2.5-pro', 0.500005, 0.27500275, 0.0500005, 0.0015, 200002],
 ] as const
 
 it.each(
-  cachedChatModels.flatMap(([provider, model, cold, partial, cached, outputCost]) =>
+  cachedModels.flatMap(([provider, model, cold, partial, cached, outputCost, prompt = 1000]) =>
     (
       [
         [undefined, cold],
         [0, cold],
-        [500, partial],
-        [1000, cached],
+        [prompt / 2, partial],
+        [prompt, cached],
       ] as const
     ).flatMap(([cachedTokens, inputCost]) =>
       [false, true].map((stream) => ({
@@ -971,35 +1047,62 @@ it.each(
         cachedTokens,
         inputCost,
         outputCost,
+        prompt,
         stream,
       }))
     )
   )
 )(
   'prices $model reported cache hits=$cachedTokens, stream=$stream',
-  async ({ provider, model, cachedTokens, inputCost, outputCost, stream }) => {
+  async ({ provider, model, cachedTokens, inputCost, outputCost, prompt, stream }) => {
+    const gemini = provider === 'google' || provider === 'vertex'
     const usage = {
-      prompt_tokens: 1000,
+      prompt_tokens: prompt,
       completion_tokens: 100,
-      total_tokens: 1100,
+      total_tokens: prompt + 100,
       ...(cachedTokens === undefined
         ? {}
         : provider === 'deepseek'
           ? { prompt_cache_hit_tokens: cachedTokens }
           : { prompt_tokens_details: { cached_tokens: cachedTokens } }),
     }
-    mocks.chat.mockResolvedValueOnce(
+    const response = gemini
+      ? {
+          text: 'Done',
+          candidates: [{ content: { parts: [{ text: 'Done' }] } }],
+          usageMetadata: {
+            promptTokenCount: prompt,
+            candidatesTokenCount: 100,
+            totalTokenCount: prompt + 100,
+            ...(cachedTokens === undefined ? {} : { cachedContentTokenCount: cachedTokens }),
+          },
+        }
+      : { ...completion(), usage }
+    const generate = gemini ? mocks.gemini : mocks.chat
+    generate.mockResolvedValueOnce(
       stream
         ? (async function* () {
-            yield { choices: [{ delta: { content: 'Done' } }] }
-            yield provider === 'groq' ? { choices: [], x_groq: { usage } } : { choices: [], usage }
+            if (gemini) yield response
+            else {
+              yield { choices: [{ delta: { content: 'Done' } }] }
+              yield provider === 'groq'
+                ? { choices: [], x_groq: { usage } }
+                : { choices: [], usage }
+            }
           })()
-        : { ...completion(), usage }
+        : response
     )
-    const result = await executeProviderRequest(provider, request(model, { stream }))
+    const result = await executeProviderRequest(
+      provider,
+      request(model, { stream, vertexProject: 'test-project' })
+    )
     if ('stream' in result) expect(await new Response(result.stream).text()).toBe('Done')
     const output = 'stream' in result ? result.execution.output : result
-    expect(output.tokens).toEqual({ prompt: 1000, completion: 100, total: 1100 })
+    expect(output.tokens).toEqual(
+      gemini && stream
+        ? { input: prompt, output: 100, total: prompt + 100 }
+        : { prompt, completion: 100, total: prompt + 100 }
+    )
     expect(output.cost.input).toBeCloseTo(inputCost, 8)
     expect(output.cost.output).toBeCloseTo(outputCost, 8)
     expect(output.cost.total).toBeCloseTo(inputCost + outputCost, 8)
@@ -1007,42 +1110,88 @@ it.each(
 )
 
 it.each(
-  cachedChatModels.flatMap(([provider, model, cold, partial, cached, outputCost]) =>
-    [false, true].map((stream) => ({ provider, model, cold, partial, cached, outputCost, stream }))
+  cachedModels.flatMap(([provider, model, cold, partial, cached, outputCost, prompt = 1000]) =>
+    [false, true].map((stream) => ({
+      provider,
+      model,
+      cold,
+      partial,
+      cached,
+      outputCost,
+      prompt,
+      stream,
+    }))
   )
 )(
   'preserves $model cached usage across tool turns, stream=$stream',
-  async ({ provider, model, cold, partial, cached, outputCost, stream }) => {
-    const usages = [0, 500, 1000].map((cachedTokens) => ({
-      prompt_tokens: 1000,
+  async ({ provider, model, cold, partial, cached, outputCost, prompt, stream }) => {
+    const gemini = provider === 'google' || provider === 'vertex'
+    const hits = [0, prompt / 2, prompt]
+    const usages = hits.map((cachedTokens) => ({
+      prompt_tokens: prompt,
       completion_tokens: 100,
-      total_tokens: 1100,
+      total_tokens: prompt + 100,
       ...(provider === 'deepseek'
         ? { prompt_cache_hit_tokens: cachedTokens }
         : { prompt_tokens_details: { cached_tokens: cachedTokens } }),
     }))
     const content = provider === 'fireworks' ? '{"value":42}' : 'Done'
-    mocks.chat
-      .mockResolvedValueOnce({
-        ...completion({ role: 'assistant', content: null, tool_calls: [toolCall('cached-tool')] }),
-        usage: usages[0],
-      })
-      .mockResolvedValueOnce({ ...completion(), usage: usages[1] })
+    const responses = usages.map((usage, index) =>
+      gemini
+        ? {
+            text: index === 0 ? undefined : content,
+            candidates: [
+              {
+                content: {
+                  parts:
+                    index === 0
+                      ? [{ functionCall: { name: tool.id, args: {} } }]
+                      : [{ text: content }],
+                },
+              },
+            ],
+            ...(index === 0 && { functionCalls: [{ name: tool.id, args: {} }] }),
+            usageMetadata: {
+              promptTokenCount: prompt,
+              candidatesTokenCount: 100,
+              totalTokenCount: prompt + 100,
+              cachedContentTokenCount: hits[index],
+            },
+          }
+        : index === 0
+          ? {
+              ...completion({
+                role: 'assistant',
+                content: null,
+                tool_calls: [toolCall('cached-tool')],
+              }),
+              usage,
+            }
+          : { ...completion({ role: 'assistant', content }), usage }
+    )
+    const generate = gemini ? mocks.gemini : mocks.chat
+    generate
+      .mockResolvedValueOnce(responses[0])
+      .mockResolvedValueOnce(responses[1])
       .mockResolvedValueOnce(
         stream
           ? (async function* () {
-              yield { choices: [{ delta: { content } }] }
-              yield provider === 'groq'
-                ? { choices: [], x_groq: { usage: usages[2] } }
-                : { choices: [], usage: usages[2] }
+              if (gemini) yield responses[2]
+              else {
+                yield { choices: [{ delta: { content } }] }
+                yield provider === 'groq'
+                  ? { choices: [], x_groq: { usage: usages[2] } }
+                  : { choices: [], usage: usages[2] }
+              }
             })()
-          : { ...completion({ role: 'assistant', content }), usage: usages[2] }
+          : responses[2]
       )
     mocks.tool.mockResolvedValueOnce({ success: true, output: { cost: { total: 2 } } })
     const result = await executeProviderRequest(
       provider,
       request(model, {
         stream,
+        vertexProject: 'test-project',
         tools: [tool],
         ...(provider === 'fireworks' && {
           responseFormat: {
@@ -1059,17 +1208,17 @@ it.each(
     if ('stream' in result) expect(await new Response(result.stream).text()).toBe(content)
     const output = 'stream' in result ? result.execution.output : result
     const calls = stream || provider === 'fireworks' ? 3 : 2
-    expect(output.tokens).toEqual({
-      prompt: calls * 1000,
-      completion: calls * 100,
-      total: calls * 1100,
-    })
+    expect(output.tokens).toEqual(
+      gemini && stream
+        ? { input: calls * prompt, output: calls * 100, total: calls * (prompt + 100) }
+        : { prompt: calls * prompt, completion: calls * 100, total: calls * (prompt + 100) }
+    )
     const inputCost = cold + partial + (calls === 3 ? cached : 0)
     expect(output.cost.input).toBeCloseTo(inputCost, 8)
     expect(output.cost.output).toBeCloseTo(outputCost * calls, 8)
     expect(output.cost.toolCost).toBe(2)
     expect(output.cost.total).toBeCloseTo(2 + inputCost + outputCost * calls, 8)
-    expect(mocks.chat).toHaveBeenCalledTimes(calls)
+    expect(generate).toHaveBeenCalledTimes(calls)
     expect(mocks.tool).toHaveBeenCalledTimes(1)
   }
 )
