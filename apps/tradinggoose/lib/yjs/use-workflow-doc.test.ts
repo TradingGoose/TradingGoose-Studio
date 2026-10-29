@@ -104,7 +104,7 @@ describe('model editor credentials', () => {
         expect(model[0]).toBe(unresolved)
         expect(apiKey()).toBe('openai-key')
       }
-      await act(async () => model[1]('claude-sonnet-4-6'))
+      await act(async () => model[1]('claude-sonnet-5-5'))
       expect(apiKey()).toBe('')
     }
   )
