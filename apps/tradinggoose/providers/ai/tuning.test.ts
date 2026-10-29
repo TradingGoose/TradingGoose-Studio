@@ -1016,8 +1016,9 @@ it.each([
 it.each([
   { provider: anthropicProvider, model: 'claude-haiku-5-5' },
   { provider: azureAnthropicProvider, model: 'azure-anthropic/claude-haiku-5-5' },
+  { provider: azureAnthropicProvider, model: 'azure-anthropic/claude-opus-5' },
 ])(
-  'sequences forced tools with adaptive thinking for $provider.id',
+  'sequences forced tools with adaptive thinking for $model on $provider.id',
   async ({ provider, model }) => {
     const tools = [tool, { ...tool, id: 'verify' }]
     for (const selected of tools) {

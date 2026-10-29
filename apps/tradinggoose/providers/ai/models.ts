@@ -1218,6 +1218,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
           maxOutputTokens: 128000,
           thinking: {
             levels: ['low', 'medium', 'high', 'xhigh', 'max'],
+            forcedToolUse: true,
           },
         },
       },
