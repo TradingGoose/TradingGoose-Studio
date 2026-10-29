@@ -17,7 +17,7 @@ import type { StreamingExecution } from '@/executor/types'
 import {
   checkForForcedToolUsage,
   createReadableStreamFromBedrockStream,
-  getBedrockInferenceProfileId,
+  getBedrockModelId,
 } from '@/providers/ai/bedrock/utils'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import { toError } from '@/providers/ai/error'
@@ -48,12 +48,12 @@ export const bedrockProvider: ProviderConfig = {
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {
     const region = request.bedrockRegion || 'us-east-1'
-    const bedrockModelId = getBedrockInferenceProfileId(request.model, region)
+    const bedrockModelId = getBedrockModelId(request.model, region)
     const canForceTools = getModelCapabilities(request.model)?.forcedToolUse !== false
 
     logger.info('Bedrock request', {
       requestModel: request.model,
-      inferenceProfileId: bedrockModelId,
+      modelId: bedrockModelId,
       region,
     })
 

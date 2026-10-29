@@ -25,6 +25,7 @@ export interface ModelCapabilities {
   toolUsageControl?: boolean
   forcedToolUse?: boolean
   maxOutputTokens?: number
+  bedrockInferenceProfiles?: string[]
   reasoningEffort?: { values: string[] }
   verbosity?: { values: string[] }
   thinking?: {
@@ -2265,6 +2266,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
     icon: BedrockIcon,
     capabilities: {
       toolUsageControl: true,
+      bedrockInferenceProfiles: ['us-gov', 'us', 'eu', 'apac'],
     },
     models: [
       {
@@ -2437,6 +2439,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
           output: 0.6,
         },
         capabilities: {
+          bedrockInferenceProfiles: ['us-gov'],
           maxOutputTokens: 16000,
         },
       },
@@ -2447,6 +2450,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
           output: 0.3,
         },
         capabilities: {
+          bedrockInferenceProfiles: ['us-gov'],
           maxOutputTokens: 16000,
         },
       },
@@ -2457,6 +2461,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
           output: 1.2,
         },
         capabilities: {
+          bedrockInferenceProfiles: [],
           maxOutputTokens: 8000,
         },
       },
@@ -2467,6 +2472,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
           output: 3.2,
         },
         capabilities: {
+          bedrockInferenceProfiles: [],
           maxOutputTokens: 128000,
         },
       },
@@ -2477,6 +2483,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
           output: 3,
         },
         capabilities: {
+          bedrockInferenceProfiles: [],
           maxOutputTokens: 16000,
         },
       },
@@ -2487,6 +2494,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
           output: 1.85,
         },
         capabilities: {
+          bedrockInferenceProfiles: [],
           maxOutputTokens: 8000,
         },
       },
@@ -2600,6 +2608,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
           output: 1.5,
         },
         capabilities: {
+          bedrockInferenceProfiles: [],
           temperature: { min: 0, max: 1 },
           maxOutputTokens: 32768,
         },
@@ -2622,6 +2631,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
           output: 1.5,
         },
         capabilities: {
+          bedrockInferenceProfiles: [],
           temperature: { min: 0, max: 1 },
           maxOutputTokens: 40000,
         },
@@ -2633,6 +2643,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
           output: 0.2,
         },
         capabilities: {
+          bedrockInferenceProfiles: [],
           temperature: { min: 0, max: 1 },
           maxOutputTokens: 8192,
         },
@@ -2644,6 +2655,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
           output: 0.15,
         },
         capabilities: {
+          bedrockInferenceProfiles: [],
           temperature: { min: 0, max: 1 },
           maxOutputTokens: 8192,
         },
@@ -2655,6 +2667,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
           output: 0.1,
         },
         capabilities: {
+          bedrockInferenceProfiles: [],
           temperature: { min: 0, max: 1 },
           maxOutputTokens: 8192,
         },
@@ -2666,6 +2679,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
           output: 0.7,
         },
         capabilities: {
+          bedrockInferenceProfiles: [],
           temperature: { min: 0, max: 1 },
           maxOutputTokens: 4096,
         },

@@ -1,5 +1,6 @@
 import type { ConverseStreamOutput } from '@aws-sdk/client-bedrock-runtime'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getModelCapabilities } from '@/providers/ai/models'
 import { trackForcedToolUsage } from '@/providers/ai/utils'
 
 const logger = createLogger('BedrockUtils')
@@ -67,18 +68,13 @@ export function checkForForcedToolUsage(
   return null
 }
 
-/**
- * Converts a model ID to the Bedrock inference profile format.
- * AWS Bedrock requires inference profile IDs (e.g., us.anthropic.claude-...)
- * for on-demand invocation of newer models.
- *
- * @param modelId - The model ID (e.g., "bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0")
- * @param region - The AWS region (e.g., "us-east-1")
- * @returns The inference profile ID (e.g., "us.anthropic.claude-sonnet-4-5-20250929-v1:0")
- */
-export function getBedrockInferenceProfileId(modelId: string, region: string): string {
+/** Selects the model's in-region ID or a supported geographic inference profile. */
+export function getBedrockModelId(modelId: string, region: string): string {
   if (!modelId.startsWith('bedrock/')) throw new Error(`Invalid Bedrock model ID: ${modelId}`)
   const baseModelId = modelId.slice('bedrock/'.length)
+  const inferenceProfiles = getModelCapabilities(modelId)?.bedrockInferenceProfiles
+  if (!inferenceProfiles) throw new Error(`Unknown Bedrock model: ${modelId}`)
+  if (!inferenceProfiles.length) return baseModelId
 
   let inferencePrefix: string
   if (region.startsWith('us-gov-')) {
@@ -97,5 +93,7 @@ export function getBedrockInferenceProfileId(modelId: string, region: string): s
     throw new Error(`Unsupported Bedrock region: ${region}`)
   }
 
-  return `${inferencePrefix}.${baseModelId}`
+  return inferenceProfiles.includes(inferencePrefix)
+    ? `${inferencePrefix}.${baseModelId}`
+    : baseModelId
 }
