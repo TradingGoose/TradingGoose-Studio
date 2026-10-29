@@ -107,7 +107,9 @@ export const openRouterProvider: ProviderConfig = {
     const providerStartTimeISO = new Date(providerStartTime).toISOString()
 
     try {
-      await getOpenRouterModels()
+      await getOpenRouterModels().catch((error) => {
+        logger.warn('Unable to refresh OpenRouter pricing', { error })
+      })
 
       if (request.stream && (!tools || tools.length === 0 || !hasActiveTools)) {
         const streamResponse = await client.chat.completions.create({

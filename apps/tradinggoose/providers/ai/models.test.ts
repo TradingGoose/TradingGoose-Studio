@@ -247,25 +247,39 @@ describe('AI model catalog', () => {
     }
   )
 
-  it.each([new Error('Catalog unavailable'), 503])(
-    'retries failed discovery without caching it or starting a paid completion: %s',
-    async (failure) => {
+  it.each(
+    [new Error('Catalog unavailable'), new DOMException('Timed out', 'TimeoutError'), 503].flatMap(
+      (failure) => [false, true].map((stream) => ({ failure, stream }))
+    )
+  )(
+    'continues inference and retries failed discovery: $failure, stream=$stream',
+    async ({ failure, stream }) => {
       vi.mocked(fetch)
         .mockImplementationOnce(async () => {
           if (failure instanceof Error) throw failure
           return new Response(null, { status: failure })
         })
         .mockResolvedValueOnce(Response.json({ data: [] }))
-      await expect(
-        openRouterProvider.executeRequest({
-          model: 'openrouter/openai/gpt-4.1',
-          apiKey: 'test-key',
-          context: 'Analyze',
-        })
-      ).rejects.toThrow(
-        failure instanceof Error ? failure.message : `OpenRouter returned HTTP ${failure}`
+      const model = 'openrouter/openai/gpt-4.1'
+      const usage = { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 }
+      mocks.chat.mockResolvedValueOnce(
+        stream
+          ? (async function* () {
+              yield { choices: [{ delta: { content: 'Done' } }] }
+              yield { choices: [], usage }
+            })()
+          : { choices: [{ message: { content: 'Done' } }], usage }
       )
-      expect(mocks.chat).not.toHaveBeenCalled()
+      const result = await openRouterProvider.executeRequest({
+        model,
+        apiKey: 'test-key',
+        context: 'Analyze',
+        stream,
+      })
+      if ('stream' in result) expect(await new Response(result.stream).text()).toBe('Done')
+      else expect(result.content).toBe('Done')
+      expect(mocks.chat).toHaveBeenCalledTimes(1)
+      expect(getModelPricing(model)).toBeNull()
       expect(mocks.writeCache).not.toHaveBeenCalled()
       await expect(getOpenRouterModels()).resolves.toEqual({ models: [], pricing: {} })
       expect(fetch).toHaveBeenCalledTimes(2)
