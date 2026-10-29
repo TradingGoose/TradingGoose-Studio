@@ -21,6 +21,11 @@ vi.mock('groq-sdk', () => ({
     chat = { completions: { create: mocks.chat } }
   },
 }))
+vi.mock('@cerebras/cerebras_cloud_sdk', () => ({
+  Cerebras: class {
+    chat = { completions: { create: mocks.chat } }
+  },
+}))
 vi.mock('@anthropic-ai/sdk', () => ({
   default: class {
     messages = {
@@ -468,6 +473,47 @@ it.each([
     mocks.chat.mockClear()
     await provider.executeRequest(request(model))
     expect(controls(mocks.chat.mock.calls[0][0])).toEqual({})
+  }
+)
+
+it.each([
+  ['none', 'none', 'stream'],
+  ['low', 'low', 'tools'],
+  ['medium', 'medium', 'normal'],
+  ['high', 'high', 'normal'],
+  [undefined, undefined, 'normal'],
+  ['auto', undefined, 'normal'],
+  ['invalid', undefined, 'normal'],
+] as const)(
+  'dispatches Cerebras reasoning effort %s as %s through %s',
+  async (reasoningEffort, expected, path) => {
+    if (path === 'tools') {
+      mocks.chat.mockResolvedValueOnce(completion({ tool_calls: [toolCall('next')] }))
+    } else if (path === 'stream') {
+      mocks.chat.mockResolvedValueOnce(
+        (async function* () {
+          yield { choices: [{ delta: { content: 'Done' } }] }
+        })()
+      )
+    }
+    const result = await executeProviderRequest(
+      'cerebras',
+      request('cerebras/qwen-3.8-27b', {
+        reasoningEffort,
+        stream: path !== 'normal',
+        tools: path === 'tools' ? [tool] : undefined,
+      })
+    )
+    if ('stream' in result) expect(await new Response(result.stream).text()).toBe('Done')
+    else expect(result.content).toBe('Done')
+    expect(mocks.chat).toHaveBeenCalledTimes(path === 'tools' ? 2 : 1)
+    expect(mocks.tool).toHaveBeenCalledTimes(path === 'tools' ? 1 : 0)
+    for (const [payload] of mocks.chat.mock.calls) {
+      expect(payload.model).toBe('qwen-3.8-27b')
+      expect(controls(payload)).toEqual(
+        expected === undefined ? {} : { reasoning_effort: expected }
+      )
+    }
   }
 )
 

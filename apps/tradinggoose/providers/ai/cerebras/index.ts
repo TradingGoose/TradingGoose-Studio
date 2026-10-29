@@ -83,6 +83,7 @@ export const cerebrasProvider: ProviderConfig = {
       // Add optional parameters
       if (request.temperature !== undefined) payload.temperature = request.temperature
       if (request.maxTokens !== undefined) payload.max_tokens = request.maxTokens
+      if (request.reasoningEffort !== undefined) payload.reasoning_effort = request.reasoningEffort
 
       // Add response format for structured output if specified
       if (request.responseFormat) {
