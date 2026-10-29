@@ -36,14 +36,22 @@ vi.mock('@/widgets/widgets/editor_workflow/copy', () => ({
 
 describe('SubBlockEditRows', () => {
   it.each(['dropdown', 'combobox'] as const)(
-    'updates localized %s options using full context and active-mode Jira project IDs',
+    'updates localized %s options and required markers using full context and active-mode Jira project IDs',
     (type) => {
       const options = vi.fn((params?: Record<string, any>) => [
         { id: params?.model, label: params?.model },
       ])
+      const required = { field: 'model', value: ['first-model'], not: true }
       const config = localizeWorkflowSubBlockConfigWithCopy(
         getWorkflowInspectorCopy('es'),
-        { id: 'reasoningEffort', type, additional: true, options },
+        {
+          id: 'reasoningEffort',
+          title: 'Reasoning Effort',
+          type,
+          additional: true,
+          options,
+          required: type === 'dropdown' ? required : () => required,
+        },
         'agent'
       )
       const subBlockConfigs: SubBlockConfig[] = [
@@ -83,6 +91,7 @@ describe('SubBlockEditRows', () => {
           expect(control.mock.lastCall?.[0]).toMatchObject({
             options: [{ id: model, label: model }],
           })
+          expect(container.textContent?.includes('*')).toBe(model === 'second-model')
         }
       } finally {
         act(() => root.unmount())

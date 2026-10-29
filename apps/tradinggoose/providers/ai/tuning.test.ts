@@ -226,6 +226,7 @@ it('retains paid tool costs in completed Azure Claude streaming requests', async
 
 it.each([
   ['xai', 'grok-4.7', 110000, 2, 6],
+  ['mistral', 'mistral-large-latest', 10000, 0.5, 1.5],
   ['anthropic', 'claude-haiku-5-5', 60000, 0.1, 0.5],
   ['azure-anthropic', 'azure-anthropic/claude-haiku-5-5', 60000, 0.1, 0.5],
 ] as const)(
@@ -273,7 +274,10 @@ it.each([
   }
 )
 
-it.each([['xai', 'grok-4.7', 110000, 2, 6]] as const)(
+it.each([
+  ['xai', 'grok-4.7', 110000, 2, 6],
+  ['mistral', 'mistral-large-latest', 10000, 0.5, 1.5],
+] as const)(
   'retains %s tool-loop usage and costs when its final answer streams',
   async (provider, model, inputTokens, inputRate, outputRate) => {
     const usage = {
@@ -315,6 +319,41 @@ it.each([['xai', 'grok-4.7', 110000, 2, 6]] as const)(
     )
   }
 )
+
+it.each([0, 1000])('prices direct Mistral stream usage, input=%s', async (inputTokens) => {
+  let finishUsage!: () => void
+  const pendingUsage = new Promise<void>((resolve) => {
+    finishUsage = resolve
+  })
+  const usage = {
+    prompt_tokens: inputTokens,
+    completion_tokens: inputTokens / 10,
+    total_tokens: inputTokens * 1.1,
+  }
+  mocks.chat.mockResolvedValueOnce(
+    (async function* () {
+      yield { choices: [{ delta: { content: 'Done' } }] }
+      await pendingUsage
+      yield { choices: [], usage }
+    })()
+  )
+  const result = await executeProviderRequest(
+    'mistral',
+    request('mistral-large-latest', { stream: true })
+  )
+  if (!('stream' in result)) throw new Error('Expected streaming execution')
+  const initialCost = result.execution.output.cost
+  finishUsage()
+  expect(initialCost).toMatchObject({ input: 0, output: 0, total: 0 })
+  expect(await new Response(result.stream).text()).toBe('Done')
+  expect(result.execution.output.tokens).toEqual({
+    prompt: inputTokens,
+    completion: inputTokens / 10,
+    total: inputTokens * 1.1,
+  })
+  expect(result.execution.output.cost?.total).toBeCloseTo(inputTokens ? 0.00065 : 0, 8)
+  expect(mocks.chat).toHaveBeenCalledTimes(1)
+})
 
 it.each([undefined, 'auto', 'force'] as const)(
   'validates Bedrock tool usage when forcing is unsupported, mode=%s',

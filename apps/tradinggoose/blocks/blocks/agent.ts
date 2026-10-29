@@ -273,7 +273,13 @@ Create a system prompt appropriately detailed for the request, using clear langu
       placeholder: 'Enter your API key',
       password: true,
       connectionDroppable: false,
-      required: true,
+      required: isHosted
+        ? () => ({
+            field: 'model',
+            value: [...getProviderModels('openai'), ...getProviderModels('anthropic')],
+            not: true,
+          })
+        : true,
       condition: isHosted
         ? undefined
         : () => ({

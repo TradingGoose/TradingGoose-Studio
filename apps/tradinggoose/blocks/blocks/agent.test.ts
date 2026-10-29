@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import type { SubBlockCondition } from '@/blocks/types'
 import { getWorkflowInspectorCopy, type LocaleCode } from '@/i18n/block-editor'
@@ -18,6 +18,44 @@ const inspectorLayout = (model?: string, locale: LocaleCode = 'en') =>
   })
 
 describe('AgentBlock', () => {
+  it.each([false, true])(
+    'matches API-key requirements to hosted=%s credentials',
+    async (hosted) => {
+      vi.doMock('@/lib/environment', async (importOriginal) => ({
+        ...(await importOriginal<typeof import('@/lib/environment')>()),
+        isHosted: hosted,
+      }))
+      vi.resetModules()
+      try {
+        const { AgentBlock: block } = await import('./agent')
+        const { useProvidersStore } = await import('@/stores/providers/store')
+        useProvidersStore.setState((state) => ({
+          providers: {
+            ...state.providers,
+            ollama: { models: ['ollama/llama3.2:latest'], isLoading: false },
+          },
+        }))
+        const field = block.subBlocks.find((field) => field.id === 'apiKey')!
+        for (const [model, required] of [
+          ['gpt-4.1', !hosted],
+          ['claude-haiku-4-5', !hosted],
+          ['mistral-large-latest', true],
+          ['azure/gpt-4.1', true],
+          ['openrouter/openai/gpt-4.1', true],
+        ] as const) {
+          expect(evaluateSubBlockConditionValues(field.condition, { model })).toBe(true)
+          expect(evaluateSubBlockConditionValues(field.required, { model })).toBe(required)
+        }
+        expect(
+          evaluateSubBlockConditionValues(field.condition, { model: 'ollama/llama3.2:latest' })
+        ).toBe(hosted)
+      } finally {
+        vi.doUnmock('@/lib/environment')
+        vi.resetModules()
+      }
+    }
+  )
+
   it.each([AgentBlock, RouterBlock, EvaluatorBlock])(
     'resolves $name Ollama provider identity without browser model discovery',
     (block) => {

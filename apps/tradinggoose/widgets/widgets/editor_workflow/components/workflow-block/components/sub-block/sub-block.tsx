@@ -17,6 +17,7 @@ import {
   resolveStoredDateValue,
 } from '@/lib/time-format'
 import { cn } from '@/lib/utils'
+import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import { formatTemplate } from '@/i18n/utils'
@@ -483,13 +484,6 @@ export const SubBlock = memo(
       setIsValidJson(isValid)
     }
 
-    const isFieldRequired = () => {
-      if (typeof config.required === 'boolean') {
-        return config.required
-      }
-      return Boolean(config.required)
-    }
-
     if (config.hidden) {
       return null
     }
@@ -883,7 +877,9 @@ export const SubBlock = memo(
       }
     }
 
-    const required = isFieldRequired()
+    const required =
+      config.required !== undefined &&
+      evaluateSubBlockConditionValues(config.required, contextValues ?? {})
 
     const showLabel =
       Boolean(config.title) &&

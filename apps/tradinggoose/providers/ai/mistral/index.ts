@@ -9,10 +9,12 @@ import type {
 } from '@/providers/ai/types'
 import {
   calculateCost,
+  createModelCost,
   createOpenAICompatibleStream,
   prepareToolExecution,
   prepareToolsWithUsageControl,
   trackForcedToolUsage,
+  withToolCosts,
 } from '@/providers/ai/utils'
 import { executeTool } from '@/tools'
 
@@ -144,14 +146,11 @@ export const mistralProvider: ProviderConfig = {
           total: 0,
         }
 
-        let _streamContent = ''
-
         const streamingResult = {
           stream: createOpenAICompatibleStream(
             streamResponse as any,
             'Mistral',
             (content, usage) => {
-              _streamContent = content
               streamingResult.execution.output.content = content
 
               const streamEndTime = Date.now()
@@ -170,15 +169,16 @@ export const mistralProvider: ProviderConfig = {
                 }
               }
 
-              if (usage) {
-                const newTokens = {
-                  prompt: usage.prompt_tokens || tokenUsage.prompt,
-                  completion: usage.completion_tokens || tokenUsage.completion,
-                  total: usage.total_tokens || tokenUsage.total,
-                }
-
-                streamingResult.execution.output.tokens = newTokens
+              streamingResult.execution.output.tokens = {
+                prompt: usage.prompt_tokens,
+                completion: usage.completion_tokens,
+                total: usage.total_tokens,
               }
+              streamingResult.execution.output.cost = calculateCost(
+                request.model,
+                usage.prompt_tokens,
+                usage.completion_tokens
+              )
             }
           ),
           execution: {
@@ -187,6 +187,7 @@ export const mistralProvider: ProviderConfig = {
               content: '',
               model: request.model,
               tokens: tokenUsage,
+              cost: calculateCost(request.model),
               toolCalls: undefined,
               providerTiming: {
                 startTime: providerStartTimeISO,
@@ -212,7 +213,7 @@ export const mistralProvider: ProviderConfig = {
           },
         } as StreamingExecution
 
-        return streamingResult as StreamingExecution
+        return streamingResult
       }
 
       const initialCallTime = Date.now()
@@ -250,8 +251,10 @@ export const mistralProvider: ProviderConfig = {
         completion: currentResponse.usage?.completion_tokens || 0,
         total: currentResponse.usage?.total_tokens || 0,
       }
+      const cost = createModelCost(request.model)
+      cost.add(tokens.prompt, tokens.completion)
       const toolCalls = []
-      const toolResults = []
+      const toolResults: Record<string, unknown>[] = []
       const currentMessages = [...allMessages]
       let iterationCount = 0
       const MAX_ITERATIONS = 10
@@ -408,6 +411,10 @@ export const mistralProvider: ProviderConfig = {
           tokens.prompt += currentResponse.usage.prompt_tokens || 0
           tokens.completion += currentResponse.usage.completion_tokens || 0
           tokens.total += currentResponse.usage.total_tokens || 0
+          cost.add(
+            currentResponse.usage.prompt_tokens || 0,
+            currentResponse.usage.completion_tokens || 0
+          )
         }
 
         iterationCount++
@@ -426,25 +433,20 @@ export const mistralProvider: ProviderConfig = {
 
         const streamResponse = await mistral.chat.completions.create(streamingPayload)
 
-        let _streamContent = ''
-
         const streamingResult = {
           stream: createOpenAICompatibleStream(
             streamResponse as any,
             'Mistral',
             (content, usage) => {
-              _streamContent = content
               streamingResult.execution.output.content = content
 
-              if (usage) {
-                const newTokens = {
-                  prompt: usage.prompt_tokens || tokens.prompt,
-                  completion: usage.completion_tokens || tokens.completion,
-                  total: usage.total_tokens || tokens.total,
-                }
-
-                streamingResult.execution.output.tokens = newTokens
+              streamingResult.execution.output.tokens = {
+                prompt: tokens.prompt + usage.prompt_tokens,
+                completion: tokens.completion + usage.completion_tokens,
+                total: tokens.total + usage.total_tokens,
               }
+              cost.add(usage.prompt_tokens, usage.completion_tokens)
+              streamingResult.execution.output.cost = withToolCosts(cost.value, toolResults)
             }
           ),
           execution: {
@@ -452,11 +454,8 @@ export const mistralProvider: ProviderConfig = {
             output: {
               content: '',
               model: request.model,
-              tokens: {
-                prompt: tokens.prompt,
-                completion: tokens.completion,
-                total: tokens.total,
-              },
+              tokens: { ...tokens },
+              cost: withToolCosts(cost.value, toolResults),
               toolCalls:
                 toolCalls.length > 0
                   ? {
@@ -484,7 +483,7 @@ export const mistralProvider: ProviderConfig = {
           },
         } as StreamingExecution
 
-        return streamingResult as StreamingExecution
+        return streamingResult
       }
 
       const providerEndTime = Date.now()
@@ -495,7 +494,7 @@ export const mistralProvider: ProviderConfig = {
         content,
         model: request.model,
         tokens,
-        cost: calculateCost(request.model, tokens.prompt, tokens.completion),
+        cost: cost.value,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         toolResults: toolResults.length > 0 ? toolResults : undefined,
         timing: {
