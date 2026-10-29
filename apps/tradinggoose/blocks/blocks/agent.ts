@@ -10,6 +10,7 @@ import { AuthMode } from '@/blocks/types'
 import {
   getAllModelProviders,
   getMaxTemperature,
+  getMinOutputTokensForModel,
   getProviderDefaultModel,
   getProviderFromModel,
   getProviderModels,
@@ -241,17 +242,29 @@ Create a system prompt appropriately detailed for the request, using clear langu
     modelControl('reasoningEffort', 'Reasoning Effort'),
     modelControl('verbosity', 'Verbosity'),
     modelControl('thinkingLevel', 'Thinking Level'),
-    {
-      id: 'maxTokens',
-      title: 'Max Output Tokens',
-      type: 'short-input',
-      layout: 'half',
-      placeholder: 'Use the provider default',
-      inputType: 'number',
-      min: 1,
-      integer: true,
-      additional: true,
-    },
+    ...Array.from(
+      new Set([1, ...Object.keys(getAllModelProviders()).map(getMinOutputTokensForModel)])
+    ).map(
+      (min): SubBlockConfig => ({
+        id: 'maxTokens',
+        title: 'Max Output Tokens',
+        type: 'short-input',
+        layout: 'half',
+        placeholder: 'Use the provider default',
+        inputType: 'number',
+        min,
+        integer: true,
+        additional: true,
+        condition: () => ({
+          field: 'model',
+          not: min === 1,
+          value: Object.keys(getAllModelProviders()).filter((model) => {
+            const minimum = getMinOutputTokensForModel(model)
+            return min === 1 ? minimum !== 1 : minimum === min
+          }),
+        }),
+      })
+    ),
     {
       id: 'apiKey',
       title: 'API Key',

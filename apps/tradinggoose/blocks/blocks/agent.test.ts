@@ -120,4 +120,18 @@ describe('AgentBlock', () => {
     expect(evaluateSubBlockConditionValues(restored, { ...values, enabled: false })).toBe(false)
     expect(evaluateSubBlockConditionValues({ ...condition, not: true }, values)).toBe(false)
   })
+
+  it.each([
+    ['gpt-4.1', 16],
+    ['gpt-6.1-sol', 16],
+    ['claude-haiku-4-5', 1],
+    ['openrouter/custom/manual', 1],
+    ['c', 1],
+  ] as const)('uses the selected model token minimum for %s', (model, min) => {
+    const fields = inspectorLayout(model)
+      .additionalRows.flat()
+      .filter((field) => field.id === 'maxTokens')
+    expect(fields).toHaveLength(1)
+    expect(fields[0]).toMatchObject({ min, integer: true, inputType: 'number' })
+  })
 })

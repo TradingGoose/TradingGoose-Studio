@@ -13,6 +13,7 @@ import { groqProvider } from '@/providers/ai/groq'
 import { mistralProvider } from '@/providers/ai/mistral'
 import {
   getMaxTemperature,
+  getMinOutputTokensForModel,
   getProviderFromModel,
   MODEL_CONTROL_GETTERS,
   type ModelControl,
@@ -61,7 +62,7 @@ function sanitizeRequest(request: ProviderRequest): ProviderRequest {
           : Number.NaN
     const validRange =
       field === 'maxTokens'
-        ? Number.isInteger(number) && number > 0
+        ? Number.isInteger(number) && number >= getMinOutputTokensForModel(sanitizedRequest.model)
         : maxTemperature !== undefined && number >= 0 && number <= maxTemperature
     sanitizedRequest[field] = Number.isFinite(number) && validRange ? number : undefined
   }

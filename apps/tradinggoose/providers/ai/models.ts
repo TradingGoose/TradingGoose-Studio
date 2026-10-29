@@ -25,6 +25,7 @@ export interface ModelCapabilities {
   toolUsageControl?: boolean
   forcedToolUse?: boolean
   maxOutputTokens?: number
+  minOutputTokens?: number
   bedrockInferenceProfiles?: string[]
   reasoningEffort?: { values: string[] }
   verbosity?: { values: string[] }
@@ -121,6 +122,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
     icon: OpenAIIcon,
     capabilities: {
       toolUsageControl: true,
+      minOutputTokens: 16,
     },
     models: [
       {
@@ -2837,6 +2839,10 @@ export const MODEL_CONTROL_GETTERS = {
 }
 
 export type ModelControl = keyof typeof MODEL_CONTROL_GETTERS
+
+export function getMinOutputTokensForModel(modelId: string): number {
+  return getModelCapabilities(modelId)?.minOutputTokens ?? 1
+}
 
 export function getMaxOutputTokensForModel(modelId: string): number {
   const maxTokens = getModelCapabilities(modelId)?.maxOutputTokens

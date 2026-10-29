@@ -212,18 +212,24 @@ describe('executeProviderRequest', () => {
     }
   )
 
-  it('converts numeric input strings before calling the provider', async () => {
-    await executeProviderRequest('openai', {
-      model: 'gpt-4.1',
-      context: 'Test prompt',
-      maxTokens: '1024',
-      temperature: '0',
-    } as unknown as ProviderRequest)
+  it.each([
+    ['openai', 'gpt-4.1', '16', 16, mockOpenAIExecuteRequest],
+    ['anthropic', 'claude-haiku-4-5', 1, 1, mockAnthropicExecuteRequest],
+  ] as const)(
+    'converts numeric controls within %s %s limits',
+    async (provider, model, value, expected, execute) => {
+      await executeProviderRequest(provider, {
+        model,
+        context: 'Test prompt',
+        maxTokens: value,
+        temperature: '0',
+      } as unknown as ProviderRequest)
 
-    expect(mockOpenAIExecuteRequest).toHaveBeenCalledWith(
-      expect.objectContaining({ maxTokens: 1024, temperature: 0 })
-    )
-  })
+      expect(execute).toHaveBeenCalledWith(
+        expect.objectContaining({ maxTokens: expected, temperature: 0 })
+      )
+    }
+  )
 
   it.each([undefined, null, '', ' ', 'invalid', Number.NaN, Number.POSITIVE_INFINITY])(
     'omits invalid numeric inputs %j',
@@ -243,6 +249,8 @@ describe('executeProviderRequest', () => {
 
   it.each([
     ['gpt-4.1', 'maxTokens', 0],
+    ['gpt-4.1', 'maxTokens', 1],
+    ['gpt-4.1', 'maxTokens', 15],
     ['gpt-4.1', 'maxTokens', -1],
     ['gpt-4.1', 'maxTokens', 1.5],
     ['gpt-4.1', 'temperature', -0.1],
