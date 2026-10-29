@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
+import { SSE_HEADERS } from '@/lib/utils'
 import type { ExecutionSubmissionSource, StreamingExecution } from '@/executor/types'
 import { executeProviderRequest as executeAIProviderRequest } from '@/providers/ai'
+import { encodeProviderStream } from '@/providers/ai/streaming'
 import { getApiKey } from '@/providers/ai/utils-server'
 
 const logger = createLogger('ProvidersAPI:AI')
@@ -197,118 +199,8 @@ export async function handleAIProviderRequest({
       provider: providerId,
     })
 
-    const streamObject = streamingExec.stream
-    const executionData = streamingExec.execution
-
-    const safeExecutionData = {
-      success: executionData.success,
-      output: {
-        content: executionData.output?.content
-          ? String(executionData.output.content).replace(/[\u0080-\uFFFF]/g, '')
-          : '',
-        model: executionData.output?.model,
-        tokens: executionData.output?.tokens || {
-          prompt: 0,
-          completion: 0,
-          total: 0,
-        },
-        toolCalls: executionData.output?.toolCalls
-          ? sanitizeToolCalls(executionData.output.toolCalls)
-          : undefined,
-        providerTiming: executionData.output?.providerTiming,
-        cost: executionData.output?.cost,
-      },
-      error: executionData.error,
-      logs: [],
-      metadata: {
-        startTime: executionData.metadata?.startTime,
-        endTime: executionData.metadata?.endTime,
-        duration: executionData.metadata?.duration,
-      },
-      isStreaming: true,
-      blockId: executionData.logs?.[0]?.blockId,
-      blockName: executionData.logs?.[0]?.blockName,
-      blockType: executionData.logs?.[0]?.blockType,
-    }
-    const executionDataHeader = JSON.stringify(safeExecutionData)
-
-    return new Response(streamObject, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
-        'X-Execution-Data': executionDataHeader,
-      },
-    })
+    return new Response(encodeProviderStream(streamingExec), { headers: SSE_HEADERS })
   }
 
   return NextResponse.json(response)
-}
-
-function sanitizeToolCalls(toolCalls: any) {
-  if (toolCalls && typeof toolCalls === 'object' && Array.isArray(toolCalls.list)) {
-    return {
-      ...toolCalls,
-      list: toolCalls.list.map(sanitizeToolCall),
-    }
-  }
-
-  if (Array.isArray(toolCalls)) {
-    return toolCalls.map(sanitizeToolCall)
-  }
-
-  return toolCalls
-}
-
-function sanitizeToolCall(toolCall: any) {
-  if (!toolCall || typeof toolCall !== 'object') return toolCall
-
-  const sanitized = { ...toolCall }
-
-  if (typeof sanitized.name === 'string') {
-    sanitized.name = sanitized.name.replace(/[\u0080-\uFFFF]/g, '')
-  }
-
-  if (sanitized.input && typeof sanitized.input === 'object') {
-    sanitized.input = sanitizeObject(sanitized.input)
-  }
-
-  if (sanitized.arguments && typeof sanitized.arguments === 'object') {
-    sanitized.arguments = sanitizeObject(sanitized.arguments)
-  }
-
-  if (sanitized.output && typeof sanitized.output === 'object') {
-    sanitized.output = sanitizeObject(sanitized.output)
-  }
-
-  if (sanitized.result && typeof sanitized.result === 'object') {
-    sanitized.result = sanitizeObject(sanitized.result)
-  }
-
-  if (typeof sanitized.error === 'string') {
-    sanitized.error = sanitized.error.replace(/[\u0080-\uFFFF]/g, '')
-  }
-
-  return sanitized
-}
-
-function sanitizeObject(obj: any): any {
-  if (!obj || typeof obj !== 'object') return obj
-
-  if (Array.isArray(obj)) {
-    return obj.map((item) => sanitizeObject(item))
-  }
-
-  const result: Record<string, any> = {}
-  for (const [key, value] of Object.entries(obj)) {
-    if (typeof value === 'string') {
-      result[key] = value.replace(/[\u0080-\uFFFF]/g, '')
-    } else if (typeof value === 'object' && value !== null) {
-      result[key] = sanitizeObject(value)
-    } else {
-      result[key] = value
-    }
-  }
-
-  return result
 }

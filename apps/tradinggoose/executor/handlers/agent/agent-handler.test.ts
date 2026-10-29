@@ -6,6 +6,7 @@ import { AgentBlockHandler } from '@/executor/handlers/agent/agent-handler'
 import type { ExecutionContext, NormalizedBlockOutput, StreamingExecution } from '@/executor/types'
 import { getProviderFromModel } from '@/providers/ai/models'
 import { openaiProvider } from '@/providers/ai/openai'
+import { encodeProviderStream } from '@/providers/ai/streaming'
 import { transformBlockTool } from '@/providers/ai/utils'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 import { executeTool } from '@/tools'
@@ -127,7 +128,6 @@ describe('AgentBlockHandler', () => {
         headers: {
           get: (name: string) => {
             if (name === 'Content-Type') return 'application/json'
-            if (name === 'X-Execution-Data') return null
             return null
           },
         },
@@ -287,7 +287,6 @@ describe('AgentBlockHandler', () => {
             headers: {
               get: (name: string) => {
                 if (name === 'Content-Type') return 'application/json'
-                if (name === 'X-Execution-Data') return null
                 return null
               },
             },
@@ -308,7 +307,6 @@ describe('AgentBlockHandler', () => {
           headers: {
             get: (name: string) => {
               if (name === 'Content-Type') return 'application/json'
-              if (name === 'X-Execution-Data') return null
               return null
             },
           },
@@ -405,7 +403,6 @@ describe('AgentBlockHandler', () => {
           headers: {
             get: (name: string) => {
               if (name === 'Content-Type') return 'application/json'
-              if (name === 'X-Execution-Data') return null
               return null
             },
           },
@@ -910,7 +907,6 @@ describe('AgentBlockHandler', () => {
           headers: {
             get: (name: string) => {
               if (name === 'Content-Type') return 'application/json'
-              if (name === 'X-Execution-Data') return null
               return null
             },
           },
@@ -954,7 +950,6 @@ describe('AgentBlockHandler', () => {
           headers: {
             get: (name: string) => {
               if (name === 'Content-Type') return 'application/json'
-              if (name === 'X-Execution-Data') return null
               return null
             },
           },
@@ -1161,10 +1156,9 @@ describe('AgentBlockHandler', () => {
           mockExecuteProviderRequest.mockResolvedValue({ stream, execution })
         } else {
           mockFetch.mockResolvedValueOnce(
-            new Response(stream, {
+            new Response(encodeProviderStream({ stream, execution }), {
               headers: {
                 'Content-Type': 'text/event-stream',
-                'X-Execution-Data': JSON.stringify(execution),
               },
             })
           )
@@ -1179,6 +1173,7 @@ describe('AgentBlockHandler', () => {
         )) as StreamingExecution
 
         expect(result.stream).toBeInstanceOf(ReadableStream)
+        await new Response(result.stream).text()
         expect(result.execution).toMatchObject({
           ...execution,
           blockId: mockBlock.id,
@@ -1188,29 +1183,24 @@ describe('AgentBlockHandler', () => {
       }
     )
 
-    it.each([null, 'invalid', '{}'])(
-      'rejects missing or malformed streaming execution data %j',
-      async (header) => {
-        const headers: Record<string, string> = { 'Content-Type': 'text/event-stream' }
-        if (header !== null) headers['X-Execution-Data'] = header
+    it.each([null, 'invalid', 'data: {}\n\n', ''])(
+      'rejects missing or malformed provider streams %j',
+      async (body) => {
         mockFetch.mockResolvedValueOnce(
-          new Response(
-            new ReadableStream({
-              start(controller) {
-                controller.close()
-              },
-            }),
-            { headers }
-          )
+          new Response(body, { headers: { 'Content-Type': 'text/event-stream' } })
         )
 
-        await expect(
-          handler.execute(
-            mockBlock,
-            { model: 'gpt-5.4', userPrompt: 'Stream this response.' },
-            mockContext
-          )
-        ).rejects.toThrow(/Streaming provider response requires|Invalid streaming execution data/)
+        const pending = handler.execute(
+          mockBlock,
+          { model: 'gpt-5.4', userPrompt: 'Stream this response.' },
+          mockContext
+        )
+        if (body === null) {
+          await expect(pending).rejects.toThrow('Streaming provider response requires a body')
+        } else {
+          const result = (await pending) as StreamingExecution
+          await expect(new Response(result.stream).text()).rejects.toThrow(/provider stream/i)
+        }
       }
     )
 

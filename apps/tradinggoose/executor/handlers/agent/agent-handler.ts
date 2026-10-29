@@ -19,6 +19,7 @@ import type {
 import { getBlockToolExecutionId } from '@/executor/handlers/tool-execution-context'
 import type { BlockHandler, ExecutionContext, StreamingExecution } from '@/executor/types'
 import { getProviderFromModel } from '@/providers/ai/models'
+import { decodeProviderStream } from '@/providers/ai/streaming'
 import { transformBlockTool } from '@/providers/ai/utils'
 import type { SerializedBlock } from '@/serializer/types'
 import { executeTool, getToolAsync } from '@/tools'
@@ -675,34 +676,9 @@ export class AgentBlockHandler implements BlockHandler {
     block: SerializedBlock,
     tools: any[]
   ): StreamingExecution {
-    const executionDataHeader = response.headers.get('X-Execution-Data')
-    if (!executionDataHeader || !response.body) {
-      throw new Error('Streaming provider response requires a body and execution data')
-    }
-    let executionData: StreamingExecution['execution']
-    try {
-      executionData = JSON.parse(executionDataHeader)
-    } catch {
-      throw new Error('Invalid streaming execution data')
-    }
-    if (
-      !executionData?.output ||
-      !executionData.metadata ||
-      typeof executionData.success !== 'boolean'
-    ) {
-      throw new Error('Invalid streaming execution data')
-    }
+    if (!response.body) throw new Error('Streaming provider response requires a body')
     return this.processStreamingExecution(
-      this.withToolCallMetadata(
-        {
-          stream: response.body,
-          execution: {
-            ...executionData,
-            logs: [],
-          },
-        },
-        tools
-      ),
+      this.withToolCallMetadata(decodeProviderStream(response.body), tools),
       block
     )
   }
