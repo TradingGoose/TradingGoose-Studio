@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { GET } from '@/app/api/providers/ai/openrouter/models/route'
 import {
   DYNAMIC_MODEL_PROVIDERS,
@@ -20,10 +20,28 @@ import {
   updateOpenRouterModels,
   updateVLLMModels,
 } from '@/providers/ai/models'
+import { openRouterProvider } from '@/providers/ai/openrouter'
+import { getOpenRouterModels } from '@/providers/ai/openrouter/models'
 import { calculateCost } from '@/providers/ai/utils'
 import { useProvidersStore } from '@/stores/providers/store'
 
+const mocks = vi.hoisted(() => ({ chat: vi.fn(), readCache: vi.fn(), writeCache: vi.fn() }))
+vi.mock('@/lib/cache/server-json-cache', () => ({
+  readServerJsonCache: mocks.readCache,
+  writeServerJsonCache: mocks.writeCache,
+}))
+vi.mock('openai', () => ({
+  default: class {
+    chat = { completions: { create: mocks.chat } }
+  },
+}))
+
 describe('AI model catalog', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    mocks.readCache.mockResolvedValue(null)
+  })
+
   afterEach(() => {
     updateFireworksModels([])
     updateOllamaModels([])
@@ -176,4 +194,81 @@ describe('AI model catalog', () => {
     vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status }))
     expect((await GET()).status).toBe(502)
   })
+
+  it.each([false, true])(
+    'prices fresh-server OpenRouter execution before browser discovery (stream=%s)',
+    async (stream) => {
+      const model = 'openrouter/openai/gpt-4.1'
+      vi.mocked(fetch).mockResolvedValueOnce(
+        Response.json({
+          data: [{ id: 'openai/gpt-4.1', pricing: { prompt: '0.000007', completion: '0.000014' } }],
+        })
+      )
+      const usage = { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 }
+      mocks.chat.mockImplementationOnce(() => {
+        expect(getModelPricing(model)).toEqual({ input: 7, output: 14 })
+        return stream
+          ? (async function* () {
+              yield { choices: [{ delta: { content: 'Done' } }] }
+              yield { choices: [], usage }
+            })()
+          : { choices: [{ message: { content: 'Done' } }], usage }
+      })
+
+      expect(getModelPricing(model)).toBeNull()
+      const [result, catalog] = await Promise.all([
+        openRouterProvider.executeRequest({
+          model,
+          apiKey: 'test-key',
+          context: 'Analyze',
+          stream,
+        }),
+        getOpenRouterModels(),
+      ])
+      const output = 'stream' in result ? result.execution.output : result
+      if ('stream' in result) expect(await new Response(result.stream).text()).toBe('Done')
+      expect(output.cost).toMatchObject({
+        input: 0.0007,
+        output: 0.00028,
+        total: 0.00098,
+        pricing: { input: 7, output: 14 },
+      })
+      expect(mocks.chat).toHaveBeenCalledTimes(1)
+      expect(fetch).toHaveBeenCalledExactlyOnceWith(
+        'https://openrouter.ai/api/v1/models',
+        expect.objectContaining({ cache: 'no-store' })
+      )
+      expect(mocks.writeCache).toHaveBeenCalledExactlyOnceWith('ai:openrouter:models', catalog, 300)
+      updateOpenRouterModels([])
+      mocks.readCache.mockResolvedValueOnce(catalog)
+      expect(await getOpenRouterModels()).toEqual(catalog)
+      expect(getModelPricing(model)).toEqual({ input: 7, output: 14 })
+      expect(fetch).toHaveBeenCalledTimes(1)
+    }
+  )
+
+  it.each([new Error('Catalog unavailable'), 503])(
+    'retries failed discovery without caching it or starting a paid completion: %s',
+    async (failure) => {
+      vi.mocked(fetch)
+        .mockImplementationOnce(async () => {
+          if (failure instanceof Error) throw failure
+          return new Response(null, { status: failure })
+        })
+        .mockResolvedValueOnce(Response.json({ data: [] }))
+      await expect(
+        openRouterProvider.executeRequest({
+          model: 'openrouter/openai/gpt-4.1',
+          apiKey: 'test-key',
+          context: 'Analyze',
+        })
+      ).rejects.toThrow(
+        failure instanceof Error ? failure.message : `OpenRouter returned HTTP ${failure}`
+      )
+      expect(mocks.chat).not.toHaveBeenCalled()
+      expect(mocks.writeCache).not.toHaveBeenCalled()
+      await expect(getOpenRouterModels()).resolves.toEqual({ models: [], pricing: {} })
+      expect(fetch).toHaveBeenCalledTimes(2)
+    }
+  )
 })

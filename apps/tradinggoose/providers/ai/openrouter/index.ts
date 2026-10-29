@@ -1,7 +1,7 @@
 import OpenAI from 'openai'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
-import { getProviderDefaultModel, getProviderModels } from '@/providers/ai/models'
+import { getOpenRouterModels } from '@/providers/ai/openrouter/models'
 import type {
   ProviderConfig,
   ProviderRequest,
@@ -22,11 +22,6 @@ const logger = createLogger('OpenRouterProvider')
 
 export const openRouterProvider: ProviderConfig = {
   id: 'openrouter',
-  name: 'OpenRouter',
-  description: 'Unified access to many models via OpenRouter',
-  version: '1.0.0',
-  models: getProviderModels('openrouter'),
-  defaultModel: getProviderDefaultModel('openrouter'),
 
   executeRequest: async (
     request: ProviderRequest
@@ -112,6 +107,8 @@ export const openRouterProvider: ProviderConfig = {
     const providerStartTimeISO = new Date(providerStartTime).toISOString()
 
     try {
+      await getOpenRouterModels()
+
       if (request.stream && (!tools || tools.length === 0 || !hasActiveTools)) {
         const streamResponse = await client.chat.completions.create({
           ...payload,
