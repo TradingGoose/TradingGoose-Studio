@@ -1885,7 +1885,6 @@ export class Executor {
       ) {
         const streamingExec = rawOutput as StreamingExecution
         const streamingExecutionData = streamingExec.execution as any
-        const executionTime = performance.now() - startTime
         if (parallelInfo || !streamingExecutionData?.blockId) {
           streamingExecutionData.blockId = consoleBlockId
         }
@@ -1893,7 +1892,7 @@ export class Executor {
         context.blockStates.set(blockId, {
           output,
           executed: false,
-          executionTime,
+          executionTime: performance.now() - startTime,
         })
 
         const reader = streamingExec.stream.getReader()
@@ -1971,7 +1970,7 @@ export class Executor {
 
         await finalizeSuccessfulOutput({
           output: streamedOutput,
-          executionTime,
+          executionTime: performance.now() - startTime,
         })
         return streamedOutput
       }
