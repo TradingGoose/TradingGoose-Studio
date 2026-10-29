@@ -711,6 +711,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
     defaultModel: 'azure/gpt-5.4',
     capabilities: {
       toolUsageControl: true,
+      minOutputTokens: 16,
     },
     icon: AzureIcon,
     models: [

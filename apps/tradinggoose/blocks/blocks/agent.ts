@@ -296,18 +296,6 @@ Create a system prompt appropriately detailed for the request, using clear langu
       },
     },
     {
-      id: 'azureApiVersion',
-      title: 'Azure API Version',
-      type: 'short-input',
-      layout: 'full',
-      placeholder: '2024-07-01-preview',
-      connectionDroppable: false,
-      condition: {
-        field: 'model',
-        value: getProviderModels('azure-openai'),
-      },
-    },
-    {
       id: 'tools',
       title: 'Tools',
       type: 'tool-input',
@@ -449,7 +437,6 @@ Example 3 (Array Input):
     model: { type: 'string', description: 'AI model to use' },
     apiKey: { type: 'string', description: 'Provider API key' },
     azureEndpoint: { type: 'string', description: 'Azure OpenAI endpoint URL' },
-    azureApiVersion: { type: 'string', description: 'Azure API version' },
     responseFormat: {
       type: 'json',
       description: 'JSON object containing a JSON Schema in its schema field',

@@ -16,7 +16,6 @@ export interface AgentInputs {
   maxTokens?: number
   apiKey?: string
   azureEndpoint?: string
-  azureApiVersion?: string
   reasoningEffort?: string
   verbosity?: string
   thinkingLevel?: string

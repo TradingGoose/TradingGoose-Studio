@@ -105,18 +105,6 @@ export const TranslateBlock: BlockConfig = {
       },
     },
     {
-      id: 'azureApiVersion',
-      title: 'Azure API Version',
-      type: 'short-input',
-      layout: 'full',
-      placeholder: '2024-07-01-preview',
-      connectionDroppable: false,
-      condition: {
-        field: 'model',
-        value: getProviderModels('azure-openai'),
-      },
-    },
-    {
       id: 'systemPrompt',
       title: 'System Prompt',
       type: 'code',
@@ -145,7 +133,6 @@ export const TranslateBlock: BlockConfig = {
     targetLanguage: { type: 'string', description: 'Target language' },
     apiKey: { type: 'string', description: 'Provider API key' },
     azureEndpoint: { type: 'string', description: 'Azure OpenAI endpoint URL' },
-    azureApiVersion: { type: 'string', description: 'Azure API version' },
     systemPrompt: { type: 'string', description: 'Translation instructions' },
   },
   outputs: {

@@ -507,7 +507,6 @@ export class AgentBlockHandler implements BlockHandler {
       maxTokens: inputs.maxTokens,
       apiKey: inputs.apiKey,
       azureEndpoint: inputs.azureEndpoint,
-      azureApiVersion: inputs.azureApiVersion,
       responseFormat,
       workflowId: context.workflowId,
       workspaceId: context.workspaceId,

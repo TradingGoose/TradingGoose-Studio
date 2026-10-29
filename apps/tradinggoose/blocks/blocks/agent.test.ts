@@ -124,6 +124,7 @@ describe('AgentBlock', () => {
   it.each([
     ['gpt-4.1', 16],
     ['gpt-6.1-sol', 16],
+    ['azure/gpt-6.1-sol', 16],
     ['claude-haiku-4-5', 1],
     ['openrouter/custom/manual', 1],
     ['c', 1],

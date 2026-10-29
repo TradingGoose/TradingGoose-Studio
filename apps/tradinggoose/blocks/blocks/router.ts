@@ -178,18 +178,6 @@ export const RouterBlock: BlockConfig<RouterResponse> = {
       }),
     },
     {
-      id: 'azureApiVersion',
-      title: 'Azure API Version',
-      type: 'short-input',
-      layout: 'full',
-      placeholder: '2024-07-01-preview',
-      connectionDroppable: false,
-      condition: () => ({
-        field: 'model',
-        value: getProviderModels('azure-openai'),
-      }),
-    },
-    {
       id: 'temperature',
       title: 'Temperature',
       type: 'slider',
@@ -234,7 +222,6 @@ export const RouterBlock: BlockConfig<RouterResponse> = {
     model: { type: 'string', description: 'AI model to use' },
     apiKey: { type: 'string', description: 'Provider API key' },
     azureEndpoint: { type: 'string', description: 'Azure OpenAI endpoint URL' },
-    azureApiVersion: { type: 'string', description: 'Azure API version' },
     temperature: {
       type: 'number',
       description: 'Response randomness level (low for consistent routing)',

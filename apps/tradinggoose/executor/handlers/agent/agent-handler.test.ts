@@ -1478,12 +1478,11 @@ describe('AgentBlockHandler', () => {
 
     it('should pass Azure OpenAI parameters through the request pipeline', async () => {
       const inputs = {
-        model: 'azure/gpt-4o',
+        model: 'azure/gpt-4.1',
         systemPrompt: 'You are a helpful assistant.',
         userPrompt: 'Hello!',
         apiKey: 'test-azure-api-key',
         azureEndpoint: 'https://my-azure-resource.openai.azure.com',
-        azureApiVersion: '2024-07-01-preview',
         temperature: 0.7,
       }
 
@@ -1498,9 +1497,8 @@ describe('AgentBlockHandler', () => {
 
       // Check that Azure parameters are included in the request
       expect(requestBody.azureEndpoint).toBe('https://my-azure-resource.openai.azure.com')
-      expect(requestBody.azureApiVersion).toBe('2024-07-01-preview')
       expect(requestBody.provider).toBe('azure-openai')
-      expect(requestBody.model).toBe('azure/gpt-4o')
+      expect(requestBody.model).toBe('azure/gpt-4.1')
       expect(requestBody.apiKey).toBe('test-azure-api-key')
     })
 

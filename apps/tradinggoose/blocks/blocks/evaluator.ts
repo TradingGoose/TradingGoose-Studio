@@ -230,18 +230,6 @@ export const EvaluatorBlock: BlockConfig<EvaluatorResponse> = {
       },
     },
     {
-      id: 'azureApiVersion',
-      title: 'Azure API Version',
-      type: 'short-input',
-      layout: 'full',
-      placeholder: '2024-07-01-preview',
-      connectionDroppable: false,
-      condition: {
-        field: 'model',
-        value: getProviderModels('azure-openai'),
-      },
-    },
-    {
       id: 'temperature',
       title: 'Temperature',
       type: 'slider',
@@ -357,7 +345,6 @@ export const EvaluatorBlock: BlockConfig<EvaluatorResponse> = {
     model: { type: 'string' as ParamType, description: 'AI model to use' },
     apiKey: { type: 'string' as ParamType, description: 'Provider API key' },
     azureEndpoint: { type: 'string' as ParamType, description: 'Azure OpenAI endpoint URL' },
-    azureApiVersion: { type: 'string' as ParamType, description: 'Azure API version' },
     temperature: {
       type: 'number' as ParamType,
       description: 'Response randomness level (low for consistent evaluation)',
