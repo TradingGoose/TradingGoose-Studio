@@ -1,9 +1,14 @@
-import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime'
+import {
+  BedrockRuntimeClient,
+  ConverseCommand,
+  ConverseStreamCommand,
+} from '@aws-sdk/client-bedrock-runtime'
 import { beforeEach, expect, it, vi } from 'vitest'
 import type { ProviderRequest, ProviderToolConfig } from '@/providers/ai/types'
 
 const mocks = vi.hoisted(() => ({
   chat: vi.fn(),
+  responses: vi.fn(),
   claude: vi.fn(),
   gemini: vi.fn(),
   tool: vi.fn(),
@@ -11,6 +16,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('openai', () => ({
   default: class {
     chat = { completions: { create: mocks.chat } }
+    responses = { create: mocks.responses }
   },
   AzureOpenAI: class {
     chat = { completions: { create: mocks.chat } }
@@ -55,7 +61,6 @@ import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import { deepseekProvider } from '@/providers/ai/deepseek'
 import { groqProvider } from '@/providers/ai/groq'
 import { ollamaProvider } from '@/providers/ai/ollama'
-import { openaiProvider } from '@/providers/ai/openai'
 
 const request = (model: string, params: Partial<ProviderRequest> = {}): ProviderRequest => ({
   model,
@@ -81,6 +86,34 @@ const completion = (
   choices: [{ message }],
   usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
 })
+const response = (
+  output: Record<string, unknown>[] = [
+    { type: 'message', content: [{ type: 'output_text', text: 'Done' }] },
+  ]
+) => ({
+  status: 'completed',
+  output,
+  usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
+})
+function respond(...turns: ReturnType<typeof response>[]) {
+  mocks.responses.mockReset()
+  for (const turn of turns) {
+    mocks.responses.mockImplementationOnce(async (payload) =>
+      payload.stream
+        ? (async function* () {
+            for (const item of turn.output) {
+              if (item.type === 'message') {
+                for (const part of item.content as { type: string; text: string }[]) {
+                  yield { type: 'response.output_text.delta', delta: part.text }
+                }
+              }
+            }
+            yield { type: `response.${turn.status}`, response: turn }
+          })()
+        : turn
+    )
+  }
+}
 const history: ProviderRequest['messages'] = [
   { role: 'assistant', content: null, tool_calls: [toolCall('previous')] },
   { role: 'tool', content: '42', tool_call_id: 'previous' },
@@ -95,6 +128,7 @@ const controls = (payload: Record<string, unknown>) =>
 beforeEach(() => {
   vi.resetAllMocks()
   mocks.chat.mockResolvedValue(completion())
+  respond(response())
   mocks.claude.mockImplementation(async (payload) =>
     payload.stream
       ? (async function* () {
@@ -195,7 +229,6 @@ it('retains paid tool costs in completed Azure Claude streaming requests', async
 })
 
 it.each([
-  ['openai', 'gpt-6.1-sol', 140000, 2, 10],
   ['azure-openai', 'azure/gpt-6.1-sol', 140000, 2, 10],
   ['xai', 'grok-4.7', 110000, 2, 6],
   ['anthropic', 'claude-haiku-5-5', 60000, 0.1, 0.5],
@@ -246,7 +279,6 @@ it.each([
 )
 
 it.each([
-  ['openai', 'gpt-6.1-sol', 140000, 2, 10],
   ['azure-openai', 'azure/gpt-6.1-sol', 140000, 2, 10],
   ['xai', 'grok-4.7', 110000, 2, 6],
 ] as const)(
@@ -442,12 +474,6 @@ it('rejects unqualified Ollama IDs at the wire boundary', async () => {
 
 it.each([
   {
-    provider: openaiProvider,
-    model: 'gpt-5.6-sol',
-    params: { maxTokens: 4096 },
-    expected: { max_completion_tokens: 4096 },
-  },
-  {
     provider: azureOpenAIProvider,
     model: 'azure/gpt-5.4',
     params: { maxTokens: 4096 },
@@ -475,6 +501,273 @@ it.each([
     expect(controls(mocks.chat.mock.calls[0][0])).toEqual({})
   }
 )
+
+it.each(
+  ['gpt-5.3-codex', 'gpt-6-astra', 'gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-4.1'].flatMap((model) =>
+    [false, true].map((stream) => ({ model, stream }))
+  )
+)('executes $model through Responses, stream=$stream', async ({ model, stream }) => {
+  const result = await executeProviderRequest('openai', request(model, { stream }))
+  if ('stream' in result) {
+    expect(await new Response(result.stream).text()).toBe('Done')
+    expect(result.execution.output.tokens).toEqual({ prompt: 10, completion: 5, total: 15 })
+  } else {
+    expect(result).toMatchObject({
+      content: 'Done',
+      tokens: { prompt: 10, completion: 5, total: 15 },
+    })
+  }
+  expect(mocks.responses).toHaveBeenCalledTimes(1)
+  expect(mocks.responses.mock.calls[0][0]).toMatchObject({ model, store: false })
+  expect(mocks.chat).not.toHaveBeenCalled()
+})
+
+it.each(['gpt-4.1', 'gpt-6.1-sol'])('maps optional Responses controls for %s', async (model) => {
+  respond(response(), response())
+  const schema = { type: 'object', properties: {}, required: [], additionalProperties: false }
+  await executeProviderRequest(
+    'openai',
+    request(model, {
+      systemPrompt: 'Follow these instructions',
+      messages: history,
+      maxTokens: 4096,
+      temperature: 0.4,
+      reasoningEffort: 'high',
+      verbosity: 'low',
+      responseFormat: { name: 'answer', schema },
+    })
+  )
+  const payload = mocks.responses.mock.calls[0][0]
+  expect(payload).toMatchObject({
+    max_output_tokens: 4096,
+    text: { format: { type: 'json_schema', name: 'answer', schema, strict: true } },
+    input: expect.arrayContaining([
+      { role: 'system', content: 'Follow these instructions' },
+      { role: 'user', content: 'Analyze' },
+      { type: 'function_call', call_id: 'previous', name: 'lookup', arguments: '{}' },
+      { type: 'function_call_output', call_id: 'previous', output: '42' },
+    ]),
+  })
+  expect(payload.temperature).toBe(model === 'gpt-4.1' ? 0.4 : undefined)
+  expect(payload.reasoning).toEqual(model === 'gpt-4.1' ? undefined : { effort: 'high' })
+  expect(payload.text.verbosity).toBe(model === 'gpt-4.1' ? undefined : 'low')
+  await executeProviderRequest('openai', request(model))
+  const unset = mocks.responses.mock.calls[1][0]
+  for (const field of ['temperature', 'max_output_tokens', 'reasoning', 'text']) {
+    expect(unset[field]).toBeUndefined()
+  }
+})
+
+it.each([false, true])('replays and prices each Responses tool turn, stream=%s', async (stream) => {
+  const firstOutput = [
+    { type: 'reasoning', id: 'reasoning', encrypted_content: 'opaque', summary: [] },
+    { type: 'message', content: [{ type: 'output_text', text: 'Checking' }] },
+    { type: 'function_call', call_id: 'first', name: tool.id, arguments: '{}' },
+  ]
+  const turns = [
+    response(firstOutput),
+    response([{ type: 'function_call', call_id: 'second', name: 'second', arguments: '{}' }]),
+    response(),
+  ]
+  const usage = { input_tokens: 140000, output_tokens: 100, total_tokens: 140100 }
+  respond(...turns.map((turn) => ({ ...turn, usage })))
+  mocks.tool.mockResolvedValue({ success: true, output: { value: 42, cost: { total: 2 } } })
+  const result = await executeProviderRequest(
+    'openai',
+    request('gpt-6.1-sol', {
+      context: undefined,
+      messages: [{ role: 'user', content: 'Analyze' }],
+      stream,
+      tools: [
+        { ...tool, usageControl: 'force' },
+        { ...tool, id: 'second', usageControl: 'force' },
+        { ...tool, id: 'disabled', usageControl: 'none' },
+      ],
+    })
+  )
+  const output = 'stream' in result ? result.execution.output : result
+  if ('stream' in result) {
+    expect(await new Response(result.stream).text()).toBe('Done')
+    expect(result.execution.output).toBe(output)
+  }
+  expect(output).toMatchObject({
+    content: 'Done',
+    tokens: { prompt: 420000, completion: 300, total: 420300 },
+    cost: { toolCost: 4 },
+  })
+  expect(output.cost.input).toBeCloseTo(0.84, 8)
+  expect(output.cost.output).toBeCloseTo(0.003, 8)
+  expect(output.cost.total).toBeCloseTo(4.843, 8)
+  expect(mocks.responses).toHaveBeenCalledTimes(3)
+  expect(mocks.tool).toHaveBeenCalledTimes(2)
+  expect(mocks.responses.mock.calls.map(([payload]) => payload.tool_choice)).toEqual([
+    { type: 'function', name: tool.id },
+    { type: 'function', name: 'second' },
+    'auto',
+  ])
+  expect(mocks.responses.mock.calls[0][0].tools).toEqual(
+    [tool.id, 'second'].map((name) => ({
+      type: 'function',
+      name,
+      description: tool.description,
+      parameters: tool.parameters,
+      strict: false,
+    }))
+  )
+  expect(mocks.responses.mock.calls[1][0].input).toEqual(expect.arrayContaining(firstOutput))
+  expect(mocks.responses.mock.calls[2][0].input).toEqual(
+    expect.arrayContaining([
+      {
+        type: 'function_call_output',
+        call_id: 'first',
+        output: JSON.stringify({ value: 42, cost: { total: 2 } }),
+      },
+      {
+        type: 'function_call_output',
+        call_id: 'second',
+        output: JSON.stringify({ value: 42, cost: { total: 2 } }),
+      },
+    ])
+  )
+})
+
+it.each(['invalid-json', 'unknown-tool', 'execution-error'])(
+  'returns a Responses tool error for %s before continuing',
+  async (failure) => {
+    respond(
+      response([
+        {
+          type: 'function_call',
+          call_id: 'failed',
+          name: failure === 'unknown-tool' ? 'unknown' : tool.id,
+          arguments: failure === 'invalid-json' ? '{' : '{}',
+        },
+      ]),
+      response()
+    )
+    if (failure === 'execution-error') mocks.tool.mockRejectedValueOnce(new Error('Tool failed'))
+    await expect(
+      executeProviderRequest('openai', request('gpt-6-astra', { tools: [tool] }))
+    ).resolves.toMatchObject({ content: 'Done' })
+    const items = mocks.responses.mock.calls[1][0].input
+    const errorOutput = items.find((item: { type: string }) => item.type === 'function_call_output')
+    expect(errorOutput.call_id).toBe('failed')
+    expect(JSON.parse(errorOutput.output)).toMatchObject({ error: true })
+    expect(mocks.responses).toHaveBeenCalledTimes(2)
+  }
+)
+
+it.each([false, true])(
+  'retains the final Responses answer at the tool limit, stream=%s',
+  async (stream) => {
+    respond(
+      ...Array.from({ length: MAX_TOOL_ITERATIONS }, (_, i) =>
+        response([{ type: 'function_call', call_id: `call-${i}`, name: tool.id, arguments: '{}' }])
+      ),
+      response()
+    )
+    const result = await executeProviderRequest(
+      'openai',
+      request('gpt-6-astra', { stream, tools: [tool] })
+    )
+    if ('stream' in result) expect(await new Response(result.stream).text()).toBe('Done')
+    expect('stream' in result ? result.execution.output.content : result.content).toBe('Done')
+    expect(mocks.tool).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS)
+    expect(mocks.responses).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS + 1)
+  }
+)
+
+it.each(['error', 'response.failed', 'response.incomplete', 'missing-terminal'])(
+  'rejects an unusable Responses stream: %s',
+  async (eventType) => {
+    mocks.responses.mockReset().mockResolvedValueOnce(
+      (async function* () {
+        yield { type: 'response.output_text.delta', delta: 'Partial' }
+        if (eventType === 'error') yield { type: 'error', message: 'Provider failed' }
+        else if (eventType !== 'missing-terminal')
+          yield {
+            type: eventType,
+            response: {
+              ...response(),
+              status: eventType.split('.')[1],
+              incomplete_details: { reason: 'content_filter' },
+            },
+          }
+      })()
+    )
+    const result = await executeProviderRequest('openai', request('gpt-6-astra', { stream: true }))
+    if (!('stream' in result)) throw new Error('Expected streaming execution')
+    await expect(new Response(result.stream).text()).rejects.toThrow()
+    expect(result.execution.success).toBe(false)
+  }
+)
+
+it.each([false, true])(
+  'stops remaining Responses tools after cancellation, stream=%s',
+  async (stream) => {
+    const cancellation = new AbortController()
+    respond(
+      response(
+        ['first', 'second'].map((call_id) => ({
+          type: 'function_call',
+          call_id,
+          name: tool.id,
+          arguments: '{}',
+        }))
+      )
+    )
+    mocks.tool.mockImplementationOnce(async () => {
+      cancellation.abort(new Error('Cancelled'))
+      return { success: true, output: {} }
+    })
+    const pending = executeProviderRequest(
+      'openai',
+      request('gpt-6-astra', {
+        stream,
+        tools: [tool],
+        abortSignal: cancellation.signal,
+      })
+    )
+    if (stream) {
+      const result = await pending
+      if (!('stream' in result)) throw new Error('Expected streaming execution')
+      await expect(new Response(result.stream).text()).rejects.toThrow('Cancelled')
+    } else await expect(pending).rejects.toThrow('Cancelled')
+    expect(mocks.tool).toHaveBeenCalledTimes(1)
+    expect(mocks.responses).toHaveBeenCalledTimes(1)
+  }
+)
+
+it.each(
+  ['bedrock/minimax.minimax-m2.5', 'bedrock/openai.gpt-oss-120b-1:0'].flatMap((model) =>
+    [false, true].map((stream) => ({ model, stream }))
+  )
+)('invokes $model using its raw Bedrock ID, stream=$stream', async ({ model, stream }) => {
+  const send = vi.spyOn(BedrockRuntimeClient.prototype, 'send').mockImplementation(async () =>
+    stream
+      ? {
+          stream: (async function* () {
+            yield { contentBlockDelta: { delta: { text: 'Done' } } }
+            yield { metadata: { usage: { inputTokens: 10, outputTokens: 5 } } }
+          })(),
+        }
+      : { output: { message: { role: 'assistant', content: [{ text: 'Done' }] } }, $metadata: {} }
+  )
+  try {
+    const result = await executeProviderRequest('bedrock', request(model, { stream }))
+    if ('stream' in result) expect(await new Response(result.stream).text()).toBe('Done')
+    else expect(result.content).toBe('Done')
+    expect(send).toHaveBeenCalledTimes(1)
+    const command = send.mock.calls[0][0]
+    expect(command).toBeInstanceOf(stream ? ConverseStreamCommand : ConverseCommand)
+    if (!(command instanceof ConverseCommand || command instanceof ConverseStreamCommand)) {
+      throw new Error('Expected Bedrock Converse command')
+    }
+    expect(command.input.modelId).toBe(model.slice('bedrock/'.length))
+  } finally {
+    send.mockRestore()
+  }
+})
 
 it.each([
   ['none', 'none', 'stream'],
