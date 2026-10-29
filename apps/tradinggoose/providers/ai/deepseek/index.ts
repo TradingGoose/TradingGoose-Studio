@@ -1,4 +1,5 @@
 import OpenAI from 'openai'
+import type { CompletionUsage } from 'openai/resources/completions'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
 import type {
@@ -8,15 +9,17 @@ import type {
   TimeSegment,
 } from '@/providers/ai/types'
 import {
-  calculateCost,
+  createModelCost,
   createOpenAICompatibleStream,
   prepareToolExecution,
   prepareToolsWithUsageControl,
   trackForcedToolUsage,
+  withToolCosts,
 } from '@/providers/ai/utils'
 import { executeTool } from '@/tools'
 
 const logger = createLogger('DeepseekProvider')
+type DeepSeekUsage = CompletionUsage & { prompt_cache_hit_tokens?: number }
 
 export const deepseekProvider: ProviderConfig = {
   id: 'deepseek',
@@ -31,6 +34,19 @@ export const deepseekProvider: ProviderConfig = {
     // Start execution timer for the entire provider execution
     const providerStartTime = Date.now()
     const providerStartTimeISO = new Date(providerStartTime).toISOString()
+    const tokens = { prompt: 0, completion: 0, total: 0 }
+    const cost = createModelCost(request.model)
+    const recordUsage = (usage?: DeepSeekUsage) => {
+      if (!usage) return
+      tokens.prompt += usage.prompt_tokens ?? 0
+      tokens.completion += usage.completion_tokens ?? 0
+      tokens.total += usage.total_tokens ?? 0
+      cost.add(
+        usage.prompt_tokens ?? 0,
+        usage.completion_tokens ?? 0,
+        usage.prompt_cache_hit_tokens ?? 0
+      )
+    }
 
     try {
       // Deepseek uses the OpenAI SDK with a custom baseURL
@@ -136,32 +152,14 @@ export const deepseekProvider: ProviderConfig = {
           stream_options: { include_usage: true },
         })
 
-        // Start collecting token usage
-        const tokenUsage = {
-          prompt: 0,
-          completion: 0,
-          total: 0,
-        }
-
         // Create a StreamingExecution response with a readable stream
-        const streamingResult = {
+        const streamingResult: StreamingExecution = {
           stream: createOpenAICompatibleStream(
             streamResponse as any,
             'Deepseek',
             (content, usage) => {
+              recordUsage(usage)
               streamingResult.execution.output.content = content
-
-              const newTokens = {
-                prompt: usage.prompt_tokens || 0,
-                completion: usage.completion_tokens || 0,
-                total: usage.total_tokens || 0,
-              }
-              streamingResult.execution.output.tokens = newTokens
-              streamingResult.execution.output.cost = calculateCost(
-                request.model,
-                newTokens.prompt,
-                newTokens.completion
-              )
             }
           ),
           execution: {
@@ -169,7 +167,7 @@ export const deepseekProvider: ProviderConfig = {
             output: {
               content: '', // Will be filled by streaming content in chat component
               model: request.model,
-              tokens: tokenUsage,
+              tokens,
               toolCalls: undefined,
               providerTiming: {
                 startTime: providerStartTimeISO,
@@ -185,12 +183,7 @@ export const deepseekProvider: ProviderConfig = {
                   },
                 ],
               },
-              // Estimate token cost
-              cost: {
-                total: 0.0,
-                input: 0.0,
-                output: 0.0,
-              },
+              cost: cost.value,
             },
             logs: [], // No block logs for direct streaming
             metadata: {
@@ -203,7 +196,7 @@ export const deepseekProvider: ProviderConfig = {
         }
 
         // Return the streaming execution object
-        return streamingResult as StreamingExecution
+        return streamingResult
       }
 
       // Make the initial API request
@@ -218,6 +211,7 @@ export const deepseekProvider: ProviderConfig = {
 
       let currentResponse = await deepseek.chat.completions.create(payload)
       const firstResponseTime = Date.now() - initialCallTime
+      recordUsage(currentResponse.usage)
 
       let content = currentResponse.choices[0]?.message?.content || ''
 
@@ -229,13 +223,8 @@ export const deepseekProvider: ProviderConfig = {
         content = content.trim()
       }
 
-      const tokens = {
-        prompt: currentResponse.usage?.prompt_tokens || 0,
-        completion: currentResponse.usage?.completion_tokens || 0,
-        total: currentResponse.usage?.total_tokens || 0,
-      }
       const toolCalls = []
-      const toolResults = []
+      const toolResults: Record<string, unknown>[] = []
       const currentMessages: Array<
         (typeof allMessages)[number] | OpenAI.Chat.Completions.ChatCompletionMessage
       > = [...allMessages]
@@ -421,12 +410,7 @@ export const deepseekProvider: ProviderConfig = {
           content = content.trim()
         }
 
-        // Update token counts
-        if (currentResponse.usage) {
-          tokens.prompt += currentResponse.usage.prompt_tokens || 0
-          tokens.completion += currentResponse.usage.completion_tokens || 0
-          tokens.total += currentResponse.usage.total_tokens || 0
-        }
+        recordUsage(currentResponse.usage)
 
         iterationCount++
       }
@@ -453,25 +437,14 @@ export const deepseekProvider: ProviderConfig = {
         const streamResponse = await deepseek.chat.completions.create(streamingPayload)
 
         // Create a StreamingExecution response with all collected data
-        const streamingResult = {
+        const streamingResult: StreamingExecution = {
           stream: createOpenAICompatibleStream(
             streamResponse as any,
             'Deepseek',
             (content, usage) => {
+              recordUsage(usage)
               streamingResult.execution.output.content = content
-
-              const newTokens = {
-                prompt: tokens.prompt + (usage.prompt_tokens || 0),
-                completion: tokens.completion + (usage.completion_tokens || 0),
-                total: tokens.total + (usage.total_tokens || 0),
-              }
-
-              streamingResult.execution.output.tokens = newTokens
-              streamingResult.execution.output.cost = calculateCost(
-                request.model,
-                newTokens.prompt,
-                newTokens.completion
-              )
+              streamingResult.execution.output.cost = withToolCosts(cost.value, toolResults)
             }
           ),
           execution: {
@@ -479,11 +452,7 @@ export const deepseekProvider: ProviderConfig = {
             output: {
               content: '', // Will be filled by the callback
               model: request.model,
-              tokens: {
-                prompt: tokens.prompt,
-                completion: tokens.completion,
-                total: tokens.total,
-              },
+              tokens,
               toolCalls:
                 toolCalls.length > 0
                   ? {
@@ -501,7 +470,7 @@ export const deepseekProvider: ProviderConfig = {
                 iterations: iterationCount + 1,
                 timeSegments: timeSegments,
               },
-              cost: calculateCost(request.model, tokens.prompt, tokens.completion),
+              cost: withToolCosts(cost.value, toolResults),
             },
             logs: [], // No block logs at provider level
             metadata: {
@@ -514,14 +483,14 @@ export const deepseekProvider: ProviderConfig = {
         }
 
         // Return the streaming execution object
-        return streamingResult as StreamingExecution
+        return streamingResult
       }
 
       return {
         content,
         model: request.model,
         tokens,
-        cost: calculateCost(request.model, tokens.prompt, tokens.completion),
+        cost: cost.value,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         toolResults: toolResults.length > 0 ? toolResults : undefined,
         timing: {

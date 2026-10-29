@@ -618,20 +618,14 @@ export function createOpenAICompatibleStream(
 ): ReadableStream<Uint8Array> {
   const streamLogger = createLogger(`${providerName}Utils`)
   let fullContent = ''
-  let promptTokens = 0
-  let completionTokens = 0
-  let totalTokens = 0
+  let lastUsage: CompletionUsage | undefined
 
   return new ReadableStream({
     async start(controller) {
       try {
         for await (const chunk of stream) {
           const usage = chunk.x_groq ? chunk.x_groq.usage : chunk.usage
-          if (usage) {
-            promptTokens = usage.prompt_tokens ?? 0
-            completionTokens = usage.completion_tokens ?? 0
-            totalTokens = usage.total_tokens ?? 0
-          }
+          if (usage) lastUsage = usage
 
           const content = chunk.choices?.[0]?.delta?.content || ''
           if (content) {
@@ -641,14 +635,17 @@ export function createOpenAICompatibleStream(
         }
 
         if (onComplete) {
+          const promptTokens = lastUsage?.prompt_tokens ?? 0
+          const completionTokens = lastUsage?.completion_tokens ?? 0
           if (promptTokens === 0 && completionTokens === 0) {
             streamLogger.warn(`${providerName} stream completed without usage data`)
           }
 
           onComplete(fullContent, {
+            ...lastUsage,
             prompt_tokens: promptTokens,
             completion_tokens: completionTokens,
-            total_tokens: totalTokens || promptTokens + completionTokens,
+            total_tokens: lastUsage?.total_tokens || promptTokens + completionTokens,
           })
         }
 

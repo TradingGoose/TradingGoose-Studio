@@ -926,6 +926,90 @@ it.each([
 )
 
 it.each(
+  (
+    [
+      ['deepseek-flash', 0.0003, 0.000153, 0.000006, 0.00012],
+      ['deepseek-v4-pro', 0.00132, 0.000682, 0.000044, 0.000396],
+    ] as const
+  ).flatMap(([model, cold, partial, cached, outputCost]) =>
+    (
+      [
+        [undefined, cold],
+        [0, cold],
+        [500, partial],
+        [1000, cached],
+      ] as const
+    ).flatMap(([cachedTokens, inputCost]) =>
+      [false, true].map((stream) => ({ model, cachedTokens, inputCost, outputCost, stream }))
+    )
+  )
+)(
+  'prices $model native cache hits=$cachedTokens, stream=$stream',
+  async ({ model, cachedTokens, inputCost, outputCost, stream }) => {
+    const usage = {
+      prompt_tokens: 1000,
+      completion_tokens: 100,
+      total_tokens: 1100,
+      ...(cachedTokens !== undefined && { prompt_cache_hit_tokens: cachedTokens }),
+    }
+    mocks.chat.mockResolvedValueOnce(
+      stream
+        ? (async function* () {
+            yield { choices: [{ delta: { content: 'Done' }, finish_reason: 'stop' }], usage }
+          })()
+        : { ...completion(), usage }
+    )
+    const result = await executeProviderRequest('deepseek', request(model, { stream }))
+    if ('stream' in result) expect(await new Response(result.stream).text()).toBe('Done')
+    const output = 'stream' in result ? result.execution.output : result
+    expect(output.tokens).toEqual({ prompt: 1000, completion: 100, total: 1100 })
+    expect(output.cost.input).toBeCloseTo(inputCost, 8)
+    expect(output.cost.output).toBeCloseTo(outputCost, 8)
+    expect(output.cost.total).toBeCloseTo(inputCost + outputCost, 8)
+  }
+)
+
+it.each([false, true])(
+  'preserves DeepSeek cached usage across tool turns, stream=%s',
+  async (stream) => {
+    const usage = { prompt_tokens: 1000, completion_tokens: 100, total_tokens: 1100 }
+    mocks.chat
+      .mockResolvedValueOnce({
+        ...completion({ role: 'assistant', content: null, tool_calls: [toolCall('cached-tool')] }),
+        usage: { ...usage, prompt_cache_hit_tokens: 0 },
+      })
+      .mockResolvedValueOnce({ ...completion(), usage: { ...usage, prompt_cache_hit_tokens: 500 } })
+      .mockResolvedValueOnce(
+        (async function* () {
+          yield {
+            choices: [{ delta: { content: 'Done' }, finish_reason: 'stop' }],
+            usage: { ...usage, prompt_cache_hit_tokens: 1000 },
+          }
+        })()
+      )
+    mocks.tool.mockResolvedValueOnce({ success: true, output: { cost: { total: 2 } } })
+    const result = await executeProviderRequest(
+      'deepseek',
+      request('deepseek-flash', { stream, tools: [tool] })
+    )
+    if ('stream' in result) expect(await new Response(result.stream).text()).toBe('Done')
+    const output = 'stream' in result ? result.execution.output : result
+    const calls = stream ? 3 : 2
+    expect(output.tokens).toEqual({
+      prompt: calls * 1000,
+      completion: calls * 100,
+      total: calls * 1100,
+    })
+    expect(output.cost.input).toBeCloseTo(stream ? 0.000459 : 0.000453, 8)
+    expect(output.cost.output).toBeCloseTo(stream ? 0.00036 : 0.00024, 8)
+    expect(output.cost.toolCost).toBe(2)
+    expect(output.cost.total).toBeCloseTo(stream ? 2.000819 : 2.000693, 8)
+    expect(mocks.chat).toHaveBeenCalledTimes(calls)
+    expect(mocks.tool).toHaveBeenCalledTimes(1)
+  }
+)
+
+it.each(
   ['deepseek-v4-pro', 'deepseek-flash'].flatMap((model) =>
     [undefined, 'enabled'].flatMap((thinkingLevel) =>
       [false, true].map((stream) => ({ model, thinkingLevel, stream }))
