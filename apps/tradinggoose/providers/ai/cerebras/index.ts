@@ -1,7 +1,6 @@
 import { Cerebras } from '@cerebras/cerebras_cloud_sdk'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
-import { getProviderDefaultModel, getProviderModels } from '@/providers/ai/models'
 import type {
   ProviderConfig,
   ProviderRequest,
@@ -20,11 +19,6 @@ const logger = createLogger('CerebrasProvider')
 
 export const cerebrasProvider: ProviderConfig = {
   id: 'cerebras',
-  name: 'Cerebras',
-  description: 'Cerebras Cloud LLMs',
-  version: '1.0.0',
-  models: getProviderModels('cerebras'),
-  defaultModel: getProviderDefaultModel('cerebras'),
 
   executeRequest: async (
     request: ProviderRequest

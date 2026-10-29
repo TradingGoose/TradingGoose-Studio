@@ -3,18 +3,12 @@ import { getEnv } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
 import { executeAnthropicProviderRequest } from '@/providers/ai/anthropic/core'
-import { getProviderDefaultModel, getProviderModels } from '@/providers/ai/models'
 import type { ProviderConfig, ProviderRequest, ProviderResponse } from '@/providers/ai/types'
 
 const logger = createLogger('AzureAnthropicProvider')
 
 export const azureAnthropicProvider: ProviderConfig = {
   id: 'azure-anthropic',
-  name: 'Azure Anthropic',
-  description: 'Anthropic Claude models via Azure AI Foundry',
-  version: '1.0.0',
-  models: getProviderModels('azure-anthropic'),
-  defaultModel: getProviderDefaultModel('azure-anthropic'),
 
   executeRequest: async (
     request: ProviderRequest

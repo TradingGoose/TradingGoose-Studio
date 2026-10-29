@@ -21,11 +21,6 @@ const logger = createLogger('OllamaProvider')
 
 export const ollamaProvider: ProviderConfig = {
   id: 'ollama',
-  name: 'Ollama',
-  description: 'Local Ollama server for LLM inference',
-  version: '1.0.0',
-  models: [],
-  defaultModel: '',
 
   executeRequest: async (
     request: ProviderRequest

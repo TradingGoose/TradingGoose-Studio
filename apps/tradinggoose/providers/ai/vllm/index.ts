@@ -5,7 +5,6 @@ import { resolveVllmServiceConfig } from '@/lib/system-services/runtime'
 import type { StreamingExecution } from '@/executor/types'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import { toError } from '@/providers/ai/error'
-import { getProviderDefaultModel, getProviderModels } from '@/providers/ai/models'
 import type {
   Message,
   ProviderConfig,
@@ -25,15 +24,9 @@ import {
 import { executeTool } from '@/tools'
 
 const logger = createLogger('VLLMProvider')
-const VLLM_VERSION = '1.0.0'
 
 export const vllmProvider: ProviderConfig = {
   id: 'vllm',
-  name: 'vLLM',
-  description: 'Self-hosted vLLM with OpenAI-compatible API',
-  version: VLLM_VERSION,
-  models: getProviderModels('vllm'),
-  defaultModel: getProviderDefaultModel('vllm'),
 
   executeRequest: async (
     request: ProviderRequest

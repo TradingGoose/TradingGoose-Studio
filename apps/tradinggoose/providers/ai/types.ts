@@ -44,11 +44,6 @@ export interface TokenInfo {
 
 export interface ProviderConfig {
   id: string
-  name: string
-  description: string
-  version: string
-  models: string[]
-  defaultModel: string
   executeRequest: (request: ProviderRequest) => Promise<ProviderResponse | StreamingExecution>
 }
 

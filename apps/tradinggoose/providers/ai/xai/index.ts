@@ -1,7 +1,6 @@
 import OpenAI from 'openai'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
-import { getProviderDefaultModel, getProviderModels } from '@/providers/ai/models'
 import type {
   ProviderConfig,
   ProviderRequest,
@@ -23,11 +22,6 @@ const logger = createLogger('XAIProvider')
 
 export const xAIProvider: ProviderConfig = {
   id: 'xai',
-  name: 'xAI',
-  description: "xAI's Grok models",
-  version: '1.0.0',
-  models: getProviderModels('xai'),
-  defaultModel: getProviderDefaultModel('xai'),
 
   executeRequest: async (
     request: ProviderRequest

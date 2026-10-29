@@ -1,7 +1,6 @@
 import { Groq } from 'groq-sdk'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
-import { getProviderDefaultModel, getProviderModels } from '@/providers/ai/models'
 import type {
   ProviderConfig,
   ProviderRequest,
@@ -20,11 +19,6 @@ const logger = createLogger('GroqProvider')
 
 export const groqProvider: ProviderConfig = {
   id: 'groq',
-  name: 'Groq',
-  description: "Groq's LLM models with high-performance inference",
-  version: '1.0.0',
-  models: getProviderModels('groq'),
-  defaultModel: getProviderDefaultModel('groq'),
 
   executeRequest: async (
     request: ProviderRequest

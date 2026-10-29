@@ -5,7 +5,6 @@ import type { StreamingExecution } from '@/executor/types'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import { toError } from '@/providers/ai/error'
 import { resolveFireworksWireModel } from '@/providers/ai/fireworks/utils'
-import { getProviderDefaultModel, getProviderModels } from '@/providers/ai/models'
 import type {
   FunctionCallResponse,
   Message,
@@ -43,11 +42,6 @@ function applyResponseFormat(
 
 export const fireworksProvider: ProviderConfig = {
   id: 'fireworks',
-  name: 'Fireworks',
-  description: 'Fast inference for open-source models via Fireworks AI',
-  version: '1.0.0',
-  models: getProviderModels('fireworks'),
-  defaultModel: getProviderDefaultModel('fireworks'),
 
   executeRequest: async (
     request: ProviderRequest

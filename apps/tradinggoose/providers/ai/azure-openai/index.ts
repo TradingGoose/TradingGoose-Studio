@@ -2,7 +2,6 @@ import { AzureOpenAI } from 'openai'
 import { createLogger } from '@/lib/logs/console/logger'
 import { resolveAzureOpenAIServiceConfig } from '@/lib/system-services/runtime'
 import type { StreamingExecution } from '@/executor/types'
-import { getProviderDefaultModel, getProviderModels } from '@/providers/ai/models'
 import type {
   ProviderConfig,
   ProviderRequest,
@@ -27,11 +26,6 @@ const logger = createLogger('AzureOpenAIProvider')
  */
 export const azureOpenAIProvider: ProviderConfig = {
   id: 'azure-openai',
-  name: 'Azure OpenAI',
-  description: 'Microsoft Azure OpenAI Service models',
-  version: '1.0.0',
-  models: getProviderModels('azure-openai'),
-  defaultModel: getProviderDefaultModel('azure-openai'),
 
   executeRequest: async (
     request: ProviderRequest

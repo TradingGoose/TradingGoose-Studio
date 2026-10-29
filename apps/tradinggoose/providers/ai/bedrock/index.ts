@@ -21,11 +21,7 @@ import {
 } from '@/providers/ai/bedrock/utils'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import { toError } from '@/providers/ai/error'
-import {
-  getModelCapabilities,
-  getProviderDefaultModel,
-  getProviderModels,
-} from '@/providers/ai/models'
+import { getModelCapabilities } from '@/providers/ai/models'
 import type {
   FunctionCallResponse,
   ProviderConfig,
@@ -47,11 +43,6 @@ const logger = createLogger('BedrockProvider')
 
 export const bedrockProvider: ProviderConfig = {
   id: 'bedrock',
-  name: 'AWS Bedrock',
-  description: 'AWS Bedrock foundation models',
-  version: '1.0.0',
-  models: getProviderModels('bedrock'),
-  defaultModel: getProviderDefaultModel('bedrock'),
 
   executeRequest: async (
     request: ProviderRequest

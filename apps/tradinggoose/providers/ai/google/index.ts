@@ -2,7 +2,6 @@ import { GoogleGenAI } from '@google/genai'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
 import { executeGeminiRequest } from '@/providers/ai/gemini/core'
-import { getProviderDefaultModel, getProviderModels } from '@/providers/ai/models'
 import type { ProviderConfig, ProviderRequest, ProviderResponse } from '@/providers/ai/types'
 
 const logger = createLogger('GoogleProvider')
@@ -15,11 +14,6 @@ const logger = createLogger('GoogleProvider')
  */
 export const googleProvider: ProviderConfig = {
   id: 'google',
-  name: 'Google',
-  description: "Google's Gemini models",
-  version: '1.0.0',
-  models: getProviderModels('google'),
-  defaultModel: getProviderDefaultModel('google'),
 
   executeRequest: async (
     request: ProviderRequest
