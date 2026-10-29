@@ -245,11 +245,7 @@ export async function executeAnthropicProviderRequest(
       request.tools,
       logger,
       'anthropic',
-      getModelCapabilities(modelId)?.forcedToolUse !== false &&
-        (!request.thinkingLevel ||
-          request.thinkingLevel === 'none' ||
-          !supportsAdaptiveThinking(modelId) ||
-          getThinkingCapability(modelId)?.forcedToolUse === true)
+      getModelCapabilities(modelId)?.forcedToolUse !== false
     )
     anthropicTools = preparedTools.tools
     if (anthropicTools?.length) {

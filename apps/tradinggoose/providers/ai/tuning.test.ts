@@ -1048,6 +1048,11 @@ it.each([
   { provider: anthropicProvider, model: 'claude-haiku-5-5' },
   { provider: azureAnthropicProvider, model: 'azure-anthropic/claude-haiku-5-5' },
   { provider: azureAnthropicProvider, model: 'azure-anthropic/claude-opus-5' },
+  { provider: azureAnthropicProvider, model: 'azure-anthropic/claude-opus-4-8' },
+  { provider: azureAnthropicProvider, model: 'azure-anthropic/claude-opus-4-7' },
+  { provider: azureAnthropicProvider, model: 'azure-anthropic/claude-opus-4-6' },
+  { provider: azureAnthropicProvider, model: 'azure-anthropic/claude-sonnet-5' },
+  { provider: azureAnthropicProvider, model: 'azure-anthropic/claude-sonnet-4-6' },
 ])(
   'sequences forced tools with adaptive thinking for $model on $provider.id',
   async ({ provider, model }) => {

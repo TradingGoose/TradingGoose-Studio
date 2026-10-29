@@ -33,7 +33,6 @@ export interface ModelCapabilities {
   thinking?: {
     levels: string[]
     noneMode?: 'between_tools' | 'disabled'
-    forcedToolUse?: boolean
   }
   deepResearch?: boolean
 }
@@ -686,7 +685,6 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
           thinking: {
             levels: ['low', 'medium', 'high', 'xhigh', 'max'],
             noneMode: 'disabled',
-            forcedToolUse: true,
           },
         },
       },
@@ -1205,7 +1203,6 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
           thinking: {
             levels: ['low', 'medium', 'high', 'xhigh', 'max'],
             noneMode: 'disabled',
-            forcedToolUse: true,
           },
         },
       },
@@ -1220,7 +1217,6 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
           maxOutputTokens: 128000,
           thinking: {
             levels: ['low', 'medium', 'high', 'xhigh', 'max'],
-            forcedToolUse: true,
           },
         },
       },
