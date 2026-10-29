@@ -51,12 +51,12 @@ export const fireworksProvider: ProviderConfig = {
       throw new Error('API key is required for Fireworks')
     }
 
-    const tokens = { input: 0, output: 0, total: 0 }
+    const tokens = { prompt: 0, completion: 0, total: 0 }
     const cost = createModelCost(request.model)
     const recordUsage = (usage?: CompletionUsage) => {
       if (!usage) return
-      tokens.input += usage.prompt_tokens ?? 0
-      tokens.output += usage.completion_tokens ?? 0
+      tokens.prompt += usage.prompt_tokens ?? 0
+      tokens.completion += usage.completion_tokens ?? 0
       tokens.total += usage.total_tokens ?? 0
       cost.add(
         usage.prompt_tokens ?? 0,

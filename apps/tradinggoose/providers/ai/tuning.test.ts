@@ -978,11 +978,7 @@ it.each(
     const result = await executeProviderRequest(provider, request(model, { stream }))
     if ('stream' in result) expect(await new Response(result.stream).text()).toBe('Done')
     const output = 'stream' in result ? result.execution.output : result
-    expect(output.tokens).toEqual(
-      provider === 'fireworks' && stream
-        ? { input: 1000, output: 100, total: 1100 }
-        : { prompt: 1000, completion: 100, total: 1100 }
-    )
+    expect(output.tokens).toEqual({ prompt: 1000, completion: 100, total: 1100 })
     expect(output.cost.input).toBeCloseTo(inputCost, 8)
     expect(output.cost.output).toBeCloseTo(outputCost, 8)
     expect(output.cost.total).toBeCloseTo(inputCost + outputCost, 8)
@@ -1042,11 +1038,11 @@ it.each(
     if ('stream' in result) expect(await new Response(result.stream).text()).toBe(content)
     const output = 'stream' in result ? result.execution.output : result
     const calls = stream || provider === 'fireworks' ? 3 : 2
-    expect(output.tokens).toEqual(
-      provider === 'fireworks' && stream
-        ? { input: calls * 1000, output: calls * 100, total: calls * 1100 }
-        : { prompt: calls * 1000, completion: calls * 100, total: calls * 1100 }
-    )
+    expect(output.tokens).toEqual({
+      prompt: calls * 1000,
+      completion: calls * 100,
+      total: calls * 1100,
+    })
     const inputCost = cold + partial + (calls === 3 ? cached : 0)
     expect(output.cost.input).toBeCloseTo(inputCost, 8)
     expect(output.cost.output).toBeCloseTo(outputCost * calls, 8)
