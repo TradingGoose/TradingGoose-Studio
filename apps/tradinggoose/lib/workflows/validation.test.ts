@@ -232,7 +232,7 @@ describe('canonical sub-block validation', () => {
 
   it.each([
     ['gpt-4.1', 1.5, true],
-    ['claude-sonnet-4-6', 1.5, false],
+    ['claude-haiku-4-5', 1.5, false],
   ])('uses the active temperature bounds for %s', (model, temperature, valid) => {
     validationMocks.getBlock.mockReturnValue(AgentBlock)
     expect(validateWorkflowState(workflowWithValues('agent', { model, temperature })).valid).toBe(

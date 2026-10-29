@@ -2247,10 +2247,11 @@ describe('InputResolver', () => {
     })
 
     it.each([
-      ['claude-opus-4-5', 'claude-opus-4-5', true],
-      ['claude-opus-4-5-20251101', 'claude-opus-4-5-20251101', true],
+      ['claude-haiku-4-5', 'claude-haiku-4-5', true],
+      ['claude-opus-5-5', 'claude-opus-5-5', true],
+      ['claude-haiku-4-5-20251001', 'claude-haiku-4-5-20251001', false],
       ['gpt-4.1', 'gpt-4.1', false],
-      ['<variable.stringVar>', 'claude-opus-4-5-20251101', true],
+      ['<variable.stringVar>', 'claude-opus-5-5', true],
     ] as const)('resolves Agent thinking eligibility for %s', (model, resolvedModel, supported) => {
       mockGetBlock.mockReturnValue(AgentBlock)
       mockWorkflowVars.stringVar.value = resolvedModel

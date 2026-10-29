@@ -57,8 +57,8 @@ it('persists partial names and clears the key only when the next provider is rec
     expect(() => type(value)).not.toThrow()
     expect(mocks.values.apiKey).toBe('saved-key')
   }
-  type('claude-sonnet-5')
-  expect(mocks.values).toEqual({ model: 'claude-sonnet-5', apiKey: '' })
+  type('claude-sonnet-5-5')
+  expect(mocks.values).toEqual({ model: 'claude-sonnet-5-5', apiKey: '' })
   expect(mocks.write.mock.calls.filter((call) => call[1] === 'apiKey')).toEqual([
     ['agent', 'apiKey', ''],
   ])
@@ -76,13 +76,13 @@ it.each(['c', '', '<start.model>', 'unsupported-model'])(
     expect(() => render(model)).not.toThrow()
     expect(() => type('cl')).not.toThrow()
     expect(mocks.values.apiKey).toBe('saved-key')
-    type('claude-sonnet-5')
+    type('claude-sonnet-5-5')
     expect(mocks.values.apiKey).toBe('')
   }
 )
 
 it.each([
-  ['c', 'claude-sonnet-5', ''],
+  ['c', 'claude-sonnet-5-5', ''],
   ['gpt-4.1', 'gpt-5.6-sol', 'saved-key'],
 ])('reopens %s without retaining another provider’s ownership', (model, selection, expectedKey) => {
   render('gpt-4.1')
@@ -98,7 +98,7 @@ it.each(['c', 'gpt-4.1'])(
   (model) => {
     render('gpt-4.1')
     render(model, 'other-agent')
-    type('claude-sonnet-5')
+    type('claude-sonnet-5-5')
     expect(mocks.values.apiKey).toBe('')
     expect(mocks.write.mock.calls.every((call) => call[0] === 'other-agent')).toBe(true)
   }

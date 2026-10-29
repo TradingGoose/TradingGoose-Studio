@@ -75,7 +75,7 @@ vi.mock('@/blocks', () => ({
           access: ['anthropic_chat', 'openai_chat', 'google_chat'],
           config: {
             // Use the real getProviderFromModel that we imported
-            tool: (params: Record<string, any>) => getProviderFromModel(params.model || 'gpt-4o'),
+            tool: (params: Record<string, any>) => getProviderFromModel(params.model || 'gpt-4.1'),
           },
         },
         subBlocks: [
@@ -321,7 +321,7 @@ describe('Serializer', () => {
       expect(agentBlock).toBeDefined()
       expect(agentBlock?.metadata?.id).toBe('agent')
       expect(agentBlock?.config.params.prompt).toBe('Hello, world!')
-      expect(agentBlock?.config.params.model).toBe('claude-3-7-sonnet-20250219')
+      expect(agentBlock?.config.params.model).toBe('claude-sonnet-5-5')
 
       // Check if edges are correctly serialized
       expect(serialized.connections).toHaveLength(1)
@@ -415,7 +415,7 @@ describe('Serializer', () => {
       expect(agentBlock).toBeDefined()
       expect(agentBlock?.metadata?.id).toBe('agent')
       expect(agentBlock?.config.tool).toBe('openai')
-      expect(agentBlock?.config.params.model).toBe('gpt-4o')
+      expect(agentBlock?.config.params.model).toBe('gpt-4.1')
       expect(agentBlock?.outputs.responseFormat).toBeDefined()
     })
 
@@ -428,9 +428,9 @@ describe('Serializer', () => {
       // Check agent block
       const agentBlock = serialized.blocks.find((b) => b.id === 'agent1')
       expect(agentBlock).toBeDefined()
-      // The model used is 'gpt-4o', so tool should be 'openai'
+      // The model used is 'gpt-4.1', so tool should be 'openai'
       expect(agentBlock?.config.tool).toBe('openai')
-      expect(agentBlock?.config.params.model).toBe('gpt-4o')
+      expect(agentBlock?.config.params.model).toBe('gpt-4.1')
 
       // Tools should be preserved as-is in params
       const toolsParam = agentBlock?.config.params.tools
@@ -492,7 +492,7 @@ describe('Serializer', () => {
       expect(agentBlock.type).toBe('agent')
       expect(agentBlock.name).toBe('Agent Block')
       expect(agentBlock.subBlocks.prompt.value).toBe('Hello, world!')
-      expect(agentBlock.subBlocks.model.value).toBe('claude-3-7-sonnet-20250219')
+      expect(agentBlock.subBlocks.model.value).toBe('claude-sonnet-5-5')
 
       // Check edges
       expect(deserialized.edges).toHaveLength(1)
@@ -534,7 +534,7 @@ describe('Serializer', () => {
       const agentBlock = deserialized.blocks.agent1
       expect(agentBlock).toBeDefined()
       expect(agentBlock.type).toBe('agent')
-      expect(agentBlock.subBlocks.model.value).toBe('gpt-4o')
+      expect(agentBlock.subBlocks.model.value).toBe('gpt-4.1')
       expect(agentBlock.subBlocks.provider.value).toBe('openai')
     })
 
@@ -1042,7 +1042,7 @@ describe('Serializer', () => {
             memories: { value: [{ role: 'user', content: 'My name is John' }] },
             reasoningEffort: { value: 'auto' },
             thinkingLevel: { value: 'high' },
-            model: { value: 'claude-sonnet-4-6' },
+            model: { value: 'claude-sonnet-5-5' },
           },
           outputs: {},
           enabled: true,
@@ -1057,7 +1057,7 @@ describe('Serializer', () => {
           memories: [{ role: 'user', content: 'My name is John' }],
           reasoningEffort: 'auto',
           thinkingLevel: 'high',
-          model: 'claude-sonnet-4-6',
+          model: 'claude-sonnet-5-5',
         })
       }
     )
