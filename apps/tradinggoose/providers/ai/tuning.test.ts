@@ -221,7 +221,7 @@ it('retains paid tool costs in completed Azure Claude streaming requests', async
   if ('stream' in result) throw new Error('Expected completed response')
   expect(result.content).toBe('Done')
   expect(result.cost?.toolCost).toBe(2)
-  expect(result.cost?.total).toBeCloseTo(2.000156, 8)
+  expect(result.cost?.total).toBeCloseTo(2.00021, 8)
 })
 
 it.each([
@@ -841,6 +841,46 @@ it.each([
   }
 )
 
+it.each(
+  ['deepseek-v4-pro', 'deepseek-flash'].flatMap((model) =>
+    [undefined, 'enabled'].flatMap((thinkingLevel) =>
+      [false, true].map((stream) => ({ model, thinkingLevel, stream }))
+    )
+  )
+)(
+  'rejects forced $model tools with thinking=$thinkingLevel, stream=$stream',
+  async ({ model, thinkingLevel, stream }) => {
+    await expect(
+      deepseekProvider.executeRequest(
+        request(model, { thinkingLevel, stream, tools: [{ ...tool, usageControl: 'force' }] })
+      )
+    ).rejects.toThrow('does not support forced tool use')
+    expect(mocks.chat).not.toHaveBeenCalled()
+    expect(mocks.tool).not.toHaveBeenCalled()
+  }
+)
+
+it.each(['deepseek-v4-pro', 'deepseek-flash'])(
+  'honors forced %s tools when thinking is explicitly disabled',
+  async (model) => {
+    mocks.chat.mockResolvedValueOnce(
+      completion({ role: 'assistant', content: null, tool_calls: [toolCall('forced')] })
+    )
+    await deepseekProvider.executeRequest(
+      request(model, { thinkingLevel: 'none', tools: [{ ...tool, usageControl: 'force' }] })
+    )
+    expect(mocks.chat).toHaveBeenCalledTimes(2)
+    expect(mocks.tool).toHaveBeenCalledTimes(1)
+    expect(mocks.chat.mock.calls.map(([payload]) => payload.tool_choice)).toEqual([
+      { type: 'function', function: { name: tool.id } },
+      'auto',
+    ])
+    for (const [payload] of mocks.chat.mock.calls) {
+      expect(payload.thinking).toEqual({ type: 'disabled' })
+    }
+  }
+)
+
 it('preserves complete DeepSeek reasoning and parallel tool calls through followups', async () => {
   const assistant = {
     role: 'assistant',
@@ -1169,14 +1209,38 @@ it('returns the completed Claude answer when configured tools are unused', async
   expect(result).toMatchObject({ content: 'Done', tokens: { total: 15 } })
 })
 
-it('streams Claude text when tools are absent', async () => {
-  const result = await anthropicProvider.executeRequest(
-    request('claude-sonnet-5-5', { stream: true, maxTokens: 4096 })
+it.each(
+  ['claude-haiku-4-5', 'azure-anthropic/claude-haiku-4-5'].flatMap((model) =>
+    [false, true].map((stream) => ({ model, stream }))
   )
-  if (!('stream' in result)) throw new Error('Expected streaming execution')
-  expect(await new Response(result.stream).text()).toBe('Done')
+)('prices uncached context for $model, stream=$stream', async ({ model, stream }) => {
+  const usage = { input_tokens: 1000, output_tokens: 100 }
+  mocks.claude.mockImplementationOnce(async (payload) =>
+    payload.stream
+      ? (async function* () {
+          yield { type: 'message_start', message: { usage: { ...usage, output_tokens: 0 } } }
+          yield { type: 'content_block_delta', delta: { type: 'text_delta', text: 'Done' } }
+          yield { type: 'message_delta', usage: { output_tokens: 100 } }
+        })()
+      : { content: [{ type: 'text', text: 'Done' }], usage }
+  )
+  const provider = model.startsWith('azure-anthropic/') ? azureAnthropicProvider : anthropicProvider
+  const result = await provider.executeRequest(
+    request(model, {
+      stream,
+      maxTokens: 4096,
+      azureEndpoint: 'https://example.services.ai.azure.com',
+    })
+  )
+  if ('stream' in result) expect(await new Response(result.stream).text()).toBe('Done')
+  const output = 'stream' in result ? result.execution.output : result
+  expect(output).toMatchObject({
+    content: 'Done',
+    tokens: { input: 1000, output: 100, total: 1100 },
+    cost: { input: 0.001, output: 0.0005, total: 0.0015 },
+  })
   expect(mocks.claude).toHaveBeenCalledTimes(1)
-  expect(mocks.claude.mock.calls[0][0].stream).toBe(true)
+  expect(mocks.claude.mock.calls[0][0].stream).toBe(stream ? true : undefined)
   expect(mocks.tool).not.toHaveBeenCalled()
 })
 

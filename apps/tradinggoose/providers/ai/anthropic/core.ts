@@ -349,17 +349,11 @@ export async function executeAnthropicProviderRequest(
             total: usage.input_tokens + usage.output_tokens,
           }
 
-          const costResult = calculateCost(
+          streamingResult.execution.output.cost = calculateCost(
             request.model,
             usage.input_tokens,
-            usage.output_tokens,
-            !!request.context
+            usage.output_tokens
           )
-          streamingResult.execution.output.cost = {
-            input: costResult.input,
-            output: costResult.output,
-            total: costResult.total,
-          }
 
           const streamEndTime = Date.now()
           const streamEndTimeISO = new Date(streamEndTime).toISOString()
@@ -399,11 +393,7 @@ export async function executeAnthropicProviderRequest(
               },
             ],
           },
-          cost: {
-            total: 0.0,
-            input: 0.0,
-            output: 0.0,
-          },
+          cost: calculateCost(request.model),
         },
         logs: [],
         metadata: {
@@ -438,7 +428,7 @@ export async function executeAnthropicProviderRequest(
       total:
         (currentResponse.usage?.input_tokens || 0) + (currentResponse.usage?.output_tokens || 0),
     }
-    const cost = createModelCost(request.model, !!request.context)
+    const cost = createModelCost(request.model)
     cost.add(tokens.input, tokens.output)
 
     const toolCalls = []

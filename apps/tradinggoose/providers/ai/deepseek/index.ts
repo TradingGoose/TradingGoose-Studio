@@ -96,7 +96,13 @@ export const deepseekProvider: ProviderConfig = {
       let preparedTools: ReturnType<typeof prepareToolsWithUsageControl> | null = null
 
       if (tools?.length) {
-        preparedTools = prepareToolsWithUsageControl(tools, request.tools, logger, 'deepseek')
+        preparedTools = prepareToolsWithUsageControl(
+          tools,
+          request.tools,
+          logger,
+          'deepseek',
+          request.thinkingLevel === 'none'
+        )
         const { tools: filteredTools, toolChoice } = preparedTools
 
         if (filteredTools?.length && toolChoice) {
