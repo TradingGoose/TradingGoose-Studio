@@ -58,11 +58,17 @@ export const deepseekProvider: ProviderConfig = {
       // Start with an empty array for all messages
       const allMessages = []
 
-      // Add system prompt if present
-      if (request.systemPrompt) {
+      const systemPrompt = [
+        request.systemPrompt,
+        request.responseFormat &&
+          `Respond with only a valid JSON object matching this schema: ${JSON.stringify(request.responseFormat.schema)}`,
+      ]
+        .filter(Boolean)
+        .join('\n\n')
+      if (systemPrompt) {
         allMessages.push({
           role: 'system',
-          content: request.systemPrompt,
+          content: systemPrompt,
         })
       }
 
@@ -99,6 +105,7 @@ export const deepseekProvider: ProviderConfig = {
       // Add optional parameters
       if (request.temperature !== undefined) payload.temperature = request.temperature
       if (request.maxTokens !== undefined) payload.max_tokens = request.maxTokens
+      if (request.responseFormat) payload.response_format = { type: 'json_object' }
       if (request.thinkingLevel !== undefined) {
         payload.thinking = {
           type: request.thinkingLevel === 'none' ? 'disabled' : 'enabled',

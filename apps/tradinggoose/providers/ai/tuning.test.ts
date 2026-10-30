@@ -1493,6 +1493,43 @@ it.each(
   }
 )
 
+it('applies DeepSeek response format through tool continuations and streaming', async () => {
+  const content = '{"value":42}'
+  const schema = { type: 'object', properties: { value: { type: 'number' } } }
+  mocks.chat
+    .mockResolvedValueOnce(
+      completion({ role: 'assistant', content: null, tool_calls: [toolCall('schema')] })
+    )
+    .mockResolvedValueOnce(completion({ role: 'assistant', content }))
+    .mockResolvedValueOnce(
+      (async function* () {
+        yield { choices: [{ delta: { content } }] }
+      })()
+    )
+
+  const result = await executeProviderRequest(
+    'deepseek',
+    request('deepseek-flash', {
+      systemPrompt: 'Keep this instruction',
+      responseFormat: { name: 'answer', schema },
+      stream: true,
+      tools: [tool],
+    })
+  )
+  if (!('stream' in result)) throw new Error('Expected streaming execution')
+  expect(await new Response(result.stream).text()).toBe(content)
+  expect(mocks.chat).toHaveBeenCalledTimes(3)
+  expect(mocks.tool).toHaveBeenCalledTimes(1)
+  for (const [payload] of mocks.chat.mock.calls) {
+    expect(payload.response_format).toEqual({ type: 'json_object' })
+    const systemMessage = payload.messages.find(
+      (message: { role: string }) => message.role === 'system'
+    )
+    expect(systemMessage.content).toContain('Keep this instruction')
+    expect(systemMessage.content).toContain(JSON.stringify(schema))
+  }
+})
+
 it.each(['deepseek-v4-pro', 'deepseek-flash'])(
   'honors forced %s tools when thinking is explicitly disabled',
   async (model) => {
