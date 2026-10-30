@@ -388,9 +388,11 @@ describe('NodeEditorPanel', () => {
 
       const toggle = container.querySelector('button[aria-expanded]') as HTMLButtonElement
       expect(toggle.getAttribute('aria-expanded')).toBe('false')
+      expect(toggle.textContent).toContain('Mostrar campos adicionales')
       expect(container.querySelectorAll('[data-testid="row"]')).toHaveLength(1)
       await act(async () => toggle.click())
       expect(toggle.getAttribute('aria-expanded')).toBe('true')
+      expect(toggle.textContent).toContain('Ocultar campos adicionales')
       expect(container.querySelectorAll('[data-testid="row"]')).toHaveLength(2)
       await act(async () => toggle.click())
       expect(container.querySelectorAll('[data-testid="row"]')).toHaveLength(1)
@@ -414,7 +416,7 @@ describe('NodeEditorPanel', () => {
       )
 
       expect(markup.match(/data-testid="row"/g)).toHaveLength(2)
-      expect(markup).toContain(protectedBlock ? 'Additional fields' : 'Hide additional fields')
+      expect(markup).toContain(protectedBlock ? 'Campos adicionales' : 'Ocultar campos adicionales')
       expect(mockCollaborativeToggleBlockAdvancedMode).not.toHaveBeenCalled()
     }
   )

@@ -278,7 +278,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
                 <div className='h-px flex-1 border-border border-t border-dashed' />
                 {shouldDisableWrite ? (
                   <span className='whitespace-nowrap font-medium text-[13px] text-muted-foreground'>
-                    Additional fields
+                    {workflowEditorCopy.additionalFields}
                   </span>
                 ) : (
                   <button
@@ -289,7 +289,9 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
                     onClick={handleToggleAdditionalFields}
                     className='flex items-center gap-[6px] whitespace-nowrap font-medium text-[13px] text-muted-foreground hover:text-foreground'
                   >
-                    {displayAdditionalFields ? 'Hide additional fields' : 'Show additional fields'}
+                    {displayAdditionalFields
+                      ? workflowEditorCopy.hideAdditionalFields
+                      : workflowEditorCopy.showAdditionalFields}
                     <ChevronDown
                       className={`h-[14px] w-[14px] transition-transform duration-200 ${displayAdditionalFields ? 'rotate-180' : ''}`}
                     />
