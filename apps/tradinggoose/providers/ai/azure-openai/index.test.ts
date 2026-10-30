@@ -80,6 +80,8 @@ it.each([false, true])('uses the Azure v1 Responses endpoint, stream=%s', async 
   )
   expect(JSON.parse(init.body)).toMatchObject({
     model: 'gpt-6.1-sol',
+    store: false,
+    include: ['reasoning.encrypted_content'],
     max_output_tokens: 100,
     reasoning: { effort: 'max' },
     stream,

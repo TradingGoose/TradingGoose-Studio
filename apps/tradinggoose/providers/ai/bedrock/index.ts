@@ -391,23 +391,6 @@ export const bedrockProvider: ProviderConfig = {
 
       let content = ''
       let hasExtractedStructuredOutput = false
-      if (currentResponse.output?.message?.content) {
-        const structuredOutputCall = currentResponse.output.message.content.find(
-          (block): block is ContentBlock & { toolUse: ToolUseBlock } =>
-            'toolUse' in block && block.toolUse?.name === structuredOutputToolName
-        )
-
-        if (structuredOutputCall && structuredOutputTool) {
-          content = JSON.stringify(structuredOutputCall.toolUse.input, null, 2)
-          hasExtractedStructuredOutput = true
-          logger.info('Extracted structured output from tool call')
-        } else {
-          const textBlocks = currentResponse.output.message.content.filter(
-            (block): block is ContentBlock & { text: string } => 'text' in block
-          )
-          content = textBlocks.map((block) => block.text).join('\n')
-        }
-      }
 
       const tokens = {
         input: currentResponse.usage?.inputTokens || 0,
@@ -455,8 +438,21 @@ export const bedrockProvider: ProviderConfig = {
         usedForcedTools = firstCheckResult.usedForcedTools
       }
 
-      while (iterationCount < MAX_TOOL_ITERATIONS) {
-        const textContentBlocks = (currentResponse.output?.message?.content || []).filter(
+      while (true) {
+        const responseContent = currentResponse.output?.message?.content ?? []
+        const structuredOutputCall =
+          structuredOutputTool &&
+          responseContent.find(
+            (block): block is ContentBlock & { toolUse: ToolUseBlock } =>
+              'toolUse' in block && block.toolUse?.name === structuredOutputToolName
+          )
+        if (structuredOutputCall) {
+          content = JSON.stringify(structuredOutputCall.toolUse.input, null, 2)
+          hasExtractedStructuredOutput = true
+          break
+        }
+
+        const textContentBlocks = responseContent.filter(
           (block): block is ContentBlock & { text: string } => 'text' in block
         )
         const textContent = textContentBlocks.map((block) => block.text).join('\n')
@@ -465,7 +461,7 @@ export const bedrockProvider: ProviderConfig = {
           content = textContent
         }
 
-        const toolUseContentBlocks = (currentResponse.output?.message?.content || []).filter(
+        const toolUseContentBlocks = responseContent.filter(
           (block): block is ContentBlock & { toolUse: ToolUseBlock } => 'toolUse' in block
         )
         const currentToolUses = toolUseContentBlocks.map(({ toolUse }) => {
@@ -473,7 +469,7 @@ export const bedrockProvider: ProviderConfig = {
           return { ...toolUse, toolUseId: toolUse.toolUseId }
         })
 
-        if (currentToolUses.length === 0) {
+        if (currentToolUses.length === 0 || iterationCount >= MAX_TOOL_ITERATIONS) {
           break
         }
 
@@ -668,7 +664,7 @@ export const bedrockProvider: ProviderConfig = {
         iterationCount++
       }
 
-      if (structuredOutputTool && request.tools?.length) {
+      if (structuredOutputTool && request.tools?.length && !hasExtractedStructuredOutput) {
         logger.info('Making final call with forced structured_output tool')
 
         const structuredOutputStartTime = Date.now()

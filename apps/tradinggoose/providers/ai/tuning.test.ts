@@ -97,11 +97,17 @@ const response = (
   output,
   usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
 })
-function respond(...turns: ReturnType<typeof response>[]) {
+function respond(
+  ...turns: Array<
+    | ReturnType<typeof response>
+    | ((payload: Record<string, unknown>) => ReturnType<typeof response>)
+  >
+) {
   mocks.responses.mockReset()
-  for (const turn of turns) {
-    mocks.responses.mockImplementationOnce(async (payload) =>
-      payload.stream
+  for (const fixture of turns) {
+    mocks.responses.mockImplementationOnce(async (payload) => {
+      const turn = typeof fixture === 'function' ? fixture(payload) : fixture
+      return payload.stream
         ? (async function* () {
             for (const item of turn.output) {
               if (item.type === 'message') {
@@ -113,7 +119,7 @@ function respond(...turns: ReturnType<typeof response>[]) {
             yield { type: `response.${turn.status}`, response: turn }
           })()
         : turn
-    )
+    })
   }
 }
 const history: ProviderRequest['messages'] = [
@@ -559,72 +565,151 @@ it.each(
   }
 )
 
-it.each([false, true])('pairs every Bedrock tool call with a result, stream=%s', async (stream) => {
-  const send = vi
-    .spyOn(BedrockRuntimeClient.prototype, 'send')
-    .mockImplementationOnce(async () => ({
-      output: {
-        message: {
+it.each(
+  [false, true].flatMap((stream) =>
+    [tool.id, 'structured_output'].map((name) => ({ stream, name }))
+  )
+)(
+  'pairs every Bedrock tool call with a result, stream=$stream, name=$name',
+  async ({ stream, name }) => {
+    const send = vi
+      .spyOn(BedrockRuntimeClient.prototype, 'send')
+      .mockImplementationOnce(async () => ({
+        output: {
+          message: {
+            role: 'assistant',
+            content: [
+              { toolUse: { toolUseId: 'known', name, input: {} } },
+              { toolUse: { toolUseId: 'unknown', name: 'missing', input: {} } },
+            ],
+          },
+        },
+        $metadata: {},
+      }))
+      .mockImplementationOnce(async () => ({
+        output: { message: { role: 'assistant', content: [{ text: 'Done' }] } },
+        $metadata: {},
+      }))
+    if (stream)
+      send.mockImplementationOnce(async () => ({
+        stream: (async function* () {
+          yield { contentBlockDelta: { delta: { text: 'Done' } } }
+        })(),
+        $metadata: {},
+      }))
+    mocks.tool.mockResolvedValueOnce({ success: true, output: { value: 42, cost: { total: 2 } } })
+    try {
+      const result = await executeProviderRequest(
+        'bedrock',
+        request('bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0', {
+          stream,
+          tools: [{ ...tool, id: name }],
+        })
+      )
+      if ('stream' in result) expect(await new Response(result.stream).text()).toBe('Done')
+      const followup = send.mock.calls[1][0]
+      if (!(followup instanceof ConverseCommand)) throw new Error('Expected Bedrock continuation')
+      expect(followup.input.messages?.slice(-2)).toMatchObject([
+        {
           role: 'assistant',
+          content: [{ toolUse: { toolUseId: 'known' } }, { toolUse: { toolUseId: 'unknown' } }],
+        },
+        {
+          role: 'user',
           content: [
-            { toolUse: { toolUseId: 'known', name: tool.id, input: {} } },
-            { toolUse: { toolUseId: 'unknown', name: 'missing', input: {} } },
+            { toolResult: { toolUseId: 'known' } },
+            {
+              toolResult: {
+                toolUseId: 'unknown',
+                content: [{ text: expect.stringContaining('Unknown tool: missing') }],
+              },
+            },
           ],
         },
-      },
-      $metadata: {},
-    }))
-    .mockImplementationOnce(async () => ({
-      output: { message: { role: 'assistant', content: [{ text: 'Done' }] } },
-      $metadata: {},
-    }))
-  if (stream)
-    send.mockImplementationOnce(async () => ({
-      stream: (async function* () {
-        yield { contentBlockDelta: { delta: { text: 'Done' } } }
-      })(),
-      $metadata: {},
-    }))
-  mocks.tool.mockResolvedValueOnce({ success: true, output: { value: 42, cost: { total: 2 } } })
-  try {
-    const result = await executeProviderRequest(
-      'bedrock',
-      request('bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0', { stream, tools: [tool] })
-    )
-    if ('stream' in result) expect(await new Response(result.stream).text()).toBe('Done')
-    const followup = send.mock.calls[1][0]
-    if (!(followup instanceof ConverseCommand)) throw new Error('Expected Bedrock continuation')
-    expect(followup.input.messages?.slice(-2)).toMatchObject([
-      {
-        role: 'assistant',
-        content: [{ toolUse: { toolUseId: 'known' } }, { toolUse: { toolUseId: 'unknown' } }],
-      },
-      {
-        role: 'user',
-        content: [
-          { toolResult: { toolUseId: 'known' } },
-          {
-            toolResult: {
-              toolUseId: 'unknown',
-              content: [{ text: expect.stringContaining('Unknown tool: missing') }],
-            },
-          },
-        ],
-      },
-    ])
-    const output = 'stream' in result ? result.execution.output : result
-    const calls = 'stream' in result ? result.execution.output.toolCalls?.list : result.toolCalls
-    expect(calls).toMatchObject([
-      { name: tool.id },
-      { name: 'missing', result: { error: true, message: 'Unknown tool: missing' } },
-    ])
-    expect(output.cost.toolCost).toBe(2)
-    expect(mocks.tool).toHaveBeenCalledTimes(1)
-    expect(send).toHaveBeenCalledTimes(stream ? 3 : 2)
-  } finally {
-    send.mockRestore()
+      ])
+      const output = 'stream' in result ? result.execution.output : result
+      const calls = 'stream' in result ? result.execution.output.toolCalls?.list : result.toolCalls
+      expect(calls).toMatchObject([
+        { name },
+        { name: 'missing', result: { error: true, message: 'Unknown tool: missing' } },
+      ])
+      expect(output.cost.toolCost).toBe(2)
+      expect(mocks.tool).toHaveBeenCalledTimes(1)
+      expect(send).toHaveBeenCalledTimes(stream ? 3 : 2)
+    } finally {
+      send.mockRestore()
+    }
   }
-})
+)
+
+it.each(
+  (
+    [
+      [0, false],
+      [1, false],
+      [MAX_TOOL_ITERATIONS, false],
+      [1, true],
+    ] as const
+  ).flatMap(([rounds, forced]) => [false, true].map((stream) => ({ rounds, forced, stream })))
+)(
+  'finishes Bedrock structured output after $rounds tools, forced=$forced, stream=$stream',
+  async ({ rounds, forced, stream }) => {
+    const value = { value: 42 }
+    const expectedCalls = rounds + (forced ? 2 : 1)
+    let turn = 0
+    const send = vi
+      .spyOn(BedrockRuntimeClient.prototype, 'send')
+      .mockImplementation(async (command) => {
+        if (!(command instanceof ConverseCommand) || turn >= expectedCalls)
+          throw new Error('Unexpected additional Bedrock generation')
+        const current = turn++
+        const content =
+          current < rounds
+            ? [{ toolUse: { toolUseId: `tool-${current}`, name: tool.id, input: {} } }]
+            : forced && current === rounds
+              ? [{ text: 'Ready for structured output' }]
+              : [
+                  { text: 'Prefer the structured result' },
+                  { toolUse: { toolUseId: 'structured', name: 'structured_output', input: value } },
+                ]
+        return {
+          output: { message: { role: 'assistant', content } },
+          usage: { inputTokens: 100, outputTokens: 10, totalTokens: 110 },
+          $metadata: {},
+        }
+      })
+    mocks.tool.mockResolvedValue({ success: true, output: { cost: { total: 2 } } })
+    try {
+      const result = await executeProviderRequest(
+        'bedrock',
+        request('bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0', {
+          stream,
+          tools: rounds ? [tool] : undefined,
+          responseFormat: { schema: { type: 'object', properties: { value: { type: 'number' } } } },
+        })
+      )
+      if ('stream' in result) throw new Error('Structured output should already be complete')
+      expect(JSON.parse(result.content)).toEqual(value)
+      expect(send).toHaveBeenCalledTimes(expectedCalls)
+      expect(mocks.tool).toHaveBeenCalledTimes(rounds)
+      for (const [name] of mocks.tool.mock.calls) expect(name).toBe(tool.id)
+      expect(result.tokens).toEqual({
+        prompt: expectedCalls * 100,
+        completion: expectedCalls * 10,
+        total: expectedCalls * 110,
+      })
+      expect(result.cost.input).toBeCloseTo(expectedCalls * 0.0003, 8)
+      expect(result.cost.output).toBeCloseTo(expectedCalls * 0.00015, 8)
+      expect(result.cost.toolCost).toBe(rounds ? rounds * 2 : undefined)
+      expect(result.cost.total).toBeCloseTo(expectedCalls * 0.00045 + rounds * 2, 8)
+      expect(result.timing?.timeSegments?.filter(({ type }) => type === 'model')).toHaveLength(
+        expectedCalls
+      )
+    } finally {
+      send.mockRestore()
+    }
+  }
+)
 
 it('discovers qualified Ollama IDs and sends only the model name to the SDK', async () => {
   vi.mocked(fetch).mockResolvedValueOnce(
@@ -835,8 +920,21 @@ it.each(
       response(),
     ]
     respond(
-      ...turns.map((turn, index) => ({
+      ...turns.map((turn, index) => (payload: Record<string, unknown>) => ({
         ...turn,
+        output: turn.output.map((item) =>
+          item.type === 'reasoning'
+            ? {
+                ...item,
+                encrypted_content:
+                  provider === 'openai' ||
+                  (Array.isArray(payload.include) &&
+                    payload.include.includes('reasoning.encrypted_content'))
+                    ? 'opaque'
+                    : undefined,
+              }
+            : item
+        ),
         usage: {
           input_tokens: index === 1 ? 280000 : 140000,
           output_tokens: 100,
@@ -873,6 +971,12 @@ it.each(
     expect(output.cost.output).toBeCloseTo(outputCost, 8)
     expect(output.cost.total).toBeCloseTo(4 + inputCost + outputCost, 8)
     expect(mocks.responses).toHaveBeenCalledTimes(3)
+    for (const [payload] of mocks.responses.mock.calls) {
+      expect(payload.store).toBe(false)
+      expect(payload.include).toEqual(
+        provider === 'azure-openai' ? ['reasoning.encrypted_content'] : undefined
+      )
+    }
     expect(mocks.tool).toHaveBeenCalledTimes(2)
     expect(mocks.responses.mock.calls.map(([payload]) => payload.tool_choice)).toEqual([
       { type: 'function', name: tool.id },

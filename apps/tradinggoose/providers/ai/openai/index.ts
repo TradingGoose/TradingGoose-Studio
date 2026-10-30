@@ -76,6 +76,7 @@ export async function executeResponsesRequest(
   )
   // The pinned SDK predates the catalog's reasoning efforts and text verbosity.
   const payload: any = { model, store: false }
+  if (request.model.startsWith('azure/')) payload.include = ['reasoning.encrypted_content']
   if (request.temperature !== undefined) payload.temperature = request.temperature
   if (request.maxTokens !== undefined) payload.max_output_tokens = request.maxTokens
   if (request.reasoningEffort !== undefined) payload.reasoning = { effort: request.reasoningEffort }
