@@ -37,11 +37,12 @@ export const deepseekProvider: ProviderConfig = {
     const normalizeContent = (content: string) =>
       request.responseFormat ? content.trim() : content.replace(/```json\n?|\n?```/g, '').trim()
     const validateFinalContent = (content: string, finishReason?: string | null) => {
+      if (!request.responseFormat) return content
       const normalized = normalizeContent(content)
-      if (request.responseFormat && finishReason === 'length') {
+      if (finishReason === 'length') {
         throw new Error('DeepSeek returned a truncated JSON response (finish_reason: length)')
       }
-      if (request.responseFormat && !normalized) {
+      if (!normalized) {
         throw new Error('DeepSeek returned an empty JSON response')
       }
       return normalized

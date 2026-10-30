@@ -1623,6 +1623,32 @@ it.each(['nonstream', 'stream-direct', 'stream-tool'] as const)(
   }
 )
 
+it.each([false, true])(
+  'preserves DeepSeek streamed Markdown metadata after tools=%s',
+  async (afterTool) => {
+    const content = '```python\nprint(1)\n```'
+    if (afterTool) {
+      mocks.chat
+        .mockResolvedValueOnce(
+          completion({ role: 'assistant', content: null, tool_calls: [toolCall('markdown')] })
+        )
+        .mockResolvedValueOnce(completion())
+    }
+    mocks.chat.mockResolvedValueOnce(
+      (async function* () {
+        yield { choices: [{ delta: { content }, finish_reason: 'stop' }] }
+      })()
+    )
+
+    const result = await deepseekProvider.executeRequest(
+      request('deepseek-flash', { stream: true, tools: afterTool ? [tool] : undefined })
+    )
+    if (!('stream' in result)) throw new Error('Expected streaming execution')
+    expect(await new Response(result.stream).text()).toBe(content)
+    expect(result.execution.output.content).toBe(content)
+  }
+)
+
 it.each(['deepseek-v4-pro', 'deepseek-flash'])(
   'honors forced %s tools when thinking is explicitly disabled',
   async (model) => {
