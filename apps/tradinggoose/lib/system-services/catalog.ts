@@ -32,50 +32,12 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
   {
     id: 'openai',
     displayName: 'OpenAI',
-    description: 'Default embeddings key and hosted OpenAI server keys for platform requests.',
+    description: 'Default API key for system-owned OpenAI embeddings.',
     credentialFields: [
       {
         key: 'defaultApiKey',
         label: 'Default API Key',
-        description: 'Used for embeddings and other system-owned OpenAI requests.',
-      },
-      {
-        key: 'rotationKey1',
-        label: 'Rotation Key 1',
-        description: 'Hosted OpenAI server key slot 1.',
-      },
-      {
-        key: 'rotationKey2',
-        label: 'Rotation Key 2',
-        description: 'Hosted OpenAI server key slot 2.',
-      },
-      {
-        key: 'rotationKey3',
-        label: 'Rotation Key 3',
-        description: 'Hosted OpenAI server key slot 3.',
-      },
-    ],
-    settingFields: [],
-  },
-  {
-    id: 'anthropic',
-    displayName: 'Anthropic',
-    description: 'Hosted Anthropic server keys for platform requests.',
-    credentialFields: [
-      {
-        key: 'rotationKey1',
-        label: 'Rotation Key 1',
-        description: 'Hosted Anthropic server key slot 1.',
-      },
-      {
-        key: 'rotationKey2',
-        label: 'Rotation Key 2',
-        description: 'Hosted Anthropic server key slot 2.',
-      },
-      {
-        key: 'rotationKey3',
-        label: 'Rotation Key 3',
-        description: 'Hosted Anthropic server key slot 3.',
+        description: 'Used for system-owned OpenAI embeddings.',
       },
     ],
     settingFields: [],

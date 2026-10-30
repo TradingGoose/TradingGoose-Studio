@@ -59,7 +59,7 @@ export const llmChatTool: ToolConfig<LLMChatParams, LLMChatResponse> = {
       type: 'string',
       required: false,
       visibility: 'hidden',
-      description: 'API key for the provider (uses platform key if not provided for hosted models)',
+      description: 'User-provided API key for the provider (not required for Ollama)',
     },
     temperature: {
       type: 'number',

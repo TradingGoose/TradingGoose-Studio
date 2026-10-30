@@ -59,9 +59,9 @@ it.each([false, true])('uses the Azure v1 Responses endpoint, stream=%s', async 
     maxTokens: 100,
     reasoningEffort: 'max',
     stream,
+    apiKey: 'request-key',
     ...(stream && {
       azureEndpoint: 'https://override.openai.azure.com',
-      apiKey: 'request-key',
     }),
   })
   if ('stream' in result) {
@@ -75,9 +75,7 @@ it.each([false, true])('uses the Azure v1 Responses endpoint, stream=%s', async 
   expect(String(url)).toBe(
     `https://${stream ? 'override' : 'default'}.openai.azure.com/openai/v1/responses`
   )
-  expect(new Headers(init.headers).get('authorization')).toBe(
-    `Bearer ${stream ? 'request-key' : 'service-key'}`
-  )
+  expect(new Headers(init.headers).get('authorization')).toBe('Bearer request-key')
   expect(JSON.parse(init.body)).toMatchObject({
     model: 'gpt-6.1-sol',
     store: false,
@@ -86,6 +84,12 @@ it.each([false, true])('uses the Azure v1 Responses endpoint, stream=%s', async 
     reasoning: { effort: 'max' },
     stream,
   })
+})
+
+it('does not substitute system credentials for a missing request key', async () => {
+  await azureOpenAIProvider.executeRequest({ model: 'azure/gpt-6.1-sol', context: 'Analyze' })
+  const [, init] = mocks.fetch.mock.calls[0]
+  expect(new Headers(init.headers).get('authorization')).toBe('Bearer')
 })
 
 it('rejects a missing Azure endpoint before sending a request', async () => {

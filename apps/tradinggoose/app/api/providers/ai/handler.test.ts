@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import * as environment from '@/lib/environment'
 import { handleAIProviderRequest } from '@/app/api/providers/ai/handler'
 import { EvaluatorBlockHandler } from '@/executor/handlers/evaluator/evaluator-handler'
 import { RouterBlockHandler } from '@/executor/handlers/router/router-handler'
@@ -10,7 +11,6 @@ import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 
 const mocks = vi.hoisted(() => ({ execute: vi.fn(), responses: vi.fn(), tool: vi.fn() }))
 vi.mock('@/providers/ai', () => ({ executeProviderRequest: mocks.execute }))
-vi.mock('@/providers/ai/utils-server', () => ({ getApiKey: async () => 'test-key' }))
 vi.mock('@/tools', () => ({ executeTool: mocks.tool }))
 vi.mock('openai', () => ({
   default: class {
@@ -23,7 +23,31 @@ beforeEach(() => {
   mocks.execute.mockImplementation((_provider, request) => openaiProvider.executeRequest(request))
 })
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+})
+
+it.each(['openai', 'anthropic'])(
+  'rejects hosted %s requests without user credentials before inference',
+  async (providerId) => {
+    vi.spyOn(environment, 'isHosted', 'get').mockReturnValue(true)
+    const response = await handleAIProviderRequest({
+      providerId,
+      requestId: 'missing-key',
+      startTime: Date.now(),
+      body: {
+        model: providerId === 'openai' ? 'gpt-4.1' : 'claude-haiku-4-5',
+        context: 'Analyze',
+      },
+    })
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      error: expect.stringContaining('API key is required'),
+    })
+    expect(mocks.execute).not.toHaveBeenCalled()
+  }
+)
 
 it.each([false, true])('preserves completed OpenAI HTTP metadata, tools=%s', async (withTools) => {
   let finishTool!: () => void
@@ -70,6 +94,7 @@ it.each([false, true])('preserves completed OpenAI HTTP metadata, tools=%s', asy
     authUserId: 'user',
     body: {
       model: 'gpt-6.1-sol',
+      apiKey: 'test-key',
       messages: [{ role: 'user', content: 'Get prices' }],
       stream: true,
       tools: withTools

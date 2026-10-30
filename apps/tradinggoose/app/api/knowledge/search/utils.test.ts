@@ -83,7 +83,7 @@ const azureConfig = {
   apiVersion: '2024-12-01-preview',
   embeddingModel: 'text-embedding-ada-002',
 }
-const openaiConfig = { defaultApiKey: 'test-openai-key', rotationKeys: [] }
+const openaiConfig = { defaultApiKey: 'test-openai-key' }
 const searchParams = {
   knowledgeBaseIds: ['kb-123'],
   topK: 10,
@@ -109,7 +109,6 @@ describe('Knowledge Search Utils', () => {
     })
     resolveOpenAIServiceConfig.mockResolvedValue({
       defaultApiKey: null,
-      rotationKeys: [],
     })
   })
 

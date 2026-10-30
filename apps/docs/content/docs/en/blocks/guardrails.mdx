@@ -334,7 +334,7 @@ Validate content using guardrails \(JSON, regex, hallucination check, or PII det
 | `threshold` | string | No | Confidence threshold \(0-10 scale, default: 3, scores below fail\) |
 | `topK` | string | No | Number of chunks to retrieve from knowledge base \(default: 10\) |
 | `model` | string | No | LLM model for confidence scoring \(default: gpt-4o-mini\) |
-| `apiKey` | string | No | API key for LLM provider \(optional if using hosted\) |
+| `apiKey` | string | No | User-provided API key for hallucination scoring \(not required for Ollama\) |
 | `piiEntityTypes` | array | No | PII entity types to detect \(empty = detect all\) |
 | `piiMode` | string | No | PII action mode: block or mask \(default: block\) |
 | `piiLanguage` | string | No | Language for PII detection \(default: en\) |
@@ -363,7 +363,7 @@ Validate content using guardrails \(JSON, regex, hallucination check, or PII det
 | `threshold` | string | No | Confidence threshold \(0-10 scale, default: 3, scores below fail\). Shown when validationType is 'hallucination'. |
 | `topK` | string | No | Number of chunks to retrieve from knowledge base \(default: 5\). Shown when validationType is 'hallucination'. |
 | `model` | string | No | LLM model for hallucination scoring \(default: gpt-4o-mini\). Shown when validationType is 'hallucination'. |
-| `apiKey` | string | No | API key for LLM provider \(optional if using hosted\). Shown when validationType is 'hallucination' and applicable to the selected model at runtime. |
+| `apiKey` | string | No | User-provided API key for hallucination scoring \(not required for Ollama\). Shown when validationType is 'hallucination' and applicable to the selected model at runtime. |
 | `piiEntityTypes` | json | No | PII entity types to detect \(array of strings, empty = detect all\). Shown when validationType is 'pii'. |
 | `piiMode` | string | No | PII action mode: block or mask. Shown when validationType is 'pii'. |
 | `piiLanguage` | string | No | Language for PII detection \(default: en\). Shown when validationType is 'pii'. |

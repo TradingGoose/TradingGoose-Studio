@@ -7,6 +7,7 @@ import { beforeEach, expect, it, vi } from 'vitest'
 import type { ProviderId, ProviderRequest, ProviderToolConfig } from '@/providers/ai/types'
 
 const mocks = vi.hoisted(() => ({
+  openaiClient: vi.fn(),
   chat: vi.fn(),
   responses: vi.fn(),
   claude: vi.fn(),
@@ -15,6 +16,9 @@ const mocks = vi.hoisted(() => ({
 }))
 vi.mock('openai', () => ({
   default: class {
+    constructor(options: unknown) {
+      mocks.openaiClient(options)
+    }
     chat = { completions: { create: mocks.chat } }
     responses = { create: mocks.responses }
   },
@@ -52,6 +56,10 @@ vi.mock('@/lib/cache/server-json-cache', () => ({
 vi.mock('@/lib/system-services/runtime', () => ({
   resolveAzureOpenAIServiceConfig: async () => ({ endpoint: 'https://example.openai.azure.com' }),
   resolveOllamaServiceConfig: async () => ({ baseUrl: 'http://ollama:11434' }),
+  resolveVllmServiceConfig: async () => ({
+    baseUrl: 'https://vllm.example',
+    apiKey: 'system-vllm-key',
+  }),
 }))
 
 import { GET as discoverOllamaModels } from '@/app/api/providers/ai/ollama/models/route'
@@ -159,6 +167,17 @@ beforeEach(() => {
       : { content: [{ type: 'text', text: 'Done' }], usage: { input_tokens: 10, output_tokens: 5 } }
   )
   mocks.tool.mockResolvedValue({ success: true, output: { value: 42 } })
+})
+
+it.each([
+  [undefined, 'empty'],
+  ['request-key', 'request-key'],
+])('ignores the system vLLM key, request key=%s', async (apiKey, expected) => {
+  await executeProviderRequest('vllm', request('vllm/custom-model', { apiKey }))
+  expect(mocks.openaiClient).toHaveBeenCalledWith({
+    apiKey: expected,
+    baseURL: 'https://vllm.example/v1',
+  })
 })
 
 it('reads actual Groq stream usage from the terminal x_groq chunk', async () => {

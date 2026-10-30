@@ -18,43 +18,60 @@ const inspectorLayout = (model?: string, locale: LocaleCode = 'en') =>
   })
 
 describe('AgentBlock', () => {
-  it.each([false, true])(
-    'matches API-key requirements to hosted=%s credentials',
-    async (hosted) => {
-      vi.doMock('@/lib/environment', async (importOriginal) => ({
-        ...(await importOriginal<typeof import('@/lib/environment')>()),
-        isHosted: hosted,
+  it.each([false, true])('requires user API keys across AI blocks, hosted=%s', async (hosted) => {
+    vi.doMock('@/lib/environment', async (importOriginal) => ({
+      ...(await importOriginal<typeof import('@/lib/environment')>()),
+      isHosted: hosted,
+    }))
+    vi.resetModules()
+    try {
+      const blocks = [
+        (await import('./agent')).AgentBlock,
+        (await import('./router')).RouterBlock,
+        (await import('./evaluator')).EvaluatorBlock,
+        (await import('./translate')).TranslateBlock,
+        (await import('./guardrails')).GuardrailsBlock,
+      ]
+      const { useProvidersStore } = await import('@/stores/providers/store')
+      useProvidersStore.setState((state) => ({
+        providers: {
+          ...state.providers,
+          ollama: { models: ['ollama/llama3.2:latest'], isLoading: false },
+        },
       }))
-      vi.resetModules()
-      try {
-        const { AgentBlock: block } = await import('./agent')
-        const { useProvidersStore } = await import('@/stores/providers/store')
-        useProvidersStore.setState((state) => ({
-          providers: {
-            ...state.providers,
-            ollama: { models: ['ollama/llama3.2:latest'], isLoading: false },
-          },
-        }))
+      for (const block of blocks) {
         const field = block.subBlocks.find((field) => field.id === 'apiKey')!
-        for (const [model, required] of [
-          ['gpt-4.1', !hosted],
-          ['claude-haiku-4-5', !hosted],
-          ['mistral-large-latest', true],
-          ['azure/gpt-4.1', true],
-          ['openrouter/openai/gpt-4.1', true],
-        ] as const) {
-          expect(evaluateSubBlockConditionValues(field.condition, { model })).toBe(true)
-          expect(evaluateSubBlockConditionValues(field.required, { model })).toBe(required)
+        for (const model of [
+          'gpt-4.1',
+          'claude-haiku-4-5',
+          'mistral-large-latest',
+          'azure/gpt-4.1',
+          'openrouter/openai/gpt-4.1',
+        ]) {
+          const values = { model, validationType: 'hallucination' }
+          expect(evaluateSubBlockConditionValues(field.condition, values)).toBe(true)
+          expect(evaluateSubBlockConditionValues(field.required, values)).toBe(true)
         }
         expect(
-          evaluateSubBlockConditionValues(field.condition, { model: 'ollama/llama3.2:latest' })
+          evaluateSubBlockConditionValues(field.condition, {
+            model: 'ollama/llama3.2:latest',
+            validationType: 'hallucination',
+          })
         ).toBe(hosted)
-      } finally {
-        vi.doUnmock('@/lib/environment')
-        vi.resetModules()
+        if (block.type === 'guardrails') {
+          expect(
+            evaluateSubBlockConditionValues(field.condition, {
+              model: 'gpt-4.1',
+              validationType: 'json',
+            })
+          ).toBe(false)
+        }
       }
+    } finally {
+      vi.doUnmock('@/lib/environment')
+      vi.resetModules()
     }
-  )
+  })
 
   it.each([AgentBlock, RouterBlock, EvaluatorBlock])(
     'resolves $name Ollama provider identity without browser model discovery',

@@ -14,7 +14,7 @@ export const azureOpenAIProvider: ProviderConfig = {
       )
     }
     const client = new OpenAI({
-      apiKey: request.apiKey || config.apiKey || '',
+      apiKey: request.apiKey || '',
       baseURL: `${endpoint.replace(/\/$/, '')}/openai/v1`,
     })
     return executeResponsesRequest(request, client, request.model.replace(/^azure\//, ''))

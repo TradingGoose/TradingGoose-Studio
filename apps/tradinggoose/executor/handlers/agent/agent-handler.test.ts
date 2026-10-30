@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest'
-import { isHosted } from '@/lib/environment'
 import { getAllBlocks } from '@/blocks'
 import { BlockType } from '@/executor/consts'
 import { AgentBlockHandler } from '@/executor/handlers/agent/agent-handler'
@@ -29,7 +28,7 @@ vi.mock('@/providers/ai', () => ({ executeProviderRequest: mockExecuteProviderRe
 vi.mock('@/providers/ai/utils-server', () => ({ getApiKey: mockGetApiKey }))
 
 vi.mock('@/lib/environment', () => ({
-  isHosted: vi.fn().mockReturnValue(false),
+  isHosted: false,
   isProd: vi.fn().mockReturnValue(false),
   isDev: vi.fn().mockReturnValue(true),
   isTest: vi.fn().mockReturnValue(false),
@@ -61,7 +60,6 @@ global.fetch = Object.assign(vi.fn(), { preconnect: vi.fn() }) as typeof fetch
 
 const mockGetAllBlocks = getAllBlocks as Mock
 const mockExecuteTool = executeTool as Mock
-const mockIsHosted = isHosted as unknown as Mock
 const mockGetProviderFromModel = getProviderFromModel as Mock
 const mockTransformBlockTool = transformBlockTool as Mock
 const mockFetch = global.fetch as unknown as Mock
@@ -118,7 +116,6 @@ describe('AgentBlockHandler', () => {
         loops: {},
       } as SerializedWorkflow,
     }
-    mockIsHosted.mockReturnValue(false)
     mockGetProviderFromModel.mockReturnValue('mock-provider')
     mockResolveSkillMetadata.mockResolvedValue([])
 
@@ -711,22 +708,19 @@ describe('AgentBlockHandler', () => {
       expect(forceTool.usageControl).toBe('force')
     })
 
-    it('should not require API key for gpt-4o on hosted version', async () => {
-      mockIsHosted.mockReturnValue(true)
-
+    it('rejects missing user credentials before server inference', async () => {
+      Object.defineProperty(global, 'window', { value: undefined, configurable: true })
       const inputs = {
-        model: 'gpt-4o',
-        systemPrompt: 'You are a helpful assistant.',
-        userPrompt: 'User query: Hello!',
-        temperature: 0.7,
-        maxTokens: 100,
+        model: 'gpt-4.1',
+        userPrompt: 'Hello!',
       }
-
       mockGetProviderFromModel.mockReturnValue('openai')
-
-      await handler.execute(mockBlock, inputs, mockContext)
-
-      expect(mockFetch).toHaveBeenCalledWith(expect.any(String), expect.any(Object))
+      mockGetApiKey.mockRejectedValueOnce(new Error('API key is required for openai gpt-4.1'))
+      await expect(handler.execute(mockBlock, inputs, mockContext)).rejects.toThrow(
+        'API key is required for openai gpt-4.1'
+      )
+      expect(mockGetApiKey).toHaveBeenCalledWith('openai', 'gpt-4.1', undefined)
+      expect(mockExecuteProviderRequest).not.toHaveBeenCalled()
     })
 
     it('should execute with standard block tools', async () => {

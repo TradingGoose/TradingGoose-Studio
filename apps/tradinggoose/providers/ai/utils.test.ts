@@ -17,50 +17,25 @@ import {
 import { getApiKey } from '@/providers/ai/utils-server'
 
 const isHostedSpy = vi.spyOn(environmentModule, 'isHosted', 'get')
-const { mockGetRotatingApiKey } = vi.hoisted(() => ({ mockGetRotatingApiKey: vi.fn() }))
-vi.mock('@/lib/utils-server', () => ({ getRotatingApiKey: mockGetRotatingApiKey }))
 
 describe('getApiKey', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     isHostedSpy.mockReturnValue(false)
-    mockGetRotatingApiKey.mockResolvedValue('rotating-server-key')
   })
 
-  it.each(['openai', 'anthropic'])('uses the self-hosted %s user key', async (provider) => {
+  it.each(
+    [false, true].flatMap((hosted) =>
+      ['openai', 'anthropic', 'other-provider'].map((provider) => ({ hosted, provider }))
+    )
+  )('requires the user key for $provider, hosted=$hosted', async ({ hosted, provider }) => {
+    isHostedSpy.mockReturnValue(hosted)
     await expect(getApiKey(provider, 'model', 'user-key')).resolves.toBe('user-key')
-    await expect(getApiKey(provider, 'model')).rejects.toThrow('API key is required')
-  })
-
-  it.each(['openai', 'anthropic'])('uses the hosted %s platform key', async (provider) => {
-    isHostedSpy.mockReturnValue(true)
-    await expect(getApiKey(provider, 'model')).resolves.toBe('rotating-server-key')
-    expect(mockGetRotatingApiKey).toHaveBeenCalledWith(provider)
-  })
-
-  it.each(['openai', 'anthropic'])(
-    'uses a supplied hosted %s key without loading platform keys',
-    async (provider) => {
-      isHostedSpy.mockReturnValue(true)
-      mockGetRotatingApiKey.mockRejectedValue(new Error('Rotation failed'))
-      await expect(getApiKey(provider, 'model', 'user-key')).resolves.toBe('user-key')
-      expect(mockGetRotatingApiKey).not.toHaveBeenCalled()
+    for (const key of [undefined, '']) {
+      await expect(getApiKey(provider, 'model', key)).rejects.toThrow(
+        `API key is required for ${provider} model`
+      )
     }
-  )
-
-  it.each(['openai', 'anthropic'])(
-    'propagates hosted %s rotation failures when no user key is supplied',
-    async (provider) => {
-      isHostedSpy.mockReturnValue(true)
-      mockGetRotatingApiKey.mockRejectedValue(new Error('Rotation failed'))
-      await expect(getApiKey(provider, 'model')).rejects.toThrow('Rotation failed')
-    }
-  )
-
-  it('requires user keys for other hosted providers', async () => {
-    isHostedSpy.mockReturnValue(true)
-    await expect(getApiKey('other-provider', 'model', 'user-key')).resolves.toBe('user-key')
-    await expect(getApiKey('other-provider', 'model')).rejects.toThrow('API key is required')
   })
 
   it('does not require an Ollama API key', async () => {

@@ -47,9 +47,8 @@ export const vllmProvider: ProviderConfig = {
       throw new Error('vLLM base URL is required for vLLM provider')
     }
 
-    const apiKey = request.apiKey || vllmConfig.apiKey || 'empty'
     const vllm = new OpenAI({
-      apiKey,
+      apiKey: request.apiKey || 'empty',
       baseURL: `${baseUrl}/v1`,
     })
 
