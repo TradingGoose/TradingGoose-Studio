@@ -473,7 +473,7 @@ export const bedrockProvider: ProviderConfig = {
           return { ...toolUse, toolUseId: toolUse.toolUseId }
         })
 
-        if (!currentToolUses || currentToolUses.length === 0) {
+        if (currentToolUses.length === 0) {
           break
         }
 
@@ -487,7 +487,7 @@ export const bedrockProvider: ProviderConfig = {
 
           try {
             const tool = request.tools?.find((t) => t.id === toolName)
-            if (!tool) return null
+            if (!tool) throw new Error(`Unknown tool: ${toolName}`)
 
             const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
             const result = await executeTool(toolName, executionParams)
@@ -524,7 +524,7 @@ export const bedrockProvider: ProviderConfig = {
           }
         })
 
-        const executionResults = await Promise.allSettled(toolExecutionPromises)
+        const executionResults = await Promise.all(toolExecutionPromises)
 
         const assistantContent: ContentBlock[] = currentToolUses.map((toolUse: ToolUseBlock) => ({
           toolUse: {
@@ -540,11 +540,9 @@ export const bedrockProvider: ProviderConfig = {
 
         const toolResultContent: ContentBlock[] = []
 
-        for (const settledResult of executionResults) {
-          if (settledResult.status === 'rejected' || !settledResult.value) continue
-
+        for (const executionResult of executionResults) {
           const { toolUseId, toolName, toolParams, result, startTime, endTime, duration } =
-            settledResult.value
+            executionResult
 
           timeSegments.push({
             type: 'tool',
@@ -583,12 +581,10 @@ export const bedrockProvider: ProviderConfig = {
           toolResultContent.push({ toolResult: toolResultBlock })
         }
 
-        if (toolResultContent.length > 0) {
-          currentMessages.push({
-            role: 'user' as ConversationRole,
-            content: toolResultContent,
-          })
-        }
+        currentMessages.push({
+          role: 'user' as ConversationRole,
+          content: toolResultContent,
+        })
 
         const thisToolsTime = Date.now() - toolsStartTime
         toolsTime += thisToolsTime

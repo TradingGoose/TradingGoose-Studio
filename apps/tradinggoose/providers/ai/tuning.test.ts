@@ -559,6 +559,73 @@ it.each(
   }
 )
 
+it.each([false, true])('pairs every Bedrock tool call with a result, stream=%s', async (stream) => {
+  const send = vi
+    .spyOn(BedrockRuntimeClient.prototype, 'send')
+    .mockImplementationOnce(async () => ({
+      output: {
+        message: {
+          role: 'assistant',
+          content: [
+            { toolUse: { toolUseId: 'known', name: tool.id, input: {} } },
+            { toolUse: { toolUseId: 'unknown', name: 'missing', input: {} } },
+          ],
+        },
+      },
+      $metadata: {},
+    }))
+    .mockImplementationOnce(async () => ({
+      output: { message: { role: 'assistant', content: [{ text: 'Done' }] } },
+      $metadata: {},
+    }))
+  if (stream)
+    send.mockImplementationOnce(async () => ({
+      stream: (async function* () {
+        yield { contentBlockDelta: { delta: { text: 'Done' } } }
+      })(),
+      $metadata: {},
+    }))
+  mocks.tool.mockResolvedValueOnce({ success: true, output: { value: 42, cost: { total: 2 } } })
+  try {
+    const result = await executeProviderRequest(
+      'bedrock',
+      request('bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0', { stream, tools: [tool] })
+    )
+    if ('stream' in result) expect(await new Response(result.stream).text()).toBe('Done')
+    const followup = send.mock.calls[1][0]
+    if (!(followup instanceof ConverseCommand)) throw new Error('Expected Bedrock continuation')
+    expect(followup.input.messages?.slice(-2)).toMatchObject([
+      {
+        role: 'assistant',
+        content: [{ toolUse: { toolUseId: 'known' } }, { toolUse: { toolUseId: 'unknown' } }],
+      },
+      {
+        role: 'user',
+        content: [
+          { toolResult: { toolUseId: 'known' } },
+          {
+            toolResult: {
+              toolUseId: 'unknown',
+              content: [{ text: expect.stringContaining('Unknown tool: missing') }],
+            },
+          },
+        ],
+      },
+    ])
+    const output = 'stream' in result ? result.execution.output : result
+    const calls = 'stream' in result ? result.execution.output.toolCalls?.list : result.toolCalls
+    expect(calls).toMatchObject([
+      { name: tool.id },
+      { name: 'missing', result: { error: true, message: 'Unknown tool: missing' } },
+    ])
+    expect(output.cost.toolCost).toBe(2)
+    expect(mocks.tool).toHaveBeenCalledTimes(1)
+    expect(send).toHaveBeenCalledTimes(stream ? 3 : 2)
+  } finally {
+    send.mockRestore()
+  }
+})
+
 it('discovers qualified Ollama IDs and sends only the model name to the SDK', async () => {
   vi.mocked(fetch).mockResolvedValueOnce(
     new Response(JSON.stringify({ models: [{ name: 'llama3.2:latest' }] }))
