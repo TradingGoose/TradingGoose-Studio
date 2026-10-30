@@ -572,7 +572,7 @@ export const bedrockProvider: ProviderConfig = {
 
           const toolResultBlock: ToolResultBlock = {
             toolUseId,
-            content: [{ text: JSON.stringify(resultContent) }],
+            content: [{ text: JSON.stringify(resultContent) ?? '{}' }],
           }
           toolResultContent.push({ toolResult: toolResultBlock })
         }

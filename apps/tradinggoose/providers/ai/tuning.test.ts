@@ -566,12 +566,20 @@ it.each(
 )
 
 it.each(
-  [false, true].flatMap((stream) =>
-    [tool.id, 'structured_output'].map((name) => ({ stream, name }))
+  (
+    [
+      [{ value: 42, cost: { total: 2 } }, '{"value":42,"cost":{"total":2}}', 2],
+      [{ toJSON: () => undefined }, '{}', undefined],
+      [{ toJSON: () => null }, 'null', undefined],
+    ] as const
+  ).flatMap(([toolOutput, text, toolCost]) =>
+    [false, true].flatMap((stream) =>
+      [tool.id, 'structured_output'].map((name) => ({ stream, name, toolOutput, text, toolCost }))
+    )
   )
 )(
-  'pairs every Bedrock tool call with a result, stream=$stream, name=$name',
-  async ({ stream, name }) => {
+  'pairs every Bedrock tool call with a result, stream=$stream, name=$name, text=$text',
+  async ({ stream, name, toolOutput, text, toolCost }) => {
     const send = vi
       .spyOn(BedrockRuntimeClient.prototype, 'send')
       .mockImplementationOnce(async () => ({
@@ -597,7 +605,7 @@ it.each(
         })(),
         $metadata: {},
       }))
-    mocks.tool.mockResolvedValueOnce({ success: true, output: { value: 42, cost: { total: 2 } } })
+    mocks.tool.mockResolvedValueOnce({ success: true, output: toolOutput })
     try {
       const result = await executeProviderRequest(
         'bedrock',
@@ -617,7 +625,7 @@ it.each(
         {
           role: 'user',
           content: [
-            { toolResult: { toolUseId: 'known' } },
+            { toolResult: { toolUseId: 'known', content: [{ text }] } },
             {
               toolResult: {
                 toolUseId: 'unknown',
@@ -633,7 +641,7 @@ it.each(
         { name },
         { name: 'missing', result: { error: true, message: 'Unknown tool: missing' } },
       ])
-      expect(output.cost.toolCost).toBe(2)
+      expect(output.cost.toolCost).toBe(toolCost)
       expect(mocks.tool).toHaveBeenCalledTimes(1)
       expect(send).toHaveBeenCalledTimes(stream ? 3 : 2)
     } finally {
