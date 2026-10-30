@@ -107,6 +107,7 @@ describe('EvaluatorBlockHandler', () => {
       model: 'gpt-4.1',
       systemPrompt: expect.stringContaining(inputs.content),
       responseFormat: expect.objectContaining({
+        strict: true,
         schema: {
           type: 'object',
           properties: {
@@ -127,6 +128,28 @@ describe('EvaluatorBlockHandler', () => {
       cost: { input: 0.001, output: 0.001, total: 0.002, pricing: null },
       score1: 5,
       score2: 8,
+    })
+  })
+
+  it('uses non-strict JSON mode for DeepSeek', async () => {
+    const model = 'deepseek-flash'
+    mockGetProviderFromModel.mockReturnValue('deepseek')
+
+    await handler.execute(
+      mockBlock,
+      {
+        content: 'Evaluate this content.',
+        metrics: [{ name: 'score1', description: 'Score', range: { min: 0, max: 10 } }],
+        model,
+      },
+      mockContext
+    )
+
+    expect(mockGetProviderFromModel).toHaveBeenCalledWith(model)
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toMatchObject({
+      provider: 'deepseek',
+      model,
+      responseFormat: { strict: false },
     })
   })
 

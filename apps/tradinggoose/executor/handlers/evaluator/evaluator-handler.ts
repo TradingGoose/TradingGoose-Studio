@@ -94,7 +94,7 @@ export class EvaluatorBlockHandler implements BlockHandler {
           required: metrics.filter((m: any) => m?.name).map((m: any) => m.name.toLowerCase()),
           additionalProperties: false,
         },
-        strict: true,
+        strict: providerId !== 'deepseek',
       },
     }
 
