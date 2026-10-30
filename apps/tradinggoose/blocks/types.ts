@@ -166,6 +166,14 @@ export interface SubBlockOptionGroup {
 
 export type DropdownEntityListKind = 'workflow' | 'watchlist'
 
+export interface WandConfig {
+  enabled: boolean
+  prompt: string
+  generationType?: GenerationType
+  placeholder?: string
+  maintainHistory?: boolean
+}
+
 export interface SubBlockConfig {
   id: string
   title?: string
@@ -253,13 +261,7 @@ export interface SubBlockConfig {
   // Multi-select functionality
   multiSelect?: boolean
   // Wand configuration for AI assistance
-  wandConfig?: {
-    enabled: boolean
-    prompt: string // Custom prompt template for this subblock
-    generationType?: GenerationType // Optional custom generation type
-    placeholder?: string // Custom placeholder for the prompt input
-    maintainHistory?: boolean // Whether to maintain conversation history
-  }
+  wandConfig?: WandConfig
   // Trigger-specific configuration
   availableTriggers?: string[] // List of trigger IDs available for this subblock
   triggerProvider?: string // Which provider's triggers to show

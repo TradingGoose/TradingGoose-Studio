@@ -91,9 +91,10 @@ const toolCall = (id: string) => ({
   function: { name: tool.id, arguments: '{}' },
 })
 const completion = (
-  message = { role: 'assistant', content: 'Done' } as Record<string, unknown>
+  message = { role: 'assistant', content: 'Done' } as Record<string, unknown>,
+  finishReason?: 'stop' | 'length' | 'tool_calls'
 ) => ({
-  choices: [{ message }],
+  choices: [{ message, ...(finishReason ? { finish_reason: finishReason } : {}) }],
   usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
 })
 const response = (
@@ -1490,6 +1491,161 @@ it.each(
     ).rejects.toThrow('does not support forced tool use')
     expect(mocks.chat).not.toHaveBeenCalled()
     expect(mocks.tool).not.toHaveBeenCalled()
+  }
+)
+
+it('applies non-strict DeepSeek response format without rewriting JSON strings', async () => {
+  const content = '{"value":"keep ```json and ``` markers"}'
+  const schema = { type: 'object', properties: { value: { type: 'string' } } }
+  mocks.chat
+    .mockResolvedValueOnce(
+      completion({ role: 'assistant', content: null, tool_calls: [toolCall('schema')] })
+    )
+    .mockResolvedValueOnce(completion({ role: 'assistant', content }, 'stop'))
+
+  const result = await executeProviderRequest(
+    'deepseek',
+    request('deepseek-flash', {
+      systemPrompt: 'Keep this instruction',
+      responseFormat: { name: 'answer', schema, strict: false },
+      tools: [tool],
+    })
+  )
+  if ('stream' in result) throw new Error('Expected completed execution')
+  expect(result.content).toBe(content)
+  expect(mocks.chat).toHaveBeenCalledTimes(2)
+  expect(mocks.tool).toHaveBeenCalledTimes(1)
+  for (const [payload] of mocks.chat.mock.calls) {
+    expect(payload.response_format).toEqual({ type: 'json_object' })
+    const systemMessage = payload.messages.find(
+      (message: { role: string }) => message.role === 'system'
+    )
+    expect(systemMessage.content).toContain('Keep this instruction')
+    expect(systemMessage.content).toContain(JSON.stringify(schema))
+  }
+})
+
+it('rejects strict DeepSeek response formats before inference', async () => {
+  await expect(
+    deepseekProvider.executeRequest(
+      request('deepseek-flash', {
+        responseFormat: { schema: { type: 'object' } },
+      })
+    )
+  ).rejects.toThrow('does not support strict JSON Schema')
+  expect(mocks.chat).not.toHaveBeenCalled()
+})
+
+it.each(['nonstream-tool', 'stream-tool', 'stream-direct'] as const)(
+  'rejects empty DeepSeek JSON in %s responses',
+  async (mode) => {
+    const stream = mode.startsWith('stream')
+    const afterTool = mode.endsWith('tool')
+    if (afterTool) {
+      mocks.chat
+        .mockResolvedValueOnce(
+          completion({
+            role: 'assistant',
+            content: '{"stale":true}',
+            tool_calls: [toolCall('schema')],
+          })
+        )
+        .mockResolvedValueOnce(completion({ role: 'assistant', content: '' }))
+    }
+    if (stream) mocks.chat.mockResolvedValueOnce((async function* () {})())
+
+    const execution = deepseekProvider.executeRequest(
+      request('deepseek-flash', {
+        responseFormat: { schema: { type: 'object' }, strict: false },
+        stream,
+        tools: afterTool ? [tool] : undefined,
+      })
+    )
+    if (!stream) {
+      await expect(execution).rejects.toThrow('returned an empty JSON response')
+      return
+    }
+    const result = await execution
+    if (!('stream' in result)) throw new Error('Expected streaming execution')
+    await expect(new Response(result.stream).text()).rejects.toThrow(
+      'returned an empty JSON response'
+    )
+  }
+)
+
+it.each(['nonstream', 'stream-direct', 'stream-tool'] as const)(
+  'rejects length-truncated DeepSeek JSON in %s responses',
+  async (mode) => {
+    const stream = mode !== 'nonstream'
+    const afterTool = mode === 'stream-tool'
+    if (afterTool) {
+      mocks.chat
+        .mockResolvedValueOnce(
+          completion(
+            { role: 'assistant', content: null, tool_calls: [toolCall('schema')] },
+            'tool_calls'
+          )
+        )
+        .mockResolvedValueOnce(completion({ role: 'assistant', content: '{"intermediate":true}' }))
+    }
+    if (stream) {
+      mocks.chat.mockResolvedValueOnce(
+        (async function* () {
+          yield { choices: [{ delta: { content: '{"value":42}' }, finish_reason: 'length' }] }
+          yield {
+            choices: [],
+            usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+          }
+        })()
+      )
+    } else {
+      mocks.chat.mockResolvedValueOnce(
+        completion({ role: 'assistant', content: '{"value":42}' }, 'length')
+      )
+    }
+
+    const execution = deepseekProvider.executeRequest(
+      request('deepseek-flash', {
+        responseFormat: { schema: { type: 'object' }, strict: false },
+        stream,
+        tools: afterTool ? [tool] : undefined,
+      })
+    )
+    if (!stream) {
+      await expect(execution).rejects.toThrow('returned a truncated JSON response')
+      return
+    }
+    const result = await execution
+    if (!('stream' in result)) throw new Error('Expected streaming execution')
+    await expect(new Response(result.stream).text()).rejects.toThrow(
+      'returned a truncated JSON response'
+    )
+  }
+)
+
+it.each([false, true])(
+  'preserves DeepSeek streamed Markdown metadata after tools=%s',
+  async (afterTool) => {
+    const content = '```python\nprint(1)\n```'
+    if (afterTool) {
+      mocks.chat
+        .mockResolvedValueOnce(
+          completion({ role: 'assistant', content: null, tool_calls: [toolCall('markdown')] })
+        )
+        .mockResolvedValueOnce(completion())
+    }
+    mocks.chat.mockResolvedValueOnce(
+      (async function* () {
+        yield { choices: [{ delta: { content }, finish_reason: 'stop' }] }
+      })()
+    )
+
+    const result = await deepseekProvider.executeRequest(
+      request('deepseek-flash', { stream: true, tools: afterTool ? [tool] : undefined })
+    )
+    if (!('stream' in result)) throw new Error('Expected streaming execution')
+    expect(await new Response(result.stream).text()).toBe(content)
+    expect(result.execution.output.content).toBe(content)
   }
 )
 

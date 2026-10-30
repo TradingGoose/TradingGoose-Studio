@@ -321,7 +321,7 @@ Create a system prompt appropriately detailed for the request, using clear langu
         prompt: `You are an expert programmer specializing in creating JSON schemas according to a specific format.
 Generate ONLY the JSON schema based on the user's request.
 The output MUST be a single, valid JSON object, starting with { and ending with }.
-The JSON object MUST have the following top-level properties: 'name' (string), 'description' (string), 'strict' (boolean, usually true), and 'schema' (object).
+The JSON object MUST have the following top-level properties: 'name' (string) and 'schema' (object).
 The 'schema' object must define the structure and MUST contain 'type': 'object', 'properties': {...}, 'additionalProperties': false, and 'required': [...].
 Inside 'properties', use standard JSON Schema properties (type, description, enum, items for arrays, etc.).
 
@@ -334,8 +334,6 @@ Valid Schema Examples:
 Example 1:
 {
     "name": "reddit_post",
-    "description": "Fetches the reddit posts in the given subreddit",
-    "strict": true,
     "schema": {
         "type": "object",
         "properties": {
@@ -356,8 +354,6 @@ Example 1:
 Example 2:
 {
     "name": "get_weather",
-    "description": "Fetches the current weather for a specific location.",
-    "strict": true,
     "schema": {
         "type": "object",
         "properties": {
@@ -379,8 +375,6 @@ Example 2:
 Example 3 (Array Input):
 {
     "name": "process_items",
-    "description": "Processes a list of items with specific IDs.",
-    "strict": true,
     "schema": {
         "type": "object",
         "properties": {
@@ -468,11 +462,6 @@ Example 3 (Array Input):
               },
             },
             required: ['type', 'properties'],
-          },
-          strict: {
-            type: 'boolean',
-            description: 'Whether to enforce strict schema validation',
-            default: true,
           },
         },
         required: ['schema'],

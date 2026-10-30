@@ -106,6 +106,14 @@ describe('AgentBlock', () => {
     }
   })
 
+  it('keeps response format strictness out of the editor contract', () => {
+    const prompt = AgentBlock.subBlocks.find((field) => field.id === 'responseFormat')?.wandConfig
+      ?.prompt
+    expect(typeof prompt).toBe('string')
+    expect(prompt).not.toContain('strict')
+    expect(JSON.stringify(AgentBlock.inputs.responseFormat)).not.toContain('strict')
+  })
+
   it.each([
     ['reasoningEffort', 'gpt-5.4', ['none', 'low', 'medium', 'high', 'xhigh']],
     ['reasoningEffort', 'gpt-5.6-sol', ['none', 'low', 'medium', 'high', 'xhigh', 'max']],

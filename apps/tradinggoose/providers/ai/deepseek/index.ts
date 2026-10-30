@@ -30,6 +30,23 @@ export const deepseekProvider: ProviderConfig = {
     if (!request.apiKey) {
       throw new Error('API key is required for Deepseek')
     }
+    if (request.responseFormat && request.responseFormat.strict !== false) {
+      throw new Error('DeepSeek does not support strict JSON Schema response formats')
+    }
+
+    const normalizeContent = (content: string) =>
+      request.responseFormat ? content.trim() : content.replace(/```json\n?|\n?```/g, '').trim()
+    const validateFinalContent = (content: string, finishReason?: string | null) => {
+      if (!request.responseFormat) return content
+      const normalized = normalizeContent(content)
+      if (finishReason === 'length') {
+        throw new Error('DeepSeek returned a truncated JSON response (finish_reason: length)')
+      }
+      if (!normalized) {
+        throw new Error('DeepSeek returned an empty JSON response')
+      }
+      return normalized
+    }
 
     // Start execution timer for the entire provider execution
     const providerStartTime = Date.now()
@@ -58,11 +75,17 @@ export const deepseekProvider: ProviderConfig = {
       // Start with an empty array for all messages
       const allMessages = []
 
-      // Add system prompt if present
-      if (request.systemPrompt) {
+      const systemPrompt = [
+        request.systemPrompt,
+        request.responseFormat &&
+          `Respond with only a valid JSON object matching this schema: ${JSON.stringify(request.responseFormat.schema)}`,
+      ]
+        .filter(Boolean)
+        .join('\n\n')
+      if (systemPrompt) {
         allMessages.push({
           role: 'system',
-          content: request.systemPrompt,
+          content: systemPrompt,
         })
       }
 
@@ -99,6 +122,7 @@ export const deepseekProvider: ProviderConfig = {
       // Add optional parameters
       if (request.temperature !== undefined) payload.temperature = request.temperature
       if (request.maxTokens !== undefined) payload.max_tokens = request.maxTokens
+      if (request.responseFormat) payload.response_format = { type: 'json_object' }
       if (request.thinkingLevel !== undefined) {
         payload.thinking = {
           type: request.thinkingLevel === 'none' ? 'disabled' : 'enabled',
@@ -157,9 +181,9 @@ export const deepseekProvider: ProviderConfig = {
           stream: createOpenAICompatibleStream(
             streamResponse as any,
             'Deepseek',
-            (content, usage) => {
+            (content, usage, finishReason) => {
               recordUsage(usage)
-              streamingResult.execution.output.content = content
+              streamingResult.execution.output.content = validateFinalContent(content, finishReason)
             }
           ),
           execution: {
@@ -213,15 +237,7 @@ export const deepseekProvider: ProviderConfig = {
       const firstResponseTime = Date.now() - initialCallTime
       recordUsage(currentResponse.usage)
 
-      let content = currentResponse.choices[0]?.message?.content || ''
-
-      // Clean up the response content if it exists
-      if (content) {
-        // Remove any markdown code block markers
-        content = content.replace(/```json\n?|\n?```/g, '')
-        // Trim any whitespace
-        content = content.trim()
-      }
+      let content = normalizeContent(currentResponse.choices[0]?.message?.content ?? '')
 
       const toolCalls = []
       const toolResults: Record<string, unknown>[] = []
@@ -402,13 +418,7 @@ export const deepseekProvider: ProviderConfig = {
         // Add to model time
         modelTime += thisModelTime
 
-        // Update content if we have a text response
-        if (currentResponse.choices[0]?.message?.content) {
-          content = currentResponse.choices[0].message.content
-          // Clean up the response content
-          content = content.replace(/```json\n?|\n?```/g, '')
-          content = content.trim()
-        }
+        content = normalizeContent(currentResponse.choices[0]?.message?.content ?? '')
 
         recordUsage(currentResponse.usage)
 
@@ -441,9 +451,9 @@ export const deepseekProvider: ProviderConfig = {
           stream: createOpenAICompatibleStream(
             streamResponse as any,
             'Deepseek',
-            (content, usage) => {
+            (content, usage, finishReason) => {
               recordUsage(usage)
-              streamingResult.execution.output.content = content
+              streamingResult.execution.output.content = validateFinalContent(content, finishReason)
               streamingResult.execution.output.cost = withToolCosts(cost.value, toolResults)
             }
           ),
@@ -487,7 +497,7 @@ export const deepseekProvider: ProviderConfig = {
       }
 
       return {
-        content,
+        content: validateFinalContent(content, currentResponse.choices[0]?.finish_reason),
         model: request.model,
         tokens,
         cost: cost.value,
