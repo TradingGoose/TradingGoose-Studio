@@ -151,6 +151,10 @@ describe('AgentBlock', () => {
     ['gpt-4.1', 2],
     ['claude-haiku-4-5', 1],
     ['mistral-large-latest', 1.5],
+    ['ollama/llama3.2:latest', 2],
+    ['openrouter/custom/model', 2],
+    ['fireworks/accounts/demo/models/adapter#accounts/demo/deployments/gpu', 2],
+    ['vllm/custom', 2],
   ] as const)('uses a clearable temperature slider for %s', (model, max) => {
     const fields = inspectorLayout(model)
       .additionalRows.flat()

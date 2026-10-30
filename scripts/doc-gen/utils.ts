@@ -33,6 +33,9 @@ export function collectConditions(condition: SubBlockCondition): SubBlockConditi
 }
 
 function describeCondition(condition: SubBlockCondition): string {
+  if (condition.operator === 'modelMaxTemperature') {
+    return `${condition.field} ${condition.not ? 'does not have' : 'has'} a maximum temperature of ${condition.value}`
+  }
   if (condition.operator === 'modelCapability') {
     const capability = condition.value.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase()
     return `${condition.field} ${condition.not ? 'does not support' : 'supports'} ${capability}`

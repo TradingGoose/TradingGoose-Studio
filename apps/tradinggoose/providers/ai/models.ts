@@ -2237,6 +2237,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
     defaultModel: '',
     icon: OllamaIcon,
     capabilities: {
+      temperature: { min: 0, max: 2 },
       toolUsageControl: false, // Ollama does not support tool_choice parameter
     },
     models: [], // Populated dynamically

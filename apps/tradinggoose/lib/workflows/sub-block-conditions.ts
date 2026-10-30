@@ -1,6 +1,6 @@
 import { extractEnvironmentReferences, extractReferencePrefixes } from '@/lib/workflows/references'
 import type { SubBlockCondition } from '@/blocks/types'
-import { MODEL_CONTROL_GETTERS } from '@/providers/ai/models'
+import { getMaxTemperature, MODEL_CONTROL_GETTERS } from '@/providers/ai/models'
 
 function matchesConditionValue(condition: SubBlockCondition, value: unknown): boolean {
   const normalized = value && typeof value === 'object' && 'id' in value ? value.id : value
@@ -13,9 +13,11 @@ function matchesConditionValue(condition: SubBlockCondition, value: unknown): bo
             extractEnvironmentReferences(fieldValue).length ||
             MODEL_CONTROL_GETTERS[condition.value](fieldValue)?.length
         )
-      : Array.isArray(condition.value)
-        ? condition.value.includes(fieldValue as string | number | boolean)
-        : fieldValue === condition.value
+      : condition.operator === 'modelMaxTemperature'
+        ? typeof fieldValue === 'string' && getMaxTemperature(fieldValue) === condition.value
+        : Array.isArray(condition.value)
+          ? condition.value.includes(fieldValue as string | number | boolean)
+          : fieldValue === condition.value
 
   return condition.not ? !matches : matches
 }

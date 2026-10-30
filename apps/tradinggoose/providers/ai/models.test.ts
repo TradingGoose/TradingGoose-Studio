@@ -5,6 +5,7 @@ import {
   getAllModelProviders,
   getBaseModelProviders,
   getMaxOutputTokensForModel,
+  getMaxTemperature,
   getModelCapabilities,
   getModelPricing,
   getProviderDefaultModel,
@@ -135,6 +136,8 @@ describe('AI model catalog', () => {
     ['fireworks', 'fireworks/accounts/acme/models/adapter#accounts/acme/deployments/gpu'],
   ])('routes qualified %s models before client discovery', (provider, model) => {
     expect(getProviderFromModel(model)).toBe(provider)
+    expect(getModelCapabilities(model)?.temperature).toEqual({ min: 0, max: 2 })
+    expect(getMaxTemperature(model)).toBe(2)
     expect(() => getProviderFromModel(`${provider}/`)).toThrow('Unknown AI model:')
   })
 

@@ -519,6 +519,46 @@ it.each([
   expect(mocks.tool).not.toHaveBeenCalled()
 })
 
+it.each(
+  (
+    [
+      [0, 0],
+      [0.7, 0.7],
+      [2, 2],
+      [undefined, undefined],
+      [-1, undefined],
+      [3, undefined],
+      [Number.NaN, undefined],
+      [Number.POSITIVE_INFINITY, undefined],
+    ] as const
+  ).flatMap(([temperature, expected]) =>
+    ['normal', 'stream', 'tools'].map((path) => ({ temperature, expected, path }))
+  )
+)(
+  'dispatches Ollama temperature=$temperature through $path',
+  async ({ temperature, expected, path }) => {
+    if (path === 'tools')
+      mocks.chat.mockResolvedValueOnce(completion({ tool_calls: [toolCall('next')] }))
+    if (path === 'stream')
+      mocks.chat.mockResolvedValueOnce(
+        (async function* () {
+          yield { choices: [{ delta: { content: 'Done' } }] }
+        })()
+      )
+    const result = await executeProviderRequest(
+      'ollama',
+      request('ollama/custom', {
+        temperature,
+        stream: path === 'stream',
+        tools: path === 'tools' ? [tool] : undefined,
+      })
+    )
+    if ('stream' in result) expect(await new Response(result.stream).text()).toBe('Done')
+    expect(mocks.chat).toHaveBeenCalledTimes(path === 'tools' ? 2 : 1)
+    for (const [payload] of mocks.chat.mock.calls) expect(payload.temperature).toBe(expected)
+  }
+)
+
 it('discovers qualified Ollama IDs and sends only the model name to the SDK', async () => {
   vi.mocked(fetch).mockResolvedValueOnce(
     new Response(JSON.stringify({ models: [{ name: 'llama3.2:latest' }] }))

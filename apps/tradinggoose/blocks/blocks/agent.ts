@@ -9,7 +9,6 @@ import type {
 import { AuthMode } from '@/blocks/types'
 import {
   getAllModelProviders,
-  getMaxTemperature,
   getMinOutputTokensForModel,
   getProviderDefaultModel,
   getProviderFromModel,
@@ -230,12 +229,11 @@ Create a system prompt appropriately detailed for the request, using clear langu
         max,
         step: 0.1,
         additional: true,
-        condition: () => ({
+        condition: {
           field: 'model',
-          value: Object.keys(getAllModelProviders()).filter(
-            (model) => getMaxTemperature(model) === max
-          ),
-        }),
+          operator: 'modelMaxTemperature',
+          value: max,
+        },
       })
     ),
     modelControl('reasoningEffort', 'Reasoning Effort'),

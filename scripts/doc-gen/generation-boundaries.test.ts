@@ -62,6 +62,17 @@ function runGenerator(
 }
 
 describe('documentation regeneration boundaries', () => {
+  it.each([false, true])('describes maximum temperature conditions with not=%s', (not) => {
+    expect(
+      describeVisibilityCondition({
+        field: 'model',
+        operator: 'modelMaxTemperature',
+        value: 1.5,
+        not,
+      })
+    ).toBe(`model ${not ? 'does not have' : 'has'} a maximum temperature of 1.5`)
+  })
+
   it('describes negated capability conditions with literal dependencies', () => {
     expect(
       describeVisibilityCondition({

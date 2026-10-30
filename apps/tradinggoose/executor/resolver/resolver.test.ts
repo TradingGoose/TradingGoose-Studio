@@ -2282,6 +2282,29 @@ describe('InputResolver', () => {
       }
     )
 
+    it.each([
+      ['ollama/custom', true],
+      ['openrouter/custom/model', true],
+      ['fireworks/accounts/demo/models/adapter#accounts/demo/deployments/gpu', true],
+      ['vllm/custom', true],
+      ['gpt-5.4', false],
+    ] as const)('resolves temperature eligibility before discovery for %s', (model, supported) => {
+      mockGetBlock.mockReturnValue(AgentBlock)
+      mockWorkflowVars.stringVar.value = model
+      const block = {
+        ...sampleWorkflow.blocks[1],
+        metadata: { id: BlockType.AGENT },
+        config: {
+          tool: BlockType.AGENT,
+          params: { temperature: 0, model: '<variable.stringVar>' },
+        },
+      }
+      expect(resolver.resolveInputs(block, mockContext)).toEqual({
+        model,
+        ...(supported && { temperature: 0 }),
+      })
+    })
+
     it.each(['json', 'structured'])('resolves Response mode references to %s', async (mode) => {
       mockGetBlock.mockReturnValue(ResponseBlock)
       mockWorkflowVars.stringVar.value = mode
