@@ -5,7 +5,6 @@ import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import { toError } from '@/providers/ai/error'
-import { resolveFireworksWireModel } from '@/providers/ai/fireworks/utils'
 import type {
   FunctionCallResponse,
   Message,
@@ -50,6 +49,9 @@ export const fireworksProvider: ProviderConfig = {
     if (!request.apiKey) {
       throw new Error('API key is required for Fireworks')
     }
+    if (!/^fireworks\/accounts\/[^/]+\/.+$/.test(request.model)) {
+      throw new Error('Fireworks IDs must use fireworks/accounts/<account>/<resource>')
+    }
 
     const tokens = { prompt: 0, completion: 0, total: 0 }
     const cost = createModelCost(request.model)
@@ -70,7 +72,7 @@ export const fireworksProvider: ProviderConfig = {
       baseURL: 'https://api.fireworks.ai/inference/v1',
     })
 
-    const apiModel = resolveFireworksWireModel(request.model)
+    const apiModel = request.model.slice('fireworks/'.length)
 
     logger.info('Preparing Fireworks request', {
       model: apiModel,

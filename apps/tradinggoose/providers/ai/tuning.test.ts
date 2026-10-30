@@ -60,6 +60,7 @@ import { anthropicProvider } from '@/providers/ai/anthropic'
 import { azureAnthropicProvider } from '@/providers/ai/azure-anthropic'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import { deepseekProvider } from '@/providers/ai/deepseek'
+import { fireworksProvider } from '@/providers/ai/fireworks'
 import { groqProvider } from '@/providers/ai/groq'
 import { ollamaProvider } from '@/providers/ai/ollama'
 
@@ -537,8 +538,8 @@ it('rejects unqualified Ollama IDs at the wire boundary', async () => {
 })
 
 it.each(
-  ['models/custom', 'deployments/prod'].flatMap((resource) =>
-    [false, true].map((stream) => ({ resource, stream }))
+  ['models/custom', 'deployments/prod', 'models/adapter#accounts/acme/deployments/gpu'].flatMap(
+    (resource) => [false, true].map((stream) => ({ resource, stream }))
   )
 )('sends qualified Fireworks $resource, stream=$stream', async ({ resource, stream }) => {
   const wireModel = `accounts/acme/${resource}`
@@ -555,6 +556,18 @@ it.each(
   const output = 'stream' in result ? result.execution.output : result
   expect(output).toMatchObject({ model, content: 'Done' })
   expect(mocks.chat.mock.calls[0][0].model).toBe(wireModel)
+})
+
+it.each([
+  'accounts/acme/models/custom',
+  'fireworks/',
+  'fireworks/glm-5.3',
+  'fireworks/accounts//models/custom',
+])('rejects unqualified Fireworks IDs before inference: %s', async (model) => {
+  await expect(fireworksProvider.executeRequest(request(model))).rejects.toThrow(
+    'Fireworks IDs must use fireworks/accounts/'
+  )
+  expect(mocks.chat).not.toHaveBeenCalled()
 })
 
 it.each([
