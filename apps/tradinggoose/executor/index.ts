@@ -30,6 +30,7 @@ import {
   WaitBlockHandler,
   WorkflowBlockHandler,
 } from '@/executor/handlers'
+import { parseAgentStructuredResponse } from '@/executor/handlers/agent/response-format'
 import { LoopManager } from '@/executor/loops/loops'
 import { ParallelManager } from '@/executor/parallels/parallels'
 import { ParallelRoutingUtils } from '@/executor/parallels/utils'
@@ -150,53 +151,6 @@ export class Executor {
   private isChildExecution = false
   private checkpoint?: ExecutorCheckpoint
   private resumeInputs?: Map<string, Record<string, unknown>>
-
-  /**
-   * Updates block output with streamed content, handling both structured and unstructured responses
-   */
-  private updateBlockOutputWithStreamedContent(
-    blockId: string,
-    fullContent: string,
-    blockState: any,
-    context: ExecutionContext
-  ): void {
-    if (!blockState?.output) return
-
-    // Check if we have response format - if so, preserve structured response
-    let responseFormat: any
-    if (this.initialBlockStates?.[blockId]) {
-      const initialBlockState = this.initialBlockStates[blockId] as any
-      responseFormat = initialBlockState.responseFormat
-    }
-
-    if (responseFormat && fullContent) {
-      // For structured responses, parse the raw streaming content
-      try {
-        const parsedContent = JSON.parse(fullContent)
-        // Preserve metadata but spread parsed fields at root level
-        const structuredOutput = {
-          ...parsedContent,
-          tokens: blockState.output.tokens,
-          toolCalls: blockState.output.toolCalls,
-          providerTiming: blockState.output.providerTiming,
-          cost: blockState.output.cost,
-        }
-        blockState.output = structuredOutput
-
-        // Also update the corresponding block log
-        const blockLog = context.blockLogs.find((log) => log.blockId === blockId)
-        if (blockLog) {
-          blockLog.output = structuredOutput
-        }
-      } catch (parseError) {
-        // If parsing fails, fall back to setting content
-        blockState.output.content = fullContent
-      }
-    } else {
-      // No response format, use standard content setting
-      blockState.output.content = fullContent
-    }
-  }
 
   private async emitExecutionEvent(
     event: Parameters<NonNullable<ExecutionContextExtensions['onExecutionEvent']>>[0]
@@ -1931,7 +1885,6 @@ export class Executor {
       ) {
         const streamingExec = rawOutput as StreamingExecution
         const streamingExecutionData = streamingExec.execution as any
-        const executionTime = performance.now() - startTime
         if (parallelInfo || !streamingExecutionData?.blockId) {
           streamingExecutionData.blockId = consoleBlockId
         }
@@ -1939,7 +1892,7 @@ export class Executor {
         context.blockStates.set(blockId, {
           output,
           executed: false,
-          executionTime,
+          executionTime: performance.now() - startTime,
         })
 
         const reader = streamingExec.stream.getReader()
@@ -1994,14 +1947,14 @@ export class Executor {
           } catch {}
         }
 
-        if (fullContent) {
-          this.updateBlockOutputWithStreamedContent(
-            blockId,
-            fullContent,
-            context.blockStates.get(blockId),
-            context
-          )
-        }
+        const responseFormat =
+          typeof inputs.responseFormat === 'string'
+            ? inputs.responseFormat.trim()
+            : inputs.responseFormat
+        const { content: _content, model: _model, ...metadata } = output
+        const streamedOutput = responseFormat
+          ? { ...parseAgentStructuredResponse(fullContent), ...metadata }
+          : { ...output, content: fullContent }
 
         if (context.stream) {
           await this.emitExecutionEvent({
@@ -2015,10 +1968,9 @@ export class Executor {
           })
         }
 
-        const streamedOutput = context.blockStates.get(blockId)?.output ?? output
         await finalizeSuccessfulOutput({
           output: streamedOutput,
-          executionTime,
+          executionTime: performance.now() - startTime,
         })
         return streamedOutput
       }

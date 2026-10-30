@@ -7,93 +7,11 @@ import {
 } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { ExecutionSubmissionSource } from '@/executor/types'
-import {
-  getEmbeddingModelPricing,
-  getModelPricing,
-  getModelsWithDeepResearch,
-  getModelsWithReasoningEffort,
-  getModelsWithTemperatureSupport,
-  getModelsWithTempRange01,
-  getModelsWithTempRange02,
-  getModelsWithThinking,
-  getModelsWithVerbosity,
-  getProvidersWithToolUsageControl,
-  PROVIDER_DEFINITIONS,
-  type ProviderDefinition,
-} from '@/providers/ai/models'
-import type { ProviderId, ProviderToolConfig } from '@/providers/ai/types'
+import { getModelCapabilities, getModelPricing } from '@/providers/ai/models'
+import type { ProviderResponse, ProviderToolConfig } from '@/providers/ai/types'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 
 const logger = createLogger('ProviderUtils')
-
-export function getAllModelProviders(): Record<string, ProviderId> {
-  return Object.entries(PROVIDER_DEFINITIONS).reduce(
-    (map, [providerId, config]) => {
-      config.models.forEach((model) => {
-        map[model.id.toLowerCase()] = providerId as ProviderId
-      })
-      return map
-    },
-    {} as Record<string, ProviderId>
-  )
-}
-
-export function getProvider(id: string): ProviderDefinition | undefined {
-  return Object.hasOwn(PROVIDER_DEFINITIONS, id) ? PROVIDER_DEFINITIONS[id] : undefined
-}
-
-export function generateSchemaInstructions(schema: any, schemaName?: string): string {
-  const name = schemaName || 'response'
-  return `IMPORTANT: You must respond with a valid JSON object that conforms to the following schema.
-Do not include any text before or after the JSON object. Only output the JSON.
-
-Schema name: ${name}
-JSON Schema:
-${JSON.stringify(schema, null, 2)}
-
-Your response must be valid JSON that exactly matches this schema structure.`
-}
-
-export function extractAndParseJSON(content: string): any {
-  // First clean up the string
-  const trimmed = content.trim()
-
-  // Find the first '{' and last '}'
-  const firstBrace = trimmed.indexOf('{')
-  const lastBrace = trimmed.lastIndexOf('}')
-
-  if (firstBrace === -1 || lastBrace === -1) {
-    throw new Error('No JSON object found in content')
-  }
-
-  // Extract just the JSON part
-  const jsonStr = trimmed.slice(firstBrace, lastBrace + 1)
-
-  try {
-    return JSON.parse(jsonStr)
-  } catch (_error) {
-    // If parsing fails, try to clean up common issues
-    const cleaned = jsonStr
-      .replace(/\n/g, ' ') // Remove newlines
-      .replace(/\s+/g, ' ') // Normalize whitespace
-      .replace(/,\s*([}\]])/g, '$1') // Remove trailing commas
-
-    try {
-      return JSON.parse(cleaned)
-    } catch (innerError) {
-      logger.error('Failed to parse JSON response', {
-        contentLength: content.length,
-        extractedLength: jsonStr.length,
-        cleanedLength: cleaned.length,
-        error: innerError instanceof Error ? innerError.message : 'Unknown error',
-      })
-
-      throw new Error(
-        `Failed to parse JSON after cleanup: ${innerError instanceof Error ? innerError.message : 'Unknown error'}`
-      )
-    }
-  }
-}
 
 /**
  * Transforms a custom tool schema into a provider tool config
@@ -229,77 +147,83 @@ export async function transformBlockTool(
  * Calculate cost for token usage based on model pricing
  *
  * @param model The model name
- * @param promptTokens Number of prompt tokens used
+ * @param promptTokens Total prompt tokens, including cache reads
  * @param completionTokens Number of completion tokens used
- * @param useCachedInput Whether to use cached input pricing (default: false)
- * @param customMultiplier Optional custom multiplier to override the default cost multiplier
+ * @param cachedInputTokens Number of prompt tokens retrieved from cache
  * @returns Cost calculation results with input, output and total costs
  */
 export function calculateCost(
   model: string,
   promptTokens = 0,
   completionTokens = 0,
-  useCachedInput = false,
-  inputMultiplier?: number,
-  outputMultiplier?: number
+  cachedInputTokens = 0
 ) {
-  // First check if it's an embedding model
-  let pricing = getEmbeddingModelPricing(model)
+  let pricing = getModelPricing(model)
 
-  // If not found, check chat models
   if (!pricing) {
-    pricing = getModelPricing(model)
-  }
-
-  // If no pricing found, return default pricing
-  if (!pricing) {
-    const defaultPricing = {
-      input: 1.0,
-      cachedInput: 0.5,
-      output: 5.0,
-      updatedAt: '2025-03-21',
-    }
     return {
       input: 0,
       output: 0,
       total: 0,
-      pricing: defaultPricing,
+      pricing: null,
+    }
+  }
+
+  const tier = pricing.tiers
+    ?.slice()
+    .reverse()
+    .find(({ aboveInputTokens }) => promptTokens > aboveInputTokens)
+  if (tier) {
+    pricing = {
+      ...pricing,
+      input: tier.input,
+      cachedInput: tier.cachedInput,
+      output: tier.output,
     }
   }
 
   // Calculate costs in USD
   // Convert from "per million tokens" to "per token" by dividing by 1,000,000
+  const cachedTokens = Math.min(promptTokens, Math.max(0, cachedInputTokens))
   const inputCost =
-    promptTokens *
-    (useCachedInput && pricing.cachedInput
-      ? pricing.cachedInput / 1_000_000
-      : pricing.input / 1_000_000)
+    ((promptTokens - cachedTokens) * pricing.input +
+      cachedTokens * (pricing.cachedInput ?? pricing.input)) /
+    1_000_000
 
   const outputCost = completionTokens * (pricing.output / 1_000_000)
-  const finalInputCost = inputCost * (inputMultiplier ?? 1)
-  const finalOutputCost = outputCost * (outputMultiplier ?? 1)
-  const finalTotalCost = finalInputCost + finalOutputCost
-
   return {
-    input: Number.parseFloat(finalInputCost.toFixed(8)), // Use 8 decimal places for small costs
-    output: Number.parseFloat(finalOutputCost.toFixed(8)),
-    total: Number.parseFloat(finalTotalCost.toFixed(8)),
+    input: Number.parseFloat(inputCost.toFixed(8)),
+    output: Number.parseFloat(outputCost.toFixed(8)),
+    total: Number.parseFloat((inputCost + outputCost).toFixed(8)),
     pricing,
   }
 }
 
-export function sumToolCosts(toolResults?: Record<string, unknown>[]): number {
-  if (!toolResults?.length) return 0
-
-  let total = 0
-  for (const toolResult of toolResults) {
-    const cost = toolResult?.cost as { total?: unknown } | undefined
-    if (typeof cost?.total === 'number') {
-      total += cost.total
-    }
+export function createModelCost(model: string) {
+  const value = calculateCost(model)
+  return {
+    value,
+    add(input: number, output: number, cachedInputTokens = 0) {
+      const cost = calculateCost(model, input, output, cachedInputTokens)
+      value.input += cost.input
+      value.output += cost.output
+      value.total += cost.total
+      value.pricing = cost.pricing
+      return value
+    },
   }
+}
 
-  return total
+export function withToolCosts(
+  cost: ProviderResponse['cost'],
+  toolResults?: Record<string, unknown>[]
+): ProviderResponse['cost'] {
+  let toolCost = 0
+  for (const result of toolResults ?? []) {
+    const total = (result.cost as { total?: unknown } | undefined)?.total
+    if (typeof total === 'number') toolCost += total
+  }
+  return { ...cost, toolCost: toolCost || undefined, total: cost.input + cost.output + toolCost }
 }
 
 /**
@@ -340,7 +264,8 @@ export function prepareToolsWithUsageControl(
   tools: any[] | undefined,
   providerTools: any[] | undefined,
   logger: any,
-  provider?: string
+  provider?: string,
+  supportsForcedTools = true
 ): {
   tools: any[] | undefined
   toolChoice:
@@ -398,6 +323,11 @@ export function prepareToolsWithUsageControl(
 
   // Get all tools that should be forced
   const forcedTools = providerTools?.filter((tool) => tool.usageControl === 'force') || []
+  if (!supportsForcedTools && forcedTools.length) {
+    throw new Error(
+      'This model or thinking configuration does not support forced tool use. Select Auto or a compatible model.'
+    )
+  }
   const forcedToolIds = forcedTools.map((tool) => tool.id)
 
   // Determine tool_choice setting
@@ -618,34 +548,13 @@ export function trackForcedToolUsage(
   }
 }
 
-export const MODELS_TEMP_RANGE_0_2 = getModelsWithTempRange02()
-export const MODELS_TEMP_RANGE_0_1 = getModelsWithTempRange01()
-export const MODELS_WITH_TEMPERATURE_SUPPORT = getModelsWithTemperatureSupport()
-export const MODELS_WITH_DEEP_RESEARCH = getModelsWithDeepResearch()
-export const MODELS_WITH_REASONING_EFFORT = getModelsWithReasoningEffort()
-export const MODELS_WITH_VERBOSITY = getModelsWithVerbosity()
-export const MODELS_WITH_THINKING = getModelsWithThinking()
-export const PROVIDERS_WITH_TOOL_USAGE_CONTROL = getProvidersWithToolUsageControl()
-
-export function supportsReasoningEffort(model: string): boolean {
-  return MODELS_WITH_REASONING_EFFORT.includes(model.toLowerCase())
-}
-
-export function supportsVerbosity(model: string): boolean {
-  return MODELS_WITH_VERBOSITY.includes(model.toLowerCase())
-}
-
-export function supportsThinking(model: string): boolean {
-  return MODELS_WITH_THINKING.includes(model.toLowerCase())
-}
-
 export function isDeepResearchModel(model: string): boolean {
-  return MODELS_WITH_DEEP_RESEARCH.includes(model.toLowerCase())
+  return getModelCapabilities(model)?.deepResearch ?? false
 }
 
-export function isGemini3Model(model: string): boolean {
+export function isGemini3OrLaterModel(model: string): boolean {
   const normalizedModel = model.toLowerCase().replace(/^vertex\//, '')
-  return normalizedModel.startsWith('gemini-3')
+  return Number(normalizedModel.match(/^gemini-(\d+)(?:[.-]|$)/)?.[1]) >= 3
 }
 
 /**
@@ -703,25 +612,20 @@ export function prepareToolExecution(
 }
 
 export function createOpenAICompatibleStream(
-  stream: AsyncIterable<ChatCompletionChunk>,
+  stream: AsyncIterable<ChatCompletionChunk & { x_groq?: { usage?: CompletionUsage } }>,
   providerName: string,
   onComplete?: (content: string, usage: CompletionUsage) => void
 ): ReadableStream<Uint8Array> {
   const streamLogger = createLogger(`${providerName}Utils`)
   let fullContent = ''
-  let promptTokens = 0
-  let completionTokens = 0
-  let totalTokens = 0
+  let lastUsage: CompletionUsage | undefined
 
   return new ReadableStream({
     async start(controller) {
       try {
         for await (const chunk of stream) {
-          if (chunk.usage) {
-            promptTokens = chunk.usage.prompt_tokens ?? 0
-            completionTokens = chunk.usage.completion_tokens ?? 0
-            totalTokens = chunk.usage.total_tokens ?? 0
-          }
+          const usage = chunk.x_groq ? chunk.x_groq.usage : chunk.usage
+          if (usage) lastUsage = usage
 
           const content = chunk.choices?.[0]?.delta?.content || ''
           if (content) {
@@ -731,14 +635,17 @@ export function createOpenAICompatibleStream(
         }
 
         if (onComplete) {
+          const promptTokens = lastUsage?.prompt_tokens ?? 0
+          const completionTokens = lastUsage?.completion_tokens ?? 0
           if (promptTokens === 0 && completionTokens === 0) {
             streamLogger.warn(`${providerName} stream completed without usage data`)
           }
 
           onComplete(fullContent, {
+            ...lastUsage,
             prompt_tokens: promptTokens,
             completion_tokens: completionTokens,
-            total_tokens: totalTokens || promptTokens + completionTokens,
+            total_tokens: lastUsage?.total_tokens || promptTokens + completionTokens,
           })
         }
 

@@ -5,9 +5,11 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import { createMcpToolId } from '@/lib/mcp/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { stringifySubBlockValue } from '@/lib/workflows/subblock-values'
 import { getAllBlocks } from '@/blocks'
 import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
+import { parseAgentStructuredResponse } from '@/executor/handlers/agent/response-format'
 import type {
   AgentInputs,
   Message,
@@ -16,7 +18,8 @@ import type {
 } from '@/executor/handlers/agent/types'
 import { getBlockToolExecutionId } from '@/executor/handlers/tool-execution-context'
 import type { BlockHandler, ExecutionContext, StreamingExecution } from '@/executor/types'
-import { getProviderDefaultModel, getProviderFromModel } from '@/providers/ai/models'
+import { getProviderFromModel } from '@/providers/ai/models'
+import { decodeProviderStream } from '@/providers/ai/streaming'
 import { transformBlockTool } from '@/providers/ai/utils'
 import type { SerializedBlock } from '@/serializer/types'
 import { executeTool, getToolAsync } from '@/tools'
@@ -31,7 +34,6 @@ import { resolveSkillMetadata } from './skills-resolver'
 
 const logger = createLogger('AgentBlockHandler')
 
-const DEFAULT_MODEL = getProviderDefaultModel('openai')
 const DEFAULT_FUNCTION_TIMEOUT = 600000
 const REQUEST_TIMEOUT = 120000
 
@@ -77,8 +79,9 @@ export class AgentBlockHandler implements BlockHandler {
   ): Promise<BlockOutput | StreamingExecution> {
     logger.info(`Executing agent block: ${block.id}`)
 
+    const model = inputs.model
+    if (!model) throw new Error('Agent model is required')
     const responseFormat = this.parseResponseFormat(inputs.responseFormat)
-    const model = inputs.model || DEFAULT_MODEL
     const providerId = getProviderFromModel(model)
     const formattedTools = await this.formatTools(inputs.tools || [], context)
     const skillInputs = Array.isArray(inputs.skills)
@@ -124,65 +127,30 @@ export class AgentBlockHandler implements BlockHandler {
   }
 
   private parseResponseFormat(responseFormat?: string | object): any {
-    if (!responseFormat || responseFormat === '') return undefined
-
-    // If already an object, process it directly
-    if (typeof responseFormat === 'object' && responseFormat !== null) {
-      const formatObj = responseFormat as any
-      if (!formatObj.schema && !formatObj.name) {
-        return {
-          name: 'response_schema',
-          schema: responseFormat,
-          strict: true,
-        }
-      }
-      return responseFormat
-    }
-
-    // Handle string values
+    if (responseFormat == null || responseFormat === '') return undefined
+    let format: unknown = responseFormat
     if (typeof responseFormat === 'string') {
-      const trimmedValue = responseFormat.trim()
-
-      // Check for variable references like <start.input>
-      if (trimmedValue.startsWith('<') && trimmedValue.includes('>')) {
-        logger.info('Response format contains variable reference:', {
-          value: trimmedValue,
-        })
-        // Variable references should have been resolved by the resolver before reaching here
-        // If we still have a variable reference, it means it couldn't be resolved
-        // Return undefined to use default behavior (no structured response)
-        return undefined
-      }
-
-      // Try to parse as JSON
+      if (!responseFormat.trim()) return undefined
       try {
-        const parsed = JSON.parse(trimmedValue)
-
-        if (parsed && typeof parsed === 'object' && !parsed.schema && !parsed.name) {
-          return {
-            name: 'response_schema',
-            schema: parsed,
-            strict: true,
-          }
-        }
-        return parsed
-      } catch (error: any) {
-        logger.warn('Failed to parse response format as JSON, using default behavior:', {
-          error: error.message,
-          value: trimmedValue,
-        })
-        // Return undefined instead of throwing - this allows execution to continue
-        // without structured response format
-        return undefined
+        format = JSON.parse(responseFormat)
+      } catch {
+        throw new Error('Invalid agent response format: expected valid JSON with a schema object')
       }
     }
-
-    // For any other type, return undefined
-    logger.warn('Unexpected response format type, using default behavior:', {
-      type: typeof responseFormat,
-      value: responseFormat,
-    })
-    return undefined
+    if (
+      !format ||
+      typeof format !== 'object' ||
+      Array.isArray(format) ||
+      !('schema' in format) ||
+      !format.schema ||
+      typeof format.schema !== 'object' ||
+      Array.isArray(format.schema)
+    ) {
+      throw new Error(
+        'Invalid agent response format: expected an object containing a schema object'
+      )
+    }
+    return format
   }
 
   private async formatTools(inputTools: ToolInput[], context: ExecutionContext): Promise<any[]> {
@@ -441,27 +409,15 @@ export class AgentBlockHandler implements BlockHandler {
     skillMetadata: Array<{ id: string; name: string; description: string }> = [],
     skillLoaderToolId?: string | null
   ): Message[] | undefined {
-    if (
-      !inputs.memories &&
-      !inputs.systemPrompt &&
-      !inputs.userPrompt &&
-      skillMetadata.length === 0
-    ) {
-      return undefined
-    }
-
-    const messages: Message[] = []
-
-    if (inputs.memories) {
-      messages.push(...this.processMemories(inputs.memories))
-    }
+    let messages: Message[] = inputs.memories ? this.processMemories(inputs.memories) : []
 
     if (inputs.systemPrompt) {
-      this.addSystemPrompt(messages, inputs.systemPrompt)
+      messages = messages.filter((message) => message.role !== 'system')
+      messages.unshift({ role: 'system', content: stringifySubBlockValue(inputs.systemPrompt) })
     }
 
     if (inputs.userPrompt) {
-      this.addUserPrompt(messages, inputs.userPrompt)
+      messages.push({ role: 'user', content: stringifySubBlockValue(inputs.userPrompt) })
     }
 
     if (skillMetadata.length > 0 && skillLoaderToolId) {
@@ -517,46 +473,6 @@ export class AgentBlockHandler implements BlockHandler {
     return messages
   }
 
-  private addSystemPrompt(messages: Message[], systemPrompt: any) {
-    let content: string
-
-    if (typeof systemPrompt === 'string') {
-      content = systemPrompt
-    } else {
-      try {
-        content = JSON.stringify(systemPrompt, null, 2)
-      } catch (error) {
-        content = String(systemPrompt)
-      }
-    }
-
-    const systemMessages = messages.filter((msg) => msg.role === 'system')
-
-    if (systemMessages.length > 0) {
-      messages.splice(0, 0, { role: 'system', content })
-      for (let i = messages.length - 1; i >= 1; i--) {
-        if (messages[i].role === 'system') {
-          messages.splice(i, 1)
-        }
-      }
-    } else {
-      messages.splice(0, 0, { role: 'system', content })
-    }
-  }
-
-  private addUserPrompt(messages: Message[], userPrompt: any) {
-    let content: string
-    if (typeof userPrompt === 'object' && userPrompt.input) {
-      content = String(userPrompt.input)
-    } else if (typeof userPrompt === 'object') {
-      content = JSON.stringify(userPrompt)
-    } else {
-      content = String(userPrompt)
-    }
-
-    messages.push({ role: 'user', content })
-  }
-
   private buildProviderRequest(config: {
     providerId: string
     model: string
@@ -580,22 +496,17 @@ export class AgentBlockHandler implements BlockHandler {
       streaming,
     } = config
 
-    const validMessages = this.validateMessages(messages)
-
     // Collect block outputs for runtime resolution
     const { blockData, blockNameMapping } = collectBlockData(context)
 
     return {
       provider: providerId,
       model,
-      systemPrompt: validMessages ? undefined : inputs.systemPrompt,
-      context: JSON.stringify(messages),
       tools: formattedTools,
       temperature: inputs.temperature,
       maxTokens: inputs.maxTokens,
       apiKey: inputs.apiKey,
       azureEndpoint: inputs.azureEndpoint,
-      azureApiVersion: inputs.azureApiVersion,
       responseFormat,
       workflowId: context.workflowId,
       workspaceId: context.workspaceId,
@@ -611,23 +522,8 @@ export class AgentBlockHandler implements BlockHandler {
       isDeployedContext: context.isDeployedContext !== false,
       reasoningEffort: inputs.reasoningEffort,
       verbosity: inputs.verbosity,
+      thinkingLevel: inputs.thinkingLevel,
     }
-  }
-
-  private validateMessages(messages: Message[] | undefined): boolean {
-    return (
-      Array.isArray(messages) &&
-      messages.length > 0 &&
-      messages.every(
-        (msg: any) =>
-          typeof msg === 'object' &&
-          msg !== null &&
-          'role' in msg &&
-          typeof msg.role === 'string' &&
-          ('content' in msg ||
-            (msg.role === 'assistant' && ('function_call' in msg || 'tool_calls' in msg)))
-      )
-    )
   }
 
   private async executeProviderRequest(
@@ -774,45 +670,16 @@ export class AgentBlockHandler implements BlockHandler {
     )
   }
 
-  private async handleStreamingResponse(
+  private handleStreamingResponse(
     response: Response,
     block: SerializedBlock,
     tools: any[]
-  ): Promise<StreamingExecution> {
-    // Check if we have execution data in headers (from StreamingExecution)
-    const executionDataHeader = response.headers.get('X-Execution-Data')
-
-    if (executionDataHeader) {
-      // Parse execution data from header
-      try {
-        const executionData = JSON.parse(executionDataHeader)
-
-        // Create StreamingExecution object
-        return {
-          stream: response.body!,
-          execution: {
-            success: executionData.success,
-            output: this.withToolCallMetadata({ output: executionData.output }, tools).output || {},
-            error: executionData.error,
-            logs: [], // Logs are stripped from headers, will be populated by executor
-            metadata: executionData.metadata || {
-              duration: 0,
-              startTime: new Date().toISOString(),
-            },
-            isStreaming: true,
-            blockId: block.id,
-            blockName: block.metadata?.name,
-            blockType: block.metadata?.id,
-          } as any,
-        }
-      } catch (error) {
-        logger.error('Failed to parse execution data from header:', error)
-        // Fall back to minimal streaming execution
-      }
-    }
-
-    // Fallback for plain ReadableStream or when header parsing fails
-    return this.createMinimalStreamingExecution(response.body!)
+  ): StreamingExecution {
+    if (!response.body) throw new Error('Streaming provider response requires a body')
+    return this.processStreamingExecution(
+      this.withToolCallMetadata(decodeProviderStream(response.body), tools),
+      block
+    )
   }
 
   private async extractErrorMessage(response: Response): Promise<string> {
@@ -838,11 +705,9 @@ export class AgentBlockHandler implements BlockHandler {
   ) {
     const executionTime = Date.now() - startTime
     const responseType =
-      response instanceof ReadableStream
-        ? 'stream'
-        : response && typeof response === 'object' && 'stream' in response
-          ? 'streaming-execution'
-          : 'json'
+      response && typeof response === 'object' && 'stream' in response
+        ? 'streaming-execution'
+        : 'json'
 
     logger.info('Provider request completed successfully', {
       provider,
@@ -906,10 +771,6 @@ export class AgentBlockHandler implements BlockHandler {
       return this.processStreamingExecution(response, block)
     }
 
-    if (response instanceof ReadableStream) {
-      return this.createMinimalStreamingExecution(response)
-    }
-
     return this.processRegularResponse(response, responseFormat)
   }
 
@@ -937,62 +798,11 @@ export class AgentBlockHandler implements BlockHandler {
     return streamingExec
   }
 
-  private createMinimalStreamingExecution(stream: ReadableStream): StreamingExecution {
-    return {
-      stream,
-      execution: {
-        success: true,
-        output: {},
-        logs: [],
-        metadata: {
-          duration: 0,
-          startTime: new Date().toISOString(),
-        },
-      },
-    }
-  }
-
   private processRegularResponse(result: any, responseFormat: any): BlockOutput {
-    if (responseFormat) {
-      return this.processStructuredResponse(result, responseFormat)
-    }
-
-    return this.processStandardResponse(result)
-  }
-
-  private processStructuredResponse(result: any, responseFormat: any): BlockOutput {
-    const content = result.content
-
-    try {
-      const extractedJson = JSON.parse(content.trim())
-      logger.info('Successfully parsed structured response content')
-      return {
-        ...extractedJson,
-        ...this.createResponseMetadata(result),
-      }
-    } catch (error) {
-      logger.info('JSON parsing failed', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      })
-
-      // LLM did not adhere to structured response format
-      logger.error('LLM did not adhere to structured response format:', {
-        content: content.substring(0, 200) + (content.length > 200 ? '...' : ''),
-        responseFormat: responseFormat,
-      })
-
-      const standardResponse = this.processStandardResponse(result)
-      return Object.assign(standardResponse, {
-        _responseFormatWarning:
-          'LLM did not adhere to the specified structured response format. Expected valid JSON but received malformed content. Falling back to standard format.',
-      })
-    }
-  }
-
-  private processStandardResponse(result: any): BlockOutput {
     return {
-      content: result.content,
-      model: result.model,
+      ...(responseFormat
+        ? parseAgentStructuredResponse(result.content)
+        : { content: result.content, model: result.model }),
       ...this.createResponseMetadata(result),
     }
   }
@@ -1013,9 +823,13 @@ export class AgentBlockHandler implements BlockHandler {
         if (name) Object.assign(toolCall, { id, name })
       })
 
-    apply(result?.toolCalls)
-    apply(result?.execution?.output?.toolCalls?.list)
-    apply(result?.output?.toolCalls?.list)
+    if (this.isStreamingExecution(result)) {
+      result.stream = result.stream.pipeThrough(
+        new TransformStream({ flush: () => apply(result.execution.output.toolCalls?.list) })
+      )
+    } else {
+      apply(result?.toolCalls)
+    }
     return result
   }
 
@@ -1024,22 +838,11 @@ export class AgentBlockHandler implements BlockHandler {
       tokens: result.tokens || { prompt: 0, completion: 0, total: 0 },
       toolResults: Array.isArray(result.toolResults) ? result.toolResults : [],
       toolCalls: {
-        list: result.toolCalls ? result.toolCalls.map(this.formatToolCall.bind(this)) : [],
+        list: result.toolCalls || [],
         count: result.toolCalls?.length || 0,
       },
       providerTiming: result.timing,
       cost: result.cost,
-    }
-  }
-
-  private formatToolCall(tc: any) {
-    return {
-      ...tc,
-      startTime: tc.startTime,
-      endTime: tc.endTime,
-      duration: tc.duration,
-      arguments: tc.arguments || tc.input || {},
-      result: tc.result || tc.output,
     }
   }
 }

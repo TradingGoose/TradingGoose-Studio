@@ -62,15 +62,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "layout": "full",
             "placeholder": "https://your-resource.openai.azure.com",
             "password": true,
-            "description": "Shown when model is one of 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano', 'azure/model-router'."
-        },
-        {
-            "id": "azureApiVersion",
-            "type": "short-input",
-            "title": "Azure API Version",
-            "layout": "full",
-            "placeholder": "2024-07-01-preview",
-            "description": "Shown when model is one of 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano', 'azure/model-router'."
+            "description": "Shown when model is one of 'azure/gpt-6.1-sol', 'azure/gpt-6-sol', 'azure/gpt-6-luna', 'azure/gpt-6-astra', 'azure/gpt-5.6-sol', 'azure/gpt-5.6-terra', 'azure/gpt-5.6-luna', 'azure/gpt-5.5', 'azure/gpt-5.4-pro', 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano'."
         }
     ]}
   />
@@ -83,8 +75,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 | `metrics` | json | Yes | Evaluation metrics configuration |
 | `model` | string | Yes | AI model to use |
 | `apiKey` | string | No | Provider API key. Shown when applicable to the selected model at runtime. |
-| `azureEndpoint` | string | No | Azure OpenAI endpoint URL. Shown when model is one of 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano', 'azure/model-router'. |
-| `azureApiVersion` | string | No | Azure API version. Shown when model is one of 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano', 'azure/model-router'. |
+| `azureEndpoint` | string | No | Azure OpenAI endpoint URL. Shown when model is one of 'azure/gpt-6.1-sol', 'azure/gpt-6-sol', 'azure/gpt-6-luna', 'azure/gpt-6-astra', 'azure/gpt-5.6-sol', 'azure/gpt-5.6-terra', 'azure/gpt-5.6-luna', 'azure/gpt-5.5', 'azure/gpt-5.4-pro', 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano'. |
 | `temperature` | number | No | Response randomness level \(low for consistent evaluation\) |
 | `content` | string | Yes | Content to evaluate |
 

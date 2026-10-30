@@ -33,10 +33,6 @@ vi.mock('@/lib/utils', () => ({
   isHosted: vi.fn().mockReturnValue(false),
 }))
 
-vi.mock('@/lib/utils-server', () => ({
-  getRotatingApiKey: vi.fn(),
-}))
-
 // Tools
 vi.mock('@/tools')
 
@@ -52,7 +48,6 @@ vi.mock('@/providers/ai/utils', async (importOriginal) => {
     transformBlockTool: vi.fn(),
   }
 })
-
 vi.mock('@/providers/ai/models', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/providers/ai/models')>()),
   getProviderFromModel: vi.fn(),

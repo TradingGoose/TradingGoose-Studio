@@ -232,10 +232,24 @@ describe('canonical sub-block validation', () => {
 
   it.each([
     ['gpt-4.1', 1.5, true],
-    ['claude-sonnet-4-6', 1.5, false],
+    ['claude-haiku-4-5', 1.5, false],
   ])('uses the active temperature bounds for %s', (model, temperature, valid) => {
     validationMocks.getBlock.mockReturnValue(AgentBlock)
     expect(validateWorkflowState(workflowWithValues('agent', { model, temperature })).valid).toBe(
+      valid
+    )
+  })
+
+  it.each([
+    ['gpt-4.1', 1, false],
+    ['gpt-4.1', 15, false],
+    ['gpt-4.1', 16, true],
+    ['gpt-4.1', '', true],
+    ['claude-haiku-4-5', 1, true],
+    ['openrouter/custom/manual', 1, true],
+  ])('uses the active output token minimum for %s: %s', (model, maxTokens, valid) => {
+    validationMocks.getBlock.mockReturnValue(AgentBlock)
+    expect(validateWorkflowState(workflowWithValues('agent', { model, maxTokens })).valid).toBe(
       valid
     )
   })

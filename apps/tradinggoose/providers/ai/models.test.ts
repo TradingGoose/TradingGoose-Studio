@@ -1,287 +1,337 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { GET } from '@/app/api/providers/ai/openrouter/models/route'
 import {
-  normalizeFireworksCatalogModel,
-  resolveFireworksWireModel,
-} from '@/providers/ai/fireworks/utils'
-import {
+  DYNAMIC_MODEL_PROVIDERS,
+  getAllModelProviders,
+  getBaseModelProviders,
+  getMaxOutputTokensForModel,
+  getMaxTemperature,
   getModelCapabilities,
   getModelPricing,
+  getProviderDefaultModel,
   getProviderFromModel,
   getProviderIcon,
   getProviderModels,
+  getReasoningEffortValuesForModel,
+  getThinkingCapability,
+  getVerbosityValuesForModel,
   PROVIDER_DEFINITIONS,
   updateFireworksModels,
+  updateOllamaModels,
   updateOpenRouterModels,
+  updateVLLMModels,
 } from '@/providers/ai/models'
+import { openRouterProvider } from '@/providers/ai/openrouter'
+import { getOpenRouterModels } from '@/providers/ai/openrouter/models'
 import { calculateCost } from '@/providers/ai/utils'
 import { useProvidersStore } from '@/stores/providers/store'
 
-const EXPECTED_MODEL_COUNTS = {
-  fireworks: 2,
-  openrouter: 0,
-  vllm: 0,
-  openai: 19,
-  anthropic: 10,
-  'azure-openai': 16,
-  'azure-anthropic': 4,
-  google: 10,
-  vertex: 8,
-  deepseek: 4,
-  xai: 6,
-  cerebras: 3,
-  groq: 6,
-  mistral: 21,
-  ollama: 0,
-  bedrock: 19,
-}
-
-const ADDED_MODELS = [
-  'fireworks/glm-5.2',
-  'fireworks/kimi-k3',
-  'gpt-5.6-sol',
-  'gpt-5.6-terra',
-  'gpt-5.6-luna',
-  'gpt-5.5-pro',
-  'gpt-5.5',
-  'claude-fable-5',
-  'claude-sonnet-5',
-  'claude-opus-5',
-  'claude-opus-4-8',
-  'azure/gpt-5-chat',
-  'gemini-3.6-flash',
-  'gemini-3.5-flash-lite',
-  'gemini-3.5-flash',
-  'gemini-3.1-flash-lite',
-  'vertex/gemini-3.5-flash',
-  'vertex/gemini-3.1-flash-lite',
-  'deepseek-chat',
-  'deepseek-reasoner',
-  'grok-4.6',
-  'grok-4.5',
-  'grok-4.3',
-  'cerebras/gemma-4-31b',
-  'groq/qwen/qwen3.6-27b',
-  'mistral-medium-2604',
-]
-
-const REMOVED_MODELS = [
-  'gpt-4.1-nano',
-  'gpt-5-chat-latest',
-  'o4-mini',
-  'o3',
-  'o3-mini',
-  'o1',
-  'gpt-4o',
-  'claude-opus-4-1',
-  'claude-opus-4-0',
-  'claude-sonnet-4-0',
-  'claude-3-haiku-20240307',
-  'azure/gpt-4o',
-  'azure/gpt-5-chat-latest',
-  'azure-anthropic/claude-opus-4-1',
-  'gemini-3.1-flash-lite-preview',
-  'gemini-2.0-flash',
-  'gemini-2.0-flash-lite',
-  'vertex/gemini-3.1-flash-lite-preview',
-  'vertex/gemini-3-pro-preview',
-  'vertex/gemini-2.0-flash',
-  'vertex/gemini-2.0-flash-lite',
-  'grok-4-latest',
-  'grok-4-0709',
-  'grok-4-1-fast-reasoning',
-  'grok-4-1-fast-non-reasoning',
-  'grok-4-fast-reasoning',
-  'grok-4-fast-non-reasoning',
-  'grok-code-fast-1',
-  'grok-3-latest',
-  'grok-3-fast-latest',
-  'cerebras/llama3.1-8b',
-  'cerebras/qwen-3-235b-a22b-instruct-2507',
-  'groq/qwen/qwen3-32b',
-  'groq/meta-llama/llama-4-scout-17b-16e-instruct',
-  'groq/moonshotai/kimi-k2-instruct-0905',
-  'mistral-large-2411',
-  'magistral-small-latest',
-  'magistral-small-2509',
-  'mistral-small-2506',
-  'devstral-small-latest',
-  'devstral-small-2507',
-  'devstral-medium-2507',
-  'bedrock/anthropic.claude-opus-4-1-20250805-v1:0',
-  'bedrock/amazon.nova-2-pro-v1:0',
-  'bedrock/amazon.nova-premier-v1:0',
-  'bedrock/meta.llama3-2-90b-instruct-v1:0',
-  'bedrock/meta.llama3-2-11b-instruct-v1:0',
-  'bedrock/meta.llama3-2-3b-instruct-v1:0',
-  'bedrock/meta.llama3-2-1b-instruct-v1:0',
-  'bedrock/meta.llama3-1-405b-instruct-v1:0',
-  'bedrock/mistral.mistral-large-2411-v1:0',
-  'bedrock/mistral.mistral-large-2407-v1:0',
-  'bedrock/amazon.titan-text-premier-v1:0',
-  'bedrock/cohere.command-r-plus-v1:0',
-  'bedrock/cohere.command-r-v1:0',
-]
+const mocks = vi.hoisted(() => ({ chat: vi.fn(), readCache: vi.fn(), writeCache: vi.fn() }))
+vi.mock('@/lib/cache/server-json-cache', () => ({
+  readServerJsonCache: mocks.readCache,
+  writeServerJsonCache: mocks.writeCache,
+}))
+vi.mock('openai', () => ({
+  default: class {
+    chat = { completions: { create: mocks.chat } }
+  },
+}))
 
 describe('AI model catalog', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    mocks.readCache.mockResolvedValue(null)
+  })
+
   afterEach(() => {
     updateFireworksModels([])
+    updateOllamaModels([])
     updateOpenRouterModels([])
+    updateVLLMModels([])
     vi.unstubAllGlobals()
   })
 
-  it.each(['', 'c', '{{MODEL}}', '<agent1.model>'])(
-    'leaves unresolved editor model %s without capabilities while routing stays strict',
-    (model) => {
-      expect(getModelCapabilities(model)).toBeNull()
-      expect(() => getProviderFromModel(model)).toThrow('Unknown model:')
-    }
-  )
-
-  it('uses catalog patterns for custom model capabilities', () => {
-    expect(getModelCapabilities(' gpt-5-custom ')?.toolUsageControl).toBe(true)
-  })
-
-  it.each(['sonar', '', 'uncatalogued-model'])('omits unknown model icons for %s', (model) => {
-    expect(getProviderIcon(model)).toBeNull()
-    expect(() => getProviderFromModel(model)).toThrow('Unknown model:')
-  })
-
-  it('preserves known model icons', () => {
-    expect(getProviderIcon('gpt-4.1')).toBe(PROVIDER_DEFINITIONS.openai.icon)
-  })
-
-  it.each([
-    ['openrouter/openai/gpt-4.1', 'gpt-4.1'],
-    ['openrouter/anthropic/claude-sonnet-4.6', 'claude-sonnet-4-6'],
-    ['openrouter/anthropic/claude-opus-4.6', 'claude-opus-4-6'],
-    ['openrouter/anthropic/claude-haiku-4.5', 'claude-haiku-4-5'],
-    ['openrouter/google/gemini-2.5-pro', 'gemini-2.5-pro'],
-    ['openrouter/x-ai/grok-4.6', 'grok-4.6'],
-    ['openrouter/mistralai/mistral-small-2603', 'mistral-small-2603'],
-  ])('resolves canonical reseller pricing for %s', (routedModel, model) => {
-    const pricing = getModelPricing(model)
-    expect(pricing).not.toBeNull()
-    expect(getModelPricing(routedModel)).toEqual(pricing)
-  })
-
-  it.each([
-    ['paid', { prompt: '0.000007', completion: '0.000014' }, 7, 14],
-    ['free', { prompt: '0', completion: '0' }, 0, 0],
-    ['missing', undefined, 2, 8],
-    ['incomplete', { prompt: '0' }, 2, 8],
-    ['invalid', { prompt: 'invalid', completion: '0' }, 2, 8],
-    ['nonfinite', { prompt: 'Infinity', completion: '0' }, 2, 8],
-  ] as const)(
-    'preserves %s pricing through OpenRouter discovery',
-    async (_name, pricing, input, output) => {
-      const fetchMock = vi.mocked(fetch).mockClear()
-      fetchMock.mockResolvedValueOnce(
-        Response.json({ data: [{ id: 'openai/gpt-4.1', pricing }, { id: 'unknown/custom' }] })
-      )
-      const response = await GET()
-      expect(response.status).toBe(200)
-      vi.stubGlobal('window', {})
-      fetchMock.mockResolvedValueOnce(response)
-      const model = 'openrouter/openai/gpt-4.1'
-      const observedPricing: ReturnType<typeof getModelPricing>[] = []
-      const unsubscribe = useProvidersStore.subscribe((state, previous) => {
-        if (state.providers.openrouter.models !== previous.providers.openrouter.models) {
-          observedPricing.push(getModelPricing(model))
+  it('contains the active catalog for the existing providers with valid defaults and unique IDs', () => {
+    const counts = Object.fromEntries(
+      Object.entries(PROVIDER_DEFINITIONS).map(([id, provider]) => [id, provider.models.length])
+    )
+    expect(counts).toEqual({
+      fireworks: 3,
+      openrouter: 0,
+      vllm: 0,
+      openai: 26,
+      anthropic: 5,
+      'azure-openai': 24,
+      'azure-anthropic': 13,
+      google: 13,
+      vertex: 12,
+      deepseek: 2,
+      xai: 7,
+      cerebras: 4,
+      groq: 7,
+      mistral: 26,
+      ollama: 0,
+      bedrock: 37,
+    })
+    const models = Object.values(PROVIDER_DEFINITIONS).flatMap((provider) => provider.models)
+    expect(models).toHaveLength(179)
+    expect(new Set(models.map((model) => model.id)).size).toBe(models.length)
+    const allProviders = getAllModelProviders()
+    const baseProviders = getBaseModelProviders()
+    for (const [id, provider] of Object.entries(PROVIDER_DEFINITIONS)) {
+      if (provider.models.length && provider.defaultModel) {
+        expect(getProviderModels(id)).toContain(provider.defaultModel)
+      }
+      for (const model of provider.models) {
+        expect(getProviderFromModel(model.id)).toBe(id)
+        expect(allProviders[model.id]).toBe(id)
+        expect(getModelPricing(model.id)).not.toBeNull()
+        if (!(DYNAMIC_MODEL_PROVIDERS as readonly string[]).includes(id)) {
+          expect(baseProviders[model.id]).toBe(id)
         }
-      })
-
-      await useProvidersStore.getState().fetchModels('openrouter')
-      unsubscribe()
-
-      expect(observedPricing).toEqual([expect.objectContaining({ input, output })])
-      expect(fetchMock).toHaveBeenLastCalledWith('/api/providers/ai/openrouter/models')
-      expect(useProvidersStore.getState().providers.openrouter.models).toContain(model)
-      expect(getModelPricing(model)).toMatchObject({ input, output })
-      expect(calculateCost(model, 1_000_000, 1_000_000).total).toBeCloseTo(input + output, 8)
-      expect(getModelPricing('openrouter/unknown/custom')).toBeNull()
+      }
     }
-  )
+    expect(getProviderDefaultModel('anthropic')).toBe('claude-sonnet-5-5')
+    expect(getProviderDefaultModel('deepseek')).toBe('deepseek-flash')
+  })
+
+  it.each([
+    '',
+    '{{MODEL}}',
+    'gpt-5-custom',
+    'gpt-5.4-2026-03-05',
+    'GPT-4.1',
+    ' gpt-4.1 ',
+    'claude-sonnet-5',
+    'claude-haiku-4-5-20251001',
+    'deepseek-v4-flash',
+    'deepseek-chat',
+    'deepseek-reasoner',
+    'azure/model-router',
+    'labs-leanstral-1-5',
+  ])('rejects uncatalogued static IDs and aliases: %s', (model) => {
+    expect(() => getProviderFromModel(model)).toThrow('Unknown AI model:')
+    expect(getProviderIcon(model)).toBeNull()
+    expect(getModelCapabilities(model)).toBeNull()
+    expect(getModelPricing(model)).toBeNull()
+    expect(getReasoningEffortValuesForModel(model)).toBeNull()
+    expect(getVerbosityValuesForModel(model)).toBeNull()
+    expect(getThinkingCapability(model)).toBeNull()
+    expect(() => getMaxOutputTokensForModel(model)).toThrow('No output token limit defined')
+  })
+
+  it('rejects unknown providers and keeps known model icons', () => {
+    expect(() => getProviderModels('unknown')).toThrow('Unknown AI provider:')
+    expect(() => getProviderDefaultModel('unknown')).toThrow('Unknown AI provider:')
+    expect(getProviderIcon('gpt-4.1')).toBe(PROVIDER_DEFINITIONS.openai.icon)
+    expect(getModelPricing('openrouter/openai/gpt-4.1')).toBeNull()
+  })
+
+  it.each([
+    ['ollama', 'ollama/ExampleModel'],
+    ['vllm', 'vllm/custom-model'],
+    ['openrouter', 'openrouter/publisher/custom-model'],
+    ['fireworks', 'fireworks/accounts/acme/models/custom'],
+    ['fireworks', 'fireworks/accounts/acme/deployments/prod'],
+    ['fireworks', 'fireworks/accounts/acme/models/adapter#accounts/acme/deployments/gpu'],
+  ])('routes qualified %s models before client discovery', (provider, model) => {
+    expect(getProviderFromModel(model)).toBe(provider)
+    expect(getModelCapabilities(model)?.temperature).toEqual({ min: 0, max: 2 })
+    expect(getMaxTemperature(model)).toBe(2)
+    expect(() => getProviderFromModel(`${provider}/`)).toThrow('Unknown AI model:')
+  })
+
+  it('uses exact discovered IDs while keeping dynamic models out of the base catalog', () => {
+    const model = 'ollama/ExampleModel'
+    updateOllamaModels([model])
+    expect(getProviderModels('ollama')).toEqual([model])
+    expect(getAllModelProviders()[model]).toBe('ollama')
+    expect(getBaseModelProviders()).not.toHaveProperty(model)
+    expect(getModelPricing('ollama/examplemodel')).toBeNull()
+  })
+
+  it('preserves canonical Fireworks entries during discovery without inventing custom pricing', () => {
+    const models = getProviderModels('fireworks')
+    const customModel = 'fireworks/accounts/acme/models/custom'
+    expect(models).toEqual([
+      'fireworks/accounts/fireworks/models/glm-5p3',
+      'fireworks/accounts/fireworks/models/glm-5p2',
+      'fireworks/accounts/fireworks/models/kimi-k3',
+    ])
+    updateFireworksModels([models[0], customModel])
+    expect(getProviderModels('fireworks')).toEqual([...models, customModel])
+    expect(getModelPricing(customModel)).toBeNull()
+  })
+
+  it.each([
+    [
+      { prompt: '0.000007', completion: '0.000014' },
+      { input: 7, output: 14 },
+    ],
+    [
+      { prompt: '0', completion: '0' },
+      { input: 0, output: 0 },
+    ],
+    [
+      { prompt: '0.000007', completion: '0.000014', input_cache_read: '0.00000175' },
+      { input: 7, cachedInput: 1.75, output: 14 },
+    ],
+    [
+      { prompt: '0.000007', completion: '0.000014', input_cache_read: '0' },
+      { input: 7, cachedInput: 0, output: 14 },
+    ],
+    ...['invalid', 'Infinity', '-1'].map(
+      (input_cache_read) =>
+        [
+          { prompt: '0.000007', completion: '0.000014', input_cache_read },
+          { input: 7, output: 14 },
+        ] as const
+    ),
+    [undefined, null],
+    [{ prompt: '0' }, null],
+    [{ prompt: 'invalid', completion: '0' }, null],
+    [{ prompt: 'Infinity', completion: '0' }, null],
+  ] as const)('uses only OpenRouter discovery pricing: %j', async (pricing, expected) => {
+    const fetchMock = vi.mocked(fetch).mockClear()
+    fetchMock.mockResolvedValueOnce(Response.json({ data: [{ id: 'openai/gpt-4.1', pricing }] }))
+    const response = await GET()
+    expect(response.status).toBe(200)
+    vi.stubGlobal('window', {})
+    fetchMock.mockResolvedValueOnce(response)
+    await useProvidersStore.getState().fetchModels('openrouter')
+    const model = 'openrouter/openai/gpt-4.1'
+    expect(useProvidersStore.getState().providers.openrouter.models).toContain(model)
+    if (expected) {
+      expect(getModelPricing(model)).toEqual(expected)
+      expect(calculateCost(model, 1_000_000, 1_000_000).total).toBeCloseTo(
+        expected.input + expected.output,
+        8
+      )
+    } else {
+      expect(getModelPricing(model)).toBeNull()
+    }
+  })
 
   it.each([401, 503])('reports failed OpenRouter discovery (%s)', async (status) => {
     vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status }))
     expect((await GET()).status).toBe(502)
   })
 
-  it.each([
-    'openrouter/unknown/gpt-4.1',
-    'openrouter/openai/unknown-model',
-    'unknown/openai/gpt-4.1',
-    'claude-sonnet-4.6',
-    'openrouter/anthropic/claude-sonnet-4-6',
-    'openrouter/xai/grok-4.6',
-    'openrouter/mistral/mistral-small-2603',
-    'ollama/gpt-4.1',
-    'vllm/gpt-4.1',
-  ])('does not invent catalog pricing for %s', (model) => {
-    expect(getModelPricing(model)).toBeNull()
-  })
-
-  it('contains the active sibling catalog for every existing provider', () => {
-    const counts = Object.fromEntries(
-      Object.entries(PROVIDER_DEFINITIONS).map(([providerId, provider]) => [
-        providerId,
-        provider.models.length,
-      ])
+  it.each(
+    [false, true].flatMap((stream) =>
+      (
+        [
+          [undefined, 0.0007],
+          [0, 0.0007],
+          [50, 0.0004375],
+          [100, 0.000175],
+        ] as const
+      ).map(([cachedTokens, inputCost]) => ({ stream, cachedTokens, inputCost }))
     )
-    const modelIds = Object.values(PROVIDER_DEFINITIONS).flatMap((provider) =>
-      provider.models.map((model) => model.id)
-    )
-
-    expect(counts).toEqual(EXPECTED_MODEL_COUNTS)
-    expect(modelIds).toHaveLength(128)
-    expect(new Set(modelIds).size).toBe(modelIds.length)
-    expect(modelIds).toEqual(expect.arrayContaining(ADDED_MODELS))
-    REMOVED_MODELS.forEach((model) => expect(modelIds).not.toContain(model))
-    expect({
-      anthropic: PROVIDER_DEFINITIONS.anthropic.defaultModel,
-      azureOpenAI: PROVIDER_DEFINITIONS['azure-openai'].defaultModel,
-      xai: PROVIDER_DEFINITIONS.xai.defaultModel,
-    }).toEqual({
-      anthropic: 'claude-sonnet-5',
-      azureOpenAI: 'azure/gpt-5.4',
-      xai: 'grok-4.6',
-    })
-  })
-
-  it('keeps static defaults inside their provider catalog and routes every model', () => {
-    Object.entries(PROVIDER_DEFINITIONS).forEach(([providerId, provider]) => {
-      if (provider.models.length > 0 && provider.defaultModel) {
-        expect(provider.models.map((model) => model.id)).toContain(provider.defaultModel)
+  )(
+    'prices fresh-server OpenRouter execution before browser discovery (stream=$stream, cached=$cachedTokens)',
+    async ({ stream, cachedTokens, inputCost }) => {
+      const model = 'openrouter/openai/gpt-4.1'
+      vi.mocked(fetch).mockResolvedValueOnce(
+        Response.json({
+          data: [
+            {
+              id: 'openai/gpt-4.1',
+              pricing: {
+                prompt: '0.000007',
+                completion: '0.000014',
+                input_cache_read: '0.00000175',
+              },
+            },
+          ],
+        })
+      )
+      const usage = {
+        prompt_tokens: 100,
+        completion_tokens: 20,
+        total_tokens: 120,
+        ...(cachedTokens === undefined
+          ? {}
+          : { prompt_tokens_details: { cached_tokens: cachedTokens } }),
       }
-      provider.models.forEach((model) => expect(getProviderFromModel(model.id)).toBe(providerId))
-    })
-  })
+      mocks.chat.mockImplementationOnce(() => {
+        expect(getModelPricing(model)).toEqual({ input: 7, cachedInput: 1.75, output: 14 })
+        return stream
+          ? (async function* () {
+              yield { choices: [{ delta: { content: 'Done' } }] }
+              yield { choices: [], usage }
+            })()
+          : { choices: [{ message: { content: 'Done' } }], usage }
+      })
 
-  it('preserves static Fireworks models when dynamic models refresh', () => {
-    updateFireworksModels(['fireworks/kimi-k3', 'fireworks/custom-model'])
+      expect(getModelPricing(model)).toBeNull()
+      const [result, catalog] = await Promise.all([
+        openRouterProvider.executeRequest({
+          model,
+          apiKey: 'test-key',
+          context: 'Analyze',
+          stream,
+        }),
+        getOpenRouterModels(),
+      ])
+      const output = 'stream' in result ? result.execution.output : result
+      if ('stream' in result) expect(await new Response(result.stream).text()).toBe('Done')
+      expect(output.cost).toMatchObject({
+        input: inputCost,
+        output: 0.00028,
+        pricing: { input: 7, cachedInput: 1.75, output: 14 },
+      })
+      expect(output.cost.total).toBeCloseTo(inputCost + 0.00028, 8)
+      expect(mocks.chat).toHaveBeenCalledTimes(1)
+      expect(fetch).toHaveBeenCalledExactlyOnceWith(
+        'https://openrouter.ai/api/v1/models',
+        expect.objectContaining({ cache: 'no-store' })
+      )
+      expect(mocks.writeCache).toHaveBeenCalledExactlyOnceWith('ai:openrouter:models', catalog, 300)
+      updateOpenRouterModels([])
+      mocks.readCache.mockResolvedValueOnce(catalog)
+      expect(await getOpenRouterModels()).toEqual(catalog)
+      expect(getModelPricing(model)).toEqual({ input: 7, cachedInput: 1.75, output: 14 })
+      expect(fetch).toHaveBeenCalledTimes(1)
+    }
+  )
 
-    expect(getProviderModels('fireworks')).toEqual([
-      'fireworks/glm-5.2',
-      'fireworks/kimi-k3',
-      'fireworks/custom-model',
-    ])
-  })
-
-  it('maps Fireworks catalog IDs to their API resource names', () => {
-    expect(resolveFireworksWireModel('fireworks/glm-5.2')).toBe('accounts/fireworks/models/glm-5p2')
-    expect(resolveFireworksWireModel('fireworks/kimi-k3')).toBe('accounts/fireworks/models/kimi-k3')
-    expect(resolveFireworksWireModel('fireworks/custom-model')).toBe(
-      'accounts/fireworks/models/custom-model'
+  it.each(
+    [new Error('Catalog unavailable'), new DOMException('Timed out', 'TimeoutError'), 503].flatMap(
+      (failure) => [false, true].map((stream) => ({ failure, stream }))
     )
-    expect(resolveFireworksWireModel('fireworks/accounts/acme/models/custom')).toBe(
-      'accounts/acme/models/custom'
-    )
-    expect(resolveFireworksWireModel('accounts/acme/models/custom')).toBe(
-      'accounts/acme/models/custom'
-    )
-    expect(resolveFireworksWireModel('custom-model')).toBe('custom-model')
-    expect(normalizeFireworksCatalogModel('accounts/fireworks/models/glm-5p2')).toBe('glm-5.2')
-    expect(normalizeFireworksCatalogModel('accounts/fireworks/models/kimi-k3')).toBe('kimi-k3')
-  })
+  )(
+    'continues inference and retries failed discovery: $failure, stream=$stream',
+    async ({ failure, stream }) => {
+      vi.mocked(fetch)
+        .mockImplementationOnce(async () => {
+          if (failure instanceof Error) throw failure
+          return new Response(null, { status: failure })
+        })
+        .mockResolvedValueOnce(Response.json({ data: [] }))
+      const model = 'openrouter/openai/gpt-4.1'
+      const usage = { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 }
+      mocks.chat.mockResolvedValueOnce(
+        stream
+          ? (async function* () {
+              yield { choices: [{ delta: { content: 'Done' } }] }
+              yield { choices: [], usage }
+            })()
+          : { choices: [{ message: { content: 'Done' } }], usage }
+      )
+      const result = await openRouterProvider.executeRequest({
+        model,
+        apiKey: 'test-key',
+        context: 'Analyze',
+        stream,
+      })
+      if ('stream' in result) expect(await new Response(result.stream).text()).toBe('Done')
+      else expect(result.content).toBe('Done')
+      expect(mocks.chat).toHaveBeenCalledTimes(1)
+      expect(getModelPricing(model)).toBeNull()
+      expect(mocks.writeCache).not.toHaveBeenCalled()
+      await expect(getOpenRouterModels()).resolves.toEqual({ models: [], pricing: {} })
+      expect(fetch).toHaveBeenCalledTimes(2)
+    }
+  )
 })

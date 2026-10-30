@@ -5,7 +5,7 @@ import path from 'path'
 import { afterAll, describe, expect, it } from 'bun:test'
 import { remark } from '../../apps/docs/node_modules/remark/index.js'
 import remarkMdx from '../../apps/docs/node_modules/remark-mdx/index.js'
-import { updateMetaJson } from './utils'
+import { describeVisibilityCondition, updateMetaJson } from './utils'
 
 const rootDir = path.resolve(import.meta.dir, '../..')
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tradinggoose-doc-gen-'))
@@ -62,6 +62,29 @@ function runGenerator(
 }
 
 describe('documentation regeneration boundaries', () => {
+  it.each([false, true])('describes maximum temperature conditions with not=%s', (not) => {
+    expect(
+      describeVisibilityCondition({
+        field: 'model',
+        operator: 'modelMaxTemperature',
+        value: 1.5,
+        not,
+      })
+    ).toBe(`model ${not ? 'does not have' : 'has'} a maximum temperature of 1.5`)
+  })
+
+  it('describes negated capability conditions with literal dependencies', () => {
+    expect(
+      describeVisibilityCondition({
+        field: 'model',
+        operator: 'modelCapability',
+        value: 'thinkingLevel',
+        not: true,
+        and: { field: 'operation', value: 'send' },
+      })
+    ).toBe("model does not support thinking level and operation is 'send'")
+  })
+
   it('regenerates every block, including stale and empty references, while preserving guides', () => {
     const slugs = [
       'agent',
@@ -125,6 +148,18 @@ describe('documentation regeneration boundaries', () => {
     )
     expect(first['function.mdx']).toContain('| `result` | json |')
     expect(first['agent.mdx']).not.toContain('"defaultValue": undefined')
+    expect(first['agent.mdx']).not.toContain('Available in Advanced mode.')
+    expect(first['agent.mdx']).toContain('Available in Additional Fields.')
+    expect(first['agent.mdx']).toContain('"id": "thinkingLevel"')
+    expect(first['agent.mdx']).toContain('"id": "maxTokens"')
+    for (const [control, description] of [
+      ['thinkingLevel', 'thinking level'],
+      ['reasoningEffort', 'reasoning effort'],
+      ['verbosity', 'verbosity'],
+    ]) {
+      expect(first['agent.mdx']).toContain(`Shown when model supports ${description}.`)
+      expect(first['agent.mdx']).not.toContain(`model is '${control}'`)
+    }
     expect(first['loop.mdx']).toContain('"id": "doWhile"')
     expect(first['loop.mdx']).toContain('no fixed iteration cap')
     expect(first['loop.mdx']).toContain('| `results` | array |')

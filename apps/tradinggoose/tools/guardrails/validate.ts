@@ -88,7 +88,7 @@ export const guardrailsValidateTool: ToolConfig<GuardrailsValidateInput, Guardra
         type: 'string',
         required: false,
         visibility: 'user-only',
-        description: 'API key for LLM provider (optional if using hosted)',
+        description: 'User-provided API key for hallucination scoring (not required for Ollama)',
       },
       piiEntityTypes: {
         type: 'array',

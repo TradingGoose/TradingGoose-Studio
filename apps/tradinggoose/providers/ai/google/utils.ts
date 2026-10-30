@@ -14,6 +14,7 @@ import {
 } from '@google/genai'
 import { createLogger } from '@/lib/logs/console/logger'
 import { toError } from '@/providers/ai/error'
+import type { GeminiUsage } from '@/providers/ai/gemini/types'
 import type { ProviderRequest } from '@/providers/ai/types'
 import { trackForcedToolUsage } from '@/providers/ai/utils'
 
@@ -33,15 +34,6 @@ export function ensureStructResponse(value: unknown): Record<string, unknown> {
     return value as Record<string, unknown>
   }
   return { value }
-}
-
-/**
- * Usage metadata for Google Gemini responses
- */
-export interface GeminiUsage {
-  promptTokenCount: number
-  candidatesTokenCount: number
-  totalTokenCount: number
 }
 
 /**
@@ -150,6 +142,7 @@ export function convertUsageMetadata(
   return {
     promptTokenCount,
     candidatesTokenCount,
+    cachedContentTokenCount: usageMetadata?.cachedContentTokenCount ?? 0,
     totalTokenCount: usageMetadata?.totalTokenCount ?? 0,
   }
 }
@@ -281,7 +274,7 @@ export function createReadableStreamFromGeminiStream(
   onComplete?: (content: string, usage: GeminiUsage) => void
 ): ReadableStream<Uint8Array> {
   let fullContent = ''
-  let usage: GeminiUsage = { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0 }
+  let usage = convertUsageMetadata(undefined)
 
   return new ReadableStream({
     async start(controller) {
@@ -322,7 +315,7 @@ function mapToFunctionCallingMode(mode: string): FunctionCallingConfigMode {
     case 'NONE':
       return FunctionCallingConfigMode.NONE
     default:
-      return FunctionCallingConfigMode.AUTO
+      throw new Error(`Unknown Gemini function calling mode: ${mode}`)
   }
 }
 
@@ -330,7 +323,7 @@ function mapToFunctionCallingMode(mode: string): FunctionCallingConfigMode {
  * Maps string level to ThinkingLevel enum
  */
 export function mapToThinkingLevel(level: string): ThinkingLevel {
-  switch (level.toLowerCase()) {
+  switch (level) {
     case 'minimal':
       return ThinkingLevel.MINIMAL
     case 'low':
@@ -340,27 +333,26 @@ export function mapToThinkingLevel(level: string): ThinkingLevel {
     case 'high':
       return ThinkingLevel.HIGH
     default:
-      return ThinkingLevel.HIGH
+      throw new Error(`Unknown Gemini thinking level: ${level}`)
   }
 }
 
 const GEMINI_25_THINKING_BUDGETS: Record<string, Record<string, number>> = {
-  'gemini-2.5-pro': { minimal: 1024, low: 2048, medium: 8192, high: 32768 },
-  'gemini-2.5-flash': { minimal: 1024, low: 2048, medium: 8192, high: 24576 },
-  'gemini-2.5-flash-lite': { minimal: 1024, low: 1024, medium: 8192, high: 24576 },
+  'gemini-2.5-pro': { low: 2048, medium: 8192, high: 32768 },
+  'gemini-2.5-flash': { low: 2048, medium: 8192, high: 24576 },
+  'gemini-2.5-flash-lite': { low: 1024, medium: 8192, high: 24576 },
 }
 
 export function mapToThinkingBudget(model: string, level: string): number {
-  const normalizedModel = model.toLowerCase().replace(/^vertex\//, '')
-  const budgets = GEMINI_25_THINKING_BUDGETS[normalizedModel]
-  if (!budgets) return -1
-  return budgets[level.toLowerCase()] ?? budgets.minimal
+  const budget = GEMINI_25_THINKING_BUDGETS[model.replace(/^vertex\//, '')]?.[level]
+  if (budget === undefined) throw new Error(`Unknown Gemini thinking budget: ${model}/${level}`)
+  return budget
 }
 
 const GEMINI_25_MODELS_SUPPORTING_DISABLE = new Set(['gemini-2.5-flash', 'gemini-2.5-flash-lite'])
 
 export function supportsDisablingGemini25Thinking(model: string): boolean {
-  return GEMINI_25_MODELS_SUPPORTING_DISABLE.has(model.toLowerCase().replace(/^vertex\//, ''))
+  return GEMINI_25_MODELS_SUPPORTING_DISABLE.has(model.replace(/^vertex\//, ''))
 }
 
 /**

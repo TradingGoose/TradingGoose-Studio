@@ -63,7 +63,7 @@ export function calculateStreamingCost(
     }
 
     // Calculate cost using provider pricing
-    const costResult = calculateCost(model, totalPromptTokens, completionTokens, false)
+    const costResult = calculateCost(model, totalPromptTokens, completionTokens)
 
     const cost: CostBreakdown = {
       input: costResult.input,

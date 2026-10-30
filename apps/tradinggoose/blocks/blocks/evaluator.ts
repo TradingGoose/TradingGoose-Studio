@@ -3,13 +3,11 @@ import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { BlockConfig, ParamType } from '@/blocks/types'
 import {
-  getHostedModels,
   getProviderDefaultModel,
+  getProviderFromModel,
   getProviderIcon,
   getProviderModels,
 } from '@/providers/ai/models'
-import type { ProviderId } from '@/providers/ai/types'
-import { getAllModelProviders } from '@/providers/ai/utils'
 import { useProvidersStore } from '@/stores/providers/store'
 import type { ToolResponse } from '@/tools/types'
 
@@ -211,11 +209,7 @@ export const EvaluatorBlock: BlockConfig<EvaluatorResponse> = {
       connectionDroppable: false,
       required: true,
       condition: isHosted
-        ? {
-            field: 'model',
-            value: getHostedModels(),
-            not: true, // Show for all models EXCEPT those listed
-          }
+        ? undefined
         : () => ({
             field: 'model',
             value: getCurrentOllamaModels(),
@@ -229,18 +223,6 @@ export const EvaluatorBlock: BlockConfig<EvaluatorResponse> = {
       layout: 'full',
       password: true,
       placeholder: 'https://your-resource.openai.azure.com',
-      connectionDroppable: false,
-      condition: {
-        field: 'model',
-        value: getProviderModels('azure-openai'),
-      },
-    },
-    {
-      id: 'azureApiVersion',
-      title: 'Azure API Version',
-      type: 'short-input',
-      layout: 'full',
-      placeholder: '2024-07-01-preview',
       connectionDroppable: false,
       condition: {
         field: 'model',
@@ -319,11 +301,7 @@ export const EvaluatorBlock: BlockConfig<EvaluatorResponse> = {
         if (!model) {
           throw new Error('No model selected')
         }
-        const tool = getAllModelProviders()[model as ProviderId]
-        if (!tool) {
-          throw new Error(`Invalid model selected: ${model}`)
-        }
-        return tool
+        return getProviderFromModel(model)
       },
     },
   },
@@ -367,7 +345,6 @@ export const EvaluatorBlock: BlockConfig<EvaluatorResponse> = {
     model: { type: 'string' as ParamType, description: 'AI model to use' },
     apiKey: { type: 'string' as ParamType, description: 'Provider API key' },
     azureEndpoint: { type: 'string' as ParamType, description: 'Azure OpenAI endpoint URL' },
-    azureApiVersion: { type: 'string' as ParamType, description: 'Azure API version' },
     temperature: {
       type: 'number' as ParamType,
       description: 'Response randomness level (low for consistent evaluation)',

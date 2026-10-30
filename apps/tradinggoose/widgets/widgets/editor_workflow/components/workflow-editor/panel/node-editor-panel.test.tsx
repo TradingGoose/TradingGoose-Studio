@@ -17,6 +17,7 @@ let mockSelectedBlock: any = {
 }
 let mockBlockProtection = false
 const mockCollaborativeUpdateBlockName = vi.fn(() => true)
+const mockCollaborativeToggleBlockAdvancedMode = vi.fn()
 let mockBlockConfig: any = {
   category: 'blocks',
   name: 'Agent',
@@ -128,7 +129,7 @@ vi.mock('@/blocks', () => ({
 
 vi.mock('@/hooks/workflow/use-workflow-editor-actions', () => ({
   useWorkflowEditorActions: () => ({
-    collaborativeToggleBlockAdvancedMode: vi.fn(),
+    collaborativeToggleBlockAdvancedMode: mockCollaborativeToggleBlockAdvancedMode,
     collaborativeUpdateBlockName: mockCollaborativeUpdateBlockName,
   }),
 }))
@@ -176,6 +177,7 @@ describe('NodeEditorPanel', () => {
     container?.remove()
     container = null
     mockCollaborativeUpdateBlockName.mockReset()
+    mockCollaborativeToggleBlockAdvancedMode.mockReset()
     mockCollaborativeUpdateBlockName.mockImplementation(() => true)
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
     mockSelectedBlock = {
@@ -366,6 +368,58 @@ describe('NodeEditorPanel', () => {
 
     expect(markup).toContain('No se encontró el nodo')
   })
+
+  it.each([false, true])(
+    'expands additional fields locally without changing block mode (%s)',
+    async (advancedMode) => {
+      mockSelectedBlock.advancedMode = advancedMode
+      mockBlockConfig.subBlocks = [
+        { id: 'model', title: 'Model', type: 'combobox' },
+        { id: 'thinkingLevel', title: 'Thinking Level', type: 'dropdown', additional: true },
+      ]
+      reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
+      container = document.createElement('div')
+      document.body.appendChild(container)
+      root = createRoot(container)
+
+      await act(async () => {
+        root?.render(createElement(NodeEditorPanel, { selectedNodeId: 'agent-1' }))
+      })
+
+      const toggle = container.querySelector('button[aria-expanded]') as HTMLButtonElement
+      expect(toggle.getAttribute('aria-expanded')).toBe('false')
+      expect(toggle.textContent).toContain('Mostrar campos adicionales')
+      expect(container.querySelectorAll('[data-testid="row"]')).toHaveLength(1)
+      await act(async () => toggle.click())
+      expect(toggle.getAttribute('aria-expanded')).toBe('true')
+      expect(toggle.textContent).toContain('Ocultar campos adicionales')
+      expect(container.querySelectorAll('[data-testid="row"]')).toHaveLength(2)
+      await act(async () => toggle.click())
+      expect(container.querySelectorAll('[data-testid="row"]')).toHaveLength(1)
+      expect(mockSelectedBlock.advancedMode).toBe(advancedMode)
+      expect(mockCollaborativeToggleBlockAdvancedMode).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each([false, true])(
+    'shows configured additional fields when protected=%s',
+    (protectedBlock) => {
+      mockBlockProtection = protectedBlock
+      mockSelectedBlock.subBlocks = { thinkingLevel: { value: 'high' } }
+      mockBlockConfig.subBlocks = [
+        { id: 'model', title: 'Model', type: 'combobox' },
+        { id: 'thinkingLevel', title: 'Thinking Level', type: 'dropdown', additional: true },
+      ]
+
+      const markup = renderToStaticMarkup(
+        createElement(NodeEditorPanel, { selectedNodeId: 'agent-1' })
+      )
+
+      expect(markup.match(/data-testid="row"/g)).toHaveLength(2)
+      expect(markup).toContain(protectedBlock ? 'Campos adicionales' : 'Ocultar campos adicionales')
+      expect(mockCollaborativeToggleBlockAdvancedMode).not.toHaveBeenCalled()
+    }
+  )
 
   it.each([
     { type: 'loop', modeId: 'loopType', mode: 'forEach', fieldId: 'forEachItems' },

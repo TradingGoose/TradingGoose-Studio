@@ -1,4 +1,6 @@
-import type { BlockConfig, DocCondition, DocSubBlock, RelatedDocPage, ToolInfo } from './types'
+import type { SubBlockCondition } from '../../apps/tradinggoose/blocks/types'
+import { evaluateSubBlockConditionValues } from '../../apps/tradinggoose/lib/workflows/sub-block-conditions'
+import type { BlockConfig, DocSubBlock, RelatedDocPage, ToolInfo } from './types'
 import { appendSentence, collectConditions, describeVisibilityCondition, escapeMdx } from './utils'
 
 /** Use the shared renderer for built-in UI, tool operations, and block contracts. */
@@ -261,19 +263,14 @@ function toPreviewField(
 }
 
 function conditionMatchesResolvedValue(
-  condition: DocCondition,
+  condition: SubBlockCondition,
   resolvedField: string,
   resolvedValue: unknown
 ): boolean {
   const conditions = collectConditions(condition)
   if (conditions.some(({ field }) => field !== resolvedField)) return false
 
-  return conditions.every(({ value, not }) => {
-    const matches = Array.isArray(value)
-      ? value.some((candidate) => candidate === resolvedValue)
-      : value === resolvedValue
-    return not ? !matches : matches
-  })
+  return evaluateSubBlockConditionValues(condition, { [resolvedField]: resolvedValue })
 }
 
 // ── Render a single tool's input/output tables ────────────────────

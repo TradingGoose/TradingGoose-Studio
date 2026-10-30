@@ -1,228 +1,213 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
+import type { SubBlockCondition } from '@/blocks/types'
+import { getWorkflowInspectorCopy, type LocaleCode } from '@/i18n/block-editor'
+import { getProviderModels } from '@/providers/ai/models'
+import { buildTriggerEditingLayout } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/trigger-editing-layout'
+import { AgentBlock } from './agent'
+import { EvaluatorBlock } from './evaluator'
+import { RouterBlock } from './router'
 
-vi.mock('@/components/icons/icons', () => ({
-  AgentIcon: () => null,
-}))
-
-vi.mock('@/providers/ai/utils', () => ({
-  MODELS_WITH_REASONING_EFFORT: [],
-  MODELS_WITH_VERBOSITY: [],
-  getAllModelProviders: vi.fn(() => ({ 'gpt-4o': 'openai_chat' })),
-}))
-
-vi.mock('@/providers/ai/models', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/providers/ai/models')>()),
-  getHostedModels: vi.fn(() => []),
-  getMaxTemperature: vi.fn(() => 1),
-  getProviderFromModel: vi.fn(() => 'openai'),
-  getProviderIcon: vi.fn(() => undefined),
-  PROVIDER_DEFINITIONS: {
-    openai: {
-      name: 'OpenAI',
-      models: ['gpt-4o'],
-    },
-    'azure-openai': {
-      models: [],
-    },
-  },
-  supportsTemperature: vi.fn(() => true),
-  getProviderModels: vi.fn(() => []),
-}))
-
-vi.mock('@/stores/providers/store', () => ({
-  useProvidersStore: {
-    getState: vi.fn(() => ({
-      providers: {
-        base: { models: ['gpt-4o'] },
-        ollama: { models: [] },
-        openrouter: { models: [] },
-      },
-    })),
-  },
-}))
-
-vi.mock('@/blocks', () => ({
-  getAllBlocks: vi.fn(() => [
-    {
-      type: 'tool-type-1',
-      tools: {
-        access: ['tool-id-1'],
-      },
-    },
-    {
-      type: 'tool-type-2',
-      tools: {
-        access: ['tool-id-2'],
-      },
-    },
-  ]),
-}))
+const inspectorLayout = (model?: string, locale: LocaleCode = 'en') =>
+  buildTriggerEditingLayout({
+    inspectorCopy: getWorkflowInspectorCopy(locale),
+    blockType: 'agent',
+    blockConfig: AgentBlock,
+    blockState: { subBlocks: { model: { value: model } } },
+    shouldDisableWrite: false,
+  })
 
 describe('AgentBlock', () => {
-  let AgentBlock: typeof import('@/blocks/blocks/agent').AgentBlock
-
-  beforeAll(async () => {
-    ;({ AgentBlock } = await import('@/blocks/blocks/agent'))
-  })
-
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  const getParamsFunction = () => {
-    const paramsFunction = AgentBlock.tools.config?.params
-    if (!paramsFunction) {
-      throw new Error('AgentBlock.tools.config.params function is missing')
-    }
-    return paramsFunction
-  }
-
-  it('includes a skills selector sub-block', () => {
-    const skillsSubBlock = AgentBlock.subBlocks.find((subBlock) => subBlock.id === 'skills')
-
-    expect(skillsSubBlock).toBeDefined()
-    expect(skillsSubBlock?.type).toBe('skill-input')
-    expect(skillsSubBlock?.defaultValue).toEqual([])
-  })
-
-  describe('tools.config.params function', () => {
-    it('should pass through params when no tools array is provided', () => {
-      const paramsFunction = getParamsFunction()
-
-      const params = {
-        model: 'gpt-4o',
-        systemPrompt: 'You are a helpful assistant.',
-        // No tools provided
-      }
-
-      const result = paramsFunction(params)
-      expect(result).toEqual(params)
-    })
-
-    it('should filter out tools with usageControl set to "none"', () => {
-      const paramsFunction = getParamsFunction()
-
-      const params = {
-        model: 'gpt-4o',
-        systemPrompt: 'You are a helpful assistant.',
-        tools: [
-          {
-            type: 'tool-type-1',
-            title: 'Tool 1',
-            usageControl: 'auto',
-          },
-          {
-            type: 'tool-type-2',
-            title: 'Tool 2',
-            usageControl: 'none', // Should be filtered out
-          },
-          {
-            type: 'custom-tool',
-            title: 'Custom Tool',
-            toolId: 'custom_custom-tool-1',
-            schema: {
-              function: {
-                description: 'A custom function',
-                parameters: { type: 'object', properties: {} },
-              },
-            },
-            usageControl: 'force',
-          },
-        ],
-      }
-
-      const result = paramsFunction(params)
-
-      // Verify that transformed tools contains only the tools not set to 'none'
-      expect(result.tools.length).toBe(2)
-
-      // Verify the tool titles (custom identifiers that we can check)
-      const toolIds = result.tools.map((tool: any) => tool.name)
-      expect(toolIds).toContain('Tool 1')
-      expect(toolIds).not.toContain('Tool 2')
-      expect(toolIds).toContain('Custom Tool')
-    })
-
-    it('should set default usageControl to "auto" if not specified', () => {
-      const paramsFunction = getParamsFunction()
-
-      const params = {
-        model: 'gpt-4o',
-        systemPrompt: 'You are a helpful assistant.',
-        tools: [
-          {
-            type: 'tool-type-1',
-            title: 'Tool 1',
-            // No usageControl specified, should default to 'auto'
-          },
-        ],
-      }
-
-      const result = paramsFunction(params)
-
-      // Verify that the tool has usageControl set to 'auto'
-      expect(result.tools[0].usageControl).toBe('auto')
-    })
-
-    it('should correctly transform custom tools', () => {
-      const paramsFunction = getParamsFunction()
-
-      const params = {
-        model: 'gpt-4o',
-        systemPrompt: 'You are a helpful assistant.',
-        tools: [
-          {
-            type: 'custom-tool',
-            title: 'Custom Tool',
-            toolId: 'custom_custom-tool-1',
-            schema: {
-              function: {
-                description: 'A custom function description',
-                parameters: {
-                  type: 'object',
-                  properties: {
-                    param1: { type: 'string' },
-                  },
-                },
-              },
-            },
-            usageControl: 'force',
-          },
-        ],
-      }
-
-      const result = paramsFunction(params)
-
-      // Verify custom tool transformation
-      expect(result.tools[0]).toEqual({
-        id: 'custom_custom-tool-1',
-        name: 'Custom Tool',
-        description: 'A custom function description',
-        params: {},
-        parameters: {
-          type: 'object',
-          properties: {
-            param1: { type: 'string' },
-          },
+  it.each([false, true])('requires user API keys across AI blocks, hosted=%s', async (hosted) => {
+    vi.doMock('@/lib/environment', async (importOriginal) => ({
+      ...(await importOriginal<typeof import('@/lib/environment')>()),
+      isHosted: hosted,
+    }))
+    vi.resetModules()
+    try {
+      const blocks = [
+        (await import('./agent')).AgentBlock,
+        (await import('./router')).RouterBlock,
+        (await import('./evaluator')).EvaluatorBlock,
+        (await import('./translate')).TranslateBlock,
+        (await import('./guardrails')).GuardrailsBlock,
+      ]
+      const { useProvidersStore } = await import('@/stores/providers/store')
+      useProvidersStore.setState((state) => ({
+        providers: {
+          ...state.providers,
+          ollama: { models: ['ollama/llama3.2:latest'], isLoading: false },
         },
-        type: 'custom-tool',
-        usageControl: 'force',
-      })
-    })
-
-    it('should handle an empty tools array', () => {
-      const paramsFunction = getParamsFunction()
-
-      const params = {
-        model: 'gpt-4o',
-        systemPrompt: 'You are a helpful assistant.',
-        tools: [], // Empty array
+      }))
+      for (const block of blocks) {
+        const field = block.subBlocks.find((field) => field.id === 'apiKey')!
+        for (const model of [
+          'gpt-4.1',
+          'claude-haiku-4-5',
+          'mistral-large-latest',
+          'azure/gpt-4.1',
+          'openrouter/openai/gpt-4.1',
+        ]) {
+          const values = { model, validationType: 'hallucination' }
+          expect(evaluateSubBlockConditionValues(field.condition, values)).toBe(true)
+          expect(evaluateSubBlockConditionValues(field.required, values)).toBe(true)
+        }
+        expect(
+          evaluateSubBlockConditionValues(field.condition, {
+            model: 'ollama/llama3.2:latest',
+            validationType: 'hallucination',
+          })
+        ).toBe(hosted)
+        if (block.type === 'guardrails') {
+          expect(
+            evaluateSubBlockConditionValues(field.condition, {
+              model: 'gpt-4.1',
+              validationType: 'json',
+            })
+          ).toBe(false)
+        }
       }
+    } finally {
+      vi.doUnmock('@/lib/environment')
+      vi.resetModules()
+    }
+  })
 
-      const result = paramsFunction(params)
+  it.each([AgentBlock, RouterBlock, EvaluatorBlock])(
+    'resolves $name Ollama provider identity without browser model discovery',
+    (block) => {
+      expect(getProviderModels('ollama')).toEqual([])
+      expect(block.tools.config!.tool({ model: 'ollama/llama3.2:latest' })).toBe('ollama')
+    }
+  )
 
-      // Verify that transformed tools is an empty array
-      expect(result.tools).toEqual([])
-    })
+  it('uses additional fields without mode switches or forced tuning defaults', () => {
+    expect(AgentBlock.subBlocks.some((field) => field.mode)).toBe(false)
+    const coreFields = inspectorLayout('gpt-4.1')
+      .regularRows.flat()
+      .map((field) => field.id)
+    expect(coreFields.slice(coreFields.indexOf('tools'), coreFields.indexOf('tools') + 2)).toEqual([
+      'tools',
+      'skills',
+    ])
+    for (const id of [
+      'memories',
+      'responseFormat',
+      'temperature',
+      'maxTokens',
+      'reasoningEffort',
+      'verbosity',
+      'thinkingLevel',
+    ]) {
+      const field = AgentBlock.subBlocks.find((field) => field.id === id)!
+      expect(field.additional).toBe(true)
+      expect(field.defaultValue).toBeUndefined()
+      expect(field.value).toBeUndefined()
+    }
+  })
+
+  it.each([
+    ['reasoningEffort', 'gpt-5.4', ['none', 'low', 'medium', 'high', 'xhigh']],
+    ['reasoningEffort', 'gpt-5.6-sol', ['none', 'low', 'medium', 'high', 'xhigh', 'max']],
+    ['reasoningEffort', 'gpt-6.1-sol', ['low', 'medium', 'high', 'xhigh', 'max']],
+    ['reasoningEffort', 'deepseek-v4-pro', ['low', 'high', 'max']],
+    ['thinkingLevel', 'claude-sonnet-5-5', ['none', 'low', 'medium', 'high', 'xhigh', 'max']],
+    ['thinkingLevel', 'claude-haiku-5-5', ['none', 'low', 'medium', 'high', 'xhigh', 'max']],
+    ['thinkingLevel', 'claude-haiku-4-5', ['low', 'medium', 'high']],
+    ['thinkingLevel', 'deepseek-flash', ['none', 'enabled']],
+    ['thinkingLevel', 'gemini-2.5-flash', ['none', 'low', 'medium', 'high']],
+    ['thinkingLevel', 'gemini-2.5-flash-lite', ['none', 'low', 'medium', 'high']],
+    ['thinkingLevel', 'vertex/gemini-2.5-flash', ['none', 'low', 'medium', 'high']],
+    ['thinkingLevel', 'vertex/gemini-2.5-flash-lite', ['none', 'low', 'medium', 'high']],
+    ['verbosity', 'gpt-5.6-sol', ['low', 'medium', 'high']],
+  ] as const)('resolves %s for %s from the selected model', (id, model, levels) => {
+    for (const locale of ['en', 'es', 'zh'] as const) {
+      const fields = inspectorLayout(model, locale).additionalRows.flat()
+      expect(fields.map((field) => field.id)).toContain(id)
+      const field = fields.find((field) => field.id === id)!
+      if (typeof field.options !== 'function') throw new Error('Expected model-dependent options')
+      expect(field.options({ model }).map((option) => option.id)).toEqual(['auto', ...levels])
+      expect(field.autoSelectFirstOption).toBe(false)
+      expect(field.type).toBe('combobox')
+      expect(field.dependsOn).toBeUndefined()
+    }
+  })
+
+  it.each(['<variable.model>', '{{MODEL}}', 'gpt-<variable.version>', 'gpt-{{VERSION}}'])(
+    'keeps tuning controls editable until model %s resolves',
+    (model) => {
+      const fields = inspectorLayout(model).additionalRows.flat()
+      for (const id of ['reasoningEffort', 'verbosity', 'thinkingLevel']) {
+        const field = fields.find((field) => field.id === id)!
+        expect(field?.type).toBe('combobox')
+        expect(field.dependsOn).toBeUndefined()
+        if (typeof field.options !== 'function') throw new Error('Expected model-dependent options')
+        expect(field.options({ model }).map((option) => option.id)).toEqual(['auto'])
+      }
+    }
+  )
+
+  it.each([
+    ['reasoningEffort', 'gpt-4.1'],
+    ['thinkingLevel', 'gpt-4.1'],
+    ['thinkingLevel', 'unknown-model'],
+    ['thinkingLevel', undefined],
+    ['reasoningEffort', 'claude-haiku-4-5'],
+    ['verbosity', 'claude-haiku-4-5'],
+  ])('hides unsupported %s controls for %s', (id, model) => {
+    const field = AgentBlock.subBlocks.find((field) => field.id === id)!
+    expect(evaluateSubBlockConditionValues(field.condition, { model })).toBe(false)
+    expect(
+      inspectorLayout(model)
+        .additionalRows.flat()
+        .map((field) => field.id)
+    ).not.toContain(id)
+  })
+
+  it.each([
+    ['gpt-4.1', 2],
+    ['claude-haiku-4-5', 1],
+    ['mistral-large-latest', 1.5],
+    ['ollama/llama3.2:latest', 2],
+    ['openrouter/custom/model', 2],
+    ['fireworks/accounts/demo/models/adapter#accounts/demo/deployments/gpu', 2],
+    ['vllm/custom', 2],
+  ] as const)('uses a clearable temperature slider for %s', (model, max) => {
+    const fields = inspectorLayout(model)
+      .additionalRows.flat()
+      .filter((field) => field.id === 'temperature')
+    expect(fields).toHaveLength(1)
+    expect(fields[0]).toMatchObject({ type: 'slider', min: 0, max, step: 0.1, clearable: true })
+    expect(fields[0].defaultValue).toBeUndefined()
+    expect(fields[0].value).toBeUndefined()
+  })
+
+  it('preserves serializable capability conditions, negation, and dependencies', () => {
+    const condition: SubBlockCondition = {
+      field: 'model',
+      operator: 'modelCapability',
+      value: 'thinkingLevel',
+      and: { field: 'enabled', value: true },
+    }
+    const restored = JSON.parse(JSON.stringify(condition))
+    const values = { model: { id: 'claude-haiku-4-5' }, enabled: true }
+    expect(evaluateSubBlockConditionValues(restored, values)).toBe(true)
+    expect(evaluateSubBlockConditionValues(restored, { ...values, enabled: false })).toBe(false)
+    expect(evaluateSubBlockConditionValues({ ...condition, not: true }, values)).toBe(false)
+  })
+
+  it.each([
+    ['gpt-4.1', 16],
+    ['gpt-6.1-sol', 16],
+    ['azure/gpt-6.1-sol', 16],
+    ['claude-haiku-4-5', 1],
+    ['openrouter/custom/manual', 1],
+    ['c', 1],
+  ] as const)('uses the selected model token minimum for %s', (model, min) => {
+    const fields = inspectorLayout(model)
+      .additionalRows.flat()
+      .filter((field) => field.id === 'maxTokens')
+    expect(fields).toHaveLength(1)
+    expect(fields[0]).toMatchObject({ min, integer: true, inputType: 'number' })
   })
 })

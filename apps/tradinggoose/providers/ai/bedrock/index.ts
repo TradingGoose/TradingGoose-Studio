@@ -17,12 +17,11 @@ import type { StreamingExecution } from '@/executor/types'
 import {
   checkForForcedToolUsage,
   createReadableStreamFromBedrockStream,
-  generateToolUseId,
-  getBedrockInferenceProfileId,
+  getBedrockModelId,
 } from '@/providers/ai/bedrock/utils'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import { toError } from '@/providers/ai/error'
-import { getProviderDefaultModel, getProviderModels } from '@/providers/ai/models'
+import { getModelCapabilities } from '@/providers/ai/models'
 import type {
   FunctionCallResponse,
   ProviderConfig,
@@ -33,9 +32,10 @@ import type {
 import { ProviderError } from '@/providers/ai/types'
 import {
   calculateCost,
+  createModelCost,
   prepareToolExecution,
   prepareToolsWithUsageControl,
-  sumToolCosts,
+  withToolCosts,
 } from '@/providers/ai/utils'
 import { executeTool } from '@/tools'
 
@@ -43,21 +43,17 @@ const logger = createLogger('BedrockProvider')
 
 export const bedrockProvider: ProviderConfig = {
   id: 'bedrock',
-  name: 'AWS Bedrock',
-  description: 'AWS Bedrock foundation models',
-  version: '1.0.0',
-  models: getProviderModels('bedrock'),
-  defaultModel: getProviderDefaultModel('bedrock'),
 
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {
     const region = request.bedrockRegion || 'us-east-1'
-    const bedrockModelId = getBedrockInferenceProfileId(request.model, region)
+    const bedrockModelId = getBedrockModelId(request.model, region)
+    const canForceTools = getModelCapabilities(request.model)?.forcedToolUse !== false
 
     logger.info('Bedrock request', {
       requestModel: request.model,
-      inferenceProfileId: bedrockModelId,
+      modelId: bedrockModelId,
       region,
     })
 
@@ -96,28 +92,32 @@ export const bedrockProvider: ProviderConfig = {
 
     if (request.messages) {
       for (const msg of request.messages) {
-        if (msg.role === 'function' || msg.role === 'tool') {
+        if (msg.role === 'system') {
+          if (msg.content) systemContent.push({ text: msg.content })
+        } else if (msg.role === 'tool') {
+          if (!msg.tool_call_id) throw new Error('Tool result messages require tool_call_id')
           const toolResultBlock: ToolResultBlock = {
-            toolUseId: msg.tool_call_id || msg.name || generateToolUseId('tool'),
+            toolUseId: msg.tool_call_id,
             content: [{ text: msg.content || '' }],
           }
           messages.push({
             role: 'user' as ConversationRole,
             content: [{ toolResult: toolResultBlock }],
           })
-        } else if (msg.function_call || msg.tool_calls) {
-          const toolCall = msg.function_call || msg.tool_calls?.[0]?.function
-          if (toolCall) {
-            const toolUseBlock: ToolUseBlock = {
-              toolUseId: msg.tool_calls?.[0]?.id || generateToolUseId(toolCall.name),
-              name: toolCall.name,
-              input: JSON.parse(toolCall.arguments),
-            }
-            messages.push({
-              role: 'assistant' as ConversationRole,
-              content: [{ toolUse: toolUseBlock }],
-            })
-          }
+        } else if (msg.tool_calls?.length) {
+          messages.push({
+            role: 'assistant' as ConversationRole,
+            content: [
+              ...(msg.content ? [{ text: msg.content }] : []),
+              ...msg.tool_calls.map((call) => ({
+                toolUse: {
+                  toolUseId: call.id,
+                  name: call.function.name,
+                  input: JSON.parse(call.function.arguments),
+                },
+              })),
+            ],
+          })
         } else {
           const role: ConversationRole = msg.role === 'assistant' ? 'assistant' : 'user'
           messages.push({
@@ -129,18 +129,18 @@ export const bedrockProvider: ProviderConfig = {
     }
 
     if (messages.length === 0) {
-      messages.push({
-        role: 'user' as ConversationRole,
-        content: [{ text: request.systemPrompt || 'Hello' }],
-      })
-      systemContent.length = 0
+      throw new Error('Bedrock requests require a user or assistant message')
     }
 
     let structuredOutputTool: Tool | undefined
     const structuredOutputToolName = 'structured_output'
 
-    if (request.responseFormat) {
-      const schema = request.responseFormat.schema || request.responseFormat
+    if (request.responseFormat && !canForceTools) {
+      systemContent.push({
+        text: `Respond with only a valid JSON object matching this schema: ${JSON.stringify(request.responseFormat.schema)}`,
+      })
+    } else if (request.responseFormat) {
+      const schema = request.responseFormat.schema
       const schemaName = request.responseFormat.name || 'response'
 
       structuredOutputTool = {
@@ -175,52 +175,48 @@ export const bedrockProvider: ProviderConfig = {
         },
       }))
 
-      try {
-        preparedTools = prepareToolsWithUsageControl(
-          bedrockTools.map((t) => ({
-            name: t.toolSpec?.name || '',
-            description: t.toolSpec?.description || '',
-            input_schema: t.toolSpec?.inputSchema?.json,
-          })),
-          request.tools,
-          logger,
-          'bedrock'
-        )
+      preparedTools = prepareToolsWithUsageControl(
+        bedrockTools.map((t) => ({
+          name: t.toolSpec?.name || '',
+          description: t.toolSpec?.description || '',
+          input_schema: t.toolSpec?.inputSchema?.json,
+        })),
+        request.tools,
+        logger,
+        'bedrock',
+        canForceTools
+      )
 
-        const { tools: filteredTools, toolChoice: tc } = preparedTools
+      const { tools: filteredTools, toolChoice: tc } = preparedTools
 
-        if (filteredTools?.length) {
-          bedrockTools = filteredTools.map((t: any) => ({
-            toolSpec: {
-              name: t.name,
-              description: t.description,
-              inputSchema: { json: t.input_schema },
-            },
-          }))
+      if (filteredTools?.length) {
+        bedrockTools = filteredTools.map((t: any) => ({
+          toolSpec: {
+            name: t.name,
+            description: t.description,
+            inputSchema: { json: t.input_schema },
+          },
+        }))
 
-          if (typeof tc === 'object' && tc !== null) {
-            if (tc.type === 'tool' && tc.name) {
-              toolChoice = { tool: { name: tc.name } }
-              logger.info(`Using Bedrock tool_choice format: force tool "${tc.name}"`)
-            } else if (tc.type === 'function' && tc.function?.name) {
-              toolChoice = { tool: { name: tc.function.name } }
-              logger.info(`Using Bedrock tool_choice format: force tool "${tc.function.name}"`)
-            } else if (tc.type === 'any') {
-              toolChoice = { any: {} }
-              logger.info('Using Bedrock tool_choice format: any tool')
-            } else {
-              toolChoice = { auto: {} }
-            }
-          } else if (tc === 'none') {
-            toolChoice = undefined
-            bedrockTools = undefined
+        if (typeof tc === 'object' && tc !== null) {
+          if (tc.type === 'tool' && tc.name) {
+            toolChoice = { tool: { name: tc.name } }
+            logger.info(`Using Bedrock tool_choice format: force tool "${tc.name}"`)
+          } else if (tc.type === 'function' && tc.function?.name) {
+            toolChoice = { tool: { name: tc.function.name } }
+            logger.info(`Using Bedrock tool_choice format: force tool "${tc.function.name}"`)
+          } else if (tc.type === 'any') {
+            toolChoice = { any: {} }
+            logger.info('Using Bedrock tool_choice format: any tool')
           } else {
             toolChoice = { auto: {} }
           }
+        } else if (tc === 'none') {
+          toolChoice = undefined
+          bedrockTools = undefined
+        } else {
+          toolChoice = { auto: {} }
         }
-      } catch (error) {
-        logger.error('Error in prepareToolsWithUsageControl:', { error })
-        toolChoice = { auto: {} }
       }
     } else if (structuredOutputTool) {
       bedrockTools = [structuredOutputTool]
@@ -268,9 +264,8 @@ export const bedrockProvider: ProviderConfig = {
 
     const systemPromptWithSchema = systemContent
 
-    const inferenceConfig: { temperature: number; maxTokens?: number } = {
-      temperature: Number.parseFloat(String(request.temperature ?? 0.7)),
-    }
+    const inferenceConfig: { temperature?: number; maxTokens?: number } = {}
+    if (request.temperature !== undefined) inferenceConfig.temperature = request.temperature
     if (request.maxTokens != null) {
       inferenceConfig.maxTokens = Number.parseInt(String(request.maxTokens))
     }
@@ -396,23 +391,6 @@ export const bedrockProvider: ProviderConfig = {
 
       let content = ''
       let hasExtractedStructuredOutput = false
-      if (currentResponse.output?.message?.content) {
-        const structuredOutputCall = currentResponse.output.message.content.find(
-          (block): block is ContentBlock & { toolUse: ToolUseBlock } =>
-            'toolUse' in block && block.toolUse?.name === structuredOutputToolName
-        )
-
-        if (structuredOutputCall && structuredOutputTool) {
-          content = JSON.stringify(structuredOutputCall.toolUse.input, null, 2)
-          hasExtractedStructuredOutput = true
-          logger.info('Extracted structured output from tool call')
-        } else {
-          const textBlocks = currentResponse.output.message.content.filter(
-            (block): block is ContentBlock & { text: string } => 'text' in block
-          )
-          content = textBlocks.map((block) => block.text).join('\n')
-        }
-      }
 
       const tokens = {
         input: currentResponse.usage?.inputTokens || 0,
@@ -421,17 +399,8 @@ export const bedrockProvider: ProviderConfig = {
           (currentResponse.usage?.inputTokens || 0) + (currentResponse.usage?.outputTokens || 0),
       }
 
-      const initialCost = calculateCost(
-        request.model,
-        currentResponse.usage?.inputTokens || 0,
-        currentResponse.usage?.outputTokens || 0
-      )
-      const cost = {
-        input: initialCost.input,
-        output: initialCost.output,
-        total: initialCost.total,
-        pricing: initialCost.pricing,
-      }
+      const modelCost = createModelCost(request.model)
+      const cost = modelCost.add(tokens.input, tokens.output)
 
       const toolCalls: FunctionCallResponse[] = []
       const toolResults: Record<string, unknown>[] = []
@@ -469,8 +438,21 @@ export const bedrockProvider: ProviderConfig = {
         usedForcedTools = firstCheckResult.usedForcedTools
       }
 
-      while (iterationCount < MAX_TOOL_ITERATIONS) {
-        const textContentBlocks = (currentResponse.output?.message?.content || []).filter(
+      while (true) {
+        const responseContent = currentResponse.output?.message?.content ?? []
+        const structuredOutputCall =
+          structuredOutputTool &&
+          responseContent.find(
+            (block): block is ContentBlock & { toolUse: ToolUseBlock } =>
+              'toolUse' in block && block.toolUse?.name === structuredOutputToolName
+          )
+        if (structuredOutputCall) {
+          content = JSON.stringify(structuredOutputCall.toolUse.input, null, 2)
+          hasExtractedStructuredOutput = true
+          break
+        }
+
+        const textContentBlocks = responseContent.filter(
           (block): block is ContentBlock & { text: string } => 'text' in block
         )
         const textContent = textContentBlocks.map((block) => block.text).join('\n')
@@ -479,26 +461,29 @@ export const bedrockProvider: ProviderConfig = {
           content = textContent
         }
 
-        const toolUseContentBlocks = (currentResponse.output?.message?.content || []).filter(
+        const toolUseContentBlocks = responseContent.filter(
           (block): block is ContentBlock & { toolUse: ToolUseBlock } => 'toolUse' in block
         )
-        const currentToolUses = toolUseContentBlocks.map((block) => block.toolUse)
+        const currentToolUses = toolUseContentBlocks.map(({ toolUse }) => {
+          if (!toolUse.toolUseId) throw new Error('Bedrock tool calls require toolUseId')
+          return { ...toolUse, toolUseId: toolUse.toolUseId }
+        })
 
-        if (!currentToolUses || currentToolUses.length === 0) {
+        if (currentToolUses.length === 0 || iterationCount >= MAX_TOOL_ITERATIONS) {
           break
         }
 
         const toolsStartTime = Date.now()
 
-        const toolExecutionPromises = currentToolUses.map(async (toolUse: ToolUseBlock) => {
+        const toolExecutionPromises = currentToolUses.map(async (toolUse) => {
           const toolCallStartTime = Date.now()
           const toolName = toolUse.name || ''
           const toolArgs = (toolUse.input as Record<string, any>) || {}
-          const toolUseId = toolUse.toolUseId || generateToolUseId(toolName)
+          const toolUseId = toolUse.toolUseId
 
           try {
             const tool = request.tools?.find((t) => t.id === toolName)
-            if (!tool) return null
+            if (!tool) throw new Error(`Unknown tool: ${toolName}`)
 
             const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
             const result = await executeTool(toolName, executionParams)
@@ -535,7 +520,7 @@ export const bedrockProvider: ProviderConfig = {
           }
         })
 
-        const executionResults = await Promise.allSettled(toolExecutionPromises)
+        const executionResults = await Promise.all(toolExecutionPromises)
 
         const assistantContent: ContentBlock[] = currentToolUses.map((toolUse: ToolUseBlock) => ({
           toolUse: {
@@ -551,11 +536,9 @@ export const bedrockProvider: ProviderConfig = {
 
         const toolResultContent: ContentBlock[] = []
 
-        for (const settledResult of executionResults) {
-          if (settledResult.status === 'rejected' || !settledResult.value) continue
-
+        for (const executionResult of executionResults) {
           const { toolUseId, toolName, toolParams, result, startTime, endTime, duration } =
-            settledResult.value
+            executionResult
 
           timeSegments.push({
             type: 'tool',
@@ -589,17 +572,15 @@ export const bedrockProvider: ProviderConfig = {
 
           const toolResultBlock: ToolResultBlock = {
             toolUseId,
-            content: [{ text: JSON.stringify(resultContent) }],
+            content: [{ text: JSON.stringify(resultContent) ?? '{}' }],
           }
           toolResultContent.push({ toolResult: toolResultBlock })
         }
 
-        if (toolResultContent.length > 0) {
-          currentMessages.push({
-            role: 'user' as ConversationRole,
-            content: toolResultContent,
-          })
-        }
+        currentMessages.push({
+          role: 'user' as ConversationRole,
+          content: toolResultContent,
+        })
 
         const thisToolsTime = Date.now() - toolsStartTime
         toolsTime += thisToolsTime
@@ -674,20 +655,16 @@ export const bedrockProvider: ProviderConfig = {
           tokens.total +=
             (currentResponse.usage.inputTokens || 0) + (currentResponse.usage.outputTokens || 0)
 
-          const iterationCost = calculateCost(
-            request.model,
+          modelCost.add(
             currentResponse.usage.inputTokens || 0,
             currentResponse.usage.outputTokens || 0
           )
-          cost.input += iterationCost.input
-          cost.output += iterationCost.output
-          cost.total += iterationCost.total
         }
 
         iterationCount++
       }
 
-      if (structuredOutputTool && request.tools?.length) {
+      if (structuredOutputTool && request.tools?.length && !hasExtractedStructuredOutput) {
         logger.info('Making final call with forced structured_output tool')
 
         const structuredOutputStartTime = Date.now()
@@ -739,14 +716,10 @@ export const bedrockProvider: ProviderConfig = {
             (structuredResponse.usage.inputTokens || 0) +
             (structuredResponse.usage.outputTokens || 0)
 
-          const structuredCost = calculateCost(
-            request.model,
+          modelCost.add(
             structuredResponse.usage.inputTokens || 0,
             structuredResponse.usage.outputTokens || 0
           )
-          cost.input += structuredCost.input
-          cost.output += structuredCost.output
-          cost.total += structuredCost.total
         }
       }
 
@@ -812,14 +785,8 @@ export const bedrockProvider: ProviderConfig = {
                 total: tokens.total + usage.inputTokens + usage.outputTokens,
               }
 
-              const streamCost = calculateCost(request.model, usage.inputTokens, usage.outputTokens)
-              const tc = sumToolCosts(toolResults)
-              streamingResult.execution.output.cost = {
-                input: cost.input + streamCost.input,
-                output: cost.output + streamCost.output,
-                toolCost: tc || undefined,
-                total: cost.total + streamCost.total + tc,
-              }
+              modelCost.add(usage.inputTokens, usage.outputTokens)
+              streamingResult.execution.output.cost = withToolCosts(cost, toolResults)
 
               const streamEndTime = Date.now()
               const streamEndTimeISO = new Date(streamEndTime).toISOString()
@@ -858,12 +825,7 @@ export const bedrockProvider: ProviderConfig = {
                 iterations: iterationCount + 1,
                 timeSegments,
               },
-              cost: {
-                input: cost.input,
-                output: cost.output,
-                toolCost: undefined as number | undefined,
-                total: cost.total,
-              },
+              cost: withToolCosts(cost, toolResults),
             },
             logs: [],
             metadata: {
@@ -882,12 +844,7 @@ export const bedrockProvider: ProviderConfig = {
         content,
         model: request.model,
         tokens,
-        cost: {
-          input: cost.input,
-          output: cost.output,
-          total: cost.total,
-          pricing: cost.pricing,
-        },
+        cost,
         toolCalls:
           toolCalls.length > 0
             ? toolCalls.map((tc) => ({

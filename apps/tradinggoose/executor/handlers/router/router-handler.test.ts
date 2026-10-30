@@ -103,7 +103,7 @@ describe('RouterBlockHandler', () => {
             content: 'target-block-1',
             model: 'mock-model',
             tokens: { prompt: 100, completion: 5, total: 105 },
-            cost: 0.003,
+            cost: { input: 0.002, output: 0.001, total: 0.003, pricing: null },
             timing: { total: 300 },
           }),
       })
@@ -119,7 +119,7 @@ describe('RouterBlockHandler', () => {
   it('should execute router block correctly and select a path', async () => {
     const inputs = {
       prompt: 'Choose the best option.',
-      model: 'gpt-4o',
+      model: 'gpt-4.1',
       temperature: 0.1,
     }
 
@@ -151,7 +151,7 @@ describe('RouterBlockHandler', () => {
     const result = await handler.execute(mockBlock, inputs, mockContext)
 
     expect(mockGenerateRouterPrompt).toHaveBeenCalledWith(inputs.prompt, expectedTargetBlocks)
-    expect(mockGetProviderFromModel).toHaveBeenCalledWith('gpt-4o')
+    expect(mockGetProviderFromModel).toHaveBeenCalledWith('gpt-4.1')
     expect(mockFetch).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({
@@ -166,7 +166,7 @@ describe('RouterBlockHandler', () => {
     const requestBody = JSON.parse(fetchCallArgs[1].body)
     expect(requestBody).toMatchObject({
       provider: 'openai',
-      model: 'gpt-4o',
+      model: 'gpt-4.1',
       systemPrompt: 'Generated System Prompt',
       context: JSON.stringify([{ role: 'user', content: 'Choose the best option.' }]),
       temperature: 0.1,
@@ -176,11 +176,7 @@ describe('RouterBlockHandler', () => {
       prompt: 'Choose the best option.',
       model: 'mock-model',
       tokens: { prompt: 100, completion: 5, total: 105 },
-      cost: {
-        input: 0,
-        output: 0,
-        total: 0,
-      },
+      cost: { input: 0.002, output: 0.001, total: 0.003, pricing: null },
       selectedPath: {
         blockId: 'target-block-1',
         blockType: 'target',
@@ -190,7 +186,7 @@ describe('RouterBlockHandler', () => {
   })
 
   it('should throw error if target block is missing', async () => {
-    const inputs = { prompt: 'Test' }
+    const inputs = { model: 'gpt-4.1', prompt: 'Test' }
     mockContext.workflow!.blocks = [mockBlock, mockTargetBlock2]
 
     // Expect execute to throw because getTargetBlocks (called internally) will throw
@@ -201,7 +197,7 @@ describe('RouterBlockHandler', () => {
   })
 
   it('should throw error if LLM response is not a valid target block ID', async () => {
-    const inputs = { prompt: 'Test' }
+    const inputs = { model: 'gpt-4.1', prompt: 'Test' }
 
     // Override fetch mock to return an invalid block ID
     mockFetch.mockImplementationOnce(() => {
@@ -212,7 +208,7 @@ describe('RouterBlockHandler', () => {
             content: 'invalid-block-id',
             model: 'mock-model',
             tokens: {},
-            cost: 0,
+            cost: { input: 0, output: 0, total: 0, pricing: null },
             timing: {},
           }),
       })
@@ -223,23 +219,15 @@ describe('RouterBlockHandler', () => {
     )
   })
 
-  it('should use default model and temperature if not provided', async () => {
-    const inputs = { prompt: 'Choose.' }
-
-    await handler.execute(mockBlock, inputs, mockContext)
-
-    expect(mockGetProviderFromModel).toHaveBeenCalledWith('gpt-4.1')
-
-    const fetchCallArgs = mockFetch.mock.calls[0]
-    const requestBody = JSON.parse(fetchCallArgs[1].body)
-    expect(requestBody).toMatchObject({
-      model: 'gpt-4.1',
-      temperature: 0.1,
-    })
+  it('requires a selected model', async () => {
+    await expect(handler.execute(mockBlock, { prompt: 'Choose.' }, mockContext)).rejects.toThrow(
+      'Model is required'
+    )
+    expect(mockFetch).not.toHaveBeenCalled()
   })
 
   it('should handle server error responses', async () => {
-    const inputs = { prompt: 'Test error handling.' }
+    const inputs = { model: 'gpt-4.1', prompt: 'Test error handling.' }
 
     // Override fetch mock to return an error
     mockFetch.mockImplementationOnce(() => {

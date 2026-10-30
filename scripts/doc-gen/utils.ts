@@ -1,5 +1,5 @@
 import fs from 'fs'
-import type { DocCondition } from './types'
+import type { SubBlockCondition } from '../../apps/tradinggoose/blocks/types'
 
 // ── Markdown escaping ─────────────────────────────────────────────
 
@@ -17,7 +17,7 @@ export function escapeMdx(text: string): string {
 }
 
 export function describeVisibilityCondition(
-  condition: DocCondition,
+  condition: SubBlockCondition,
   resolvedField?: string
 ): string | undefined {
   const conditions = collectConditions(condition).filter(({ field }) => field !== resolvedField)
@@ -25,14 +25,21 @@ export function describeVisibilityCondition(
   return conditions.length > 0 ? conditions.map(describeCondition).join(' and ') : undefined
 }
 
-export function collectConditions(condition: DocCondition): DocCondition[] {
+export function collectConditions(condition: SubBlockCondition): SubBlockCondition[] {
   const nested = condition.and
     ? (Array.isArray(condition.and) ? condition.and : [condition.and]).flatMap(collectConditions)
     : []
   return [condition, ...nested]
 }
 
-function describeCondition(condition: DocCondition): string {
+function describeCondition(condition: SubBlockCondition): string {
+  if (condition.operator === 'modelMaxTemperature') {
+    return `${condition.field} ${condition.not ? 'does not have' : 'has'} a maximum temperature of ${condition.value}`
+  }
+  if (condition.operator === 'modelCapability') {
+    const capability = condition.value.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase()
+    return `${condition.field} ${condition.not ? 'does not support' : 'supports'} ${capability}`
+  }
   const values = (Array.isArray(condition.value) ? condition.value : [condition.value]).map(
     (value) => `'${String(value)}'`
   )

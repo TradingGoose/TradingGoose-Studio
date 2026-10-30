@@ -235,7 +235,7 @@ export async function POST(request: NextRequest) {
       if (hasQuery) {
         try {
           const tokenCount = estimateTokenCount(validatedData.query!, 'openai')
-          const cost = calculateCost(queryEmbeddingModel, tokenCount.count, 0, false)
+          const cost = calculateCost(queryEmbeddingModel, tokenCount.count, 0)
           costInfo = { cost, tokenCount }
         } catch (error) {
           logger.warn(`[${requestId}] Failed to calculate search cost:`, error)

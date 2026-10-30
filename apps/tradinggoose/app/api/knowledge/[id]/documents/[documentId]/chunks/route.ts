@@ -178,7 +178,7 @@ export async function POST(
       )
 
       const embeddingModel = accessCheck.knowledgeBase.embeddingModel
-      const cost = calculateCost(embeddingModel, newChunk.tokenCount, 0, false)
+      const cost = calculateCost(embeddingModel, newChunk.tokenCount, 0)
 
       return NextResponse.json({
         success: true,

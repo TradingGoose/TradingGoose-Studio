@@ -9,16 +9,16 @@ export interface AgentInputs {
   responseFormat?: string | object
   tools?: ToolInput[]
   skills?: SkillInput[]
-  systemPrompt?: string
+  systemPrompt?: string | object
   userPrompt?: string | object
   memories?: any
   temperature?: number
   maxTokens?: number
   apiKey?: string
   azureEndpoint?: string
-  azureApiVersion?: string
   reasoningEffort?: string
   verbosity?: string
+  thinkingLevel?: string
 }
 
 export interface ToolInput {
@@ -36,8 +36,6 @@ export interface ToolInput {
 export interface Message {
   role: 'system' | 'user' | 'assistant'
   content: string
-  function_call?: any
-  tool_calls?: any[]
 }
 
 export interface StreamingConfig {

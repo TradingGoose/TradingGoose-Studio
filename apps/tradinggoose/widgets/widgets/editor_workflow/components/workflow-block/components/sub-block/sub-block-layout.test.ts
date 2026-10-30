@@ -2,8 +2,9 @@ import { describe, expect, it, vi } from 'vitest'
 
 vi.unmock('@/blocks/registry')
 
-import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
+import { buildSubBlockPreviewRows, buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
 import { getAllBlocks } from '@/blocks'
+import { SlackBlock } from '@/blocks/blocks/slack'
 import type { BlockConfig } from '@/blocks/types'
 
 const multiTriggerBlocks = getAllBlocks().filter(
@@ -170,6 +171,53 @@ describe('buildSubBlockRows', () => {
     })
 
     expect(rows.flat().map((subBlock) => subBlock.id)).toEqual(['files'])
+  })
+
+  it.each([undefined, null, '', '  ', [], {}])(
+    'omits unconfigured additional values from previews (%j)',
+    (value) => {
+      const subBlocks = buildSubBlockPreviewRows({
+        subBlocks: [
+          { id: 'model', type: 'combobox' },
+          { id: 'optional', type: 'short-input', additional: true },
+          { id: 'temperature', type: 'short-input', additional: true },
+        ],
+        stateToUse: {
+          model: { value: 'model' },
+          optional: { value },
+          temperature: { value: 0 },
+        },
+      })
+
+      expect(subBlocks.map((subBlock) => subBlock.id)).toEqual(['model', 'temperature'])
+    }
+  )
+
+  it.each([false, true])('previews only active Slack mode values (%s)', (isAdvancedMode) => {
+    const subBlocks = buildSubBlockPreviewRows({
+      isAdvancedMode,
+      subBlocks: [
+        ...SlackBlock.subBlocks,
+        {
+          id: 'selectedChannelDetails',
+          type: 'short-input',
+          condition: { field: 'channel', value: 'C_SELECTED' },
+        },
+      ],
+      stateToUse: {
+        operation: { value: 'send' },
+        channel: { value: 'C_SELECTED' },
+        manualChannel: { value: 'C_MANUAL' },
+        text: { value: 'hello' },
+      },
+    })
+    const ids = subBlocks.map((subBlock) => subBlock.id)
+
+    expect(ids).toContain(isAdvancedMode ? 'manualChannel' : 'channel')
+    expect(ids).not.toContain(isAdvancedMode ? 'channel' : 'manualChannel')
+    expect(ids).toContain('operation')
+    expect(ids).toContain('text')
+    expect(ids.includes('selectedChannelDetails')).toBe(!isAdvancedMode)
   })
 
   it.each(multiTriggerBlocks)(

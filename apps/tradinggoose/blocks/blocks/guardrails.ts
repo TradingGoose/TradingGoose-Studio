@@ -1,7 +1,7 @@
 import { ShieldCheckIcon } from '@/components/icons/icons'
 import { isHosted } from '@/lib/environment'
 import type { BlockConfig } from '@/blocks/types'
-import { getHostedModels, getProviderIcon } from '@/providers/ai/models'
+import { getProviderIcon } from '@/providers/ai/models'
 import { useProvidersStore } from '@/stores/providers/store'
 import type { ToolResponse } from '@/tools/types'
 
@@ -153,7 +153,6 @@ export const GuardrailsBlock: BlockConfig<GuardrailsResponse> = {
       connectionDroppable: false,
       required: true,
       // Show API key field only for hallucination validation
-      // Hide for hosted models and Ollama models
       condition: () => {
         const baseCondition = {
           field: 'validationType' as const,
@@ -161,15 +160,7 @@ export const GuardrailsBlock: BlockConfig<GuardrailsResponse> = {
         }
 
         if (isHosted) {
-          // In hosted mode, hide for hosted models
-          return {
-            ...baseCondition,
-            and: {
-              field: 'model' as const,
-              value: getHostedModels(),
-              not: true, // Show for all models EXCEPT hosted ones
-            },
-          }
+          return baseCondition
         }
         // In self-hosted mode, hide for Ollama models
         return {
@@ -321,7 +312,7 @@ export const GuardrailsBlock: BlockConfig<GuardrailsResponse> = {
     },
     apiKey: {
       type: 'string',
-      description: 'API key for LLM provider (optional if using hosted)',
+      description: 'User-provided API key for hallucination scoring (not required for Ollama)',
     },
     piiEntityTypes: {
       type: 'json',

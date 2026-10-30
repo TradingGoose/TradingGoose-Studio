@@ -44,12 +44,17 @@ afterAll(() => {
 
 describe('model editor credentials', () => {
   it.each(
-    ['', 'c', '{{MODEL}}', '<agent1.model>'].flatMap((unresolved) =>
+    ['', 'c', '{{MODEL}}', '<agent1.model>', '<variable.model>'].flatMap((unresolved) =>
       [false, true].map((reopen) => ({ unresolved, reopen }))
     )
   )(
     'clears mismatched credentials after $unresolved model edits (reopen=$reopen)',
     async ({ unresolved, reopen }) => {
+      const tuning = Object.fromEntries(
+        Object.entries({ reasoningEffort: 'high', verbosity: 'low', thinkingLevel: 'high' }).map(
+          ([id, value]) => [id, { id, type: 'combobox' as const, value }]
+        )
+      )
       const doc = new Y.Doc()
       setWorkflowState(
         doc,
@@ -63,6 +68,7 @@ describe('model editor credentials', () => {
               position: { x: 0, y: 0 },
               outputs: {},
               subBlocks: {
+                ...tuning,
                 model: { id: 'model', type: 'combobox', value: 'gpt-4.1' },
                 apiKey: { id: 'apiKey', type: 'short-input', value: 'openai-key' },
               },
@@ -98,13 +104,15 @@ describe('model editor credentials', () => {
         await act(async () => model[1](value))
         expect(model[0]).toBe(value)
         expect(apiKey()).toBe('openai-key')
+        expect(readWorkflowSnapshot(doc).blocks['block-1'].subBlocks).toMatchObject(tuning)
       }
       if (reopen) {
         await act(async () => root?.render(React.createElement(Harness, { key: 'reopened' })))
         expect(model[0]).toBe(unresolved)
         expect(apiKey()).toBe('openai-key')
+        expect(readWorkflowSnapshot(doc).blocks['block-1'].subBlocks).toMatchObject(tuning)
       }
-      await act(async () => model[1]('claude-sonnet-4-6'))
+      await act(async () => model[1]('claude-sonnet-5-5'))
       expect(apiKey()).toBe('')
     }
   )

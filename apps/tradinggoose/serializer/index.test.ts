@@ -75,7 +75,7 @@ vi.mock('@/blocks', () => ({
           access: ['anthropic_chat', 'openai_chat', 'google_chat'],
           config: {
             // Use the real getProviderFromModel that we imported
-            tool: (params: Record<string, any>) => getProviderFromModel(params.model || 'gpt-4o'),
+            tool: (params: Record<string, any>) => getProviderFromModel(params.model || 'gpt-4.1'),
           },
         },
         subBlocks: [
@@ -265,13 +265,17 @@ vi.mock('@/blocks', () => ({
         subBlocks: [
           { id: 'systemPrompt', type: 'long-input', title: 'System Prompt' }, // mode: 'both' (default)
           { id: 'userPrompt', type: 'long-input', title: 'User Prompt' }, // mode: 'both' (default)
-          { id: 'memories', type: 'short-input', title: 'Memories', mode: 'advanced' },
+          { id: 'memories', type: 'short-input', title: 'Memories', additional: true },
+          { id: 'reasoningEffort', type: 'dropdown', title: 'Reasoning Effort', additional: true },
+          { id: 'thinkingLevel', type: 'dropdown', title: 'Thinking Level', additional: true },
           { id: 'model', type: 'dropdown', title: 'Model' }, // mode: 'both' (default)
         ],
         inputs: {
           systemPrompt: { type: 'string' },
           userPrompt: { type: 'string' },
           memories: { type: 'array' },
+          reasoningEffort: { type: 'string' },
+          thinkingLevel: { type: 'string' },
           model: { type: 'string' },
         },
       },
@@ -317,7 +321,7 @@ describe('Serializer', () => {
       expect(agentBlock).toBeDefined()
       expect(agentBlock?.metadata?.id).toBe('agent')
       expect(agentBlock?.config.params.prompt).toBe('Hello, world!')
-      expect(agentBlock?.config.params.model).toBe('claude-3-7-sonnet-20250219')
+      expect(agentBlock?.config.params.model).toBe('claude-sonnet-5-5')
 
       // Check if edges are correctly serialized
       expect(serialized.connections).toHaveLength(1)
@@ -411,7 +415,7 @@ describe('Serializer', () => {
       expect(agentBlock).toBeDefined()
       expect(agentBlock?.metadata?.id).toBe('agent')
       expect(agentBlock?.config.tool).toBe('openai')
-      expect(agentBlock?.config.params.model).toBe('gpt-4o')
+      expect(agentBlock?.config.params.model).toBe('gpt-4.1')
       expect(agentBlock?.outputs.responseFormat).toBeDefined()
     })
 
@@ -424,9 +428,9 @@ describe('Serializer', () => {
       // Check agent block
       const agentBlock = serialized.blocks.find((b) => b.id === 'agent1')
       expect(agentBlock).toBeDefined()
-      // The model used is 'gpt-4o', so tool should be 'openai'
+      // The model used is 'gpt-4.1', so tool should be 'openai'
       expect(agentBlock?.config.tool).toBe('openai')
-      expect(agentBlock?.config.params.model).toBe('gpt-4o')
+      expect(agentBlock?.config.params.model).toBe('gpt-4.1')
 
       // Tools should be preserved as-is in params
       const toolsParam = agentBlock?.config.params.tools
@@ -488,7 +492,7 @@ describe('Serializer', () => {
       expect(agentBlock.type).toBe('agent')
       expect(agentBlock.name).toBe('Agent Block')
       expect(agentBlock.subBlocks.prompt.value).toBe('Hello, world!')
-      expect(agentBlock.subBlocks.model.value).toBe('claude-3-7-sonnet-20250219')
+      expect(agentBlock.subBlocks.model.value).toBe('claude-sonnet-5-5')
 
       // Check edges
       expect(deserialized.edges).toHaveLength(1)
@@ -530,7 +534,7 @@ describe('Serializer', () => {
       const agentBlock = deserialized.blocks.agent1
       expect(agentBlock).toBeDefined()
       expect(agentBlock.type).toBe('agent')
-      expect(agentBlock.subBlocks.model.value).toBe('gpt-4o')
+      expect(agentBlock.subBlocks.model.value).toBe('gpt-4.1')
       expect(agentBlock.subBlocks.provider.value).toBe('openai')
     })
 
@@ -1022,69 +1026,41 @@ describe('Serializer', () => {
       }
     )
 
-    it.concurrent('should filter memories field correctly in agent blocks', () => {
-      const serializer = new Serializer()
+    it.concurrent.each([undefined, false, true])(
+      'retains agent Additional Fields regardless of advancedMode (%j)',
+      (advancedMode) => {
+        const serializer = new Serializer()
+        const agent: any = {
+          id: 'agent-1',
+          type: 'agentWithMemories',
+          name: 'Test Agent',
+          position: { x: 0, y: 0 },
+          advancedMode,
+          subBlocks: {
+            systemPrompt: { value: 'You are helpful' },
+            userPrompt: { value: 'Hello' },
+            memories: { value: [{ role: 'user', content: 'My name is John' }] },
+            reasoningEffort: { value: 'auto' },
+            thinkingLevel: { value: 'high' },
+            model: { value: 'claude-sonnet-5-5' },
+          },
+          outputs: {},
+          enabled: true,
+        }
 
-      const agentInBasicMode: any = {
-        id: 'agent-1',
-        type: 'agentWithMemories',
-        name: 'Test Agent',
-        position: { x: 0, y: 0 },
-        advancedMode: false, // Basic mode
-        subBlocks: {
-          systemPrompt: { value: 'You are helpful' }, // both mode field
-          userPrompt: { value: 'Hello' }, // both mode field
-          memories: { value: [{ role: 'user', content: 'My name is John' }] }, // advanced mode field
-          model: { value: 'claude-3-sonnet' }, // both mode field
-        },
-        outputs: {},
-        enabled: true,
+        const serialized = serializer.serializeWorkflow({ 'agent-1': agent }, [], {})
+        const agentBlock = serialized.blocks.find((block) => block.id === 'agent-1')
+
+        expect(agentBlock?.config.params).toMatchObject({
+          systemPrompt: 'You are helpful',
+          userPrompt: 'Hello',
+          memories: [{ role: 'user', content: 'My name is John' }],
+          reasoningEffort: 'auto',
+          thinkingLevel: 'high',
+          model: 'claude-sonnet-5-5',
+        })
       }
-
-      const serialized = serializer.serializeWorkflow({ 'agent-1': agentInBasicMode }, [], {})
-
-      const agentBlock = serialized.blocks.find((b) => b.id === 'agent-1')
-      expect(agentBlock).toBeDefined()
-
-      // In basic mode, memories should be excluded
-      expect(agentBlock?.config.params.systemPrompt).toBe('You are helpful')
-      expect(agentBlock?.config.params.userPrompt).toBe('Hello')
-      expect(agentBlock?.config.params.memories).toBeUndefined() // Excluded in basic mode
-      expect(agentBlock?.config.params.model).toBe('claude-3-sonnet')
-    })
-
-    it.concurrent('should include memories field when agent is in advanced mode', () => {
-      const serializer = new Serializer()
-
-      const agentInAdvancedMode: any = {
-        id: 'agent-1',
-        type: 'agentWithMemories',
-        name: 'Test Agent',
-        position: { x: 0, y: 0 },
-        advancedMode: true, // Advanced mode
-        subBlocks: {
-          systemPrompt: { value: 'You are helpful' }, // both mode field
-          userPrompt: { value: 'Hello' }, // both mode field
-          memories: { value: [{ role: 'user', content: 'My name is John' }] }, // advanced mode field
-          model: { value: 'claude-3-sonnet' }, // both mode field
-        },
-        outputs: {},
-        enabled: true,
-      }
-
-      const serialized = serializer.serializeWorkflow({ 'agent-1': agentInAdvancedMode }, [], {})
-
-      const agentBlock = serialized.blocks.find((b) => b.id === 'agent-1')
-      expect(agentBlock).toBeDefined()
-
-      // In advanced mode, memories should be included
-      expect(agentBlock?.config.params.systemPrompt).toBe('You are helpful')
-      expect(agentBlock?.config.params.userPrompt).toBe('Hello')
-      expect(agentBlock?.config.params.memories).toEqual([
-        { role: 'user', content: 'My name is John' },
-      ]) // Included in advanced mode
-      expect(agentBlock?.config.params.model).toBe('claude-3-sonnet')
-    })
+    )
 
     it.concurrent('should handle blocks with no matching subblock config gracefully', () => {
       const serializer = new Serializer()

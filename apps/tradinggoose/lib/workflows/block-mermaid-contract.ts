@@ -114,7 +114,11 @@ function createConditionSubBlocks(blockId: string): BlockState['subBlocks'] {
 }
 
 function resolveStaticOptions(subBlock: SubBlockConfig) {
-  return typeof subBlock.options === 'function' ? subBlock.options() : subBlock.options
+  return typeof subBlock.options === 'function'
+    ? subBlock.options.length === 0
+      ? subBlock.options()
+      : undefined
+    : subBlock.options
 }
 
 function buildCodeExampleValue(subBlock: SubBlockConfig): string {

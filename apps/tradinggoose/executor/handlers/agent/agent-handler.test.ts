@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest'
-import { isHosted } from '@/lib/environment'
 import { getAllBlocks } from '@/blocks'
 import { BlockType } from '@/executor/consts'
 import { AgentBlockHandler } from '@/executor/handlers/agent/agent-handler'
-import type { ExecutionContext, StreamingExecution } from '@/executor/types'
+import type { ExecutionContext, NormalizedBlockOutput, StreamingExecution } from '@/executor/types'
 import { getProviderFromModel } from '@/providers/ai/models'
+import { openaiProvider } from '@/providers/ai/openai'
+import { encodeProviderStream } from '@/providers/ai/streaming'
 import { transformBlockTool } from '@/providers/ai/utils'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 import { executeTool } from '@/tools'
@@ -12,9 +13,22 @@ import { executeTool } from '@/tools'
 process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
 
 const mockResolveSkillMetadata = vi.hoisted(() => vi.fn())
+const { mockExecuteProviderRequest, mockGetApiKey, mockResponses } = vi.hoisted(() => ({
+  mockExecuteProviderRequest: vi.fn(),
+  mockGetApiKey: vi.fn(),
+  mockResponses: vi.fn(),
+}))
+
+vi.mock('openai', () => ({
+  default: class {
+    responses = { create: mockResponses }
+  },
+}))
+vi.mock('@/providers/ai', () => ({ executeProviderRequest: mockExecuteProviderRequest }))
+vi.mock('@/providers/ai/utils-server', () => ({ getApiKey: mockGetApiKey }))
 
 vi.mock('@/lib/environment', () => ({
-  isHosted: vi.fn().mockReturnValue(false),
+  isHosted: false,
   isProd: vi.fn().mockReturnValue(false),
   isDev: vi.fn().mockReturnValue(true),
   isTest: vi.fn().mockReturnValue(false),
@@ -24,7 +38,6 @@ vi.mock('@/providers/ai/utils', async () => ({
   ...(await vi.importActual<typeof import('@/providers/ai/utils')>('@/providers/ai/utils')),
   transformBlockTool: vi.fn(),
 }))
-
 vi.mock('@/providers/ai/models', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/providers/ai/models')>()),
   getProviderFromModel: vi.fn().mockReturnValue('mock-provider'),
@@ -47,7 +60,6 @@ global.fetch = Object.assign(vi.fn(), { preconnect: vi.fn() }) as typeof fetch
 
 const mockGetAllBlocks = getAllBlocks as Mock
 const mockExecuteTool = executeTool as Mock
-const mockIsHosted = isHosted as unknown as Mock
 const mockGetProviderFromModel = getProviderFromModel as Mock
 const mockTransformBlockTool = transformBlockTool as Mock
 const mockFetch = global.fetch as unknown as Mock
@@ -61,6 +73,7 @@ describe('AgentBlockHandler', () => {
   beforeEach(() => {
     handler = new AgentBlockHandler()
     vi.clearAllMocks()
+    mockResponses.mockReset()
 
     Object.defineProperty(global, 'window', {
       value: {},
@@ -103,7 +116,6 @@ describe('AgentBlockHandler', () => {
         loops: {},
       } as SerializedWorkflow,
     }
-    mockIsHosted.mockReturnValue(false)
     mockGetProviderFromModel.mockReturnValue('mock-provider')
     mockResolveSkillMetadata.mockResolvedValue([])
 
@@ -113,7 +125,6 @@ describe('AgentBlockHandler', () => {
         headers: {
           get: (name: string) => {
             if (name === 'Content-Type') return 'application/json'
-            if (name === 'X-Execution-Data') return null
             return null
           },
         },
@@ -183,6 +194,35 @@ describe('AgentBlockHandler', () => {
   })
 
   describe('execute', () => {
+    it('normalizes a resolved object system prompt into message text', async () => {
+      const systemPrompt = { task: 'Analyze prices', symbols: ['AAPL', 'MSFT'] }
+      await handler.execute(
+        mockBlock,
+        { model: 'gpt-5.4', systemPrompt, userPrompt: 'Run the analysis' },
+        mockContext
+      )
+      expect(JSON.parse(mockFetch.mock.calls[0][1].body).messages).toEqual([
+        { role: 'system', content: JSON.stringify(systemPrompt) },
+        { role: 'user', content: 'Run the analysis' },
+      ])
+    })
+
+    it('sends system-only Agent instructions once to the provider boundary', async () => {
+      const task = 'Analyze the current portfolio using the available tools.'
+      await handler.execute(mockBlock, { model: 'gpt-5.4', systemPrompt: task }, mockContext)
+      const request = JSON.parse(mockFetch.mock.calls[0][1].body)
+      expect(request.messages).toEqual([{ role: 'system', content: task }])
+      expect(request).not.toHaveProperty('systemPrompt')
+      expect(request).not.toHaveProperty('context')
+    })
+
+    it.each([undefined, ''])('rejects a missing model (%j)', async (model) => {
+      await expect(handler.execute(mockBlock, { model }, mockContext)).rejects.toThrow(
+        'Agent model is required'
+      )
+      expect(mockFetch).not.toHaveBeenCalled()
+    })
+
     it('should execute a basic agent block request', async () => {
       const inputs = {
         model: 'gpt-4o',
@@ -244,7 +284,6 @@ describe('AgentBlockHandler', () => {
             headers: {
               get: (name: string) => {
                 if (name === 'Content-Type') return 'application/json'
-                if (name === 'X-Execution-Data') return null
                 return null
               },
             },
@@ -265,7 +304,6 @@ describe('AgentBlockHandler', () => {
           headers: {
             get: (name: string) => {
               if (name === 'Content-Type') return 'application/json'
-              if (name === 'X-Execution-Data') return null
               return null
             },
           },
@@ -309,14 +347,13 @@ describe('AgentBlockHandler', () => {
           toolId.startsWith('tradinggoose_internal_load_skill') &&
           toolId !== 'tradinggoose_internal_load_skill'
       )
-      const systemMessage = providerRequest.messages.find(
-        (message: { role: string; content?: string }) => message.role === 'system'
-      )
-
       expect(uniqueToolIds.size).toBe(toolIds.length)
       expect(toolIds).toContain('tradinggoose_internal_load_skill')
       expect(generatedSkillToolId).toBe('tradinggoose_internal_load_skill_2')
-      expect(systemMessage?.content).toContain('tradinggoose_internal_load_skill_2')
+      expect(providerRequest.messages).toHaveLength(1)
+      expect(providerRequest.messages[0].role).toBe('system')
+      expect(providerRequest.messages[0].content).toContain('You are a helpful assistant.')
+      expect(providerRequest.messages[0].content).toContain('tradinggoose_internal_load_skill_2')
     })
 
     it('executes without a skill loader when selected skills are unavailable', async () => {
@@ -363,7 +400,6 @@ describe('AgentBlockHandler', () => {
           headers: {
             get: (name: string) => {
               if (name === 'Content-Type') return 'application/json'
-              if (name === 'X-Execution-Data') return null
               return null
             },
           },
@@ -672,22 +708,19 @@ describe('AgentBlockHandler', () => {
       expect(forceTool.usageControl).toBe('force')
     })
 
-    it('should not require API key for gpt-4o on hosted version', async () => {
-      mockIsHosted.mockReturnValue(true)
-
+    it('rejects missing user credentials before server inference', async () => {
+      Object.defineProperty(global, 'window', { value: undefined, configurable: true })
       const inputs = {
-        model: 'gpt-4o',
-        systemPrompt: 'You are a helpful assistant.',
-        userPrompt: 'User query: Hello!',
-        temperature: 0.7,
-        maxTokens: 100,
+        model: 'gpt-4.1',
+        userPrompt: 'Hello!',
       }
-
       mockGetProviderFromModel.mockReturnValue('openai')
-
-      await handler.execute(mockBlock, inputs, mockContext)
-
-      expect(mockFetch).toHaveBeenCalledWith(expect.any(String), expect.any(Object))
+      mockGetApiKey.mockRejectedValueOnce(new Error('API key is required for openai gpt-4.1'))
+      await expect(handler.execute(mockBlock, inputs, mockContext)).rejects.toThrow(
+        'API key is required for openai gpt-4.1'
+      )
+      expect(mockGetApiKey).toHaveBeenCalledWith('openai', 'gpt-4.1', undefined)
+      expect(mockExecuteProviderRequest).not.toHaveBeenCalled()
     })
 
     it('should execute with standard block tools', async () => {
@@ -868,7 +901,6 @@ describe('AgentBlockHandler', () => {
           headers: {
             get: (name: string) => {
               if (name === 'Content-Type') return 'application/json'
-              if (name === 'X-Execution-Data') return null
               return null
             },
           },
@@ -889,7 +921,7 @@ describe('AgentBlockHandler', () => {
         userPrompt: 'Test context',
         apiKey: 'test-api-key',
         responseFormat:
-          '{"type":"object","properties":{"result":{"type":"string"},"score":{"type":"number"}}}',
+          '{"schema":{"type":"object","properties":{"result":{"type":"string"},"score":{"type":"number"}}}}',
       }
 
       const result = await handler.execute(mockBlock, inputs, mockContext)
@@ -912,7 +944,6 @@ describe('AgentBlockHandler', () => {
           headers: {
             get: (name: string) => {
               if (name === 'Content-Type') return 'application/json'
-              if (name === 'X-Execution-Data') return null
               return null
             },
           },
@@ -946,92 +977,29 @@ describe('AgentBlockHandler', () => {
       })
     })
 
-    it('should handle invalid JSON in responseFormat gracefully', async () => {
-      mockFetch.mockImplementationOnce(() => {
-        return Promise.resolve({
-          ok: true,
-          headers: {
-            get: (name: string) => {
-              if (name === 'Content-Type') return 'application/json'
-              if (name === 'X-Execution-Data') return null
-              return null
-            },
-          },
-          json: () =>
-            Promise.resolve({
-              content: 'Regular text response',
-              model: 'mock-model',
-              tokens: { prompt: 10, completion: 20, total: 30 },
-              timing: { total: 100 },
-              toolCalls: [],
-              cost: undefined,
-            }),
-        })
-      })
-
-      const inputs = {
-        model: 'gpt-4o',
-        userPrompt: 'Format this output.',
-        apiKey: 'test-api-key',
-        responseFormat: '{invalid-json',
+    it.each(['{invalid-json', '<start.input>', '{}', '{"type":"object"}', '{"schema":null}'])(
+      'rejects invalid response format %s before requesting the provider',
+      async (responseFormat) => {
+        await expect(
+          handler.execute(mockBlock, { model: 'gpt-5.4', responseFormat }, mockContext)
+        ).rejects.toThrow('Invalid agent response format')
+        expect(mockFetch).not.toHaveBeenCalled()
       }
+    )
 
-      // Should not throw an error, but continue with default behavior
-      const result = await handler.execute(mockBlock, inputs, mockContext)
-
-      expect(result).toEqual({
-        content: 'Regular text response',
-        model: 'mock-model',
-        tokens: { prompt: 10, completion: 20, total: 30 },
-        toolCalls: { list: [], count: 0 },
-        toolResults: [],
-        providerTiming: { total: 100 },
-        cost: undefined,
-      })
-    })
-
-    it('should handle variable references in responseFormat gracefully', async () => {
-      mockFetch.mockImplementationOnce(() => {
-        return Promise.resolve({
-          ok: true,
-          headers: {
-            get: (name: string) => {
-              if (name === 'Content-Type') return 'application/json'
-              if (name === 'X-Execution-Data') return null
-              return null
-            },
+    it.each(['not JSON', '[]', 'null'])('rejects invalid structured output %s', async (content) => {
+      mockFetch.mockResolvedValueOnce(new Response(JSON.stringify({ content })))
+      await expect(
+        handler.execute(
+          mockBlock,
+          {
+            model: 'gpt-5.4',
+            userPrompt: 'Test prompt',
+            responseFormat: { schema: { type: 'object' } },
           },
-          json: () =>
-            Promise.resolve({
-              content: 'Regular text response',
-              model: 'mock-model',
-              tokens: { prompt: 10, completion: 20, total: 30 },
-              timing: { total: 100 },
-              toolCalls: [],
-              cost: undefined,
-            }),
-        })
-      })
-
-      const inputs = {
-        model: 'gpt-4o',
-        userPrompt: 'Format this output.',
-        apiKey: 'test-api-key',
-        responseFormat: '<start.input>',
-      }
-
-      // Should not throw an error, but continue with default behavior
-      const result = await handler.execute(mockBlock, inputs, mockContext)
-
-      expect(result).toEqual({
-        content: 'Regular text response',
-        model: 'mock-model',
-        tokens: { prompt: 10, completion: 20, total: 30 },
-        toolCalls: { list: [], count: 0 },
-        toolResults: [],
-        providerTiming: { total: 100 },
-        cost: undefined,
-      })
+          mockContext
+        )
+      ).rejects.toThrow('Agent response format requires a valid JSON object')
     })
 
     it('should handle errors from the provider request', async () => {
@@ -1049,186 +1017,188 @@ describe('AgentBlockHandler', () => {
       )
     })
 
-    it('should handle streaming responses with text/event-stream content type', async () => {
-      const mockStreamBody = new ReadableStream({
-        start(controller) {
-          controller.close()
-        },
+    it.each([false, true])('names completed OpenAI tool calls, stream=%s', async (stream) => {
+      Object.defineProperty(global, 'window', { value: undefined, configurable: true })
+      mockGetProviderFromModel.mockReturnValue('openai')
+      mockGetApiKey.mockResolvedValue('test-api-key')
+      mockContext.stream = stream
+      let finishTool!: () => void
+      const pendingTool = new Promise<void>((resolve) => {
+        finishTool = resolve
       })
-
-      mockFetch.mockImplementationOnce(() => {
-        return Promise.resolve({
-          ok: true,
-          headers: {
-            get: (name: string) => {
-              if (name === 'Content-Type') return 'application/json'
-              if (name === 'X-Execution-Data') return null
-              return null
-            },
-          },
-          json: () =>
-            Promise.resolve({
-              stream: mockStreamBody,
-              execution: {
-                success: true,
-                output: {},
-                logs: [],
-                metadata: {
-                  duration: 0,
-                  startTime: new Date().toISOString(),
+      mockExecuteTool.mockImplementationOnce(async () => {
+        if (stream) await pendingTool
+        return { success: true, output: { price: 42 } }
+      })
+      mockResponses.mockImplementation(async (payload) => {
+        const done = payload.input.some(
+          (item: { type: string }) => item.type === 'function_call_output'
+        )
+        const response = {
+          status: 'completed',
+          output: done
+            ? [{ type: 'message', content: [{ type: 'output_text', text: 'Done' }] }]
+            : [
+                {
+                  type: 'function_call',
+                  call_id: 'prices-call',
+                  name: 'custom_price_lookup',
+                  arguments: '{}',
+                },
+              ],
+          usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
+        }
+        return payload.stream
+          ? (async function* () {
+              if (done) yield { type: 'response.output_text.delta', delta: 'Done' }
+              yield { type: 'response.completed', response }
+            })()
+          : response
+      })
+      mockExecuteProviderRequest.mockImplementationOnce((_provider, request) =>
+        openaiProvider.executeRequest(request)
+      )
+      const result = await handler.execute(
+        mockBlock,
+        {
+          model: 'gpt-6.1-sol',
+          userPrompt: 'Get prices',
+          tools: [
+            {
+              type: 'custom-tool',
+              title: 'Get prices',
+              toolId: 'custom_price_lookup',
+              code: 'return { price: 42 }',
+              schema: {
+                function: {
+                  description: 'Get prices',
+                  parameters: { type: 'object', properties: {} },
                 },
               },
-            }),
-        })
-      })
-
-      const inputs = {
-        model: 'gpt-4o',
-        userPrompt: 'Stream this response.',
-        apiKey: 'test-api-key',
-        stream: true,
-      }
-
-      mockContext.stream = true
-      mockContext.selectedOutputs = [mockBlock.id]
-
-      const result = await handler.execute(mockBlock, inputs, mockContext)
-
-      expect(result).toHaveProperty('stream')
-      expect(result).toHaveProperty('execution')
-
-      expect((result as StreamingExecution).execution).toHaveProperty('success', true)
-      expect((result as StreamingExecution).execution).toHaveProperty('output')
-      expect((result as StreamingExecution).execution.output).toBeDefined()
-      expect((result as StreamingExecution).execution).toHaveProperty('logs')
-    })
-
-    it('should handle streaming responses with execution data in header', async () => {
-      const mockStreamBody = new ReadableStream({
-        start(controller) {
-          controller.close()
-        },
-      })
-
-      const mockExecutionData = {
-        success: true,
-        output: {
-          content: '',
-          model: 'mock-model',
-          tokens: { prompt: 10, completion: 20, total: 30 },
-        },
-        logs: [
-          {
-            blockId: 'some-id',
-            blockType: BlockType.AGENT,
-            startedAt: new Date().toISOString(),
-            endedAt: new Date().toISOString(),
-            durationMs: 100,
-            success: true,
-          },
-        ],
-        metadata: {
-          startTime: new Date().toISOString(),
-          duration: 100,
-        },
-      }
-
-      mockFetch.mockImplementationOnce(() => {
-        return Promise.resolve({
-          ok: true,
-          headers: {
-            get: (name: string) => {
-              if (name === 'Content-Type') return 'application/json'
-              if (name === 'X-Execution-Data') return JSON.stringify(mockExecutionData)
-              return null
             },
-          },
-          json: () =>
-            Promise.resolve({
-              stream: mockStreamBody,
-              execution: mockExecutionData,
-            }),
-        })
-      })
-
-      const inputs = {
-        model: 'gpt-4o',
-        userPrompt: 'Stream this response with execution data.',
-        apiKey: 'test-api-key',
-        stream: true,
-      }
-
-      mockContext.stream = true
-      mockContext.selectedOutputs = [mockBlock.id]
-
-      const result = await handler.execute(mockBlock, inputs, mockContext)
-
-      expect(result).toHaveProperty('stream')
-      expect(result).toHaveProperty('execution')
-
-      expect((result as StreamingExecution).execution.success).toBe(true)
-      expect((result as StreamingExecution).execution.output.model).toBe('mock-model')
-      const logs = (result as StreamingExecution).execution.logs
-      expect(logs?.length).toBe(1)
-      if (logs && logs.length > 0 && logs[0]) {
-        expect(logs[0].blockType).toBe(BlockType.AGENT)
-      }
-    })
-
-    it('should handle combined stream+execution responses', async () => {
-      new ReadableStream({
-        start(controller) {
-          controller.close()
+          ],
         },
-      })
-
-      mockFetch.mockImplementationOnce(() => {
-        return Promise.resolve({
-          ok: true,
-          headers: {
-            get: (name: string) => (name === 'Content-Type' ? 'application/json' : null),
-          },
-          json: () =>
-            Promise.resolve({
-              stream: {}, // Serialized stream placeholder
-              execution: {
-                success: true,
-                output: {
-                  content: 'Test streaming content',
-                  model: 'gpt-4o',
-                  tokens: { prompt: 10, completion: 5, total: 15 },
-                },
-                logs: [],
-                metadata: {
-                  startTime: new Date().toISOString(),
-                  duration: 150,
-                },
-              },
-            }),
-        })
-      })
-
-      const inputs = {
-        model: 'gpt-4o',
-        userPrompt: 'Return a combined response.',
-        apiKey: 'test-api-key',
-        stream: true,
+        mockContext
+      )
+      const output = (
+        stream ? (result as StreamingExecution).execution.output : result
+      ) as NormalizedBlockOutput
+      if (stream) {
+        expect(output.toolCalls).toBeUndefined()
+        finishTool()
+        expect(await new Response((result as StreamingExecution).stream).text()).toBe('Done')
+        expect((result as StreamingExecution).execution.output).toBe(output)
       }
-
-      mockContext.stream = true
-      mockContext.selectedOutputs = [mockBlock.id]
-
-      const result = await handler.execute(mockBlock, inputs, mockContext)
-
-      expect(result).toHaveProperty('stream')
-      expect(result).toHaveProperty('execution')
-
-      expect((result as StreamingExecution).execution.success).toBe(true)
-      expect((result as StreamingExecution).execution.output.content).toBe('Test streaming content')
-      expect((result as StreamingExecution).execution.output.model).toBe('gpt-4o')
+      expect(output).toMatchObject({
+        toolCalls: { list: [{ id: 'custom_price_lookup', name: 'Get prices' }] },
+      })
+      expect(mockResponses).toHaveBeenCalledTimes(2)
+      expect(mockResponses.mock.calls[0][0].tools[0].name).toBe('custom_price_lookup')
+      expect(mockResponses.mock.calls[1][0].input).toContainEqual({
+        type: 'function_call',
+        call_id: 'prices-call',
+        name: 'custom_price_lookup',
+        arguments: '{}',
+      })
     })
 
-    it('should process memories in advanced mode with system prompt and user prompt', async () => {
+    it.each(['error', 'cancel'])('preserves provider stream %s propagation', async (operation) => {
+      Object.defineProperty(global, 'window', { value: undefined, configurable: true })
+      const cancel = vi.fn()
+      let controller!: ReadableStreamDefaultController<Uint8Array>
+      mockGetApiKey.mockResolvedValue('test-api-key')
+      mockExecuteProviderRequest.mockResolvedValueOnce({
+        stream: new ReadableStream<Uint8Array>({
+          start(value) {
+            controller = value
+          },
+          cancel,
+        }),
+        execution: { success: true, output: {}, logs: [], metadata: { duration: 0 } },
+      })
+      const result = (await handler.execute(
+        mockBlock,
+        { model: 'gpt-6.1-sol', userPrompt: 'Prices' },
+        mockContext
+      )) as StreamingExecution
+      if (operation === 'error') {
+        controller.error(new Error('Provider failed'))
+        await expect(new Response(result.stream).text()).rejects.toThrow('Provider failed')
+      } else {
+        await result.stream.cancel('Cancelled')
+        expect(cancel).toHaveBeenCalledExactlyOnceWith('Cancelled')
+      }
+    })
+
+    it.each(['server', 'browser'])(
+      'handles canonical streaming execution through %s',
+      async (path) => {
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.close()
+          },
+        })
+        const execution = {
+          success: true,
+          output: { content: 'Streaming content', model: 'gpt-5.4' },
+          logs: [],
+          metadata: { duration: 100, startTime: new Date().toISOString() },
+        }
+        if (path === 'server') {
+          Object.defineProperty(global, 'window', { value: undefined, configurable: true })
+          mockGetApiKey.mockResolvedValue('test-api-key')
+          mockExecuteProviderRequest.mockResolvedValue({ stream, execution })
+        } else {
+          mockFetch.mockResolvedValueOnce(
+            new Response(encodeProviderStream({ stream, execution }), {
+              headers: {
+                'Content-Type': 'text/event-stream',
+              },
+            })
+          )
+        }
+        mockContext.stream = true
+        mockContext.selectedOutputs = [mockBlock.id]
+
+        const result = (await handler.execute(
+          mockBlock,
+          { model: 'gpt-5.4', userPrompt: 'Stream this response.' },
+          mockContext
+        )) as StreamingExecution
+
+        expect(result.stream).toBeInstanceOf(ReadableStream)
+        await new Response(result.stream).text()
+        expect(result.execution).toMatchObject({
+          ...execution,
+          blockId: mockBlock.id,
+          blockName: 'Test Agent',
+          isStreaming: true,
+        })
+      }
+    )
+
+    it.each([null, 'invalid', 'data: {}\n\n', ''])(
+      'rejects missing or malformed provider streams %j',
+      async (body) => {
+        mockFetch.mockResolvedValueOnce(
+          new Response(body, { headers: { 'Content-Type': 'text/event-stream' } })
+        )
+
+        const pending = handler.execute(
+          mockBlock,
+          { model: 'gpt-5.4', userPrompt: 'Stream this response.' },
+          mockContext
+        )
+        if (body === null) {
+          await expect(pending).rejects.toThrow('Streaming provider response requires a body')
+        } else {
+          const result = (await pending) as StreamingExecution
+          await expect(new Response(result.stream).text()).rejects.toThrow(/provider stream/i)
+        }
+      }
+    )
+
+    it('processes memories with system prompt and user prompt', async () => {
       const inputs = {
         model: 'gpt-4o',
         systemPrompt: 'You are a helpful assistant.',
@@ -1475,7 +1445,7 @@ describe('AgentBlockHandler', () => {
       expect(requestBody.messages[4].content).toBe('What should I do?')
     })
 
-    it('should handle user prompt as object with input field', async () => {
+    it('serializes the complete object-valued user prompt', async () => {
       const inputs = {
         model: 'gpt-4o',
         systemPrompt: 'You are a helpful assistant.',
@@ -1494,23 +1464,19 @@ describe('AgentBlockHandler', () => {
       const fetchCall = mockFetch.mock.calls[0]
       const requestBody = JSON.parse(fetchCall[1].body)
 
-      // Verify user prompt content was extracted correctly
-      expect(requestBody.messages).toBeDefined()
-      expect(requestBody.messages.length).toBe(2) // system + user prompt
-
-      expect(requestBody.messages[1].role).toBe('user')
-      expect(requestBody.messages[1].content).toBe('What is the weather like?')
-      expect(requestBody.messages[1]).not.toHaveProperty('conversationId')
+      expect(requestBody.messages[1]).toEqual({
+        role: 'user',
+        content: JSON.stringify(inputs.userPrompt),
+      })
     })
 
     it('should pass Azure OpenAI parameters through the request pipeline', async () => {
       const inputs = {
-        model: 'azure/gpt-4o',
+        model: 'azure/gpt-4.1',
         systemPrompt: 'You are a helpful assistant.',
         userPrompt: 'Hello!',
         apiKey: 'test-azure-api-key',
         azureEndpoint: 'https://my-azure-resource.openai.azure.com',
-        azureApiVersion: '2024-07-01-preview',
         temperature: 0.7,
       }
 
@@ -1525,64 +1491,79 @@ describe('AgentBlockHandler', () => {
 
       // Check that Azure parameters are included in the request
       expect(requestBody.azureEndpoint).toBe('https://my-azure-resource.openai.azure.com')
-      expect(requestBody.azureApiVersion).toBe('2024-07-01-preview')
       expect(requestBody.provider).toBe('azure-openai')
-      expect(requestBody.model).toBe('azure/gpt-4o')
+      expect(requestBody.model).toBe('azure/gpt-4.1')
       expect(requestBody.apiKey).toBe('test-azure-api-key')
     })
 
-    it('should pass GPT-5 specific parameters (reasoningEffort and verbosity) through the request pipeline', async () => {
-      const inputs = {
-        model: 'gpt-5',
-        systemPrompt: 'You are a helpful assistant.',
-        userPrompt: 'Hello!',
-        apiKey: 'test-api-key',
-        reasoningEffort: 'minimal',
-        verbosity: 'high',
-        temperature: 0.7,
+    it.each([
+      ['openai', { model: 'gpt-5.4', reasoningEffort: 'xhigh', verbosity: 'high' }],
+      ['anthropic', { model: 'claude-sonnet-4-6', thinkingLevel: 'high' }],
+    ] as const)(
+      'passes optional settings through browser execution for %s',
+      async (provider, settings) => {
+        mockGetProviderFromModel.mockReturnValue(provider)
+        await handler.execute(
+          mockBlock,
+          { ...settings, userPrompt: 'Hello!', apiKey: 'test-api-key' },
+          mockContext
+        )
+
+        const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body)
+        expect(requestBody).toMatchObject({
+          provider,
+          ...settings,
+          apiKey: 'test-api-key',
+          messages: [{ role: 'user', content: 'Hello!' }],
+        })
+        expect(requestBody).not.toHaveProperty('context')
+        expect(requestBody).not.toHaveProperty('systemPrompt')
       }
+    )
 
-      mockGetProviderFromModel.mockReturnValue('openai')
+    it('passes optional model settings through direct server execution', async () => {
+      Object.defineProperty(global, 'window', { value: undefined, configurable: true })
+      mockGetProviderFromModel.mockReturnValue('deepseek')
+      mockGetApiKey.mockResolvedValue('resolved-api-key')
+      mockExecuteProviderRequest.mockResolvedValue({
+        content: 'Hello!',
+        model: 'deepseek-flash',
+      })
 
-      await handler.execute(mockBlock, inputs, mockContext)
+      await handler.execute(
+        mockBlock,
+        {
+          model: 'deepseek-flash',
+          userPrompt: 'Hello!',
+          reasoningEffort: 'max',
+          thinkingLevel: 'none',
+        },
+        mockContext
+      )
 
-      expect(mockFetch).toHaveBeenCalledWith(expect.any(String), expect.any(Object))
-
-      const fetchCall = mockFetch.mock.calls[0]
-      const requestBody = JSON.parse(fetchCall[1].body)
-
-      // Check that GPT-5 parameters are included in the request
-      expect(requestBody.reasoningEffort).toBe('minimal')
-      expect(requestBody.verbosity).toBe('high')
-      expect(requestBody.provider).toBe('openai')
-      expect(requestBody.model).toBe('gpt-5')
-      expect(requestBody.apiKey).toBe('test-api-key')
+      expect(mockFetch).not.toHaveBeenCalled()
+      expect(mockExecuteProviderRequest).toHaveBeenCalledWith(
+        'deepseek',
+        expect.objectContaining({
+          model: 'deepseek-flash',
+          apiKey: 'resolved-api-key',
+          reasoningEffort: 'max',
+          thinkingLevel: 'none',
+          verbosity: undefined,
+          messages: [{ role: 'user', content: 'Hello!' }],
+        })
+      )
+      expect(mockExecuteProviderRequest.mock.calls[0][1]).not.toHaveProperty('context')
+      expect(mockExecuteProviderRequest.mock.calls[0][1]).not.toHaveProperty('systemPrompt')
     })
 
-    it('should handle missing GPT-5 parameters gracefully', async () => {
-      const inputs = {
-        model: 'gpt-5',
-        systemPrompt: 'You are a helpful assistant.',
-        userPrompt: 'Hello!',
-        apiKey: 'test-api-key',
-        temperature: 0.7,
-        // No reasoningEffort or verbosity provided
-      }
-
+    it('leaves optional model settings unset when omitted', async () => {
       mockGetProviderFromModel.mockReturnValue('openai')
-
-      await handler.execute(mockBlock, inputs, mockContext)
-
-      expect(mockFetch).toHaveBeenCalledWith(expect.any(String), expect.any(Object))
-
-      const fetchCall = mockFetch.mock.calls[0]
-      const requestBody = JSON.parse(fetchCall[1].body)
-
-      // Check that GPT-5 parameters are undefined when not provided
+      await handler.execute(mockBlock, { model: 'gpt-5.4', userPrompt: 'Hello!' }, mockContext)
+      const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body)
       expect(requestBody.reasoningEffort).toBeUndefined()
       expect(requestBody.verbosity).toBeUndefined()
-      expect(requestBody.provider).toBe('openai')
-      expect(requestBody.model).toBe('gpt-5')
+      expect(requestBody.thinkingLevel).toBeUndefined()
     })
   })
 })

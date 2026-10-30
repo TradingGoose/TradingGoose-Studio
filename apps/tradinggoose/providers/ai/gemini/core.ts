@@ -32,10 +32,10 @@ import type { FunctionCallResponse, ProviderRequest, ProviderResponse } from '@/
 import {
   calculateCost,
   isDeepResearchModel,
-  isGemini3Model,
+  isGemini3OrLaterModel,
   prepareToolExecution,
   prepareToolsWithUsageControl,
-  sumToolCosts,
+  withToolCosts,
 } from '@/providers/ai/utils'
 import { executeTool } from '@/tools'
 import type { ExecutionState, GeminiProviderType, GeminiUsage } from './types'
@@ -54,7 +54,8 @@ function createInitialState(
   const initialCost = calculateCost(
     model,
     initialUsage.promptTokenCount,
-    initialUsage.candidatesTokenCount
+    initialUsage.candidatesTokenCount,
+    initialUsage.cachedContentTokenCount
   )
 
   return {
@@ -260,7 +261,12 @@ function updateStateWithResponse(
   endTime: number
 ): ExecutionState {
   const usage = convertUsageMetadata(response.usageMetadata)
-  const cost = calculateCost(model, usage.promptTokenCount, usage.candidatesTokenCount)
+  const cost = calculateCost(
+    model,
+    usage.promptTokenCount,
+    usage.candidatesTokenCount,
+    usage.cachedContentTokenCount
+  )
   const duration = endTime - startTime
 
   return {
@@ -309,7 +315,7 @@ function buildNextConfig(
   if (allForcedToolsUsed && request.responseFormat) {
     nextConfig.tools = undefined
     nextConfig.toolConfig = undefined
-    if (isGemini3Model(model)) {
+    if (isGemini3OrLaterModel(model)) {
       logger.info('Gemini 3: Stripping tools after forced tool execution, schema already set')
     } else {
       nextConfig.responseMimeType = 'application/json'
@@ -369,7 +375,7 @@ function createStreamingResult(
           input: 0,
           output: 0,
           total: 0,
-          pricing: { input: 0, output: 0, updatedAt: new Date().toISOString() },
+          pricing: null,
         },
       },
       logs: [],
@@ -478,19 +484,11 @@ function extractTextFromInteractionOutputs(outputs: Interactions.Interaction['ou
 /**
  * Extracts token usage from an Interaction's Usage object.
  * The Interactions API provides total_input_tokens, total_output_tokens, total_tokens,
- * and total_thought_tokens (for thinking models).
- *
- * Also handles the raw API field name total_thought_tokens which the SDK may
- * map to total_reasoning_tokens.
+ * total_cached_tokens, and total_thought_tokens (for thinking models).
  */
-function extractInteractionUsage(usage: Interactions.Usage | undefined): {
-  inputTokens: number
-  outputTokens: number
-  reasoningTokens: number
-  totalTokens: number
-} {
+function extractInteractionUsage(usage: Interactions.Usage | undefined) {
   if (!usage) {
-    return { inputTokens: 0, outputTokens: 0, reasoningTokens: 0, totalTokens: 0 }
+    return { inputTokens: 0, outputTokens: 0, reasoningTokens: 0, cachedTokens: 0, totalTokens: 0 }
   }
 
   const usageLogger = createLogger('DeepResearchUsage')
@@ -499,9 +497,10 @@ function extractInteractionUsage(usage: Interactions.Usage | undefined): {
   const inputTokens = usage.total_input_tokens ?? 0
   const outputTokens = usage.total_output_tokens ?? 0
   const reasoningTokens = usage.total_thought_tokens ?? 0
+  const cachedTokens = usage.total_cached_tokens ?? 0
   const totalTokens = usage.total_tokens ?? inputTokens + outputTokens
 
-  return { inputTokens, outputTokens, reasoningTokens, totalTokens }
+  return { inputTokens, outputTokens, reasoningTokens, cachedTokens, totalTokens }
 }
 
 /**
@@ -510,12 +509,7 @@ function extractInteractionUsage(usage: Interactions.Usage | undefined): {
 function buildDeepResearchResponse(
   content: string,
   model: string,
-  usage: {
-    inputTokens: number
-    outputTokens: number
-    reasoningTokens: number
-    totalTokens: number
-  },
+  usage: ReturnType<typeof extractInteractionUsage>,
   providerStartTime: number,
   providerStartTimeISO: string,
   interactionId?: string
@@ -549,7 +543,7 @@ function buildDeepResearchResponse(
         },
       ],
     },
-    cost: calculateCost(model, usage.inputTokens, usage.outputTokens),
+    cost: calculateCost(model, usage.inputTokens, usage.outputTokens, usage.cachedTokens),
     interactionId,
   }
 }
@@ -570,18 +564,13 @@ function createDeepResearchStream(
   stream: AsyncIterable<Interactions.InteractionSSEEvent>,
   onComplete?: (
     content: string,
-    usage: {
-      inputTokens: number
-      outputTokens: number
-      reasoningTokens: number
-      totalTokens: number
-    },
+    usage: ReturnType<typeof extractInteractionUsage>,
     interactionId?: string
   ) => void
 ): ReadableStream<Uint8Array> {
   const streamLogger = createLogger('DeepResearchStream')
   let fullContent = ''
-  let completionUsage = { inputTokens: 0, outputTokens: 0, reasoningTokens: 0, totalTokens: 0 }
+  let completionUsage = extractInteractionUsage(undefined)
   let completedInteractionId: string | undefined
 
   return new ReadableStream({
@@ -738,7 +727,7 @@ export async function executeDeepResearchRequest(
               input: 0,
               output: 0,
               total: 0,
-              pricing: { input: 0, output: 0, updatedAt: new Date().toISOString() },
+              pricing: null,
             },
           },
           logs: [],
@@ -762,7 +751,12 @@ export async function executeDeepResearchRequest(
           }
           streamingResult.execution.output.interactionId = streamInteractionId
 
-          const cost = calculateCost(model, usage.inputTokens, usage.outputTokens)
+          const cost = calculateCost(
+            model,
+            usage.inputTokens,
+            usage.outputTokens,
+            usage.cachedTokens
+          )
           streamingResult.execution.output.cost = cost
 
           const streamEndTime = Date.now()
@@ -932,7 +926,7 @@ export async function executeGeminiRequest(
       geminiConfig.responseMimeType = 'application/json'
       geminiConfig.responseSchema = cleanSchemaForGemini(request.responseFormat.schema) as Schema
       logger.info('Using Gemini native structured output format')
-    } else if (request.responseFormat && tools?.length && isGemini3Model(model)) {
+    } else if (request.responseFormat && tools?.length && isGemini3OrLaterModel(model)) {
       geminiConfig.responseMimeType = 'application/json'
       geminiConfig.responseJsonSchema = request.responseFormat.schema
       logger.info('Using Gemini 3 structured output with tools (responseJsonSchema)')
@@ -947,7 +941,7 @@ export async function executeGeminiRequest(
       const thinkingConfig: ThinkingConfig = {
         includeThoughts: false,
       }
-      if (isGemini3Model(model)) {
+      if (isGemini3OrLaterModel(model)) {
         thinkingConfig.thinkingLevel = mapToThinkingLevel(request.thinkingLevel)
       } else {
         thinkingConfig.thinkingBudget = mapToThinkingBudget(model, request.thinkingLevel)
@@ -955,7 +949,7 @@ export async function executeGeminiRequest(
       geminiConfig.thinkingConfig = thinkingConfig
     } else if (
       request.thinkingLevel === 'none' &&
-      !isGemini3Model(model) &&
+      !isGemini3OrLaterModel(model) &&
       supportsDisablingGemini25Thinking(model)
     ) {
       geminiConfig.thinkingConfig = { includeThoughts: false, thinkingBudget: 0 }
@@ -1041,7 +1035,8 @@ export async function executeGeminiRequest(
           const costResult = calculateCost(
             model,
             usage.promptTokenCount,
-            usage.candidatesTokenCount
+            usage.candidatesTokenCount,
+            usage.cachedContentTokenCount
           )
           streamingResult.execution.output.cost = costResult
 
@@ -1142,7 +1137,7 @@ export async function executeGeminiRequest(
           if (request.responseFormat) {
             nextConfig.tools = undefined
             nextConfig.toolConfig = undefined
-            if (!isGemini3Model(model)) {
+            if (!isGemini3OrLaterModel(model)) {
               nextConfig.responseMimeType = 'application/json'
               nextConfig.responseSchema = cleanSchemaForGemini(
                 request.responseFormat.schema
@@ -1186,16 +1181,18 @@ export async function executeGeminiRequest(
               const streamCost = calculateCost(
                 model,
                 usage.promptTokenCount,
-                usage.candidatesTokenCount
+                usage.candidatesTokenCount,
+                usage.cachedContentTokenCount
               )
-              const tc = sumToolCosts(state.toolResults)
-              streamingResult.execution.output.cost = {
-                input: accumulatedCost.input + streamCost.input,
-                output: accumulatedCost.output + streamCost.output,
-                toolCost: tc || undefined,
-                total: accumulatedCost.total + streamCost.total + tc,
-                pricing: streamCost.pricing,
-              }
+              streamingResult.execution.output.cost = withToolCosts(
+                {
+                  input: accumulatedCost.input + streamCost.input,
+                  output: accumulatedCost.output + streamCost.output,
+                  total: accumulatedCost.total + streamCost.total,
+                  pricing: streamCost.pricing,
+                },
+                state.toolResults
+              )
 
               if (streamingResult.execution.output.providerTiming) {
                 streamingResult.execution.output.providerTiming.endTime = new Date().toISOString()

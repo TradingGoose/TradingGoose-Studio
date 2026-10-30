@@ -103,32 +103,3 @@ export async function decryptSecret(encryptedValue: string): Promise<{ decrypted
     throw error
   }
 }
-
-export async function getRotatingApiKey(provider: string): Promise<string> {
-  if (provider !== 'openai' && provider !== 'anthropic') {
-    throw new Error(`No rotation implemented for provider: ${provider}`)
-  }
-
-  if (provider === 'openai') {
-    const { resolveOpenAIServiceConfig } = await import('@/lib/system-services/runtime')
-    const config = await resolveOpenAIServiceConfig()
-    return pickRotatingApiKey(config.rotationKeys, provider)
-  }
-
-  const { resolveAnthropicServiceConfig } = await import('@/lib/system-services/runtime')
-  const config = await resolveAnthropicServiceConfig()
-  return pickRotatingApiKey(config.rotationKeys, provider)
-}
-
-function pickRotatingApiKey(keys: string[], provider: string): string {
-  if (keys.length === 0) {
-    throw new Error(
-      `No API keys configured for rotation. Please configure ${provider} service rotation keys 1-3 in admin services.`
-    )
-  }
-
-  const currentMinute = new Date().getMinutes()
-  const keyIndex = currentMinute % keys.length
-
-  return keys[keyIndex]
-}

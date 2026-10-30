@@ -1,6 +1,6 @@
 import { getEnv, isTruthy } from '@/lib/env'
 import { evaluateSubBlockCondition } from '@/lib/workflows/sub-block-conditions'
-import { buildConfiguredSubBlockParams } from '@/lib/workflows/subblock-values'
+import { buildConfiguredSubBlockParams, isSubBlockInMode } from '@/lib/workflows/subblock-values'
 import type { SubBlockConfig } from '@/blocks/types'
 import { getTrigger } from '@/triggers'
 import { isDeployManagedTriggerSubBlock } from '@/triggers/constants'
@@ -10,7 +10,7 @@ interface BuildSubBlockRowsParams {
   blockId?: string
   subBlocks: SubBlockConfig[]
   stateToUse: Record<string, any>
-  isAdvancedMode: boolean
+  isAdvancedMode?: boolean
   isTriggerMode: boolean
   isPureTriggerBlock: boolean
   availableTriggerIds?: string[]
@@ -20,20 +20,20 @@ interface BuildSubBlockRowsParams {
 
 type BuildSubBlockPreviewRowsParams = Omit<
   BuildSubBlockRowsParams,
-  | 'isAdvancedMode'
-  | 'hideFromPreview'
-  | 'triggerSubBlockOwner'
-  | 'isPureTriggerBlock'
-  | 'isTriggerMode'
+  'hideFromPreview' | 'triggerSubBlockOwner' | 'isPureTriggerBlock' | 'isTriggerMode'
 > & {
   isPureTriggerBlock?: boolean
   isTriggerMode?: boolean
 }
 
-const hasStoredValue = (value: unknown) =>
-  value && typeof value === 'object' && 'value' in value
-    ? (value as { value: unknown }).value !== undefined
-    : value !== undefined
+export const hasConfiguredSubBlockValue = (entry: unknown) => {
+  const value = entry && typeof entry === 'object' && 'value' in entry ? entry.value : entry
+  if (value === undefined || value === null) return false
+  if (typeof value === 'string') return value.trim().length > 0
+  if (Array.isArray(value)) return value.length > 0
+  if (typeof value === 'object') return Object.keys(value).length > 0
+  return true
+}
 
 export function buildSubBlockRows({
   blockId,
@@ -98,8 +98,8 @@ export function buildSubBlockRows({
       }
     }
 
-    if (isAdvancedMode && subBlock.mode !== 'advanced') return false
-    if (!isAdvancedMode && subBlock.mode === 'advanced') return false
+    if (isAdvancedMode === true && subBlock.mode !== 'advanced') return false
+    if (isAdvancedMode === false && subBlock.mode === 'advanced') return false
 
     if (!subBlock.condition) return true
 
@@ -134,6 +134,7 @@ export function buildSubBlockRows({
 }
 
 export function buildSubBlockPreviewRows({
+  isAdvancedMode = false,
   isPureTriggerBlock = false,
   isTriggerMode = false,
   subBlocks,
@@ -143,12 +144,11 @@ export function buildSubBlockPreviewRows({
   return buildSubBlockRows({
     ...params,
     stateToUse,
-    subBlocks: subBlocks
-      .filter((subBlock) => subBlock.mode !== 'advanced' || hasStoredValue(stateToUse[subBlock.id]))
-      .map((subBlock) =>
-        subBlock.mode === 'advanced' ? { ...subBlock, mode: 'both' as const } : subBlock
-      ),
-    isAdvancedMode: false,
+    subBlocks: subBlocks.filter(
+      (subBlock) =>
+        isSubBlockInMode(subBlock, isAdvancedMode) &&
+        (!subBlock.additional || hasConfiguredSubBlockValue(stateToUse[subBlock.id]))
+    ),
     isPureTriggerBlock,
     isTriggerMode,
     hideFromPreview: true,

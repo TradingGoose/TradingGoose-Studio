@@ -17,7 +17,7 @@ No additional setup required! These validators work out of the box.
 
 For **hallucination detection**, you'll need:
 - A knowledge base with documents
-- An LLM provider API key (or use hosted models)
+- Your LLM provider API key (not required for Ollama)
 
 ### Python Validators (PII Detection)
 
@@ -61,7 +61,7 @@ The hallucination detector uses a modern RAG + LLM confidence scoring approach:
 - `threshold` (optional): Confidence threshold 0-10, default 3 (scores below 3 fail)
 - `topK` (optional): Number of chunks to retrieve, default 10
 - `model` (required): Select from dropdown of available LLM models, default `gpt-4o-mini`
-- `apiKey` (conditional): API key for the LLM provider (hidden for hosted models and Ollama)
+- `apiKey` (conditional): Your LLM provider API key for hallucination scoring (hidden for Ollama on self-hosted deployments)
 
 ### PII Detection
 

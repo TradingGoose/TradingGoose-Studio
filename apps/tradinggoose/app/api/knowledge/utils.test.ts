@@ -225,7 +225,6 @@ describe('Knowledge Utils', () => {
     })
     resolveOpenAIServiceConfig.mockResolvedValue({
       defaultApiKey: 'test-key',
-      rotationKeys: [],
     })
     mockGetUserEntityPermissions.mockReset()
     mockGetUserEntityPermissions.mockResolvedValue('read')
@@ -363,7 +362,6 @@ describe('Knowledge Utils', () => {
       })
       resolveOpenAIServiceConfig.mockResolvedValue({
         defaultApiKey: 'test-openai-key',
-        rotationKeys: [],
       })
 
       const fetchSpy = vi.mocked(fetch)
@@ -389,7 +387,6 @@ describe('Knowledge Utils', () => {
     it('should use OpenAI when no Azure config is provided', async () => {
       resolveOpenAIServiceConfig.mockResolvedValue({
         defaultApiKey: 'test-openai-key',
-        rotationKeys: [],
       })
 
       const fetchSpy = vi.mocked(fetch)
@@ -415,7 +412,6 @@ describe('Knowledge Utils', () => {
     it('should throw error when no API configuration provided', async () => {
       resolveOpenAIServiceConfig.mockResolvedValue({
         defaultApiKey: null,
-        rotationKeys: [],
       })
 
       await expect(generateEmbeddings(['test text'])).rejects.toThrow(

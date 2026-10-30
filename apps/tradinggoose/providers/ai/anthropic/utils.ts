@@ -52,10 +52,6 @@ export function createReadableStreamFromAnthropicStream(
   })
 }
 
-export function generateToolUseId(toolName: string): string {
-  return `${toolName}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
-}
-
 export function checkForForcedToolUsage(
   response: any,
   toolChoice: any,

@@ -40,6 +40,9 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
 
   const [isRenaming, setIsRenaming] = useState(false)
   const [editedName, setEditedName] = useState('')
+  const [additionalFieldsVisibility, setAdditionalFieldsVisibility] = useState<
+    Record<string, boolean>
+  >({})
   const renamingBlockIdRef = useRef<string | null>(null)
   const nameInputRefCallback = useCallback((element: HTMLInputElement | null) => {
     if (element) {
@@ -82,15 +85,6 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
   const stopPanelEvent = useCallback((event: { stopPropagation: () => void }) => {
     event.stopPropagation()
   }, [])
-  const handleToggleAdvancedFields = useCallback(
-    (event: React.MouseEvent<HTMLButtonElement>) => {
-      event.stopPropagation()
-      if (!selectedBlock || shouldDisableWrite) return
-      collaborativeToggleBlockAdvancedMode(selectedBlock.id)
-    },
-    [collaborativeToggleBlockAdvancedMode, selectedBlock, shouldDisableWrite]
-  )
-
   useEffect(() => {
     if (!isRenaming) return
     if (!selectedBlock || renamingBlockIdRef.current !== selectedBlock.id) {
@@ -100,14 +94,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
 
   const selectedBlockDisplayName = selectedBlock ? selectedBlock.name : ''
 
-  const {
-    regularRows,
-    advancedRows,
-    stateToUse,
-    displayAdvancedOptions,
-    hasAdvancedOnlyFields,
-    isTriggerConfigurationView,
-  } = useMemo(() => {
+  const layout = useMemo(() => {
     return buildTriggerEditingLayout({
       inspectorCopy: workflowInspectorCopy,
       blockType: selectedBlock?.type ?? '',
@@ -117,6 +104,31 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
       shouldDisableWrite,
     })
   }, [blockConfig, selectedBlock, shouldDisableWrite, workflowInspectorCopy])
+
+  const {
+    regularRows,
+    additionalRows,
+    stateToUse,
+    hasAdditionalFields,
+    isTriggerConfigurationView,
+  } = layout
+  const displayAdditionalFields =
+    layout.hasAdvancedFields || shouldDisableWrite
+      ? layout.displayAdditionalFields
+      : (additionalFieldsVisibility[selectedBlock?.id ?? ''] ?? layout.displayAdditionalFields)
+
+  const handleToggleAdditionalFields = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation()
+    if (!selectedBlock || shouldDisableWrite) return
+    if (layout.hasAdvancedFields) {
+      collaborativeToggleBlockAdvancedMode(selectedBlock.id)
+    } else {
+      setAdditionalFieldsVisibility((visibility) => ({
+        ...visibility,
+        [selectedBlock.id]: !displayAdditionalFields,
+      }))
+    }
+  }
 
   const emptyStateMessage = useMemo(() => {
     if (isTriggerConfigurationView) {
@@ -245,7 +257,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
         </div>
       </div>
       <div className='mt-3 space-y-4'>
-        {regularRows.length === 0 && (!displayAdvancedOptions || advancedRows.length === 0) ? (
+        {regularRows.length === 0 && !hasAdditionalFields ? (
           <div className='rounded-md border border-dashed p-3 text-muted-foreground text-xs'>
             {emptyStateMessage}
           </div>
@@ -254,46 +266,50 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
             <SubBlockEditRows
               blockId={selectedBlock.id}
               rows={regularRows}
+              subBlockConfigs={blockConfig.subBlocks}
+              isAdvancedMode={selectedBlock.advancedMode ?? false}
               stateToUse={stateToUse}
               disabled={shouldDisableWrite}
               rowKeyPrefix='panel-row'
               availableTriggerIds={blockConfig?.triggers?.available}
             />
-            {hasAdvancedOnlyFields && !shouldDisableWrite && (
+            {hasAdditionalFields && (!shouldDisableWrite || displayAdditionalFields) && (
               <div className='flex items-center gap-[10px] pt-[4px]'>
                 <div className='h-px flex-1 border-border border-t border-dashed' />
-                <button
-                  type='button'
-                  onPointerDown={stopPanelEvent}
-                  onMouseDown={stopPanelEvent}
-                  onClick={handleToggleAdvancedFields}
-                  className='flex items-center gap-[6px] whitespace-nowrap font-medium text-[13px] text-muted-foreground hover:text-foreground'
-                >
-                  {displayAdvancedOptions ? 'Hide additional fields' : 'Show additional fields'}
-                  <ChevronDown
-                    className={`h-[14px] w-[14px] transition-transform duration-200 ${displayAdvancedOptions ? 'rotate-180' : ''}`}
-                  />
-                </button>
+                {shouldDisableWrite ? (
+                  <span className='whitespace-nowrap font-medium text-[13px] text-muted-foreground'>
+                    {workflowEditorCopy.additionalFields}
+                  </span>
+                ) : (
+                  <button
+                    type='button'
+                    aria-expanded={displayAdditionalFields}
+                    onPointerDown={stopPanelEvent}
+                    onMouseDown={stopPanelEvent}
+                    onClick={handleToggleAdditionalFields}
+                    className='flex items-center gap-[6px] whitespace-nowrap font-medium text-[13px] text-muted-foreground hover:text-foreground'
+                  >
+                    {displayAdditionalFields
+                      ? workflowEditorCopy.hideAdditionalFields
+                      : workflowEditorCopy.showAdditionalFields}
+                    <ChevronDown
+                      className={`h-[14px] w-[14px] transition-transform duration-200 ${displayAdditionalFields ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+                )}
                 <div className='h-px flex-1 border-border border-t border-dashed' />
               </div>
             )}
-            {hasAdvancedOnlyFields && shouldDisableWrite && displayAdvancedOptions && (
-              <div className='flex items-center gap-[10px] pt-[4px]'>
-                <div className='h-px flex-1 border-border border-t border-dashed' />
-                <span className='whitespace-nowrap font-medium text-[13px] text-muted-foreground'>
-                  Additional fields
-                </span>
-                <div className='h-px flex-1 border-border border-t border-dashed' />
-              </div>
-            )}
-            {displayAdvancedOptions && (
+            {displayAdditionalFields && (
               <SubBlockEditRows
                 blockId={selectedBlock.id}
-                rows={advancedRows}
+                rows={additionalRows}
+                subBlockConfigs={blockConfig.subBlocks}
+                isAdvancedMode={selectedBlock.advancedMode ?? false}
                 stateToUse={stateToUse}
                 disabled={shouldDisableWrite}
-                rowKeyPrefix='panel-advanced-row'
-                availableTriggerIds={blockConfig?.triggers?.available}
+                rowKeyPrefix='panel-additional-row'
+                availableTriggerIds={blockConfig.triggers?.available}
               />
             )}
           </>

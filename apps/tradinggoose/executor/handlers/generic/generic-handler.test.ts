@@ -221,7 +221,6 @@ describe('GenericBlockHandler', () => {
               pricing: {
                 input: 0.02,
                 output: 0,
-                updatedAt: '2025-07-10',
               },
             },
           },
@@ -288,7 +287,6 @@ describe('GenericBlockHandler', () => {
             pricing: {
               input: 0.02,
               output: 0,
-              updatedAt: '2025-07-10',
             },
           },
         },
