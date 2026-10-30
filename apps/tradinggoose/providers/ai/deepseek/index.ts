@@ -30,6 +30,19 @@ export const deepseekProvider: ProviderConfig = {
     if (!request.apiKey) {
       throw new Error('API key is required for Deepseek')
     }
+    if (request.responseFormat && request.responseFormat.strict !== false) {
+      throw new Error('DeepSeek does not support strict JSON Schema response formats')
+    }
+
+    const normalizeContent = (content: string, final = false) => {
+      const normalized = request.responseFormat
+        ? content.trim()
+        : content.replace(/```json\n?|\n?```/g, '').trim()
+      if (final && request.responseFormat && !normalized) {
+        throw new Error('DeepSeek returned an empty JSON response')
+      }
+      return normalized
+    }
 
     // Start execution timer for the entire provider execution
     const providerStartTime = Date.now()
@@ -166,7 +179,7 @@ export const deepseekProvider: ProviderConfig = {
             'Deepseek',
             (content, usage) => {
               recordUsage(usage)
-              streamingResult.execution.output.content = content
+              streamingResult.execution.output.content = normalizeContent(content, true)
             }
           ),
           execution: {
@@ -220,15 +233,7 @@ export const deepseekProvider: ProviderConfig = {
       const firstResponseTime = Date.now() - initialCallTime
       recordUsage(currentResponse.usage)
 
-      let content = currentResponse.choices[0]?.message?.content || ''
-
-      // Clean up the response content if it exists
-      if (content) {
-        // Remove any markdown code block markers
-        content = content.replace(/```json\n?|\n?```/g, '')
-        // Trim any whitespace
-        content = content.trim()
-      }
+      let content = normalizeContent(currentResponse.choices[0]?.message?.content ?? '')
 
       const toolCalls = []
       const toolResults: Record<string, unknown>[] = []
@@ -409,13 +414,7 @@ export const deepseekProvider: ProviderConfig = {
         // Add to model time
         modelTime += thisModelTime
 
-        // Update content if we have a text response
-        if (currentResponse.choices[0]?.message?.content) {
-          content = currentResponse.choices[0].message.content
-          // Clean up the response content
-          content = content.replace(/```json\n?|\n?```/g, '')
-          content = content.trim()
-        }
+        content = normalizeContent(currentResponse.choices[0]?.message?.content ?? '')
 
         recordUsage(currentResponse.usage)
 
@@ -450,7 +449,7 @@ export const deepseekProvider: ProviderConfig = {
             'Deepseek',
             (content, usage) => {
               recordUsage(usage)
-              streamingResult.execution.output.content = content
+              streamingResult.execution.output.content = normalizeContent(content, true)
               streamingResult.execution.output.cost = withToolCosts(cost.value, toolResults)
             }
           ),
@@ -494,7 +493,7 @@ export const deepseekProvider: ProviderConfig = {
       }
 
       return {
-        content,
+        content: normalizeContent(content, true),
         model: request.model,
         tokens,
         cost: cost.value,

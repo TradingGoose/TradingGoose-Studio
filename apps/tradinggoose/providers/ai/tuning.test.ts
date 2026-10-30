@@ -1493,32 +1493,26 @@ it.each(
   }
 )
 
-it('applies DeepSeek response format through tool continuations and streaming', async () => {
-  const content = '{"value":42}'
-  const schema = { type: 'object', properties: { value: { type: 'number' } } }
+it('applies non-strict DeepSeek response format without rewriting JSON strings', async () => {
+  const content = '{"value":"keep ```json and ``` markers"}'
+  const schema = { type: 'object', properties: { value: { type: 'string' } } }
   mocks.chat
     .mockResolvedValueOnce(
       completion({ role: 'assistant', content: null, tool_calls: [toolCall('schema')] })
     )
     .mockResolvedValueOnce(completion({ role: 'assistant', content }))
-    .mockResolvedValueOnce(
-      (async function* () {
-        yield { choices: [{ delta: { content } }] }
-      })()
-    )
 
   const result = await executeProviderRequest(
     'deepseek',
     request('deepseek-flash', {
       systemPrompt: 'Keep this instruction',
-      responseFormat: { name: 'answer', schema },
-      stream: true,
+      responseFormat: { name: 'answer', schema, strict: false },
       tools: [tool],
     })
   )
-  if (!('stream' in result)) throw new Error('Expected streaming execution')
-  expect(await new Response(result.stream).text()).toBe(content)
-  expect(mocks.chat).toHaveBeenCalledTimes(3)
+  if ('stream' in result) throw new Error('Expected completed execution')
+  expect(result.content).toBe(content)
+  expect(mocks.chat).toHaveBeenCalledTimes(2)
   expect(mocks.tool).toHaveBeenCalledTimes(1)
   for (const [payload] of mocks.chat.mock.calls) {
     expect(payload.response_format).toEqual({ type: 'json_object' })
@@ -1529,6 +1523,54 @@ it('applies DeepSeek response format through tool continuations and streaming', 
     expect(systemMessage.content).toContain(JSON.stringify(schema))
   }
 })
+
+it('rejects strict DeepSeek response formats before inference', async () => {
+  await expect(
+    deepseekProvider.executeRequest(
+      request('deepseek-flash', {
+        responseFormat: { schema: { type: 'object' } },
+      })
+    )
+  ).rejects.toThrow('does not support strict JSON Schema')
+  expect(mocks.chat).not.toHaveBeenCalled()
+})
+
+it.each(['nonstream-tool', 'stream-tool', 'stream-direct'] as const)(
+  'rejects empty DeepSeek JSON in %s responses',
+  async (mode) => {
+    const stream = mode.startsWith('stream')
+    const afterTool = mode.endsWith('tool')
+    if (afterTool) {
+      mocks.chat
+        .mockResolvedValueOnce(
+          completion({
+            role: 'assistant',
+            content: '{"stale":true}',
+            tool_calls: [toolCall('schema')],
+          })
+        )
+        .mockResolvedValueOnce(completion({ role: 'assistant', content: '' }))
+    }
+    if (stream) mocks.chat.mockResolvedValueOnce((async function* () {})())
+
+    const execution = deepseekProvider.executeRequest(
+      request('deepseek-flash', {
+        responseFormat: { schema: { type: 'object' }, strict: false },
+        stream,
+        tools: afterTool ? [tool] : undefined,
+      })
+    )
+    if (!stream) {
+      await expect(execution).rejects.toThrow('returned an empty JSON response')
+      return
+    }
+    const result = await execution
+    if (!('stream' in result)) throw new Error('Expected streaming execution')
+    await expect(new Response(result.stream).text()).rejects.toThrow(
+      'returned an empty JSON response'
+    )
+  }
+)
 
 it.each(['deepseek-v4-pro', 'deepseek-flash'])(
   'honors forced %s tools when thinking is explicitly disabled',
