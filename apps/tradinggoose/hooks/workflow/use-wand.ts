@@ -54,7 +54,6 @@ interface ChatMessage {
 
 interface UseWandProps {
   wandConfig: WandConfig
-  promptContext?: Record<string, any>
   currentValue?: string
   onGeneratedContent: (content: string) => void
   onStreamChunk?: (chunk: string) => void
@@ -64,7 +63,6 @@ interface UseWandProps {
 
 export function useWand({
   wandConfig,
-  promptContext,
   currentValue,
   onGeneratedContent,
   onStreamChunk,
@@ -146,10 +144,7 @@ export function useWand({
         const contextInfo = buildContextInfo(currentValue, wandConfig.generationType)
 
         // Build the system prompt with context information
-        let systemPrompt =
-          typeof wandConfig.prompt === 'function'
-            ? wandConfig.prompt(promptContext ?? {})
-            : wandConfig.prompt
+        let systemPrompt = wandConfig.prompt
         if (systemPrompt.includes('{context}')) {
           systemPrompt = systemPrompt.replace('{context}', contextInfo)
         }
@@ -271,7 +266,6 @@ export function useWand({
     },
     [
       wandConfig,
-      promptContext,
       currentValue,
       onGeneratedContent,
       onStreamChunk,

@@ -49,7 +49,6 @@ interface CodeProps {
   showCopyButton?: boolean
   onValidationChange?: (isValid: boolean) => void
   wandConfig: WandConfig
-  promptContext?: Record<string, any>
 }
 
 export function Code({
@@ -68,7 +67,6 @@ export function Code({
   showCopyButton = false,
   onValidationChange,
   wandConfig,
-  promptContext,
 }: CodeProps) {
   const copy = useWorkflowBlockEditorCopy().code
   const workspaceId = useWorkspaceId()
@@ -254,7 +252,6 @@ Current code context: {context}
 
   const wandHook = useWand({
     wandConfig: readOnly ? { ...wandConfig, enabled: false } : wandConfig,
-    promptContext,
     currentValue: code,
     onStreamStart: () => {
       setStreamingLock(true)

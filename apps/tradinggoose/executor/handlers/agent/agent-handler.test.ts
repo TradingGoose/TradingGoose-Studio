@@ -937,6 +937,29 @@ describe('AgentBlockHandler', () => {
       })
     })
 
+    it.each([
+      ['openai', true],
+      ['deepseek', false],
+    ] as const)(
+      'derives response format strictness for the resolved %s provider',
+      async (provider, strict) => {
+        mockGetProviderFromModel.mockReturnValue(provider)
+        const responseFormat = { name: 'answer', schema: { type: 'object' } }
+        mockFetch.mockResolvedValueOnce(
+          new Response(JSON.stringify({ content: '{}', model: 'mock-model', toolCalls: [] }), {
+            headers: { 'Content-Type': 'application/json' },
+          })
+        )
+
+        await handler.execute(mockBlock, { model: '<variable.model>', responseFormat }, mockContext)
+
+        expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toMatchObject({
+          provider,
+          responseFormat: { ...responseFormat, strict },
+        })
+      }
+    )
+
     it('should handle responseFormat when it is an empty string', async () => {
       mockFetch.mockImplementationOnce(() => {
         return Promise.resolve({

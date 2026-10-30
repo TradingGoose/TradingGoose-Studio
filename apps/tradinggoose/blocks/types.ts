@@ -168,7 +168,7 @@ export type DropdownEntityListKind = 'workflow' | 'watchlist'
 
 export interface WandConfig {
   enabled: boolean
-  prompt: string | ((params: Record<string, any>) => string)
+  prompt: string
   generationType?: GenerationType
   placeholder?: string
   maintainHistory?: boolean

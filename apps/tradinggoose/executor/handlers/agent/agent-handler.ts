@@ -117,7 +117,13 @@ export class AgentBlockHandler implements BlockHandler {
       messages,
       inputs,
       formattedTools,
-      responseFormat,
+      responseFormat: responseFormat
+        ? {
+            name: responseFormat.name,
+            schema: responseFormat.schema,
+            strict: providerId !== 'deepseek',
+          }
+        : undefined,
       block,
       context,
       streaming: streamingConfig.shouldUseStreaming ?? false,
