@@ -16,7 +16,7 @@ vi.mock('@/blocks', () => ({
               id: 'memories',
               title: 'Memories',
               type: 'short-input',
-              mode: 'advanced',
+              additional: true,
             },
             {
               id: 'responseFormat',

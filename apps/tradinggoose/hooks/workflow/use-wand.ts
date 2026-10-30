@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import { createLogger } from '@/lib/logs/console/logger'
-import type { GenerationType } from '@/blocks/types'
+import type { WandConfig } from '@/blocks/types'
 
 const logger = createLogger('useWand')
 
@@ -50,14 +50,6 @@ function buildContextInfo(currentValue?: string, generationType?: string): strin
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
   content: string
-}
-
-export interface WandConfig {
-  enabled: boolean
-  prompt: string
-  generationType?: GenerationType
-  placeholder?: string
-  maintainHistory?: boolean // Whether to keep conversation history
 }
 
 interface UseWandProps {

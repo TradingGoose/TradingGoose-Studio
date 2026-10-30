@@ -1,13 +1,12 @@
 import { TranslateIcon } from '@/components/icons/icons'
 import { isHosted } from '@/lib/environment'
 import { AuthMode, type BlockConfig } from '@/blocks/types'
-import { getProviderDefaultModel } from '@/providers/ai/models'
 import {
-  getAllModelProviders,
-  getHostedModels,
+  getProviderDefaultModel,
+  getProviderFromModel,
   getProviderIcon,
-  providers,
-} from '@/providers/ai/utils'
+  getProviderModels,
+} from '@/providers/ai/models'
 import { useProvidersStore } from '@/stores/providers/store'
 
 const DEFAULT_MODEL = getProviderDefaultModel('openai')
@@ -84,13 +83,8 @@ export const TranslateBlock: BlockConfig = {
       password: true,
       connectionDroppable: false,
       required: true,
-      // Hide API key for hosted models and Ollama models
       condition: isHosted
-        ? {
-            field: 'model',
-            value: getHostedModels(),
-            not: true, // Show for all models EXCEPT those listed
-          }
+        ? undefined
         : () => ({
             field: 'model',
             value: getCurrentOllamaModels(),
@@ -107,19 +101,7 @@ export const TranslateBlock: BlockConfig = {
       connectionDroppable: false,
       condition: {
         field: 'model',
-        value: providers['azure-openai'].models,
-      },
-    },
-    {
-      id: 'azureApiVersion',
-      title: 'Azure API Version',
-      type: 'short-input',
-      layout: 'full',
-      placeholder: '2024-07-01-preview',
-      connectionDroppable: false,
-      condition: {
-        field: 'model',
-        value: providers['azure-openai'].models,
+        value: getProviderModels('azure-openai'),
       },
     },
     {
@@ -142,11 +124,7 @@ export const TranslateBlock: BlockConfig = {
         if (!model) {
           throw new Error('No model selected')
         }
-        const tool = getAllModelProviders()[model]
-        if (!tool) {
-          throw new Error(`Invalid model selected: ${model}`)
-        }
-        return tool
+        return getProviderFromModel(model)
       },
     },
   },
@@ -155,7 +133,6 @@ export const TranslateBlock: BlockConfig = {
     targetLanguage: { type: 'string', description: 'Target language' },
     apiKey: { type: 'string', description: 'Provider API key' },
     azureEndpoint: { type: 'string', description: 'Azure OpenAI endpoint URL' },
-    azureApiVersion: { type: 'string', description: 'Azure API version' },
     systemPrompt: { type: 'string', description: 'Translation instructions' },
   },
   outputs: {

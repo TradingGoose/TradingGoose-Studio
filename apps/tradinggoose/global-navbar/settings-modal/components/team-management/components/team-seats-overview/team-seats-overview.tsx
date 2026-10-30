@@ -1,8 +1,10 @@
 import { Building2 } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
+import { formatLocalizedNumber, formatUsd } from '@/i18n/formatters'
 
 type Subscription = {
   id: string
@@ -71,6 +73,8 @@ export function TeamSeatsOverview({
   onReduceSeats,
   onAddSeatDialog,
 }: TeamSeatsOverviewProps) {
+  const t = useTranslations('workspace.settingsModal.team')
+  const locale = useLocale()
   const canManageSeats =
     subscriptionData?.tier?.ownerType === 'organization' &&
     subscriptionData?.tier?.seatMode === 'adjustable'
@@ -88,10 +92,8 @@ export function TeamSeatsOverview({
             <Building2 className='h-6 w-6 text-yellow-600' />
           </div>
           <div className='space-y-2'>
-            <p className='font-medium text-sm'>No Team Subscription Found</p>
-            <p className='text-muted-foreground text-sm'>
-              Your subscription may need to be transferred to this organization.
-            </p>
+            <p className='font-medium text-sm'>{t('noTeamSubscriptionFound')}</p>
+            <p className='text-muted-foreground text-sm'>{t('subscriptionMayNeedTransfer')}</p>
           </div>
           <Button
             onClick={() => {
@@ -100,7 +102,7 @@ export function TeamSeatsOverview({
             disabled={isLoading || actionsDisabled}
             className='h-9 rounded-sm'
           >
-            Set Up Team Subscription
+            {t('setUpTeamSubscription')}
           </Button>
         </div>
       </div>
@@ -116,13 +118,19 @@ export function TeamSeatsOverview({
       <div className='space-y-2'>
         <div className='flex items-center justify-between'>
           <div className='flex items-center gap-2'>
-            <span className='font-medium text-sm'>Seats</span>
-            <span className='text-muted-foreground text-xs'>(${pricePerSeat}/month each)</span>
+            <span className='font-medium text-sm'>{t('seats')}</span>
+            <span className='text-muted-foreground text-xs'>
+              {t('pricePerSeat', { price: formatUsd(locale, pricePerSeat) })}
+            </span>
           </div>
           <div className='flex items-center gap-1 text-xs tabular-nums'>
-            <span className='text-muted-foreground'>{usedSeats} used</span>
+            <span className='text-muted-foreground'>
+              {t('used', { count: formatLocalizedNumber(locale, usedSeats) })}
+            </span>
             <span className='text-muted-foreground'>/</span>
-            <span className='text-muted-foreground'>{subscriptionData.seats || 0} total</span>
+            <span className='text-muted-foreground'>
+              {t('total', { count: formatLocalizedNumber(locale, subscriptionData.seats || 0) })}
+            </span>
           </div>
         </div>
 
@@ -144,7 +152,7 @@ export function TeamSeatsOverview({
             aria-busy={isReducing || undefined}
             className='h-8 flex-1 rounded-sm'
           >
-            {isReducing ? 'Removing seat…' : 'Remove Seat'}
+            {isReducing ? t('removingSeat') : t('removeSeat')}
           </Button>
           <Button
             size='sm'
@@ -152,7 +160,7 @@ export function TeamSeatsOverview({
             disabled={isLoading || actionsDisabled}
             className='h-8 flex-1 rounded-sm'
           >
-            Add Seat
+            {t('addSeat')}
           </Button>
         </div>
       </div>

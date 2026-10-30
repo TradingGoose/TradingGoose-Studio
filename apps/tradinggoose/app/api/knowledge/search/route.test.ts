@@ -247,7 +247,7 @@ describe('Knowledge Search API Route', () => {
         await search()
         expect(mocks.tokenCount).toHaveBeenCalledWith('test search query', 'openai')
         expect(mocks.embedding).toHaveBeenCalledWith('test search query', 'text-embedding-ada-002')
-        expect(mocks.cost).toHaveBeenCalledWith('text-embedding-ada-002', 521, 0, false)
+        expect(mocks.cost).toHaveBeenCalledWith('text-embedding-ada-002', 521, 0)
       })
 
       it('handles cost calculation with a longer query', async () => {
@@ -266,7 +266,7 @@ describe('Knowledge Search API Route', () => {
         expect(response.status).toBe(200)
         expect(data.data.cost.input).toBe(0.00002084)
         expect(data.data.cost.tokens.prompt).toBe(1042)
-        expect(mocks.cost).toHaveBeenCalledWith('text-embedding-3-small', 1042, 0, false)
+        expect(mocks.cost).toHaveBeenCalledWith('text-embedding-3-small', 1042, 0)
       })
     })
   })

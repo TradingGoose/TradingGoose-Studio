@@ -142,10 +142,12 @@ interface TriggerDeployTab {
   icon: ComponentType<{ className?: string }> | undefined
   iconAccentColor: string | undefined
   regularRows: SubBlockConfig[][]
-  advancedRows: SubBlockConfig[][]
+  additionalRows: SubBlockConfig[][]
+  subBlockConfigs: SubBlockConfig[]
   stateToUse: Record<string, any>
-  displayAdvancedOptions: boolean
-  hasAdvancedOnlyFields: boolean
+  displayAdditionalFields: boolean
+  hasAdditionalFields: boolean
+  hasAdvancedFields: boolean
   hasConfigurableFields: boolean
 }
 
@@ -259,6 +261,9 @@ export function DeployModal({
   const [isChatConfigBusy, setIsChatConfigBusy] = useState(false)
   const [isViewingActiveDeployment, setIsViewingActiveDeployment] = useState(false)
   const [showUndeployConfirm, setShowUndeployConfirm] = useState(false)
+  const [additionalFieldsVisibility, setAdditionalFieldsVisibility] = useState<
+    Record<string, boolean>
+  >({})
 
   const [versions, setVersions] = useState<WorkflowDeploymentVersionResponse[]>([])
   const [versionsLoading, setVersionsLoading] = useState(false)
@@ -313,8 +318,8 @@ export function DeployModal({
         shouldDisableWrite: shouldDisableTriggerWrite,
       })
       const regularRows = removeTriggerModeSelectorFromRows(triggerEditingLayout.regularRows)
-      const advancedRows = removeTriggerModeSelectorFromRows(triggerEditingLayout.advancedRows)
-      const allSubBlocks = [...regularRows.flat(), ...advancedRows.flat()]
+      const additionalRows = removeTriggerModeSelectorFromRows(triggerEditingLayout.additionalRows)
+      const allSubBlocks = [...regularRows.flat(), ...additionalRows.flat()]
       const hasConfigurableFields = allSubBlocks.some(isConfigurableTriggerDeploySubBlock)
 
       return {
@@ -327,10 +332,16 @@ export function DeployModal({
           (blockConfig?.icon as ComponentType<{ className?: string }> | undefined),
         iconAccentColor: sanitizeSolidIconColor(blockConfig?.bgColor),
         regularRows,
-        advancedRows,
+        additionalRows,
+        subBlockConfigs: blockConfig?.subBlocks ?? [],
         stateToUse: triggerEditingLayout.stateToUse,
-        displayAdvancedOptions: triggerEditingLayout.displayAdvancedOptions,
-        hasAdvancedOnlyFields: triggerEditingLayout.hasAdvancedOnlyFields,
+        displayAdditionalFields:
+          triggerEditingLayout.hasAdvancedFields || shouldDisableTriggerWrite
+            ? triggerEditingLayout.displayAdditionalFields
+            : (additionalFieldsVisibility[block.id] ??
+              triggerEditingLayout.displayAdditionalFields),
+        hasAdditionalFields: triggerEditingLayout.hasAdditionalFields,
+        hasAdvancedFields: triggerEditingLayout.hasAdvancedFields,
         hasConfigurableFields,
       }
     })
@@ -362,7 +373,7 @@ export function DeployModal({
       const block = currentBlocks[tab.blockId]
       const visibleSubBlocks = [
         ...tab.regularRows.flat(),
-        ...(tab.displayAdvancedOptions ? tab.advancedRows.flat() : []),
+        ...(tab.displayAdditionalFields ? tab.additionalRows.flat() : []),
       ]
       const configurableSubBlocks = visibleSubBlocks.filter(isConfigurableTriggerDeploySubBlock)
       const missingRequiredFieldLabels = configurableSubBlocks
@@ -1125,7 +1136,7 @@ export function DeployModal({
     const validationState = triggerValidationStateByKey.get(tab.key)
     const visibleSubBlocks = [
       ...tab.regularRows.flat(),
-      ...(tab.displayAdvancedOptions ? tab.advancedRows.flat() : []),
+      ...(tab.displayAdditionalFields ? tab.additionalRows.flat() : []),
     ]
 
     if (!tab.blockId) {
@@ -1136,7 +1147,7 @@ export function DeployModal({
       )
     }
 
-    if (visibleSubBlocks.length === 0) {
+    if (visibleSubBlocks.length === 0 && !tab.hasAdditionalFields) {
       return (
         <div className='rounded-md border p-4 text-muted-foreground text-sm'>
           {copy.noAdditionalTriggerConfigurationRequired}
@@ -1181,33 +1192,47 @@ export function DeployModal({
         <SubBlockEditRows
           blockId={tab.blockId}
           rows={tab.regularRows}
+          subBlockConfigs={tab.subBlockConfigs}
+          isAdvancedMode={mergedBlocks[tab.blockId]?.advancedMode ?? false}
           stateToUse={tab.stateToUse}
           disabled={shouldDisableTriggerWrite}
           rowKeyPrefix={`deploy-trigger-row-${tab.blockId}`}
           availableTriggerIds={[tab.triggerId]}
         />
-        {tab.hasAdvancedOnlyFields && !shouldDisableTriggerWrite && (
+        {tab.hasAdditionalFields && !shouldDisableTriggerWrite && (
           <div className='flex items-center gap-[10px] pt-[4px]'>
             <div className='h-px flex-1 border-border border-t border-dashed' />
             <button
               type='button'
-              onClick={() => collaborativeToggleBlockAdvancedMode(tab.blockId)}
+              aria-expanded={tab.displayAdditionalFields}
+              onClick={() => {
+                if (tab.hasAdvancedFields) {
+                  collaborativeToggleBlockAdvancedMode(tab.blockId)
+                } else {
+                  setAdditionalFieldsVisibility((visibility) => ({
+                    ...visibility,
+                    [tab.blockId]: !tab.displayAdditionalFields,
+                  }))
+                }
+              }}
               className='flex items-center gap-[6px] whitespace-nowrap font-medium text-[13px] text-muted-foreground hover:text-foreground'
             >
-              {tab.displayAdvancedOptions
+              {tab.displayAdditionalFields
                 ? workflowEditorCopy.hideAdditionalFields
                 : workflowEditorCopy.showAdditionalFields}
               <ChevronDown
-                className={`h-[14px] w-[14px] transition-transform duration-200 ${tab.displayAdvancedOptions ? 'rotate-180' : ''}`}
+                className={`h-[14px] w-[14px] transition-transform duration-200 ${tab.displayAdditionalFields ? 'rotate-180' : ''}`}
               />
             </button>
             <div className='h-px flex-1 border-border border-t border-dashed' />
           </div>
         )}
-        {tab.displayAdvancedOptions && (
+        {tab.displayAdditionalFields && (
           <SubBlockEditRows
             blockId={tab.blockId}
-            rows={tab.advancedRows}
+            rows={tab.additionalRows}
+            subBlockConfigs={tab.subBlockConfigs}
+            isAdvancedMode={mergedBlocks[tab.blockId]?.advancedMode ?? false}
             stateToUse={tab.stateToUse}
             disabled={shouldDisableTriggerWrite}
             rowKeyPrefix={`deploy-trigger-advanced-row-${tab.blockId}`}

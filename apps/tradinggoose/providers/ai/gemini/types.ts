@@ -1,5 +1,5 @@
 import type { Content, ToolConfig } from '@google/genai'
-import type { FunctionCallResponse, ModelPricing, TimeSegment } from '@/providers/ai/types'
+import type { FunctionCallResponse, ProviderResponse, TimeSegment } from '@/providers/ai/types'
 
 /**
  * Usage metadata from Gemini responses
@@ -7,15 +7,8 @@ import type { FunctionCallResponse, ModelPricing, TimeSegment } from '@/provider
 export interface GeminiUsage {
   promptTokenCount: number
   candidatesTokenCount: number
+  cachedContentTokenCount: number
   totalTokenCount: number
-}
-
-/**
- * Parsed function call from Gemini response
- */
-export interface ParsedFunctionCall {
-  name: string
-  args: Record<string, unknown>
 }
 
 /**
@@ -24,7 +17,7 @@ export interface ParsedFunctionCall {
 export interface ExecutionState {
   contents: Content[]
   tokens: { input: number; output: number; total: number }
-  cost: { input: number; output: number; total: number; pricing: ModelPricing }
+  cost: ProviderResponse['cost']
   toolCalls: FunctionCallResponse[]
   toolResults: Record<string, unknown>[]
   iterationCount: number
@@ -33,29 +26,6 @@ export interface ExecutionState {
   timeSegments: TimeSegment[]
   usedForcedTools: string[]
   currentToolConfig: ToolConfig | undefined
-}
-
-/**
- * Result from forced tool usage check
- */
-export interface ForcedToolResult {
-  hasUsedForcedTool: boolean
-  usedForcedTools: string[]
-  nextToolConfig: ToolConfig | undefined
-}
-
-/**
- * Configuration for creating a Gemini client
- */
-export interface GeminiClientConfig {
-  /** For Google Gemini API */
-  apiKey?: string
-  /** For Vertex AI */
-  vertexai?: boolean
-  project?: string
-  location?: string
-  /** OAuth access token for Vertex AI */
-  accessToken?: string
 }
 
 /**

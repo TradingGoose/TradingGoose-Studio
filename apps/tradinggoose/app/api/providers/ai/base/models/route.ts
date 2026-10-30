@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getBaseModelProviders } from '@/providers/ai/utils'
+import { getBaseModelProviders } from '@/providers/ai/models'
 
 export async function GET() {
   try {

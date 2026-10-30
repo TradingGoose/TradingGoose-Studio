@@ -1,4 +1,4 @@
-import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
+import { buildSubBlockRows, hasConfiguredSubBlockValue } from '@/lib/workflows/sub-block-rows'
 import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
 import {
   localizeWorkflowSubBlockConfigWithCopy,
@@ -38,10 +38,11 @@ export function buildTriggerEditingLayout({
   if (!blockConfig?.subBlocks) {
     return {
       regularRows: [] as SubBlockConfig[][],
-      advancedRows: [] as SubBlockConfig[][],
+      additionalRows: [] as SubBlockConfig[][],
       stateToUse: {},
-      displayAdvancedOptions: false,
-      hasAdvancedOnlyFields: false,
+      displayAdditionalFields: false,
+      hasAdditionalFields: false,
+      hasAdvancedFields: false,
       isTriggerConfigurationView: false,
     }
   }
@@ -49,19 +50,6 @@ export function buildTriggerEditingLayout({
   const blockStateForConditions = blockState?.subBlocks || {}
   const isPureTriggerBlock = blockConfig.category === 'triggers'
   const effectiveTrigger = Boolean(blockState?.triggerMode) || isPureTriggerBlock
-  const effectiveAdvanced = Boolean(blockState?.advancedMode)
-  const advancedValuesPresent = blockConfig.subBlocks.some((subBlock) => {
-    if (subBlock.mode !== 'advanced') return false
-    const value = blockStateForConditions[subBlock.id]?.value
-    if (value === undefined || value === null) return false
-    if (typeof value === 'string') return value.trim().length > 0
-    if (Array.isArray(value)) return value.length > 0
-    if (typeof value === 'object') return Object.keys(value).length > 0
-    return true
-  })
-  const advancedVisibility = shouldDisableWrite
-    ? effectiveAdvanced || advancedValuesPresent
-    : effectiveAdvanced
   const triggerId = effectiveTrigger
     ? resolveTriggerIdFromSubBlocks(blockStateForConditions, blockConfig.triggers?.available)
     : null
@@ -73,7 +61,7 @@ export function buildTriggerEditingLayout({
       triggerId ?? undefined
     )
   )
-  const regularRows = buildSubBlockRows({
+  const normalRows = buildSubBlockRows({
     blockId,
     subBlocks: localizedSubBlocks,
     stateToUse: blockStateForConditions,
@@ -95,13 +83,26 @@ export function buildTriggerEditingLayout({
     hideFromPreview: false,
     triggerSubBlockOwner: 'all',
   })
+  const additionalRows = [
+    ...normalRows.map((row) => row.filter((field) => field.additional)),
+    ...advancedRows,
+  ].filter((row) => row.length > 0)
+  const hasAdvancedFields = advancedRows.length > 0
+  const additionalValuesPresent = additionalRows
+    .flat()
+    .some((field) => hasConfiguredSubBlockValue(blockStateForConditions[field.id]))
 
   return {
-    regularRows,
-    advancedRows,
+    regularRows: normalRows
+      .map((row) => row.filter((field) => !field.additional))
+      .filter((row) => row.length > 0),
+    additionalRows,
     stateToUse: blockStateForConditions,
-    displayAdvancedOptions: advancedVisibility,
-    hasAdvancedOnlyFields: advancedRows.length > 0,
+    displayAdditionalFields: hasAdvancedFields
+      ? Boolean(blockState?.advancedMode) || (shouldDisableWrite && additionalValuesPresent)
+      : additionalValuesPresent,
+    hasAdditionalFields: additionalRows.length > 0,
+    hasAdvancedFields,
     isTriggerConfigurationView: effectiveTrigger,
   }
 }

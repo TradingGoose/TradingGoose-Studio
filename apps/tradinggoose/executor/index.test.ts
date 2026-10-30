@@ -554,6 +554,129 @@ describe('Executor', () => {
    * Streaming execution tests
    */
   describe('streaming execution', () => {
+    const responseFormat = { schema: { type: 'object' } }
+
+    it('records completed stream duration in state, logs, events, and telemetry', async () => {
+      const clock = vi.spyOn(performance, 'now').mockReturnValue(0)
+      const track = vi.fn()
+      vi.stubGlobal('window', { __TG_TRACK_EVENT: track })
+      try {
+        const onExecutionEvent = vi.fn()
+        const executor = createTestExecutor(createMinimalWorkflow(), {
+          contextExtensions: { stream: true, selectedOutputs: ['block1'], onExecutionEvent },
+        })
+        const contextSpy = vi.spyOn(executor as any, 'createExecutionContext')
+        ;(executor as any).blockHandlers = [
+          {
+            canHandle: (block: any) => block.metadata?.category === 'triggers',
+            execute: async () => ({}),
+          },
+          {
+            canHandle: (block: any) => block.id === 'block1',
+            execute: async () => ({
+              stream: new ReadableStream({
+                async start(controller) {
+                  await new Promise((resolve) => setTimeout(resolve, 0))
+                  clock.mockReturnValue(183)
+                  controller.enqueue(new TextEncoder().encode('Done'))
+                  controller.close()
+                },
+              }),
+              execution: { output: { content: '' } },
+            }),
+          },
+        ]
+        const result = await executor.execute('test-workflow-id', 'trigger')
+        expect(result.success).toBe(true)
+        expect(contextSpy.mock.results[0].value.blockStates.get('block1')).toMatchObject({
+          executed: true,
+          executionTime: 183,
+        })
+        const completedTiming = { blockId: 'block1', durationMs: 183 }
+        expect(result.logs).toContainEqual(expect.objectContaining(completedTiming))
+        expect(onExecutionEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            type: 'block:completed',
+            data: expect.objectContaining(completedTiming),
+          })
+        )
+        expect(track).toHaveBeenCalledWith(
+          'block_execution',
+          expect.objectContaining(completedTiming)
+        )
+      } finally {
+        clock.mockRestore()
+        vi.unstubAllGlobals()
+      }
+    })
+
+    it.each([
+      ['{"answer":', responseFormat, undefined],
+      ['[]', responseFormat, undefined],
+      ['null', responseFormat, undefined],
+      ['', responseFormat, undefined],
+      [
+        '{"answer":42,"content":"schema text","model":"schema model","tokens":"ignored"}',
+        responseFormat,
+        { answer: 42, content: 'schema text', model: 'schema model' },
+      ],
+      ['plain text', '   ', { content: 'plain text', model: 'test-model' }],
+      ['', undefined, { content: '', model: 'test-model' }],
+    ] as const)(
+      'finalizes streamed content %j using the resolved response format',
+      async (content, format, expected) => {
+        const workflow = createMinimalWorkflow()
+        workflow.blocks[1].config.params.responseFormat = format
+        const onExecutionEvent = vi.fn()
+        const executor = createTestExecutor(workflow, {
+          contextExtensions: { stream: true, selectedOutputs: ['block1'], onExecutionEvent },
+        })
+        const metadata = {
+          tokens: { prompt: 10, completion: 20, total: 30 },
+          toolCalls: { list: [], count: 0 },
+          toolResults: [{ value: 42 }],
+          providerTiming: { duration: 100 },
+          cost: { total: 0.01 },
+        }
+        ;(executor as any).blockHandlers = [
+          {
+            canHandle: (block: any) => block.metadata?.category === 'triggers',
+            execute: async () => ({}),
+          },
+          {
+            canHandle: (block: any) => block.id === 'block1',
+            execute: async () => ({
+              stream: new ReadableStream({
+                start(controller) {
+                  controller.enqueue(new TextEncoder().encode(content))
+                  controller.close()
+                },
+              }),
+              execution: { output: { content: '', model: 'test-model', ...metadata } },
+            }),
+          },
+        ]
+
+        const result = await executor.execute('test-workflow-id', 'trigger')
+
+        expect(result.success).toBe(expected !== undefined)
+        if (expected) {
+          expect(result.output).toEqual({ ...expected, ...metadata })
+          expect(result.logs?.find((log) => log.blockId === 'block1')?.output).toEqual(
+            result.output
+          )
+          expect(onExecutionEvent).toHaveBeenCalledWith(
+            expect.objectContaining({ type: 'stream:done' })
+          )
+        } else {
+          expect(result.error).toContain('Agent response format requires a valid JSON object')
+          expect(onExecutionEvent).not.toHaveBeenCalledWith(
+            expect.objectContaining({ type: 'stream:done' })
+          )
+        }
+      }
+    )
+
     it.concurrent('should handle streaming execution results', async () => {
       const workflow = createMinimalWorkflow()
 

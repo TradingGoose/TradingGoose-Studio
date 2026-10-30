@@ -17,6 +17,10 @@ vi.mock('@/providers/market/utils', () => ({
   resolveListingContext: resolveContext,
   resolveProviderSymbol: () => 'AAPL',
 }))
+vi.mock('@/providers/market/market-hours/market-hours-api', () => ({
+  resolveMarketHours: vi.fn(),
+  resolveMarketHoursRange: vi.fn(async () => null),
+}))
 vi.mock('@/providers/market', async () => {
   const { fetchFinnhubSeries } = await import('./finnhub/series')
   return {

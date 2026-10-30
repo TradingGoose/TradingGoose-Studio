@@ -1,14 +1,12 @@
 import { ConnectIcon } from '@/components/icons/icons'
 import { isHosted } from '@/lib/environment'
 import { AuthMode, type BlockConfig } from '@/blocks/types'
-import { getProviderDefaultModel } from '@/providers/ai/models'
-import type { ProviderId } from '@/providers/ai/types'
 import {
-  getAllModelProviders,
-  getHostedModels,
+  getProviderDefaultModel,
+  getProviderFromModel,
   getProviderIcon,
-  providers,
-} from '@/providers/ai/utils'
+  getProviderModels,
+} from '@/providers/ai/models'
 import { useProvidersStore } from '@/stores/providers/store'
 import type { ToolResponse } from '@/tools/types'
 
@@ -158,13 +156,8 @@ export const RouterBlock: BlockConfig<RouterResponse> = {
       password: true,
       connectionDroppable: false,
       required: true,
-      // Hide API key for hosted models and Ollama models
       condition: isHosted
-        ? () => ({
-            field: 'model',
-            value: getHostedModels(),
-            not: true, // Show for all models EXCEPT those listed
-          })
+        ? undefined
         : () => ({
             field: 'model',
             value: getCurrentOllamaModels(),
@@ -181,19 +174,7 @@ export const RouterBlock: BlockConfig<RouterResponse> = {
       connectionDroppable: false,
       condition: () => ({
         field: 'model',
-        value: providers['azure-openai'].models,
-      }),
-    },
-    {
-      id: 'azureApiVersion',
-      title: 'Azure API Version',
-      type: 'short-input',
-      layout: 'full',
-      placeholder: '2024-07-01-preview',
-      connectionDroppable: false,
-      condition: () => ({
-        field: 'model',
-        value: providers['azure-openai'].models,
+        value: getProviderModels('azure-openai'),
       }),
     },
     {
@@ -232,11 +213,7 @@ export const RouterBlock: BlockConfig<RouterResponse> = {
         if (!model) {
           throw new Error('No model selected')
         }
-        const tool = getAllModelProviders()[model as ProviderId]
-        if (!tool) {
-          throw new Error(`Invalid model selected: ${model}`)
-        }
-        return tool
+        return getProviderFromModel(model)
       },
     },
   },
@@ -245,7 +222,6 @@ export const RouterBlock: BlockConfig<RouterResponse> = {
     model: { type: 'string', description: 'AI model to use' },
     apiKey: { type: 'string', description: 'Provider API key' },
     azureEndpoint: { type: 'string', description: 'Azure OpenAI endpoint URL' },
-    azureApiVersion: { type: 'string', description: 'Azure API version' },
     temperature: {
       type: 'number',
       description: 'Response randomness level (low for consistent routing)',

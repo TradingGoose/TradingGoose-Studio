@@ -1,11 +1,14 @@
 /** @vitest-environment jsdom */
 import { act } from 'react'
+import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   type UseMarketQuoteSnapshotsArgs,
   useMarketQuoteSnapshots,
 } from '@/hooks/queries/market-quote-snapshots'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { formatTemplate, type LocaleCode } from '@/i18n/utils'
 
 const { socket } = vi.hoisted(() => ({
   socket: {
@@ -62,9 +65,16 @@ const receive = (subscription: { clientSubscriptionId: string }, snapshot = quot
 
 describe('useMarketQuoteSnapshots', () => {
   let root: Root
-  const render = async (overrides: Partial<UseMarketQuoteSnapshotsArgs> = {}) => {
+  const render = async (
+    overrides: Partial<UseMarketQuoteSnapshotsArgs> = {},
+    locale: LocaleCode = 'en'
+  ) => {
     await act(async () => {
-      root.render(<Harness overrides={overrides} />)
+      root.render(
+        <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
+          <Harness overrides={overrides} />
+        </NextIntlClientProvider>
+      )
     })
   }
   beforeEach(() => {
@@ -280,6 +290,75 @@ describe('useMarketQuoteSnapshots', () => {
     for (const subscription of subscriptions().slice(-2)) await receive(subscription)
     expect(latest.a.isFetching).toBe(false)
   })
+
+  it.each(['es', 'zh'] as const)(
+    'localizes quote and transport errors in %s without restarting subscriptions',
+    async (locale) => {
+      await render()
+      const [first, second] = subscriptions()
+      const providerError = 'This API endpoint requires premium access'
+      await receive(first)
+      await emit('market-error', { ...second, message: providerError })
+      const activity = socket.emit.mock.calls.length
+      for (const key of [
+        'intradayUnavailable',
+        'noIntradayPrice',
+        'noRegularSessionPrice',
+        'missingTimezone',
+        'previousCloseUnavailable',
+        'pollFailed',
+      ] as const) {
+        await emit('market-quote-snapshot', {
+          ...first,
+          snapshot: { ...quote, error: `marketQuotes.${key}` },
+        })
+        await render({}, locale)
+        expect(latest.a.data.first).toEqual({
+          ...quote,
+          error: getPublicCopy(locale).workspace.widgets.marketQuotes[key],
+        })
+        expect(latest.a.data.second.error).toBe(providerError)
+        await render()
+        expect(latest.a.data.first.error).toBe(
+          getPublicCopy('en').workspace.widgets.marketQuotes[key]
+        )
+      }
+      expect(socket.emit.mock.calls).toHaveLength(activity)
+      await render({}, locale)
+      for (const message of [
+        'marketQuotes.unknownProviderMessage',
+        'marketQuotes.constructor',
+        'marketQuotes.__proto__',
+      ]) {
+        await emit('market-error', { ...second, message })
+        expect(latest.a.data.second.error).toBe(message)
+      }
+      for (const [event, key] of [
+        ['disconnect', 'connectionLost'],
+        ['connect_error', 'connectionFailed'],
+      ] as const) {
+        await emit(event)
+        await render({}, locale)
+        expect(latest.a.error?.message).toBe(
+          getPublicCopy(locale).workspace.widgets.marketQuotes[key]
+        )
+      }
+      expect(socket.emit.mock.calls).toHaveLength(activity)
+      await render({ auth: undefined }, locale)
+      expect(latest.a.error?.message).toBe(
+        formatTemplate(
+          getPublicCopy(locale).workspace.widgets.marketQuotes.configureProvider,
+          { settings: 'API Key, API Secret' },
+          locale
+        )
+      )
+      socket.available = false
+      await render({}, locale)
+      expect(latest.a.error?.message).toBe(
+        getPublicCopy(locale).workspace.widgets.marketQuotes.connectionUnavailable
+      )
+    }
+  )
 
   it('reports missing and disconnected sockets, then clears transport errors on reconnect', async () => {
     socket.available = false

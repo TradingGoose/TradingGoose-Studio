@@ -4,7 +4,6 @@ import { getEnv } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
 import { executeGeminiRequest } from '@/providers/ai/gemini/core'
-import { getProviderDefaultModel, getProviderModels } from '@/providers/ai/models'
 import type { ProviderConfig, ProviderRequest, ProviderResponse } from '@/providers/ai/types'
 
 const logger = createLogger('VertexProvider')
@@ -21,11 +20,6 @@ const logger = createLogger('VertexProvider')
  */
 export const vertexProvider: ProviderConfig = {
   id: 'vertex',
-  name: 'Vertex AI',
-  description: "Google's Vertex AI platform for Gemini models",
-  version: '1.0.0',
-  models: getProviderModels('vertex'),
-  defaultModel: getProviderDefaultModel('vertex'),
 
   executeRequest: async (
     request: ProviderRequest

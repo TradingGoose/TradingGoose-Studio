@@ -1,4 +1,5 @@
 import { COPILOT_API_URL_DEFAULT } from '@/lib/copilot/agent/constants'
+import { isHosted } from '@/lib/environment'
 import { MARKET_API_URL_DEFAULT } from '@/lib/market/client/constants'
 
 export type SystemServiceSettingFieldType = 'text' | 'url' | 'number' | 'boolean'
@@ -31,50 +32,12 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
   {
     id: 'openai',
     displayName: 'OpenAI',
-    description: 'Default embeddings key and hosted OpenAI server keys for platform requests.',
+    description: 'Default API key for system-owned OpenAI embeddings.',
     credentialFields: [
       {
         key: 'defaultApiKey',
         label: 'Default API Key',
-        description: 'Used for embeddings and other system-owned OpenAI requests.',
-      },
-      {
-        key: 'rotationKey1',
-        label: 'Rotation Key 1',
-        description: 'Hosted OpenAI server key slot 1.',
-      },
-      {
-        key: 'rotationKey2',
-        label: 'Rotation Key 2',
-        description: 'Hosted OpenAI server key slot 2.',
-      },
-      {
-        key: 'rotationKey3',
-        label: 'Rotation Key 3',
-        description: 'Hosted OpenAI server key slot 3.',
-      },
-    ],
-    settingFields: [],
-  },
-  {
-    id: 'anthropic',
-    displayName: 'Anthropic',
-    description: 'Hosted Anthropic server keys for platform requests.',
-    credentialFields: [
-      {
-        key: 'rotationKey1',
-        label: 'Rotation Key 1',
-        description: 'Hosted Anthropic server key slot 1.',
-      },
-      {
-        key: 'rotationKey2',
-        label: 'Rotation Key 2',
-        description: 'Hosted Anthropic server key slot 2.',
-      },
-      {
-        key: 'rotationKey3',
-        label: 'Rotation Key 3',
-        description: 'Hosted Anthropic server key slot 3.',
+        description: 'Used for system-owned OpenAI embeddings.',
       },
     ],
     settingFields: [],
@@ -440,25 +403,13 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
 ]
 
 const SYSTEM_SERVICE_DEFINITIONS_BY_ID = new Map(
-  SYSTEM_SERVICE_DEFINITIONS.map((definition) => [definition.id, definition])
-)
-
-const SYSTEM_SERVICE_CREDENTIAL_KEYS = new Map(
-  SYSTEM_SERVICE_DEFINITIONS.map((definition) => [
-    definition.id,
-    new Set(definition.credentialFields.map((field) => field.key)),
-  ])
-)
-
-const SYSTEM_SERVICE_SETTING_KEYS = new Map(
-  SYSTEM_SERVICE_DEFINITIONS.map((definition) => [
-    definition.id,
-    new Set(definition.settingFields.map((field) => field.key)),
-  ])
+  SYSTEM_SERVICE_DEFINITIONS.filter((definition) => !isHosted || definition.id !== 'ollama').map(
+    (definition) => [definition.id, definition]
+  )
 )
 
 export function getSystemServiceDefinitions() {
-  return SYSTEM_SERVICE_DEFINITIONS
+  return Array.from(SYSTEM_SERVICE_DEFINITIONS_BY_ID.values())
 }
 
 export function getSystemServiceDefinition(serviceId: string) {
@@ -466,9 +417,14 @@ export function getSystemServiceDefinition(serviceId: string) {
 }
 
 export function isSystemServiceCredentialKey(serviceId: string, key: string) {
-  return SYSTEM_SERVICE_CREDENTIAL_KEYS.get(serviceId)?.has(key) ?? false
+  return (
+    getSystemServiceDefinition(serviceId)?.credentialFields.some((field) => field.key === key) ??
+    false
+  )
 }
 
 export function isSystemServiceSettingKey(serviceId: string, key: string) {
-  return SYSTEM_SERVICE_SETTING_KEYS.get(serviceId)?.has(key) ?? false
+  return (
+    getSystemServiceDefinition(serviceId)?.settingFields.some((field) => field.key === key) ?? false
+  )
 }

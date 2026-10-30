@@ -33,10 +33,6 @@ vi.mock('@/lib/utils', () => ({
   isHosted: vi.fn().mockReturnValue(false),
 }))
 
-vi.mock('@/lib/utils-server', () => ({
-  getRotatingApiKey: vi.fn(),
-}))
-
 // Tools
 vi.mock('@/tools')
 
@@ -49,12 +45,14 @@ vi.mock('@/providers/ai/utils', async (importOriginal) => {
   return {
     // @ts-ignore
     ...actual,
-    getProviderFromModel: vi.fn(),
     transformBlockTool: vi.fn(),
-    // Ensure getBaseModelProviders returns an object
-    getBaseModelProviders: vi.fn(() => ({})),
   }
 })
+vi.mock('@/providers/ai/models', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/providers/ai/models')>()),
+  getProviderFromModel: vi.fn(),
+  getBaseModelProviders: vi.fn(() => ({})),
+}))
 
 // Executor utilities
 vi.mock('@/executor/path')

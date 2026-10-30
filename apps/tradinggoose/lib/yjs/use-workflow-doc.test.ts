@@ -42,6 +42,82 @@ afterAll(() => {
   ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = previousActEnvironment
 })
 
+describe('model editor credentials', () => {
+  it.each(
+    ['', 'c', '{{MODEL}}', '<agent1.model>', '<variable.model>'].flatMap((unresolved) =>
+      [false, true].map((reopen) => ({ unresolved, reopen }))
+    )
+  )(
+    'clears mismatched credentials after $unresolved model edits (reopen=$reopen)',
+    async ({ unresolved, reopen }) => {
+      const tuning = Object.fromEntries(
+        Object.entries({ reasoningEffort: 'high', verbosity: 'low', thinkingLevel: 'high' }).map(
+          ([id, value]) => [id, { id, type: 'combobox' as const, value }]
+        )
+      )
+      const doc = new Y.Doc()
+      setWorkflowState(
+        doc,
+        createWorkflowSnapshot({
+          blocks: {
+            'block-1': {
+              id: 'block-1',
+              type: 'agent',
+              name: 'Agent',
+              enabled: true,
+              position: { x: 0, y: 0 },
+              outputs: {},
+              subBlocks: {
+                ...tuning,
+                model: { id: 'model', type: 'combobox', value: 'gpt-4.1' },
+                apiKey: { id: 'apiKey', type: 'short-input', value: 'openai-key' },
+              },
+            },
+          },
+        })
+      )
+      const session = {
+        doc,
+        readWorkflowSnapshot: () => readWorkflowSnapshot(doc),
+        transactWorkflow: (fn: (doc: Y.Doc) => void, origin?: string) =>
+          doc.transact(() => fn(doc), origin),
+      }
+      vi.doMock('@/lib/yjs/workflow-session-host', () => ({
+        useOptionalWorkflowSession: () => session,
+        useWorkflowSession: () => session,
+      }))
+      const { useSubBlockValue } = await import(
+        '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
+      )
+      let model!: ReturnType<typeof useSubBlockValue<string>>
+      function Harness() {
+        model = useSubBlockValue<string>('block-1', 'model')
+        return null
+      }
+      container = document.createElement('div')
+      document.body.appendChild(container)
+      root = createRoot(container)
+      await act(async () => root?.render(React.createElement(Harness)))
+      const apiKey = () => readWorkflowSnapshot(doc).blocks['block-1'].subBlocks.apiKey.value
+
+      for (const value of [unresolved, 'gpt-5.4', unresolved]) {
+        await act(async () => model[1](value))
+        expect(model[0]).toBe(value)
+        expect(apiKey()).toBe('openai-key')
+        expect(readWorkflowSnapshot(doc).blocks['block-1'].subBlocks).toMatchObject(tuning)
+      }
+      if (reopen) {
+        await act(async () => root?.render(React.createElement(Harness, { key: 'reopened' })))
+        expect(model[0]).toBe(unresolved)
+        expect(apiKey()).toBe('openai-key')
+        expect(readWorkflowSnapshot(doc).blocks['block-1'].subBlocks).toMatchObject(tuning)
+      }
+      await act(async () => model[1]('claude-sonnet-5-5'))
+      expect(apiKey()).toBe('')
+    }
+  )
+})
+
 describe('useWorkflowBlocks', () => {
   it('materializes and observes Y.Text-backed subblock values in workflow blocks', async () => {
     const doc = new Y.Doc()

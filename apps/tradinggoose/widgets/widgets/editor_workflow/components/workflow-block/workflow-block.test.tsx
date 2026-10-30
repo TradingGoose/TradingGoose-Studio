@@ -139,6 +139,65 @@ const renderWithLocale = (element: React.ReactElement, locale: 'es' | 'en' | 'zh
   )
 
 describe('WorkflowBlock localization', () => {
+  it.each([false, true])(
+    'shows configured additional settings independently of block mode (%s)',
+    (advancedMode) => {
+      mockBlockState.agent_optional = {
+        id: 'agent_optional',
+        enabled: true,
+        advancedMode,
+        subBlocks: {
+          model: { value: 'reasoning-model' },
+          reasoningEffort: { value: 'high' },
+          thinkingLevel: { value: 'high' },
+          temperature: { value: '' },
+        },
+      }
+      const markup = renderWithLocale(
+        createElement(WorkflowBlock as any, {
+          id: 'agent_optional',
+          data: {
+            type: 'agent',
+            name: 'Agent',
+            config: {
+              category: 'blocks',
+              bgColor: '#2873f6',
+              icon: (props: any) => createElement('svg', props),
+              subBlocks: [
+                { id: 'model', title: 'Model', type: 'combobox' },
+                {
+                  id: 'reasoningEffort',
+                  title: 'Effort control',
+                  type: 'dropdown',
+                  additional: true,
+                },
+                {
+                  id: 'thinkingLevel',
+                  title: 'Unsupported thinking control',
+                  type: 'dropdown',
+                  additional: true,
+                  condition: { field: 'model', value: 'thinking-model' },
+                },
+                {
+                  id: 'temperature',
+                  title: 'Temperature control',
+                  type: 'short-input',
+                  additional: true,
+                },
+              ],
+            },
+          },
+        }),
+        'en'
+      )
+
+      expect(markup).toContain('reasoning-model')
+      expect(markup).toContain('high')
+      expect(markup).not.toContain('Unsupported thinking control')
+      expect(markup).not.toContain('Temperature control')
+    }
+  )
+
   it('localizes editable tool block labels and selected values through the real locale provider', () => {
     mockBlockCatalog.apify = { name: 'Apify' }
     mockBlockState.apify_block = {

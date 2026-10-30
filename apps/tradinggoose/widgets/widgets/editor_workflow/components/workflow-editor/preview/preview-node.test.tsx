@@ -65,6 +65,51 @@ const renderPreviewMarkup = (node: ReactElement) =>
   renderToStaticMarkup(createElement(TooltipProvider, null, node))
 
 describe('PreviewNode', () => {
+  it.each([false, true])(
+    'summarizes configured additional settings independently of block mode (%s)',
+    (advancedMode) => {
+      const markup = renderPreviewMarkup(
+        createElement(PreviewNode as any, {
+          id: 'agent-additional',
+          data: {
+            type: 'agent',
+            name: 'Agent',
+            config: {
+              category: 'blocks',
+              bgColor: '#2873f6',
+              icon: (props: any) => createElement('svg', props),
+              subBlocks: [
+                { id: 'model', title: 'Model', type: 'combobox' },
+                { id: 'reasoningEffort', title: 'Effort', type: 'dropdown', additional: true },
+                { id: 'skills', title: 'Unused skills', type: 'skill-input', additional: true },
+                {
+                  id: 'thinkingLevel',
+                  title: 'Unsupported thinking',
+                  type: 'dropdown',
+                  additional: true,
+                  condition: { field: 'model', value: 'thinking-model' },
+                },
+              ],
+            },
+            blockState: { advancedMode },
+            subBlockValues: {
+              model: { value: 'reasoning-model' },
+              reasoningEffort: { value: 'high' },
+              skills: { value: [] },
+              thinkingLevel: { value: 'high' },
+            },
+          },
+        })
+      )
+
+      expect(markup).toContain('reasoning-model')
+      expect(markup).toContain('Effort')
+      expect(markup).toContain('high')
+      expect(markup).not.toContain('Unused skills')
+      expect(markup).not.toContain('Unsupported thinking')
+    }
+  )
+
   it('renders canonical read-only node chrome and handles for regular blocks', () => {
     const markup = renderPreviewMarkup(
       createElement(PreviewNode as any, {

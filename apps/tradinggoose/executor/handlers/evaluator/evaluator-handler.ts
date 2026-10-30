@@ -3,12 +3,10 @@ import { getBaseUrl } from '@/lib/urls/utils'
 import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
 import type { BlockHandler, ExecutionContext } from '@/executor/types'
-import { getProviderDefaultModel } from '@/providers/ai/models'
-import { calculateCost, getProviderFromModel } from '@/providers/ai/utils'
+import { getProviderFromModel } from '@/providers/ai/models'
 import type { SerializedBlock } from '@/serializer/types'
 
 const logger = createLogger('EvaluatorBlockHandler')
-const DEFAULT_MODEL = getProviderDefaultModel('openai')
 
 /**
  * Handler for Evaluator blocks that assess content against criteria.
@@ -23,7 +21,8 @@ export class EvaluatorBlockHandler implements BlockHandler {
     inputs: Record<string, any>,
     context: ExecutionContext
   ): Promise<BlockOutput> {
-    const model = inputs.model || DEFAULT_MODEL
+    const model = inputs.model
+    if (!model) throw new Error('Model is required')
     const providerId = getProviderFromModel(model)
 
     // Process the content to ensure it's in a suitable format
@@ -95,7 +94,7 @@ export class EvaluatorBlockHandler implements BlockHandler {
           required: metrics.filter((m: any) => m?.name).map((m: any) => m.name.toLowerCase()),
           additionalProperties: false,
         },
-        strict: true,
+        strict: providerId !== 'deepseek',
       },
     }
 
@@ -243,14 +242,6 @@ export class EvaluatorBlockHandler implements BlockHandler {
         logger.error('Error extracting metric scores:', e)
       }
 
-      // Calculate cost based on token usage, similar to how providers do it
-      const costCalculation = calculateCost(
-        result.model,
-        result.tokens?.prompt || 0,
-        result.tokens?.completion || 0,
-        false // Evaluator blocks don't typically use cached input
-      )
-
       // Create result with metrics as direct fields for easy access
       const outputResult = {
         content: inputs.content,
@@ -260,11 +251,7 @@ export class EvaluatorBlockHandler implements BlockHandler {
           completion: result.tokens?.completion || 0,
           total: result.tokens?.total || 0,
         },
-        cost: {
-          input: costCalculation.input,
-          output: costCalculation.output,
-          total: costCalculation.total,
-        },
+        cost: result.cost,
         ...metricScores,
       }
 

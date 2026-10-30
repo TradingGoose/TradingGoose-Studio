@@ -216,7 +216,7 @@ describe('ShortInput numeric contract', () => {
       expect(
         [
           ...layout.regularRows.flat(),
-          ...(layout.displayAdvancedOptions ? layout.advancedRows.flat() : []),
+          ...(layout.displayAdditionalFields ? layout.additionalRows.flat() : []),
         ].map((field) => field.id)
       ).toContain(id)
       expect(input.value).toBe('saved-text')

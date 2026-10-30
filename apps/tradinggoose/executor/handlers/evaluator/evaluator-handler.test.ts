@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest'
 import { BlockType } from '@/executor/consts'
 import { EvaluatorBlockHandler } from '@/executor/handlers/evaluator/evaluator-handler'
 import type { ExecutionContext } from '@/executor/types'
-import { getProviderFromModel } from '@/providers/ai/utils'
+import { getProviderFromModel } from '@/providers/ai/models'
 import type { SerializedBlock } from '@/serializer/types'
 
 const mockGetProviderFromModel = getProviderFromModel as Mock
@@ -63,7 +63,7 @@ describe('EvaluatorBlockHandler', () => {
             content: JSON.stringify({ score1: 5, score2: 8 }),
             model: 'mock-model',
             tokens: { prompt: 50, completion: 10, total: 60 },
-            cost: 0.002,
+            cost: { input: 0.001, output: 0.001, total: 0.002, pricing: null },
             timing: { total: 200 },
           }),
       })
@@ -83,13 +83,13 @@ describe('EvaluatorBlockHandler', () => {
         { name: 'score1', description: 'First score', range: { min: 0, max: 10 } },
         { name: 'score2', description: 'Second score', range: { min: 0, max: 10 } },
       ],
-      model: 'gpt-4o',
+      model: 'gpt-4.1',
       temperature: 0.1,
     }
 
     const result = await handler.execute(mockBlock, inputs, mockContext)
 
-    expect(mockGetProviderFromModel).toHaveBeenCalledWith('gpt-4o')
+    expect(mockGetProviderFromModel).toHaveBeenCalledWith('gpt-4.1')
     expect(mockFetch).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({
@@ -104,9 +104,10 @@ describe('EvaluatorBlockHandler', () => {
     const requestBody = JSON.parse(fetchCallArgs[1].body)
     expect(requestBody).toMatchObject({
       provider: 'openai',
-      model: 'gpt-4o',
+      model: 'gpt-4.1',
       systemPrompt: expect.stringContaining(inputs.content),
       responseFormat: expect.objectContaining({
+        strict: true,
         schema: {
           type: 'object',
           properties: {
@@ -124,19 +125,38 @@ describe('EvaluatorBlockHandler', () => {
       content: 'This is the content to evaluate.',
       model: 'mock-model',
       tokens: { prompt: 50, completion: 10, total: 60 },
-      cost: {
-        input: 0,
-        output: 0,
-        total: 0,
-      },
+      cost: { input: 0.001, output: 0.001, total: 0.002, pricing: null },
       score1: 5,
       score2: 8,
+    })
+  })
+
+  it('uses non-strict JSON mode for DeepSeek', async () => {
+    const model = 'deepseek-flash'
+    mockGetProviderFromModel.mockReturnValue('deepseek')
+
+    await handler.execute(
+      mockBlock,
+      {
+        content: 'Evaluate this content.',
+        metrics: [{ name: 'score1', description: 'Score', range: { min: 0, max: 10 } }],
+        model,
+      },
+      mockContext
+    )
+
+    expect(mockGetProviderFromModel).toHaveBeenCalledWith(model)
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toMatchObject({
+      provider: 'deepseek',
+      model,
+      responseFormat: { strict: false },
     })
   })
 
   it('should process JSON string content correctly', async () => {
     const contentObj = { text: 'Evaluate this JSON.', value: 42 }
     const inputs = {
+      model: 'gpt-4.1',
       content: JSON.stringify(contentObj),
       metrics: [{ name: 'clarity', description: 'Clarity score', range: { min: 1, max: 5 } }],
     }
@@ -149,7 +169,7 @@ describe('EvaluatorBlockHandler', () => {
             content: JSON.stringify({ clarity: 4 }),
             model: 'm',
             tokens: {},
-            cost: 0,
+            cost: { input: 0, output: 0, total: 0, pricing: null },
             timing: {},
           }),
       })
@@ -167,6 +187,7 @@ describe('EvaluatorBlockHandler', () => {
   it('should process object content correctly', async () => {
     const contentObj = { data: [1, 2, 3], status: 'ok' }
     const inputs = {
+      model: 'gpt-4.1',
       content: contentObj,
       metrics: [
         { name: 'completeness', description: 'Data completeness', range: { min: 0, max: 1 } },
@@ -181,7 +202,7 @@ describe('EvaluatorBlockHandler', () => {
             content: JSON.stringify({ completeness: 1 }),
             model: 'm',
             tokens: {},
-            cost: 0,
+            cost: { input: 0, output: 0, total: 0, pricing: null },
             timing: {},
           }),
       })
@@ -198,6 +219,7 @@ describe('EvaluatorBlockHandler', () => {
 
   it('should parse valid JSON response correctly', async () => {
     const inputs = {
+      model: 'gpt-4.1',
       content: 'Test content',
       metrics: [{ name: 'quality', description: 'Quality score', range: { min: 1, max: 10 } }],
     }
@@ -210,7 +232,7 @@ describe('EvaluatorBlockHandler', () => {
             content: '```json\n{ "quality": 9 }\n```',
             model: 'm',
             tokens: {},
-            cost: 0,
+            cost: { input: 0, output: 0, total: 0, pricing: null },
             timing: {},
           }),
       })
@@ -223,6 +245,7 @@ describe('EvaluatorBlockHandler', () => {
 
   it('should handle invalid/non-JSON response gracefully (scores = 0)', async () => {
     const inputs = {
+      model: 'gpt-4.1',
       content: 'Test content',
       metrics: [{ name: 'score', description: 'Score', range: { min: 0, max: 5 } }],
     }
@@ -235,7 +258,7 @@ describe('EvaluatorBlockHandler', () => {
             content: 'Sorry, I cannot provide a score.',
             model: 'm',
             tokens: {},
-            cost: 0,
+            cost: { input: 0, output: 0, total: 0, pricing: null },
             timing: {},
           }),
       })
@@ -248,6 +271,7 @@ describe('EvaluatorBlockHandler', () => {
 
   it('should handle partially valid JSON response (extracts what it can)', async () => {
     const inputs = {
+      model: 'gpt-4.1',
       content: 'Test content',
       metrics: [
         { name: 'accuracy', description: 'Acc', range: { min: 0, max: 1 } },
@@ -263,7 +287,7 @@ describe('EvaluatorBlockHandler', () => {
             content: '{ "accuracy": 1, "fluency": invalid }',
             model: 'm',
             tokens: {},
-            cost: 0,
+            cost: { input: 0, output: 0, total: 0, pricing: null },
             timing: {},
           }),
       })
@@ -276,6 +300,7 @@ describe('EvaluatorBlockHandler', () => {
 
   it('should extract metric scores ignoring case', async () => {
     const inputs = {
+      model: 'gpt-4.1',
       content: 'Test',
       metrics: [{ name: 'CamelCaseScore', description: 'Desc', range: { min: 0, max: 10 } }],
     }
@@ -288,7 +313,7 @@ describe('EvaluatorBlockHandler', () => {
             content: JSON.stringify({ camelcasescore: 7 }),
             model: 'm',
             tokens: {},
-            cost: 0,
+            cost: { input: 0, output: 0, total: 0, pricing: null },
             timing: {},
           }),
       })
@@ -301,6 +326,7 @@ describe('EvaluatorBlockHandler', () => {
 
   it('should handle missing metrics in response (score = 0)', async () => {
     const inputs = {
+      model: 'gpt-4.1',
       content: 'Test',
       metrics: [
         { name: 'presentScore', description: 'Desc1', range: { min: 0, max: 5 } },
@@ -316,7 +342,7 @@ describe('EvaluatorBlockHandler', () => {
             content: JSON.stringify({ presentScore: 4 }),
             model: 'm',
             tokens: {},
-            cost: 0,
+            cost: { input: 0, output: 0, total: 0, pricing: null },
             timing: {},
           }),
       })
@@ -329,7 +355,7 @@ describe('EvaluatorBlockHandler', () => {
   })
 
   it('should handle server error responses', async () => {
-    const inputs = { content: 'Test error handling.' }
+    const inputs = { model: 'gpt-4.1', content: 'Test error handling.' }
 
     // Override fetch mock to return an error
     mockFetch.mockImplementationOnce(() => {

@@ -67,6 +67,7 @@ export function ReadOnlyNodeEditorPanel({
         blockId: selectedBlock.id,
         subBlocks: blockConfig.subBlocks || [],
         stateToUse: selectedBlock.subBlocks || {},
+        isAdvancedMode: selectedBlock.advancedMode ?? false,
         isTriggerMode: Boolean(selectedBlock.triggerMode) || blockConfig.category === 'triggers',
         isPureTriggerBlock: blockConfig.category === 'triggers',
         availableTriggerIds: blockConfig.triggers?.available,

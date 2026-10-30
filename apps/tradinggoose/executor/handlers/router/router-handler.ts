@@ -5,12 +5,10 @@ import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
 import type { PathTracker } from '@/executor/path/path'
 import type { BlockHandler, ExecutionContext } from '@/executor/types'
-import { getProviderDefaultModel } from '@/providers/ai/models'
-import { calculateCost, getProviderFromModel } from '@/providers/ai/utils'
+import { getProviderFromModel } from '@/providers/ai/models'
 import type { SerializedBlock } from '@/serializer/types'
 
 const logger = createLogger('RouterBlockHandler')
-const DEFAULT_MODEL = getProviderDefaultModel('openai')
 
 /**
  * Handler for Router blocks that dynamically select execution paths.
@@ -32,28 +30,23 @@ export class RouterBlockHandler implements BlockHandler {
   ): Promise<BlockOutput> {
     const targetBlocks = this.getTargetBlocks(block, context)
 
-    const routerConfig = {
-      prompt: inputs.prompt,
-      model: inputs.model || DEFAULT_MODEL,
-      apiKey: inputs.apiKey,
-      temperature: inputs.temperature || 0,
-    }
-
-    const providerId = getProviderFromModel(routerConfig.model)
+    const model = inputs.model
+    if (!model) throw new Error('Model is required')
+    const providerId = getProviderFromModel(model)
 
     try {
       const url = new URL('/api/providers', getBaseUrl())
 
       // Create the provider request with proper message formatting
-      const messages = [{ role: 'user', content: routerConfig.prompt }]
-      const systemPrompt = generateRouterPrompt(routerConfig.prompt, targetBlocks)
+      const messages = [{ role: 'user', content: inputs.prompt }]
+      const systemPrompt = generateRouterPrompt(inputs.prompt, targetBlocks)
       const providerRequest = {
         provider: providerId,
-        model: routerConfig.model,
+        model,
         systemPrompt: systemPrompt,
         context: JSON.stringify(messages),
-        temperature: 0.1,
-        apiKey: routerConfig.apiKey,
+        temperature: inputs.temperature,
+        apiKey: inputs.apiKey,
         workflowId: context.workflowId,
       }
 
@@ -94,14 +87,6 @@ export class RouterBlockHandler implements BlockHandler {
 
       const tokens = result.tokens || { prompt: 0, completion: 0, total: 0 }
 
-      // Calculate cost based on token usage, similar to how providers do it
-      const cost = calculateCost(
-        result.model,
-        tokens.prompt || 0,
-        tokens.completion || 0,
-        false // Router blocks don't typically use cached input
-      )
-
       return {
         prompt: inputs.prompt,
         model: result.model,
@@ -110,11 +95,7 @@ export class RouterBlockHandler implements BlockHandler {
           completion: tokens.completion || 0,
           total: tokens.total || 0,
         },
-        cost: {
-          input: cost.input,
-          output: cost.output,
-          total: cost.total,
-        },
+        cost: result.cost,
         selectedPath: {
           blockId: chosenBlock.id,
           blockType: chosenBlock.type || 'unknown',

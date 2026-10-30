@@ -1,7 +1,7 @@
 import OpenAI from 'openai'
+import type { CompletionUsage } from 'openai/resources/completions'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
-import { getProviderDefaultModel, getProviderModels } from '@/providers/ai/models'
 import type {
   ProviderConfig,
   ProviderRequest,
@@ -9,23 +9,20 @@ import type {
   TimeSegment,
 } from '@/providers/ai/types'
 import {
-  calculateCost,
+  createModelCost,
   createOpenAICompatibleStream,
   prepareToolExecution,
   prepareToolsWithUsageControl,
   trackForcedToolUsage,
+  withToolCosts,
 } from '@/providers/ai/utils'
 import { executeTool } from '@/tools'
 
 const logger = createLogger('DeepseekProvider')
+type DeepSeekUsage = CompletionUsage & { prompt_cache_hit_tokens?: number }
 
 export const deepseekProvider: ProviderConfig = {
   id: 'deepseek',
-  name: 'Deepseek',
-  description: "Deepseek's chat models",
-  version: '1.0.0',
-  models: getProviderModels('deepseek'),
-  defaultModel: getProviderDefaultModel('deepseek'),
 
   executeRequest: async (
     request: ProviderRequest
@@ -33,10 +30,40 @@ export const deepseekProvider: ProviderConfig = {
     if (!request.apiKey) {
       throw new Error('API key is required for Deepseek')
     }
+    if (request.responseFormat && request.responseFormat.strict !== false) {
+      throw new Error('DeepSeek does not support strict JSON Schema response formats')
+    }
+
+    const normalizeContent = (content: string) =>
+      request.responseFormat ? content.trim() : content.replace(/```json\n?|\n?```/g, '').trim()
+    const validateFinalContent = (content: string, finishReason?: string | null) => {
+      if (!request.responseFormat) return content
+      const normalized = normalizeContent(content)
+      if (finishReason === 'length') {
+        throw new Error('DeepSeek returned a truncated JSON response (finish_reason: length)')
+      }
+      if (!normalized) {
+        throw new Error('DeepSeek returned an empty JSON response')
+      }
+      return normalized
+    }
 
     // Start execution timer for the entire provider execution
     const providerStartTime = Date.now()
     const providerStartTimeISO = new Date(providerStartTime).toISOString()
+    const tokens = { prompt: 0, completion: 0, total: 0 }
+    const cost = createModelCost(request.model)
+    const recordUsage = (usage?: DeepSeekUsage) => {
+      if (!usage) return
+      tokens.prompt += usage.prompt_tokens ?? 0
+      tokens.completion += usage.completion_tokens ?? 0
+      tokens.total += usage.total_tokens ?? 0
+      cost.add(
+        usage.prompt_tokens ?? 0,
+        usage.completion_tokens ?? 0,
+        usage.prompt_cache_hit_tokens ?? 0
+      )
+    }
 
     try {
       // Deepseek uses the OpenAI SDK with a custom baseURL
@@ -48,11 +75,17 @@ export const deepseekProvider: ProviderConfig = {
       // Start with an empty array for all messages
       const allMessages = []
 
-      // Add system prompt if present
-      if (request.systemPrompt) {
+      const systemPrompt = [
+        request.systemPrompt,
+        request.responseFormat &&
+          `Respond with only a valid JSON object matching this schema: ${JSON.stringify(request.responseFormat.schema)}`,
+      ]
+        .filter(Boolean)
+        .join('\n\n')
+      if (systemPrompt) {
         allMessages.push({
           role: 'system',
-          content: request.systemPrompt,
+          content: systemPrompt,
         })
       }
 
@@ -89,12 +122,27 @@ export const deepseekProvider: ProviderConfig = {
       // Add optional parameters
       if (request.temperature !== undefined) payload.temperature = request.temperature
       if (request.maxTokens !== undefined) payload.max_tokens = request.maxTokens
+      if (request.responseFormat) payload.response_format = { type: 'json_object' }
+      if (request.thinkingLevel !== undefined) {
+        payload.thinking = {
+          type: request.thinkingLevel === 'none' ? 'disabled' : 'enabled',
+        }
+      }
+      if (request.reasoningEffort !== undefined && request.thinkingLevel !== 'none') {
+        payload.reasoning_effort = request.reasoningEffort
+      }
 
       // Handle tools and tool usage control
       let preparedTools: ReturnType<typeof prepareToolsWithUsageControl> | null = null
 
       if (tools?.length) {
-        preparedTools = prepareToolsWithUsageControl(tools, request.tools, logger, 'deepseek')
+        preparedTools = prepareToolsWithUsageControl(
+          tools,
+          request.tools,
+          logger,
+          'deepseek',
+          request.thinkingLevel === 'none'
+        )
         const { tools: filteredTools, toolChoice } = preparedTools
 
         if (filteredTools?.length && toolChoice) {
@@ -128,32 +176,14 @@ export const deepseekProvider: ProviderConfig = {
           stream_options: { include_usage: true },
         })
 
-        // Start collecting token usage
-        const tokenUsage = {
-          prompt: 0,
-          completion: 0,
-          total: 0,
-        }
-
         // Create a StreamingExecution response with a readable stream
-        const streamingResult = {
+        const streamingResult: StreamingExecution = {
           stream: createOpenAICompatibleStream(
             streamResponse as any,
             'Deepseek',
-            (content, usage) => {
-              streamingResult.execution.output.content = content
-
-              const newTokens = {
-                prompt: usage.prompt_tokens || 0,
-                completion: usage.completion_tokens || 0,
-                total: usage.total_tokens || 0,
-              }
-              streamingResult.execution.output.tokens = newTokens
-              streamingResult.execution.output.cost = calculateCost(
-                request.model,
-                newTokens.prompt,
-                newTokens.completion
-              )
+            (content, usage, finishReason) => {
+              recordUsage(usage)
+              streamingResult.execution.output.content = validateFinalContent(content, finishReason)
             }
           ),
           execution: {
@@ -161,7 +191,7 @@ export const deepseekProvider: ProviderConfig = {
             output: {
               content: '', // Will be filled by streaming content in chat component
               model: request.model,
-              tokens: tokenUsage,
+              tokens,
               toolCalls: undefined,
               providerTiming: {
                 startTime: providerStartTimeISO,
@@ -177,12 +207,7 @@ export const deepseekProvider: ProviderConfig = {
                   },
                 ],
               },
-              // Estimate token cost
-              cost: {
-                total: 0.0,
-                input: 0.0,
-                output: 0.0,
-              },
+              cost: cost.value,
             },
             logs: [], // No block logs for direct streaming
             metadata: {
@@ -195,7 +220,7 @@ export const deepseekProvider: ProviderConfig = {
         }
 
         // Return the streaming execution object
-        return streamingResult as StreamingExecution
+        return streamingResult
       }
 
       // Make the initial API request
@@ -210,25 +235,15 @@ export const deepseekProvider: ProviderConfig = {
 
       let currentResponse = await deepseek.chat.completions.create(payload)
       const firstResponseTime = Date.now() - initialCallTime
+      recordUsage(currentResponse.usage)
 
-      let content = currentResponse.choices[0]?.message?.content || ''
+      let content = normalizeContent(currentResponse.choices[0]?.message?.content ?? '')
 
-      // Clean up the response content if it exists
-      if (content) {
-        // Remove any markdown code block markers
-        content = content.replace(/```json\n?|\n?```/g, '')
-        // Trim any whitespace
-        content = content.trim()
-      }
-
-      const tokens = {
-        prompt: currentResponse.usage?.prompt_tokens || 0,
-        completion: currentResponse.usage?.completion_tokens || 0,
-        total: currentResponse.usage?.total_tokens || 0,
-      }
       const toolCalls = []
-      const toolResults = []
-      const currentMessages = [...allMessages]
+      const toolResults: Record<string, unknown>[] = []
+      const currentMessages: Array<
+        (typeof allMessages)[number] | OpenAI.Chat.Completions.ChatCompletionMessage
+      > = [...allMessages]
       let iterationCount = 0
       const MAX_ITERATIONS = 10 // Prevent infinite loops
 
@@ -268,186 +283,146 @@ export const deepseekProvider: ProviderConfig = {
         usedForcedTools = result.usedForcedTools
       }
 
-      try {
-        while (iterationCount < MAX_ITERATIONS) {
-          // Check for tool calls
-          const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
-          if (!toolCallsInResponse || toolCallsInResponse.length === 0) {
-            break
-          }
-
-          // Track time for tool calls in this batch
-          const toolsStartTime = Date.now()
-
-          // Process each tool call
-          for (const toolCall of toolCallsInResponse) {
-            try {
-              const toolName = toolCall.function.name
-              const toolArgs = JSON.parse(toolCall.function.arguments)
-
-              // Get the tool from the tools registry
-              const tool = request.tools?.find((t) => t.id === toolName)
-              if (!tool) continue
-
-              // Execute the tool
-              const toolCallStartTime = Date.now()
-
-              const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
-
-              const result = await executeTool(toolName, executionParams)
-              const toolCallEndTime = Date.now()
-              const toolCallDuration = toolCallEndTime - toolCallStartTime
-
-              // Add to time segments for both success and failure
-              timeSegments.push({
-                type: 'tool',
-                name: toolName,
-                startTime: toolCallStartTime,
-                endTime: toolCallEndTime,
-                duration: toolCallDuration,
-              })
-
-              // Prepare result content for the LLM
-              let resultContent: any
-              if (result.success) {
-                toolResults.push(result.output)
-                resultContent = result.output
-              } else {
-                // Include error information so LLM can respond appropriately
-                resultContent = {
-                  error: true,
-                  message: result.error || 'Tool execution failed',
-                  tool: toolName,
-                }
-              }
-
-              toolCalls.push({
-                name: toolName,
-                arguments: toolParams,
-                startTime: new Date(toolCallStartTime).toISOString(),
-                endTime: new Date(toolCallEndTime).toISOString(),
-                duration: toolCallDuration,
-                result: resultContent,
-                success: result.success,
-              })
-
-              // Add the tool call and result to messages (both success and failure)
-              currentMessages.push({
-                role: 'assistant',
-                content: null,
-                tool_calls: [
-                  {
-                    id: toolCall.id,
-                    type: 'function',
-                    function: {
-                      name: toolName,
-                      arguments: toolCall.function.arguments,
-                    },
-                  },
-                ],
-              })
-
-              currentMessages.push({
-                role: 'tool',
-                tool_call_id: toolCall.id,
-                content: JSON.stringify(resultContent),
-              })
-            } catch (error) {
-              logger.error('Error processing tool call:', { error })
-            }
-          }
-
-          // Calculate tool call time for this iteration
-          const thisToolsTime = Date.now() - toolsStartTime
-          toolsTime += thisToolsTime
-
-          // Make the next request with updated messages
-          const nextPayload = {
-            ...payload,
-            messages: currentMessages,
-          }
-
-          // Update tool_choice based on which forced tools have been used
-          if (
-            typeof originalToolChoice === 'object' &&
-            hasUsedForcedTool &&
-            forcedTools.length > 0
-          ) {
-            // If we have remaining forced tools, get the next one to force
-            const remainingTools = forcedTools.filter((tool) => !usedForcedTools.includes(tool))
-
-            if (remainingTools.length > 0) {
-              // Force the next tool
-              nextPayload.tool_choice = {
-                type: 'function',
-                function: { name: remainingTools[0] },
-              }
-              logger.info(`Forcing next tool: ${remainingTools[0]}`)
-            } else {
-              // All forced tools have been used, switch to auto
-              nextPayload.tool_choice = 'auto'
-              logger.info('All forced tools have been used, switching to auto tool_choice')
-            }
-          }
-
-          // Time the next model call
-          const nextModelStartTime = Date.now()
-
-          // Make the next request
-          currentResponse = await deepseek.chat.completions.create(nextPayload)
-
-          // Check if any forced tools were used in this response
-          if (
-            typeof nextPayload.tool_choice === 'object' &&
-            currentResponse.choices[0]?.message?.tool_calls
-          ) {
-            const toolCallsResponse = currentResponse.choices[0].message.tool_calls
-            const result = trackForcedToolUsage(
-              toolCallsResponse,
-              nextPayload.tool_choice,
-              logger,
-              'deepseek',
-              forcedTools,
-              usedForcedTools
-            )
-            hasUsedForcedTool = result.hasUsedForcedTool
-            usedForcedTools = result.usedForcedTools
-          }
-
-          const nextModelEndTime = Date.now()
-          const thisModelTime = nextModelEndTime - nextModelStartTime
-
-          // Add to time segments
-          timeSegments.push({
-            type: 'model',
-            name: `Model response (iteration ${iterationCount + 1})`,
-            startTime: nextModelStartTime,
-            endTime: nextModelEndTime,
-            duration: thisModelTime,
-          })
-
-          // Add to model time
-          modelTime += thisModelTime
-
-          // Update content if we have a text response
-          if (currentResponse.choices[0]?.message?.content) {
-            content = currentResponse.choices[0].message.content
-            // Clean up the response content
-            content = content.replace(/```json\n?|\n?```/g, '')
-            content = content.trim()
-          }
-
-          // Update token counts
-          if (currentResponse.usage) {
-            tokens.prompt += currentResponse.usage.prompt_tokens || 0
-            tokens.completion += currentResponse.usage.completion_tokens || 0
-            tokens.total += currentResponse.usage.total_tokens || 0
-          }
-
-          iterationCount++
+      while (iterationCount < MAX_ITERATIONS) {
+        // Check for tool calls
+        const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
+        if (!toolCallsInResponse || toolCallsInResponse.length === 0) {
+          break
         }
-      } catch (error) {
-        logger.error('Error in Deepseek request:', { error })
+
+        // DeepSeek requires the complete reasoning content when continuing a tool turn.
+        currentMessages.push(currentResponse.choices[0].message)
+
+        // Track time for tool calls in this batch
+        const toolsStartTime = Date.now()
+
+        // Process each tool call
+        for (const toolCall of toolCallsInResponse) {
+          const toolName = toolCall.function.name
+          const toolCallStartTime = Date.now()
+          let toolParams: Record<string, any> = {}
+          let resultContent: any
+          let success = false
+
+          try {
+            const toolArgs = JSON.parse(toolCall.function.arguments)
+            const tool = request.tools?.find((t) => t.id === toolName)
+            if (!tool) throw new Error(`Unknown tool: ${toolName}`)
+
+            const prepared = prepareToolExecution(tool, toolArgs, request)
+            toolParams = prepared.toolParams
+            const result = await executeTool(toolName, prepared.executionParams)
+            if (!result.success) throw new Error(result.error || 'Tool execution failed')
+            success = true
+            toolResults.push(result.output)
+            resultContent = result.output
+          } catch (error) {
+            logger.error('Error processing tool call:', { error, toolName })
+            resultContent = {
+              error: true,
+              message: error instanceof Error ? error.message : String(error),
+              tool: toolName,
+            }
+          }
+
+          const toolCallEndTime = Date.now()
+          const toolCallDuration = toolCallEndTime - toolCallStartTime
+          timeSegments.push({
+            type: 'tool',
+            name: toolName,
+            startTime: toolCallStartTime,
+            endTime: toolCallEndTime,
+            duration: toolCallDuration,
+          })
+          toolCalls.push({
+            name: toolName,
+            arguments: toolParams,
+            startTime: new Date(toolCallStartTime).toISOString(),
+            endTime: new Date(toolCallEndTime).toISOString(),
+            duration: toolCallDuration,
+            result: resultContent,
+            success,
+          })
+          currentMessages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: JSON.stringify(resultContent),
+          })
+        }
+
+        // Calculate tool call time for this iteration
+        const thisToolsTime = Date.now() - toolsStartTime
+        toolsTime += thisToolsTime
+
+        // Make the next request with updated messages
+        const nextPayload = {
+          ...payload,
+          messages: currentMessages,
+        }
+
+        // Update tool_choice based on which forced tools have been used
+        if (typeof originalToolChoice === 'object' && hasUsedForcedTool && forcedTools.length > 0) {
+          // If we have remaining forced tools, get the next one to force
+          const remainingTools = forcedTools.filter((tool) => !usedForcedTools.includes(tool))
+
+          if (remainingTools.length > 0) {
+            // Force the next tool
+            nextPayload.tool_choice = {
+              type: 'function',
+              function: { name: remainingTools[0] },
+            }
+            logger.info(`Forcing next tool: ${remainingTools[0]}`)
+          } else {
+            // All forced tools have been used, switch to auto
+            nextPayload.tool_choice = 'auto'
+            logger.info('All forced tools have been used, switching to auto tool_choice')
+          }
+        }
+
+        // Time the next model call
+        const nextModelStartTime = Date.now()
+
+        // Make the next request
+        currentResponse = await deepseek.chat.completions.create(nextPayload)
+
+        // Check if any forced tools were used in this response
+        if (
+          typeof nextPayload.tool_choice === 'object' &&
+          currentResponse.choices[0]?.message?.tool_calls
+        ) {
+          const toolCallsResponse = currentResponse.choices[0].message.tool_calls
+          const result = trackForcedToolUsage(
+            toolCallsResponse,
+            nextPayload.tool_choice,
+            logger,
+            'deepseek',
+            forcedTools,
+            usedForcedTools
+          )
+          hasUsedForcedTool = result.hasUsedForcedTool
+          usedForcedTools = result.usedForcedTools
+        }
+
+        const nextModelEndTime = Date.now()
+        const thisModelTime = nextModelEndTime - nextModelStartTime
+
+        // Add to time segments
+        timeSegments.push({
+          type: 'model',
+          name: `Model response (iteration ${iterationCount + 1})`,
+          startTime: nextModelStartTime,
+          endTime: nextModelEndTime,
+          duration: thisModelTime,
+        })
+
+        // Add to model time
+        modelTime += thisModelTime
+
+        content = normalizeContent(currentResponse.choices[0]?.message?.content ?? '')
+
+        recordUsage(currentResponse.usage)
+
+        iterationCount++
       }
 
       // Calculate overall timing
@@ -472,25 +447,14 @@ export const deepseekProvider: ProviderConfig = {
         const streamResponse = await deepseek.chat.completions.create(streamingPayload)
 
         // Create a StreamingExecution response with all collected data
-        const streamingResult = {
+        const streamingResult: StreamingExecution = {
           stream: createOpenAICompatibleStream(
             streamResponse as any,
             'Deepseek',
-            (content, usage) => {
-              streamingResult.execution.output.content = content
-
-              const newTokens = {
-                prompt: tokens.prompt + (usage.prompt_tokens || 0),
-                completion: tokens.completion + (usage.completion_tokens || 0),
-                total: tokens.total + (usage.total_tokens || 0),
-              }
-
-              streamingResult.execution.output.tokens = newTokens
-              streamingResult.execution.output.cost = calculateCost(
-                request.model,
-                newTokens.prompt,
-                newTokens.completion
-              )
+            (content, usage, finishReason) => {
+              recordUsage(usage)
+              streamingResult.execution.output.content = validateFinalContent(content, finishReason)
+              streamingResult.execution.output.cost = withToolCosts(cost.value, toolResults)
             }
           ),
           execution: {
@@ -498,11 +462,7 @@ export const deepseekProvider: ProviderConfig = {
             output: {
               content: '', // Will be filled by the callback
               model: request.model,
-              tokens: {
-                prompt: tokens.prompt,
-                completion: tokens.completion,
-                total: tokens.total,
-              },
+              tokens,
               toolCalls:
                 toolCalls.length > 0
                   ? {
@@ -520,7 +480,7 @@ export const deepseekProvider: ProviderConfig = {
                 iterations: iterationCount + 1,
                 timeSegments: timeSegments,
               },
-              cost: calculateCost(request.model, tokens.prompt, tokens.completion),
+              cost: withToolCosts(cost.value, toolResults),
             },
             logs: [], // No block logs at provider level
             metadata: {
@@ -533,13 +493,14 @@ export const deepseekProvider: ProviderConfig = {
         }
 
         // Return the streaming execution object
-        return streamingResult as StreamingExecution
+        return streamingResult
       }
 
       return {
-        content,
+        content: validateFinalContent(content, currentResponse.choices[0]?.finish_reason),
         model: request.model,
         tokens,
+        cost: cost.value,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         toolResults: toolResults.length > 0 ? toolResults : undefined,
         timing: {

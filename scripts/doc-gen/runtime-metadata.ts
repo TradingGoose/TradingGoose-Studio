@@ -12,14 +12,7 @@ import type { ToolConfig } from '../../apps/tradinggoose/tools/types'
 import { TRIGGER_REGISTRY } from '../../apps/tradinggoose/triggers/registry'
 import type { TriggerConfig as RuntimeTriggerConfig } from '../../apps/tradinggoose/triggers/types'
 import { shouldGenerateToolDoc } from './doc-pages'
-import type {
-  BlockConfig,
-  DocCondition,
-  DocSubBlock,
-  ToolDocSource,
-  ToolInfo,
-  TriggerConfig,
-} from './types'
+import type { BlockConfig, DocSubBlock, ToolDocSource, ToolInfo, TriggerConfig } from './types'
 import { appendSentence, describeVisibilityCondition } from './utils'
 
 const AI_DISPATCH_TOOL_IDS = new Set([
@@ -46,21 +39,6 @@ function resolveMetadataFactory<T>(
     throw new Error(
       `${ownerType ?? 'block'}.${subBlockId} ${field} could not be resolved: ${error instanceof Error ? error.message : String(error)}`
     )
-  }
-}
-
-function copyCondition(condition: SubBlockCondition): DocCondition {
-  return {
-    field: condition.field,
-    value: condition.value,
-    ...(condition.not === undefined ? {} : { not: condition.not }),
-    ...(condition.and
-      ? {
-          and: Array.isArray(condition.and)
-            ? condition.and.map(copyCondition)
-            : copyCondition(condition.and),
-        }
-      : {}),
   }
 }
 
@@ -117,7 +95,7 @@ function sanitizeSubBlock(
   if (typeof required === 'boolean') {
     result.required = required
   } else if (isRecord(required) && typeof required.field === 'string') {
-    result.requiredCondition = copyCondition(required as unknown as SubBlockCondition)
+    result.requiredCondition = structuredClone(required as unknown as SubBlockCondition)
   } else if (hasRequiredFactory) {
     throw new Error(`${ownerType ?? 'block'}.${subBlock.id} required did not return a condition`)
   }
@@ -146,7 +124,8 @@ function sanitizeSubBlock(
     throw new Error(`${ownerType ?? 'block'}.${subBlock.id} value is not serializable`)
   }
 
-  const hasOptionsFactory = resolveFactories && typeof subBlock.options === 'function'
+  const hasOptionsFactory =
+    resolveFactories && typeof subBlock.options === 'function' && subBlock.options.length === 0
   const options = hasOptionsFactory
     ? resolveMetadataFactory(subBlock.options as () => unknown, ownerType, subBlock.id, 'options')
     : subBlock.options
@@ -167,7 +146,7 @@ function sanitizeSubBlock(
     condition = resolveMetadataFactory(condition, ownerType, subBlock.id, 'condition')
   }
   if (isRecord(condition) && typeof condition.field === 'string') {
-    result.condition = copyCondition(condition as unknown as SubBlockCondition)
+    result.condition = structuredClone(condition as unknown as SubBlockCondition)
   }
 
   return result
@@ -180,6 +159,9 @@ function sanitizeBlock(block: RuntimeBlockConfig, resolveOperations = true): Blo
       const field = sanitizeSubBlock(subBlock, true, block.type)
       if (field && block.category === 'blocks' && subBlock.mode === 'advanced') {
         field.description = appendSentence(field.description, 'Available in Advanced mode.')
+      }
+      if (field && subBlock.additional) {
+        field.description = appendSentence(field.description, 'Available in Additional Fields.')
       }
       return field
     })

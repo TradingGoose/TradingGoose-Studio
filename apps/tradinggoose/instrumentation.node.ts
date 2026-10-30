@@ -13,7 +13,7 @@ const batchSettings = {
   maxQueueSize: 2048,
   maxExportBatchSize: 512,
   scheduledDelayMillis: 5000,
-  exportTimeoutMillis: 30000,
+  exportTimeoutMillis: 10000,
 }
 
 const telemetryState = globalThis as typeof globalThis & {
@@ -56,7 +56,9 @@ export async function register() {
 
     const exporter = new OTLPTraceExporter({
       url: env.TELEMETRY_ENDPOINT || TELEMETRY_ENDPOINT,
-      timeoutMillis: batchSettings.exportTimeoutMillis,
+      // Fail before the batch deadline and avoid stale sockets after serverless suspension.
+      timeoutMillis: 5000,
+      keepAlive: false,
     })
 
     const provider = new NodeTracerProvider({

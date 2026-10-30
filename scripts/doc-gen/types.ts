@@ -1,9 +1,4 @@
-export interface DocCondition {
-  field: string
-  value: string | number | boolean | Array<string | number | boolean>
-  not?: boolean
-  and?: DocCondition | DocCondition[]
-}
+import type { SubBlockCondition } from '../../apps/tradinggoose/blocks/types'
 
 /** Serializable subset of SubBlockConfig for doc rendering */
 export interface DocSubBlock {
@@ -23,9 +18,9 @@ export interface DocSubBlock {
   language?: string
   provider?: string
   /** Condition that controls when this field is visible (e.g., which operation is selected) */
-  condition?: DocCondition
+  condition?: SubBlockCondition
   /** Condition that controls when this field is required. Resolved before preview rendering. */
-  requiredCondition?: DocCondition
+  requiredCondition?: SubBlockCondition
 }
 
 export interface BlockConfig {

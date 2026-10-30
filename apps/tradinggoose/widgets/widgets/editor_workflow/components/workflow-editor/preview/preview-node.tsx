@@ -2,7 +2,7 @@ import { memo, type ReactNode, useMemo } from 'react'
 import { Handle, type NodeProps, Position } from '@xyflow/react'
 import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
-import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
+import { buildSubBlockPreviewRows } from '@/lib/workflows/sub-block-rows'
 import { getBlock } from '@/blocks'
 import { resolveTriggerIdFromSubBlocks } from '@/triggers/resolution'
 import {
@@ -124,7 +124,7 @@ function LocalizedPreviewNode({ id, data }: NodeProps<PreviewCanvasNode>) {
   const previewSubBlocks = useMemo(
     () =>
       blockConfig
-        ? buildSubBlockRows({
+        ? buildSubBlockPreviewRows({
             blockId: id,
             subBlocks: localizedSubBlocks,
             stateToUse: previewStateRaw,
@@ -132,9 +132,7 @@ function LocalizedPreviewNode({ id, data }: NodeProps<PreviewCanvasNode>) {
             isTriggerMode,
             isPureTriggerBlock,
             availableTriggerIds: blockConfig.triggers?.available,
-            hideFromPreview: true,
-            triggerSubBlockOwner: 'all',
-          }).flat()
+          })
         : [],
     [
       blockConfig?.triggers?.available,

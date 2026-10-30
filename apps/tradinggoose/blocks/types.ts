@@ -1,6 +1,7 @@
 import type { JSX, SVGProps } from 'react'
 import type { TimeFormat } from '@/lib/time-format'
 import type { WorkflowOutputType, WorkflowParamType } from '@/lib/workflows/value-types'
+import type { ModelControl } from '@/providers/ai/models'
 import type { ParameterVisibility, ToolResponse } from '@/tools/types'
 
 export type BlockIcon = (props: SVGProps<SVGSVGElement>) => JSX.Element
@@ -79,12 +80,15 @@ export type SubBlockType =
 
 export type SubBlockLayout = 'full' | 'half'
 
-export interface SubBlockCondition {
+export type SubBlockCondition = {
   field: string
-  value: string | number | boolean | Array<string | number | boolean>
   not?: boolean
   and?: SubBlockCondition | SubBlockCondition[]
-}
+} & (
+  | { operator?: never; value: string | number | boolean | Array<string | number | boolean> }
+  | { operator: 'modelCapability'; value: ModelControl }
+  | { operator: 'modelMaxTemperature'; value: number }
+)
 
 export type ExtractToolOutput<T> = T extends ToolResponse ? T['output'] : never
 
@@ -162,12 +166,21 @@ export interface SubBlockOptionGroup {
 
 export type DropdownEntityListKind = 'workflow' | 'watchlist'
 
+export interface WandConfig {
+  enabled: boolean
+  prompt: string
+  generationType?: GenerationType
+  placeholder?: string
+  maintainHistory?: boolean
+}
+
 export interface SubBlockConfig {
   id: string
   title?: string
   type: SubBlockType
   layout?: SubBlockLayout
   mode?: 'basic' | 'advanced' | 'both' | 'trigger' // Default is 'both' if not specified
+  additional?: boolean
   canonicalParamId?: string
   providerType?: 'market' | 'trading'
   marketProviderKind?: 'series' | 'live'
@@ -175,7 +188,7 @@ export interface SubBlockConfig {
   tradingProviderFieldId?: string
   required?: boolean | SubBlockCondition | (() => SubBlockCondition)
   defaultValue?: string | number | boolean | Record<string, unknown> | Array<unknown>
-  options?: SubBlockOption[] | (() => SubBlockOption[])
+  options?: SubBlockOption[] | ((params?: Record<string, any>) => SubBlockOption[])
   entityListKind?: DropdownEntityListKind
   excludeCurrentEntity?: boolean
   // Async options loader for dropdown/combobox-like inputs
@@ -248,13 +261,7 @@ export interface SubBlockConfig {
   // Multi-select functionality
   multiSelect?: boolean
   // Wand configuration for AI assistance
-  wandConfig?: {
-    enabled: boolean
-    prompt: string // Custom prompt template for this subblock
-    generationType?: GenerationType // Optional custom generation type
-    placeholder?: string // Custom placeholder for the prompt input
-    maintainHistory?: boolean // Whether to maintain conversation history
-  }
+  wandConfig?: WandConfig
   // Trigger-specific configuration
   availableTriggers?: string[] // List of trigger IDs available for this subblock
   triggerProvider?: string // Which provider's triggers to show

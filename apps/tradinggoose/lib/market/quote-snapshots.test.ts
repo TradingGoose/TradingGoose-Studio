@@ -5,11 +5,15 @@ import type { MarketSeries } from '@/providers/market/types'
 
 const execute = vi.fn()
 const resolveContext = vi.fn()
+const resolveHours = vi.fn()
 vi.mock('@/providers/market', () => ({
   executeProviderRequest: (...args: unknown[]) => execute(...args),
 }))
 vi.mock('@/providers/market/utils', () => ({
   resolveListingContext: (...args: unknown[]) => resolveContext(...args),
+}))
+vi.mock('@/providers/market/market-hours/market-hours-api', () => ({
+  resolveMarketHoursRange: (...args: unknown[]) => resolveHours(...args),
 }))
 const listing = { listing_id: 'AAPL', base_id: '', quote_id: '', listing_type: 'default' as const }
 const session = {
@@ -27,6 +31,7 @@ describe('market quote normalization', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-10-26T16:00:00Z'))
     resolveContext.mockReset().mockResolvedValue({ assetClass: 'stock' })
+    resolveHours.mockReset().mockResolvedValue(null)
     execute
       .mockReset()
       .mockImplementation(async (_provider, request) =>
@@ -102,6 +107,13 @@ describe('market quote normalization', () => {
           session: 'regular',
         },
       ])
+      daily.bars.pop()
+      expect(await snapshot(provider)).toMatchObject({
+        lastPrice: 112,
+        previousClose: 100,
+        change: 12,
+      })
+      expect(resolveHours).not.toHaveBeenCalled()
     }
   )
 
@@ -112,7 +124,11 @@ describe('market quote normalization', () => {
   ])('uses the prior completed session across closures for %s', async (date, close) => {
     vi.setSystemTime(new Date(`${date}T16:00:00Z`))
     daily.bars.pop()
-    regular = { timezone: regular.timezone, bars: [{ timeStamp: `${date}T15:59:00Z`, close: 110 }] }
+    regular = {
+      timezone: regular.timezone,
+      bars: [{ timeStamp: `${date}T15:59:00Z`, close: 110 }],
+      marketSessions: [{ ...session, date, start: `${date}T13:30:00Z`, end: `${date}T20:00:00Z` }],
+    }
     expect(await snapshot()).toMatchObject({ previousClose: close, change: 110 - close })
   })
 
@@ -123,7 +139,7 @@ describe('market quote normalization', () => {
       previousClose: null,
       change: null,
       changePercent: null,
-      error: 'Previous regular-session close is unavailable',
+      error: 'marketQuotes.previousCloseUnavailable',
     })
   })
 
@@ -132,6 +148,7 @@ describe('market quote normalization', () => {
     async (hasSession) => {
       vi.setSystemTime(new Date('2026-10-26T12:00:00Z'))
       daily.bars = [
+        { timeStamp: '2026-10-21T04:00:00Z', close: 49 },
         { timeStamp: '2026-10-22T04:00:00Z', close: 50 },
         { timeStamp: '2026-10-23T04:00:00Z', close: 51, volume: 20 },
       ]
@@ -155,18 +172,108 @@ describe('market quote normalization', () => {
         lastPriceEndTime: hasSession ? '2026-10-23T20:00:00Z' : '2026-10-24T04:00:00.000Z',
       })
       daily.bars.pop()
-      expect(await snapshot()).toMatchObject({
-        lastPrice: 102,
-        previousClose: null,
-        change: null,
-        lastPriceEndTime: '2026-10-23T19:01:00.000Z',
-        error: 'Current regular-session close is unavailable',
+      const latestDaily = await snapshot()
+      expect(latestDaily).toMatchObject({
+        lastPrice: 50,
+        previousClose: 49,
+        change: 1,
+        lastPriceTime: '2026-10-22T04:00:00Z',
+        lastPriceEndTime: '2026-10-23T04:00:00.000Z',
       })
+      expect(latestDaily.error).toBeUndefined()
+      expect(latestDaily.regularSession).toBeUndefined()
       vi.setSystemTime(new Date('2026-10-26T16:00:00Z'))
       daily.bars = [{ timeStamp: '2026-10-23T04:00:00Z', close: 100 }]
       regular.bars = [{ timeStamp: '2026-10-26T15:59:00Z', close: 100 }]
       regular.marketSessions = [session]
       expect(await snapshot()).toMatchObject({ lastPrice: 100, previousClose: 100, change: 0 })
+    }
+  )
+
+  it.each(['alpaca', 'finnhub', 'alpha-vantage', 'robinhood', 'yahoo-finance'])(
+    'shows the latest available daily change while %s stocks are closed',
+    async (provider) => {
+      regular.bars = [{ timeStamp: '2026-10-26T19:59:00Z', close: 110 }]
+      for (const now of ['2026-10-26T20:01:00Z', '2026-10-27T12:00:00Z', '2026-10-31T16:00:00Z']) {
+        vi.setSystemTime(new Date(now))
+        expect(await snapshot(provider)).toMatchObject({
+          lastPrice: 105,
+          previousClose: 100,
+          change: 5,
+          changePercent: 5,
+          lastPriceTime: '2026-10-26T04:00:00Z',
+          lastPriceEndTime: session.end,
+        })
+        daily.bars.pop()
+        const quote = await snapshot(provider)
+        expect(quote).toMatchObject({
+          lastPrice: 100,
+          previousClose: 90,
+          change: 10,
+          changePercent: (10 / 90) * 100,
+          lastPriceTime: '2026-10-23T04:00:00Z',
+          lastPriceEndTime: '2026-10-24T04:00:00.000Z',
+        })
+        expect(quote.error).toBeUndefined()
+        expect(quote.regularSession).toBeUndefined()
+        daily.bars.push({ timeStamp: '2026-10-26T04:00:00Z', close: 105, volume: 20 })
+      }
+      regular.bars = []
+      const quote = await snapshot(provider)
+      expect(quote).toMatchObject({ lastPrice: 105, previousClose: 100, change: 5 })
+      expect(quote.error).toBeUndefined()
+    }
+  )
+
+  it.each(['alpaca', 'finnhub', 'alpha-vantage', 'robinhood', 'yahoo-finance'])(
+    'resolves missing %s session metadata before selecting same-day stock prices',
+    async (provider) => {
+      for (const [close, now, minute, afterHours, closed] of [
+        ['16:00', '21:01', '19:59', '21:00', true],
+        ['13:00', '18:01', '16:59', '18:00', true],
+        ['16:00', '16:00', '15:59', undefined, false],
+      ] as const) {
+        vi.setSystemTime(new Date(`2026-10-26T${now}:00Z`))
+        resolveHours.mockResolvedValue(
+          new Map([
+            [
+              '2026-10-26',
+              {
+                timeZone: { name: 'America/New_York', utcOffset: '-04:00' },
+                marketHours: {
+                  premarket: { start: '04:00', end: '09:30' },
+                  market: { start: '09:30', end: close },
+                  postmarket: { start: close, end: '20:00' },
+                },
+              },
+            ],
+          ])
+        )
+        regular.marketSessions = close === '13:00' ? [] : undefined
+        regular.bars = [
+          { timeStamp: '2026-10-26T13:00:00Z', close: 120 },
+          { timeStamp: `2026-10-26T${minute}:00Z`, close: 110 },
+          ...(afterHours ? [{ timeStamp: `2026-10-26T${afterHours}:00Z`, close: 115 }] : []),
+        ]
+        const quote = await snapshot(provider)
+        const sessionEnd = `2026-10-26T${close === '13:00' ? '17:00' : '20:00'}:00.000Z`
+        expect(quote).toMatchObject({
+          lastPrice: closed ? 105 : 110,
+          previousClose: 100,
+          change: closed ? 5 : 10,
+          changePercent: closed ? 5 : 10,
+          lastPriceTime: closed ? daily.bars.at(-1)!.timeStamp : regular.bars[1].timeStamp,
+          lastPriceEndTime: closed ? sessionEnd : '2026-10-26T16:00:00.000Z',
+          regularSession: { start: '2026-10-26T13:30:00.000Z', end: sessionEnd },
+        })
+        expect(quote.error).toBeUndefined()
+        const [listingId, listingType, start, end] = resolveHours.mock.calls.at(-1)!
+        expect([listingId, listingType]).toEqual(['AAPL', 'default'])
+        expect(start.getTime()).toBeLessThan(Date.parse(session.start))
+        expect(end.getTime()).toBeGreaterThan(Date.parse(sessionEnd))
+      }
+      expect(resolveHours).toHaveBeenCalledTimes(3)
+      expect(execute).toHaveBeenCalledTimes(6)
     }
   )
 
@@ -178,6 +285,92 @@ describe('market quote normalization', () => {
     await expect(snapshot()).rejects.toThrow('Provider unavailable')
     expect(execute).toHaveBeenCalledTimes(2)
   })
+
+  it.each(['alpaca', 'finnhub', 'alpha-vantage', 'robinhood', 'yahoo-finance'])(
+    'keeps %s daily prices when regular-session validation is unavailable or empty',
+    async (provider) => {
+      vi.setSystemTime(new Date('2026-10-26T21:01:00Z'))
+      regular.marketSessions = undefined
+      regular.bars = [{ timeStamp: '2026-10-26T21:00:00Z', close: 999 }]
+      for (const hours of [null, new Map()]) {
+        resolveHours.mockResolvedValue(hours)
+        const quote = await snapshot(provider)
+        expect(quote).toMatchObject({
+          lastPrice: 105,
+          previousClose: 100,
+          change: 5,
+          changePercent: 5,
+          lastPriceTime: '2026-10-26T04:00:00Z',
+        })
+        expect(quote.regularSession).toBeUndefined()
+        expect(quote.lastPriceEndTime).toBeUndefined()
+      }
+      expect(resolveHours).toHaveBeenCalledTimes(2)
+      expect(execute).toHaveBeenCalledTimes(4)
+    }
+  )
+
+  it.each(['unavailable', 'empty'])(
+    'preserves supplied boundaries only when calendar recovery is %s',
+    async (availability) => {
+      vi.setSystemTime(new Date('2026-10-27T12:01:00Z'))
+      regular.bars = [
+        { timeStamp: '2026-10-26T19:59:00Z', close: 110 },
+        { timeStamp: '2026-10-27T12:00:00Z', close: 999 },
+      ]
+      resolveHours.mockResolvedValue(availability === 'unavailable' ? null : new Map())
+      const quote = await snapshot()
+      expect(quote).toMatchObject({
+        lastPrice: 105,
+        previousClose: 100,
+        change: 5,
+        lastPriceTime: '2026-10-26T04:00:00Z',
+        lastPriceEndTime: availability === 'unavailable' ? session.end : '2026-10-27T04:00:00.000Z',
+      })
+      expect(quote.regularSession).toEqual(
+        availability === 'unavailable' ? { start: session.start, end: session.end } : undefined
+      )
+      expect(resolveHours).toHaveBeenCalledTimes(1)
+    }
+  )
+
+  it.each(['alpaca', 'finnhub', 'alpha-vantage', 'robinhood', 'yahoo-finance'])(
+    'recovers the %s session for a daily price newer than the minute history',
+    async (provider) => {
+      vi.setSystemTime(new Date('2026-10-26T21:00:00Z'))
+      regular.bars = [{ timeStamp: '2026-10-23T19:59:00Z', close: 102 }]
+      regular.marketSessions = [
+        {
+          ...session,
+          date: '2026-10-23',
+          start: '2026-10-23T13:30:00Z',
+          end: '2026-10-23T20:00:00Z',
+        },
+      ]
+      resolveHours.mockResolvedValue(
+        new Map([
+          [
+            '2026-10-26',
+            {
+              timeZone: { name: 'America/New_York', utcOffset: '-04:00' },
+              marketHours: { market: { start: '09:30', end: '16:00' } },
+            },
+          ],
+        ])
+      )
+      expect(await snapshot(provider)).toMatchObject({
+        lastPrice: 105,
+        previousClose: 100,
+        change: 5,
+        changePercent: 5,
+        lastPriceTime: '2026-10-26T04:00:00Z',
+        lastPriceEndTime: '2026-10-26T20:00:00.000Z',
+        regularSession: { start: '2026-10-26T13:30:00.000Z', end: '2026-10-26T20:00:00.000Z' },
+      })
+      expect(resolveHours).toHaveBeenCalledTimes(1)
+      expect(execute).toHaveBeenCalledTimes(2)
+    }
+  )
 
   it.each(['failure', 'empty'])(
     'preserves the current daily quote when minute data is unavailable (%s)',
@@ -196,21 +389,74 @@ describe('market quote normalization', () => {
         changePercent: 5,
         volume: 20,
         lastPriceTime: '2026-10-26T04:00:00Z',
-        error: unavailable === 'failure' ? 'Provider unavailable' : 'No intraday price available',
+        error: unavailable === 'failure' ? 'Provider unavailable' : 'marketQuotes.noIntradayPrice',
       })
       expect(quote.lastPriceEndTime).toBeUndefined()
       expect(execute.mock.calls.map(([, request]) => request.interval)).toEqual(['1d', '1m'])
     }
   )
 
-  it.each(['crypto', 'currency'] as const)(
-    'keeps completed daily coverage for %s when intraday data is empty',
-    async (listingType) => {
+  it.each(['alpaca', 'finnhub', 'alpha-vantage', 'robinhood', 'yahoo-finance'])(
+    'suppresses irrelevant intraday errors for completed %s daily quotes',
+    async (provider) => {
+      vi.setSystemTime(new Date('2026-10-26T21:00:00Z'))
+      resolveHours.mockResolvedValue(
+        new Map([
+          [
+            '2026-10-26',
+            {
+              timeZone: { name: 'America/New_York', utcOffset: '-04:00' },
+              marketHours: { market: { start: '09:30', end: '16:00' } },
+            },
+          ],
+        ])
+      )
+      execute.mockImplementation(async (_provider, request) => {
+        if (request.interval === '1m') throw new Error('Provider unavailable')
+        return daily
+      })
+      for (const close of [105, 0]) {
+        daily.bars.at(-1)!.close = close
+        const quote = await snapshot(provider)
+        expect(quote).toMatchObject({
+          lastPrice: close,
+          previousClose: 100,
+          change: close - 100,
+          changePercent: close - 100,
+          lastPriceTime: '2026-10-26T04:00:00Z',
+          lastPriceEndTime: '2026-10-26T20:00:00.000Z',
+        })
+        expect(quote.error).toBeUndefined()
+      }
+      daily.bars = daily.bars.slice(-1)
+      expect(await snapshot(provider)).toMatchObject({
+        lastPrice: 0,
+        previousClose: null,
+        change: null,
+        changePercent: null,
+        error: 'marketQuotes.previousCloseUnavailable',
+      })
+    }
+  )
+
+  it.each([
+    ['crypto', 'empty'],
+    ['crypto', 'failure'],
+    ['currency', 'empty'],
+    ['currency', 'failure'],
+  ] as const)(
+    'keeps completed daily coverage for %s when intraday data is unavailable (%s)',
+    async (listingType, unavailable) => {
       daily.bars = [
         { timeStamp: '2026-10-22T00:00:00Z', close: 100 },
         { timeStamp: '2026-10-23T00:00:00Z', close: 105 },
       ]
       regular.bars = []
+      execute.mockImplementation(async (_provider, request) => {
+        if (request.interval === '1m' && unavailable === 'failure')
+          throw new Error('Provider unavailable')
+        return request.interval === '1d' ? daily : regular
+      })
       const quote = await buildMarketQuoteSnapshot({
         provider: 'alpha-vantage',
         listing: { listing_id: '', base_id: 'BTC', quote_id: 'USD', listing_type: listingType },
@@ -222,18 +468,29 @@ describe('market quote normalization', () => {
         lastPriceTime: '2026-10-23T00:00:00Z',
         lastPriceEndTime: '2026-10-24T00:00:00.000Z',
         timezone: 'UTC',
-        error: 'No intraday price available',
+        error: unavailable === 'failure' ? 'Provider unavailable' : 'marketQuotes.noIntradayPrice',
       })
       expect(execute).toHaveBeenCalledTimes(2)
     }
   )
 
-  it('rejects when neither series has an available price', async () => {
-    daily.bars = []
-    regular.bars = []
-    await expect(snapshot()).rejects.toThrow('No intraday price available')
-    expect(execute).toHaveBeenCalledTimes(2)
-  })
+  it.each(['empty', 'failure'])(
+    'rejects unavailable prices after close (%s)',
+    async (unavailable) => {
+      vi.setSystemTime(new Date('2026-10-27T12:00:00Z'))
+      daily.bars = []
+      regular.bars = []
+      execute.mockImplementation(async (_provider, request) => {
+        if (request.interval === '1m' && unavailable === 'failure')
+          throw new Error('Provider unavailable')
+        return request.interval === '1d' ? daily : regular
+      })
+      await expect(snapshot()).rejects.toThrow(
+        unavailable === 'failure' ? 'Provider unavailable' : 'marketQuotes.noRegularSessionPrice'
+      )
+      expect(execute).toHaveBeenCalledTimes(2)
+    }
+  )
 
   it.each(['yahoo-finance', 'finnhub'])(
     'prices mutual funds from their daily NAV with %s',
@@ -262,13 +519,14 @@ describe('market quote normalization', () => {
         expect(quote.error).toBeUndefined()
         expect(quote.regularSession).toBeUndefined()
         expect(execute.mock.calls.map(([, request]) => request.interval)).toEqual(['1d'])
+        expect(resolveHours).not.toHaveBeenCalled()
       }
       daily.bars.shift()
       expect(await snapshot(provider)).toMatchObject({
         lastPrice: 105,
         previousClose: null,
         change: null,
-        error: 'Previous regular-session close is unavailable',
+        error: 'marketQuotes.previousCloseUnavailable',
       })
       execute.mockRejectedValueOnce(new Error('Provider unavailable'))
       await expect(snapshot(provider)).rejects.toThrow('Provider unavailable')
@@ -286,7 +544,7 @@ describe('market quote normalization', () => {
     expect(await snapshot()).toMatchObject({
       lastPrice: 110,
       change: 10,
-      lastPriceTime: '2026-10-26T19:59:00Z',
+      lastPriceTime: '2026-10-26T04:00:00Z',
       lastPriceEndTime: session.end,
     })
   })
@@ -300,7 +558,18 @@ describe('market quote normalization', () => {
         { timeStamp: '2026-10-25T15:00:00Z', close: 105 },
       ],
     }
-    regular = { timezone: 'Asia/Tokyo', bars: [{ timeStamp: '2026-10-26T00:30:00Z', close: 110 }] }
+    regular = {
+      timezone: 'Asia/Tokyo',
+      bars: [{ timeStamp: '2026-10-26T00:30:00Z', close: 110 }],
+      marketSessions: [
+        {
+          date: '2026-10-26',
+          type: 'market',
+          start: '2026-10-26T00:00:00Z',
+          end: '2026-10-26T06:00:00Z',
+        },
+      ],
+    }
     expect(await snapshot()).toMatchObject({ previousClose: 100, change: 10 })
   })
 
@@ -330,6 +599,7 @@ describe('market quote normalization', () => {
       expect(execute.mock.calls[1][1].windows[0].range.value).toBe(
         { crypto: 1, currency: 7 }[listingType]
       )
+      expect(resolveHours).not.toHaveBeenCalled()
     }
   )
 

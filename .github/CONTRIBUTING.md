@@ -193,10 +193,9 @@ docker compose --env-file ./apps/tradinggoose/.env --profile gpu --profile setup
 
 # Without GPU (CPU only)
 docker compose --env-file ./apps/tradinggoose/.env --profile cpu --profile setup -f docker-compose.ollama.yml up -d
-
-# If hosting on a server, point OLLAMA_URL in .env to the remote endpoint
-# before starting docker compose -f docker-compose.prod.yml up -d
 ```
+
+Configure the Ollama base URL in Admin → Services; for Docker Compose, use `http://ollama:11434`, or enter your remote endpoint.
 
 ### Option 3: Using VS Code / Cursor Dev Containers
 

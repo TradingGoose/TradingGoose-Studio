@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -36,6 +37,8 @@ export function RemoveMemberDialog({
   isPending,
   error,
 }: RemoveMemberDialogProps) {
+  const t = useTranslations('workspace.settingsModal.team')
+
   return (
     <Dialog
       open={open}
@@ -46,12 +49,14 @@ export function RemoveMemberDialog({
     >
       <DialogContent hideCloseButton={isPending}>
         <DialogHeader>
-          <DialogTitle>{isSelfRemoval ? 'Leave Organization' : 'Remove Team Member'}</DialogTitle>
+          <DialogTitle>
+            {isSelfRemoval ? t('leaveOrganization') : t('removeTeamMember')}
+          </DialogTitle>
           <DialogDescription>
             {isSelfRemoval
-              ? 'Are you sure you want to leave this organization? You will lose access to all team resources.'
-              : `Are you sure you want to remove ${memberName} from the team?`}{' '}
-            <span className='text-red-500 dark:text-red-500'>This action cannot be undone.</span>
+              ? t('leaveOrganizationDescription')
+              : t('removeMemberDescription', { name: memberName })}{' '}
+            <span className='text-red-500 dark:text-red-500'>{t('thisActionCannotBeUndone')}</span>
           </DialogDescription>
         </DialogHeader>
 
@@ -67,12 +72,10 @@ export function RemoveMemberDialog({
                 disabled={isPending}
               />
               <label htmlFor='reduce-seats' className='text-xs'>
-                Also reduce seat count in my subscription
+                {t('alsoReduceSeatCount')}
               </label>
             </div>
-            <p className='mt-1 text-muted-foreground text-xs'>
-              If selected, your team seat count will be reduced by 1, lowering your monthly billing.
-            </p>
+            <p className='mt-1 text-muted-foreground text-xs'>{t('reduceSeatCountDescription')}</p>
           </div>
         )}
 
@@ -89,7 +92,7 @@ export function RemoveMemberDialog({
             disabled={isPending}
             className='h-9 rounded-sm'
           >
-            Cancel
+            {t('cancel')}
           </Button>
           <Button
             variant='destructive'
@@ -99,7 +102,7 @@ export function RemoveMemberDialog({
             aria-busy={isPending || undefined}
             className='h-9 rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
           >
-            {isPending ? 'Removing…' : isSelfRemoval ? 'Leave Organization' : 'Remove'}
+            {isPending ? t('removing') : isSelfRemoval ? t('leaveOrganization') : t('remove')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -64,7 +64,7 @@ describe('buildTraceSpans', () => {
     }
   )
 
-  test('should extract sequential segments from timeSegments data', () => {
+  test('extracts sequential segments and counts inclusive tool costs once', () => {
     const mockExecutionResult: ExecutionResult = {
       success: true,
       output: { content: 'Final output' },
@@ -82,6 +82,7 @@ describe('buildTraceSpans', () => {
             content: 'Agent response',
             model: 'gpt-4o',
             tokens: { prompt: 10, completion: 20, total: 30 },
+            cost: { input: 0.01, output: 0.02, toolCost: 2, total: 2.03 },
             providerTiming: {
               duration: 8000,
               startTime: '2024-01-01T10:00:00.000Z',
@@ -123,7 +124,7 @@ describe('buildTraceSpans', () => {
                   id: 'custom_test_tool',
                   name: 'Test Tool',
                   arguments: { input: 'test input' },
-                  result: { output: 'test output' },
+                  result: { output: 'test output', cost: { total: 2 } },
                   duration: 2000,
                 },
                 {
@@ -163,7 +164,7 @@ describe('buildTraceSpans', () => {
     expect(segments[1].duration).toBe(2000)
     expect(segments[1].status).toBe('success')
     expect(segments[1].input).toEqual({ input: 'test input' })
-    expect(segments[1].output).toEqual({ output: 'test output' })
+    expect(segments[1].output).toEqual({ output: 'test output', cost: { total: 2 } })
 
     // Third segment: Second tool call
     expect(segments[2].name).toBe('http_request')
@@ -178,6 +179,11 @@ describe('buildTraceSpans', () => {
     expect(segments[3].type).toBe('model')
     expect(segments[3].duration).toBe(2000)
     expect(segments[3].status).toBe('success')
+    expect(calculateCostSummary(traceSpans)).toMatchObject({
+      totalCost: 2.03,
+      totalInputCost: 0.01,
+      totalOutputCost: 0.02,
+    })
   })
 
   test('should extract toolCalls when timeSegments are not available', () => {

@@ -5,8 +5,6 @@ type ApiKeyConfig = { apiKey: string | null }
 type ApiKeyAndBaseUrlConfig = { apiKey: string | null; baseUrl: string | null }
 type ResendServiceConfig = ApiKeyConfig & { audienceId: string | null }
 
-const ROTATION_KEY_FIELDS = ['rotationKey1', 'rotationKey2', 'rotationKey3'] as const
-
 function asString(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value : null
 }
@@ -28,12 +26,6 @@ function createServiceSettingsResolver<T>(
   mapper: (config: ServiceConfigRecord) => T
 ) {
   return async (): Promise<T> => mapper(await resolveSystemServiceSettingsConfig(serviceId))
-}
-
-function readRotationKeys(config: ServiceConfigRecord) {
-  return ROTATION_KEY_FIELDS.map((key) => asString(config[key])).filter(
-    (value): value is string => value !== null
-  )
 }
 
 function readApiKeyConfig(config: ServiceConfigRecord): ApiKeyConfig {
@@ -58,11 +50,6 @@ export const resolveAzureOpenAIServiceConfig = createServiceResolver('azure_open
 
 export const resolveOpenAIServiceConfig = createServiceResolver('openai', (config) => ({
   defaultApiKey: asString(config.defaultApiKey),
-  rotationKeys: readRotationKeys(config),
-}))
-
-export const resolveAnthropicServiceConfig = createServiceResolver('anthropic', (config) => ({
-  rotationKeys: readRotationKeys(config),
 }))
 
 export const resolveAzureMistralOcrServiceConfig = createServiceResolver(

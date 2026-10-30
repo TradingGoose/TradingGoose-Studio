@@ -1,9 +1,11 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import { useLocale, useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui'
 import { calculateFilledPills, USAGE_PILL_COUNT } from '@/lib/subscription/usage-visualization'
 import { cn } from '@/lib/utils'
+import { formatLocalizedNumber, formatUsd } from '@/i18n/formatters'
 
 const GRADIENT_BADGE_STYLES =
   'text-primary h-[1.125rem] rounded-sm border-primary bg-background px-2 py-0 font-bold text-xs cursor-pointer'
@@ -41,6 +43,8 @@ export function UsageHeader({
   status,
   percentUsed,
 }: UsageHeaderProps) {
+  const locale = useLocale()
+  const copy = useTranslations('workspace.settingsModal.subscription.usageHeader')
   const progress = progressValue ?? (limit > 0 ? Math.min((current / limit) * 100, 100) : 0)
 
   // Calculate filled pills using shared visualization utility for consistency
@@ -71,15 +75,17 @@ export function UsageHeader({
           </div>
           <div className='flex items-center gap-[4px] text-xs tabular-nums'>
             {isBlocked ? (
-              <span className='text-[12px] text-muted-foreground'>Payment required</span>
+              <span className='text-[12px] text-muted-foreground'>{copy('paymentRequired')}</span>
             ) : (
               <>
                 <span className='text-[12px] text-muted-foreground tabular-nums'>
-                  ${current.toFixed(2)}
+                  {formatUsd(locale, current, { minimumFractionDigits: 2 })}
                 </span>
                 <span className='text-[12px] text-muted-foreground'>/</span>
                 {rightContent ?? (
-                  <span className='text-[12px] text-muted-foreground tabular-nums'>${limit}</span>
+                  <span className='text-[12px] text-muted-foreground tabular-nums'>
+                    {formatUsd(locale, limit)}
+                  </span>
                 )}
               </>
             )}
@@ -104,16 +110,14 @@ export function UsageHeader({
 
         {isBlocked && (
           <div className='flex items-center justify-between rounded-md bg-destructive/10 px-2 py-1'>
-            <span className='text-destructive text-xs'>
-              Payment failed. Please update your payment method.
-            </span>
+            <span className='text-destructive text-xs'>{copy('paymentFailed')}</span>
             {onResolvePayment && (
               <button
                 type='button'
                 className='font-medium text-destructive text-xs underline underline-offset-2'
                 onClick={onResolvePayment}
               >
-                Resolve payment
+                {copy('resolvePayment')}
               </button>
             )}
           </div>
@@ -121,9 +125,7 @@ export function UsageHeader({
 
         {!isBlocked && status === 'exceeded' && (
           <div className='rounded-sm bg-amber-900/10 px-2 py-1'>
-            <span className='text-amber-600 text-xs'>
-              Usage limit exceeded. Increase your limit to continue.
-            </span>
+            <span className='text-amber-600 text-xs'>{copy('limitExceeded')}</span>
           </div>
         )}
 
@@ -131,8 +133,8 @@ export function UsageHeader({
           <div className='rounded-sm bg-yellow-900/10 px-2 py-1'>
             <span className='text-xs text-yellow-600'>
               {typeof percentUsed === 'number'
-                ? `${percentUsed}% of your limit used.`
-                : 'Usage is nearing your configured limit.'}
+                ? copy('percentUsed', { percent: formatLocalizedNumber(locale, percentUsed) })
+                : copy('nearingLimit')}
             </span>
           </div>
         )}

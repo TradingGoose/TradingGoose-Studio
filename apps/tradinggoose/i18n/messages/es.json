@@ -2013,9 +2013,11 @@
           "organizationBilling": "Facturación de la organización",
           "organizationUsage": "Uso de la organización",
           "custom": "Personalizado",
-          "seats": "Asientos"
+          "seats": "Asientos",
+          "current": "Actual",
+          "billingTier": "Nivel de facturación"
         },
-        "seatsText": "{count} asientos",
+        "seatsText": "{count, plural, one {# plaza} other {# plazas}}",
         "descriptions": {
           "manage": "Abra el Portal de Facturación de Stripe para cancelar, restaurar o actualizar su suscripción.",
           "usageNotifications": "Envíeme un correo electrónico cuando el uso alcance el umbral de advertencia de facturación.",
@@ -2037,20 +2039,21 @@
         },
         "billingOwner": {
           "title": "Propietario de facturación",
-          "description": "Elija quién es el propietario de la facturación para este espacio de trabajo.",
+          "description": "Elige qué cuenta de administrador u organización paga por este espacio de trabajo.",
           "error": "Error",
-          "ownerLabel": "Propietario",
           "selectPlaceholder": "Seleccione el propietario de facturación",
           "organization": "Organización",
-          "billingNotice": "Cambiar el propietario de facturación afecta a quién paga por este espacio de trabajo.",
+          "billingNotice": "La facturación personal debe asignarse a un administrador del espacio de trabajo. La facturación de la organización requiere un nivel de facturación activo.",
           "noActiveOrganization": "No hay ninguna organización activa disponible para la propiedad de facturación.",
           "invalidSelection": "Selección de propietario de facturación no válida.",
-          "failedToUpdate": "No se pudo actualizar el propietario de facturación."
+          "failedToUpdate": "No se pudo actualizar el propietario de facturación.",
+          "updating": "Actualizando el responsable de facturación…"
         },
         "actions": {
           "manage": "Gestionar",
           "contact": "Contactar",
-          "upgradeTo": "Actualizar a {name}"
+          "upgradeTo": "Actualizar a {name}",
+          "changeTo": "Cambiar a {name}"
         },
         "badges": {
           "resolvePayment": "Resolver pago",
@@ -2065,17 +2068,31 @@
           "selectOrganization": "Selecciona una organización para gestionar la facturación.",
           "activatePayg": "Error al activar PAYG",
           "loadBillingData": "Error al cargar los datos de facturación."
+        },
+        "usageHeader": {
+          "paymentRequired": "Pago requerido",
+          "paymentFailed": "El pago ha fallado. Actualiza tu método de pago.",
+          "resolvePayment": "Resolver el pago",
+          "limitExceeded": "Se ha superado el límite de uso. Auméntalo para continuar.",
+          "percentUsed": "Has utilizado el {percent}% de tu límite.",
+          "nearingLimit": "El uso se acerca al límite configurado."
+        },
+        "periods": {
+          "monthly": "/mes",
+          "yearly": "/año"
+        },
+        "planCard": {
+          "error": "Error"
         }
       },
       "team": {
         "error": "Error",
         "defaultTeamName": "Equipo de {name}",
-        "billingHowWorksSeatCost": "El costo de {seats} asiento{plural} es de ${amount} al mes.",
-        "billingHowWorksUsageTracked": "El uso se rastrea en todos los espacios de trabajo de la organización.",
-        "billingHowWorksIncreaseLimit": "Aumenta el límite cuando la organización necesite más capacidad.",
-        "billingHowWorksOverage": "Los excesos se facturan según el plan activo.",
+        "billingHowWorksSeatCost": "Tu equipo paga un mínimo de {amount}/mes por {seats, plural, one {# plaza con licencia} other {# plazas con licencia}}.",
+        "billingHowWorksUsageTracked": "El uso se mide respecto a la asignación incluida activa de este nivel.",
+        "billingHowWorksIncreaseLimit": "El propietario de la organización puede aumentar el límite de uso cuando sea necesario.",
+        "billingHowWorksOverage": "El uso que supere el coste mínimo de las plazas se factura como exceso al final del período de facturación.",
         "howBillingWorks": "Cómo funciona la facturación de este equipo",
-        "usageNote": "Nota:",
         "usageNoteBody": "Los usuarios solo pueden pertenecer a una organización a la vez. Deben abandonar su organización actual antes de unirse a otra.",
         "teamId": "ID del equipo:",
         "created": "Creado:",
@@ -2101,7 +2118,7 @@
         "addSeat": "Agregar asiento",
         "seat": "asiento",
         "numberOfSeats": "Número de asientos",
-        "yourTeamWillHave": "Tu equipo tendrá {count} {seatWord} con un total de ${cost} créditos de inferencia por mes.",
+        "yourTeamWillHave": "Tu equipo tendrá {count, plural, one {# plaza} other {# plazas}} con un total de {cost} en créditos de inferencia al mes.",
         "minimumSeatsNoMax": "Mínimo {minimum} asientos. No hay límite máximo de asientos para este plan.",
         "chooseBetweenSeats": "Elige entre {minimum} y {maximum} asientos para este plan.",
         "currentSeats": "Asientos actuales:",
@@ -2124,27 +2141,28 @@
         "noPublicAdjustableTier": "No hay ningún nivel de organización ajustable público configurado",
         "addSeats": {
           "title": "Agregar asientos de equipo",
-          "description": "Cada asiento cuesta ${price}/mes y proporciona ${price} en créditos de inferencia mensuales. Ajusta la cantidad de asientos con licencia para tu equipo.",
+          "description": "Cada plaza cuesta {price}/mes e incluye {price} en créditos de inferencia mensuales. Ajusta el número de plazas con licencia de tu equipo.",
           "confirm": "Actualizar asientos"
         },
         "billing": {
-          "title": "Facturación del espacio de trabajo",
-          "description": "Asigna espacios de trabajo a la organización o al propietario.",
-          "organizationBillingRequired": "Se requiere facturación de organización para administrar la facturación del espacio de trabajo.",
-          "organizationBilledTitle": "Facturado a la organización",
-          "organizationBilledEmpty": "No hay espacios de trabajo facturados a la organización.",
-          "availableOwnerBilledTitle": "Espacios de trabajo facturados al propietario",
-          "availableOwnerBilledEmpty": "No hay espacios de trabajo con facturación por propietario disponibles.",
+          "title": "Facturación de espacios de trabajo",
+          "description": "Elige qué espacios de trabajo se facturan a esta organización y cuáles a su propietario.",
+          "organizationBillingRequired": "Configura un nivel de facturación para la organización antes de asignarle espacios de trabajo.",
+          "organizationBilledTitle": "Espacios de trabajo facturados a la organización",
+          "organizationBilledEmpty": "Actualmente no hay espacios de trabajo facturados a esta organización.",
+          "availableOwnerBilledTitle": "Espacios disponibles facturados al propietario",
+          "availableOwnerBilledEmpty": "No hay espacios de trabajo con facturación personal que administres disponibles para asignar.",
           "returnToOwner": "Volver a facturación por propietario",
           "billToOrganization": "Facturar a la organización",
           "organization": "Organización",
           "ownerBilling": "Facturación por propietario",
-          "ownerLabel": "Propietario:"
+          "returning": "Devolviendo…",
+          "assigning": "Asignando…"
         },
         "members": {
           "title": "Miembros del equipo",
           "empty": "Aún no hay miembros en el equipo.",
-          "sharedUsage": "Uso compartido: ${amount}",
+          "sharedUsage": "Uso facturado compartido: {amount}",
           "pending": "Pendiente",
           "billing": "Facturación",
           "usage": "Uso",
@@ -2157,8 +2175,8 @@
         },
         "invitation": {
           "title": "Invitar a miembros del equipo",
-          "description": "Invita a personas a tu organización y elige el acceso a los espacios de trabajo.",
-          "emailPlaceholder": "name@example.com",
+          "description": "Añade miembros a tu equipo y, si lo deseas, dales acceso a espacios de trabajo específicos.",
+          "emailPlaceholder": "Introduce una dirección de correo electrónico",
           "hideWorkspaces": "Ocultar espacios de trabajo",
           "addWorkspaces": "Agregar espacios de trabajo",
           "invite": "Invitar",
@@ -2166,28 +2184,45 @@
           "unavailable": "Invitación no disponible",
           "workspaceAccess": "Acceso al espacio de trabajo",
           "optional": "Opcional",
-          "selected": "{count} espacio de trabajo seleccionado{plural}",
+          "selected": "{count, plural, one {# espacio de trabajo seleccionado} other {# espacios de trabajo seleccionados}}",
           "grantAccess": "Conceder acceso a espacios de trabajo específicos y elegir un nivel de permiso.",
           "noWorkspacesAvailable": "No hay espacios de trabajo disponibles.",
           "needAdminAccess": "Necesita acceso de administrador para asignar espacios de trabajo.",
           "owner": "Propietario",
           "sentSuccess": "Invitación enviada.",
-          "sentSuccessWithAccess": "Invitación enviada con acceso a {count} espacio de trabajo{plural}.",
+          "sentSuccessWithAccess": "Invitación enviada con acceso a {count, plural, one {# espacio de trabajo} other {# espacios de trabajo}}.",
           "invalidEmail": "Ingrese una dirección de correo electrónico válida.",
           "permissions": {
             "read": {
               "label": "Lectura",
-              "description": "Puede ver el contenido del espacio de trabajo."
+              "description": "Solo lectura"
             },
             "write": {
               "label": "Escritura",
-              "description": "Puede editar el contenido del espacio de trabajo."
+              "description": "Editar contenido"
             },
             "admin": {
               "label": "Administrador",
-              "description": "Puede gestionar la configuración del espacio de trabajo."
+              "description": "Acceso completo"
             }
           }
+        },
+        "creating": "Creando…",
+        "removing": "Eliminando…",
+        "removingSeat": "Eliminando plaza…",
+        "updating": "Actualizando…",
+        "plans": {
+          "title": "Planes de organización",
+          "description": "Consulta los niveles actuales y disponibles para la organización.",
+          "current": "Actual",
+          "empty": "No hay planes de organización disponibles actualmente.",
+          "monthly": "/mes",
+          "yearly": "/año"
+        },
+        "errors": {
+          "actionFailed": "La acción de la organización ha fallado. Inténtalo de nuevo.",
+          "loadFailed": "No se han podido cargar los datos de la organización. Inténtalo de nuevo.",
+          "loadOrganizationBilling": "No se ha podido cargar la facturación de la organización. Inténtalo de nuevo antes de seleccionar un plan."
         }
       },
       "sso": {
@@ -21579,6 +21614,18 @@
       "stateMessage": {
         "retry": "Reintentar",
         "retrying": "Reintentando…"
+      },
+      "marketQuotes": {
+        "intradayUnavailable": "Los precios intradía no están disponibles",
+        "noIntradayPrice": "No hay ningún precio intradía disponible",
+        "noRegularSessionPrice": "No hay ningún precio disponible de la sesión regular",
+        "missingTimezone": "Se requiere la zona horaria de la serie de mercado",
+        "previousCloseUnavailable": "El cierre de la sesión regular anterior no está disponible",
+        "pollFailed": "No se pudieron cargar las cotizaciones del mercado",
+        "configureProvider": "Configura los ajustes del proveedor de mercado: {settings}",
+        "connectionUnavailable": "La conexión de datos de mercado no está disponible",
+        "connectionLost": "Se perdió la conexión de datos de mercado",
+        "connectionFailed": "Falló la conexión de datos de mercado"
       },
       "watchlist": {
         "header": {

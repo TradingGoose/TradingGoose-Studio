@@ -450,8 +450,13 @@ function localizeOptionsWithCopy(
   }
 
   if (typeof options === 'function') {
-    return () =>
-      getLocalizedWorkflowOptionsWithCopy(inspectorCopy, options, optionOverrides, subBlockId)
+    return (params) =>
+      getLocalizedWorkflowOptionsWithCopy(
+        inspectorCopy,
+        options(params),
+        optionOverrides,
+        subBlockId
+      )
   }
 
   return getLocalizedWorkflowOptionsWithCopy(inspectorCopy, options, optionOverrides, subBlockId)

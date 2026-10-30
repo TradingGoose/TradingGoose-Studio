@@ -110,7 +110,7 @@ const resolveDependsOn = (dependsOn: SubBlockConfig['dependsOn']): string[] | un
 const matchesConditionValue = (condition: ComponentCondition, value?: string): boolean => {
   if (!value) return false
   return evaluateSubBlockConditionValues(
-    { field: condition.field, value: condition.value, not: condition.not },
+    { ...condition, and: undefined },
     { [condition.field]: value }
   )
 }

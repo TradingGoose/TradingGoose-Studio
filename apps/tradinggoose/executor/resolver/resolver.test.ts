@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
 import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
+import { AgentBlock } from '@/blocks/blocks/agent'
 import { DatadogBlock } from '@/blocks/blocks/datadog'
 import { GmailBlock } from '@/blocks/blocks/gmail'
 import { HistoricalDataBlock } from '@/blocks/blocks/historical_data'
@@ -2243,6 +2244,66 @@ describe('InputResolver', () => {
 
     afterEach(() => {
       mockGetBlock.mockReset()
+    })
+
+    it.each([
+      ['claude-haiku-4-5', 'claude-haiku-4-5', { thinkingLevel: 'high' }],
+      ['claude-opus-5-5', 'claude-opus-5-5', { thinkingLevel: 'high' }],
+      ['claude-haiku-4-5-20251001', 'claude-haiku-4-5-20251001', {}],
+      ['gpt-4.1', 'gpt-4.1', {}],
+      ...['<variable.stringVar>', '{{MODEL}}', '<start.model>'].flatMap(
+        (model) =>
+          [
+            [model, 'claude-opus-5-5', { thinkingLevel: 'high' }],
+            [model, 'gpt-5.4', { reasoningEffort: 'high', verbosity: 'high' }],
+            [model, 'deepseek-flash', { reasoningEffort: 'high', thinkingLevel: 'high' }],
+            [model, 'gpt-4.1', {}],
+          ] as const
+      ),
+    ] as const)(
+      'resolves Agent tuning eligibility for %s as %s',
+      (model, resolvedModel, expected) => {
+        mockGetBlock.mockReturnValue(AgentBlock)
+        mockWorkflowVars.stringVar.value = resolvedModel
+        mockEnvironmentVars.MODEL = resolvedModel
+        mockContext.blockStates.get('trigger-block').output.model = resolvedModel
+        const block = {
+          ...sampleWorkflow.blocks[1],
+          metadata: { id: BlockType.AGENT },
+          config: {
+            tool: BlockType.AGENT,
+            params: { thinkingLevel: 'high', reasoningEffort: 'high', verbosity: 'high', model },
+          },
+        }
+
+        expect(resolver.resolveInputs(block, mockContext)).toEqual({
+          model: resolvedModel,
+          ...expected,
+        })
+      }
+    )
+
+    it.each([
+      ['ollama/custom', true],
+      ['openrouter/custom/model', true],
+      ['fireworks/accounts/demo/models/adapter#accounts/demo/deployments/gpu', true],
+      ['vllm/custom', true],
+      ['gpt-5.4', false],
+    ] as const)('resolves temperature eligibility before discovery for %s', (model, supported) => {
+      mockGetBlock.mockReturnValue(AgentBlock)
+      mockWorkflowVars.stringVar.value = model
+      const block = {
+        ...sampleWorkflow.blocks[1],
+        metadata: { id: BlockType.AGENT },
+        config: {
+          tool: BlockType.AGENT,
+          params: { temperature: 0, model: '<variable.stringVar>' },
+        },
+      }
+      expect(resolver.resolveInputs(block, mockContext)).toEqual({
+        model,
+        ...(supported && { temperature: 0 }),
+      })
     })
 
     it.each(['json', 'structured'])('resolves Response mode references to %s', async (mode) => {

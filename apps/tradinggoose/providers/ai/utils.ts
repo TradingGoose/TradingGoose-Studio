@@ -5,326 +5,13 @@ import {
   createCustomToolRuntimeId,
   isCustomToolRuntimeId,
 } from '@/lib/custom-tools/schema'
-import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { ExecutionSubmissionSource } from '@/executor/types'
-import {
-  getEmbeddingModelPricing,
-  getHostedModels as getHostedModelsFromDefinitions,
-  getMaxTemperature as getMaxTempFromDefinitions,
-  getModelPricing as getModelPricingFromDefinitions,
-  getModelsWithDeepResearch,
-  getModelsWithReasoningEffort,
-  getModelsWithTemperatureSupport,
-  getModelsWithTempRange01,
-  getModelsWithTempRange02,
-  getModelsWithThinking,
-  getModelsWithVerbosity,
-  getProviderModels as getProviderModelsFromDefinitions,
-  getProvidersWithToolUsageControl,
-  PROVIDER_DEFINITIONS,
-  type ProviderDefinition,
-  supportsTemperature as supportsTemperatureFromDefinitions,
-  supportsToolUsageControl as supportsToolUsageControlFromDefinitions,
-  updateOllamaModels as updateOllamaModelsInDefinitions,
-  updateVLLMModels as updateVLLMModelsInDefinitions,
-} from '@/providers/ai/models'
-import type { ProviderId, ProviderToolConfig } from '@/providers/ai/types'
+import { getModelCapabilities, getModelPricing } from '@/providers/ai/models'
+import type { ProviderResponse, ProviderToolConfig } from '@/providers/ai/types'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 
 const logger = createLogger('ProviderUtils')
-
-type ProviderCatalogConfig = Omit<ProviderDefinition, 'models'> & {
-  version: string
-  models: string[]
-}
-
-/**
- * Provider metadata built from the comprehensive definitions.
- * This stays browser-safe and does not pull in provider execution code.
- */
-export const providers: Record<ProviderId, ProviderCatalogConfig> = Object.fromEntries(
-  Object.entries(PROVIDER_DEFINITIONS).map(([providerId, definition]) => [
-    providerId,
-    {
-      id: providerId,
-      name: definition.name,
-      description: definition.description,
-      version: '1.0.0',
-      models: getProviderModelsFromDefinitions(providerId),
-      defaultModel: definition.defaultModel,
-      modelPatterns: definition.modelPatterns,
-      icon: definition.icon,
-      capabilities: definition.capabilities,
-      contextInformationAvailable: definition.contextInformationAvailable,
-    },
-  ])
-) as Record<ProviderId, ProviderCatalogConfig>
-
-export function updateOllamaProviderModels(models: string[]): void {
-  updateOllamaModelsInDefinitions(models)
-  providers.ollama.models = getProviderModelsFromDefinitions('ollama')
-}
-
-export async function updateOpenRouterProviderModels(models: string[]): Promise<void> {
-  const { updateOpenRouterModels } = await import('@/providers/ai/models')
-  updateOpenRouterModels(models)
-  providers.openrouter.models = getProviderModelsFromDefinitions('openrouter')
-}
-
-export function updateVLLMProviderModels(models: string[]): void {
-  updateVLLMModelsInDefinitions(models)
-  providers.vllm.models = getProviderModelsFromDefinitions('vllm')
-}
-
-export async function updateFireworksProviderModels(models: string[]): Promise<void> {
-  const { updateFireworksModels } = await import('@/providers/ai/models')
-  updateFireworksModels(models)
-  providers.fireworks.models = getProviderModelsFromDefinitions('fireworks')
-}
-
-export function getBaseModelProviders(): Record<string, ProviderId> {
-  const allProviders = Object.entries(providers)
-    .filter(
-      ([providerId]) =>
-        providerId !== 'ollama' &&
-        providerId !== 'vllm' &&
-        providerId !== 'openrouter' &&
-        providerId !== 'fireworks'
-    )
-    .reduce(
-      (map, [providerId, config]) => {
-        config.models.forEach((model) => {
-          map[model.toLowerCase()] = providerId as ProviderId
-        })
-        return map
-      },
-      {} as Record<string, ProviderId>
-    )
-
-  return filterBlacklistedModelsFromProviderMap(allProviders)
-}
-
-function filterBlacklistedModelsFromProviderMap(
-  providerMap: Record<string, ProviderId>
-): Record<string, ProviderId> {
-  const filtered: Record<string, ProviderId> = {}
-  for (const [model, providerId] of Object.entries(providerMap)) {
-    if (!isModelBlacklisted(model)) {
-      filtered[model] = providerId
-    }
-  }
-  return filtered
-}
-
-export function getAllModelProviders(): Record<string, ProviderId> {
-  return Object.entries(providers).reduce(
-    (map, [providerId, config]) => {
-      config.models.forEach((model) => {
-        map[model.toLowerCase()] = providerId as ProviderId
-      })
-      return map
-    },
-    {} as Record<string, ProviderId>
-  )
-}
-
-export function getProviderFromModel(model: string): ProviderId {
-  const normalizedModel = model.toLowerCase()
-  if (normalizedModel in getAllModelProviders()) {
-    return getAllModelProviders()[normalizedModel]
-  }
-
-  for (const [providerId, config] of Object.entries(providers)) {
-    if (config.modelPatterns) {
-      for (const pattern of config.modelPatterns) {
-        if (pattern.test(normalizedModel)) {
-          return providerId as ProviderId
-        }
-      }
-    }
-  }
-
-  logger.warn(`No provider found for model: ${model}, defaulting to ollama`)
-  return 'ollama'
-}
-
-export function getProvider(id: string): ProviderCatalogConfig | undefined {
-  // Handle both formats: 'openai' and 'openai/chat'
-  const providerId = id.split('/')[0] as ProviderId
-  return providers[providerId]
-}
-
-export function getProviderConfigFromModel(model: string): ProviderCatalogConfig | undefined {
-  const providerId = getProviderFromModel(model)
-  return providers[providerId]
-}
-
-export function getAllModels(): string[] {
-  return Object.values(providers).flatMap((provider) => provider.models || [])
-}
-
-export function getAllProviderIds(): ProviderId[] {
-  return Object.keys(providers) as ProviderId[]
-}
-
-export function getProviderModels(providerId: ProviderId): string[] {
-  return getProviderModelsFromDefinitions(providerId)
-}
-
-interface ModelBlacklist {
-  models: string[]
-  prefixes: string[]
-  envOverride?: string
-}
-
-const MODEL_BLACKLISTS: ModelBlacklist[] = []
-
-function isModelBlacklisted(model: string): boolean {
-  const lowerModel = model.toLowerCase()
-
-  for (const blacklist of MODEL_BLACKLISTS) {
-    if (blacklist.envOverride && isTruthy(getEnv(blacklist.envOverride))) {
-      continue
-    }
-
-    if (blacklist.models.includes(lowerModel)) {
-      return true
-    }
-
-    if (blacklist.prefixes.some((prefix) => lowerModel.startsWith(prefix))) {
-      return true
-    }
-  }
-
-  return false
-}
-
-export function filterBlacklistedModels(models: string[]): string[] {
-  return models.filter((model) => !isModelBlacklisted(model))
-}
-
-/**
- * Get provider icon for a given model
- */
-export function getProviderIcon(model: string): React.ComponentType<{ className?: string }> | null {
-  const providerId = getProviderFromModel(model)
-  return PROVIDER_DEFINITIONS[providerId]?.icon || null
-}
-
-export function generateStructuredOutputInstructions(responseFormat: any): string {
-  // Handle null/undefined input
-  if (!responseFormat) return ''
-
-  // If using the new JSON Schema format, don't add additional instructions
-  // This is necessary because providers now handle the schema directly
-  if (responseFormat.schema || (responseFormat.type === 'object' && responseFormat.properties)) {
-    return ''
-  }
-
-  // Handle legacy format with fields array
-  if (!responseFormat.fields) return ''
-
-  function generateFieldStructure(field: any): string {
-    if (field.type === 'object' && field.properties) {
-      return `{
-    ${Object.entries(field.properties)
-      .map(([key, prop]: [string, any]) => `"${key}": ${prop.type === 'number' ? '0' : '"value"'}`)
-      .join(',\n    ')}
-  }`
-    }
-    return field.type === 'string'
-      ? '"value"'
-      : field.type === 'number'
-        ? '0'
-        : field.type === 'boolean'
-          ? 'true/false'
-          : '[]'
-  }
-
-  const exampleFormat = responseFormat.fields
-    .map((field: any) => `  "${field.name}": ${generateFieldStructure(field)}`)
-    .join(',\n')
-
-  const fieldDescriptions = responseFormat.fields
-    .map((field: any) => {
-      let desc = `${field.name} (${field.type})`
-      if (field.description) desc += `: ${field.description}`
-      if (field.type === 'object' && field.properties) {
-        desc += '\nProperties:'
-        Object.entries(field.properties).forEach(([key, prop]: [string, any]) => {
-          desc += `\n  - ${key} (${(prop as any).type}): ${(prop as any).description || ''}`
-        })
-      }
-      return desc
-    })
-    .join('\n')
-
-  return `
-Please provide your response in the following JSON format:
-{
-${exampleFormat}
-}
-
-Field descriptions:
-${fieldDescriptions}
-
-Your response MUST be valid JSON and include all the specified fields with their correct types.
-Each metric should be an object containing 'score' (number) and 'reasoning' (string).`
-}
-
-export function generateSchemaInstructions(schema: any, schemaName?: string): string {
-  const name = schemaName || 'response'
-  return `IMPORTANT: You must respond with a valid JSON object that conforms to the following schema.
-Do not include any text before or after the JSON object. Only output the JSON.
-
-Schema name: ${name}
-JSON Schema:
-${JSON.stringify(schema, null, 2)}
-
-Your response must be valid JSON that exactly matches this schema structure.`
-}
-
-export function extractAndParseJSON(content: string): any {
-  // First clean up the string
-  const trimmed = content.trim()
-
-  // Find the first '{' and last '}'
-  const firstBrace = trimmed.indexOf('{')
-  const lastBrace = trimmed.lastIndexOf('}')
-
-  if (firstBrace === -1 || lastBrace === -1) {
-    throw new Error('No JSON object found in content')
-  }
-
-  // Extract just the JSON part
-  const jsonStr = trimmed.slice(firstBrace, lastBrace + 1)
-
-  try {
-    return JSON.parse(jsonStr)
-  } catch (_error) {
-    // If parsing fails, try to clean up common issues
-    const cleaned = jsonStr
-      .replace(/\n/g, ' ') // Remove newlines
-      .replace(/\s+/g, ' ') // Normalize whitespace
-      .replace(/,\s*([}\]])/g, '$1') // Remove trailing commas
-
-    try {
-      return JSON.parse(cleaned)
-    } catch (innerError) {
-      logger.error('Failed to parse JSON response', {
-        contentLength: content.length,
-        extractedLength: jsonStr.length,
-        cleanedLength: cleaned.length,
-        error: innerError instanceof Error ? innerError.message : 'Unknown error',
-      })
-
-      throw new Error(
-        `Failed to parse JSON after cleanup: ${innerError instanceof Error ? innerError.message : 'Unknown error'}`
-      )
-    }
-  }
-}
 
 /**
  * Transforms a custom tool schema into a provider tool config
@@ -460,89 +147,83 @@ export async function transformBlockTool(
  * Calculate cost for token usage based on model pricing
  *
  * @param model The model name
- * @param promptTokens Number of prompt tokens used
+ * @param promptTokens Total prompt tokens, including cache reads
  * @param completionTokens Number of completion tokens used
- * @param useCachedInput Whether to use cached input pricing (default: false)
- * @param customMultiplier Optional custom multiplier to override the default cost multiplier
+ * @param cachedInputTokens Number of prompt tokens retrieved from cache
  * @returns Cost calculation results with input, output and total costs
  */
 export function calculateCost(
   model: string,
   promptTokens = 0,
   completionTokens = 0,
-  useCachedInput = false,
-  inputMultiplier?: number,
-  outputMultiplier?: number
+  cachedInputTokens = 0
 ) {
-  // First check if it's an embedding model
-  let pricing = getEmbeddingModelPricing(model)
+  let pricing = getModelPricing(model)
 
-  // If not found, check chat models
   if (!pricing) {
-    pricing = getModelPricingFromDefinitions(model)
-  }
-
-  // If no pricing found, return default pricing
-  if (!pricing) {
-    const defaultPricing = {
-      input: 1.0,
-      cachedInput: 0.5,
-      output: 5.0,
-      updatedAt: '2025-03-21',
-    }
     return {
       input: 0,
       output: 0,
       total: 0,
-      pricing: defaultPricing,
+      pricing: null,
+    }
+  }
+
+  const tier = pricing.tiers
+    ?.slice()
+    .reverse()
+    .find(({ aboveInputTokens }) => promptTokens > aboveInputTokens)
+  if (tier) {
+    pricing = {
+      ...pricing,
+      input: tier.input,
+      cachedInput: tier.cachedInput,
+      output: tier.output,
     }
   }
 
   // Calculate costs in USD
   // Convert from "per million tokens" to "per token" by dividing by 1,000,000
+  const cachedTokens = Math.min(promptTokens, Math.max(0, cachedInputTokens))
   const inputCost =
-    promptTokens *
-    (useCachedInput && pricing.cachedInput
-      ? pricing.cachedInput / 1_000_000
-      : pricing.input / 1_000_000)
+    ((promptTokens - cachedTokens) * pricing.input +
+      cachedTokens * (pricing.cachedInput ?? pricing.input)) /
+    1_000_000
 
   const outputCost = completionTokens * (pricing.output / 1_000_000)
-  const finalInputCost = inputCost * (inputMultiplier ?? 1)
-  const finalOutputCost = outputCost * (outputMultiplier ?? 1)
-  const finalTotalCost = finalInputCost + finalOutputCost
-
   return {
-    input: Number.parseFloat(finalInputCost.toFixed(8)), // Use 8 decimal places for small costs
-    output: Number.parseFloat(finalOutputCost.toFixed(8)),
-    total: Number.parseFloat(finalTotalCost.toFixed(8)),
+    input: Number.parseFloat(inputCost.toFixed(8)),
+    output: Number.parseFloat(outputCost.toFixed(8)),
+    total: Number.parseFloat((inputCost + outputCost).toFixed(8)),
     pricing,
   }
 }
 
-/**
- * Get pricing information for a specific model (including embedding models)
- */
-export function getModelPricing(modelId: string): any {
-  const embeddingPricing = getEmbeddingModelPricing(modelId)
-  if (embeddingPricing) {
-    return embeddingPricing
+export function createModelCost(model: string) {
+  const value = calculateCost(model)
+  return {
+    value,
+    add(input: number, output: number, cachedInputTokens = 0) {
+      const cost = calculateCost(model, input, output, cachedInputTokens)
+      value.input += cost.input
+      value.output += cost.output
+      value.total += cost.total
+      value.pricing = cost.pricing
+      return value
+    },
   }
-
-  return getModelPricingFromDefinitions(modelId)
 }
 
-export function sumToolCosts(toolResults?: Record<string, unknown>[]): number {
-  if (!toolResults?.length) return 0
-
-  let total = 0
-  for (const toolResult of toolResults) {
-    const cost = toolResult?.cost as { total?: unknown } | undefined
-    if (typeof cost?.total === 'number') {
-      total += cost.total
-    }
+export function withToolCosts(
+  cost: ProviderResponse['cost'],
+  toolResults?: Record<string, unknown>[]
+): ProviderResponse['cost'] {
+  let toolCost = 0
+  for (const result of toolResults ?? []) {
+    const total = (result.cost as { total?: unknown } | undefined)?.total
+    if (typeof total === 'number') toolCost += total
   }
-
-  return total
+  return { ...cost, toolCost: toolCost || undefined, total: cost.input + cost.output + toolCost }
 }
 
 /**
@@ -571,14 +252,6 @@ export function formatCost(cost: number): string {
 }
 
 /**
- * Get the list of models that are hosted by the platform (don't require user API keys)
- * These are the models for which we hide the API key field in the hosted environment
- */
-export function getHostedModels(): string[] {
-  return getHostedModelsFromDefinitions()
-}
-
-/**
  * Prepares tool configuration for provider requests with consistent tool usage control behavior
  *
  * @param tools Array of tools in provider-specific format
@@ -591,7 +264,8 @@ export function prepareToolsWithUsageControl(
   tools: any[] | undefined,
   providerTools: any[] | undefined,
   logger: any,
-  provider?: string
+  provider?: string,
+  supportsForcedTools = true
 ): {
   tools: any[] | undefined
   toolChoice:
@@ -649,6 +323,11 @@ export function prepareToolsWithUsageControl(
 
   // Get all tools that should be forced
   const forcedTools = providerTools?.filter((tool) => tool.usageControl === 'force') || []
+  if (!supportsForcedTools && forcedTools.length) {
+    throw new Error(
+      'This model or thinking configuration does not support forced tool use. Select Auto or a compatible model.'
+    )
+  }
   const forcedToolIds = forcedTools.map((tool) => tool.id)
 
   // Determine tool_choice setting
@@ -869,56 +548,13 @@ export function trackForcedToolUsage(
   }
 }
 
-export const MODELS_TEMP_RANGE_0_2 = getModelsWithTempRange02()
-export const MODELS_TEMP_RANGE_0_1 = getModelsWithTempRange01()
-export const MODELS_WITH_TEMPERATURE_SUPPORT = getModelsWithTemperatureSupport()
-export const MODELS_WITH_DEEP_RESEARCH = getModelsWithDeepResearch()
-export const MODELS_WITH_REASONING_EFFORT = getModelsWithReasoningEffort()
-export const MODELS_WITH_VERBOSITY = getModelsWithVerbosity()
-export const MODELS_WITH_THINKING = getModelsWithThinking()
-export const PROVIDERS_WITH_TOOL_USAGE_CONTROL = getProvidersWithToolUsageControl()
-
-/**
- * Check if a model supports temperature parameter
- */
-export function supportsTemperature(model: string): boolean {
-  return supportsTemperatureFromDefinitions(model)
-}
-
-export function supportsReasoningEffort(model: string): boolean {
-  return MODELS_WITH_REASONING_EFFORT.includes(model.toLowerCase())
-}
-
-export function supportsVerbosity(model: string): boolean {
-  return MODELS_WITH_VERBOSITY.includes(model.toLowerCase())
-}
-
-export function supportsThinking(model: string): boolean {
-  return MODELS_WITH_THINKING.includes(model.toLowerCase())
-}
-
 export function isDeepResearchModel(model: string): boolean {
-  return MODELS_WITH_DEEP_RESEARCH.includes(model.toLowerCase())
+  return getModelCapabilities(model)?.deepResearch ?? false
 }
 
-export function isGemini3Model(model: string): boolean {
+export function isGemini3OrLaterModel(model: string): boolean {
   const normalizedModel = model.toLowerCase().replace(/^vertex\//, '')
-  return normalizedModel.startsWith('gemini-3')
-}
-
-/**
- * Get the maximum temperature value for a model
- * @returns Maximum temperature value (1 or 2) or undefined if temperature not supported
- */
-export function getMaxTemperature(model: string): number | undefined {
-  return getMaxTempFromDefinitions(model)
-}
-
-/**
- * Check if a provider supports tool usage control
- */
-export function supportsToolUsageControl(provider: string): boolean {
-  return supportsToolUsageControlFromDefinitions(provider)
+  return Number(normalizedModel.match(/^gemini-(\d+)(?:[.-]|$)/)?.[1]) >= 3
 }
 
 /**
@@ -976,25 +612,26 @@ export function prepareToolExecution(
 }
 
 export function createOpenAICompatibleStream(
-  stream: AsyncIterable<ChatCompletionChunk>,
+  stream: AsyncIterable<ChatCompletionChunk & { x_groq?: { usage?: CompletionUsage } }>,
   providerName: string,
-  onComplete?: (content: string, usage: CompletionUsage) => void
+  onComplete?: (
+    content: string,
+    usage: CompletionUsage,
+    finishReason?: ChatCompletionChunk.Choice['finish_reason']
+  ) => void
 ): ReadableStream<Uint8Array> {
   const streamLogger = createLogger(`${providerName}Utils`)
   let fullContent = ''
-  let promptTokens = 0
-  let completionTokens = 0
-  let totalTokens = 0
+  let lastUsage: CompletionUsage | undefined
+  let finishReason: ChatCompletionChunk.Choice['finish_reason'] | undefined
 
   return new ReadableStream({
     async start(controller) {
       try {
         for await (const chunk of stream) {
-          if (chunk.usage) {
-            promptTokens = chunk.usage.prompt_tokens ?? 0
-            completionTokens = chunk.usage.completion_tokens ?? 0
-            totalTokens = chunk.usage.total_tokens ?? 0
-          }
+          const usage = chunk.x_groq ? chunk.x_groq.usage : chunk.usage
+          if (usage) lastUsage = usage
+          finishReason = chunk.choices?.[0]?.finish_reason ?? finishReason
 
           const content = chunk.choices?.[0]?.delta?.content || ''
           if (content) {
@@ -1004,15 +641,19 @@ export function createOpenAICompatibleStream(
         }
 
         if (onComplete) {
+          const promptTokens = lastUsage?.prompt_tokens ?? 0
+          const completionTokens = lastUsage?.completion_tokens ?? 0
           if (promptTokens === 0 && completionTokens === 0) {
             streamLogger.warn(`${providerName} stream completed without usage data`)
           }
 
-          onComplete(fullContent, {
+          const finalUsage = {
+            ...lastUsage,
             prompt_tokens: promptTokens,
             completion_tokens: completionTokens,
-            total_tokens: totalTokens || promptTokens + completionTokens,
-          })
+            total_tokens: lastUsage?.total_tokens || promptTokens + completionTokens,
+          }
+          onComplete(fullContent, finalUsage, finishReason)
         }
 
         controller.close()

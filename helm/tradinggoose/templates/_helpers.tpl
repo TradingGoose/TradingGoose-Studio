@@ -222,19 +222,6 @@ Validate required secrets and reject default placeholder values
 {{- end }}
 
 {{/*
-Ollama URL
-*/}}
-{{- define "tradinggoose.ollamaUrl" -}}
-{{- if .Values.ollama.enabled }}
-{{- $serviceName := printf "%s-ollama" (include "tradinggoose.fullname" .) }}
-{{- $port := .Values.ollama.service.port }}
-{{- printf "http://%s:%v" $serviceName $port }}
-{{- else }}
-{{- .Values.app.env.OLLAMA_URL | default "http://localhost:11434" }}
-{{- end }}
-{{- end }}
-
-{{/*
 Resource limits and requests
 */}}
 {{- define "tradinggoose.resources" -}}

@@ -741,8 +741,10 @@ export class MarketStreamManager {
     if (
       quoteRecord.listing.listing_type === 'default' &&
       cachedQuote &&
-      regularSession &&
-      tradeTime >= Date.parse(regularSession.end)
+      Number.isFinite(tradeTime) &&
+      (regularSession
+        ? tradeTime >= Date.parse(regularSession.end)
+        : cachedQuote.snapshot.timezone && cachedQuote.snapshot.lastPriceTime)
     ) {
       let lookup = cachedQuote.sessionLookup
       if (lookup && Date.now() < lookup.retryAt) return
@@ -779,6 +781,7 @@ export class MarketStreamManager {
       regularSession = resolved
         ? { start: resolved.start, end: resolved.end }
         : current?.snapshot.regularSession
+      if (!regularSession) return
     }
     const cached = state.quoteSnapshotCache.get(symbol)
     const previous = cached?.snapshot ?? createMarketQuoteSnapshot({})
@@ -1001,7 +1004,26 @@ export class MarketStreamManager {
                 })
                 if (!isActive()) continue
                 const cached = streamState.quoteSnapshotCache.get(next.symbol)?.snapshot
-                if (cached) snapshot = updateSnapshotFromPrice(snapshot, cached)
+                const timezone = snapshot.timezone
+                const cachedDate =
+                  cached?.lastPriceTime && timezone
+                    ? getMarketQuoteDate(cached.lastPriceTime, timezone)
+                    : undefined
+                const snapshotDate =
+                  snapshot.lastPriceTime && timezone
+                    ? getMarketQuoteDate(snapshot.lastPriceTime, timezone)
+                    : undefined
+                const cachedSessionOpen = cached?.regularSession
+                  ? Date.parse(cached.regularSession.end) > Date.now()
+                  : cachedDate ===
+                    (timezone && getMarketQuoteDate(new Date().toISOString(), timezone))
+                if (
+                  cached &&
+                  (record.listing.listing_type !== 'default' ||
+                    cachedDate === snapshotDate ||
+                    cachedSessionOpen)
+                )
+                  snapshot = updateSnapshotFromPrice(snapshot, cached)
                 this.publishQuoteSnapshot(streamState, next.symbol, snapshot, refreshAt)
                 continue
               }
@@ -1010,8 +1032,7 @@ export class MarketStreamManager {
             } catch (error) {
               if (!isActive()) continue
               if (next.type === 'quote-snapshot') {
-                const message =
-                  error instanceof Error ? error.message : 'Failed to poll quote snapshot'
+                const message = error instanceof Error ? error.message : 'marketQuotes.pollFailed'
                 const cached = streamState.quoteSnapshotCache.get(next.symbol)
                 const snapshot = {
                   ...(cached?.snapshot ?? createMarketQuoteSnapshot({})),
@@ -1391,7 +1412,7 @@ function updateSnapshotFromPrice(
     error:
       source.error ??
       (previousClose === null
-        ? (previous.error ?? 'Previous regular-session close is unavailable')
+        ? (previous.error ?? 'marketQuotes.previousCloseUnavailable')
         : undefined),
   })
 }

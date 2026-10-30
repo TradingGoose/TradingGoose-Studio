@@ -5,7 +5,6 @@ import { resolveVllmServiceConfig } from '@/lib/system-services/runtime'
 import type { StreamingExecution } from '@/executor/types'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import { toError } from '@/providers/ai/error'
-import { getProviderDefaultModel, getProviderModels } from '@/providers/ai/models'
 import type {
   Message,
   ProviderConfig,
@@ -16,69 +15,18 @@ import type {
 import { ProviderError } from '@/providers/ai/types'
 import {
   calculateCost,
+  createOpenAICompatibleStream,
   prepareToolExecution,
   prepareToolsWithUsageControl,
-  sumToolCosts,
   trackForcedToolUsage,
+  withToolCosts,
 } from '@/providers/ai/utils'
-import { createReadableStreamFromVLLMStream } from '@/providers/ai/vllm/utils'
-import { useProvidersStore } from '@/stores/providers/store'
 import { executeTool } from '@/tools'
 
 const logger = createLogger('VLLMProvider')
-const VLLM_VERSION = '1.0.0'
 
 export const vllmProvider: ProviderConfig = {
   id: 'vllm',
-  name: 'vLLM',
-  description: 'Self-hosted vLLM with OpenAI-compatible API',
-  version: VLLM_VERSION,
-  models: getProviderModels('vllm'),
-  defaultModel: getProviderDefaultModel('vllm'),
-
-  async initialize() {
-    if (typeof window !== 'undefined') {
-      logger.info('Skipping vLLM initialization on client side to avoid CORS issues')
-      return
-    }
-
-    try {
-      const vllmConfig = await resolveVllmServiceConfig()
-      const baseUrl = (vllmConfig.baseUrl || '').replace(/\/$/, '')
-      if (!baseUrl) {
-        logger.info('vLLM base URL not configured, skipping initialization')
-        return
-      }
-
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      }
-      const apiKey = vllmConfig.apiKey
-      if (apiKey) {
-        headers.Authorization = `Bearer ${apiKey}`
-      }
-
-      const response = await fetch(`${baseUrl}/v1/models`, { headers })
-      if (!response.ok) {
-        await response.text().catch(() => {})
-        useProvidersStore.getState().setModels('vllm', [])
-        logger.warn('vLLM service is not available. The provider will be disabled.')
-        return
-      }
-
-      const data = (await response.json()) as { data: Array<{ id: string }> }
-      const models = data.data.map((model) => `vllm/${model.id}`)
-
-      this.models = models
-      useProvidersStore.getState().setModels('vllm', models)
-
-      logger.info(`Discovered ${models.length} vLLM model(s):`, { models })
-    } catch (error) {
-      logger.warn('vLLM model instantiation failed. The provider will be disabled.', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      })
-    }
-  },
 
   executeRequest: async (
     request: ProviderRequest
@@ -99,9 +47,8 @@ export const vllmProvider: ProviderConfig = {
       throw new Error('vLLM base URL is required for vLLM provider')
     }
 
-    const apiKey = request.apiKey || vllmConfig.apiKey || 'empty'
     const vllm = new OpenAI({
-      apiKey,
+      apiKey: request.apiKey || 'empty',
       baseURL: `${baseUrl}/v1`,
     })
 
@@ -149,7 +96,7 @@ export const vllmProvider: ProviderConfig = {
         type: 'json_schema',
         json_schema: {
           name: request.responseFormat.name || 'response_schema',
-          schema: request.responseFormat.schema || request.responseFormat,
+          schema: request.responseFormat.schema,
           strict: request.responseFormat.strict !== false,
         },
       }
@@ -200,7 +147,7 @@ export const vllmProvider: ProviderConfig = {
         )
 
         const streamingResult = {
-          stream: createReadableStreamFromVLLMStream(streamResponse, (content, usage) => {
+          stream: createOpenAICompatibleStream(streamResponse as any, 'vLLM', (content, usage) => {
             let cleanContent = content
             if (cleanContent && request.responseFormat) {
               cleanContent = cleanContent.replace(/```json\n?|\n?```/g, '').trim()
@@ -539,7 +486,7 @@ export const vllmProvider: ProviderConfig = {
         )
 
         const streamingResult = {
-          stream: createReadableStreamFromVLLMStream(streamResponse, (content, usage) => {
+          stream: createOpenAICompatibleStream(streamResponse as any, 'vLLM', (content, usage) => {
             let cleanContent = content
             if (cleanContent && request.responseFormat) {
               cleanContent = cleanContent.replace(/```json\n?|\n?```/g, '').trim()
@@ -552,18 +499,14 @@ export const vllmProvider: ProviderConfig = {
               total: tokens.total + usage.total_tokens,
             }
 
-            const streamCost = calculateCost(
-              request.model,
-              usage.prompt_tokens,
-              usage.completion_tokens
+            streamingResult.execution.output.cost = withToolCosts(
+              calculateCost(
+                request.model,
+                tokens.input + usage.prompt_tokens,
+                tokens.output + usage.completion_tokens
+              ),
+              toolResults
             )
-            const tc = sumToolCosts(toolResults)
-            streamingResult.execution.output.cost = {
-              input: accumulatedCost.input + streamCost.input,
-              output: accumulatedCost.output + streamCost.output,
-              toolCost: tc || undefined,
-              total: accumulatedCost.total + streamCost.total + tc,
-            }
           }),
           execution: {
             success: true,
@@ -592,11 +535,7 @@ export const vllmProvider: ProviderConfig = {
                 iterations: iterationCount + 1,
                 timeSegments: timeSegments,
               },
-              cost: {
-                input: accumulatedCost.input,
-                output: accumulatedCost.output,
-                total: accumulatedCost.total,
-              },
+              cost: withToolCosts(accumulatedCost, toolResults),
             },
             logs: [],
             metadata: {
@@ -618,6 +557,7 @@ export const vllmProvider: ProviderConfig = {
         content,
         model: request.model,
         tokens,
+        cost: calculateCost(request.model, tokens.input, tokens.output),
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         toolResults: toolResults.length > 0 ? toolResults : undefined,
         timing: {
