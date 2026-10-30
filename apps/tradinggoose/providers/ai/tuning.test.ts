@@ -91,9 +91,10 @@ const toolCall = (id: string) => ({
   function: { name: tool.id, arguments: '{}' },
 })
 const completion = (
-  message = { role: 'assistant', content: 'Done' } as Record<string, unknown>
+  message = { role: 'assistant', content: 'Done' } as Record<string, unknown>,
+  finishReason?: 'stop' | 'length' | 'tool_calls'
 ) => ({
-  choices: [{ message }],
+  choices: [{ message, ...(finishReason ? { finish_reason: finishReason } : {}) }],
   usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
 })
 const response = (
@@ -1500,7 +1501,7 @@ it('applies non-strict DeepSeek response format without rewriting JSON strings',
     .mockResolvedValueOnce(
       completion({ role: 'assistant', content: null, tool_calls: [toolCall('schema')] })
     )
-    .mockResolvedValueOnce(completion({ role: 'assistant', content }))
+    .mockResolvedValueOnce(completion({ role: 'assistant', content }, 'stop'))
 
   const result = await executeProviderRequest(
     'deepseek',
@@ -1568,6 +1569,56 @@ it.each(['nonstream-tool', 'stream-tool', 'stream-direct'] as const)(
     if (!('stream' in result)) throw new Error('Expected streaming execution')
     await expect(new Response(result.stream).text()).rejects.toThrow(
       'returned an empty JSON response'
+    )
+  }
+)
+
+it.each(['nonstream', 'stream-direct', 'stream-tool'] as const)(
+  'rejects length-truncated DeepSeek JSON in %s responses',
+  async (mode) => {
+    const stream = mode !== 'nonstream'
+    const afterTool = mode === 'stream-tool'
+    if (afterTool) {
+      mocks.chat
+        .mockResolvedValueOnce(
+          completion(
+            { role: 'assistant', content: null, tool_calls: [toolCall('schema')] },
+            'tool_calls'
+          )
+        )
+        .mockResolvedValueOnce(completion({ role: 'assistant', content: '{"intermediate":true}' }))
+    }
+    if (stream) {
+      mocks.chat.mockResolvedValueOnce(
+        (async function* () {
+          yield { choices: [{ delta: { content: '{"value":42}' }, finish_reason: 'length' }] }
+          yield {
+            choices: [],
+            usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+          }
+        })()
+      )
+    } else {
+      mocks.chat.mockResolvedValueOnce(
+        completion({ role: 'assistant', content: '{"value":42}' }, 'length')
+      )
+    }
+
+    const execution = deepseekProvider.executeRequest(
+      request('deepseek-flash', {
+        responseFormat: { schema: { type: 'object' }, strict: false },
+        stream,
+        tools: afterTool ? [tool] : undefined,
+      })
+    )
+    if (!stream) {
+      await expect(execution).rejects.toThrow('returned a truncated JSON response')
+      return
+    }
+    const result = await execution
+    if (!('stream' in result)) throw new Error('Expected streaming execution')
+    await expect(new Response(result.stream).text()).rejects.toThrow(
+      'returned a truncated JSON response'
     )
   }
 )

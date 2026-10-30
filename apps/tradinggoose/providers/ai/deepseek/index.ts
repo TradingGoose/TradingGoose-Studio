@@ -34,11 +34,14 @@ export const deepseekProvider: ProviderConfig = {
       throw new Error('DeepSeek does not support strict JSON Schema response formats')
     }
 
-    const normalizeContent = (content: string, final = false) => {
-      const normalized = request.responseFormat
-        ? content.trim()
-        : content.replace(/```json\n?|\n?```/g, '').trim()
-      if (final && request.responseFormat && !normalized) {
+    const normalizeContent = (content: string) =>
+      request.responseFormat ? content.trim() : content.replace(/```json\n?|\n?```/g, '').trim()
+    const validateFinalContent = (content: string, finishReason?: string | null) => {
+      const normalized = normalizeContent(content)
+      if (request.responseFormat && finishReason === 'length') {
+        throw new Error('DeepSeek returned a truncated JSON response (finish_reason: length)')
+      }
+      if (request.responseFormat && !normalized) {
         throw new Error('DeepSeek returned an empty JSON response')
       }
       return normalized
@@ -177,9 +180,9 @@ export const deepseekProvider: ProviderConfig = {
           stream: createOpenAICompatibleStream(
             streamResponse as any,
             'Deepseek',
-            (content, usage) => {
+            (content, usage, finishReason) => {
               recordUsage(usage)
-              streamingResult.execution.output.content = normalizeContent(content, true)
+              streamingResult.execution.output.content = validateFinalContent(content, finishReason)
             }
           ),
           execution: {
@@ -447,9 +450,9 @@ export const deepseekProvider: ProviderConfig = {
           stream: createOpenAICompatibleStream(
             streamResponse as any,
             'Deepseek',
-            (content, usage) => {
+            (content, usage, finishReason) => {
               recordUsage(usage)
-              streamingResult.execution.output.content = normalizeContent(content, true)
+              streamingResult.execution.output.content = validateFinalContent(content, finishReason)
               streamingResult.execution.output.cost = withToolCosts(cost.value, toolResults)
             }
           ),
@@ -493,7 +496,7 @@ export const deepseekProvider: ProviderConfig = {
       }
 
       return {
-        content: normalizeContent(content, true),
+        content: validateFinalContent(content, currentResponse.choices[0]?.finish_reason),
         model: request.model,
         tokens,
         cost: cost.value,

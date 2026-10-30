@@ -614,11 +614,16 @@ export function prepareToolExecution(
 export function createOpenAICompatibleStream(
   stream: AsyncIterable<ChatCompletionChunk & { x_groq?: { usage?: CompletionUsage } }>,
   providerName: string,
-  onComplete?: (content: string, usage: CompletionUsage) => void
+  onComplete?: (
+    content: string,
+    usage: CompletionUsage,
+    finishReason?: ChatCompletionChunk.Choice['finish_reason']
+  ) => void
 ): ReadableStream<Uint8Array> {
   const streamLogger = createLogger(`${providerName}Utils`)
   let fullContent = ''
   let lastUsage: CompletionUsage | undefined
+  let finishReason: ChatCompletionChunk.Choice['finish_reason'] | undefined
 
   return new ReadableStream({
     async start(controller) {
@@ -626,6 +631,7 @@ export function createOpenAICompatibleStream(
         for await (const chunk of stream) {
           const usage = chunk.x_groq ? chunk.x_groq.usage : chunk.usage
           if (usage) lastUsage = usage
+          finishReason = chunk.choices?.[0]?.finish_reason ?? finishReason
 
           const content = chunk.choices?.[0]?.delta?.content || ''
           if (content) {
@@ -641,12 +647,13 @@ export function createOpenAICompatibleStream(
             streamLogger.warn(`${providerName} stream completed without usage data`)
           }
 
-          onComplete(fullContent, {
+          const finalUsage = {
             ...lastUsage,
             prompt_tokens: promptTokens,
             completion_tokens: completionTokens,
             total_tokens: lastUsage?.total_tokens || promptTokens + completionTokens,
-          })
+          }
+          onComplete(fullContent, finalUsage, finishReason)
         }
 
         controller.close()
