@@ -608,6 +608,7 @@ export const SubBlock = memo(
               defaultCollapsed={config.defaultCollapsed}
               defaultValue={config.defaultValue}
               showCopyButton={config.showCopyButton}
+              promptContext={valueContext}
               wandConfig={
                 config.wandConfig || {
                   enabled: false,

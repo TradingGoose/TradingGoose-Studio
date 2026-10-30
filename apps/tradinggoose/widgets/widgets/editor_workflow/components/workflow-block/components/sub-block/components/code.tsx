@@ -20,7 +20,7 @@ import {
   useSubBlockValue as useYjsSubBlockValue,
 } from '@/lib/yjs/use-workflow-doc'
 import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
-import type { GenerationType } from '@/blocks/types'
+import type { GenerationType, WandConfig } from '@/blocks/types'
 import { useTagSelection } from '@/hooks/use-tag-selection'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { useWand } from '@/hooks/workflow/use-wand'
@@ -48,13 +48,8 @@ interface CodeProps {
   defaultValue?: string | number | boolean | Record<string, unknown> | Array<unknown>
   showCopyButton?: boolean
   onValidationChange?: (isValid: boolean) => void
-  wandConfig: {
-    enabled: boolean
-    prompt: string
-    generationType?: GenerationType
-    placeholder?: string
-    maintainHistory?: boolean
-  }
+  wandConfig: WandConfig
+  promptContext?: Record<string, any>
 }
 
 export function Code({
@@ -73,6 +68,7 @@ export function Code({
   showCopyButton = false,
   onValidationChange,
   wandConfig,
+  promptContext,
 }: CodeProps) {
   const copy = useWorkflowBlockEditorCopy().code
   const workspaceId = useWorkspaceId()
@@ -258,6 +254,7 @@ Current code context: {context}
 
   const wandHook = useWand({
     wandConfig: readOnly ? { ...wandConfig, enabled: false } : wandConfig,
+    promptContext,
     currentValue: code,
     onStreamStart: () => {
       setStreamingLock(true)

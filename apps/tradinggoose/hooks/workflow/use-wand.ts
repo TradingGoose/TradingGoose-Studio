@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import { createLogger } from '@/lib/logs/console/logger'
-import type { GenerationType } from '@/blocks/types'
+import type { WandConfig } from '@/blocks/types'
 
 const logger = createLogger('useWand')
 
@@ -52,16 +52,9 @@ interface ChatMessage {
   content: string
 }
 
-export interface WandConfig {
-  enabled: boolean
-  prompt: string
-  generationType?: GenerationType
-  placeholder?: string
-  maintainHistory?: boolean // Whether to keep conversation history
-}
-
 interface UseWandProps {
   wandConfig: WandConfig
+  promptContext?: Record<string, any>
   currentValue?: string
   onGeneratedContent: (content: string) => void
   onStreamChunk?: (chunk: string) => void
@@ -71,6 +64,7 @@ interface UseWandProps {
 
 export function useWand({
   wandConfig,
+  promptContext,
   currentValue,
   onGeneratedContent,
   onStreamChunk,
@@ -152,7 +146,10 @@ export function useWand({
         const contextInfo = buildContextInfo(currentValue, wandConfig.generationType)
 
         // Build the system prompt with context information
-        let systemPrompt = wandConfig.prompt
+        let systemPrompt =
+          typeof wandConfig.prompt === 'function'
+            ? wandConfig.prompt(promptContext ?? {})
+            : wandConfig.prompt
         if (systemPrompt.includes('{context}')) {
           systemPrompt = systemPrompt.replace('{context}', contextInfo)
         }
@@ -274,6 +271,7 @@ export function useWand({
     },
     [
       wandConfig,
+      promptContext,
       currentValue,
       onGeneratedContent,
       onStreamChunk,

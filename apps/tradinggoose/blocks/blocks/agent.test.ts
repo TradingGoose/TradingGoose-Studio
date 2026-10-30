@@ -106,6 +106,23 @@ describe('AgentBlock', () => {
     }
   })
 
+  it('generates model-compatible response format strictness', () => {
+    const prompt = AgentBlock.subBlocks.find((field) => field.id === 'responseFormat')?.wandConfig
+      ?.prompt
+    expect(typeof prompt).toBe('function')
+
+    for (const [model, strict] of [
+      ['deepseek-flash', false],
+      ['gpt-4.1', true],
+      ['<variable.model>', true],
+    ] as const) {
+      const generated = (prompt as (params: Record<string, any>) => string)({ model })
+      expect(generated).toContain(`'strict' property MUST be ${strict}`)
+      expect(generated.match(/"strict": true/g) ?? []).toHaveLength(strict ? 3 : 0)
+      expect(generated.match(/"strict": false/g) ?? []).toHaveLength(strict ? 0 : 3)
+    }
+  })
+
   it.each([
     ['reasoningEffort', 'gpt-5.4', ['none', 'low', 'medium', 'high', 'xhigh']],
     ['reasoningEffort', 'gpt-5.6-sol', ['none', 'low', 'medium', 'high', 'xhigh', 'max']],

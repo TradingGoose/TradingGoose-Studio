@@ -318,10 +318,13 @@ Create a system prompt appropriately detailed for the request, using clear langu
       wandConfig: {
         enabled: true,
         maintainHistory: true,
-        prompt: `You are an expert programmer specializing in creating JSON schemas according to a specific format.
+        prompt: (params) => {
+          const strict = getAllModelProviders()[params.model] !== 'deepseek'
+          return `You are an expert programmer specializing in creating JSON schemas according to a specific format.
 Generate ONLY the JSON schema based on the user's request.
 The output MUST be a single, valid JSON object, starting with { and ending with }.
-The JSON object MUST have the following top-level properties: 'name' (string), 'description' (string), 'strict' (boolean, usually true), and 'schema' (object).
+The JSON object MUST have the following top-level properties: 'name' (string), 'description' (string), 'strict' (boolean), and 'schema' (object).
+The 'strict' property MUST be ${strict} for the selected model.
 The 'schema' object must define the structure and MUST contain 'type': 'object', 'properties': {...}, 'additionalProperties': false, and 'required': [...].
 Inside 'properties', use standard JSON Schema properties (type, description, enum, items for arrays, etc.).
 
@@ -335,7 +338,7 @@ Example 1:
 {
     "name": "reddit_post",
     "description": "Fetches the reddit posts in the given subreddit",
-    "strict": true,
+    "strict": ${strict},
     "schema": {
         "type": "object",
         "properties": {
@@ -357,7 +360,7 @@ Example 2:
 {
     "name": "get_weather",
     "description": "Fetches the current weather for a specific location.",
-    "strict": true,
+    "strict": ${strict},
     "schema": {
         "type": "object",
         "properties": {
@@ -380,7 +383,7 @@ Example 3 (Array Input):
 {
     "name": "process_items",
     "description": "Processes a list of items with specific IDs.",
-    "strict": true,
+    "strict": ${strict},
     "schema": {
         "type": "object",
         "properties": {
@@ -402,7 +405,8 @@ Example 3 (Array Input):
         "required": ["item_ids", "processing_mode"]
     }
 }
-`,
+`
+        },
         placeholder: 'Describe the JSON schema structure you need...',
         generationType: 'json-schema',
       },
