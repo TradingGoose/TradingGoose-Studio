@@ -143,9 +143,11 @@ interface TriggerDeployTab {
   iconAccentColor: string | undefined
   regularRows: SubBlockConfig[][]
   additionalRows: SubBlockConfig[][]
+  subBlockConfigs: SubBlockConfig[]
   stateToUse: Record<string, any>
   displayAdditionalFields: boolean
   hasAdditionalFields: boolean
+  hasAdvancedFields: boolean
   hasConfigurableFields: boolean
 }
 
@@ -259,6 +261,9 @@ export function DeployModal({
   const [isChatConfigBusy, setIsChatConfigBusy] = useState(false)
   const [isViewingActiveDeployment, setIsViewingActiveDeployment] = useState(false)
   const [showUndeployConfirm, setShowUndeployConfirm] = useState(false)
+  const [additionalFieldsVisibility, setAdditionalFieldsVisibility] = useState<
+    Record<string, boolean>
+  >({})
 
   const [versions, setVersions] = useState<WorkflowDeploymentVersionResponse[]>([])
   const [versionsLoading, setVersionsLoading] = useState(false)
@@ -328,9 +333,15 @@ export function DeployModal({
         iconAccentColor: sanitizeSolidIconColor(blockConfig?.bgColor),
         regularRows,
         additionalRows,
+        subBlockConfigs: blockConfig?.subBlocks ?? [],
         stateToUse: triggerEditingLayout.stateToUse,
-        displayAdditionalFields: triggerEditingLayout.displayAdditionalFields,
+        displayAdditionalFields:
+          triggerEditingLayout.hasAdvancedFields || shouldDisableTriggerWrite
+            ? triggerEditingLayout.displayAdditionalFields
+            : (additionalFieldsVisibility[block.id] ??
+              triggerEditingLayout.displayAdditionalFields),
         hasAdditionalFields: triggerEditingLayout.hasAdditionalFields,
+        hasAdvancedFields: triggerEditingLayout.hasAdvancedFields,
         hasConfigurableFields,
       }
     })
@@ -1136,7 +1147,7 @@ export function DeployModal({
       )
     }
 
-    if (visibleSubBlocks.length === 0) {
+    if (visibleSubBlocks.length === 0 && !tab.hasAdditionalFields) {
       return (
         <div className='rounded-md border p-4 text-muted-foreground text-sm'>
           {copy.noAdditionalTriggerConfigurationRequired}
@@ -1181,6 +1192,7 @@ export function DeployModal({
         <SubBlockEditRows
           blockId={tab.blockId}
           rows={tab.regularRows}
+          subBlockConfigs={tab.subBlockConfigs}
           isAdvancedMode={mergedBlocks[tab.blockId]?.advancedMode ?? false}
           stateToUse={tab.stateToUse}
           disabled={shouldDisableTriggerWrite}
@@ -1192,7 +1204,17 @@ export function DeployModal({
             <div className='h-px flex-1 border-border border-t border-dashed' />
             <button
               type='button'
-              onClick={() => collaborativeToggleBlockAdvancedMode(tab.blockId)}
+              aria-expanded={tab.displayAdditionalFields}
+              onClick={() => {
+                if (tab.hasAdvancedFields) {
+                  collaborativeToggleBlockAdvancedMode(tab.blockId)
+                } else {
+                  setAdditionalFieldsVisibility((visibility) => ({
+                    ...visibility,
+                    [tab.blockId]: !tab.displayAdditionalFields,
+                  }))
+                }
+              }}
               className='flex items-center gap-[6px] whitespace-nowrap font-medium text-[13px] text-muted-foreground hover:text-foreground'
             >
               {tab.displayAdditionalFields
@@ -1209,6 +1231,7 @@ export function DeployModal({
           <SubBlockEditRows
             blockId={tab.blockId}
             rows={tab.additionalRows}
+            subBlockConfigs={tab.subBlockConfigs}
             isAdvancedMode={mergedBlocks[tab.blockId]?.advancedMode ?? false}
             stateToUse={tab.stateToUse}
             disabled={shouldDisableTriggerWrite}
