@@ -160,17 +160,17 @@ describe('slider fields', () => {
     [0, 0],
     ['0', 0],
     ['0.3', 0.3],
-    [-1, 0],
-    [3, 2],
-  ] as const)(
-    'displays numeric %s at %s and persists only bound corrections',
-    (value, expected) => {
-      expect(render(value).value).toEqual([expected])
-      expect(container.textContent).toContain(expected.toFixed(1))
-      if (Number(value) === expected) expect(sliderState.write).not.toHaveBeenCalled()
-      else expect(sliderState.write).toHaveBeenCalledExactlyOnceWith(expected)
-    }
-  )
+  ] as const)('displays valid numeric %s at %s without writes', (value, expected) => {
+    expect(render(value).value).toEqual([expected])
+    expect(container.textContent).toContain(expected.toFixed(1))
+    expect(sliderState.write).not.toHaveBeenCalled()
+  })
+
+  it.each([-1, 3])('masks out-of-range clearable value %s without overwriting it', (value) => {
+    expect(render(value).value).toEqual([1])
+    expect(container.textContent).toContain(config.placeholder!)
+    expect(sliderState.write).not.toHaveBeenCalled()
+  })
 
   it('uses the declared default without persisting a clearable value', () => {
     expect(render(undefined, { defaultValue: 0.3 }).value).toEqual([0.3])
@@ -219,7 +219,7 @@ describe('slider fields', () => {
     expect(sliderState.write).toHaveBeenLastCalledWith(2)
     sliderState.write.mockClear()
     const slider = render(3, {}, true)
-    expect(slider.value).toEqual([2])
+    expect(slider.value).toEqual([1])
     act(() => slider.onValueChange([0]))
     expect(container.querySelector('button')!.disabled).toBe(true)
     act(() => container.querySelector('button')!.click())
