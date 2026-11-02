@@ -2,6 +2,7 @@ import OpenAI from 'openai'
 import type { CompletionUsage } from 'openai/resources/completions'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
+import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import type {
   ProviderConfig,
   ProviderRequest,
@@ -199,7 +200,6 @@ export const openRouterProvider: ProviderConfig = {
       const toolResults = [] as any[]
       const currentMessages = [...allMessages]
       let iterationCount = 0
-      const MAX_ITERATIONS = 10
       let modelTime = firstResponseTime
       let toolsTime = 0
       let hasUsedForcedTool = false
@@ -234,11 +234,11 @@ export const openRouterProvider: ProviderConfig = {
 
       checkForForcedToolUsage(currentResponse, originalToolChoice)
 
-      while (iterationCount < MAX_ITERATIONS) {
+      while (true) {
         const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
-        if (!toolCallsInResponse || toolCallsInResponse.length === 0) {
-          break
-        }
+        if (!toolCallsInResponse?.length) break
+        if (iterationCount >= MAX_TOOL_ITERATIONS)
+          throw new Error('OpenRouter exceeded the tool iteration limit')
 
         const toolsStartTime = Date.now()
         for (const toolCall of toolCallsInResponse) {

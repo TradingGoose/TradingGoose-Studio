@@ -72,6 +72,9 @@ import { fireworksProvider } from '@/providers/ai/fireworks'
 import { groqProvider } from '@/providers/ai/groq'
 import { mistralProvider } from '@/providers/ai/mistral'
 import { ollamaProvider } from '@/providers/ai/ollama'
+import { openRouterProvider } from '@/providers/ai/openrouter'
+import { vllmProvider } from '@/providers/ai/vllm'
+import { xAIProvider } from '@/providers/ai/xai'
 
 const request = (model: string, params: Partial<ProviderRequest> = {}): ProviderRequest => ({
   model,
@@ -875,6 +878,40 @@ it.each(
   }
 )
 
+it.each([false, true])('rejects pending Bedrock tools at the limit, stream=%s', async (stream) => {
+  let round = 0
+  const send = vi
+    .spyOn(BedrockRuntimeClient.prototype, 'send')
+    .mockImplementation(async (command) => {
+      if (!(command instanceof ConverseCommand)) throw new Error('Unexpected Bedrock stream')
+      return {
+        output: {
+          message: {
+            role: 'assistant',
+            content: [{ toolUse: { toolUseId: `round-${round++}`, name: tool.id, input: {} } }],
+          },
+        },
+        usage: { inputTokens: 100, outputTokens: 10, totalTokens: 110 },
+        $metadata: {},
+      }
+    })
+  try {
+    await expect(
+      executeProviderRequest(
+        'bedrock',
+        request('bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0', {
+          stream,
+          tools: [tool],
+        })
+      )
+    ).rejects.toThrow('Bedrock exceeded the tool iteration limit')
+    expect(send).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS + 1)
+    expect(mocks.tool).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS)
+  } finally {
+    send.mockRestore()
+  }
+})
+
 it('discovers qualified Ollama IDs and sends only the model name to the SDK', async () => {
   vi.mocked(fetch).mockResolvedValueOnce(
     new Response(JSON.stringify({ models: [{ name: 'llama3.2:latest' }] }))
@@ -1366,7 +1403,13 @@ it.each([
   'dispatches Cerebras reasoning effort %s as %s through %s',
   async (reasoningEffort, expected, path) => {
     if (path === 'tools') {
-      mocks.chat.mockResolvedValueOnce(completion({ tool_calls: [toolCall('next')] }))
+      mocks.chat
+        .mockResolvedValueOnce(completion({ tool_calls: [toolCall('next')] }))
+        .mockResolvedValueOnce(
+          (async function* () {
+            yield { choices: [{ delta: { content: 'Done' } }] }
+          })()
+        )
     } else if (path === 'stream') {
       mocks.chat.mockResolvedValueOnce(
         (async function* () {
@@ -1392,6 +1435,7 @@ it.each([
         expected === undefined ? {} : { reasoning_effort: expected }
       )
     }
+    if (path === 'tools') expect(mocks.chat.mock.calls[1][0].tool_choice).toBe('none')
   }
 )
 
@@ -1667,6 +1711,62 @@ it.each(
         },
       ])
     }
+  }
+)
+
+const geminiToolResponse = (id: string) => ({
+  candidates: [
+    {
+      content: {
+        role: 'model',
+        parts: [{ functionCall: { name: tool.id, args: {} }, thoughtSignature: id }],
+      },
+    },
+  ],
+  functionCalls: [{ name: tool.id, args: {} }],
+  usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5, totalTokenCount: 15 },
+})
+
+it('accepts a completed Gemini answer after the maximum tool iterations', async () => {
+  let call = 0
+  mocks.gemini.mockImplementation(async () => {
+    const current = call++
+    return current < MAX_TOOL_ITERATIONS
+      ? geminiToolResponse(`call-${current}`)
+      : {
+          candidates: [{ content: { role: 'model', parts: [{ text: 'Done' }] } }],
+          text: 'Done',
+          usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5, totalTokenCount: 15 },
+        }
+  })
+
+  await expect(
+    executeProviderRequest('google', request('gemini-2.5-flash', { tools: [tool] }))
+  ).resolves.toMatchObject({ content: 'Done' })
+  expect(mocks.tool).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS)
+  expect(mocks.gemini).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS + 1)
+})
+
+it.each(
+  [false, true].flatMap((stream) => [false, true].map((structured) => ({ stream, structured })))
+)(
+  'rejects pending Gemini tools at the limit, stream=$stream, structured=$structured',
+  async ({ stream, structured }) => {
+    let call = 0
+    mocks.gemini.mockImplementation(async () => geminiToolResponse(`call-${call++}`))
+
+    await expect(
+      executeProviderRequest(
+        'google',
+        request('gemini-2.5-flash', {
+          stream,
+          tools: [tool],
+          responseFormat: structured ? { schema: { type: 'object' }, strict: false } : undefined,
+        })
+      )
+    ).rejects.toThrow('Gemini exceeded the tool iteration limit')
+    expect(mocks.tool).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS)
+    expect(mocks.gemini).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS + 1)
   }
 )
 
@@ -1947,6 +2047,99 @@ it('rejects DeepSeek continuation errors instead of returning partial success', 
   expect(mocks.chat).toHaveBeenCalledTimes(2)
 })
 
+it('accepts a completed DeepSeek answer after the maximum tool iterations', async () => {
+  let call = 0
+  mocks.chat.mockImplementation(async () => {
+    const current = call++
+    return current < MAX_TOOL_ITERATIONS
+      ? completion(
+          { role: 'assistant', content: null, tool_calls: [toolCall(`call-${current}`)] },
+          'tool_calls'
+        )
+      : completion({ role: 'assistant', content: '{"value":42}' }, 'stop')
+  })
+
+  await expect(
+    deepseekProvider.executeRequest(
+      request('deepseek-flash', {
+        tools: [tool],
+        responseFormat: { schema: { type: 'object' }, strict: false },
+      })
+    )
+  ).resolves.toMatchObject({ content: '{"value":42}' })
+  expect(mocks.tool).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS)
+  expect(mocks.chat).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS + 1)
+})
+
+it.each([
+  { mode: 'ordinary', stream: false, structured: false },
+  { mode: 'ordinary streaming', stream: true, structured: false },
+  { mode: 'structured', stream: false, structured: true },
+  { mode: 'structured streaming', stream: true, structured: true },
+])(
+  'rejects pending DeepSeek tools at the iteration limit in $mode mode',
+  async ({ stream, structured }) => {
+    let call = 0
+    mocks.chat.mockImplementation(async () =>
+      completion(
+        { role: 'assistant', content: null, tool_calls: [toolCall(`call-${++call}`)] },
+        'tool_calls'
+      )
+    )
+
+    await expect(
+      deepseekProvider.executeRequest(
+        request('deepseek-flash', {
+          stream,
+          tools: [tool],
+          responseFormat: structured ? { schema: { type: 'object' }, strict: false } : undefined,
+        })
+      )
+    ).rejects.toThrow('DeepSeek exceeded the tool iteration limit')
+    expect(mocks.tool).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS)
+    expect(mocks.chat).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS + 1)
+  }
+)
+
+it.each([
+  {
+    name: 'Fireworks',
+    provider: fireworksProvider,
+    model: 'fireworks/accounts/fireworks/models/glm-5p3',
+  },
+  { name: 'Groq', provider: groqProvider, model: 'groq/openai/gpt-oss-120b' },
+  { name: 'Mistral', provider: mistralProvider, model: 'mistral-large-4' },
+  {
+    name: 'Ollama',
+    provider: ollamaProvider,
+    model: 'ollama/custom',
+  },
+  {
+    name: 'OpenRouter',
+    provider: openRouterProvider,
+    model: 'openrouter/openai/gpt-4.1',
+  },
+  { name: 'vLLM', provider: vllmProvider, model: 'vllm/custom-model' },
+  { name: 'xAI', provider: xAIProvider, model: 'grok-4.5' },
+])(
+  '$name rejects pending tools at the shared iteration limit',
+  async ({ name, provider, model }) => {
+    let call = 0
+    mocks.chat.mockImplementation(async () =>
+      completion(
+        { role: 'assistant', content: null, tool_calls: [toolCall(`call-${++call}`)] },
+        'tool_calls'
+      )
+    )
+
+    await expect(provider.executeRequest(request(model, { tools: [tool] }))).rejects.toThrow(
+      `${name} exceeded the tool iteration limit`
+    )
+    expect(mocks.tool).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS)
+    expect(mocks.chat).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS + 1)
+  }
+)
+
 it.each([
   {
     provider: anthropicProvider,
@@ -2132,15 +2325,23 @@ it.each(manualThinkingProviders)(
   }
 )
 
-it.each([
-  { provider: anthropicProvider, model: 'claude-haiku-4-5', stream: false },
+const claudeToolProviders = [
+  {
+    provider: anthropicProvider,
+    label: 'Anthropic',
+    model: 'claude-haiku-4-5',
+    stream: false,
+  },
   {
     provider: azureAnthropicProvider,
+    label: 'Azure Anthropic',
     model: 'azure-anthropic/claude-sonnet-4-5',
     stream: true,
   },
-])(
-  'keeps the latest Claude answer at the tool limit for $provider.id',
+] as const
+
+it.each(claudeToolProviders)(
+  'keeps the completed Claude answer at the tool limit for $provider.id',
   async ({ provider, model, stream }) => {
     const call = { type: 'tool_use', name: tool.id, input: {} }
     const usage = { input_tokens: 10, output_tokens: 5 }
@@ -2154,10 +2355,7 @@ it.each([
       })
     }
     mocks.claude.mockResolvedValueOnce({
-      content: [
-        { type: 'text', text: 'Completed answer' },
-        ...(stream ? [{ ...call, id: 'over-limit' }] : []),
-      ],
+      content: [{ type: 'text', text: 'Completed answer' }],
       usage,
     })
 
@@ -2181,6 +2379,30 @@ it.each([
     if ('stream' in result) throw new Error('Expected completed response')
     expect(result.toolCalls).toHaveLength(MAX_TOOL_ITERATIONS)
     expect(result.toolResults).toHaveLength(MAX_TOOL_ITERATIONS)
+  }
+)
+
+it.each(claudeToolProviders)(
+  'rejects pending Claude tools at the iteration limit for $provider.id',
+  async ({ provider, label, model, stream }) => {
+    let round = 0
+    mocks.claude.mockImplementation(async () => ({
+      content: [{ type: 'tool_use', id: `round-${round++}`, name: tool.id, input: {} }],
+      usage: { input_tokens: 10, output_tokens: 5 },
+    }))
+
+    await expect(
+      provider.executeRequest(
+        request(model, {
+          stream,
+          maxTokens: 4096,
+          tools: [tool],
+          azureEndpoint: 'https://example.services.ai.azure.com',
+        })
+      )
+    ).rejects.toThrow(`${label} exceeded the tool iteration limit`)
+    expect(mocks.claude).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS + 1)
+    expect(mocks.tool).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS)
   }
 )
 

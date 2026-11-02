@@ -247,15 +247,15 @@ export const fireworksProvider: ProviderConfig = {
       hasUsedForcedTool = forcedToolResult.hasUsedForcedTool
       usedForcedTools = forcedToolResult.usedForcedTools
 
-      while (iterationCount < MAX_TOOL_ITERATIONS) {
+      while (true) {
         if (currentResponse.choices[0]?.message?.content) {
           content = currentResponse.choices[0].message.content
         }
 
         const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
-        if (!toolCallsInResponse || toolCallsInResponse.length === 0) {
-          break
-        }
+        if (!toolCallsInResponse?.length) break
+        if (iterationCount >= MAX_TOOL_ITERATIONS)
+          throw new Error('Fireworks exceeded the tool iteration limit')
 
         const toolsStartTime = Date.now()
 

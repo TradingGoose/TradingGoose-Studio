@@ -469,9 +469,9 @@ export const bedrockProvider: ProviderConfig = {
           return { ...toolUse, toolUseId: toolUse.toolUseId }
         })
 
-        if (currentToolUses.length === 0 || iterationCount >= MAX_TOOL_ITERATIONS) {
-          break
-        }
+        if (currentToolUses.length === 0) break
+        if (iterationCount >= MAX_TOOL_ITERATIONS)
+          throw new Error('Bedrock exceeded the tool iteration limit')
 
         const toolsStartTime = Date.now()
 

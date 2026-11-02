@@ -2,6 +2,7 @@ import OpenAI from 'openai'
 import type { CompletionUsage } from 'openai/resources/completions'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
+import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import type {
   ProviderConfig,
   ProviderRequest,
@@ -240,7 +241,6 @@ export const deepseekProvider: ProviderConfig = {
         (typeof allMessages)[number] | OpenAI.Chat.Completions.ChatCompletionMessage
       > = [...allMessages]
       let iterationCount = 0
-      const MAX_ITERATIONS = 10 // Prevent infinite loops
 
       // Track if a forced tool has been used
       let hasUsedForcedTool = false
@@ -278,12 +278,12 @@ export const deepseekProvider: ProviderConfig = {
         usedForcedTools = result.usedForcedTools
       }
 
-      while (iterationCount < MAX_ITERATIONS) {
+      while (true) {
         // Check for tool calls
         const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
-        if (!toolCallsInResponse || toolCallsInResponse.length === 0) {
-          break
-        }
+        if (!toolCallsInResponse?.length) break
+        if (iterationCount >= MAX_TOOL_ITERATIONS)
+          throw new Error('DeepSeek exceeded the tool iteration limit')
 
         // DeepSeek requires the complete reasoning content when continuing a tool turn.
         currentMessages.push(currentResponse.choices[0].message)

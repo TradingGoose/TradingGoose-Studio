@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
+import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import type {
   ProviderConfig,
   ProviderRequest,
@@ -250,7 +251,6 @@ export const xAIProvider: ProviderConfig = {
       const toolResults: Record<string, unknown>[] = []
       const currentMessages = [...allMessages]
       let iterationCount = 0
-      const MAX_ITERATIONS = 10
 
       // Track if a forced tool has been used
       let hasUsedForcedTool = false
@@ -296,12 +296,12 @@ export const xAIProvider: ProviderConfig = {
       }
 
       try {
-        while (iterationCount < MAX_ITERATIONS) {
+        while (true) {
           // Check for tool calls
           const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
-          if (!toolCallsInResponse || toolCallsInResponse.length === 0) {
-            break
-          }
+          if (!toolCallsInResponse?.length) break
+          if (iterationCount >= MAX_TOOL_ITERATIONS)
+            throw new Error('xAI exceeded the tool iteration limit')
 
           // Track time for tool calls in this batch
           const toolsStartTime = Date.now()
@@ -494,6 +494,7 @@ export const xAIProvider: ProviderConfig = {
           error: error instanceof Error ? error.message : String(error),
           iterationCount,
         })
+        throw error
       }
 
       // After all tool processing complete, if streaming was requested and we have messages, use streaming for the final response

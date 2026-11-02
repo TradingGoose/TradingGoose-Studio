@@ -2,6 +2,7 @@ import { Groq } from 'groq-sdk'
 import type { CompletionUsage } from 'openai/resources/completions'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
+import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import type {
   ProviderConfig,
   ProviderRequest,
@@ -204,7 +205,6 @@ export const groqProvider: ProviderConfig = {
       const toolResults: Record<string, unknown>[] = []
       const currentMessages = [...allMessages]
       let iterationCount = 0
-      const MAX_ITERATIONS = 10 // Prevent infinite loops
 
       // Track time spent in model vs tools
       let modelTime = firstResponseTime
@@ -222,12 +222,12 @@ export const groqProvider: ProviderConfig = {
       ]
 
       try {
-        while (iterationCount < MAX_ITERATIONS) {
+        while (true) {
           // Check for tool calls
           const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
-          if (!toolCallsInResponse || toolCallsInResponse.length === 0) {
-            break
-          }
+          if (!toolCallsInResponse?.length) break
+          if (iterationCount >= MAX_TOOL_ITERATIONS)
+            throw new Error('Groq exceeded the tool iteration limit')
 
           // Track time for tool calls in this batch
           const toolsStartTime = Date.now()
@@ -354,6 +354,7 @@ export const groqProvider: ProviderConfig = {
         }
       } catch (error) {
         logger.error('Error in Groq request:', { error })
+        throw error
       }
 
       // After all tool processing complete, if streaming was requested and we have messages, use streaming for the final response

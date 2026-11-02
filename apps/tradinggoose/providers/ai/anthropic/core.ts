@@ -472,9 +472,9 @@ export async function executeAnthropicProviderRequest(
         }
 
         const toolUses = currentResponse.content.filter((item) => item.type === 'tool_use')
-        if (iterationCount >= MAX_TOOL_ITERATIONS || toolUses.length === 0) {
-          break
-        }
+        if (toolUses.length === 0) break
+        if (iterationCount >= MAX_TOOL_ITERATIONS)
+          throw new Error(`${providerLabel} exceeded the tool iteration limit`)
 
         const toolsStartTime = Date.now()
 

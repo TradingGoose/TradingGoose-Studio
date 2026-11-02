@@ -1,6 +1,7 @@
 import { Cerebras } from '@cerebras/cerebras_cloud_sdk'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
+import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import type {
   ProviderConfig,
   ProviderRequest,
@@ -207,7 +208,6 @@ export const cerebrasProvider: ProviderConfig = {
       const toolResults: Record<string, unknown>[] = []
       const currentMessages = [...allMessages]
       let iterationCount = 0
-      const MAX_ITERATIONS = 10 // Prevent infinite loops
 
       // Track time spent in model vs tools
       let modelTime = firstResponseTime
@@ -230,7 +230,7 @@ export const cerebrasProvider: ProviderConfig = {
       const toolCallSignatures = new Set()
 
       try {
-        while (iterationCount < MAX_ITERATIONS) {
+        while (true) {
           // Check for tool calls
           const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
 
@@ -240,6 +240,9 @@ export const cerebrasProvider: ProviderConfig = {
               content = currentResponse.choices[0].message.content
             }
             break
+          }
+          if (iterationCount >= MAX_TOOL_ITERATIONS) {
+            throw new Error('Cerebras exceeded the tool iteration limit')
           }
 
           // Track time for tool calls in this batch
@@ -348,6 +351,9 @@ export const cerebrasProvider: ProviderConfig = {
 
           // After processing tool calls, get a final response
           if (processedAnyToolCall || hasRepeatedToolCalls) {
+            iterationCount++
+            if (request.stream) break
+
             // Time the next model call
             const nextModelStartTime = Date.now()
 
@@ -436,6 +442,7 @@ export const cerebrasProvider: ProviderConfig = {
         }
       } catch (error) {
         logger.error('Error in Cerebras tool processing:', { error })
+        throw error
       }
 
       // Calculate overall timing
@@ -447,12 +454,11 @@ export const cerebrasProvider: ProviderConfig = {
       if (request.stream && iterationCount > 0) {
         logger.info('Using streaming for final Cerebras response after tool calls')
 
-        // When streaming after tool calls with forced tools, make sure tool_choice is set to 'auto'
-        // This prevents the API from trying to force tool usage again in the final streaming response
+        // Disable tools for the final response after the completed tool batch.
         const streamingPayload = {
           ...payload,
           messages: currentMessages,
-          tool_choice: 'auto', // Always use 'auto' for the streaming response after tool calls
+          tool_choice: 'none',
           stream: true,
         }
 

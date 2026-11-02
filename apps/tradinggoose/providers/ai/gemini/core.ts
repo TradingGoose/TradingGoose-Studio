@@ -1088,12 +1088,15 @@ export async function executeGeminiRequest(
       const functionNames = functionCalls.map((fc: { name?: string }) => fc.name ?? '').join(', ')
       logger.info(`Received ${functionCalls.length} function call(s) from Gemini: ${functionNames}`)
 
-      while (state.iterationCount < MAX_TOOL_ITERATIONS) {
+      while (true) {
         // Extract ALL function call parts from the response (Gemini can return multiple)
         const functionCallParts = extractAllFunctionCallParts(currentResponse.candidates?.[0])
         if (functionCallParts.length === 0) {
           content = extractTextContent(currentResponse.candidates?.[0])
           break
+        }
+        if (state.iterationCount >= MAX_TOOL_ITERATIONS) {
+          throw new Error('Gemini exceeded the tool iteration limit')
         }
 
         const callNames = functionCallParts.map((p) => p.functionCall?.name ?? 'unknown').join(', ')
@@ -1120,7 +1123,7 @@ export async function executeGeminiRequest(
           break
         }
 
-        state = { ...updatedState, iterationCount: updatedState.iterationCount + 1 }
+        state = updatedState
         const nextConfig = buildNextConfig(geminiConfig, state, forcedTools, request, logger, model)
 
         // Settle the tool loop before exposing the final text as a stream.

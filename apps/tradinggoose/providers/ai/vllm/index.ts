@@ -287,7 +287,7 @@ export const vllmProvider: ProviderConfig = {
 
       checkForForcedToolUsage(currentResponse, originalToolChoice)
 
-      while (iterationCount < MAX_TOOL_ITERATIONS) {
+      while (true) {
         if (currentResponse.choices[0]?.message?.content) {
           content = currentResponse.choices[0].message.content
           if (request.responseFormat) {
@@ -296,9 +296,9 @@ export const vllmProvider: ProviderConfig = {
         }
 
         const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
-        if (!toolCallsInResponse || toolCallsInResponse.length === 0) {
-          break
-        }
+        if (!toolCallsInResponse?.length) break
+        if (iterationCount >= MAX_TOOL_ITERATIONS)
+          throw new Error('vLLM exceeded the tool iteration limit')
 
         logger.info(
           `Processing ${toolCallsInResponse.length} tool calls (iteration ${iterationCount + 1}/${MAX_TOOL_ITERATIONS})`
