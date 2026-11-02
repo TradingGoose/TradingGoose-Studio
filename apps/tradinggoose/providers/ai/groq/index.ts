@@ -12,6 +12,8 @@ import {
   createModelCost,
   createOpenAICompatibleStream,
   prepareToolExecution,
+  prepareToolsWithUsageControl,
+  trackForcedToolUsage,
   withToolCosts,
 } from '@/providers/ai/utils'
 import { executeTool } from '@/tools'
@@ -91,10 +93,6 @@ export const groqProvider: ProviderConfig = {
     if (request.temperature !== undefined) payload.temperature = request.temperature
     if (request.maxTokens !== undefined) payload.max_tokens = request.maxTokens
     if (request.reasoningEffort !== undefined) payload.reasoning_effort = request.reasoningEffort
-    if (payload.model.startsWith('qwen/') && request.thinkingLevel === 'enabled') {
-      payload.reasoning_effort = 'default'
-      payload.reasoning_format = 'parsed'
-    }
 
     // Add response format for structured output if specified
     if (request.responseFormat) {
@@ -104,32 +102,19 @@ export const groqProvider: ProviderConfig = {
       }
     }
 
-    // Handle tools and tool usage control
+    let preparedTools: ReturnType<typeof prepareToolsWithUsageControl> | null = null
+
     if (tools?.length) {
-      // Filter out any tools with usageControl='none', but ignore 'force' since Groq doesn't support it
-      const filteredTools = tools.filter((tool) => {
-        const toolId = tool.function?.name
-        const toolConfig = request.tools?.find((t) => t.id === toolId)
-        // Only filter out 'none', treat 'force' as 'auto'
-        return toolConfig?.usageControl !== 'none'
-      })
+      preparedTools = prepareToolsWithUsageControl(tools, request.tools, logger, 'groq')
+      const { tools: filteredTools, toolChoice } = preparedTools
 
-      if (filteredTools?.length) {
+      if (filteredTools?.length && toolChoice) {
         payload.tools = filteredTools
-        // Always use 'auto' for Groq, regardless of the tool_choice setting
-        payload.tool_choice = 'auto'
-
-        logger.info('Groq request configuration:', {
-          toolCount: filteredTools.length,
-          toolChoice: 'auto', // Groq always uses auto
-          model: request.model,
-        })
+        payload.tool_choice = toolChoice
       }
     }
 
-    // EARLY STREAMING: if caller requested streaming and there are no tools to execute,
-    // we can directly stream the completion.
-    if (request.stream && (!tools || tools.length === 0)) {
+    if (request.stream && !preparedTools?.tools?.length) {
       logger.info('Using streaming response for Groq request (no tools)')
 
       // Start execution timer for the entire provider execution
@@ -192,9 +177,27 @@ export const groqProvider: ProviderConfig = {
       // Make the initial API request
       const initialCallTime = Date.now()
 
+      const forcedTools = preparedTools?.forcedTools || []
+      let usedForcedTools: string[] = []
+      let toolChoice = payload.tool_choice
+      const updateToolChoice = (response: any) => {
+        if (typeof toolChoice !== 'object') return
+        const result = trackForcedToolUsage(
+          response.choices[0]?.message?.tool_calls,
+          toolChoice,
+          logger,
+          'groq',
+          forcedTools,
+          usedForcedTools
+        )
+        usedForcedTools = result.usedForcedTools
+        toolChoice = result.nextToolChoice
+      }
+
       let currentResponse = await groq.chat.completions.create(payload)
       const firstResponseTime = Date.now() - initialCallTime
       recordUsage(currentResponse.usage)
+      updateToolChoice(currentResponse)
 
       let content = currentResponse.choices[0]?.message?.content || ''
       const toolCalls = []
@@ -315,6 +318,7 @@ export const groqProvider: ProviderConfig = {
           const nextPayload = {
             ...payload,
             messages: currentMessages,
+            tool_choice: toolChoice,
           }
 
           // Time the next model call
@@ -322,6 +326,7 @@ export const groqProvider: ProviderConfig = {
 
           // Make the next request
           currentResponse = await groq.chat.completions.create(nextPayload)
+          updateToolChoice(currentResponse)
 
           const nextModelEndTime = Date.now()
           const thisModelTime = nextModelEndTime - nextModelStartTime
@@ -355,12 +360,10 @@ export const groqProvider: ProviderConfig = {
       if (request.stream && iterationCount > 0) {
         logger.info('Using streaming for final Groq response after tool calls')
 
-        // When streaming after tool calls with forced tools, make sure tool_choice is set to 'auto'
-        // This prevents the API from trying to force tool usage again in the final streaming response
         const streamingPayload = {
           ...payload,
           messages: currentMessages,
-          tool_choice: 'auto', // Always use 'auto' for the streaming response after tool calls
+          tool_choice: toolChoice,
           stream: true,
         }
 

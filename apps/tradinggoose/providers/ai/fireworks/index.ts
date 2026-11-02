@@ -116,6 +116,9 @@ export const fireworksProvider: ProviderConfig = {
 
     if (request.temperature !== undefined) payload.temperature = request.temperature
     if (request.maxTokens != null) payload.max_tokens = request.maxTokens
+    if (request.reasoningEffort !== undefined) {
+      payload.reasoning_effort = request.reasoningEffort
+    }
 
     let preparedTools: ReturnType<typeof prepareToolsWithUsageControl> | null = null
     let hasActiveTools = false
@@ -304,18 +307,7 @@ export const fireworksProvider: ProviderConfig = {
 
         const executionResults = await Promise.allSettled(toolExecutionPromises)
 
-        currentMessages.push({
-          role: 'assistant',
-          content: null,
-          tool_calls: toolCallsInResponse.map((tc) => ({
-            id: tc.id,
-            type: 'function',
-            function: {
-              name: tc.function.name,
-              arguments: tc.function.arguments,
-            },
-          })),
-        })
+        currentMessages.push(currentResponse.choices[0].message as Message)
 
         for (const settledResult of executionResults) {
           if (settledResult.status === 'rejected' || !settledResult.value) continue
@@ -475,14 +467,10 @@ export const fireworksProvider: ProviderConfig = {
 
       if (request.responseFormat && hasActiveTools) {
         const finalPayload: any = {
-          model: payload.model,
+          ...payload,
           messages: [...currentMessages],
-        }
-        if (payload.temperature !== undefined) {
-          finalPayload.temperature = payload.temperature
-        }
-        if (payload.max_tokens !== undefined) {
-          finalPayload.max_tokens = payload.max_tokens
+          tools: undefined,
+          tool_choice: undefined,
         }
 
         applyResponseFormat(finalPayload, request.responseFormat)

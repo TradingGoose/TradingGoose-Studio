@@ -14,6 +14,7 @@ import {
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
+import { extractEnvironmentReferences, extractReferencePrefixes } from '@/lib/workflows/references'
 import type { SubBlockConfig, SubBlockOption } from '@/blocks/types'
 import { useTagSelection } from '@/hooks/use-tag-selection'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
@@ -53,6 +54,17 @@ const getOptionSearchText = (option: string | SubBlockOption) => {
 const getOptionIcon = (option: string | SubBlockOption) =>
   typeof option === 'string' ? null : (option.icon ?? null)
 
+export function resolveComboBoxDisplayValue(
+  value: string,
+  hasSelectedOption: boolean,
+  hasTyped: boolean,
+  isModelCapability: boolean
+) {
+  const isReference =
+    extractReferencePrefixes(value).length > 0 || extractEnvironmentReferences(value).length > 0
+  return isModelCapability && value && !hasSelectedOption && !hasTyped && !isReference ? '' : value
+}
+
 export function ComboBox({
   options,
   defaultValue,
@@ -88,7 +100,6 @@ export function ComboBox({
   const reactFlowInstance = useReactFlow()
 
   const value = propValue !== undefined ? propValue : storeValue
-  const displayValue = value?.toString() ?? ''
 
   // Evaluate options if it's a function
   const evaluatedOptions = useMemo(() => {
@@ -104,6 +115,16 @@ export function ComboBox({
       return optionValue === value || optionLabel === value
     })
   }, [evaluatedOptions, value])
+
+  const rawDisplayValue = value?.toString() ?? ''
+  const isModelCapability =
+    typeof config.condition === 'object' && config.condition.operator === 'modelCapability'
+  const displayValue = resolveComboBoxDisplayValue(
+    rawDisplayValue,
+    Boolean(selectedOption),
+    hasTyped,
+    isModelCapability
+  )
 
   // Get the explicit default or first option when automatic selection is enabled.
   const defaultOptionValue = useMemo(() => {
@@ -143,7 +164,7 @@ export function ComboBox({
     if (!open) return evaluatedOptions
 
     // If no value, show all options
-    const currentValue = value?.toString() ?? ''
+    const currentValue = displayValue
     if (!currentValue) return evaluatedOptions
 
     const exactMatch = evaluatedOptions.find(
@@ -161,7 +182,7 @@ export function ComboBox({
       const search = currentValue.toLowerCase()
       return label.includes(search) || optionValue.includes(search) || searchLabel.includes(search)
     })
-  }, [evaluatedOptions, value, open, hasTyped])
+  }, [displayValue, evaluatedOptions, open, hasTyped])
 
   const configuredSidebarGroups = useMemo<SidebarDropdownGroup[]>(() => {
     const optionGroups = config.optionGroups

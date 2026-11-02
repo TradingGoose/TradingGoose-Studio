@@ -93,6 +93,7 @@ function createInitialState(
  */
 async function executeToolCallsBatch(
   functionCallParts: Part[],
+  assistantContent: Content,
   request: ProviderRequest,
   state: ExecutionState,
   forcedTools: string[],
@@ -178,10 +179,8 @@ async function executeToolCallsBatch(
     return { success: false, state }
   }
 
-  // Build batched messages per Gemini spec:
-  // ONE model message with ALL function call parts
-  // ONE user message with ALL function responses
-  const modelParts: Part[] = results.map((r) => r.part)
+  // Preserve the complete model response so thought signatures remain attached
+  // to their original parts when the function results are sent back.
   const userParts: Part[] = results.map((r) => ({
     functionResponse: {
       name: r.toolName,
@@ -191,7 +190,7 @@ async function executeToolCallsBatch(
 
   const updatedContents: Content[] = [
     ...state.contents,
-    { role: 'model', parts: modelParts },
+    assistantContent,
     { role: 'user', parts: userParts },
   ]
 
@@ -1102,9 +1101,15 @@ export async function executeGeminiRequest(
           `Processing ${functionCallParts.length} function call(s): ${callNames} (iteration ${state.iterationCount + 1})`
         )
 
+        const assistantContent = currentResponse.candidates?.[0]?.content
+        if (!assistantContent) {
+          throw new Error('Gemini tool calls require candidate content')
+        }
+
         // Execute ALL function calls in this batch
         const { success, state: updatedState } = await executeToolCallsBatch(
           functionCallParts,
+          assistantContent,
           request,
           state,
           forcedTools,
@@ -1118,47 +1123,53 @@ export async function executeGeminiRequest(
         state = { ...updatedState, iterationCount: updatedState.iterationCount + 1 }
         const nextConfig = buildNextConfig(geminiConfig, state, forcedTools, request, logger, model)
 
-        // Stream final response if requested
+        // Settle the tool loop before exposing the final text as a stream.
         if (request.stream) {
-          const checkResponse = await ai.models.generateContent({
+          const nextModelStartTime = Date.now()
+          let settledResponse = await ai.models.generateContent({
             model,
             contents: state.contents,
             config: nextConfig,
           })
-          state = updateStateWithResponse(state, checkResponse, model, Date.now() - 100, Date.now())
+          state = updateStateWithResponse(
+            state,
+            settledResponse,
+            model,
+            nextModelStartTime,
+            Date.now()
+          )
 
-          if (checkResponse.functionCalls?.length) {
-            currentResponse = checkResponse
+          if (settledResponse.functionCalls?.length) {
+            currentResponse = settledResponse
             continue
           }
 
-          logger.info('No more function calls, streaming final response')
-
-          if (request.responseFormat) {
+          // Gemini 2 cannot combine tools and responseSchema. Once tools settle,
+          // make the one schema-configured synthesis required by that contract.
+          if (request.responseFormat && nextConfig.responseMimeType !== 'application/json') {
             nextConfig.tools = undefined
             nextConfig.toolConfig = undefined
-            if (!isGemini3OrLaterModel(model)) {
-              nextConfig.responseMimeType = 'application/json'
-              nextConfig.responseSchema = cleanSchemaForGemini(
-                request.responseFormat.schema
-              ) as Schema
-            }
+            nextConfig.responseMimeType = 'application/json'
+            nextConfig.responseSchema = cleanSchemaForGemini(
+              request.responseFormat.schema
+            ) as Schema
+
+            const finalModelStartTime = Date.now()
+            settledResponse = await ai.models.generateContent({
+              model,
+              contents: state.contents,
+              config: nextConfig,
+            })
+            state = updateStateWithResponse(
+              state,
+              settledResponse,
+              model,
+              finalModelStartTime,
+              Date.now()
+            )
           }
 
-          // Capture accumulated cost before streaming
-          const accumulatedCost = {
-            input: state.cost.input,
-            output: state.cost.output,
-            total: state.cost.total,
-          }
-          const accumulatedTokens = { ...state.tokens }
-
-          const streamGenerator = await ai.models.generateContentStream({
-            model,
-            contents: state.contents,
-            config: nextConfig,
-          })
-
+          const settledContent = extractTextContent(settledResponse.candidates?.[0])
           const streamingResult = createStreamingResult(
             providerStartTime,
             providerStartTimeISO,
@@ -1167,40 +1178,16 @@ export async function executeGeminiRequest(
             state
           )
           streamingResult.execution.output.model = model
-
-          streamingResult.stream = createReadableStreamFromGeminiStream(
-            streamGenerator,
-            (streamContent: string, usage: GeminiUsage) => {
-              streamingResult.execution.output.content = streamContent
-              streamingResult.execution.output.tokens = {
-                input: accumulatedTokens.input + usage.promptTokenCount,
-                output: accumulatedTokens.output + usage.candidatesTokenCount,
-                total: accumulatedTokens.total + usage.totalTokenCount,
+          streamingResult.execution.output.content = settledContent
+          streamingResult.execution.output.cost = withToolCosts(state.cost, state.toolResults)
+          streamingResult.stream = new ReadableStream({
+            start(controller) {
+              if (settledContent) {
+                controller.enqueue(new TextEncoder().encode(settledContent))
               }
-
-              const streamCost = calculateCost(
-                model,
-                usage.promptTokenCount,
-                usage.candidatesTokenCount,
-                usage.cachedContentTokenCount
-              )
-              streamingResult.execution.output.cost = withToolCosts(
-                {
-                  input: accumulatedCost.input + streamCost.input,
-                  output: accumulatedCost.output + streamCost.output,
-                  total: accumulatedCost.total + streamCost.total,
-                  pricing: streamCost.pricing,
-                },
-                state.toolResults
-              )
-
-              if (streamingResult.execution.output.providerTiming) {
-                streamingResult.execution.output.providerTiming.endTime = new Date().toISOString()
-                streamingResult.execution.output.providerTiming.duration =
-                  Date.now() - providerStartTime
-              }
-            }
-          )
+              controller.close()
+            },
+          })
 
           return streamingResult
         }

@@ -21,6 +21,7 @@ import {
 import { ollamaProvider } from '@/providers/ai/ollama'
 import { openaiProvider } from '@/providers/ai/openai'
 import { openRouterProvider } from '@/providers/ai/openrouter'
+import { getOpenRouterModels } from '@/providers/ai/openrouter/models'
 import type { ProviderConfig, ProviderRequest, ProviderResponse } from '@/providers/ai/types'
 import { withToolCosts } from '@/providers/ai/utils'
 import { vertexProvider } from '@/providers/ai/vertex'
@@ -121,6 +122,12 @@ export async function executeProviderRequest(
 
   if (getProviderFromModel(request.model) !== providerId) {
     throw new Error(`Model ${request.model} does not belong to provider ${providerId}`)
+  }
+
+  if (providerId === 'openrouter') {
+    await getOpenRouterModels().catch((error) => {
+      logger.warn('Unable to refresh OpenRouter model capabilities', { error })
+    })
   }
 
   const sanitizedRequest = sanitizeRequest(request)

@@ -2,7 +2,6 @@ import OpenAI from 'openai'
 import type { CompletionUsage } from 'openai/resources/completions'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
-import { getOpenRouterModels } from '@/providers/ai/openrouter/models'
 import type {
   ProviderConfig,
   ProviderRequest,
@@ -80,6 +79,8 @@ export const openRouterProvider: ProviderConfig = {
 
     if (request.temperature !== undefined) payload.temperature = request.temperature
     if (request.maxTokens !== undefined) payload.max_tokens = request.maxTokens
+    if (request.reasoningEffort !== undefined) payload.reasoning_effort = request.reasoningEffort
+    if (request.verbosity !== undefined) payload.verbosity = request.verbosity
 
     if (request.responseFormat) {
       payload.response_format = {
@@ -108,10 +109,6 @@ export const openRouterProvider: ProviderConfig = {
     const providerStartTimeISO = new Date(providerStartTime).toISOString()
 
     try {
-      await getOpenRouterModels().catch((error) => {
-        logger.warn('Unable to refresh OpenRouter pricing', { error })
-      })
-
       const tokens = { prompt: 0, completion: 0, total: 0 }
       const cost = createModelCost(request.model)
       const recordUsage = (usage?: CompletionUsage) => {

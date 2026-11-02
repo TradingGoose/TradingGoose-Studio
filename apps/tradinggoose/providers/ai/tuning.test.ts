@@ -70,6 +70,7 @@ import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import { deepseekProvider } from '@/providers/ai/deepseek'
 import { fireworksProvider } from '@/providers/ai/fireworks'
 import { groqProvider } from '@/providers/ai/groq'
+import { mistralProvider } from '@/providers/ai/mistral'
 import { ollamaProvider } from '@/providers/ai/ollama'
 
 const request = (model: string, params: Partial<ProviderRequest> = {}): ProviderRequest => ({
@@ -181,7 +182,7 @@ it.each([
   })
 })
 
-it('reads actual Groq stream usage from the terminal x_groq chunk', async () => {
+it('streams Groq requests when every configured tool is disabled', async () => {
   mocks.chat.mockResolvedValueOnce(
     (async function* () {
       yield { choices: [{ delta: { content: 'Done' } }] }
@@ -194,18 +195,61 @@ it('reads actual Groq stream usage from the terminal x_groq chunk', async () => 
 
   const result = await executeProviderRequest(
     'groq',
-    request('groq/llama-3.3-70b-versatile', {
+    request('groq/openai/gpt-oss-120b', {
       context: undefined,
       messages: [{ role: 'user', content: 'Analyze' }],
       stream: true,
+      tools: [{ ...tool, usageControl: 'none' }],
     })
   )
   if (!('stream' in result)) throw new Error('Expected streaming execution')
   expect(await new Response(result.stream).text()).toBe('Done')
   expect(result.execution.output.tokens).toEqual({ prompt: 1000, completion: 500, total: 1500 })
-  expect(result.execution.output.cost?.input).toBeCloseTo(0.00059, 8)
-  expect(result.execution.output.cost?.output).toBeCloseTo(0.000395, 8)
-  expect(result.execution.output.cost?.total).toBeCloseTo(0.000985, 8)
+  expect(result.execution.output.cost?.input).toBeCloseTo(0.00015, 8)
+  expect(result.execution.output.cost?.output).toBeCloseTo(0.0003, 8)
+  expect(result.execution.output.cost?.total).toBeCloseTo(0.00045, 8)
+  expect(mocks.chat.mock.calls[0][0]).not.toHaveProperty('tools')
+  expect(mocks.chat.mock.calls[0][0]).not.toHaveProperty('tool_choice')
+})
+
+it('sequences forced Groq tools before switching to automatic selection', async () => {
+  const secondTool = { ...tool, id: 'second', name: 'Second' }
+  mocks.chat
+    .mockResolvedValueOnce(
+      completion({ role: 'assistant', content: null, tool_calls: [toolCall('first')] })
+    )
+    .mockResolvedValueOnce(
+      completion({
+        role: 'assistant',
+        content: null,
+        tool_calls: [
+          {
+            id: 'second',
+            type: 'function',
+            function: { name: secondTool.id, arguments: '{}' },
+          },
+        ],
+      })
+    )
+    .mockResolvedValueOnce(completion())
+
+  await groqProvider.executeRequest(
+    request('groq/openai/gpt-oss-120b', {
+      tools: [
+        { ...tool, usageControl: 'force' },
+        { ...secondTool, usageControl: 'force' },
+        { ...tool, id: 'disabled', usageControl: 'none' },
+      ],
+    })
+  )
+
+  expect(mocks.chat.mock.calls.map(([payload]) => payload.tool_choice)).toEqual([
+    { type: 'function', function: { name: tool.id } },
+    { type: 'function', function: { name: secondTool.id } },
+    'auto',
+  ])
+  expect(mocks.chat.mock.calls[0][0].tools).toHaveLength(2)
+  expect(mocks.tool).toHaveBeenCalledTimes(2)
 })
 
 it('sends system-only requests once through Claude and Bedrock SDK adapters', async () => {
@@ -272,7 +316,7 @@ it('retains paid tool costs in completed Azure Claude streaming requests', async
 
 it.each([
   ['xai', 'grok-4.7', 110000, 2, 6],
-  ['mistral', 'mistral-large-latest', 10000, 0.5, 1.5],
+  ['mistral', 'mistral-large-4', 10000, 0.7, 2.1],
   ['anthropic', 'claude-haiku-5-5', 60000, 0.1, 0.5],
   ['azure-anthropic', 'azure-anthropic/claude-haiku-5-5', 60000, 0.1, 0.5],
 ] as const)(
@@ -322,7 +366,7 @@ it.each([
 
 it.each([
   ['xai', 'grok-4.7', 110000, 2, 6],
-  ['mistral', 'mistral-large-latest', 10000, 0.5, 1.5],
+  ['mistral', 'mistral-large-4', 10000, 0.7, 2.1],
 ] as const)(
   'retains %s tool-loop usage and costs when its final answer streams',
   async (provider, model, inputTokens, inputRate, outputRate) => {
@@ -363,6 +407,9 @@ it.each([
       2 + (inputTokens * 3 * inputRate + 300 * outputRate) / 1e6,
       8
     )
+    if (provider === 'mistral') {
+      expect(mocks.chat.mock.calls[2][0].stream_options).toBeUndefined()
+    }
   }
 )
 
@@ -385,7 +432,7 @@ it.each([0, 1000])('prices direct Mistral stream usage, input=%s', async (inputT
   )
   const result = await executeProviderRequest(
     'mistral',
-    request('mistral-large-latest', { stream: true })
+    request('mistral-large-4', { stream: true })
   )
   if (!('stream' in result)) throw new Error('Expected streaming execution')
   const initialCost = result.execution.output.cost
@@ -397,8 +444,81 @@ it.each([0, 1000])('prices direct Mistral stream usage, input=%s', async (inputT
     completion: inputTokens / 10,
     total: inputTokens * 1.1,
   })
-  expect(result.execution.output.cost?.total).toBeCloseTo(inputTokens ? 0.00065 : 0, 8)
+  expect(result.execution.output.cost?.total).toBeCloseTo(inputTokens ? 0.00091 : 0, 8)
   expect(mocks.chat).toHaveBeenCalledTimes(1)
+  expect(mocks.chat.mock.calls[0][0].stream_options).toBeUndefined()
+})
+
+it('forwards Mistral reasoning effort and returns only answer content blocks', async () => {
+  const content = [
+    { type: 'thinking', thinking: [{ type: 'text', text: 'Private reasoning' }] },
+    { type: 'text', text: 'Visible ' },
+    { type: 'text', text: 'answer' },
+  ]
+  mocks.chat.mockResolvedValueOnce(completion({ role: 'assistant', content }))
+  const result = await mistralProvider.executeRequest(
+    request('mistral-large-4', { reasoningEffort: 'high' })
+  )
+  if ('stream' in result) throw new Error('Expected nonstreaming response')
+  expect(result.content).toBe('Visible answer')
+  expect(mocks.chat.mock.calls[0][0].reasoning_effort).toBe('high')
+})
+
+it('replays complete Mistral thinking content during tool continuations', async () => {
+  const assistant = {
+    role: 'assistant',
+    content: [
+      { type: 'thinking', thinking: [{ type: 'text', text: 'Preserved reasoning' }] },
+      { type: 'text', text: 'I will look that up.' },
+    ],
+    tool_calls: [toolCall('mistral-tool')],
+  }
+  mocks.chat.mockResolvedValueOnce(completion(assistant)).mockResolvedValueOnce(completion())
+  await mistralProvider.executeRequest(
+    request('mistral-large-4', { reasoningEffort: 'high', tools: [tool] })
+  )
+  expect(mocks.chat.mock.calls[1][0].messages).toContainEqual(assistant)
+})
+
+it('streams only Mistral text chunks while preserving string deltas', async () => {
+  mocks.chat.mockResolvedValueOnce(
+    (async function* () {
+      yield {
+        choices: [
+          {
+            delta: {
+              content: [
+                { type: 'thinking', thinking: [{ type: 'text', text: 'Private reasoning' }] },
+              ],
+            },
+          },
+        ],
+      }
+      yield {
+        choices: [
+          {
+            delta: {
+              content: [
+                { type: 'thinking', thinking: [] },
+                { type: 'text', text: 'Visible ' },
+              ],
+            },
+          },
+        ],
+      }
+      yield { choices: [{ delta: { content: 'answer' } }] }
+      yield {
+        choices: [],
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+      }
+    })()
+  )
+  const result = await mistralProvider.executeRequest(
+    request('mistral-large-4', { reasoningEffort: 'high', stream: true })
+  )
+  if (!('stream' in result)) throw new Error('Expected streaming execution')
+  expect(await new Response(result.stream).text()).toBe('Visible answer')
+  expect(result.execution.output.content).toBe('Visible answer')
 })
 
 it.each([undefined, 'auto', 'force'] as const)(
@@ -607,6 +727,13 @@ it.each(
           message: {
             role: 'assistant',
             content: [
+              { text: '   ' },
+              { text: 'Calling tools' },
+              {
+                reasoningContent: {
+                  reasoningText: { text: 'Need both results', signature: 'reasoning-signature' },
+                },
+              },
               { toolUse: { toolUseId: 'known', name, input: {} } },
               { toolUse: { toolUseId: 'unknown', name: 'missing', input: {} } },
             ],
@@ -640,7 +767,16 @@ it.each(
       expect(followup.input.messages?.slice(-2)).toMatchObject([
         {
           role: 'assistant',
-          content: [{ toolUse: { toolUseId: 'known' } }, { toolUse: { toolUseId: 'unknown' } }],
+          content: [
+            { text: 'Calling tools' },
+            {
+              reasoningContent: {
+                reasoningText: { text: 'Need both results', signature: 'reasoning-signature' },
+              },
+            },
+            { toolUse: { toolUseId: 'known' } },
+            { toolUse: { toolUseId: 'unknown' } },
+          ],
         },
         {
           role: 'user',
@@ -790,18 +926,60 @@ it.each([
   expect(mocks.chat).not.toHaveBeenCalled()
 })
 
+it('preserves Fireworks reasoning through tool and structured-output calls', async () => {
+  const assistant = {
+    role: 'assistant',
+    content: 'I will look that up.',
+    reasoning_content: 'Keep this reasoning unchanged.',
+    tool_calls: [toolCall('fireworks-tool')],
+  }
+  mocks.chat
+    .mockResolvedValueOnce(completion(assistant))
+    .mockResolvedValueOnce(completion({ role: 'assistant', content: 'Ready' }))
+    .mockResolvedValueOnce(completion({ role: 'assistant', content: '{"value":42}' }))
+
+  await fireworksProvider.executeRequest(
+    request('fireworks/accounts/fireworks/models/glm-5p3', {
+      reasoningEffort: 'high',
+      tools: [tool],
+      responseFormat: {
+        name: 'result',
+        schema: { type: 'object', properties: { value: { type: 'number' } } },
+      },
+    })
+  )
+
+  expect(mocks.chat.mock.calls.map(([payload]) => payload.reasoning_effort)).toEqual([
+    'high',
+    'high',
+    'high',
+  ])
+  expect(mocks.chat.mock.calls[1][0].messages).toContainEqual(assistant)
+  expect(mocks.chat.mock.calls[2][0]).toMatchObject({
+    response_format: { type: 'json_schema' },
+    tools: undefined,
+    tool_choice: undefined,
+  })
+})
+
 it.each([
   {
+    provider: fireworksProvider,
+    model: 'fireworks/accounts/fireworks/models/kimi-k3',
+    params: { reasoningEffort: 'max', stream: true },
+    expected: { reasoning_effort: 'max' },
+  },
+  {
     provider: groqProvider,
-    model: 'groq/qwen/qwen3.6-27b',
-    params: { thinkingLevel: 'enabled' },
-    expected: { reasoning_effort: 'default', reasoning_format: 'parsed' },
+    model: 'groq/qwen/qwen3.8-27b',
+    params: { reasoningEffort: 'high' },
+    expected: { reasoning_effort: 'high' },
   },
   {
     provider: deepseekProvider,
     model: 'deepseek-v4-pro',
-    params: { thinkingLevel: 'none', reasoningEffort: 'max' },
-    expected: { thinking: { type: 'disabled' } },
+    params: { thinkingLevel: 'none' },
+    expected: { reasoning_effort: 'none' },
   },
 ])(
   'forwards $model controls and omits them when unset',
@@ -1388,18 +1566,26 @@ it.each(
         : { prompt_tokens_details: { cached_tokens: cachedTokens } }),
     }))
     const content = provider === 'fireworks' ? '{"value":42}' : 'Done'
+    const geminiAssistantContent = {
+      role: 'model',
+      parts: [
+        { text: 'Calling the tool', thoughtSignature: 'text-signature' },
+        {
+          functionCall: { name: tool.id, args: {} },
+          thoughtSignature: 'function-signature',
+        },
+      ],
+    }
     const responses = usages.map((usage, index) =>
       gemini
         ? {
-            text: index === 0 ? undefined : content,
+            text: index === 0 ? undefined : index === 1 ? content : 'Duplicate answer',
             candidates: [
               {
-                content: {
-                  parts:
-                    index === 0
-                      ? [{ functionCall: { name: tool.id, args: {} } }]
-                      : [{ text: content }],
-                },
+                content:
+                  index === 0
+                    ? geminiAssistantContent
+                    : { parts: [{ text: index === 1 ? content : 'Duplicate answer' }] },
               },
             ],
             ...(index === 0 && { functionCalls: [{ name: tool.id, args: {} }] }),
@@ -1459,7 +1645,7 @@ it.each(
     )
     if ('stream' in result) expect(await new Response(result.stream).text()).toBe(content)
     const output = 'stream' in result ? result.execution.output : result
-    const calls = stream || provider === 'fireworks' ? 3 : 2
+    const calls = provider === 'fireworks' || (stream && !gemini) ? 3 : 2
     expect(output.tokens).toEqual(
       gemini && stream
         ? { input: calls * prompt, output: calls * 100, total: calls * (prompt + 100) }
@@ -1472,6 +1658,15 @@ it.each(
     expect(output.cost.total).toBeCloseTo(2 + inputCost + outputCost * calls, 8)
     expect(generate).toHaveBeenCalledTimes(calls)
     expect(mocks.tool).toHaveBeenCalledTimes(1)
+    if (gemini) {
+      expect(generate.mock.calls[1][0].contents.slice(-2)).toEqual([
+        geminiAssistantContent,
+        {
+          role: 'user',
+          parts: [{ functionResponse: { name: tool.id, response: { cost: { total: 2 } } } }],
+        },
+      ])
+    }
   }
 )
 
@@ -1665,7 +1860,8 @@ it.each(['deepseek-v4-pro', 'deepseek-flash'])(
       'auto',
     ])
     for (const [payload] of mocks.chat.mock.calls) {
-      expect(payload.thinking).toEqual({ type: 'disabled' })
+      expect(payload.reasoning_effort).toBe('none')
+      expect(payload.thinking).toBeUndefined()
     }
   }
 )
@@ -1680,15 +1876,14 @@ it('preserves complete DeepSeek reasoning and parallel tool calls through follow
   mocks.chat.mockResolvedValueOnce(completion(assistant))
   await deepseekProvider.executeRequest(
     request('deepseek-v4-pro', {
-      thinkingLevel: 'enabled',
-      reasoningEffort: 'max',
+      thinkingLevel: 'max',
       tools: [tool],
     })
   )
   expect(mocks.tool).toHaveBeenCalledTimes(2)
   expect(mocks.chat).toHaveBeenCalledTimes(2)
   for (const [payload] of mocks.chat.mock.calls) {
-    expect(controls(payload)).toEqual({ thinking: { type: 'enabled' }, reasoning_effort: 'max' })
+    expect(controls(payload)).toEqual({ reasoning_effort: 'max' })
   }
   expect(mocks.chat.mock.calls[1][0].messages).toEqual([
     { role: 'user', content: 'Analyze' },

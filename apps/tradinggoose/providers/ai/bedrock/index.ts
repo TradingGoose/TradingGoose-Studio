@@ -522,13 +522,9 @@ export const bedrockProvider: ProviderConfig = {
 
         const executionResults = await Promise.all(toolExecutionPromises)
 
-        const assistantContent: ContentBlock[] = currentToolUses.map((toolUse: ToolUseBlock) => ({
-          toolUse: {
-            toolUseId: toolUse.toolUseId,
-            name: toolUse.name,
-            input: toolUse.input,
-          },
-        }))
+        const assistantContent = responseContent.filter(
+          (block) => !('text' in block) || Boolean(block.text?.trim())
+        )
         currentMessages.push({
           role: 'assistant' as ConversationRole,
           content: assistantContent,

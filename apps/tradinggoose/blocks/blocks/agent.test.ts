@@ -3,6 +3,7 @@ import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-condi
 import type { SubBlockCondition } from '@/blocks/types'
 import { getWorkflowInspectorCopy, type LocaleCode } from '@/i18n/block-editor'
 import { getProviderModels } from '@/providers/ai/models'
+import { useProvidersStore } from '@/stores/providers/store'
 import { buildTriggerEditingLayout } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/trigger-editing-layout'
 import { AgentBlock } from './agent'
 import { EvaluatorBlock } from './evaluator'
@@ -44,7 +45,7 @@ describe('AgentBlock', () => {
         for (const model of [
           'gpt-4.1',
           'claude-haiku-4-5',
-          'mistral-large-latest',
+          'mistral-large-4',
           'azure/gpt-4.1',
           'openrouter/openai/gpt-4.1',
         ]) {
@@ -80,6 +81,37 @@ describe('AgentBlock', () => {
       expect(block.tools.config!.tool({ model: 'ollama/llama3.2:latest' })).toBe('ollama')
     }
   )
+
+  it('includes every discovered dynamic provider in the model selector', () => {
+    const previous = useProvidersStore.getState().providers
+    useProvidersStore.setState({
+      providers: {
+        ...previous,
+        ollama: { models: ['ollama/local'], isLoading: false },
+        openrouter: { models: ['openrouter/openai/gpt-4.1'], isLoading: false },
+        vllm: { models: ['vllm/local'], isLoading: false },
+        fireworks: {
+          models: ['fireworks/accounts/acme/deployments/prod'],
+          isLoading: false,
+        },
+      },
+    })
+    try {
+      const modelField = AgentBlock.subBlocks.find((field) => field.id === 'model')!
+      if (typeof modelField.options !== 'function') throw new Error('Expected dynamic options')
+      expect(modelField.options().map((option) => option.id)).toEqual(
+        expect.arrayContaining([
+          'ollama/local',
+          'openrouter/openai/gpt-4.1',
+          'vllm/local',
+          'fireworks/accounts/acme/deployments/prod',
+          'fireworks/accounts/fireworks/models/glm-5p3',
+        ])
+      )
+    } finally {
+      useProvidersStore.setState({ providers: previous })
+    }
+  })
 
   it('uses additional fields without mode switches or forced tuning defaults', () => {
     expect(AgentBlock.subBlocks.some((field) => field.mode)).toBe(false)
@@ -117,17 +149,27 @@ describe('AgentBlock', () => {
   it.each([
     ['reasoningEffort', 'gpt-5.4', ['none', 'low', 'medium', 'high', 'xhigh']],
     ['reasoningEffort', 'gpt-5.6-sol', ['none', 'low', 'medium', 'high', 'xhigh', 'max']],
+    ['reasoningEffort', 'gpt-6-sol', ['none', 'low', 'medium', 'high', 'xhigh', 'max']],
     ['reasoningEffort', 'gpt-6.1-sol', ['low', 'medium', 'high', 'xhigh', 'max']],
-    ['reasoningEffort', 'deepseek-v4-pro', ['low', 'high', 'max']],
+    ['reasoningEffort', 'grok-4.5', ['low', 'medium', 'high']],
+    ['reasoningEffort', 'grok-4.3', ['none', 'low', 'medium', 'high']],
+    ['reasoningEffort', 'grok-4.20-multi-agent-0309', ['low', 'medium', 'high', 'xhigh']],
+    ['reasoningEffort', 'cerebras/gpt-oss-120b', ['low', 'medium', 'high']],
+    ['reasoningEffort', 'groq/qwen/qwen3.8-27b', ['none', 'low', 'medium', 'high']],
+    ['reasoningEffort', 'mistral-large-4', ['low', 'medium', 'high']],
+    ['reasoningEffort', 'mistral-small-2603', ['none', 'high']],
+    ['reasoningEffort', 'zai-glm-5-3', ['low', 'high', 'max']],
     ['thinkingLevel', 'claude-sonnet-5-5', ['none', 'low', 'medium', 'high', 'xhigh', 'max']],
     ['thinkingLevel', 'claude-haiku-5-5', ['none', 'low', 'medium', 'high', 'xhigh', 'max']],
     ['thinkingLevel', 'claude-haiku-4-5', ['low', 'medium', 'high']],
-    ['thinkingLevel', 'deepseek-flash', ['none', 'enabled']],
+    ['thinkingLevel', 'deepseek-v4-pro', ['none', 'low', 'high', 'max']],
+    ['thinkingLevel', 'deepseek-flash', ['none', 'low', 'high', 'max']],
     ['thinkingLevel', 'gemini-2.5-flash', ['none', 'low', 'medium', 'high']],
     ['thinkingLevel', 'gemini-2.5-flash-lite', ['none', 'low', 'medium', 'high']],
     ['thinkingLevel', 'vertex/gemini-2.5-flash', ['none', 'low', 'medium', 'high']],
     ['thinkingLevel', 'vertex/gemini-2.5-flash-lite', ['none', 'low', 'medium', 'high']],
     ['verbosity', 'gpt-5.6-sol', ['low', 'medium', 'high']],
+    ['verbosity', 'gpt-6-astra', ['low', 'medium', 'high']],
   ] as const)('resolves %s for %s from the selected model', (id, model, levels) => {
     for (const locale of ['en', 'es', 'zh'] as const) {
       const fields = inspectorLayout(model, locale).additionalRows.flat()
@@ -142,15 +184,13 @@ describe('AgentBlock', () => {
   })
 
   it.each(['<variable.model>', '{{MODEL}}', 'gpt-<variable.version>', 'gpt-{{VERSION}}'])(
-    'keeps tuning controls editable until model %s resolves',
+    'hides tuning controls until model %s resolves',
     (model) => {
-      const fields = inspectorLayout(model).additionalRows.flat()
+      const fieldIds = inspectorLayout(model)
+        .additionalRows.flat()
+        .map((field) => field.id)
       for (const id of ['reasoningEffort', 'verbosity', 'thinkingLevel']) {
-        const field = fields.find((field) => field.id === id)!
-        expect(field?.type).toBe('combobox')
-        expect(field.dependsOn).toBeUndefined()
-        if (typeof field.options !== 'function') throw new Error('Expected model-dependent options')
-        expect(field.options({ model }).map((option) => option.id)).toEqual(['auto'])
+        expect(fieldIds).not.toContain(id)
       }
     }
   )
@@ -161,6 +201,8 @@ describe('AgentBlock', () => {
     ['thinkingLevel', 'unknown-model'],
     ['thinkingLevel', undefined],
     ['reasoningEffort', 'claude-haiku-4-5'],
+    ['reasoningEffort', 'deepseek-v4-pro'],
+    ['reasoningEffort', 'groq/openai/gpt-oss-safeguard-20b'],
     ['verbosity', 'claude-haiku-4-5'],
   ])('hides unsupported %s controls for %s', (id, model) => {
     const field = AgentBlock.subBlocks.find((field) => field.id === id)!
@@ -175,9 +217,8 @@ describe('AgentBlock', () => {
   it.each([
     ['gpt-4.1', 2],
     ['claude-haiku-4-5', 1],
-    ['mistral-large-latest', 1.5],
+    ['mistral-large-4', 1.5],
     ['ollama/llama3.2:latest', 2],
-    ['openrouter/custom/model', 2],
     ['fireworks/accounts/demo/models/adapter#accounts/demo/deployments/gpu', 2],
     ['vllm/custom', 2],
   ] as const)('uses a clearable temperature slider for %s', (model, max) => {

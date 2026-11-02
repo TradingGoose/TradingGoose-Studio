@@ -1558,8 +1558,7 @@ describe('AgentBlockHandler', () => {
         {
           model: 'deepseek-flash',
           userPrompt: 'Hello!',
-          reasoningEffort: 'max',
-          thinkingLevel: 'none',
+          thinkingLevel: 'high',
         },
         mockContext
       )
@@ -1570,8 +1569,8 @@ describe('AgentBlockHandler', () => {
         expect.objectContaining({
           model: 'deepseek-flash',
           apiKey: 'resolved-api-key',
-          reasoningEffort: 'max',
-          thinkingLevel: 'none',
+          reasoningEffort: undefined,
+          thinkingLevel: 'high',
           verbosity: undefined,
           messages: [{ role: 'user', content: 'Hello!' }],
         })

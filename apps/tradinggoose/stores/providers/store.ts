@@ -63,12 +63,12 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => {
         if (!response.ok) {
           throw new Error(`Failed to fetch ${provider} models: ${response.status}`)
         }
-        const { models, pricing } = await response.json()
+        const { models, pricing, capabilities } = await response.json()
         logger.info(`Successfully fetched ${provider} models`, {
           count: models.length,
           ...(provider === 'ollama' ? { models } : {}),
         })
-        MODEL_UPDATERS[provider]?.(models, pricing)
+        MODEL_UPDATERS[provider]?.(models, pricing, capabilities)
         updateProvider(provider, { models })
       } catch (error) {
         logger.error(`Failed to fetch ${provider} models`, {

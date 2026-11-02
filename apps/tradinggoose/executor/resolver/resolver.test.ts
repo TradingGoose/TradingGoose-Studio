@@ -2256,7 +2256,7 @@ describe('InputResolver', () => {
           [
             [model, 'claude-opus-5-5', { thinkingLevel: 'high' }],
             [model, 'gpt-5.4', { reasoningEffort: 'high', verbosity: 'high' }],
-            [model, 'deepseek-flash', { reasoningEffort: 'high', thinkingLevel: 'high' }],
+            [model, 'deepseek-flash', { thinkingLevel: 'high' }],
             [model, 'gpt-4.1', {}],
           ] as const
       ),
@@ -2285,7 +2285,7 @@ describe('InputResolver', () => {
 
     it.each([
       ['ollama/custom', true],
-      ['openrouter/custom/model', true],
+      ['openrouter/custom/model', false],
       ['fireworks/accounts/demo/models/adapter#accounts/demo/deployments/gpu', true],
       ['vllm/custom', true],
       ['gpt-5.4', false],

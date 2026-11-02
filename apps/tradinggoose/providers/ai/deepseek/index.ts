@@ -124,12 +124,7 @@ export const deepseekProvider: ProviderConfig = {
       if (request.maxTokens !== undefined) payload.max_tokens = request.maxTokens
       if (request.responseFormat) payload.response_format = { type: 'json_object' }
       if (request.thinkingLevel !== undefined) {
-        payload.thinking = {
-          type: request.thinkingLevel === 'none' ? 'disabled' : 'enabled',
-        }
-      }
-      if (request.reasoningEffort !== undefined && request.thinkingLevel !== 'none') {
-        payload.reasoning_effort = request.reasoningEffort
+        payload.reasoning_effort = request.thinkingLevel
       }
 
       // Handle tools and tool usage control

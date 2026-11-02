@@ -56,7 +56,7 @@ describe('Model Capabilities', () => {
         'grok-4.5',
         'deepseek-flash',
         'cerebras/gpt-oss-120b',
-        'groq/llama-3.3-70b-versatile',
+        'groq/openai/gpt-oss-120b',
       ]
 
       for (const model of supportedModels) {
@@ -86,14 +86,10 @@ describe('Model Capabilities', () => {
       }
     })
 
-    it.concurrent(
-      'should inherit temperature support from provider for dynamically fetched models',
-      () => {
-        // OpenRouter models should inherit temperature support from provider capabilities
-        expect(supportsTemperature('openrouter/anthropic/claude-3.5-sonnet')).toBe(true)
-        expect(supportsTemperature('openrouter/openai/gpt-4')).toBe(true)
-      }
-    )
+    it.concurrent('requires discovered OpenRouter temperature support', () => {
+      expect(supportsTemperature('openrouter/anthropic/claude-3.5-sonnet')).toBe(false)
+      expect(supportsTemperature('openrouter/openai/gpt-4')).toBe(false)
+    })
   })
 
   describe('getMaxTemperature', () => {
@@ -123,7 +119,7 @@ describe('Model Capabilities', () => {
       for (const model of modelsRange01) {
         expect(getMaxTemperature(model)).toBe(1)
       }
-      expect(getMaxTemperature('mistral-large-latest')).toBe(1.5)
+      expect(getMaxTemperature('mistral-large-4')).toBe(1.5)
     })
 
     it.concurrent('should return undefined for models that do not support temperature', () => {
@@ -142,13 +138,10 @@ describe('Model Capabilities', () => {
       expect(getMaxTemperature('azure/gpt-5-chat')).toBe(2)
     })
 
-    it.concurrent(
-      'should inherit max temperature from provider for dynamically fetched models',
-      () => {
-        expect(getMaxTemperature('openrouter/anthropic/claude-3.5-sonnet')).toBe(2)
-        expect(getMaxTemperature('openrouter/openai/gpt-4')).toBe(2)
-      }
-    )
+    it.concurrent('requires a discovered OpenRouter temperature range', () => {
+      expect(getMaxTemperature('openrouter/anthropic/claude-3.5-sonnet')).toBeUndefined()
+      expect(getMaxTemperature('openrouter/openai/gpt-4')).toBeUndefined()
+    })
   })
 })
 

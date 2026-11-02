@@ -1,5 +1,5 @@
 import { readServerJsonCache, writeServerJsonCache } from '@/lib/cache/server-json-cache'
-import { updateOpenRouterModels } from '@/providers/ai/models'
+import { type ModelCapabilities, updateOpenRouterModels } from '@/providers/ai/models'
 import type { ModelPricing } from '@/providers/ai/types'
 
 const CACHE_KEY = 'ai:openrouter:models'
@@ -7,6 +7,10 @@ const CACHE_TTL_SECONDS = 300
 
 interface OpenRouterModel {
   id: string
+  supported_parameters?: string[]
+  reasoning?: {
+    supported_efforts?: string[]
+  }
   pricing?: {
     prompt?: string
     completion?: string
@@ -17,6 +21,7 @@ interface OpenRouterModel {
 interface OpenRouterCatalog {
   models: string[]
   pricing: Record<string, ModelPricing>
+  capabilities: Record<string, ModelCapabilities>
 }
 
 let pendingModels: Promise<OpenRouterCatalog> | undefined
@@ -38,11 +43,29 @@ export async function getOpenRouterModels(): Promise<OpenRouterCatalog> {
 
     const data = (await response.json()) as { data: OpenRouterModel[] }
     const pricing: Record<string, ModelPricing> = {}
+    const capabilities: Record<string, ModelCapabilities> = {}
     const allModels: string[] = []
 
     for (const model of data.data) {
       const modelId = `openrouter/${model.id}`
       allModels.push(modelId)
+
+      const supportedParameters = new Set(model.supported_parameters ?? [])
+      const supportedEfforts = model.reasoning?.supported_efforts ?? []
+      const modelCapabilities: ModelCapabilities = {
+        ...(supportedParameters.has('temperature') && {
+          temperature: { min: 0, max: 2 },
+        }),
+        ...(supportedEfforts.length > 0 && {
+          reasoningEffort: { values: supportedEfforts },
+        }),
+        ...(supportedParameters.has('verbosity') && {
+          verbosity: { values: ['low', 'medium', 'high'] },
+        }),
+      }
+      if (Object.keys(modelCapabilities).length > 0) {
+        capabilities[modelId] = modelCapabilities
+      }
 
       const input = Number.parseFloat(model.pricing?.prompt ?? '')
       const output = Number.parseFloat(model.pricing?.completion ?? '')
@@ -57,7 +80,7 @@ export async function getOpenRouterModels(): Promise<OpenRouterCatalog> {
       }
     }
 
-    const catalog = { models: Array.from(new Set(allModels)), pricing }
+    const catalog = { models: Array.from(new Set(allModels)), pricing, capabilities }
     await writeServerJsonCache(CACHE_KEY, catalog, CACHE_TTL_SECONDS)
     return catalog
   })().finally(() => {
@@ -65,6 +88,6 @@ export async function getOpenRouterModels(): Promise<OpenRouterCatalog> {
   })
 
   const catalog = await pendingModels
-  updateOpenRouterModels(catalog.models, catalog.pricing)
+  updateOpenRouterModels(catalog.models, catalog.pricing, catalog.capabilities)
   return catalog
 }

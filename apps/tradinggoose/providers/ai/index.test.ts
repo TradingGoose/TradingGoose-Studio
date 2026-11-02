@@ -164,7 +164,7 @@ describe('executeProviderRequest', () => {
     [
       'deepseek',
       { model: 'deepseek-flash', reasoningEffort: 'max', thinkingLevel: 'none' },
-      { reasoningEffort: 'max', thinkingLevel: 'none' },
+      { reasoningEffort: undefined, thinkingLevel: 'none' },
     ],
     [
       'openai',

@@ -20,6 +20,32 @@ import { executeTool } from '@/tools'
 
 const logger = createLogger('MistralProvider')
 
+function extractMistralText(content: unknown): string {
+  if (typeof content === 'string') return content
+  if (!Array.isArray(content)) return ''
+  return content
+    .filter(
+      (chunk): chunk is { type: 'text'; text: string } =>
+        chunk?.type === 'text' && typeof chunk.text === 'string'
+    )
+    .map((chunk) => chunk.text)
+    .join('')
+}
+
+async function* projectMistralStream(stream: AsyncIterable<any>) {
+  for await (const chunk of stream) {
+    yield {
+      ...chunk,
+      choices: chunk.choices?.map((choice: any) => ({
+        ...choice,
+        delta: choice.delta
+          ? { ...choice.delta, content: extractMistralText(choice.delta.content) }
+          : choice.delta,
+      })),
+    }
+  }
+}
+
 /**
  * Mistral AI provider configuration
  */
@@ -86,6 +112,7 @@ export const mistralProvider: ProviderConfig = {
 
     if (request.temperature !== undefined) payload.temperature = request.temperature
     if (request.maxTokens !== undefined) payload.max_tokens = request.maxTokens
+    if (request.reasoningEffort !== undefined) payload.reasoning_effort = request.reasoningEffort
 
     if (request.responseFormat) {
       payload.response_format = {
@@ -137,7 +164,6 @@ export const mistralProvider: ProviderConfig = {
         const streamResponse = await mistral.chat.completions.create({
           ...payload,
           stream: true,
-          stream_options: { include_usage: true },
         })
 
         const tokenUsage = {
@@ -148,7 +174,7 @@ export const mistralProvider: ProviderConfig = {
 
         const streamingResult = {
           stream: createOpenAICompatibleStream(
-            streamResponse as any,
+            projectMistralStream(streamResponse as any),
             'Mistral',
             (content, usage) => {
               streamingResult.execution.output.content = content
@@ -246,7 +272,7 @@ export const mistralProvider: ProviderConfig = {
       let currentResponse = await mistral.chat.completions.create(payload)
       const firstResponseTime = Date.now() - initialCallTime
 
-      let content = currentResponse.choices[0]?.message?.content || ''
+      let content = extractMistralText(currentResponse.choices[0]?.message?.content)
       const tokens = {
         prompt: currentResponse.usage?.prompt_tokens || 0,
         completion: currentResponse.usage?.completion_tokens || 0,
@@ -292,6 +318,7 @@ export const mistralProvider: ProviderConfig = {
         )
 
         const toolsStartTime = Date.now()
+        currentMessages.push(currentResponse.choices[0].message)
 
         for (const toolCall of toolCallsInResponse) {
           try {
@@ -336,21 +363,6 @@ export const mistralProvider: ProviderConfig = {
               duration: toolCallDuration,
               result: resultContent,
               success: result.success,
-            })
-
-            currentMessages.push({
-              role: 'assistant',
-              content: null,
-              tool_calls: [
-                {
-                  id: toolCall.id,
-                  type: 'function',
-                  function: {
-                    name: toolName,
-                    arguments: toolCall.function.arguments,
-                  },
-                },
-              ],
             })
 
             currentMessages.push({
@@ -408,9 +420,7 @@ export const mistralProvider: ProviderConfig = {
 
         modelTime += thisModelTime
 
-        if (currentResponse.choices[0]?.message?.content) {
-          content = currentResponse.choices[0].message.content
-        }
+        content = extractMistralText(currentResponse.choices[0]?.message?.content) || content
 
         if (currentResponse.usage) {
           tokens.prompt += currentResponse.usage.prompt_tokens || 0
@@ -434,14 +444,13 @@ export const mistralProvider: ProviderConfig = {
           messages: currentMessages,
           tool_choice: 'auto',
           stream: true,
-          stream_options: { include_usage: true },
         }
 
         const streamResponse = await mistral.chat.completions.create(streamingPayload)
 
         const streamingResult = {
           stream: createOpenAICompatibleStream(
-            streamResponse as any,
+            projectMistralStream(streamResponse as any),
             'Mistral',
             (content, usage) => {
               streamingResult.execution.output.content = content

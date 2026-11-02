@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { GET } from '@/app/api/providers/ai/openrouter/models/route'
+import { executeProviderRequest } from '@/providers/ai'
 import {
   DYNAMIC_MODEL_PROVIDERS,
   getAllModelProviders,
@@ -21,7 +22,6 @@ import {
   updateOpenRouterModels,
   updateVLLMModels,
 } from '@/providers/ai/models'
-import { openRouterProvider } from '@/providers/ai/openrouter'
 import { getOpenRouterModels } from '@/providers/ai/openrouter/models'
 import { calculateCost } from '@/providers/ai/utils'
 import { useProvidersStore } from '@/stores/providers/store'
@@ -56,7 +56,7 @@ describe('AI model catalog', () => {
       Object.entries(PROVIDER_DEFINITIONS).map(([id, provider]) => [id, provider.models.length])
     )
     expect(counts).toEqual({
-      fireworks: 3,
+      fireworks: 2,
       openrouter: 0,
       vllm: 0,
       openai: 26,
@@ -67,14 +67,14 @@ describe('AI model catalog', () => {
       vertex: 12,
       deepseek: 2,
       xai: 7,
-      cerebras: 4,
-      groq: 7,
-      mistral: 26,
+      cerebras: 2,
+      groq: 4,
+      mistral: 7,
       ollama: 0,
       bedrock: 37,
     })
     const models = Object.values(PROVIDER_DEFINITIONS).flatMap((provider) => provider.models)
-    expect(models).toHaveLength(179)
+    expect(models).toHaveLength(154)
     expect(new Set(models.map((model) => model.id)).size).toBe(models.length)
     const allProviders = getAllModelProviders()
     const baseProviders = getBaseModelProviders()
@@ -128,16 +128,18 @@ describe('AI model catalog', () => {
   })
 
   it.each([
-    ['ollama', 'ollama/ExampleModel'],
-    ['vllm', 'vllm/custom-model'],
-    ['openrouter', 'openrouter/publisher/custom-model'],
-    ['fireworks', 'fireworks/accounts/acme/models/custom'],
-    ['fireworks', 'fireworks/accounts/acme/deployments/prod'],
-    ['fireworks', 'fireworks/accounts/acme/models/adapter#accounts/acme/deployments/gpu'],
-  ])('routes qualified %s models before client discovery', (provider, model) => {
+    ['ollama', 'ollama/ExampleModel', 2],
+    ['vllm', 'vllm/custom-model', 2],
+    ['openrouter', 'openrouter/publisher/custom-model', undefined],
+    ['fireworks', 'fireworks/accounts/acme/models/custom', 2],
+    ['fireworks', 'fireworks/accounts/acme/deployments/prod', 2],
+    ['fireworks', 'fireworks/accounts/acme/models/adapter#accounts/acme/deployments/gpu', 2],
+  ])('routes qualified %s models before client discovery', (provider, model, temperature) => {
     expect(getProviderFromModel(model)).toBe(provider)
-    expect(getModelCapabilities(model)?.temperature).toEqual({ min: 0, max: 2 })
-    expect(getMaxTemperature(model)).toBe(2)
+    expect(getModelCapabilities(model)?.temperature).toEqual(
+      temperature === undefined ? undefined : { min: 0, max: temperature }
+    )
+    expect(getMaxTemperature(model)).toBe(temperature)
     expect(() => getProviderFromModel(`${provider}/`)).toThrow('Unknown AI model:')
   })
 
@@ -155,9 +157,10 @@ describe('AI model catalog', () => {
     const customModel = 'fireworks/accounts/acme/models/custom'
     expect(models).toEqual([
       'fireworks/accounts/fireworks/models/glm-5p3',
-      'fireworks/accounts/fireworks/models/glm-5p2',
       'fireworks/accounts/fireworks/models/kimi-k3',
     ])
+    expect(getReasoningEffortValuesForModel(models[0])).toEqual(['low', 'high', 'max'])
+    expect(getReasoningEffortValuesForModel(models[1])).toEqual(['none', 'low', 'high', 'max'])
     updateFireworksModels([models[0], customModel])
     expect(getProviderModels('fireworks')).toEqual([...models, customModel])
     expect(getModelPricing(customModel)).toBeNull()
@@ -210,6 +213,100 @@ describe('AI model catalog', () => {
     } else {
       expect(getModelPricing(model)).toBeNull()
     }
+  })
+
+  it('persists discovered OpenRouter capabilities through the API and client store', async () => {
+    const fetchMock = vi.mocked(fetch).mockClear()
+    fetchMock.mockResolvedValueOnce(
+      Response.json({
+        data: [
+          {
+            id: 'openai/gpt-4.1',
+            supported_parameters: ['temperature', 'tools'],
+          },
+          {
+            id: 'openai/gpt-5.6-sol',
+            supported_parameters: ['reasoning_effort', 'verbosity', 'tools'],
+            reasoning: {
+              supported_efforts: ['max', 'xhigh', 'high', 'medium', 'low', 'none'],
+            },
+          },
+        ],
+      })
+    )
+
+    const response = await GET()
+    expect(response.status).toBe(200)
+    const catalog = await response.clone().json()
+    expect(catalog.capabilities).toEqual({
+      'openrouter/openai/gpt-4.1': {
+        temperature: { min: 0, max: 2 },
+      },
+      'openrouter/openai/gpt-5.6-sol': {
+        reasoningEffort: {
+          values: ['max', 'xhigh', 'high', 'medium', 'low', 'none'],
+        },
+        verbosity: { values: ['low', 'medium', 'high'] },
+      },
+    })
+
+    updateOpenRouterModels([])
+    vi.stubGlobal('window', {})
+    fetchMock.mockResolvedValueOnce(response)
+    await useProvidersStore.getState().fetchModels('openrouter')
+
+    expect(getModelCapabilities('openrouter/openai/gpt-4.1')).toEqual({
+      toolUsageControl: true,
+      temperature: { min: 0, max: 2 },
+    })
+    expect(getModelCapabilities('openrouter/openai/gpt-5.6-sol')).toEqual({
+      toolUsageControl: true,
+      reasoningEffort: {
+        values: ['max', 'xhigh', 'high', 'medium', 'low', 'none'],
+      },
+      verbosity: { values: ['low', 'medium', 'high'] },
+    })
+  })
+
+  it.each([
+    {
+      model: 'openrouter/openai/gpt-4.1',
+      discovered: {
+        id: 'openai/gpt-4.1',
+        supported_parameters: ['temperature'],
+      },
+      expected: { temperature: 0.4 },
+      omitted: ['reasoning_effort', 'verbosity'],
+    },
+    {
+      model: 'openrouter/openai/gpt-5.6-sol',
+      discovered: {
+        id: 'openai/gpt-5.6-sol',
+        supported_parameters: ['reasoning_effort', 'verbosity'],
+        reasoning: { supported_efforts: ['high', 'medium', 'low'] },
+      },
+      expected: { reasoning_effort: 'high', verbosity: 'low' },
+      omitted: ['temperature'],
+    },
+  ])('sanitizes cold-server controls and forwards $model payload fields', async (testCase) => {
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ data: [testCase.discovered] }))
+    mocks.chat.mockResolvedValueOnce({ choices: [{ message: { content: 'Done' } }] })
+
+    const result = await executeProviderRequest('openrouter', {
+      model: testCase.model,
+      apiKey: 'test-key',
+      context: 'Analyze',
+      temperature: 0.4,
+      reasoningEffort: 'high',
+      verbosity: 'low',
+    })
+
+    if ('stream' in result) throw new Error('Expected nonstreaming response')
+    expect(result.content).toBe('Done')
+    const payload = mocks.chat.mock.calls[0][0]
+    expect(payload).toMatchObject(testCase.expected)
+    for (const field of testCase.omitted) expect(payload[field]).toBeUndefined()
+    expect(fetch).toHaveBeenCalledTimes(1)
   })
 
   it.each([401, 503])('reports failed OpenRouter discovery (%s)', async (status) => {
@@ -265,15 +362,12 @@ describe('AI model catalog', () => {
       })
 
       expect(getModelPricing(model)).toBeNull()
-      const [result, catalog] = await Promise.all([
-        openRouterProvider.executeRequest({
-          model,
-          apiKey: 'test-key',
-          context: 'Analyze',
-          stream,
-        }),
-        getOpenRouterModels(),
-      ])
+      const result = await executeProviderRequest('openrouter', {
+        model,
+        apiKey: 'test-key',
+        context: 'Analyze',
+        stream,
+      })
       const output = 'stream' in result ? result.execution.output : result
       if ('stream' in result) expect(await new Response(result.stream).text()).toBe('Done')
       expect(output.cost).toMatchObject({
@@ -287,6 +381,7 @@ describe('AI model catalog', () => {
         'https://openrouter.ai/api/v1/models',
         expect.objectContaining({ cache: 'no-store' })
       )
+      const catalog = mocks.writeCache.mock.calls[0][1]
       expect(mocks.writeCache).toHaveBeenCalledExactlyOnceWith('ai:openrouter:models', catalog, 300)
       updateOpenRouterModels([])
       mocks.readCache.mockResolvedValueOnce(catalog)
@@ -319,7 +414,7 @@ describe('AI model catalog', () => {
             })()
           : { choices: [{ message: { content: 'Done' } }], usage }
       )
-      const result = await openRouterProvider.executeRequest({
+      const result = await executeProviderRequest('openrouter', {
         model,
         apiKey: 'test-key',
         context: 'Analyze',
@@ -330,7 +425,11 @@ describe('AI model catalog', () => {
       expect(mocks.chat).toHaveBeenCalledTimes(1)
       expect(getModelPricing(model)).toBeNull()
       expect(mocks.writeCache).not.toHaveBeenCalled()
-      await expect(getOpenRouterModels()).resolves.toEqual({ models: [], pricing: {} })
+      await expect(getOpenRouterModels()).resolves.toEqual({
+        models: [],
+        pricing: {},
+        capabilities: {},
+      })
       expect(fetch).toHaveBeenCalledTimes(2)
     }
   )
