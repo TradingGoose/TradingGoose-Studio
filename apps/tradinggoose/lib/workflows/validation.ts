@@ -161,6 +161,7 @@ function validateSubBlockValues(block: BlockState, blockConfig: BlockConfig): st
           : value
     let issue: string | undefined
     if (inputType === 'number' && (config.inputType === 'number' || config.type === 'slider')) {
+      if (config.clearable && !requiredNumeric) continue
       if (
         typeof literalValue !== 'number' ||
         !Number.isFinite(literalValue) ||

@@ -232,13 +232,61 @@ describe('canonical sub-block validation', () => {
 
   it.each([
     ['gpt-4.1', 1.5, true],
-    ['claude-haiku-4-5', 1.5, false],
-  ])('uses the active temperature bounds for %s', (model, temperature, valid) => {
+    ['claude-haiku-4-5', 1.5, true],
+  ])('preserves optional clearable temperature for %s', (model, temperature, valid) => {
     validationMocks.getBlock.mockReturnValue(AgentBlock)
     expect(validateWorkflowState(workflowWithValues('agent', { model, temperature })).valid).toBe(
       valid
     )
   })
+
+  it('retains temperature when switching to a model with a lower maximum', () => {
+    validationMocks.getBlock.mockReturnValue(AgentBlock)
+    const state = workflowWithValues('agent', { model: 'gpt-4.1', temperature: 1.5 })
+    expect(validateWorkflowState(state).valid).toBe(true)
+    state.blocks.sample.subBlocks.model.value = 'claude-haiku-4-5'
+    expect(validateWorkflowState(state, { sanitize: true }).valid).toBe(true)
+    expect(state.blocks.sample.subBlocks.temperature.value).toBe(1.5)
+  })
+
+  it.each([
+    [false, false, 'run'],
+    [false, true, 'run'],
+    [true, false, 'run'],
+    [true, true, 'run'],
+    [true, { field: 'operation', value: 'run' }, 'run'],
+    [true, { field: 'operation', value: 'run' }, 'skip'],
+  ] as const)(
+    'validates numeric values with clearable=%s, required=%s, operation=%s',
+    (clearable, required, operation) => {
+      validationMocks.getBlock.mockReturnValue({
+        subBlocks: [
+          {
+            id: 'attempts',
+            type: 'slider',
+            integer: true,
+            min: 1,
+            max: 3,
+            clearable,
+            required,
+          },
+          { id: 'operation', type: 'short-input' },
+        ],
+        inputs: { attempts: { type: 'number' } },
+      })
+      for (const attempts of [0, 4, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 'invalid', null]) {
+        const optional = required === false || operation === 'skip'
+        expect(
+          validateWorkflowState(workflowWithValues('sample', { attempts, operation })).valid
+        ).toBe(clearable && optional)
+      }
+      for (const attempts of [1, 3, '2']) {
+        expect(
+          validateWorkflowState(workflowWithValues('sample', { attempts, operation })).valid
+        ).toBe(true)
+      }
+    }
+  )
 
   it.each([
     ['gpt-4.1', 1, false],
