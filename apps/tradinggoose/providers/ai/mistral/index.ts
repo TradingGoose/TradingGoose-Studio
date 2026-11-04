@@ -326,7 +326,7 @@ export const mistralProvider: ProviderConfig = {
             const toolArgs = JSON.parse(toolCall.function.arguments)
 
             const tool = request.tools?.find((t) => t.id === toolName)
-            if (!tool) continue
+            if (!tool) throw new Error(`Unknown tool: ${toolName}`)
 
             const toolCallStartTime = Date.now()
 
@@ -374,6 +374,15 @@ export const mistralProvider: ProviderConfig = {
             logger.error('Error processing tool call:', {
               error,
               toolName: toolCall?.function?.name,
+            })
+            currentMessages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({
+                error: true,
+                message: error instanceof Error ? error.message : String(error),
+                tool: toolCall.function.name,
+              }),
             })
           }
         }

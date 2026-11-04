@@ -555,6 +555,50 @@ it('replays complete Mistral thinking content during tool continuations', async 
   expect(mocks.chat.mock.calls[1][0].messages).toContainEqual(assistant)
 })
 
+it('pairs every failed Mistral tool call with an error result before continuing', async () => {
+  const assistant = {
+    role: 'assistant',
+    content: [{ type: 'thinking', thinking: [{ type: 'text', text: 'Keep the complete turn' }] }],
+    tool_calls: [
+      toolCall('works-first'),
+      { ...toolCall('malformed'), function: { name: tool.id, arguments: '{' } },
+      toolCall('throws'),
+      { ...toolCall('unknown'), function: { name: 'missing', arguments: '{}' } },
+      toolCall('fails'),
+      toolCall('works-last'),
+    ],
+  }
+  mocks.chat.mockResolvedValueOnce(completion(assistant))
+  mocks.tool
+    .mockResolvedValueOnce({ success: true, output: { value: 42 } })
+    .mockRejectedValueOnce(new Error('Unavailable'))
+    .mockResolvedValueOnce({ success: false, output: {}, error: 'Denied' })
+
+  const result = await mistralProvider.executeRequest(request('mistral-large-4', { tools: [tool] }))
+  expect(mocks.chat).toHaveBeenCalledTimes(2)
+  expect(mocks.tool).toHaveBeenCalledTimes(4)
+  const messages = mocks.chat.mock.calls[1][0].messages
+  expect(messages.slice(0, 2)).toEqual([{ role: 'user', content: 'Analyze' }, assistant])
+  expect(
+    messages.slice(2).map((message: { tool_call_id: string }) => message.tool_call_id)
+  ).toEqual(assistant.tool_calls.map((call) => call.id))
+  expect(
+    messages.slice(2).map((message: { content: string }) => JSON.parse(message.content))
+  ).toEqual([
+    { value: 42 },
+    { error: true, message: expect.any(String), tool: tool.id },
+    { error: true, message: 'Unavailable', tool: tool.id },
+    { error: true, message: 'Unknown tool: missing', tool: 'missing' },
+    { error: true, message: 'Denied', tool: tool.id },
+    { value: 42 },
+  ])
+  expect(result).toMatchObject({
+    content: 'Done',
+    toolCalls: [true, false, true].map((success) => ({ success })),
+    toolResults: [{ value: 42 }, { value: 42 }],
+  })
+})
+
 it('streams only Mistral text chunks while preserving string deltas', async () => {
   mocks.chat.mockResolvedValueOnce(
     (async function* () {
