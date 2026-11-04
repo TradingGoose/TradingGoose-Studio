@@ -66,8 +66,7 @@ import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-condi
 import { GET as discoverOllamaModels } from '@/app/api/providers/ai/ollama/models/route'
 import { AgentBlock } from '@/blocks/blocks/agent'
 import { getBlock } from '@/blocks/index'
-import { InputResolver } from '@/executor/resolver/resolver'
-import type { ExecutionContext } from '@/executor/types'
+import { Executor } from '@/executor'
 import { executeProviderRequest } from '@/providers/ai'
 import { anthropicProvider } from '@/providers/ai/anthropic'
 import { azureAnthropicProvider } from '@/providers/ai/azure-anthropic'
@@ -181,64 +180,114 @@ beforeEach(() => {
   mocks.tool.mockResolvedValue({ success: true, output: { value: 42 } })
 })
 
-it.each([true, false])(
-  'preserves fresh-worker OpenRouter tuning until discovery, supported=%s',
-  async (supported) => {
+it.each(
+  ['cold', 'warm', 'unavailable'].flatMap((catalog) =>
+    [true, false].flatMap((supported) =>
+      ['literal', 'variable', 'environment', 'block'].map((source) => ({
+        catalog,
+        supported,
+        source,
+      }))
+    )
+  )
+)(
+  'resolves OpenRouter inputs after discovery: catalog=$catalog, supported=$supported, source=$source',
+  async ({ catalog, supported, source }) => {
     const originalModels = PROVIDER_DEFINITIONS.openrouter.models
-    const model = 'openrouter/test/controls'
-    const tuning = { temperature: 0, reasoningEffort: 'high', verbosity: 'high' }
+    const model = 'openrouter/openai/gpt-4.1'
+    const capabilities = {
+      temperature: { min: 0, max: 2 },
+      ...(supported && {
+        reasoningEffort: { values: ['high'] },
+        verbosity: { values: ['high'] },
+      }),
+    }
     const block: SerializedBlock = {
       id: 'agent',
       metadata: { id: 'agent' },
       position: { x: 0, y: 0 },
-      config: { tool: 'agent', params: { ...tuning, model: '<variable.model>' } },
+      config: {
+        tool: 'agent',
+        params: {
+          temperature: 0,
+          reasoningEffort: supported ? 'high' : '{{REMOVED}}',
+          verbosity: supported ? 'high' : '{{REMOVED}}',
+          thinkingLevel: '{{REMOVED}}',
+          model:
+            source === 'variable'
+              ? '<variable.model>'
+              : source === 'environment'
+                ? '{{MODEL}}'
+                : source === 'block'
+                  ? '<start.model>'
+                  : model,
+          apiKey: 'test-key',
+          userPrompt: 'Analyze',
+        },
+      },
       inputs: {},
       outputs: {},
       enabled: true,
     }
+    const trigger: SerializedBlock = {
+      ...block,
+      id: 'start',
+      metadata: { id: 'input_trigger', name: 'Start', category: 'triggers' },
+      config: { tool: 'input_trigger', params: { model } },
+    }
     const workflow: SerializedWorkflow = {
       version: '1.0',
-      blocks: [block],
-      connections: [],
+      blocks: [trigger, block],
+      connections: [{ source: 'start', target: 'agent' }],
       loops: {},
     }
-    const resolver = new InputResolver(
-      workflow,
-      {},
-      { model: { name: 'model', type: 'plain', value: model } },
-      new Map()
-    )
-    const context = { workflow, blockStates: new Map() } as ExecutionContext
 
     try {
-      updateOpenRouterModels([])
-      vi.mocked(getBlock).mockReturnValue(AgentBlock)
-      const inputs = resolver.resolveInputs(block, context)
-      expect(inputs).toEqual({ model, ...tuning })
-      for (const subBlock of AgentBlock.subBlocks.filter((entry) => entry.id in tuning)) {
-        expect(evaluateSubBlockConditionValues(subBlock.condition, { model })).toBe(false)
+      updateOpenRouterModels(catalog === 'warm' ? [model] : [], undefined, {
+        [model]: capabilities,
+      })
+      vi.mocked(getBlock).mockImplementation((type) => (type === 'agent' ? AgentBlock : undefined))
+      if (catalog !== 'warm') {
+        for (const subBlock of AgentBlock.subBlocks.filter((entry) => entry.id === 'temperature')) {
+          expect(evaluateSubBlockConditionValues(subBlock.condition, { model })).toBe(false)
+        }
       }
-
-      vi.mocked(fetch).mockResolvedValueOnce(
-        Response.json({
+      vi.mocked(fetch).mockImplementation(async () => {
+        if (catalog === 'unavailable') throw new Error('Catalog unavailable')
+        return Response.json({
           data: [
             {
-              id: 'test/controls',
-              supported_parameters: supported ? ['temperature', 'verbosity'] : [],
+              id: 'openai/gpt-4.1',
+              supported_parameters: supported ? ['temperature', 'verbosity'] : ['temperature'],
               reasoning: { supported_efforts: supported ? ['high'] : [] },
             },
           ],
         })
-      )
-      await executeProviderRequest('openrouter', request(model, inputs))
-      const payload = mocks.chat.mock.calls[0][0]
-      expect(payload.temperature).toBe(supported ? 0 : undefined)
-      expect(payload.reasoning_effort).toBe(supported ? 'high' : undefined)
-      expect(payload.verbosity).toBe(supported ? 'high' : undefined)
-      expect(resolver.resolveInputs(block, context)).toEqual({
-        model,
-        ...(supported && tuning),
       })
+      const result = await new Executor({
+        workflow,
+        workflowInput: { model },
+        envVarValues: { MODEL: model },
+        workflowVariables: { model: { name: 'model', type: 'plain', value: model } },
+        contextExtensions: { workspaceId: 'workspace' },
+      }).execute('workflow', 'start')
+      expect(result.success, result.error).toBe(true)
+      expect(mocks.chat).toHaveBeenCalledTimes(1)
+      const payload = mocks.chat.mock.calls[0][0]
+      expect(payload.temperature).toBe(catalog === 'unavailable' ? undefined : 0)
+      expect(payload.reasoning_effort).toBe(
+        supported && catalog !== 'unavailable' ? 'high' : undefined
+      )
+      expect(payload.verbosity).toBe(supported && catalog !== 'unavailable' ? 'high' : undefined)
+      const inputs = result.logs?.find((log) => log.blockId === 'agent')?.input
+      expect(inputs).toMatchObject({ model })
+      if (catalog === 'unavailable') expect(inputs).not.toHaveProperty('temperature')
+      else expect(inputs).toHaveProperty('temperature', 0)
+      expect(inputs).not.toHaveProperty('thinkingLevel')
+      if (!supported || catalog === 'unavailable') {
+        expect(inputs).not.toHaveProperty('reasoningEffort')
+        expect(inputs).not.toHaveProperty('verbosity')
+      }
     } finally {
       PROVIDER_DEFINITIONS.openrouter.models = originalModels
       vi.mocked(getBlock).mockReset()

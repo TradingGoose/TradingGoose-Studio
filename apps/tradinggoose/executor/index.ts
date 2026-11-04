@@ -1623,6 +1623,18 @@ export class Executor {
       blockLog.input = block.config.params
 
       // Resolve inputs
+      if (blockType === BlockType.AGENT) {
+        const { model } = this.resolver.resolveInputs(
+          { ...block, config: { ...block.config, params: { model: block.config.params.model } } },
+          context
+        )
+        if (typeof model === 'string' && model.startsWith('openrouter/')) {
+          const { getOpenRouterModels } = await import('@/providers/ai/openrouter/models')
+          await getOpenRouterModels().catch((error) => {
+            logger.warn('Unable to refresh OpenRouter model capabilities', { error })
+          })
+        }
+      }
       const inputs = this.resolver.resolveInputs(block, context)
 
       // Store input data in the block log

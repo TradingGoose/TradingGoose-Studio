@@ -2285,7 +2285,7 @@ describe('InputResolver', () => {
 
     it.each([
       ['ollama/custom', true],
-      ['openrouter/custom/model', true],
+      ['openrouter/custom/model', false],
       ['fireworks/accounts/demo/models/adapter#accounts/demo/deployments/gpu', true],
       ['vllm/custom', true],
       ['gpt-5.4', false],
@@ -2307,7 +2307,7 @@ describe('InputResolver', () => {
     })
 
     it.each([true, false])(
-      'keeps ordinary AND conditions active before model discovery, enabled=%s',
+      'keeps ordinary AND conditions active for supported models, enabled=%s',
       (enabled) => {
         mockGetBlock.mockReturnValue({
           subBlocks: [
@@ -2322,7 +2322,7 @@ describe('InputResolver', () => {
             },
           ],
         })
-        const model = 'openrouter/undiscovered/model'
+        const model = 'gpt-5.4'
         expect(
           resolver.resolveInputs(
             {
