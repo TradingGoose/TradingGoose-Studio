@@ -62,7 +62,12 @@ vi.mock('@/lib/system-services/runtime', () => ({
   }),
 }))
 
+import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { GET as discoverOllamaModels } from '@/app/api/providers/ai/ollama/models/route'
+import { AgentBlock } from '@/blocks/blocks/agent'
+import { getBlock } from '@/blocks/index'
+import { InputResolver } from '@/executor/resolver/resolver'
+import type { ExecutionContext } from '@/executor/types'
 import { executeProviderRequest } from '@/providers/ai'
 import { anthropicProvider } from '@/providers/ai/anthropic'
 import { azureAnthropicProvider } from '@/providers/ai/azure-anthropic'
@@ -71,10 +76,12 @@ import { deepseekProvider } from '@/providers/ai/deepseek'
 import { fireworksProvider } from '@/providers/ai/fireworks'
 import { groqProvider } from '@/providers/ai/groq'
 import { mistralProvider } from '@/providers/ai/mistral'
+import { PROVIDER_DEFINITIONS, updateOpenRouterModels } from '@/providers/ai/models'
 import { ollamaProvider } from '@/providers/ai/ollama'
 import { openRouterProvider } from '@/providers/ai/openrouter'
 import { vllmProvider } from '@/providers/ai/vllm'
 import { xAIProvider } from '@/providers/ai/xai'
+import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 
 const request = (model: string, params: Partial<ProviderRequest> = {}): ProviderRequest => ({
   model,
@@ -173,6 +180,71 @@ beforeEach(() => {
   )
   mocks.tool.mockResolvedValue({ success: true, output: { value: 42 } })
 })
+
+it.each([true, false])(
+  'preserves fresh-worker OpenRouter tuning until discovery, supported=%s',
+  async (supported) => {
+    const originalModels = PROVIDER_DEFINITIONS.openrouter.models
+    const model = 'openrouter/test/controls'
+    const tuning = { temperature: 0, reasoningEffort: 'high', verbosity: 'high' }
+    const block: SerializedBlock = {
+      id: 'agent',
+      metadata: { id: 'agent' },
+      position: { x: 0, y: 0 },
+      config: { tool: 'agent', params: { ...tuning, model: '<variable.model>' } },
+      inputs: {},
+      outputs: {},
+      enabled: true,
+    }
+    const workflow: SerializedWorkflow = {
+      version: '1.0',
+      blocks: [block],
+      connections: [],
+      loops: {},
+    }
+    const resolver = new InputResolver(
+      workflow,
+      {},
+      { model: { name: 'model', type: 'plain', value: model } },
+      new Map()
+    )
+    const context = { workflow, blockStates: new Map() } as ExecutionContext
+
+    try {
+      updateOpenRouterModels([])
+      vi.mocked(getBlock).mockReturnValue(AgentBlock)
+      const inputs = resolver.resolveInputs(block, context)
+      expect(inputs).toEqual({ model, ...tuning })
+      for (const subBlock of AgentBlock.subBlocks.filter((entry) => entry.id in tuning)) {
+        expect(evaluateSubBlockConditionValues(subBlock.condition, { model })).toBe(false)
+      }
+
+      vi.mocked(fetch).mockResolvedValueOnce(
+        Response.json({
+          data: [
+            {
+              id: 'test/controls',
+              supported_parameters: supported ? ['temperature', 'verbosity'] : [],
+              reasoning: { supported_efforts: supported ? ['high'] : [] },
+            },
+          ],
+        })
+      )
+      await executeProviderRequest('openrouter', request(model, inputs))
+      const payload = mocks.chat.mock.calls[0][0]
+      expect(payload.temperature).toBe(supported ? 0 : undefined)
+      expect(payload.reasoning_effort).toBe(supported ? 'high' : undefined)
+      expect(payload.verbosity).toBe(supported ? 'high' : undefined)
+      expect(resolver.resolveInputs(block, context)).toEqual({
+        model,
+        ...(supported && tuning),
+      })
+    } finally {
+      PROVIDER_DEFINITIONS.openrouter.models = originalModels
+      vi.mocked(getBlock).mockReset()
+    }
+  }
+)
 
 it.each([
   [undefined, 'empty'],

@@ -2285,7 +2285,7 @@ describe('InputResolver', () => {
 
     it.each([
       ['ollama/custom', true],
-      ['openrouter/custom/model', false],
+      ['openrouter/custom/model', true],
       ['fireworks/accounts/demo/models/adapter#accounts/demo/deployments/gpu', true],
       ['vllm/custom', true],
       ['gpt-5.4', false],
@@ -2305,6 +2305,42 @@ describe('InputResolver', () => {
         ...(supported && { temperature: 0 }),
       })
     })
+
+    it.each([true, false])(
+      'keeps ordinary AND conditions active before model discovery, enabled=%s',
+      (enabled) => {
+        mockGetBlock.mockReturnValue({
+          subBlocks: [
+            {
+              id: 'reasoningEffort',
+              condition: {
+                field: 'model',
+                operator: 'modelCapability',
+                value: 'reasoningEffort',
+                and: { field: 'enabled', value: true },
+              },
+            },
+          ],
+        })
+        const model = 'openrouter/undiscovered/model'
+        expect(
+          resolver.resolveInputs(
+            {
+              ...sampleWorkflow.blocks[1],
+              config: {
+                tool: 'agent',
+                params: {
+                  reasoningEffort: enabled ? 'high' : '<disabled-block.result>',
+                  model,
+                  enabled,
+                },
+              },
+            },
+            mockContext
+          )
+        ).toEqual({ model, enabled, ...(enabled && { reasoningEffort: 'high' }) })
+      }
+    )
 
     it.each(['json', 'structured'])('resolves Response mode references to %s', async (mode) => {
       mockGetBlock.mockReturnValue(ResponseBlock)

@@ -93,7 +93,9 @@ export class InputResolver {
         if (
           !matchingSubBlocks.length ||
           matchingSubBlocks.some((subBlock) =>
-            evaluateSubBlockCondition(subBlock.condition, resolveField)
+            evaluateSubBlockCondition(subBlock.condition, resolveField, {
+              deferUnavailableModelCapabilities: true,
+            })
           )
         ) {
           value = this.resolveInputValue(key, inputs[key], block, context)
