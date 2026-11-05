@@ -24,6 +24,7 @@ const logger = createLogger('XAIProvider')
 export const xAIProvider: ProviderConfig = {
   id: 'xai',
 
+  /** Executes xAI requests, retaining completed usage when tool processing fails. */
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {

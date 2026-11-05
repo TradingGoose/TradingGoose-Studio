@@ -96,6 +96,7 @@ function PreviewNodeCard({
   )
 }
 
+/** Rebuilds localized preview rows when workflow values or provider capabilities change. */
 function LocalizedPreviewNode({ id, data }: NodeProps<PreviewCanvasNode>) {
   const { localizeWorkflowSubBlockConfig } = useWorkflowI18n()
   const blockConfig = useMemo(

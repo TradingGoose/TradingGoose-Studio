@@ -38,6 +38,7 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => {
       fireworks: { models: [], isLoading: false },
     },
 
+    /** Refreshes the client catalog and publishes provider capabilities to subscribed controls. */
     fetchModels: async (provider) => {
       if (isHosted && provider === 'ollama') {
         return

@@ -25,6 +25,7 @@ type DeepSeekUsage = CompletionUsage & { prompt_cache_hit_tokens?: number }
 export const deepseekProvider: ProviderConfig = {
   id: 'deepseek',
 
+  /** Executes DeepSeek requests, retaining completed usage when tool processing fails. */
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {

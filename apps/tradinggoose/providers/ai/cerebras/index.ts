@@ -21,6 +21,7 @@ const logger = createLogger('CerebrasProvider')
 export const cerebrasProvider: ProviderConfig = {
   id: 'cerebras',
 
+  /** Runs bounded tool rounds and returns Cerebras output with cumulative usage and cost. */
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {

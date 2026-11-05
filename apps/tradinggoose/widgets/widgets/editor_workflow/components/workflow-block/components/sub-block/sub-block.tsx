@@ -117,6 +117,7 @@ function SubBlockSwitchField({
   )
 }
 
+/** Displays provider defaults for invalid clearable values without rewriting the saved setting. */
 function SubBlockSliderField({
   blockId,
   subBlockId,

@@ -1734,6 +1734,7 @@ export class Executor {
         })
       }
 
+      /** Records failed block usage before emitting errors or following an error edge. */
       handleBlockFailure = async (error: any): Promise<NormalizedBlockOutput> => {
         blockLog.success = false
         blockLog.error =

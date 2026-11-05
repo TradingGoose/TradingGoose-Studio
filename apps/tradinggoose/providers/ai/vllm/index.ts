@@ -28,6 +28,7 @@ const logger = createLogger('VLLMProvider')
 export const vllmProvider: ProviderConfig = {
   id: 'vllm',
 
+  /** Executes vLLM requests, retaining completed usage when tool processing fails. */
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {

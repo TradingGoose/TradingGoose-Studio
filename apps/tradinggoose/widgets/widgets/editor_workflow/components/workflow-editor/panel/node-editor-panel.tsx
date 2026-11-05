@@ -24,6 +24,7 @@ const panelClassName =
 // lift the panel above it (beats the class rule, needs no Tailwind class generation).
 const panelStyle = { zIndex: 20 }
 
+/** Edits the selected node with localized fields and current provider capability visibility. */
 export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
   const { workflowEditorCopy, workflowInspectorCopy } = useWorkflowI18n()
   const canEdit = useOptionalWorkflowSession()?.canEdit === true

@@ -107,6 +107,7 @@ function isStreamingExecution(response: any): response is StreamingExecution {
   return response && typeof response === 'object' && 'stream' in response && 'execution' in response
 }
 
+/** Discovers model capabilities, sanitizes tuning, and normalizes provider usage and costs. */
 export async function executeProviderRequest(
   providerId: string,
   request: ProviderRequest

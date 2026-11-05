@@ -72,6 +72,7 @@ export class AgentBlockHandler implements BlockHandler {
     return block.metadata?.id === BlockType.AGENT
   }
 
+  /** Builds an Agent request, deferring capability-dependent tuning until discovery completes. */
   async execute(
     block: SerializedBlock,
     inputs: AgentInputs,
@@ -532,6 +533,7 @@ export class AgentBlockHandler implements BlockHandler {
     }
   }
 
+  /** Routes execution through the server or browser provider path. */
   private async executeProviderRequest(
     providerRequest: any,
     block: SerializedBlock,
@@ -567,6 +569,7 @@ export class AgentBlockHandler implements BlockHandler {
     }
   }
 
+  /** Resolves active tuning through the workflow resolver after the provider refreshes capabilities. */
   private async executeServerSide(
     providerRequest: any,
     block: SerializedBlock,

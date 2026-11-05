@@ -43,6 +43,7 @@ function applyResponseFormat(
 export const fireworksProvider: ProviderConfig = {
   id: 'fireworks',
 
+  /** Executes Fireworks requests, retaining completed usage when tool processing fails. */
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {

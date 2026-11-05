@@ -23,6 +23,7 @@ const logger = createLogger('OllamaProvider')
 export const ollamaProvider: ProviderConfig = {
   id: 'ollama',
 
+  /** Executes Ollama requests, retaining completed usage when tool processing fails. */
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {

@@ -21,6 +21,7 @@ import { executeTool } from '@/tools'
 
 const logger = createLogger('MistralProvider')
 
+/** Extracts visible answer text while excluding Mistral thinking blocks. */
 function extractMistralText(content: unknown): string {
   if (typeof content === 'string') return content
   if (!Array.isArray(content)) return ''
@@ -33,6 +34,7 @@ function extractMistralText(content: unknown): string {
     .join('')
 }
 
+/** Converts Mistral content-block deltas to the text format consumed by the shared stream reader. */
 async function* projectMistralStream(stream: AsyncIterable<any>) {
   for await (const chunk of stream) {
     yield {
@@ -53,6 +55,7 @@ async function* projectMistralStream(stream: AsyncIterable<any>) {
 export const mistralProvider: ProviderConfig = {
   id: 'mistral',
 
+  /** Executes Mistral requests, retaining completed usage when tool processing fails. */
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {

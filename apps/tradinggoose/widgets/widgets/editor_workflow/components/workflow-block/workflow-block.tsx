@@ -61,6 +61,7 @@ type WorkflowBlockNode = Node<WorkflowBlockProps, 'workflowBlock'>
 
 // Combine both interfaces into a single component - wrapped in memo for performance
 export const WorkflowBlock = memo(
+  /** Renders workflow node chrome and summaries that track document and provider state. */
   function WorkflowBlock({ id, data, selected }: NodeProps<WorkflowBlockNode>) {
     const { type, config, name, isActive: dataIsActive, isPending } = data
     const { formatWorkflowTemplate, localizeWorkflowSubBlockConfig, workflowLabelsCopy } =

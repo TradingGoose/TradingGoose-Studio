@@ -115,6 +115,7 @@ export interface WorkflowValidationResult {
   sanitizedState?: WorkflowState
 }
 
+/** Validates active literal inputs while preserving references and optional clearable defaults. */
 function validateSubBlockValues(block: BlockState, blockConfig: BlockConfig): string[] {
   const errors: string[] = []
   const isAdvancedMode = block.advancedMode ?? false

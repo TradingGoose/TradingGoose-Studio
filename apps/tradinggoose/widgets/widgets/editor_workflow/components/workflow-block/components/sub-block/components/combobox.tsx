@@ -54,6 +54,7 @@ const getOptionSearchText = (option: string | SubBlockOption) => {
 const getOptionIcon = (option: string | SubBlockOption) =>
   typeof option === 'string' ? null : (option.icon ?? null)
 
+/** Keeps references editable while masking stale model levels until the user starts searching. */
 export function resolveComboBoxDisplayValue(
   value: string,
   hasSelectedOption: boolean,
@@ -65,6 +66,7 @@ export function resolveComboBoxDisplayValue(
   return isModelCapability && value && !hasSelectedOption && !hasTyped && !isReference ? '' : value
 }
 
+/** Edits persisted selections and references, distinguishing fresh openings from typed searches. */
 export function ComboBox({
   options,
   defaultValue,

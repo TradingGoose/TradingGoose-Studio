@@ -26,6 +26,7 @@ interface OpenRouterCatalog {
 
 let pendingModels: Promise<OpenRouterCatalog> | undefined
 
+/** Loads priced model capabilities from the versioned cache, deduplicating concurrent discovery. */
 export async function getOpenRouterModels(): Promise<OpenRouterCatalog> {
   pendingModels ??= (async () => {
     const cached = await readServerJsonCache<OpenRouterCatalog>(CACHE_KEY)

@@ -1,6 +1,7 @@
 import type { SubBlockCondition } from '@/blocks/types'
 import { getMaxTemperature, MODEL_CONTROL_GETTERS } from '@/providers/ai/models'
 
+/** Matches literal capabilities and keeps valid unresolved model references editable. */
 function matchesConditionValue(condition: SubBlockCondition, value: unknown): boolean {
   const normalized = value && typeof value === 'object' && 'id' in value ? value.id : value
   const fieldValue = normalized === undefined ? '' : normalized
@@ -17,6 +18,7 @@ function matchesConditionValue(condition: SubBlockCondition, value: unknown): bo
   return condition.not ? !matches : matches
 }
 
+/** Evaluates a field condition and its nested AND dependencies with lazy controller values. */
 export function evaluateSubBlockCondition(
   condition: boolean | SubBlockCondition | (() => SubBlockCondition) | undefined,
   getFieldValue: (field: string) => unknown
@@ -37,6 +39,7 @@ export function evaluateSubBlockCondition(
   )
 }
 
+/** Evaluates a condition against the configured values used by the editor and validation. */
 export function evaluateSubBlockConditionValues(
   condition: boolean | SubBlockCondition | (() => SubBlockCondition) | undefined,
   values: Record<string, unknown>

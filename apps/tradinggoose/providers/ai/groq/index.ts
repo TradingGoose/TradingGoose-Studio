@@ -24,6 +24,7 @@ const logger = createLogger('GroqProvider')
 export const groqProvider: ProviderConfig = {
   id: 'groq',
 
+  /** Executes Groq requests, retaining completed usage when tool processing fails. */
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {
@@ -181,6 +182,7 @@ export const groqProvider: ProviderConfig = {
       const forcedTools = preparedTools?.forcedTools || []
       let usedForcedTools: string[] = []
       let toolChoice = payload.tool_choice
+      /** Advances forced tool selection after each completed model round. */
       const updateToolChoice = (response: any) => {
         if (typeof toolChoice !== 'object') return
         const result = trackForcedToolUsage(

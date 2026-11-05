@@ -44,6 +44,7 @@ const logger = createLogger('BedrockProvider')
 export const bedrockProvider: ProviderConfig = {
   id: 'bedrock',
 
+  /** Executes Bedrock requests, retaining completed usage when tool processing fails. */
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {

@@ -871,7 +871,7 @@ export async function executeDeepResearchRequest(
 }
 
 /**
- * Executes a request using the Gemini API
+ * Executes bounded Gemini tool rounds and synthesizes a structured or incremental final answer.
  *
  * This is the shared core logic for both Google and Vertex AI providers.
  * The only difference is how the GoogleGenAI client is configured.

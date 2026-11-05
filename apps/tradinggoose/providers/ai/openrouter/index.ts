@@ -24,6 +24,7 @@ const logger = createLogger('OpenRouterProvider')
 export const openRouterProvider: ProviderConfig = {
   id: 'openrouter',
 
+  /** Executes OpenRouter requests, retaining completed usage when tool processing fails. */
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {
