@@ -2,14 +2,15 @@ import { readServerJsonCache, writeServerJsonCache } from '@/lib/cache/server-js
 import { type ModelCapabilities, updateOpenRouterModels } from '@/providers/ai/models'
 import type { ModelPricing } from '@/providers/ai/types'
 
-const CACHE_KEY = 'ai:openrouter:models:v2'
+const CACHE_KEY = 'ai:openrouter:models:v3'
 const CACHE_TTL_SECONDS = 300
 
 interface OpenRouterModel {
   id: string
   supported_parameters?: string[]
   reasoning?: {
-    supported_efforts?: string[]
+    supported_efforts?: string[] | null
+    mandatory?: boolean
   }
   pricing?: {
     prompt?: string
@@ -52,7 +53,12 @@ export async function getOpenRouterModels(): Promise<OpenRouterCatalog> {
       allModels.push(modelId)
 
       const supportedParameters = new Set(model.supported_parameters ?? [])
-      const supportedEfforts = model.reasoning?.supported_efforts ?? []
+      // Null accepts every gateway effort; omission exposes no effort selector.
+      const supportedEfforts = (
+        model.reasoning?.supported_efforts === null
+          ? ['max', 'xhigh', 'high', 'medium', 'low', 'minimal', 'none']
+          : (model.reasoning?.supported_efforts ?? [])
+      ).filter((effort) => effort !== 'none' || !model.reasoning?.mandatory)
       const modelCapabilities: ModelCapabilities = {
         ...(supportedParameters.has('temperature') && {
           temperature: { min: 0, max: 2 },

@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { GET } from '@/app/api/providers/ai/openrouter/models/route'
+import { AgentBlock } from '@/blocks/blocks/agent'
 import { executeProviderRequest } from '@/providers/ai'
 import {
   DYNAMIC_MODEL_PROVIDERS,
@@ -275,6 +277,115 @@ describe('AI model catalog', () => {
 
   it.each([
     {
+      label: 'unrestricted optional reasoning',
+      reasoning: { supported_efforts: null },
+      expected: ['max', 'xhigh', 'high', 'medium', 'low', 'minimal', 'none'],
+    },
+    {
+      label: 'unrestricted mandatory reasoning',
+      reasoning: { supported_efforts: null, mandatory: true },
+      expected: ['max', 'xhigh', 'high', 'medium', 'low', 'minimal'],
+    },
+    { label: 'omitted reasoning', reasoning: undefined, expected: undefined },
+    { label: 'omitted efforts', reasoning: {}, expected: undefined },
+    { label: 'omitted mandatory efforts', reasoning: { mandatory: true }, expected: undefined },
+    { label: 'empty efforts', reasoning: { supported_efforts: [] }, expected: undefined },
+    {
+      label: 'advertised efforts',
+      reasoning: { supported_efforts: ['high', 'minimal', 'none'] },
+      expected: ['high', 'minimal', 'none'],
+    },
+    {
+      label: 'advertised mandatory efforts',
+      reasoning: { supported_efforts: ['none', 'high', 'low'], mandatory: true },
+      expected: ['high', 'low'],
+    },
+    {
+      label: 'mandatory none-only efforts',
+      reasoning: { supported_efforts: ['none'], mandatory: true },
+      expected: undefined,
+    },
+  ])(
+    'preserves $label through discovery, Agent controls, store and cache',
+    async ({ reasoning, expected }) => {
+      const model = 'openrouter/publisher/reasoner'
+      const fetchMock = vi.mocked(fetch)
+      fetchMock.mockResolvedValueOnce(
+        Response.json({
+          data: [
+            {
+              id: 'publisher/reasoner',
+              supported_parameters: ['reasoning_effort'],
+              reasoning,
+              pricing: { prompt: '0.000001', completion: '0.000002' },
+            },
+          ],
+        })
+      )
+      const response = await GET()
+      expect(response.status).toBe(200)
+      const catalog = await response.clone().json()
+      expect(catalog.capabilities[model]?.reasoningEffort?.values).toEqual(expected)
+
+      updateOpenRouterModels([])
+      vi.stubGlobal('window', {})
+      fetchMock.mockResolvedValueOnce(response)
+      await useProvidersStore.getState().fetchModels('openrouter')
+      expect(getReasoningEffortValuesForModel(model)).toEqual(expected ?? null)
+      const field = AgentBlock.subBlocks.find((entry) => entry.id === 'reasoningEffort')!
+      expect(evaluateSubBlockConditionValues(field.condition, { model })).toBe(Boolean(expected))
+      if (typeof field.options !== 'function') throw new Error('Expected model-dependent options')
+      expect(field.options({ model }).map((option) => option.id)).toEqual([
+        'auto',
+        ...(expected ?? []),
+      ])
+
+      updateOpenRouterModels([])
+      mocks.readCache.mockResolvedValueOnce(catalog)
+      expect(await getOpenRouterModels()).toEqual(catalog)
+      expect(getReasoningEffortValuesForModel(model)).toEqual(expected ?? null)
+      expect(getModelPricing(model)).toEqual({ input: 1, output: 2 })
+      expect(fetch).toHaveBeenCalledTimes(2)
+      expect(mocks.writeCache).toHaveBeenCalledExactlyOnceWith(
+        'ai:openrouter:models:v3',
+        catalog,
+        300
+      )
+      expect(mocks.readCache).toHaveBeenLastCalledWith('ai:openrouter:models:v3')
+    }
+  )
+
+  it.each(
+    [false, true].flatMap((mandatory) =>
+      ['max', 'xhigh', 'high', 'medium', 'low', 'minimal', 'none'].map((effort) => ({
+        mandatory,
+        effort,
+      }))
+    )
+  )(
+    'sanitizes unrestricted effort $effort with mandatory=$mandatory before sending the payload',
+    async ({ mandatory, effort }) => {
+      vi.mocked(fetch).mockResolvedValueOnce(
+        Response.json({
+          data: [{ id: 'publisher/reasoner', reasoning: { supported_efforts: null, mandatory } }],
+        })
+      )
+      mocks.chat.mockResolvedValueOnce({ choices: [{ message: { content: 'Done' } }] })
+      await executeProviderRequest('openrouter', {
+        model: 'openrouter/publisher/reasoner',
+        apiKey: 'test-key',
+        context: 'Analyze',
+        reasoningEffort: effort,
+      })
+      const payload = mocks.chat.mock.calls[0][0]
+      if (mandatory && effort === 'none') expect(payload).not.toHaveProperty('reasoning_effort')
+      else expect(payload.reasoning_effort).toBe(effort)
+      expect(mocks.chat).toHaveBeenCalledTimes(1)
+    }
+  )
+
+  it.each([
+    {
       model: 'openrouter/openai/gpt-4.1',
       discovered: {
         id: 'openai/gpt-4.1',
@@ -388,7 +499,7 @@ describe('AI model catalog', () => {
       )
       const catalog = mocks.writeCache.mock.calls[0][1]
       expect(mocks.writeCache).toHaveBeenCalledExactlyOnceWith(
-        'ai:openrouter:models:v2',
+        'ai:openrouter:models:v3',
         catalog,
         300
       )
