@@ -500,7 +500,11 @@ export const xAIProvider: ProviderConfig = {
           error: error instanceof Error ? error.message : String(error),
           iterationCount,
         })
-        throw error
+        throw toError(error, {
+          model,
+          tokens,
+          cost: withToolCosts(cost.value, toolResults),
+        })
       }
 
       // After all tool processing complete, if streaming was requested and we have messages, use streaming for the final response

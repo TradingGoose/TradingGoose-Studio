@@ -2,6 +2,7 @@ import { Cerebras } from '@cerebras/cerebras_cloud_sdk'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
+import { toError } from '@/providers/ai/error'
 import type {
   ProviderConfig,
   ProviderRequest,
@@ -443,7 +444,14 @@ export const cerebrasProvider: ProviderConfig = {
         }
       } catch (error) {
         logger.error('Error in Cerebras tool processing:', { error })
-        throw error
+        throw toError(error, {
+          model: request.model,
+          tokens,
+          cost: withToolCosts(
+            calculateCost(request.model, tokens.prompt, tokens.completion),
+            toolResults
+          ),
+        })
       }
 
       // Calculate overall timing
@@ -560,9 +568,8 @@ export const cerebrasProvider: ProviderConfig = {
         duration: totalDuration,
       })
 
-      // Create a new error with timing information
-      const enhancedError = new Error(error instanceof Error ? error.message : String(error))
-      // @ts-ignore - Adding timing property to the error
+      // Preserve completed usage while adding request timing.
+      const enhancedError = toError(error)
       enhancedError.timing = {
         startTime: providerStartTimeISO,
         endTime: providerEndTimeISO,

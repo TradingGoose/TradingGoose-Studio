@@ -1,10 +1,12 @@
 import { BedrockRuntimeClient } from '@aws-sdk/client-bedrock-runtime'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { calculateCostSummary } from '@/lib/logs/execution/logging-factory'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { Executor } from '@/executor'
 import { AgentBlockHandler } from '@/executor/handlers/agent/agent-handler'
 import { anthropicProvider } from '@/providers/ai/anthropic'
 import { bedrockProvider } from '@/providers/ai/bedrock'
+import { cerebrasProvider } from '@/providers/ai/cerebras'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import { deepseekProvider } from '@/providers/ai/deepseek'
 import { toError } from '@/providers/ai/error'
@@ -27,6 +29,11 @@ vi.mock('openai', () => ({
 }))
 vi.mock('groq-sdk', () => ({
   Groq: class {
+    chat = { completions: { create: mocks.chat } }
+  },
+}))
+vi.mock('@cerebras/cerebras_cloud_sdk', () => ({
+  Cerebras: class {
     chat = { completions: { create: mocks.chat } }
   },
 }))
@@ -70,6 +77,43 @@ const completion = (pending = true) => ({
   usage: { prompt_tokens: 1000, completion_tokens: 500, total_tokens: 1500 },
 })
 
+const continuationProviders = [
+  {
+    label: 'Groq',
+    provider: groqProvider,
+    model: 'groq/openai/gpt-oss-120b',
+    inputCost: 0.00012,
+    outputCost: 0.0003,
+  },
+  {
+    label: 'xAI',
+    provider: xAIProvider,
+    model: 'grok-4.5',
+    inputCost: 0.00132,
+    outputCost: 0.003,
+  },
+  {
+    label: 'Cerebras',
+    provider: cerebrasProvider,
+    model: 'cerebras/gpt-oss-120b',
+    inputCost: 0.00035,
+    outputCost: 0.000375,
+  },
+]
+
+/** Arranges a cached model response and completed tool before the next SDK call fails. */
+function failOnContinuation() {
+  const error = Object.assign(new Error('Provider rate limit'), { status: 429, code: 'rate_limit' })
+  const response = completion()
+  mocks.chat
+    .mockResolvedValueOnce({
+      ...response,
+      usage: { ...response.usage, prompt_tokens_details: { cached_tokens: 400 } },
+    })
+    .mockRejectedValueOnce(error)
+  return error
+}
+
 beforeEach(() => {
   vi.resetAllMocks()
   mocks.chat.mockImplementation(async () => completion())
@@ -94,6 +138,124 @@ it('preserves the original error and completed usage through normalization and w
   expect(wrapped).toMatchObject({ model: 'gpt-4.1', cost })
   expect(error).toBeInstanceOf(TypeError)
 })
+
+it.each(continuationProviders)(
+  '$label preserves cached usage and one completed tool charge on an ordinary continuation error',
+  async ({ provider, model, inputCost, outputCost }) => {
+    const failure = failOnContinuation()
+    const error = await provider
+      .executeRequest({ model, apiKey: 'test-key', context: 'Analyze', tools: [tool] })
+      .catch(toError)
+
+    expect(error).toBe(failure)
+    expect(error).toMatchObject({
+      status: 429,
+      code: 'rate_limit',
+      model,
+      tokens: { prompt: 1000, completion: 500, total: 1500 },
+      cost: { input: inputCost, output: outputCost, toolCost: 0.125 },
+    })
+    expect(toError(error).cost?.total).toBeCloseTo(inputCost + outputCost + 0.125, 8)
+    expect(mocks.chat).toHaveBeenCalledTimes(2)
+    expect(mocks.tool).toHaveBeenCalledTimes(1)
+  }
+)
+
+it.each(continuationProviders)(
+  '$label preserves initial errors without inventing tokens or tool charges',
+  async ({ provider, model }) => {
+    const failure = Object.assign(new Error('Initial rate limit'), { status: 429 })
+    mocks.chat.mockRejectedValueOnce(failure)
+    const error = await provider
+      .executeRequest({ model, apiKey: 'test-key', context: 'Analyze', tools: [tool] })
+      .catch(toError)
+
+    expect(error).toBe(failure)
+    expect(error).toHaveProperty('status', 429)
+    expect(toError(error).tokens?.total ?? 0).toBe(0)
+    expect(toError(error).cost?.total ?? 0).toBe(0)
+    expect(toError(error).cost?.toolCost ?? 0).toBe(0)
+    expect(mocks.chat).toHaveBeenCalledTimes(1)
+    expect(mocks.tool).not.toHaveBeenCalled()
+  }
+)
+
+it.each(
+  continuationProviders.flatMap((entry) =>
+    [false, true].map((errorPath) => ({ ...entry, errorPath }))
+  )
+)(
+  '$label bills an actual failed continuation once through the Executor, recovery=$errorPath',
+  async ({ provider, model, inputCost, outputCost, errorPath }) => {
+    failOnContinuation()
+    vi.spyOn(AgentBlockHandler.prototype, 'execute')
+      .mockImplementationOnce(async () => {
+        await provider.executeRequest({
+          model,
+          apiKey: 'test-key',
+          context: 'Analyze',
+          tools: [tool],
+        })
+        throw new Error('Expected provider continuation failure')
+      })
+      .mockResolvedValue({ response: { content: 'Recovered' } })
+    const agent: SerializedBlock = {
+      id: 'agent',
+      metadata: { id: 'agent', name: 'Agent' },
+      position: { x: 0, y: 0 },
+      config: { tool: 'agent', params: { model } },
+      inputs: {},
+      outputs: {},
+      enabled: true,
+    }
+    const workflow: SerializedWorkflow = {
+      version: '1.0',
+      blocks: [
+        {
+          ...agent,
+          id: 'start',
+          metadata: { id: 'input_trigger', category: 'triggers' },
+          config: { tool: 'input_trigger', params: {} },
+        },
+        agent,
+        ...(errorPath ? [{ ...agent, id: 'fallback' }] : []),
+      ],
+      connections: [
+        { source: 'start', target: 'agent' },
+        ...(errorPath ? [{ source: 'agent', target: 'fallback', sourceHandle: 'error' }] : []),
+      ],
+      loops: {},
+    }
+    const events = vi.fn()
+    const result = await new Executor({
+      workflow,
+      contextExtensions: { workspaceId: 'workspace', onExecutionEvent: events },
+    }).execute('workflow', 'start')
+
+    expect(result.success).toBe(errorPath)
+    expect(result.logs?.find((log) => log.blockId === 'agent')).toMatchObject({
+      success: false,
+      output: {
+        model,
+        tokens: { total: 1500 },
+        cost: { input: inputCost, output: outputCost, toolCost: 0.125 },
+      },
+    })
+    const { traceSpans } = buildTraceSpans(result)
+    const billed = calculateCostSummary(traceSpans)
+    expect(billed.totalCost).toBeCloseTo(inputCost + outputCost + 0.125, 8)
+    expect(billed.totalInputCost).toBeCloseTo(inputCost, 8)
+    expect(billed.totalOutputCost).toBeCloseTo(outputCost, 8)
+    expect(billed.totalTokens).toBe(1500)
+    expect(
+      events.mock.calls.some(
+        ([event]) => event.type === 'block:error' && event.data.output?.cost?.toolCost === 0.125
+      )
+    ).toBe(true)
+    expect(mocks.chat).toHaveBeenCalledTimes(2)
+    expect(mocks.tool).toHaveBeenCalledTimes(1)
+  }
+)
 
 it.each([
   { label: 'DeepSeek', provider: deepseekProvider, model: 'deepseek-flash' },

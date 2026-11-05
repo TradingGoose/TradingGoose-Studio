@@ -361,7 +361,11 @@ export const groqProvider: ProviderConfig = {
         }
       } catch (error) {
         logger.error('Error in Groq request:', { error })
-        throw error
+        throw toError(error, {
+          model: request.model,
+          tokens,
+          cost: withToolCosts(cost.value, toolResults),
+        })
       }
 
       // After all tool processing complete, if streaming was requested and we have messages, use streaming for the final response
