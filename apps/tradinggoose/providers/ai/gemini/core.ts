@@ -98,11 +98,7 @@ async function executeToolCallsBatch(
   state: ExecutionState,
   forcedTools: string[],
   logger: ReturnType<typeof createLogger>
-): Promise<{ success: boolean; state: ExecutionState }> {
-  if (functionCallParts.length === 0) {
-    return { success: false, state }
-  }
-
+): Promise<ExecutionState> {
   const executionPromises = functionCallParts.map(async (part) => {
     const toolCallStartTime = Date.now()
     const functionCall = part.functionCall!
@@ -114,7 +110,6 @@ async function executeToolCallsBatch(
       logger.warn(`Tool ${toolName} not found in registry`)
       return {
         success: false,
-        part,
         toolName,
         args,
         resultContent: { error: true, message: `Tool ${toolName} not found`, tool: toolName },
@@ -137,7 +132,6 @@ async function executeToolCallsBatch(
 
       return {
         success: result.success,
-        part,
         toolName,
         args,
         resultContent,
@@ -155,7 +149,6 @@ async function executeToolCallsBatch(
       })
       return {
         success: false,
-        part,
         toolName,
         args,
         resultContent: {
@@ -229,17 +222,14 @@ async function executeToolCallsBatch(
   )
 
   return {
-    success: true,
-    state: {
-      ...state,
-      contents: updatedContents,
-      toolCalls: [...state.toolCalls, ...newToolCalls],
-      toolResults: [...state.toolResults, ...newToolResults],
-      toolsTime: state.toolsTime + totalToolsTime,
-      timeSegments: [...state.timeSegments, ...newTimeSegments],
-      usedForcedTools: forcedToolCheck?.usedForcedTools ?? state.usedForcedTools,
-      currentToolConfig: forcedToolCheck?.nextToolConfig ?? state.currentToolConfig,
-    },
+    ...state,
+    contents: updatedContents,
+    toolCalls: [...state.toolCalls, ...newToolCalls],
+    toolResults: [...state.toolResults, ...newToolResults],
+    toolsTime: state.toolsTime + totalToolsTime,
+    timeSegments: [...state.timeSegments, ...newTimeSegments],
+    usedForcedTools: forcedToolCheck?.usedForcedTools ?? state.usedForcedTools,
+    currentToolConfig: forcedToolCheck?.nextToolConfig ?? state.currentToolConfig,
   }
 }
 
@@ -1093,11 +1083,7 @@ export async function executeGeminiRequest(
           break
         }
         if (state.iterationCount >= MAX_TOOL_ITERATIONS) {
-          throw toError(new Error('Gemini exceeded the tool iteration limit'), {
-            model,
-            tokens: state.tokens,
-            cost: withToolCosts(state.cost, state.toolResults),
-          })
+          throw new Error('Gemini exceeded the tool iteration limit')
         }
 
         const callNames = functionCallParts.map((p) => p.functionCall?.name ?? 'unknown').join(', ')
@@ -1111,7 +1097,7 @@ export async function executeGeminiRequest(
         }
 
         // Execute ALL function calls in this batch
-        const { success, state: updatedState } = await executeToolCallsBatch(
+        state = await executeToolCallsBatch(
           functionCallParts,
           assistantContent,
           request,
@@ -1119,12 +1105,6 @@ export async function executeGeminiRequest(
           forcedTools,
           logger
         )
-        if (!success) {
-          content = extractTextContent(currentResponse.candidates?.[0])
-          break
-        }
-
-        state = updatedState
         const nextConfig = buildNextConfig(geminiConfig, state, forcedTools, request, logger, model)
 
         // Non-streaming: get next response
@@ -1245,23 +1225,17 @@ export async function executeGeminiRequest(
     })
 
     const accruedState = getAccruedState?.()
-    const enhancedError = toError(
-      error,
-      accruedState
-        ? {
-            model,
-            tokens: accruedState.tokens,
-            cost: withToolCosts(accruedState.cost, accruedState.toolResults),
-          }
-        : undefined
-    )
-    Object.assign(enhancedError, {
+    throw toError(error, {
+      ...(accruedState && {
+        model,
+        tokens: accruedState.tokens,
+        cost: withToolCosts(accruedState.cost, accruedState.toolResults),
+      }),
       timing: {
         startTime: providerStartTimeISO,
         endTime: new Date(providerEndTime).toISOString(),
         duration,
       },
     })
-    throw enhancedError
   }
 }

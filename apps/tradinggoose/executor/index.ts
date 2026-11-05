@@ -49,7 +49,6 @@ import type {
 import { PausedBlockExecution } from '@/executor/types'
 import { VirtualBlockUtils } from '@/executor/utils/virtual-blocks'
 import { toError } from '@/providers/ai/error'
-import { getProviderModels } from '@/providers/ai/models'
 import type { SerializedBlock, SerializedParallel, SerializedWorkflow } from '@/serializer/types'
 
 const logger = createLogger('Executor')
@@ -1625,7 +1624,6 @@ export class Executor {
       blockLog.input = block.config.params
 
       // Resolve inputs
-      let undiscoveredControls: Record<string, unknown> = {}
       if (blockType === BlockType.AGENT) {
         const { model } = this.resolver.resolveInputs(
           { ...block, config: { ...block.config, params: { model: block.config.params.model } } },
@@ -1636,17 +1634,9 @@ export class Executor {
           await getOpenRouterModels().catch((error) => {
             logger.warn('Unable to refresh OpenRouter model capabilities', { error })
           })
-          if (!getProviderModels('openrouter').includes(model)) {
-            // Keep configured values for provider discovery/sanitization without evaluating hidden references.
-            undiscoveredControls = Object.fromEntries(
-              ['temperature', 'reasoningEffort', 'verbosity']
-                .filter((key) => Object.hasOwn(block.config.params, key))
-                .map((key) => [key, block.config.params[key]])
-            )
-          }
         }
       }
-      const inputs = { ...this.resolver.resolveInputs(block, context), ...undiscoveredControls }
+      const inputs = this.resolver.resolveInputs(block, context)
 
       // Store input data in the block log
       blockLog.input = inputs
@@ -1977,7 +1967,11 @@ export class Executor {
           await flushStreamChunk()
         } catch (readerError: any) {
           logger.error('Error reading stream for executor:', readerError)
-          throw readerError
+          const error = toError(readerError)
+          error.model ??= output.model
+          error.tokens ??= output.tokens
+          error.cost ??= output.cost
+          throw error
         } finally {
           await flushStreamChunk()
           try {

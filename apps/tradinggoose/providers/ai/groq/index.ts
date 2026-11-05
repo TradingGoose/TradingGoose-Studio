@@ -231,146 +231,136 @@ export const groqProvider: ProviderConfig = {
         },
       ]
 
-      try {
-        while (true) {
-          // Check for tool calls
-          const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
-          if (!toolCallsInResponse?.length) break
-          if (iterationCount >= MAX_TOOL_ITERATIONS)
-            throw toError(new Error('Groq exceeded the tool iteration limit'), {
-              model: request.model,
-              tokens,
-              cost: withToolCosts(cost.value, toolResults),
+      while (true) {
+        // Check for tool calls
+        const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
+        if (!toolCallsInResponse?.length) break
+        if (iterationCount >= MAX_TOOL_ITERATIONS)
+          throw new Error('Groq exceeded the tool iteration limit')
+
+        // Track time for tool calls in this batch
+        const toolsStartTime = Date.now()
+
+        // Process each tool call
+        for (const toolCall of toolCallsInResponse) {
+          try {
+            const toolName = toolCall.function.name
+            const toolArgs = JSON.parse(toolCall.function.arguments)
+
+            // Get the tool from the tools registry
+            const tool = request.tools?.find((t) => t.id === toolName)
+            if (!tool) continue
+
+            // Execute the tool
+            const toolCallStartTime = Date.now()
+
+            const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
+
+            const result = await executeTool(toolName, executionParams)
+            const toolCallEndTime = Date.now()
+            const toolCallDuration = toolCallEndTime - toolCallStartTime
+
+            // Add to time segments for both success and failure
+            timeSegments.push({
+              type: 'tool',
+              name: toolName,
+              startTime: toolCallStartTime,
+              endTime: toolCallEndTime,
+              duration: toolCallDuration,
             })
 
-          // Track time for tool calls in this batch
-          const toolsStartTime = Date.now()
-
-          // Process each tool call
-          for (const toolCall of toolCallsInResponse) {
-            try {
-              const toolName = toolCall.function.name
-              const toolArgs = JSON.parse(toolCall.function.arguments)
-
-              // Get the tool from the tools registry
-              const tool = request.tools?.find((t) => t.id === toolName)
-              if (!tool) continue
-
-              // Execute the tool
-              const toolCallStartTime = Date.now()
-
-              const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
-
-              const result = await executeTool(toolName, executionParams)
-              const toolCallEndTime = Date.now()
-              const toolCallDuration = toolCallEndTime - toolCallStartTime
-
-              // Add to time segments for both success and failure
-              timeSegments.push({
-                type: 'tool',
-                name: toolName,
-                startTime: toolCallStartTime,
-                endTime: toolCallEndTime,
-                duration: toolCallDuration,
-              })
-
-              // Prepare result content for the LLM
-              let resultContent: any
-              if (result.success) {
-                toolResults.push(result.output)
-                resultContent = result.output
-              } else {
-                // Include error information so LLM can respond appropriately
-                resultContent = {
-                  error: true,
-                  message: result.error || 'Tool execution failed',
-                  tool: toolName,
-                }
+            // Prepare result content for the LLM
+            let resultContent: any
+            if (result.success) {
+              toolResults.push(result.output)
+              resultContent = result.output
+            } else {
+              // Include error information so LLM can respond appropriately
+              resultContent = {
+                error: true,
+                message: result.error || 'Tool execution failed',
+                tool: toolName,
               }
-
-              toolCalls.push({
-                name: toolName,
-                arguments: toolParams,
-                startTime: new Date(toolCallStartTime).toISOString(),
-                endTime: new Date(toolCallEndTime).toISOString(),
-                duration: toolCallDuration,
-                result: resultContent,
-                success: result.success,
-              })
-
-              // Add the tool call and result to messages (both success and failure)
-              currentMessages.push({
-                role: 'assistant',
-                content: null,
-                tool_calls: [
-                  {
-                    id: toolCall.id,
-                    type: 'function',
-                    function: {
-                      name: toolName,
-                      arguments: toolCall.function.arguments,
-                    },
-                  },
-                ],
-              })
-
-              currentMessages.push({
-                role: 'tool',
-                tool_call_id: toolCall.id,
-                content: JSON.stringify(resultContent),
-              })
-            } catch (error) {
-              logger.error('Error processing tool call:', { error })
             }
+
+            toolCalls.push({
+              name: toolName,
+              arguments: toolParams,
+              startTime: new Date(toolCallStartTime).toISOString(),
+              endTime: new Date(toolCallEndTime).toISOString(),
+              duration: toolCallDuration,
+              result: resultContent,
+              success: result.success,
+            })
+
+            // Add the tool call and result to messages (both success and failure)
+            currentMessages.push({
+              role: 'assistant',
+              content: null,
+              tool_calls: [
+                {
+                  id: toolCall.id,
+                  type: 'function',
+                  function: {
+                    name: toolName,
+                    arguments: toolCall.function.arguments,
+                  },
+                },
+              ],
+            })
+
+            currentMessages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: JSON.stringify(resultContent),
+            })
+          } catch (error) {
+            logger.error('Error processing tool call:', { error })
           }
-
-          // Calculate tool call time for this iteration
-          const thisToolsTime = Date.now() - toolsStartTime
-          toolsTime += thisToolsTime
-
-          // Make the next request with updated messages
-          const nextPayload = {
-            ...payload,
-            messages: currentMessages,
-            tool_choice: toolChoice,
-          }
-
-          // Time the next model call
-          const nextModelStartTime = Date.now()
-
-          // Make the next request
-          currentResponse = await groq.chat.completions.create(nextPayload)
-          updateToolChoice(currentResponse)
-
-          const nextModelEndTime = Date.now()
-          const thisModelTime = nextModelEndTime - nextModelStartTime
-
-          // Add to time segments
-          timeSegments.push({
-            type: 'model',
-            name: `Model response (iteration ${iterationCount + 1})`,
-            startTime: nextModelStartTime,
-            endTime: nextModelEndTime,
-            duration: thisModelTime,
-          })
-
-          // Add to model time
-          modelTime += thisModelTime
-
-          // Update content if we have a text response
-          if (currentResponse.choices[0]?.message?.content) {
-            content = currentResponse.choices[0].message.content
-          }
-
-          recordUsage(currentResponse.usage)
-
-          iterationCount++
         }
-      } catch (error) {
-        logger.error('Error in Groq request:', { error })
-        throw error
-      }
 
+        // Calculate tool call time for this iteration
+        const thisToolsTime = Date.now() - toolsStartTime
+        toolsTime += thisToolsTime
+
+        // Make the next request with updated messages
+        const nextPayload = {
+          ...payload,
+          messages: currentMessages,
+          tool_choice: toolChoice,
+        }
+
+        // Time the next model call
+        const nextModelStartTime = Date.now()
+
+        // Make the next request
+        currentResponse = await groq.chat.completions.create(nextPayload)
+        updateToolChoice(currentResponse)
+
+        const nextModelEndTime = Date.now()
+        const thisModelTime = nextModelEndTime - nextModelStartTime
+
+        // Add to time segments
+        timeSegments.push({
+          type: 'model',
+          name: `Model response (iteration ${iterationCount + 1})`,
+          startTime: nextModelStartTime,
+          endTime: nextModelEndTime,
+          duration: thisModelTime,
+        })
+
+        // Add to model time
+        modelTime += thisModelTime
+
+        // Update content if we have a text response
+        if (currentResponse.choices[0]?.message?.content) {
+          content = currentResponse.choices[0].message.content
+        }
+
+        recordUsage(currentResponse.usage)
+
+        iterationCount++
+      }
       // After all tool processing complete, if streaming was requested and we have messages, use streaming for the final response
       if (request.stream && iterationCount > 0) {
         logger.info('Using streaming for final Groq response after tool calls')

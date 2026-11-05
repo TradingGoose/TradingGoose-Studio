@@ -442,14 +442,13 @@ export const openRouterProvider: ProviderConfig = {
         error: error instanceof Error ? error.message : String(error),
         duration: totalDuration,
       })
-      const enhancedError = toError(error)
-      // @ts-ignore
-      enhancedError.timing = {
-        startTime: providerStartTimeISO,
-        endTime: providerEndTimeISO,
-        duration: totalDuration,
-      }
-      throw enhancedError
+      throw toError(error, {
+        timing: {
+          startTime: providerStartTimeISO,
+          endTime: providerEndTimeISO,
+          duration: totalDuration,
+        },
+      })
     }
   },
 }

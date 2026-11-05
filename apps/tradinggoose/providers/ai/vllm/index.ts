@@ -583,7 +583,8 @@ export const vllmProvider: ProviderConfig = {
       const providerEndTimeISO = new Date(providerEndTime).toISOString()
       const totalDuration = providerEndTime - providerStartTime
 
-      let errorMessage = toError(error).message
+      const providerError = toError(error)
+      let errorMessage = providerError.message
       let errorType: string | undefined
       let errorCode: number | undefined
 
@@ -603,7 +604,8 @@ export const vllmProvider: ProviderConfig = {
         duration: totalDuration,
       })
 
-      throw toError(Object.assign(toError(error), { message: errorMessage }), {
+      throw Object.assign(providerError, {
+        message: errorMessage,
         timing: {
           startTime: providerStartTimeISO,
           endTime: providerEndTimeISO,

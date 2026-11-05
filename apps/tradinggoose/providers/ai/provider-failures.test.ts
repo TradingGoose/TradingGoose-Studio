@@ -16,7 +16,7 @@ import { mistralProvider } from '@/providers/ai/mistral'
 import { PROVIDER_DEFINITIONS, updateOpenRouterModels } from '@/providers/ai/models'
 import { ollamaProvider } from '@/providers/ai/ollama'
 import { openRouterProvider } from '@/providers/ai/openrouter'
-import { ProviderError, type ProviderToolConfig } from '@/providers/ai/types'
+import type { ProviderErrorDetails, ProviderToolConfig } from '@/providers/ai/types'
 import { vllmProvider } from '@/providers/ai/vllm'
 import { xAIProvider } from '@/providers/ai/xai'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
@@ -152,6 +152,94 @@ function failOnStreamSetup() {
   return error
 }
 
+/** Runs the real Cerebras/Agent route and waits for emitted text before disconnecting. */
+function arrangeCerebrasAgentStream(failure?: Error) {
+  let releaseDisconnect = () => {}
+  const emitted = new Promise<void>((resolve) => {
+    releaseDisconnect = resolve
+  })
+  mocks.chat.mockImplementation(async (payload: { stream?: boolean }) => {
+    if (!payload.stream) {
+      const response = completion()
+      response.choices[0].message.tool_calls![0].function.name = 'custom_lookup'
+      return response
+    }
+    return (async function* () {
+      yield {
+        choices: [{ delta: { content: failure ? 'Partial answer '.repeat(200) : 'Final answer' } }],
+      }
+      if (failure) {
+        await emitted
+        throw failure
+      }
+      yield {
+        choices: [],
+        usage: { prompt_tokens: 1000, completion_tokens: 500, total_tokens: 1500 },
+      }
+    })()
+  })
+  return releaseDisconnect
+}
+
+/** Builds a real Agent followed by a response resolving results or its recovery output. */
+function cerebrasAgentWorkflow(errorPath = false): SerializedWorkflow {
+  const agent: SerializedBlock = {
+    id: 'agent',
+    metadata: { id: 'agent', name: 'Agent' },
+    position: { x: 0, y: 0 },
+    config: {
+      tool: 'agent',
+      params: {
+        model: 'cerebras/gpt-oss-120b',
+        apiKey: 'test-key',
+        userPrompt: 'Analyze',
+        tools: [
+          {
+            type: 'custom-tool',
+            title: 'Lookup',
+            toolId: 'custom_lookup',
+            schema: { function: { parameters: { type: 'object', properties: {} } } },
+          },
+        ],
+      },
+    },
+    inputs: {},
+    outputs: {},
+    enabled: true,
+  }
+  return {
+    version: '1.0',
+    blocks: [
+      {
+        ...agent,
+        id: 'start',
+        metadata: { id: 'input_trigger', category: 'triggers' },
+        config: { tool: 'input_trigger', params: {} },
+      },
+      agent,
+      {
+        ...agent,
+        id: 'response',
+        metadata: { id: 'response', name: 'Result' },
+        config: {
+          tool: 'response',
+          params: {
+            dataMode: 'json',
+            data: errorPath
+              ? { recovered: true, error: '<agent.error>', status: '<agent.status>' }
+              : { results: '<agent.toolResults>' },
+          },
+        },
+      },
+    ],
+    connections: [
+      { source: 'start', target: 'agent' },
+      { source: 'agent', target: 'response', ...(errorPath && { sourceHandle: 'error' }) },
+    ],
+    loops: {},
+  }
+}
+
 beforeEach(() => {
   vi.resetAllMocks()
   mocks.chat.mockImplementation(async () => completion())
@@ -164,17 +252,215 @@ beforeEach(() => {
 })
 afterEach(() => vi.restoreAllMocks())
 
-it('preserves the original error and completed usage through normalization and wrappers', () => {
+it('preserves the original error and completed usage through normalization', () => {
   const cost = { input: 1, output: 2, toolCost: 3, total: 6, pricing: null }
   const error = new TypeError('Provider failed')
   expect(toError(error, { model: 'gpt-4.1', cost })).toBe(error)
-  const wrapped = new ProviderError(
-    'Provider failed',
-    { startTime: '', endTime: '', duration: 1 },
-    toError(error)
-  )
-  expect(wrapped).toMatchObject({ model: 'gpt-4.1', cost })
+  expect(error).toMatchObject({ model: 'gpt-4.1', cost })
   expect(error).toBeInstanceOf(TypeError)
+})
+
+it('resolves streamed Cerebras tool results downstream through the real Agent and Executor', async () => {
+  arrangeCerebrasAgentStream()
+  const result = await new Executor({
+    workflow: cerebrasAgentWorkflow(),
+    contextExtensions: { workspaceId: 'workspace', stream: true, selectedOutputs: ['agent'] },
+  }).execute('workflow', 'start')
+
+  expect(result.success).toBe(true)
+  expect(result.logs?.find((log) => log.blockId === 'agent')?.output).toMatchObject({
+    content: 'Final answer',
+    tokens: { prompt: 2000, completion: 1000, total: 3000 },
+    toolResults: [{ value: 42, cost: { total: 0.125 } }],
+    cost: { toolCost: 0.125, total: expect.closeTo(0.12645, 8) },
+  })
+  expect(result.logs?.find((log) => log.blockId === 'response')?.output).toMatchObject({
+    response: { data: { results: JSON.stringify([{ value: 42, cost: { total: 0.125 } }]) } },
+  })
+  const billed = calculateCostSummary(buildTraceSpans(result).traceSpans)
+  expect(billed.totalCost).toBeCloseTo(0.12645, 8)
+  expect(billed.totalTokens).toBe(3000)
+  expect(mocks.chat).toHaveBeenCalledTimes(2)
+  expect(mocks.tool).toHaveBeenCalledTimes(1)
+})
+
+it.each([false, true])(
+  'bills accrued Cerebras usage once after an emitted stream disconnect, recovery=%s',
+  async (errorPath) => {
+    const failure = Object.assign(new Error('Provider disconnected'), { status: 503 })
+    const releaseDisconnect = arrangeCerebrasAgentStream(failure)
+    const events = vi.fn(async (event) => {
+      if (event.type === 'stream:chunk') releaseDisconnect()
+    })
+    const result = await new Executor({
+      workflow: cerebrasAgentWorkflow(errorPath),
+      contextExtensions: {
+        workspaceId: 'workspace',
+        stream: true,
+        selectedOutputs: ['agent'],
+        onExecutionEvent: events,
+      },
+    }).execute('workflow', 'start')
+
+    expect(result.success).toBe(errorPath)
+    expect(result.logs?.find((log) => log.blockId === 'agent')).toMatchObject({
+      success: false,
+      output: {
+        model: 'cerebras/gpt-oss-120b',
+        tokens: { prompt: 1000, completion: 500, total: 1500 },
+        cost: { input: 0.00035, output: 0.000375, toolCost: 0.125, total: 0.125725 },
+      },
+    })
+    expect(events).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'stream:chunk',
+        data: expect.objectContaining({ chunk: expect.stringContaining('Partial answer') }),
+      })
+    )
+    expect(events).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'block:error',
+        data: expect.objectContaining({
+          output: expect.objectContaining({ cost: toError(failure).cost }),
+        }),
+      })
+    )
+    expect(failure.message).toBe('Provider disconnected')
+    expect(failure.status).toBe(503)
+    if (errorPath) {
+      expect(result.logs?.find((log) => log.blockId === 'response')?.output).toMatchObject({
+        response: { data: { recovered: true, error: 'Provider disconnected', status: '503' } },
+      })
+    } else {
+      expect(result.error).toContain('Provider disconnected')
+      expect(result.logs?.some((log) => log.blockId === 'response')).toBe(false)
+    }
+    const billed = calculateCostSummary(buildTraceSpans(result).traceSpans)
+    expect(billed.totalCost).toBeCloseTo(0.125725, 8)
+    expect(billed.totalInputCost).toBeCloseTo(0.00035, 8)
+    expect(billed.totalOutputCost).toBeCloseTo(0.000375, 8)
+    expect(billed.totalTokens).toBe(1500)
+    expect(mocks.chat).toHaveBeenCalledTimes(2)
+    expect(mocks.tool).toHaveBeenCalledTimes(1)
+  }
+)
+
+it.each(['all', 'zero cost', 'zero tokens', 'model'] as const)(
+  'preserves explicit disconnect metadata (%s) and fills only missing accounting fields',
+  async (provided) => {
+    const seededTokens = { prompt: 1000, completion: 500, total: 1500 }
+    const suppliedTokens = { prompt: 0, completion: 0, total: 0 }
+    const suppliedCost = { input: 0, output: 0, toolCost: 0, total: 0, pricing: null }
+    const timing = { startTime: 'start', endTime: 'end', duration: 12 }
+    const details: ProviderErrorDetails = {
+      timing,
+      ...((provided === 'all' || provided === 'model') && { model: 'reported-model' }),
+      ...((provided === 'all' || provided === 'zero tokens') && { tokens: suppliedTokens }),
+      ...((provided === 'all' || provided === 'zero cost') && { cost: suppliedCost }),
+    }
+    const failure = toError(new TypeError('Annotated disconnect'), details)
+    const releaseDisconnect = arrangeCerebrasAgentStream(failure)
+    const result = await new Executor({
+      workflow: cerebrasAgentWorkflow(true),
+      contextExtensions: {
+        workspaceId: 'workspace',
+        stream: true,
+        selectedOutputs: ['agent'],
+        onExecutionEvent: async (event) => {
+          if (event.type === 'stream:chunk') releaseDisconnect()
+        },
+      },
+    }).execute('workflow', 'start')
+
+    const output = result.logs?.find((log) => log.blockId === 'agent')?.output
+    expect(result.success).toBe(true)
+    expect(output).toMatchObject({
+      model: details.model ?? 'cerebras/gpt-oss-120b',
+      tokens: details.tokens ?? seededTokens,
+      cost: details.cost ?? { total: 0.125725 },
+    })
+    expect(failure).toBeInstanceOf(TypeError)
+    expect(failure.message).toBe('Annotated disconnect')
+    expect(failure.timing).toBe(timing)
+    if (details.tokens) expect(failure.tokens).toBe(suppliedTokens)
+    if (details.cost) expect(failure.cost).toBe(suppliedCost)
+    const billed = calculateCostSummary(buildTraceSpans(result).traceSpans)
+    expect(billed.totalCost).toBeCloseTo(details.cost?.total ?? 0.125725, 8)
+    expect(billed.totalTokens).toBe(details.tokens?.total ?? 1500)
+    expect(mocks.tool).toHaveBeenCalledTimes(1)
+  }
+)
+
+it('uses the current streamed output accounting when metadata changes before a disconnect', async () => {
+  const failure = new Error('Disconnect after usage update')
+  const releaseDisconnect = arrangeCerebrasAgentStream(failure)
+  const tokens = { prompt: 2000, completion: 1000, total: 3000 }
+  const cost = { input: 0.0007, output: 0.00075, toolCost: 0.125, total: 0.12645, pricing: null }
+  const executeRequest = cerebrasProvider.executeRequest
+  vi.spyOn(cerebrasProvider, 'executeRequest').mockImplementation(async (request) => {
+    const result = await executeRequest(request)
+    if (!('stream' in result)) throw new Error('Expected final stream')
+    result.stream = result.stream.pipeThrough(
+      new TransformStream({
+        transform(chunk, controller) {
+          Object.assign(result.execution.output, { tokens, cost })
+          controller.enqueue(chunk)
+        },
+      })
+    )
+    return result
+  })
+  const result = await new Executor({
+    workflow: cerebrasAgentWorkflow(true),
+    contextExtensions: {
+      workspaceId: 'workspace',
+      stream: true,
+      selectedOutputs: ['agent'],
+      onExecutionEvent: async (event) => {
+        if (event.type === 'stream:chunk') releaseDisconnect()
+      },
+    },
+  }).execute('workflow', 'start')
+
+  expect(result.success).toBe(true)
+  expect(result.logs?.find((log) => log.blockId === 'agent')?.output).toMatchObject({
+    tokens,
+    cost,
+  })
+  expect(toError(failure).tokens).toBe(tokens)
+  expect(toError(failure).cost).toBe(cost)
+  const billed = calculateCostSummary(buildTraceSpans(result).traceSpans)
+  expect(billed.totalCost).toBeCloseTo(0.12645, 8)
+  expect(billed.totalTokens).toBe(3000)
+})
+
+it('does not invent completed usage or tool charges for a direct-stream disconnect', async () => {
+  const failure = new Error('Initial stream disconnected')
+  const releaseDisconnect = arrangeCerebrasAgentStream(failure)
+  const workflow = cerebrasAgentWorkflow(true)
+  workflow.blocks[1].config.params.tools = []
+  const result = await new Executor({
+    workflow,
+    contextExtensions: {
+      workspaceId: 'workspace',
+      stream: true,
+      selectedOutputs: ['agent'],
+      onExecutionEvent: async (event) => {
+        if (event.type === 'stream:chunk') releaseDisconnect()
+      },
+    },
+  }).execute('workflow', 'start')
+
+  expect(result.success).toBe(true)
+  expect(result.logs?.find((log) => log.blockId === 'agent')?.output).toMatchObject({
+    tokens: { prompt: 0, completion: 0, total: 0 },
+    cost: { total: 0 },
+  })
+  const billed = calculateCostSummary(buildTraceSpans(result).traceSpans)
+  expect(billed.totalCost).toBe(0)
+  expect(billed.totalTokens).toBe(0)
+  expect(mocks.chat).toHaveBeenCalledTimes(1)
+  expect(mocks.tool).not.toHaveBeenCalled()
 })
 
 it.each(continuationProviders)(
@@ -492,68 +778,5 @@ it.each([
     expect(mocks.chat.mock.calls[2][0]).not.toHaveProperty('tools')
     expect(mocks.chat.mock.calls[2][0]).not.toHaveProperty('tool_choice')
     expect(mocks.tool).toHaveBeenCalledTimes(1)
-  }
-)
-
-it.each([false, true])(
-  'keeps failed provider cost in executor logs and billing spans, errorPath=%s',
-  async (errorPath) => {
-    const cost = { input: 1, output: 2, toolCost: 0.5, total: 3.5, pricing: null }
-    const failure = toError(new Error('Tool iteration limit'), {
-      model: 'gpt-4.1',
-      tokens: { prompt: 1000, completion: 500, total: 1500 },
-      cost,
-    })
-    const execute = vi
-      .spyOn(AgentBlockHandler.prototype, 'execute')
-      .mockRejectedValueOnce(failure)
-      .mockResolvedValue({ response: { content: 'Recovered' } })
-    const agent: SerializedBlock = {
-      id: 'agent',
-      metadata: { id: 'agent', name: 'Agent' },
-      position: { x: 0, y: 0 },
-      config: { tool: 'agent', params: { model: 'gpt-4.1' } },
-      inputs: {},
-      outputs: {},
-      enabled: true,
-    }
-    const workflow: SerializedWorkflow = {
-      version: '1.0',
-      blocks: [
-        {
-          ...agent,
-          id: 'start',
-          metadata: { id: 'input_trigger', category: 'triggers' },
-          config: { tool: 'input_trigger', params: {} },
-        },
-        agent,
-        ...(errorPath ? [{ ...agent, id: 'fallback' }] : []),
-      ],
-      connections: [
-        { source: 'start', target: 'agent' },
-        ...(errorPath ? [{ source: 'agent', target: 'fallback', sourceHandle: 'error' }] : []),
-      ],
-      loops: {},
-    }
-    const events = vi.fn()
-    const result = await new Executor({
-      workflow,
-      contextExtensions: { workspaceId: 'workspace', onExecutionEvent: events },
-    }).execute('workflow', 'start')
-    expect(result.success).toBe(errorPath)
-    expect(result.logs?.find((log) => log.blockId === 'agent')).toMatchObject({
-      success: false,
-      output: { model: 'gpt-4.1', cost, tokens: { total: 1500 } },
-    })
-    const { traceSpans } = buildTraceSpans(result)
-    expect(traceSpans.flatMap((span) => [span, ...(span.children ?? [])])).toContainEqual(
-      expect.objectContaining({ cost })
-    )
-    expect(
-      events.mock.calls.some(
-        ([event]) => event.type === 'block:error' && event.data.output?.cost === cost
-      )
-    ).toBe(true)
-    expect(execute).toHaveBeenCalledTimes(errorPath ? 2 : 1)
   }
 )

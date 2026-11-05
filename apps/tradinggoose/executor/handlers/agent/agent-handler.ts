@@ -70,7 +70,7 @@ function collectBlockData(context: ExecutionContext): {
  * Handler for Agent blocks that process LLM requests with optional tools.
  */
 export class AgentBlockHandler implements BlockHandler {
-  constructor(private readonly resolver?: InputResolver) {}
+  constructor(private readonly resolver: InputResolver) {}
 
   canHandle(block: SerializedBlock): boolean {
     return block.metadata?.id === BlockType.AGENT
@@ -595,9 +595,8 @@ export class AgentBlockHandler implements BlockHandler {
       providerRequest.model,
       providerRequest.apiKey
     )
-    const resolver = this.resolver
     const resolveControls: ProviderControlResolver | undefined =
-      resolver && providerRequest.provider === 'openrouter'
+      providerRequest.provider === 'openrouter'
         ? () => {
             const fields = ['temperature', 'reasoningEffort', 'verbosity', 'thinkingLevel'] as const
             const params = Object.fromEntries(
@@ -605,7 +604,7 @@ export class AgentBlockHandler implements BlockHandler {
                 .filter((field) => Object.hasOwn(block.config.params, field))
                 .map((field) => [field, block.config.params[field]])
             )
-            const resolved = resolver.resolveInputs(
+            const resolved = this.resolver.resolveInputs(
               {
                 ...block,
                 config: { ...block.config, params: { ...params, model: providerRequest.model } },
@@ -629,9 +628,7 @@ export class AgentBlockHandler implements BlockHandler {
       apiKey,
       userId: context.userId,
     }
-    const result = resolveControls
-      ? await executeProviderRequest(providerRequest.provider, request, resolveControls)
-      : await executeProviderRequest(providerRequest.provider, request)
+    const result = await executeProviderRequest(providerRequest.provider, request, resolveControls)
 
     this.logExecutionSuccess(
       providerRequest.provider,

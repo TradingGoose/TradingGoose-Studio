@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vite
 import { getAllBlocks } from '@/blocks'
 import { BlockType } from '@/executor/consts'
 import { AgentBlockHandler } from '@/executor/handlers/agent/agent-handler'
+import { InputResolver } from '@/executor/resolver/resolver'
 import type { ExecutionContext, NormalizedBlockOutput, StreamingExecution } from '@/executor/types'
 import { getProviderFromModel } from '@/providers/ai/models'
 import { openaiProvider } from '@/providers/ai/openai'
@@ -71,7 +72,6 @@ describe('AgentBlockHandler', () => {
   let originalPromiseAll: any
 
   beforeEach(() => {
-    handler = new AgentBlockHandler()
     vi.clearAllMocks()
     mockResponses.mockReset()
 
@@ -116,6 +116,7 @@ describe('AgentBlockHandler', () => {
         loops: {},
       } as SerializedWorkflow,
     }
+    handler = new AgentBlockHandler(new InputResolver(mockContext.workflow!, {}, {}, new Map()))
     mockGetProviderFromModel.mockReturnValue('mock-provider')
     mockResolveSkillMetadata.mockResolvedValue([])
 
@@ -1573,7 +1574,8 @@ describe('AgentBlockHandler', () => {
           thinkingLevel: 'high',
           verbosity: undefined,
           messages: [{ role: 'user', content: 'Hello!' }],
-        })
+        }),
+        undefined
       )
       expect(mockExecuteProviderRequest.mock.calls[0][1]).not.toHaveProperty('context')
       expect(mockExecuteProviderRequest.mock.calls[0][1]).not.toHaveProperty('systemPrompt')

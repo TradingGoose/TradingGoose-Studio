@@ -182,28 +182,18 @@ export type ProviderErrorDetails = Partial<
   Pick<ProviderResponse, 'model' | 'tokens' | 'cost' | 'timing'>
 >
 
-/** A provider failure can retain completed model and tool usage for billing. */
+/** A provider failure with the timing of the attempted request. */
 export class ProviderError extends Error {
   timing: {
     startTime: string
     endTime: string
     duration: number
   }
-  model?: string
-  tokens?: TokenInfo
-  cost?: ProviderResponse['cost']
 
-  /** Creates a timed failure with any model and tool usage already accrued. */
-  constructor(
-    message: string,
-    timing: { startTime: string; endTime: string; duration: number },
-    details?: ProviderErrorDetails
-  ) {
+  /** Creates a timed provider failure. */
+  constructor(message: string, timing: { startTime: string; endTime: string; duration: number }) {
     super(message)
     this.name = 'ProviderError'
     this.timing = timing
-    this.model = details?.model
-    this.tokens = details?.tokens
-    this.cost = details?.cost
   }
 }

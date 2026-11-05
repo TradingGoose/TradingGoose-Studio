@@ -594,16 +594,13 @@ export const ollamaProvider: ProviderConfig = {
         duration: totalDuration,
       })
 
-      // Create a new error with timing information
-      const enhancedError = toError(error)
-      // @ts-ignore - Adding timing property to the error
-      enhancedError.timing = {
-        startTime: providerStartTimeISO,
-        endTime: providerEndTimeISO,
-        duration: totalDuration,
-      }
-
-      throw enhancedError
+      throw toError(error, {
+        timing: {
+          startTime: providerStartTimeISO,
+          endTime: providerEndTimeISO,
+          duration: totalDuration,
+        },
+      })
     }
   },
 }
