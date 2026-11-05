@@ -5,6 +5,7 @@ import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import { toError } from '@/providers/ai/error'
 import type {
   ProviderConfig,
+  ProviderErrorDetails,
   ProviderRequest,
   ProviderResponse,
   TimeSegment,
@@ -33,6 +34,7 @@ export const cerebrasProvider: ProviderConfig = {
     // Start execution timer for the entire provider execution
     const providerStartTime = Date.now()
     const providerStartTimeISO = new Date(providerStartTime).toISOString()
+    let getAccruedUsage: (() => ProviderErrorDetails) | undefined
 
     try {
       const client = new Cerebras({
@@ -208,6 +210,14 @@ export const cerebrasProvider: ProviderConfig = {
       }
       const toolCalls = []
       const toolResults: Record<string, unknown>[] = []
+      getAccruedUsage = () => ({
+        model: request.model,
+        tokens,
+        cost: withToolCosts(
+          calculateCost(request.model, tokens.prompt, tokens.completion),
+          toolResults
+        ),
+      })
       const currentMessages = [...allMessages]
       let iterationCount = 0
 
@@ -444,14 +454,7 @@ export const cerebrasProvider: ProviderConfig = {
         }
       } catch (error) {
         logger.error('Error in Cerebras tool processing:', { error })
-        throw toError(error, {
-          model: request.model,
-          tokens,
-          cost: withToolCosts(
-            calculateCost(request.model, tokens.prompt, tokens.completion),
-            toolResults
-          ),
-        })
+        throw error
       }
 
       // Calculate overall timing
@@ -568,15 +571,14 @@ export const cerebrasProvider: ProviderConfig = {
         duration: totalDuration,
       })
 
-      // Preserve completed usage while adding request timing.
-      const enhancedError = toError(error)
-      enhancedError.timing = {
-        startTime: providerStartTimeISO,
-        endTime: providerEndTimeISO,
-        duration: totalDuration,
-      }
-
-      throw enhancedError
+      throw toError(error, {
+        ...getAccruedUsage?.(),
+        timing: {
+          startTime: providerStartTimeISO,
+          endTime: providerEndTimeISO,
+          duration: totalDuration,
+        },
+      })
     }
   },
 }

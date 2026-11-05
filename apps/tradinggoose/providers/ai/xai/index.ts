@@ -5,6 +5,7 @@ import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import { toError } from '@/providers/ai/error'
 import type {
   ProviderConfig,
+  ProviderErrorDetails,
   ProviderRequest,
   ProviderResponse,
   TimeSegment,
@@ -207,6 +208,7 @@ export const xAIProvider: ProviderConfig = {
     // Start execution timer for the entire provider execution
     const providerStartTime = Date.now()
     const providerStartTimeISO = new Date(providerStartTime).toISOString()
+    let getAccruedUsage: (() => ProviderErrorDetails) | undefined
 
     try {
       // Make the initial API request
@@ -251,6 +253,11 @@ export const xAIProvider: ProviderConfig = {
       )
       const toolCalls = []
       const toolResults: Record<string, unknown>[] = []
+      getAccruedUsage = () => ({
+        model,
+        tokens,
+        cost: withToolCosts(cost.value, toolResults),
+      })
       const currentMessages = [...allMessages]
       let iterationCount = 0
 
@@ -500,11 +507,7 @@ export const xAIProvider: ProviderConfig = {
           error: error instanceof Error ? error.message : String(error),
           iterationCount,
         })
-        throw toError(error, {
-          model,
-          tokens,
-          cost: withToolCosts(cost.value, toolResults),
-        })
+        throw error
       }
 
       // After all tool processing complete, if streaming was requested and we have messages, use streaming for the final response
@@ -635,16 +638,14 @@ export const xAIProvider: ProviderConfig = {
         hasResponseFormat: !!request.responseFormat,
       })
 
-      // Create a new error with timing information
-      const enhancedError = toError(error)
-      // @ts-ignore - Adding timing property to the error
-      enhancedError.timing = {
-        startTime: providerStartTimeISO,
-        endTime: providerEndTimeISO,
-        duration: totalDuration,
-      }
-
-      throw enhancedError
+      throw toError(error, {
+        ...getAccruedUsage?.(),
+        timing: {
+          startTime: providerStartTimeISO,
+          endTime: providerEndTimeISO,
+          duration: totalDuration,
+        },
+      })
     }
   },
 }

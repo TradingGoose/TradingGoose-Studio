@@ -6,6 +6,7 @@ import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import { toError } from '@/providers/ai/error'
 import type {
   ProviderConfig,
+  ProviderErrorDetails,
   ProviderRequest,
   ProviderResponse,
   TimeSegment,
@@ -175,6 +176,7 @@ export const groqProvider: ProviderConfig = {
     // Start execution timer for the entire provider execution
     const providerStartTime = Date.now()
     const providerStartTimeISO = new Date(providerStartTime).toISOString()
+    let getAccruedUsage: (() => ProviderErrorDetails) | undefined
 
     try {
       // Make the initial API request
@@ -201,11 +203,16 @@ export const groqProvider: ProviderConfig = {
       let currentResponse = await groq.chat.completions.create(payload)
       const firstResponseTime = Date.now() - initialCallTime
       recordUsage(currentResponse.usage)
+      const toolResults: Record<string, unknown>[] = []
+      getAccruedUsage = () => ({
+        model: request.model,
+        tokens,
+        cost: withToolCosts(cost.value, toolResults),
+      })
       updateToolChoice(currentResponse)
 
       let content = currentResponse.choices[0]?.message?.content || ''
       const toolCalls = []
-      const toolResults: Record<string, unknown>[] = []
       const currentMessages = [...allMessages]
       let iterationCount = 0
 
@@ -361,11 +368,7 @@ export const groqProvider: ProviderConfig = {
         }
       } catch (error) {
         logger.error('Error in Groq request:', { error })
-        throw toError(error, {
-          model: request.model,
-          tokens,
-          cost: withToolCosts(cost.value, toolResults),
-        })
+        throw error
       }
 
       // After all tool processing complete, if streaming was requested and we have messages, use streaming for the final response
@@ -461,16 +464,14 @@ export const groqProvider: ProviderConfig = {
         duration: totalDuration,
       })
 
-      // Create a new error with timing information
-      const enhancedError = toError(error)
-      // @ts-ignore - Adding timing property to the error
-      enhancedError.timing = {
-        startTime: providerStartTimeISO,
-        endTime: providerEndTimeISO,
-        duration: totalDuration,
-      }
-
-      throw enhancedError
+      throw toError(error, {
+        ...getAccruedUsage?.(),
+        timing: {
+          startTime: providerStartTimeISO,
+          endTime: providerEndTimeISO,
+          duration: totalDuration,
+        },
+      })
     }
   },
 }

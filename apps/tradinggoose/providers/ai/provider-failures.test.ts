@@ -114,6 +114,44 @@ function failOnContinuation() {
   return error
 }
 
+/** Runs actual tool rounds, then returns a text stream or rejects only its SDK setup call. */
+function arrangePostToolStream(failure?: Error) {
+  let completedRounds = 0
+  mocks.chat.mockImplementation(async (payload: { stream?: boolean }) => {
+    if (payload.stream) {
+      if (failure) throw failure
+      return (async function* () {
+        yield { choices: [{ delta: { content: 'Final ' } }] }
+        yield { choices: [{ delta: { content: 'answer' }, finish_reason: 'stop' }] }
+        yield {
+          choices: [],
+          usage: {
+            prompt_tokens: 1000,
+            completion_tokens: 500,
+            total_tokens: 1500,
+            prompt_tokens_details: { cached_tokens: 400 },
+          },
+        }
+      })()
+    }
+    const response = completion(completedRounds++ === 0)
+    return {
+      ...response,
+      usage: { ...response.usage, prompt_tokens_details: { cached_tokens: 400 } },
+    }
+  })
+}
+
+/** Supplies a rate-limit failure after the provider has completed its pre-stream work. */
+function failOnStreamSetup() {
+  const error = Object.assign(new Error('Final stream setup rate limit'), {
+    status: 429,
+    code: 'rate_limit',
+  })
+  arrangePostToolStream(error)
+  return error
+}
+
 beforeEach(() => {
   vi.resetAllMocks()
   mocks.chat.mockImplementation(async () => completion())
@@ -180,14 +218,112 @@ it.each(continuationProviders)(
   }
 )
 
+it.each(continuationProviders)(
+  '$label preserves cumulative paid usage when final stream SDK setup fails',
+  async ({ provider, model, inputCost, outputCost }) => {
+    const failure = failOnStreamSetup()
+    const completedRounds = provider.id === 'cerebras' ? 1 : 2
+    const error = await provider
+      .executeRequest({
+        model,
+        apiKey: 'test-key',
+        context: 'Analyze',
+        tools: [tool],
+        stream: true,
+      })
+      .catch(toError)
+
+    expect(error).toBe(failure)
+    expect(error).toMatchObject({
+      status: 429,
+      code: 'rate_limit',
+      model,
+      tokens: {
+        prompt: completedRounds * 1000,
+        completion: completedRounds * 500,
+        total: completedRounds * 1500,
+      },
+      cost: {
+        input: completedRounds * inputCost,
+        output: completedRounds * outputCost,
+        toolCost: 0.125,
+      },
+      timing: {
+        startTime: expect.any(String),
+        endTime: expect.any(String),
+        duration: expect.any(Number),
+      },
+    })
+    expect(toError(error).cost?.total).toBeCloseTo(
+      completedRounds * (inputCost + outputCost) + 0.125,
+      8
+    )
+    expect(toError(error).timing?.duration).toBeGreaterThanOrEqual(0)
+    expect(mocks.chat).toHaveBeenCalledTimes(completedRounds + 1)
+    expect(mocks.tool).toHaveBeenCalledTimes(1)
+  }
+)
+
+it.each(continuationProviders)(
+  '$label preserves successful final stream accounting and request payloads',
+  async ({ provider, model, inputCost, outputCost }) => {
+    arrangePostToolStream()
+    const completedRounds = provider.id === 'cerebras' ? 1 : 2
+    const result = await provider.executeRequest({
+      model,
+      apiKey: 'test-key',
+      context: 'Analyze',
+      tools: [tool],
+      stream: true,
+    })
+    if (!('stream' in result)) throw new Error('Expected final stream')
+    expect(await new Response(result.stream).text()).toBe('Final answer')
+    expect(result.execution.output).toMatchObject({
+      model,
+      content: 'Final answer',
+      tokens: {
+        prompt: (completedRounds + 1) * 1000,
+        completion: (completedRounds + 1) * 500,
+        total: (completedRounds + 1) * 1500,
+      },
+      cost: {
+        input: (completedRounds + 1) * inputCost,
+        output: (completedRounds + 1) * outputCost,
+        toolCost: 0.125,
+      },
+    })
+    expect(result.execution.output.cost?.total).toBeCloseTo(
+      (completedRounds + 1) * (inputCost + outputCost) + 0.125,
+      8
+    )
+    expect(mocks.chat).toHaveBeenCalledTimes(completedRounds + 1)
+    expect(mocks.chat.mock.calls[0][0].tools).toHaveLength(1)
+    const streamPayload = mocks.chat.mock.calls.at(-1)?.[0]
+    expect(streamPayload).toMatchObject({ stream: true, messages: expect.any(Array) })
+    if (provider.id === 'groq') {
+      expect(streamPayload).not.toHaveProperty('tools')
+      expect(streamPayload).not.toHaveProperty('tool_choice')
+    } else {
+      expect(streamPayload.tools).toHaveLength(1)
+      expect(streamPayload.tool_choice).toBe(provider.id === 'cerebras' ? 'none' : 'auto')
+    }
+    expect(mocks.tool).toHaveBeenCalledTimes(1)
+  }
+)
+
 it.each(
   continuationProviders.flatMap((entry) =>
-    [false, true].map((errorPath) => ({ ...entry, errorPath }))
+    [false, true].flatMap((errorPath) =>
+      ['continuation', 'stream setup'].map((phase) => ({ ...entry, errorPath, phase }))
+    )
   )
 )(
-  '$label bills an actual failed continuation once through the Executor, recovery=$errorPath',
-  async ({ provider, model, inputCost, outputCost, errorPath }) => {
-    failOnContinuation()
+  '$label bills an actual failed $phase once through the Executor, recovery=$errorPath',
+  async ({ provider, model, inputCost, outputCost, errorPath, phase }) => {
+    const stream = phase === 'stream setup'
+    if (stream) failOnStreamSetup()
+    else failOnContinuation()
+    const completedRounds = stream && provider.id !== 'cerebras' ? 2 : 1
     vi.spyOn(AgentBlockHandler.prototype, 'execute')
       .mockImplementationOnce(async () => {
         await provider.executeRequest({
@@ -195,6 +331,7 @@ it.each(
           apiKey: 'test-key',
           context: 'Analyze',
           tools: [tool],
+          stream,
         })
         throw new Error('Expected provider continuation failure')
       })
@@ -237,22 +374,26 @@ it.each(
       success: false,
       output: {
         model,
-        tokens: { total: 1500 },
-        cost: { input: inputCost, output: outputCost, toolCost: 0.125 },
+        tokens: { total: completedRounds * 1500 },
+        cost: {
+          input: completedRounds * inputCost,
+          output: completedRounds * outputCost,
+          toolCost: 0.125,
+        },
       },
     })
     const { traceSpans } = buildTraceSpans(result)
     const billed = calculateCostSummary(traceSpans)
-    expect(billed.totalCost).toBeCloseTo(inputCost + outputCost + 0.125, 8)
-    expect(billed.totalInputCost).toBeCloseTo(inputCost, 8)
-    expect(billed.totalOutputCost).toBeCloseTo(outputCost, 8)
-    expect(billed.totalTokens).toBe(1500)
+    expect(billed.totalCost).toBeCloseTo(completedRounds * (inputCost + outputCost) + 0.125, 8)
+    expect(billed.totalInputCost).toBeCloseTo(completedRounds * inputCost, 8)
+    expect(billed.totalOutputCost).toBeCloseTo(completedRounds * outputCost, 8)
+    expect(billed.totalTokens).toBe(completedRounds * 1500)
     expect(
       events.mock.calls.some(
         ([event]) => event.type === 'block:error' && event.data.output?.cost?.toolCost === 0.125
       )
     ).toBe(true)
-    expect(mocks.chat).toHaveBeenCalledTimes(2)
+    expect(mocks.chat).toHaveBeenCalledTimes(completedRounds + 1)
     expect(mocks.tool).toHaveBeenCalledTimes(1)
   }
 )
