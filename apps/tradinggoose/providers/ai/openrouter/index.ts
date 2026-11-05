@@ -6,6 +6,7 @@ import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import { toError } from '@/providers/ai/error'
 import type {
   ProviderConfig,
+  ProviderErrorDetails,
   ProviderRequest,
   ProviderResponse,
   TimeSegment,
@@ -110,6 +111,7 @@ export const openRouterProvider: ProviderConfig = {
 
     const providerStartTime = Date.now()
     const providerStartTimeISO = new Date(providerStartTime).toISOString()
+    let getAccruedUsage: (() => ProviderErrorDetails) | undefined
 
     try {
       const tokens = { prompt: 0, completion: 0, total: 0 }
@@ -200,6 +202,11 @@ export const openRouterProvider: ProviderConfig = {
       let content = currentResponse.choices[0]?.message?.content || ''
       const toolCalls = [] as any[]
       const toolResults = [] as any[]
+      getAccruedUsage = () => ({
+        model: request.model,
+        tokens,
+        cost: withToolCosts(cost.value, toolResults),
+      })
       const currentMessages = [...allMessages]
       let iterationCount = 0
       let modelTime = firstResponseTime
@@ -240,11 +247,7 @@ export const openRouterProvider: ProviderConfig = {
         const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
         if (!toolCallsInResponse?.length) break
         if (iterationCount >= MAX_TOOL_ITERATIONS)
-          throw toError(new Error('OpenRouter exceeded the tool iteration limit'), {
-            model: request.model,
-            tokens,
-            cost: withToolCosts(cost.value, toolResults),
-          })
+          throw new Error('OpenRouter exceeded the tool iteration limit')
 
         const toolsStartTime = Date.now()
         for (const toolCall of toolCallsInResponse) {
@@ -442,7 +445,14 @@ export const openRouterProvider: ProviderConfig = {
         error: error instanceof Error ? error.message : String(error),
         duration: totalDuration,
       })
-      throw toError(error, {
+      const providerError = toError(error)
+      const accruedUsage = getAccruedUsage?.()
+      if (accruedUsage) {
+        providerError.model ??= accruedUsage.model
+        providerError.tokens ??= accruedUsage.tokens
+        providerError.cost ??= accruedUsage.cost
+      }
+      throw toError(providerError, {
         timing: {
           startTime: providerStartTimeISO,
           endTime: providerEndTimeISO,

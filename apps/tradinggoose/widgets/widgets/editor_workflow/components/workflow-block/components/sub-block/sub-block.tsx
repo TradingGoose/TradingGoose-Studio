@@ -162,15 +162,19 @@ function SubBlockSliderField({
   )
   const range = max - min || 1
 
-  useEffect(() => {
-    if (
-      !disabled &&
-      !clearable &&
-      (isUnset || (hasNumericValue && numericValue !== normalizedValue))
-    ) {
-      setStoreValue(normalizedValue)
-    }
-  }, [clearable, disabled, hasNumericValue, isUnset, normalizedValue, numericValue, setStoreValue])
+  useEffect(
+    /** Persists normalized values only for enabled, non-clearable sliders. */
+    () => {
+      if (
+        !disabled &&
+        !clearable &&
+        (isUnset || (hasNumericValue && numericValue !== normalizedValue))
+      ) {
+        setStoreValue(normalizedValue)
+      }
+    },
+    [clearable, disabled, hasNumericValue, isUnset, normalizedValue, numericValue, setStoreValue]
+  )
 
   return (
     <div className='flex items-start gap-2'>
@@ -476,6 +480,7 @@ function SubBlockTradingAccountSelector({
 }
 
 export const SubBlock = memo(
+  /** Renders the configured field with active workflow context, permissions and value bindings. */
   function SubBlock({
     blockId,
     config,
@@ -498,6 +503,7 @@ export const SubBlock = memo(
       return null
     }
 
+    /** Selects the configured editor with its active context and disabled state. */
     const renderInput = () => {
       const isDisabled = disabled
       const valueContext = contextValues ?? {}

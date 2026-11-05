@@ -597,7 +597,8 @@ export class AgentBlockHandler implements BlockHandler {
     )
     const resolveControls: ProviderControlResolver | undefined =
       providerRequest.provider === 'openrouter'
-        ? () => {
+        ? /** Resolves configured controls against discovered capabilities and updates execution inputs. */
+          () => {
             const fields = ['temperature', 'reasoningEffort', 'verbosity', 'thinkingLevel'] as const
             const params = Object.fromEntries(
               fields

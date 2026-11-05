@@ -182,30 +182,36 @@ export function ComboBox({
   }, [storeInitialized, value, defaultOptionValue, setStoreValue])
 
   // Filter options based on current value for display
-  const filteredOptions = useMemo(() => {
-    // Always show all options when dropdown is not open
-    if (!open) return evaluatedOptions
+  const filteredOptions = useMemo(
+    /** Keeps fresh capability choices available and filters typed or unmatched ordinary values. */
+    () => {
+      // Always show all options when dropdown is not open
+      if (!open) return evaluatedOptions
 
-    // If no value, show all options
-    const currentValue = displayValue
-    if (!currentValue) return evaluatedOptions
+      // If no value, show all options
+      const currentValue = displayValue
+      if (!currentValue) return evaluatedOptions
 
-    const exactMatch = evaluatedOptions.find(
-      (opt) => getOptionValue(opt) === currentValue || getOptionLabel(opt) === currentValue
-    )
+      const exactMatch = evaluatedOptions.find(
+        (opt) => getOptionValue(opt) === currentValue || getOptionLabel(opt) === currentValue
+      )
 
-    // If current value exactly matches an option and user hasn't typed, show all (fresh open)
-    if (!hasTyped && (isModelCapability || exactMatch)) return evaluatedOptions
+      // If current value exactly matches an option and user hasn't typed, show all (fresh open)
+      if (!hasTyped && (isModelCapability || exactMatch)) return evaluatedOptions
 
-    // Otherwise filter based on current input
-    return evaluatedOptions.filter((option) => {
-      const label = getOptionLabel(option).toLowerCase()
-      const optionValue = getOptionValue(option).toLowerCase()
-      const searchLabel = getOptionSearchText(option).toLowerCase()
-      const search = currentValue.toLowerCase()
-      return label.includes(search) || optionValue.includes(search) || searchLabel.includes(search)
-    })
-  }, [displayValue, evaluatedOptions, open, hasTyped, isModelCapability])
+      // Otherwise filter based on current input
+      return evaluatedOptions.filter((option) => {
+        const label = getOptionLabel(option).toLowerCase()
+        const optionValue = getOptionValue(option).toLowerCase()
+        const searchLabel = getOptionSearchText(option).toLowerCase()
+        const search = currentValue.toLowerCase()
+        return (
+          label.includes(search) || optionValue.includes(search) || searchLabel.includes(search)
+        )
+      })
+    },
+    [displayValue, evaluatedOptions, open, hasTyped, isModelCapability]
+  )
 
   const configuredSidebarGroups = useMemo<SidebarDropdownGroup[]>(() => {
     const optionGroups = config.optionGroups

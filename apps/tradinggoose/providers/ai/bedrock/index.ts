@@ -527,6 +527,7 @@ export const bedrockProvider: ProviderConfig = {
         const executionResults = await Promise.all(toolExecutionPromises)
 
         const assistantContent = responseContent.filter(
+          /** Preserves non-text assistant blocks and omits empty text before replay. */
           (block) => !('text' in block) || Boolean(block.text?.trim())
         )
         currentMessages.push({

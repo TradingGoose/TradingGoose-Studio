@@ -99,70 +99,73 @@ async function executeToolCallsBatch(
   forcedTools: string[],
   logger: ReturnType<typeof createLogger>
 ): Promise<ExecutionState> {
-  const executionPromises = functionCallParts.map(async (part) => {
-    const toolCallStartTime = Date.now()
-    const functionCall = part.functionCall!
-    const toolName = functionCall.name ?? ''
-    const args = (functionCall.args ?? {}) as Record<string, unknown>
+  const executionPromises = functionCallParts.map(
+    /** Executes one function call and returns its output or a paired failure response. */
+    async (part) => {
+      const toolCallStartTime = Date.now()
+      const functionCall = part.functionCall!
+      const toolName = functionCall.name ?? ''
+      const args = (functionCall.args ?? {}) as Record<string, unknown>
 
-    const tool = request.tools?.find((t) => t.id === toolName)
-    if (!tool) {
-      logger.warn(`Tool ${toolName} not found in registry`)
-      return {
-        success: false,
-        toolName,
-        args,
-        resultContent: { error: true, message: `Tool ${toolName} not found`, tool: toolName },
-        toolParams: {},
-        startTime: toolCallStartTime,
-        endTime: Date.now(),
-        duration: Date.now() - toolCallStartTime,
+      const tool = request.tools?.find((t) => t.id === toolName)
+      if (!tool) {
+        logger.warn(`Tool ${toolName} not found in registry`)
+        return {
+          success: false,
+          toolName,
+          args,
+          resultContent: { error: true, message: `Tool ${toolName} not found`, tool: toolName },
+          toolParams: {},
+          startTime: toolCallStartTime,
+          endTime: Date.now(),
+          duration: Date.now() - toolCallStartTime,
+        }
+      }
+
+      try {
+        const { toolParams, executionParams } = prepareToolExecution(tool, args, request)
+        const result = await executeTool(toolName, executionParams)
+        const toolCallEndTime = Date.now()
+        const duration = toolCallEndTime - toolCallStartTime
+
+        const resultContent: Record<string, unknown> = result.success
+          ? ensureStructResponse(result.output)
+          : { error: true, message: result.error || 'Tool execution failed', tool: toolName }
+
+        return {
+          success: result.success,
+          toolName,
+          args,
+          resultContent,
+          toolParams,
+          result,
+          startTime: toolCallStartTime,
+          endTime: toolCallEndTime,
+          duration,
+        }
+      } catch (error) {
+        const toolCallEndTime = Date.now()
+        logger.error('Error processing function call:', {
+          error: toError(error).message,
+          functionName: toolName,
+        })
+        return {
+          success: false,
+          toolName,
+          args,
+          resultContent: {
+            error: true,
+            message: error instanceof Error ? error.message : 'Tool execution failed',
+            tool: toolName,
+          },
+          toolParams: {},
+          startTime: toolCallStartTime,
+          endTime: toolCallEndTime,
+          duration: toolCallEndTime - toolCallStartTime,
+        }
       }
     }
-
-    try {
-      const { toolParams, executionParams } = prepareToolExecution(tool, args, request)
-      const result = await executeTool(toolName, executionParams)
-      const toolCallEndTime = Date.now()
-      const duration = toolCallEndTime - toolCallStartTime
-
-      const resultContent: Record<string, unknown> = result.success
-        ? ensureStructResponse(result.output)
-        : { error: true, message: result.error || 'Tool execution failed', tool: toolName }
-
-      return {
-        success: result.success,
-        toolName,
-        args,
-        resultContent,
-        toolParams,
-        result,
-        startTime: toolCallStartTime,
-        endTime: toolCallEndTime,
-        duration,
-      }
-    } catch (error) {
-      const toolCallEndTime = Date.now()
-      logger.error('Error processing function call:', {
-        error: toError(error).message,
-        functionName: toolName,
-      })
-      return {
-        success: false,
-        toolName,
-        args,
-        resultContent: {
-          error: true,
-          message: error instanceof Error ? error.message : 'Tool execution failed',
-          tool: toolName,
-        },
-        toolParams: {},
-        startTime: toolCallStartTime,
-        endTime: toolCallEndTime,
-        duration: toolCallEndTime - toolCallStartTime,
-      }
-    }
-  })
+  )
 
   const results = await Promise.all(executionPromises)
 
@@ -1160,6 +1163,7 @@ export async function executeGeminiRequest(
         streamingResult.execution.output.cost = withToolCosts(state.cost, state.toolResults)
         streamingResult.stream = createReadableStreamFromGeminiStream(
           streamGenerator,
+          /** Merges the final answer and reported usage into accumulated execution metadata. */
           (finalContent, usage) => {
             const streamEndTime = Date.now()
             state = updateStateWithResponse(

@@ -28,6 +28,7 @@ function extractMistralText(content: unknown): string {
   if (!Array.isArray(content)) return ''
   return content
     .filter(
+      /** Selects visible text blocks without exposing thinking content. */
       (chunk): chunk is { type: 'text'; text: string } =>
         chunk?.type === 'text' && typeof chunk.text === 'string'
     )
@@ -40,12 +41,15 @@ async function* projectMistralStream(stream: AsyncIterable<any>) {
   for await (const chunk of stream) {
     yield {
       ...chunk,
-      choices: chunk.choices?.map((choice: any) => ({
-        ...choice,
-        delta: choice.delta
-          ? { ...choice.delta, content: extractMistralText(choice.delta.content) }
-          : choice.delta,
-      })),
+      choices: chunk.choices?.map(
+        /** Projects each streamed choice into the shared visible-text delta format. */
+        (choice: any) => ({
+          ...choice,
+          delta: choice.delta
+            ? { ...choice.delta, content: extractMistralText(choice.delta.content) }
+            : choice.delta,
+        })
+      ),
     }
   }
 }

@@ -2644,11 +2644,14 @@ export function updateOpenRouterModels(
   pricing?: Record<string, ModelPricing>,
   capabilities?: Record<string, ModelCapabilities>
 ): void {
-  PROVIDER_DEFINITIONS.openrouter.models = models.map((id) => ({
-    id,
-    pricing: pricing?.[id],
-    capabilities: capabilities?.[id],
-  }))
+  PROVIDER_DEFINITIONS.openrouter.models = models.map(
+    /** Maps a discovered model to its optional pricing and capability metadata. */
+    (id) => ({
+      id,
+      pricing: pricing?.[id],
+      capabilities: capabilities?.[id],
+    })
+  )
 }
 
 const EMBEDDING_MODEL_PRICING: Record<string, ModelPricing> = {

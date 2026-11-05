@@ -62,6 +62,7 @@ it.each([
   }
 )
 
+/** Renders the active Agent tuning field from its collaborative workflow snapshot. */
 function AgentChooser({ field }: { field: ModelControl }) {
   const state = useBlock('agent')?.subBlocks ?? {}
   const config = buildSubBlockRows({
@@ -159,6 +160,7 @@ describe('Agent tuning chooser interactions', () => {
     )
   }
 
+  /** Lists the provider-default choice followed by levels supported by the current model. */
   function expectedOptions(model: string) {
     return ['Auto (provider default)', ...(MODEL_CONTROL_GETTERS[field](model) ?? [])]
   }

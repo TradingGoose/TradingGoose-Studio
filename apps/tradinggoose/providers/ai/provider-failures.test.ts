@@ -21,7 +21,12 @@ import { vllmProvider } from '@/providers/ai/vllm'
 import { xAIProvider } from '@/providers/ai/xai'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 
-const mocks = vi.hoisted(() => ({ chat: vi.fn(), claude: vi.fn(), tool: vi.fn() }))
+const mocks = vi.hoisted(() => ({
+  chat: vi.fn(),
+  claude: vi.fn(),
+  tool: vi.fn(),
+  catalog: vi.fn(),
+}))
 vi.mock('openai', () => ({
   default: class {
     chat = { completions: { create: mocks.chat } }
@@ -46,6 +51,7 @@ vi.mock('@anthropic-ai/sdk', () => ({
   },
 }))
 vi.mock('@/tools', () => ({ executeTool: mocks.tool }))
+vi.mock('@/providers/ai/openrouter/models', () => ({ getOpenRouterModels: mocks.catalog }))
 vi.mock('@/lib/system-services/runtime', () => ({
   resolveOllamaServiceConfig: async () => ({ baseUrl: 'http://ollama:11434' }),
   resolveVllmServiceConfig: async () => ({ baseUrl: 'https://vllm.example' }),
@@ -63,6 +69,7 @@ const toolCall = (id = 'call') => ({
   type: 'function',
   function: { name: tool.id, arguments: '{}' },
 })
+/** Builds a completed model round with usage and an optional pending lookup call. */
 const completion = (pending = true) => ({
   choices: [
     {
@@ -76,6 +83,10 @@ const completion = (pending = true) => ({
   ],
   usage: { prompt_tokens: 1000, completion_tokens: 500, total_tokens: 1500 },
 })
+
+const openRouterModel = 'openrouter/publisher/reasoner'
+const openRouterPricing = { input: 2, cachedInput: 0.5, output: 4 }
+const originalOpenRouterModels = PROVIDER_DEFINITIONS.openrouter.models
 
 const continuationProviders = [
   {
@@ -99,12 +110,20 @@ const continuationProviders = [
     inputCost: 0.00035,
     outputCost: 0.000375,
   },
+  {
+    label: 'OpenRouter',
+    provider: openRouterProvider,
+    model: openRouterModel,
+    inputCost: 0.0014,
+    outputCost: 0.002,
+  },
 ]
 
 /** Arranges a cached model response and completed tool before the next SDK call fails. */
-function failOnContinuation() {
+function failOnContinuation(toolName = tool.id) {
   const error = Object.assign(new Error('Provider rate limit'), { status: 429, code: 'rate_limit' })
   const response = completion()
+  response.choices[0].message.tool_calls![0].function.name = toolName
   mocks.chat
     .mockResolvedValueOnce({
       ...response,
@@ -115,7 +134,7 @@ function failOnContinuation() {
 }
 
 /** Runs actual tool rounds, then returns a text stream or rejects only its SDK setup call. */
-function arrangePostToolStream(failure?: Error) {
+function arrangePostToolStream(failure?: Error, toolName = tool.id) {
   let completedRounds = 0
   mocks.chat.mockImplementation(async (payload: { stream?: boolean }) => {
     if (payload.stream) {
@@ -135,6 +154,9 @@ function arrangePostToolStream(failure?: Error) {
       })()
     }
     const response = completion(completedRounds++ === 0)
+    if (response.choices[0].message.tool_calls) {
+      response.choices[0].message.tool_calls[0].function.name = toolName
+    }
     return {
       ...response,
       usage: { ...response.usage, prompt_tokens_details: { cached_tokens: 400 } },
@@ -143,12 +165,12 @@ function arrangePostToolStream(failure?: Error) {
 }
 
 /** Supplies a rate-limit failure after the provider has completed its pre-stream work. */
-function failOnStreamSetup() {
+function failOnStreamSetup(toolName = tool.id) {
   const error = Object.assign(new Error('Final stream setup rate limit'), {
     status: 429,
     code: 'rate_limit',
   })
-  arrangePostToolStream(error)
+  arrangePostToolStream(error, toolName)
   return error
 }
 
@@ -182,7 +204,7 @@ function arrangeCerebrasAgentStream(failure?: Error) {
 }
 
 /** Builds a real Agent followed by a response resolving results or its recovery output. */
-function cerebrasAgentWorkflow(errorPath = false): SerializedWorkflow {
+function toolAgentWorkflow(model: string, errorPath = false): SerializedWorkflow {
   const agent: SerializedBlock = {
     id: 'agent',
     metadata: { id: 'agent', name: 'Agent' },
@@ -190,7 +212,7 @@ function cerebrasAgentWorkflow(errorPath = false): SerializedWorkflow {
     config: {
       tool: 'agent',
       params: {
-        model: 'cerebras/gpt-oss-120b',
+        model,
         apiKey: 'test-key',
         userPrompt: 'Analyze',
         tools: [
@@ -242,6 +264,12 @@ function cerebrasAgentWorkflow(errorPath = false): SerializedWorkflow {
 
 beforeEach(() => {
   vi.resetAllMocks()
+  updateOpenRouterModels([openRouterModel], { [openRouterModel]: openRouterPricing })
+  mocks.catalog.mockResolvedValue({
+    models: [openRouterModel],
+    pricing: { [openRouterModel]: openRouterPricing },
+    capabilities: {},
+  })
   mocks.chat.mockImplementation(async () => completion())
   mocks.claude.mockImplementation(async () => ({
     content: [{ type: 'tool_use', id: 'call', name: tool.id, input: {} }],
@@ -250,7 +278,10 @@ beforeEach(() => {
   }))
   mocks.tool.mockResolvedValue({ success: true, output: { value: 42, cost: { total: 0.125 } } })
 })
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => {
+  vi.restoreAllMocks()
+  PROVIDER_DEFINITIONS.openrouter.models = originalOpenRouterModels
+})
 
 it('preserves the original error and completed usage through normalization', () => {
   const cost = { input: 1, output: 2, toolCost: 3, total: 6, pricing: null }
@@ -263,7 +294,7 @@ it('preserves the original error and completed usage through normalization', () 
 it('resolves streamed Cerebras tool results downstream through the real Agent and Executor', async () => {
   arrangeCerebrasAgentStream()
   const result = await new Executor({
-    workflow: cerebrasAgentWorkflow(),
+    workflow: toolAgentWorkflow('cerebras/gpt-oss-120b'),
     contextExtensions: { workspaceId: 'workspace', stream: true, selectedOutputs: ['agent'] },
   }).execute('workflow', 'start')
 
@@ -293,7 +324,7 @@ it.each([false, true])(
       if (event.type === 'stream:chunk') releaseDisconnect()
     })
     const result = await new Executor({
-      workflow: cerebrasAgentWorkflow(errorPath),
+      workflow: toolAgentWorkflow('cerebras/gpt-oss-120b', errorPath),
       contextExtensions: {
         workspaceId: 'workspace',
         stream: true,
@@ -361,11 +392,12 @@ it.each(['all', 'zero cost', 'zero tokens', 'model'] as const)(
     const failure = toError(new TypeError('Annotated disconnect'), details)
     const releaseDisconnect = arrangeCerebrasAgentStream(failure)
     const result = await new Executor({
-      workflow: cerebrasAgentWorkflow(true),
+      workflow: toolAgentWorkflow('cerebras/gpt-oss-120b', true),
       contextExtensions: {
         workspaceId: 'workspace',
         stream: true,
         selectedOutputs: ['agent'],
+        /** Emits text before disconnecting so explicit failure metadata takes precedence. */
         onExecutionEvent: async (event) => {
           if (event.type === 'stream:chunk') releaseDisconnect()
         },
@@ -411,11 +443,12 @@ it('uses the current streamed output accounting when metadata changes before a d
     return result
   })
   const result = await new Executor({
-    workflow: cerebrasAgentWorkflow(true),
+    workflow: toolAgentWorkflow('cerebras/gpt-oss-120b', true),
     contextExtensions: {
       workspaceId: 'workspace',
       stream: true,
       selectedOutputs: ['agent'],
+      /** Disconnects after emitted text and a usage update to exercise the latest snapshot. */
       onExecutionEvent: async (event) => {
         if (event.type === 'stream:chunk') releaseDisconnect()
       },
@@ -437,7 +470,7 @@ it('uses the current streamed output accounting when metadata changes before a d
 it('does not invent completed usage or tool charges for a direct-stream disconnect', async () => {
   const failure = new Error('Initial stream disconnected')
   const releaseDisconnect = arrangeCerebrasAgentStream(failure)
-  const workflow = cerebrasAgentWorkflow(true)
+  const workflow = toolAgentWorkflow('cerebras/gpt-oss-120b', true)
   workflow.blocks[1].config.params.tools = []
   const result = await new Executor({
     workflow,
@@ -445,6 +478,7 @@ it('does not invent completed usage or tool charges for a direct-stream disconne
       workspaceId: 'workspace',
       stream: true,
       selectedOutputs: ['agent'],
+      /** Disconnects after initial text to verify that no completed usage is invented. */
       onExecutionEvent: async (event) => {
         if (event.type === 'stream:chunk') releaseDisconnect()
       },
@@ -499,6 +533,10 @@ it.each(continuationProviders)(
     expect(toError(error).tokens?.total ?? 0).toBe(0)
     expect(toError(error).cost?.total ?? 0).toBe(0)
     expect(toError(error).cost?.toolCost ?? 0).toBe(0)
+    if (provider.id === 'openrouter') {
+      expect(toError(error).tokens).toBeUndefined()
+      expect(toError(error).cost).toBeUndefined()
+    }
     expect(mocks.chat).toHaveBeenCalledTimes(1)
     expect(mocks.tool).not.toHaveBeenCalled()
   }
@@ -591,7 +629,9 @@ it.each(continuationProviders)(
       expect(streamPayload).not.toHaveProperty('tool_choice')
     } else {
       expect(streamPayload.tools).toHaveLength(1)
-      expect(streamPayload.tool_choice).toBe(provider.id === 'cerebras' ? 'none' : 'auto')
+      expect(streamPayload.tool_choice).toBe(
+        provider.id === 'cerebras' || provider.id === 'openrouter' ? 'none' : 'auto'
+      )
     }
     expect(mocks.tool).toHaveBeenCalledTimes(1)
   }
@@ -607,21 +647,24 @@ it.each(
   '$label bills an actual failed $phase once through the Executor, recovery=$errorPath',
   async ({ provider, model, inputCost, outputCost, errorPath, phase }) => {
     const stream = phase === 'stream setup'
-    if (stream) failOnStreamSetup()
-    else failOnContinuation()
+    const realAgent = provider.id === 'openrouter'
+    const toolName = realAgent ? 'custom_lookup' : tool.id
+    const failure = stream ? failOnStreamSetup(toolName) : failOnContinuation(toolName)
     const completedRounds = stream && provider.id !== 'cerebras' ? 2 : 1
-    vi.spyOn(AgentBlockHandler.prototype, 'execute')
-      .mockImplementationOnce(async () => {
-        await provider.executeRequest({
-          model,
-          apiKey: 'test-key',
-          context: 'Analyze',
-          tools: [tool],
-          stream,
+    if (!realAgent) {
+      vi.spyOn(AgentBlockHandler.prototype, 'execute')
+        .mockImplementationOnce(async () => {
+          await provider.executeRequest({
+            model,
+            apiKey: 'test-key',
+            context: 'Analyze',
+            tools: [tool],
+            stream,
+          })
+          throw new Error('Expected provider continuation failure')
         })
-        throw new Error('Expected provider continuation failure')
-      })
-      .mockResolvedValue({ response: { content: 'Recovered' } })
+        .mockResolvedValue({ response: { content: 'Recovered' } })
+    }
     const agent: SerializedBlock = {
       id: 'agent',
       metadata: { id: 'agent', name: 'Agent' },
@@ -651,8 +694,12 @@ it.each(
     }
     const events = vi.fn()
     const result = await new Executor({
-      workflow,
-      contextExtensions: { workspaceId: 'workspace', onExecutionEvent: events },
+      workflow: realAgent ? toolAgentWorkflow(model, errorPath) : workflow,
+      contextExtensions: {
+        workspaceId: 'workspace',
+        onExecutionEvent: events,
+        ...(realAgent && stream && { stream: true, selectedOutputs: ['agent'] }),
+      },
     }).execute('workflow', 'start')
 
     expect(result.success).toBe(errorPath)
@@ -680,6 +727,116 @@ it.each(
       )
     ).toBe(true)
     expect(mocks.chat).toHaveBeenCalledTimes(completedRounds + 1)
+    expect(mocks.tool).toHaveBeenCalledTimes(1)
+    if (realAgent) {
+      expect(failure.status).toBe(429)
+      expect(failure.code).toBe('rate_limit')
+      if (errorPath) {
+        expect(result.logs?.find((log) => log.blockId === 'response')?.output).toMatchObject({
+          response: { data: { recovered: true, error: failure.message, status: '429' } },
+        })
+      } else {
+        expect(result.error).toContain(failure.message)
+        expect(result.logs?.some((log) => log.blockId === 'response')).toBe(false)
+      }
+      expect(mocks.tool).toHaveBeenCalledExactlyOnceWith('custom_lookup', expect.any(Object))
+      expect(mocks.catalog).toHaveBeenCalled()
+    }
+  }
+)
+
+it('OpenRouter keeps the latest cached accounting after two paid rounds and a rejected continuation', async () => {
+  const failure = Object.assign(new TypeError('Third request rate limit'), {
+    status: 429,
+    code: 'rate_limit',
+    requestId: 'request-third',
+  })
+  for (const id of ['first', 'second']) {
+    const response = completion()
+    response.choices[0].message.tool_calls![0].id = id
+    mocks.chat.mockResolvedValueOnce({
+      ...response,
+      usage: { ...response.usage, prompt_tokens_details: { cached_tokens: 400 } },
+    })
+  }
+  mocks.chat.mockRejectedValueOnce(failure)
+  const error = await openRouterProvider
+    .executeRequest({
+      model: openRouterModel,
+      apiKey: 'test-key',
+      context: 'Analyze',
+      tools: [tool],
+    })
+    .catch(toError)
+
+  expect(error).toBe(failure)
+  expect(error).toMatchObject({
+    status: 429,
+    code: 'rate_limit',
+    requestId: 'request-third',
+    model: openRouterModel,
+    tokens: { prompt: 2000, completion: 1000, total: 3000 },
+    cost: { input: 0.0028, output: 0.004, toolCost: 0.25 },
+    timing: {
+      startTime: expect.any(String),
+      endTime: expect.any(String),
+      duration: expect.any(Number),
+    },
+  })
+  expect(toError(error).cost?.total).toBeCloseTo(0.2568, 8)
+  expect(mocks.chat).toHaveBeenCalledTimes(3)
+  expect(mocks.tool).toHaveBeenCalledTimes(2)
+})
+
+it.each(['all', 'tokens', 'cost', 'model'] as const)(
+  'OpenRouter preserves explicit error accounting (%s) while filling missing completed usage',
+  async (provided) => {
+    const tokens = { prompt: 0, completion: 0, total: 0 }
+    const cost = { input: 0, output: 0, toolCost: 0, total: 0, pricing: null }
+    const details: ProviderErrorDetails = {
+      ...((provided === 'all' || provided === 'model') && { model: 'reported-model' }),
+      ...((provided === 'all' || provided === 'tokens') && { tokens }),
+      ...((provided === 'all' || provided === 'cost') && { cost }),
+    }
+    const failure = Object.assign(toError(new TypeError('Annotated continuation'), details), {
+      status: 429,
+      code: 'rate_limit',
+      requestId: 'annotated-request',
+    })
+    const response = completion()
+    mocks.chat
+      .mockResolvedValueOnce({
+        ...response,
+        usage: { ...response.usage, prompt_tokens_details: { cached_tokens: 400 } },
+      })
+      .mockRejectedValueOnce(failure)
+    const error = await openRouterProvider
+      .executeRequest({
+        model: openRouterModel,
+        apiKey: 'test-key',
+        context: 'Analyze',
+        tools: [tool],
+      })
+      .catch(toError)
+
+    expect(error).toBe(failure)
+    expect(error).toMatchObject({
+      status: 429,
+      code: 'rate_limit',
+      requestId: 'annotated-request',
+      model: details.model ?? openRouterModel,
+      tokens: details.tokens ?? { prompt: 1000, completion: 500, total: 1500 },
+      cost: details.cost ?? { input: 0.0014, output: 0.002, toolCost: 0.125 },
+      timing: {
+        startTime: expect.any(String),
+        endTime: expect.any(String),
+        duration: expect.any(Number),
+      },
+    })
+    if (details.tokens) expect(toError(error).tokens).toBe(tokens)
+    if (details.cost) expect(toError(error).cost).toBe(cost)
+    expect(toError(error).cost?.total).toBeCloseTo(details.cost?.total ?? 0.1284, 8)
+    expect(mocks.chat).toHaveBeenCalledTimes(2)
     expect(mocks.tool).toHaveBeenCalledTimes(1)
   }
 )

@@ -159,6 +159,7 @@ export class Executor {
     await this.contextExtensions.onExecutionEvent?.(event)
   }
 
+  /** Initializes workflow state, graph managers and block handlers with the shared input resolver. */
   constructor(options: ExecutorOptions) {
     this.actualWorkflow = options.workflow
     this.initialBlockStates = options.currentBlockStates || {}
